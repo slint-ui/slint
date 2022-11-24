@@ -20,8 +20,8 @@
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-use i_slint_core::api::WindowEvent;
 use i_slint_core::input::{KeyEventType, KeyInputEvent};
+use i_slint_core::platform::WindowEvent;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::SharedString;
 use wasm_bindgen::closure::Closure;
@@ -203,7 +203,7 @@ fn event_text(e: &web_sys::KeyboardEvent) -> Option<char> {
 
     let key = e.key();
 
-    use i_slint_core::api::Key;
+    use i_slint_core::platform::Key;
 
     macro_rules! check_non_printable_code {
         ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* ;)*) => {

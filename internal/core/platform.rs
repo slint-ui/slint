@@ -7,6 +7,7 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 #![warn(missing_docs)]
 
+use crate::api::LogicalPosition;
 pub use crate::software_renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::{thread_local, OnceCell};
@@ -172,4 +173,84 @@ pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
             timeout.0.saturating_sub(duration_since_start.as_millis() as u64),
         )
     })
+}
+
+// reexport key enum to the public api
+pub use crate::input::key_codes::Key;
+pub use crate::input::PointerEventButton;
+
+/// A event that describes user input.
+///
+/// Slint backends typically receive events from the windowing system, translate them to this
+/// enum and deliver to the scene of items via [`slint::Window::dispatch_event()`](`crate::api::Window::dispatch_event()`).
+///
+/// The pointer variants describe events originating from an input device such as a mouse
+/// or a contact point on a touch-enabled surface.
+///
+/// All position fields are in logical window coordinates.
+#[allow(missing_docs)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[non_exhaustive]
+pub enum WindowEvent {
+    /// A pointer was pressed.
+    PointerPressed {
+        position: LogicalPosition,
+        /// The button that was pressed.
+        button: PointerEventButton,
+    },
+    /// A pointer was released.
+    PointerReleased {
+        position: LogicalPosition,
+        /// The button that was released.
+        button: PointerEventButton,
+    },
+    /// The position of the pointer has changed.
+    PointerMoved { position: LogicalPosition },
+    /// The wheel button of a mouse was rotated to initiate scrolling.
+    PointerScrolled {
+        position: LogicalPosition,
+        /// The amount of logical pixels to scroll in the horizontal direction.
+        delta_x: f32,
+        /// The amount of logical pixels to scroll in the vertical direction.
+        delta_y: f32,
+    },
+    /// The pointer exited the window.
+    PointerExited,
+    /// A key was pressed.
+    KeyPressed {
+        // FIXME: use SharedString instead of char (breaking change)
+        /// The unicode representation of the key pressed.
+        ///
+        /// # Example
+        /// A specific key can be mapped to a unicode by using the [`Key`] enum
+        /// ```rust
+        /// let _ = slint::WindowEvent::KeyPressed { text: slint::platform::Key::Shift.into() };
+        /// ```
+        text: char,
+    },
+    /// A key was pressed.
+    KeyReleased {
+        // FIXME: use SharedString instead of char (breaking change)
+        /// The unicode representation of the key released.
+        ///
+        /// # Example
+        /// A specific key can be mapped to a unicode by using the [`Key`] enum
+        /// ```rust
+        /// let _ = slint::WindowEvent::KeyReleased { text: slint::platform::Key::Shift.into() };
+        /// ```
+        text: char,
+    },
+}
+
+impl WindowEvent {
+    /// The position of the cursor for this event, if any
+    pub fn position(&self) -> Option<LogicalPosition> {
+        match self {
+            WindowEvent::PointerPressed { position, .. } => Some(*position),
+            WindowEvent::PointerReleased { position, .. } => Some(*position),
+            WindowEvent::PointerMoved { position } => Some(*position),
+            WindowEvent::PointerScrolled { position, .. } => Some(*position),
+            _ => None,
+        }
+    }
 }

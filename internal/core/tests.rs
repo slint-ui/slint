@@ -5,8 +5,8 @@
 #![warn(missing_docs)]
 #![allow(unsafe_code)]
 
-use crate::api::WindowEvent;
 use crate::input::{key_codes::Key, MouseEvent};
+use crate::platform::WindowEvent;
 use crate::Coord;
 
 /// Slint animations do not use real time, but use a mocked time.

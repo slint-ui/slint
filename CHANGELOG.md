@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
  - Disallow overrides or duplicated declarations of callbacks. Previously they were silently overwritten,
    now an error is produced.
  - The name "init" is now a reserved name in callbacks and properties.
+ - Deprecated `slint::WindowEvent` and `slint::PointerEventButton` and moved them to the `slint::platform` module.
 
 ### Added
 
@@ -22,7 +23,7 @@ All notable changes to this project are documented in this file.
  - Added `Window::is_visible`
  - Added `From<char>` for `SharedString` in Rust.
  - Added `KeyPressed` and `KeyReleased` variants to `slint::WindowEvent` in Rust, along
-   with `slint::Key`, for use by custom platform backends.
+   with `slint::platform::Key`, for use by custom platform backends.
  - Added support for the implicitly declared `init` callback that can be used to run code when
    an element or component is instantiated.
  - Properties can be annotated with `in`, `out`, `in-out`, or `private`.

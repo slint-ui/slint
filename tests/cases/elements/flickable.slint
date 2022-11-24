@@ -39,7 +39,7 @@ TestCase := Window {
 
 ```rust
 // Test that basic scrolling works, and that releasing the mouse animates
-use slint::{WindowEvent, PointerEventButton, LogicalPosition};
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 let instance = TestCase::new();
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
 slint_testing::mock_elapsed_time(5000);
@@ -81,7 +81,7 @@ assert_eq!(instance.get_clicked(), 0);
 
 ```rust
 // Test interaction with inner mouse area
-use slint::{WindowEvent, PointerEventButton, LogicalPosition};
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 let instance = TestCase::new();
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
 assert!(!instance.get_inner_ta_pressed());

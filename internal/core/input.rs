@@ -20,8 +20,8 @@ use core::pin::Pin;
 
 /// A mouse or touch event
 ///
-/// The only difference with [`crate::api::WindowEvent`] us that it uses untyped `Point`
-/// TODO: merge with api::WindowEvent
+/// The only difference with [`crate::platform::WindowEvent`] us that it uses untyped `Point`
+/// TODO: merge with platform::WindowEvent
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(missing_docs)]
@@ -138,10 +138,10 @@ pub mod key_codes {
             #[repr(C)]
             /// The `Key` enum is used to map a specific key by name e.g. `Key::Control` to an
             /// internal used unicode representation. The enum is convertible to [`std::char`] and [`slint::SharedString`](`crate::SharedString`).
-            /// Use this with [`slint::WindowEvent`](`crate::api::WindowEvent`) to supply key events to Slint's platform abstraction.
+            /// Use this with [`slint::platform::WindowEvent`](`crate::platform::WindowEvent`) to supply key events to Slint's platform abstraction.
             ///
             /// ```
-            /// let slint_key_code: char = slint::Key::Tab.into();
+            /// let slint_key_code: char = slint::platform::Key::Tab.into();
             /// assert_eq!(slint_key_code, '\t')
             /// ```
             pub enum Key {

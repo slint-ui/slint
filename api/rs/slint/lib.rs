@@ -253,6 +253,14 @@ pub use i_slint_core::sharedvector::SharedVector;
 pub use i_slint_core::timers::{Timer, TimerMode};
 pub use i_slint_core::{format, string::SharedString};
 
+#[deprecated(note = "Use platform::PointerEventButton instead")]
+/// Deprecated type alias for [`slint::platform::PointerEventButton`](`crate::platform::PointerEventButton`).
+pub type PointerEventButton = crate::platform::PointerEventButton;
+
+#[deprecated(note = "Use platform::WindowEvent instead")]
+/// Deprecated type alias for [`slint::platform::WindowEvent`](`crate::platform::WindowEvent`).
+pub type WindowEvent = crate::platform::WindowEvent;
+
 pub mod private_unstable_api;
 
 /// Enters the main event loop. This is necessary in order to receive
