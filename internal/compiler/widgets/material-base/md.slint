@@ -24,7 +24,7 @@ struct Color := {
 
 // typo settings
 struct Label := {
-    size: length,
+    size: relative-font-size,
     weight: int
 }
 
@@ -82,23 +82,23 @@ export global md := {
 
         typescale: {
             label-large: {
-                size: 14px,
+                size: 14 * 0.0625rem,
                 weight: 500
             },
             label-medium: {
-                size: 12px,
+                size: 12 * 0.0625rem,
                 weight: 500
             },
             body-large: {
-                size: 14px,
+                size: 16 * 0.0625rem,
                 weight: 400
             },
             body-small: {
-                size: 12px,
+                size: 12 * 0.0625rem,
                 weight: 400
             },
             title-small: {
-                size: 14px,
+                size: 14 * 0.0625rem,
                 weight: 500
             },
         }
