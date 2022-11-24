@@ -6,7 +6,7 @@ TestCase := Window {
   width: 500phx;
   height: 500phx;
 
-  Flickable {
+  f1 := Flickable {
     x: 0phx;
     width: 250phx;
     viewport-height: 800phx;
@@ -28,12 +28,14 @@ TestCase := Window {
 
   property<bool> t1-has-hover: t1.has-hover;
   property<bool> t2-has-hover: t2.has-hover;
+
+  property f1_pos <=> f1.viewport_y;
 }
 
 /*
 ```rust
 // Test that mouse exit events are dispatched while scrolling
-use slint::{platform::WindowEvent, LogicalPosition};
+use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
 let instance = TestCase::new();
 // Vertical
 assert_eq!(instance.get_t1_has_hover(), false);
@@ -41,11 +43,27 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 assert_eq!(instance.get_t1_has_hover(), true);
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(25.0, 25.0), delta_x: 0.0, delta_y: -30.0 });
 assert_eq!(instance.get_t1_has_hover(), false);
+assert_eq!(instance.get_f1_pos(), -30.0);
 // Horizontal
 assert_eq!(instance.get_t2_has_hover(), false);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(275.0, 25.0) });
 assert_eq!(instance.get_t2_has_hover(), true);
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(275.0, 25.0), delta_x: -30.0, delta_y: 0.0 });
 assert_eq!(instance.get_t2_has_hover(), false);
+
+
+
+
+// Test that it's not flicking when the mouse is released
+assert_eq!(instance.get_f1_pos(), -30.0);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(25.0, 125.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(100);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(25.0, 125.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(100);
+assert_eq!(instance.get_f1_pos(), -30.0);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(30.0, 25.0) });
+assert_eq!(instance.get_f1_pos(), -30.0);
 ```
+
+
 */

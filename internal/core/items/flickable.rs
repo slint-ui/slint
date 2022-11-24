@@ -292,8 +292,13 @@ impl FlickableData {
                 InputEventResult::GrabMouse
             }
             MouseEvent::Exit | MouseEvent::Released { .. } => {
+                let was_capturing = inner.capture_events;
                 Self::mouse_released(&mut inner, flick, event);
-                InputEventResult::EventAccepted
+                if was_capturing {
+                    InputEventResult::EventAccepted
+                } else {
+                    InputEventResult::EventIgnored
+                }
             }
             MouseEvent::Moved { position } => {
                 if inner.pressed_time.is_some() {
