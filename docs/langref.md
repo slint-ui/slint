@@ -1103,9 +1103,35 @@ Example := Window {
 
 ## Builtin callbacks
 
-Every component and element implicitly declares an `init` callback. You can assign a code block to it that will be run when the
-element or component is instantiated. The recommended way is to avoid using this callback, unless you need it. For example in
-order to notify some native code.
+Every element implicitly declares an `init` callback. You can assign a code block to it that will be invoked when the
+element is instantiated and after all properties are initialized with the value of their final binding. The order of
+invocation is from inside to outside. The following example will print "first", then "second", and then "third":
+
+```slint,no-preview
+MyButton := Rectangle {
+    property <string> text: "Initial";
+    init => {
+        // If `text` is queried here, it will have the value "Hello".
+        debug("first");
+    }
+}
+
+MyCheckBox := Rectangle {
+    init => { debug("second"); }
+}
+
+MyWindow := Window {
+    MyButton {
+        text: "Hello";
+        init => { debug("third"); }
+    }
+    MyCheckBox {
+    }
+}
+```
+
+Do not use this callback to initialize properties, because this violates the the declarative principle.
+Avoid using this callback, unless you need it, for example, in order to notify some native code:
 
 ```slint,no-preview
 global SystemService := {
