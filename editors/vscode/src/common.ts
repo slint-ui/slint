@@ -3,7 +3,7 @@
 
 // This file contains the common code for both the normal and the browser extension
 
-import { Property } from "slint-editor-shared/properties";
+import { Property, SetBindingResponse } from "slint-editor-shared/properties";
 import {
     change_property,
     query_properties,
@@ -22,7 +22,6 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
     #current_version = -1;
     #current_cursor_line = -1;
     #current_cursor_character = -1;
-    #current_language = "";
 
     public static readonly viewType = "slint.propertiesView";
 
@@ -148,15 +147,58 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 );
             },
         );
+        // This is triggered on changes to the language!
+        vscode.workspace.onDidOpenTextDocument(
+            async (doc: vscode.TextDocument) => {
+                const uri = doc.uri.toString();
+                if (uri === this.#current_uri) {
+                    this.update_view(
+                        doc.languageId,
+                        uri,
+                        doc.version,
+                        this.#current_cursor_line,
+                        this.#current_cursor_character,
+                    );
+                }
+            },
+        );
     }
 
     refresh_view() {
+        const editor = vscode.window.activeTextEditor;
+        if (editor == null) {
+            this.update_view(
+                "NO EDITOR",
+                this.#current_uri,
+                this.#current_version,
+                this.#current_cursor_line,
+                this.#current_cursor_character,
+            );
+            return;
+        }
+        const doc = editor.document;
+        if (doc === null) {
+            this.update_view(
+                "NO DOCUMENT",
+                this.#current_uri,
+                this.#current_version,
+                this.#current_cursor_line,
+                this.#current_cursor_character,
+            );
+            return;
+        }
+
+        const selection = editor.selection;
+        const line = selection?.active.line ?? this.#current_cursor_line;
+        const character =
+            selection?.active.character ?? this.#current_cursor_character;
+
         this.update_view(
-            this.#current_language,
-            this.#current_uri,
-            this.#current_version,
-            this.#current_cursor_line,
-            this.#current_cursor_character,
+            doc.languageId,
+            doc.uri.toString(),
+            doc.version,
+            line,
+            character,
         );
     }
 
@@ -171,7 +213,6 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
         this.#current_version = version;
         this.#current_cursor_line = line;
         this.#current_cursor_character = character;
-        this.#current_language = language;
 
         if (this._view === null) {
             return;
@@ -181,6 +222,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 command: "show_welcome",
                 message: "The active editor does not contain a Slint file.",
             });
+            // We will get notified about this changing!
             return;
         }
         if (client === null) {
@@ -188,21 +230,32 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 command: "show_welcome",
                 message: "Waiting for Slint LSP",
             });
+            // We get triggered for this!
             return;
         }
 
-        query_properties(
-            client,
-            uri,
-            { line: line, character: character },
-            (p) => {
+        // We race the LSP: The Document might not have been loaded yet!
+        // So retry once with 2s delay...
+        // Ideally we could use the progress messages from the LSP to find out when to retry,
+        // but we do not have those yet.
+        query_properties(client, uri, { line: line, character: character })
+            .then((p: PropertyQuery) => {
                 const msg = {
                     command: "set_properties",
                     properties: p,
                 };
                 this._view?.webview.postMessage(msg);
-            },
-        );
+            })
+            .catch(() =>
+                setTimeout(
+                    () =>
+                        query_properties(client, uri, {
+                            line: line,
+                            character: character,
+                        }),
+                    2000,
+                ),
+            );
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {

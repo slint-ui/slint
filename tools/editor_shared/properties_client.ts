@@ -29,7 +29,6 @@ export async function change_property(
     dry_run: boolean,
 ): Promise<SetBindingResponse> {
     if (client != null) {
-        console.log("Calling into LSP");
         const result = await client.sendRequest(ExecuteCommandRequest.type, {
             command: "setBinding",
             arguments: [
@@ -41,26 +40,21 @@ export async function change_property(
             ],
         } as ExecuteCommandParams);
 
-        console.log("Returning from LSP:", result.diagnostics);
         return result;
     }
     return new Promise((accept) => accept({ diagnostics: [] }));
 }
 
-export function query_properties(
+export async function query_properties(
     client: BaseLanguageClient | null,
     uri: LspURI,
     position: LspPosition,
-    set_properties_helper: SetPropertiesHelper,
-) {
+): Promise<PropertyQuery> {
     if (client != null) {
-        client
-            .sendRequest(ExecuteCommandRequest.type, {
-                command: "queryProperties",
-                arguments: [{ uri: uri.toString() }, position],
-            } as ExecuteCommandParams)
-            .then((r: PropertyQuery) => {
-                set_properties_helper(r);
-            });
+        return client.sendRequest(ExecuteCommandRequest.type, {
+            command: "queryProperties",
+            arguments: [{ uri: uri.toString() }, position],
+        } as ExecuteCommandParams);
     }
+    return Promise.reject("No client set");
 }
