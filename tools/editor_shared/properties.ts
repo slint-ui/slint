@@ -311,7 +311,7 @@ export class PropertiesView {
         }
 
         if (properties.element == null) {
-            this.show_welcome("No Element selected");
+            this.show_welcome("No element selected");
         } else {
             this.hide_welcome();
             this.set_header(properties.element);
