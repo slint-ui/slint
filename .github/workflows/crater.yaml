@@ -30,6 +30,13 @@ jobs:
           - "https://github.com/gsuyemoto/rust-bombfield"
           - "https://github.com/Decodetalkers/launchre"
           - "https://github.com/kizeevov/l5"
+          - "https://github.com/SergioGasquez/espup-slint"
+          - "https://github.com/Ouam74/RUST_Real-time_plots_using_SLINT_and_PLOTTERS.rs"
+          - "https://github.com/smalltext/trace-slint/"
+          - "https://github.com/danrauch/thermocam"
+          - "https://github.com/saturn77/magnet"
+          - "https://github.com/azavgo/bouncing_ball"
+          - "https://codeberg.org/flovansl/co_sl"
         sub_path: ["."]
 
         include:
