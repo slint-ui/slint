@@ -33,7 +33,7 @@ TestCase := Window {
 /*
 ```rust
 // Test that mouse exit events are dispatched while scrolling
-use slint::{WindowEvent, LogicalPosition};
+use slint::{platform::WindowEvent, LogicalPosition};
 let instance = TestCase::new();
 // Vertical
 assert_eq!(instance.get_t1_has_hover(), false);

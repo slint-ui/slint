@@ -13,9 +13,6 @@ use crate::component::ComponentVTable;
 use crate::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use crate::window::{WindowAdapter, WindowInner};
 
-// reexport key enum to the public api
-pub use crate::input::key_codes::Key;
-
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
@@ -424,44 +421,50 @@ impl Window {
     ///
     /// Any position fields in the event must be in the logical pixel coordinate system relative to
     /// the top left corner of the window.
-    pub fn dispatch_event(&self, event: WindowEvent) {
+    pub fn dispatch_event(&self, event: crate::platform::WindowEvent) {
         match event {
-            WindowEvent::PointerPressed { position, button } => {
+            crate::platform::WindowEvent::PointerPressed { position, button } => {
                 self.0.process_mouse_input(MouseEvent::Pressed {
                     position: position.to_euclid().cast(),
                     button,
                 });
             }
-            WindowEvent::PointerReleased { position, button } => {
+            crate::platform::WindowEvent::PointerReleased { position, button } => {
                 self.0.process_mouse_input(MouseEvent::Released {
                     position: position.to_euclid().cast(),
                     button,
                 });
             }
-            WindowEvent::PointerMoved { position } => {
+            crate::platform::WindowEvent::PointerMoved { position } => {
                 self.0.process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
                 });
             }
-            WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
+            crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
                 self.0.process_mouse_input(MouseEvent::Wheel {
                     position: position.to_euclid().cast(),
                     delta_x,
                     delta_y,
                 });
             }
-            WindowEvent::PointerExited => self.0.process_mouse_input(MouseEvent::Exit),
+            crate::platform::WindowEvent::PointerExited => {
+                self.0.process_mouse_input(MouseEvent::Exit)
+            }
 
-            WindowEvent::KeyPressed { text } => self.0.process_key_input(KeyInputEvent {
-                text: SharedString::from(text),
-                event_type: KeyEventType::KeyPressed,
-                ..Default::default()
-            }),
-            WindowEvent::KeyReleased { text } => self.0.process_key_input(KeyInputEvent {
-                text: SharedString::from(text),
-                event_type: KeyEventType::KeyReleased,
-                ..Default::default()
-            }),
+            crate::platform::WindowEvent::KeyPressed { text } => {
+                self.0.process_key_input(KeyInputEvent {
+                    text: SharedString::from(text),
+                    event_type: KeyEventType::KeyPressed,
+                    ..Default::default()
+                })
+            }
+            crate::platform::WindowEvent::KeyReleased { text } => {
+                self.0.process_key_input(KeyInputEvent {
+                    text: SharedString::from(text),
+                    event_type: KeyEventType::KeyReleased,
+                    ..Default::default()
+                })
+            }
         }
     }
 
@@ -478,84 +481,7 @@ impl Window {
     }
 }
 
-pub use crate::input::PointerEventButton;
 pub use crate::SharedString;
-
-/// A event that describes user input.
-///
-/// Slint backends typically receive events from the windowing system, translate them to this
-/// enum and deliver to the scene of items via [`Window::dispatch_event()`].
-///
-/// The pointer variants describe events originating from an input device such as a mouse
-/// or a contact point on a touch-enabled surface.
-///
-/// All position fields are in logical window coordinates.
-#[allow(missing_docs)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[non_exhaustive]
-pub enum WindowEvent {
-    /// A pointer was pressed.
-    PointerPressed {
-        position: LogicalPosition,
-        /// The button that was pressed.
-        button: PointerEventButton,
-    },
-    /// A pointer was released.
-    PointerReleased {
-        position: LogicalPosition,
-        /// The button that was released.
-        button: PointerEventButton,
-    },
-    /// The position of the pointer has changed.
-    PointerMoved { position: LogicalPosition },
-    /// The wheel button of a mouse was rotated to initiate scrolling.
-    PointerScrolled {
-        position: LogicalPosition,
-        /// The amount of logical pixels to scroll in the horizontal direction.
-        delta_x: f32,
-        /// The amount of logical pixels to scroll in the vertical direction.
-        delta_y: f32,
-    },
-    /// The pointer exited the window.
-    PointerExited,
-    /// A key was pressed.
-    KeyPressed {
-        // FIXME: use SharedString instead of char (breaking change)
-        /// The unicode representation of the key pressed.
-        ///
-        /// # Example
-        /// A specific key can be mapped to a unicode by using the `Key` enum
-        /// ```rust
-        /// let _ = slint::WindowEvent::KeyPressed { text: slint::Key::Shift.into() };
-        /// ```
-        text: char,
-    },
-    /// A key was pressed.
-    KeyReleased {
-        // FIXME: use SharedString instead of char (breaking change)
-        /// The unicode representation of the key released.
-        ///
-        /// # Example
-        /// A specific key can be mapped to a unicode by using the `Key` enum
-        /// ```rust
-        /// let _ = slint::WindowEvent::KeyReleased { text: slint::Key::Shift.into() };
-        /// ```
-        text: char,
-    },
-}
-
-impl WindowEvent {
-    /// The position of the cursor for this event, if any
-    pub fn position(&self) -> Option<LogicalPosition> {
-        match self {
-            WindowEvent::PointerPressed { position, .. } => Some(*position),
-            WindowEvent::PointerReleased { position, .. } => Some(*position),
-            WindowEvent::PointerMoved { position } => Some(*position),
-            WindowEvent::PointerScrolled { position, .. } => Some(*position),
-            _ => None,
-        }
-    }
-}
 
 /// This trait is used to obtain references to global singletons exported in `.slint`
 /// markup. Alternatively, you can use [`ComponentHandle::global`] to obtain access.

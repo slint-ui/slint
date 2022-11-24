@@ -5,7 +5,6 @@
 
 use cpp::*;
 use euclid::approxeq::ApproxEq;
-use i_slint_core::api::WindowEvent;
 use i_slint_core::component::{ComponentRc, ComponentRef};
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::rendering_metrics_collector::{
@@ -22,6 +21,7 @@ use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, ScaleFactor,
 };
+use i_slint_core::platform::WindowEvent;
 use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use i_slint_core::{Coord, ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};

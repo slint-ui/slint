@@ -268,8 +268,8 @@ fn process_window_event(
                 ch
             };
 
-            window.window().dispatch_event(corelib::api::WindowEvent::KeyPressed { text });
-            window.window().dispatch_event(corelib::api::WindowEvent::KeyReleased { text });
+            window.window().dispatch_event(corelib::platform::WindowEvent::KeyPressed { text });
+            window.window().dispatch_event(corelib::platform::WindowEvent::KeyReleased { text });
         }
         WindowEvent::Focused(have_focus) => {
             let have_focus = have_focus || window.input_method_focused();
@@ -300,10 +300,10 @@ fn process_window_event(
             if let Some(ch) = key_code.and_then(key_codes::winit_key_to_char) {
                 window.window().dispatch_event(match input.state {
                     winit::event::ElementState::Pressed => {
-                        corelib::api::WindowEvent::KeyPressed { text: ch }
+                        corelib::platform::WindowEvent::KeyPressed { text: ch }
                     }
                     winit::event::ElementState::Released => {
-                        corelib::api::WindowEvent::KeyReleased { text: ch }
+                        corelib::platform::WindowEvent::KeyReleased { text: ch }
                     }
                 });
             };
