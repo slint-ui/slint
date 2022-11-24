@@ -20,8 +20,13 @@ pub fn embed_images(
 ) {
     let global_embedded_resources = &component.embedded_file_resources;
 
-    for component in
-        component.used_types.borrow().sub_components.iter().chain(std::iter::once(component))
+    for component in component
+        .used_types
+        .borrow()
+        .sub_components
+        .iter()
+        .chain(component.used_types.borrow().globals.iter())
+        .chain(std::iter::once(component))
     {
         visit_all_expressions(component, |e, _| {
             embed_images_from_expression(
