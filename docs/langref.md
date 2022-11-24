@@ -828,7 +828,7 @@ Example := Window {
         down when pressed : {
             background: blue;
             in {
-                animate color { duration: 300ms; }
+                animate background { duration: 300ms; }
             }
         }
     ]
