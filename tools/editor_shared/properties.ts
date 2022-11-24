@@ -119,7 +119,7 @@ export class PropertiesView {
     constructor(node: HTMLElement, binding_editor: BindingEditor) {
         this.#binding_editor = binding_editor;
         this.node = node;
-        this.show_welcome("No data received from Slint LSP yet");
+        this.show_welcome("Waiting for data from Slint LSP");
     }
 
     node: HTMLElement;
