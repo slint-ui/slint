@@ -93,6 +93,11 @@ export class PropertiesView {
         const content = document.createElement("div");
         node.appendChild(content);
 
+        const welcome = document.createElement("div");
+        welcome.className = "welcome-page";
+        welcome.style.display = "none";
+        content.appendChild(welcome);
+
         const header = document.createElement("div");
         header.className = "element-header";
         const element_type = document.createElement("div");
@@ -114,7 +119,7 @@ export class PropertiesView {
     constructor(node: HTMLElement, binding_editor: BindingEditor) {
         this.#binding_editor = binding_editor;
         this.node = node;
-        this.set_header(null);
+        this.show_welcome("Waiting for data from Slint LSP");
     }
 
     node: HTMLElement;
@@ -126,16 +131,16 @@ export class PropertiesView {
     protected get contentNode(): HTMLDivElement {
         return this.node.getElementsByTagName("div")[0] as HTMLDivElement;
     }
-    protected get headerNode(): HTMLDivElement {
+
+    protected get welcomeNode(): HTMLDivElement {
         return this.contentNode.getElementsByTagName(
             "div",
         )[0] as HTMLDivElement;
     }
-    protected get elementTypeNode(): HTMLDivElement {
-        return this.headerNode.getElementsByTagName("div")[0] as HTMLDivElement;
-    }
-    protected get elementIdNode(): HTMLDivElement {
-        return this.headerNode.getElementsByTagName("div")[1] as HTMLDivElement;
+    protected get headerNode(): HTMLDivElement {
+        return this.contentNode.getElementsByTagName(
+            "div",
+        )[1] as HTMLDivElement;
     }
     protected get tableNode(): HTMLTableElement {
         return this.contentNode.getElementsByTagName(
@@ -143,14 +148,16 @@ export class PropertiesView {
         )[0] as HTMLTableElement;
     }
 
-    private set_header(element: Element | null) {
-        if (element == null) {
-            this.elementTypeNode.innerText = "<Unknown>";
-            this.elementIdNode.innerText = "";
-        } else {
-            this.elementTypeNode.innerText = element.type_name;
-            this.elementIdNode.innerText = element.id;
-        }
+    protected get elementTypeNode(): HTMLDivElement {
+        return this.headerNode.getElementsByTagName("div")[0] as HTMLDivElement;
+    }
+    protected get elementIdNode(): HTMLDivElement {
+        return this.headerNode.getElementsByTagName("div")[1] as HTMLDivElement;
+    }
+
+    private set_header(element: Element) {
+        this.elementTypeNode.innerText = element.type_name;
+        this.elementIdNode.innerText = element.id;
     }
 
     private populate_table(
@@ -279,6 +286,20 @@ export class PropertiesView {
         }
     }
 
+    show_welcome(content: string) {
+        this.headerNode.style.display = "none";
+        this.tableNode.style.display = "none";
+        this.welcomeNode.style.display = "block";
+        this.welcomeNode.innerHTML = content;
+    }
+
+    hide_welcome() {
+        this.headerNode.style.display = "block";
+        this.tableNode.style.display = "block";
+        this.welcomeNode.style.display = "none";
+        this.welcomeNode.innerHTML = "";
+    }
+
     set_properties(properties: PropertyQuery) {
         if (
             JSON.stringify(properties.element?.range) ==
@@ -289,13 +310,18 @@ export class PropertiesView {
             return;
         }
 
-        this.set_header(properties.element);
-        this.populate_table(
-            properties.element?.range,
-            properties.properties,
-            properties.source_uri,
-            properties.source_version,
-        );
+        if (properties.element == null) {
+            this.show_welcome("No element selected");
+        } else {
+            this.hide_welcome();
+            this.set_header(properties.element);
+            this.populate_table(
+                properties.element?.range,
+                properties.properties,
+                properties.source_uri,
+                properties.source_version,
+            );
+        }
 
         // Update info about current data:
         this.#current_element_range = properties.element?.range ?? null;
