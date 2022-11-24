@@ -22,7 +22,6 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
     #current_version = -1;
     #current_cursor_line = -1;
     #current_cursor_character = -1;
-    #current_language = "";
 
     public static readonly viewType = "slint.propertiesView";
 
@@ -148,11 +147,26 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 );
             },
         );
+        // This is triggered on changes to the language!
+        vscode.workspace.onDidOpenTextDocument(
+            async (doc: vscode.TextDocument) => {
+                const uri = doc.uri.toString();
+                if (uri === this.#current_uri) {
+                    this.update_view(
+                        doc.languageId,
+                        uri,
+                        doc.version,
+                        this.#current_cursor_line,
+                        this.#current_cursor_character,
+                    );
+                }
+            },
+        );
     }
 
     refresh_view() {
         const editor = vscode.window.activeTextEditor;
-        if (editor === null) {
+        if (editor == null) {
             this.update_view(
                 "NO EDITOR",
                 this.#current_uri,
@@ -195,13 +209,10 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
         line: number,
         character: number,
     ) {
-        const refresh = () => setTimeout(() => this.refresh_view(), 1000);
-
         this.#current_uri = uri;
         this.#current_version = version;
         this.#current_cursor_line = line;
         this.#current_cursor_character = character;
-        this.#current_language = language;
 
         if (this._view === null) {
             return;
@@ -211,7 +222,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 command: "show_welcome",
                 message: "The active editor does not contain a Slint file.",
             });
-            refresh(); // Language Information might not be available yet!
+            // We will get notified about this changing!
             return;
         }
         if (client === null) {
@@ -219,11 +230,14 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 command: "show_welcome",
                 message: "Waiting for Slint LSP",
             });
-            refresh();
+            // We get triggered for this!
             return;
         }
 
-        // Document has not loaded yet:
+        // We race the LSP: The Document might not have been loaded yet!
+        // So retry once with 2s delay...
+        // Ideally we could use the progress messages from the LSP to find out when to retry,
+        // but we do not have those yet.
         query_properties(client, uri, { line: line, character: character })
             .then((p: PropertyQuery) => {
                 const msg = {
@@ -232,7 +246,16 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 };
                 this._view?.webview.postMessage(msg);
             })
-            .catch(refresh);
+            .catch(() =>
+                setTimeout(
+                    () =>
+                        query_properties(client, uri, {
+                            line: line,
+                            character: character,
+                        }),
+                    2000,
+                ),
+            );
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
