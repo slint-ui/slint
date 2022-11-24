@@ -26,7 +26,6 @@ jobs:
           #- "https://github.com/Project-Trains/launcher"
           #- "https://github.com/jannes/han-cihui"
           #- "https://github.com/leofidus/ntfs-explorer"
-          - "https://codeberg.org/flovan/phoenix-wing-rust"
           - "https://github.com/gsuyemoto/rust-bombfield"
           - "https://github.com/Decodetalkers/launchre"
           - "https://github.com/kizeevov/l5"
@@ -52,7 +51,8 @@ jobs:
     - uses: ./.github/actions/install-linux-dependencies
       with:
         extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev
-    - uses: ./.github/actions/setup-rust
+    # Don't use the cache because we don't run this job often, and it would cache the .cargo/config with extra keys
+    - uses: dtolnay/rust-toolchain@stable
     - name: setup patch
       run: |
           echo "" >> ~/.cargo/config
