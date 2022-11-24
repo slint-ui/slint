@@ -171,6 +171,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 this.#current_cursor_line,
                 this.#current_cursor_character,
             );
+            return;
         }
 
         const selection = editor.selection;
