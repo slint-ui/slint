@@ -3,7 +3,7 @@
 
 // This file contains the common code for both the normal and the browser extension
 
-import { Property } from "slint-editor-shared/properties";
+import { Property, SetBindingResponse } from "slint-editor-shared/properties";
 import {
     change_property,
     query_properties,
@@ -151,12 +151,39 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
     }
 
     refresh_view() {
+        const editor = vscode.window.activeTextEditor;
+        if (editor === null) {
+            this.update_view(
+                "NO EDITOR",
+                this.#current_uri,
+                this.#current_version,
+                this.#current_cursor_line,
+                this.#current_cursor_character,
+            );
+            return;
+        }
+        const doc = editor.document;
+        if (doc === null) {
+            this.update_view(
+                "NO DOCUMENT",
+                this.#current_uri,
+                this.#current_version,
+                this.#current_cursor_line,
+                this.#current_cursor_character,
+            );
+        }
+
+        const selection = editor.selection;
+        const line = selection?.active.line ?? this.#current_cursor_line;
+        const character =
+            selection?.active.character ?? this.#current_cursor_character;
+
         this.update_view(
-            this.#current_language,
-            this.#current_uri,
-            this.#current_version,
-            this.#current_cursor_line,
-            this.#current_cursor_character,
+            doc.languageId,
+            doc.uri.toString(),
+            doc.version,
+            line,
+            character,
         );
     }
 
@@ -167,6 +194,8 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
         line: number,
         character: number,
     ) {
+        const refresh = () => setTimeout(() => this.refresh_view(), 1000);
+
         this.#current_uri = uri;
         this.#current_version = version;
         this.#current_cursor_line = line;
@@ -181,6 +210,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 command: "show_welcome",
                 message: "The active editor does not contain a Slint file.",
             });
+            refresh(); // Language Information might not be available yet!
             return;
         }
         if (client === null) {
@@ -188,21 +218,20 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 command: "show_welcome",
                 message: "Waiting for Slint LSP",
             });
+            refresh();
             return;
         }
 
-        query_properties(
-            client,
-            uri,
-            { line: line, character: character },
-            (p) => {
+        // Document has not loaded yet:
+        query_properties(client, uri, { line: line, character: character })
+            .then((p: PropertyQuery) => {
                 const msg = {
                     command: "set_properties",
                     properties: p,
                 };
                 this._view?.webview.postMessage(msg);
-            },
-        );
+            })
+            .catch(refresh);
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {

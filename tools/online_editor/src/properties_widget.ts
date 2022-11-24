@@ -6,7 +6,7 @@
 import { GotoPositionCallback } from "./text";
 import { LspPosition, LspURI } from "./lsp_integration";
 
-import { PropertiesView } from "slint-editor-shared/properties";
+import { PropertyQuery, PropertiesView } from "slint-editor-shared/properties";
 import {
     change_property,
     query_properties,
@@ -66,10 +66,18 @@ export class PropertiesWidget extends Widget {
         return this.#language_client;
     }
 
-    position_changed(uri: LspURI, _version: number, position: LspPosition) {
-        query_properties(this.language_client, uri, position, (r) => {
-            this.#propertiesView.set_properties(r);
-        });
+    position_changed(uri: LspURI, version: number, position: LspPosition) {
+        query_properties(this.language_client, uri, position)
+            .then((r: PropertyQuery) => {
+                this.#propertiesView.set_properties(r);
+            })
+            .catch(() => {
+                // Document has not loaded yet!
+                setTimeout(
+                    () => this.position_changed(uri, version, position),
+                    1000,
+                );
+            });
     }
 
     protected onCloseRequest(msg: Message): void {

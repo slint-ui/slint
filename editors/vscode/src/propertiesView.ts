@@ -38,7 +38,6 @@ async function ensure_set_binding_response(
         if (set_binding_response !== null) {
             const r = set_binding_response;
             set_binding_response = null;
-            console.log("Got response", r);
             resolve(r);
         }
         if (timeout && Date.now() - set_binding_start >= timeout) {

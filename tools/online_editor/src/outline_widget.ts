@@ -198,7 +198,7 @@ export class OutlineWidget extends Widget {
         return this.#language_client;
     }
 
-    query_properties(uri: string, version: number) {
+    query_symbols(uri: string, version: number) {
         const client = this.language_client;
         if (client == null) {
             return;
@@ -233,7 +233,7 @@ export class OutlineWidget extends Widget {
                 } else {
                     const version = position.version;
                     const uri = position.uri;
-                    this.query_properties(uri, version);
+                    this.query_symbols(uri, version);
                 }
             } else {
                 deactivate_elements_and_find_to_activate(
@@ -260,7 +260,7 @@ export class OutlineWidget extends Widget {
         if (data == null) {
             this.set_error("No data available yet");
             this.#timer_id = setTimeout(
-                () => this.query_properties(uri, version),
+                () => this.query_symbols(uri, version),
                 1000,
             );
             return;

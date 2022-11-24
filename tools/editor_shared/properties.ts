@@ -271,9 +271,7 @@ export class PropertiesView {
                             p.name,
                             current_text,
                             false,
-                        ).then((r: SetBindingResponse) => {
-                            console.log("Got change response:", r);
-                        });
+                        );
                     }
                 });
             } else {
