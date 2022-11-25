@@ -4,7 +4,7 @@
 import {
     PropertiesView,
     SetBindingResponse,
-} from "slint-editor-shared/properties";
+} from "../../../tools/online_editor/src/shared/properties";
 
 const vscode = acquireVsCodeApi();
 
