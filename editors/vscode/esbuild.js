@@ -38,10 +38,7 @@ esbuild
     .build({
         entryPoints: ["src/browser.ts"],
         bundle: true,
-        external: [
-            "vscode",
-            "vscode-languageserver-protocol",
-        ],
+        external: ["vscode"],
         outfile: "out/browser.js",
         format: "cjs",
     })
@@ -65,7 +62,6 @@ esbuild
             "vscode",
             "vscode-languageclient",
             "vscode-languageclient/node",
-            "vscode-languageserver-protocol",
             "path",
             "fs",
         ],
