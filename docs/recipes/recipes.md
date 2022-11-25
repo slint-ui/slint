@@ -732,6 +732,82 @@ export Recipe := Window {
 }
 ```
 
+### Table view
+
+Slint doesn't currently provide a table widget. It's possible to emulate it with a ListView:
+
+```slint
+import { VerticalBox, ListView } from "std-widgets.slint";
+
+TableView := Rectangle {
+    in property <[string]> columns;
+    in property <[[string]]> values;
+
+    private property <length> e: self.width / columns.length;
+    private property <[length]> column_sizes: [
+        e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e,
+        e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e,
+        e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e,
+    ];
+
+    VerticalBox {
+        padding: 5px;
+        HorizontalLayout {
+            padding: 5px; spacing: 5px;
+            vertical-stretch: 0;
+            for title[idx] in columns : HorizontalLayout {
+                width: column_sizes[idx];
+                Text { overflow: elide; text: title; }
+                Rectangle {
+                    width: 1px;
+                    background: gray;
+                    TouchArea {
+                        width: 10px;
+                        x: (parent.width - width) / 2;
+                        property <length> cached;
+                        pointer-event(event) => {
+                            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                                cached = column_sizes[idx];
+                            }
+                        }
+                        moved => {
+                            if (pressed) {
+                                column_sizes[idx] += (self.mouse-x - self.pressed-x);
+                                if (column_sizes[idx] < 0) {
+                                    column_sizes[idx] = 0;
+                                }
+                            }
+                        }
+                        mouse-cursor: ew-resize;
+                    }
+                }
+            }
+        }
+        ListView {
+            for r in values : HorizontalLayout {
+                padding: 5px;
+                spacing: 5px;
+                for t[idx] in r : HorizontalLayout {
+                    width: column_sizes[idx];
+                    Text { overflow: elide; text: t; }
+                }
+            }
+        }
+    }
+}
+
+Example := Window {
+   TableView {
+       columns: ["Device", "Mount Point", "Total", "Free"];
+       values: [
+            ["/dev/sda1", "/", "255GB", "82.2GB"] ,
+            ["/dev/sda2", "/tmp", "60.5GB", "44.5GB"] ,
+            ["/dev/sdb1", "/home", "255GB", "32.2GB"] ,
+       ];
+   }
+}
+```
+
 <!--
 
 more content:
