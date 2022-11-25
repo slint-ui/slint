@@ -3,11 +3,11 @@
 
 // This file contains the common code for both the normal and the browser extension
 
-import { Property, SetBindingResponse } from "slint-editor-shared/properties";
+import { Property, SetBindingResponse } from "../../../tools/online_editor/src/shared/properties";
 import {
     change_property,
     query_properties,
-} from "slint-editor-shared/properties_client";
+} from "../../../tools/online_editor/src/shared/properties_client";
 
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";

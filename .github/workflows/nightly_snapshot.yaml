@@ -210,11 +210,6 @@ jobs:
         if [ "$RELEASE_INPUT" != "true" ]; then
           ../../scripts/prepare_vscode_nightly.sh
         fi
-    - name: "Set up editor_shared"
-      working-directory: tools/editor_shared
-      run: |
-          npm install
-          npm run build
     - name: "npm install"
       working-directory: editors/vscode
       run: npm install

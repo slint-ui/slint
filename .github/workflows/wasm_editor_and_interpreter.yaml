@@ -55,12 +55,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ github.job }}-node-
 
-      - name: "Set up editor_shared"
-        working-directory: tools/editor_shared
-        run: |
-          npm install
-          npm run build
-
       - name: Install NPM dependencies
         run: npm install
         working-directory: tools/online_editor
@@ -85,11 +79,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: wasm
-      - name: "Set up editor_shared"
-        working-directory: tools/editor_shared
-        run: |
-          npm install
-          npm run build
       - uses: actions/cache@v3
         with:
           path: ~/.npm
@@ -101,7 +90,7 @@ jobs:
         run: npm install
         working-directory: tools/online_editor
 
-      - name: Lint online editor  # This needs the slint-wasm-interpreter!
+      - name: Lint online editor # This needs the slint-wasm-interpreter!
         run: |
           npm run syntax_check
           npm run lint
