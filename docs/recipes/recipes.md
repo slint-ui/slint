@@ -474,6 +474,87 @@ int main(int argc, char **argv)
 ```
 </details>
 
+### Translations
+
+Slint doesn't currently provide built-in support for translations. We're tracking this feature in [our issue tracker](https://github.com/slint-ui/slint/issues/33).
+Meanwhile, you can make your design translatable with a global callback, some native code, and a translation library such as [gettext](https://en.wikipedia.org/wiki/Gettext) or [fluent](https://projectfluent.org/).
+
+Example using gettext:
+
+```slint
+import { HorizontalBox, Button } from "std-widgets.slint";
+
+export global Tr := {
+    // Do the translation of the first argument, with an array of string as supstitution
+    callback gettext(string, [string]) -> string;
+
+    // A default implementation that returns the original string for preview purposes.
+    gettext(text, _) => { return text; }
+}
+
+Example := Window {
+    property <int> count;
+    HorizontalBox {
+        Button {
+            text: Tr.gettext("Button pressed {0} times", [count]);
+        }
+    }
+}
+```
+
+Then the translatable text can be extracted with `xgettext` and tranlated using gettext tools:
+
+```sh
+xgettext -o example.pot example.slint
+```
+
+Set this callback in your native code and call gettext behind the scenes. A similar approach should be used for `ngettext`,`dgettext`, and other gettext functions.
+
+
+<details  data-snippet-language="rust">
+<summary>Rust code</summary>
+
+This example uses [gettext-rs](https://docs.rs/gettext-rs):
+
+```rust
+slint::slint!{
+import { HorizontalBox , Button } from "std-widgets.slint";
+
+export global Tr := {
+    // Do the translation of the first argument, with an array of string as supstitution
+    callback gettext(string, [string]) -> string;
+}
+
+Example := Window {
+    property <int> count;
+    HorizontalBox {
+        Button {
+            text: Tr.gettext("Button pressed {0} times", [count]);
+        }
+    }
+}
+}
+
+fn main() {
+    let app = Example::new();
+    app.global::<Tr>().on_gettext(|string, model| {
+        use crate::slint::Model;
+#       let mut str = String::from(string.as_str()); /* (we don't depend on gettext-rs just for that)
+        let mut str = gettextrs::gettext(string.as_str());
+#       */
+        for (idx, to) in model.iter().enumerate() {
+            str = str.replace(&format!("%{}", idx + 1), to.as_str());
+        }
+        str.into()
+    });
+    //...
+#   return;
+    app.run()
+}
+```
+
+</details>
+
 ## Custom widgets
 
 ### Custom Button
