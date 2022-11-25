@@ -6,6 +6,11 @@ import { StyleMetrics } from "std-widgets.slint";
 global Glop := {
     property <int> hello: 42;
     property <int> second: 88;
+    property <int> third: 102;
+}
+
+global DualBindingGlop := {
+    property third <=> Glop.third;
 }
 
 Widget := Rectangle {
@@ -20,6 +25,7 @@ TestCase := Rectangle {
     property <bool> test: alias_to_native == StyleMetrics.text_cursor_width && alias_to_global == 42 && indirect == 88;
     property <int> indirect <=> widget.second;
     property <int> direct: Glop.second;
+    property <int> dual <=> DualBindingGlop.third;
 
     widget := Widget { }
 }
@@ -34,6 +40,7 @@ assert_eq!(instance.get_alias_to_global(), 123);
 assert_eq!(instance.get_indirect(), 88);
 instance.set_indirect(99);
 assert_eq!(instance.get_direct(), 99);
+assert_eq!(instance.get_dual(), 102);
 
 ```
 
@@ -41,6 +48,7 @@ assert_eq!(instance.get_direct(), 99);
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
+assert_eq(instance.get_dual(), 102);
 ```
 
 ```js
@@ -52,6 +60,7 @@ assert.equal(instance.alias_to_global, 123);
 assert.equal(instance.indirect, 88);
 instance.indirect = 99;
 assert.equal(instance.direct, 99);
+assert.equal(instance.dual, 102);
 ```
 
 */

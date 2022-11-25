@@ -24,10 +24,10 @@ impl PropertySets {
         if !std::rc::Weak::ptr_eq(
             &p1.element().borrow().enclosing_component,
             &p2.element().borrow().enclosing_component,
-        ) && (p1.element().borrow().enclosing_component.upgrade().unwrap().is_global()
-            == p2.element().borrow().enclosing_component.upgrade().unwrap().is_global())
+        ) && !p1.element().borrow().enclosing_component.upgrade().unwrap().is_global()
+            && !p2.element().borrow().enclosing_component.upgrade().unwrap().is_global()
         {
-            // We can  only merge aliases if they are in the same Component. (unless one of them is global)
+            // We can only merge aliases if they are in the same Component. (unless one of them is global)
             // TODO: actually we could still merge two alias in a component pointing to the same
             // property in a parent component
             return;
@@ -61,7 +61,7 @@ impl PropertySets {
     }
 }
 
-pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     // collect all sets that are linked together
     let mut property_sets = PropertySets::default();
 
@@ -78,9 +78,11 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         }
     };
 
-    recurse_elem_including_sub_components(component, &(), &mut |e, &()| process_element(e));
-    for g in &component.used_types.borrow().globals {
-        process_element(&g.root_element)
+    for component in (doc.root_component.used_types.borrow().sub_components.iter())
+        .chain(doc.root_component.used_types.borrow().globals.iter())
+        .chain(std::iter::once(&doc.root_component))
+    {
+        recurse_elem_including_sub_components(component, &(), &mut |e, &()| process_element(e));
     }
 
     // The key will be removed and replaced by the named reference
@@ -93,7 +95,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         let mut set_iter = set.iter();
         if let Some(mut best) = set_iter.next().cloned() {
             for candidate in set_iter {
-                best = best_property(component, best.clone(), candidate.clone());
+                best = best_property(best.clone(), candidate.clone());
             }
             for x in set.iter() {
                 if *x != best {
@@ -103,12 +105,17 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         }
     }
 
-    // Do the replacements
-    visit_all_named_references(component, &mut |nr: &mut NamedReference| {
-        if let Some(new) = aliases_to_remove.get(nr) {
-            *nr = new.clone();
-        }
-    });
+    for component in (doc.root_component.used_types.borrow().sub_components.iter())
+        .chain(doc.root_component.used_types.borrow().globals.iter())
+        .chain(std::iter::once(&doc.root_component))
+    {
+        // Do the replacements
+        visit_all_named_references(component, &mut |nr: &mut NamedReference| {
+            if let Some(new) = aliases_to_remove.get(nr) {
+                *nr = new.clone();
+            }
+        });
+    }
 
     // Remove the properties
     for (remove, to) in aliases_to_remove {
@@ -190,18 +197,13 @@ fn is_declaration(x: &NamedReference) -> bool {
 }
 
 /// Out of two named reference, return the one which is the best to keep.
-fn best_property(
-    component: &Rc<Component>,
-    p1: NamedReference,
-    p2: NamedReference,
-) -> NamedReference {
+fn best_property(p1: NamedReference, p2: NamedReference) -> NamedReference {
     // Try to find which is the more canonical property
     macro_rules! canonical_order {
         ($x: expr) => {{
             (
                 !$x.element().borrow().enclosing_component.upgrade().unwrap().is_global(),
                 is_declaration(&$x),
-                !Rc::ptr_eq(&component.root_element, &$x.element()),
                 $x.element().borrow().id.clone(),
                 $x.name(),
             )
