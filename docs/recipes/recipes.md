@@ -476,9 +476,8 @@ int main(int argc, char **argv)
 
 ### Translations
 
-While waiting for Slint to handle [translations builtin](https://github.com/slint-ui/slint/issues/33), it is
-doable to do that with a global callback, that can then be implemented using any
-translation library such as [gettext](https://en.wikipedia.org/wiki/Gettext) or [fluent](https://projectfluent.org/)
+Slint doesn't currently provide built-in support for translations. We're tracking this feature in [our issue tracker](https://github.com/slint-ui/slint/issues/33).
+Meanwhile, you can make your design translatable with a global callback, some native code, and a translation library such as [gettext](https://en.wikipedia.org/wiki/Gettext) or [fluent](https://projectfluent.org/).
 
 Example using gettext:
 
@@ -489,8 +488,8 @@ export global Tr := {
     // Do the translation of the first argument, with an array of string as supstitution
     callback gettext(string, [string]) -> string;
 
-    // A default implementation that return the original string for preview purposes
-    gettext(text, _) => {return text;}
+    // A default implementation that returns the original string for preview purposes.
+    gettext(text, _) => { return text; }
 }
 
 Example := Window {
@@ -503,20 +502,19 @@ Example := Window {
 }
 ```
 
-Then the translation can be extracted with `xgettext` and tranlated using gettext tools.
+Then the translatable text can be extracted with `xgettext` and tranlated using gettext tools:
 
 ```sh
 xgettext -o example.pot example.slint
 ```
 
-The native code can add implement the callback and call gettext behind the same
-(a similar approach should be use for `ngettext` and `dgettext` and other gettext functions)
+Set this callback in your native code and call gettext behind the scenes. A similar approach should be used for `ngettext`,`dgettext`, and other gettext functions.
 
 
 <details  data-snippet-language="rust">
 <summary>Rust code</summary>
 
-This example uses [gettext-rs](https://docs.rs/gettext-rs)
+This example uses [gettext-rs](https://docs.rs/gettext-rs):
 
 ```rust
 slint::slint!{
@@ -541,7 +539,7 @@ fn main() {
     let app = Example::new();
     app.global::<Tr>().on_gettext(|string, model| {
         use crate::slint::Model;
-#       let mut str = String::from(string.as_str()); /* (we don't depends on gettext-rs just for that)
+#       let mut str = String::from(string.as_str()); /* (we don't depend on gettext-rs just for that)
         let mut str = gettextrs::gettext(string.as_str());
 #       */
         for (idx, to) in model.iter().enumerate() {
