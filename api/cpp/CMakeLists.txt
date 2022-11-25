@@ -149,7 +149,7 @@ else()
     set(SLINT_STYLE_DEFAULT "fluent")
 endif()
 
-set(SLINT_STYLE "" CACHE STRING "The Slint widget style")
+set(SLINT_STYLE "" CACHE STRING "The Slint Widget Style")
 
 if(SLINT_STYLE)
     set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})

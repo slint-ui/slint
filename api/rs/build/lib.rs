@@ -273,6 +273,14 @@ pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
 }
 
 /// Same as [`compile`], but allow to specify a configuration.
+///
+/// Compile `ui/hello.slint` and select the "material" style:
+/// ```rust,no_run
+/// let config =
+///     slint_build::CompilerConfiguration::new()
+///     .with_style("material".into());
+/// slint_build::compile_with_config("ui/hello.slint", config).unwrap();
+/// ```
 pub fn compile_with_config(
     path: impl AsRef<std::path::Path>,
     config: CompilerConfiguration,

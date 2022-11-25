@@ -464,6 +464,16 @@ impl ComponentCompiler {
     }
 
     /// Sets the style to be used for widgets.
+    ///
+    /// Use the "material" style as widget style when compiling:
+    /// ```rust
+    /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, ComponentHandle};
+    ///
+    /// let mut compiler = ComponentCompiler::default();
+    /// compiler.set_style("material".into());
+    /// let definition =
+    ///     spin_on::spin_on(compiler.build_from_path("hello.slint"));
+    /// ```
     pub fn set_style(&mut self, style: String) {
         self.config.style = Some(style);
     }
