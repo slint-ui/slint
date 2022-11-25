@@ -473,7 +473,5 @@ Select the style by defining a `SLINT_STYLE` CMake cache variable to hold the st
 cmake -DSLINT_STYLE="material" /path/to/source
 ```
 
-### Bar
-
 </details>
 
