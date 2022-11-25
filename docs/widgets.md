@@ -1,8 +1,16 @@
 # Widgets
 
-Widgets are not imported by default, and need to be imported from `"std-widgets.slint"`
+Slint provides a series of built-in widgets that can be imported from `"std-widgets.slint"`.
 
-Their appearance can change depending on the style
+The widget appearance depends on the selected style. The following styles are available:
+
+ * `fluent`: The **Fluent** style implements the [Fluent Design System](https://www.microsoft.com/design/fluent/).
+ * `material`: The **Material** style implements the [Material Design](https://m3.material.io).
+ * `native`: The **Native** style resembles the appearance of the controls that are native to the platform they
+   are used on. This specifically includes support for the look and feel of controls on macOS and Windows. This
+   style is only available if you have Qt installed on your system.
+
+See [Selecting a Widget Style](#selecting-a-widget-style) for details how to select the style. If no style is selected, `native` is the default. If `native` is not available, `fluent` is the default.
 
 ## `Button`
 
@@ -433,3 +441,37 @@ Example := Window {
     }
 }
 ```
+
+## Selecting a Widget Style
+
+The widget style is selected at compile time of your project. The details depend on which programming
+language you're using Slint with.
+
+<details data-snippet-language="rust">
+<summary>Selecting a Widget Style when using Slint with Rust:</summary>
+
+Before you start your compilation, you can select the style by setting the `SLINT_STYLE` variable
+to one of the style names, such as `fluent` for example.
+
+### Selecting the Widget Style When Using the `slint_build` Crate
+
+Select the style with the [`slint_build::compile_with_config()`](https://docs.rs/slint-build/newest/slint_build/fn.compile_with_config.html) function in the compiler configuration argument.
+
+
+### Selecting the Widget Style When Using the `slint_interpreter` Crate
+
+Select the style with the [`slint_interpreter::ComponentCompiler::set_style()`](https://docs.rs/slint-interpreter/newest/slint_interpreter/struct.ComponentCompiler.html#method.set_style) function.
+
+</details>
+
+<details data-snippet-language="cpp">
+<summary>Selecting a Widget Style when using Slint with C++:</summary>
+
+Select the style by defining a `SLINT_STYLE` CMake cache variable to hold the style name as a string. This can be done for example on the command line:
+
+```sh
+cmake -DSLINT_STYLE="material" /path/to/source
+```
+
+</details>
+
