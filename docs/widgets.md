@@ -475,3 +475,23 @@ cmake -DSLINT_STYLE="material" /path/to/source
 
 </details>
 
+### Selecting the Widget Style When Previewing Designs With `slint-viewer`
+
+Select the style either by setting the `SLINT_STYLE` environment variable, or passing the style name with the `--style` argument:
+
+```sh
+slint-viewer --style material /path/to/design.slint
+```
+
+### Selecting the Widget Style When Previewing Designs With The Slint Visual Studio Code Extension
+
+Select the style by first opening the Visual Studio Code settings editor:
+
+* On Windows/Linux - File > Preferences > Settings
+* On macOS - Code > Preferences > Settings
+
+Then enter the style name under Extensions > Slint > Preview:Style
+
+### Selecting the Widget Style When Previewing Designs With The Generic LSP Process
+
+Select the style by setting the `SLINT_STYLE` environment variable before launching the process.
