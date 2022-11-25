@@ -186,16 +186,17 @@ pub async fn run_passes(
         deduplicate_property_read::deduplicate_property_read(component);
         optimize_useless_rectangles::optimize_useless_rectangles(component);
         move_declarations::move_declarations(component);
-        remove_aliases::remove_aliases(component, diag);
-        if !diag.has_error() {
-            // binding loop causes panics in const_propagation
-            const_propagation::const_propagation(component);
-        }
     }
+
+    remove_aliases::remove_aliases(doc, diag);
 
     for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))
     {
+        if !diag.has_error() {
+            // binding loop causes panics in const_propagation
+            const_propagation::const_propagation(component);
+        }
         resolve_native_classes::resolve_native_classes(component);
         remove_unused_properties::remove_unused_properties(component);
     }
