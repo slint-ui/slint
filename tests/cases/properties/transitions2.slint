@@ -1,0 +1,107 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+TestCase := Rectangle {
+    property<int> top_level: 4;
+    property<int> active_index: 0;
+    property<int> some_prop: 5;
+    text1 := Text {
+        property<int> foo: 85 + top_level;
+    }
+
+    states [
+        xxx when active_index == 1 : {
+            text1.foo: 3 + 2 * top_level;
+            some_prop: 2000;
+            in {
+                animate some_prop { duration: 100ms; }
+            }
+            out {
+                animate text1.foo { duration: 300ms; }
+            }
+        }
+    ]
+
+    property<int> text1_foo: text1.foo;
+
+}
+
+
+
+
+/*
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_text1_foo(), 85 + 4);
+assert_eq!(instance.get_some_prop(), 5);
+instance.set_active_index(1);
+assert_eq!(instance.get_text1_foo(), 3 + 2 * 4);
+assert_eq!(instance.get_some_prop(), 5);
+slint_testing::mock_elapsed_time(75); // 75% the animation
+assert!(instance.get_some_prop() > 1500);
+assert!(instance.get_some_prop() < 1999);
+slint_testing::mock_elapsed_time(30); // more than 100% the animation
+assert_eq!(instance.get_some_prop(), 2000);
+
+instance.set_active_index(2);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_text1_foo(), 3 + 2 * 4);
+slint_testing::mock_elapsed_time(290);
+assert!(instance.get_text1_foo() > 70);
+assert!(instance.get_text1_foo() < 87);
+slint_testing::mock_elapsed_time(30);
+assert_eq!(instance.get_text1_foo(), 85 + 4);
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_text1_foo(), 85 + 4);
+assert_eq(instance.get_some_prop(), 5);
+instance.set_active_index(1);
+assert_eq(instance.get_text1_foo(), 3 + 2 * 4);
+assert_eq(instance.get_some_prop(), 5);
+slint_testing::mock_elapsed_time(75); // 75% the animation
+assert(instance.get_some_prop() > 1500);
+assert(instance.get_some_prop() < 1999);
+slint_testing::mock_elapsed_time(30); // more than 100% the animation
+assert_eq(instance.get_some_prop(), 2000);
+
+instance.set_active_index(2);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_text1_foo(), 3 + 2 * 4);
+slint_testing::mock_elapsed_time(290);
+assert(instance.get_text1_foo() > 70);
+assert(instance.get_text1_foo() < 87);
+slint_testing::mock_elapsed_time(30);
+assert_eq(instance.get_text1_foo(), 85 + 4);
+```
+
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.text1_foo, 85 + 4);
+assert.equal(instance.some_prop, 5);
+instance.active_index = 1;
+assert.equal(instance.text1_foo, 3 + 2 * 4);
+assert.equal(instance.some_prop, 5);
+slintlib.private_api.mock_elapsed_time(75); // 75% the animation
+assert(instance.some_prop > 1500);
+assert(instance.some_prop < 1999);
+slintlib.private_api.mock_elapsed_time(30); // more than 100% the animation
+assert.equal(instance.some_prop, 2000);
+
+instance.active_index = 2;
+assert.equal(instance.some_prop, 5);
+assert.equal(instance.text1_foo, 3 + 2 * 4);
+slintlib.private_api.mock_elapsed_time(290);
+assert(instance.text1_foo > 70);
+assert(instance.text1_foo < 87);
+slintlib.private_api.mock_elapsed_time(30);
+assert.equal(instance.text1_foo, 85 + 4);
+```
+
+*/
