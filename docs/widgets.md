@@ -495,3 +495,4 @@ Then enter the style name under Extensions > Slint > Preview:Style
 ### Selecting the Widget Style When Previewing Designs With The Generic LSP Process
 
 Select the style by setting the `SLINT_STYLE` environment variable before launching the process.
+Alternatively, if your IDE integration allows passing command line parameters, you can specify the style via `--style`.
