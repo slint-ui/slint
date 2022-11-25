@@ -734,7 +734,7 @@ export Recipe := Window {
 
 ### Table view
 
-Slint currently do not have a table widget builtin, but it's possible to emulate it with a ListView
+Slint doesn't currently provide a table widget. It's possible to emulate it with a ListView:
 
 ```slint
 import { VerticalBox, ListView } from "std-widgets.slint";
