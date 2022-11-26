@@ -1,12 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { PropertyQuery, SetBindingResponse } from "./properties";
+import { PropertyQuery, SetBindingResponse } from "./shared/properties";
 
-import {
-    ExecuteCommandRequest,
-    ExecuteCommandParams,
-} from "vscode-languageserver-protocol";
 import {
     OptionalVersionedTextDocumentIdentifier,
     Position as LspPosition,
@@ -14,6 +10,10 @@ import {
     URI as LspURI,
     WorkspaceEdit,
 } from "vscode-languageserver-types";
+import {
+    ExecuteCommandRequest,
+    ExecuteCommandParams,
+} from "vscode-languageserver-protocol";
 
 import { BaseLanguageClient } from "vscode-languageclient";
 

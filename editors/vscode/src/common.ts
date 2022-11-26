@@ -3,11 +3,11 @@
 
 // This file contains the common code for both the normal and the browser extension
 
-import { Property, SetBindingResponse } from "../../../tools/online_editor/src/shared/properties";
 import {
-    change_property,
-    query_properties,
-} from "../../../tools/online_editor/src/shared/properties_client";
+    Property,
+    PropertyQuery,
+} from "../../../tools/online_editor/src/shared/properties";
+import { change_property, query_properties } from "./properties_client";
 
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
@@ -74,7 +74,6 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                     break;
                 case "change_property":
                     change_property(
-                        client,
                         data.document,
                         data.element_range,
                         data.property_name,
@@ -238,7 +237,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
         // So retry once with 2s delay...
         // Ideally we could use the progress messages from the LSP to find out when to retry,
         // but we do not have those yet.
-        query_properties(client, uri, { line: line, character: character })
+        query_properties(uri, { line: line, character: character })
             .then((p: PropertyQuery) => {
                 const msg = {
                     command: "set_properties",
@@ -249,7 +248,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
             .catch(() =>
                 setTimeout(
                     () =>
-                        query_properties(client, uri, {
+                        query_properties(uri, {
                             line: line,
                             character: character,
                         }),
