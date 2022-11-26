@@ -210,10 +210,6 @@ jobs:
         if [ "$RELEASE_INPUT" != "true" ]; then
           ../../scripts/prepare_vscode_nightly.sh
         fi
-    # We need to do that because of the tools/online_editor/src/shared code needs it
-    - name: "npm install in tools/online_editor"
-      working-directory: tools/online_editor
-      run: npm install
     - name: "npm install"
       working-directory: editors/vscode
       run: npm install
