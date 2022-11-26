@@ -7,10 +7,7 @@ import { GotoPositionCallback } from "./text";
 import { LspPosition, LspURI } from "./lsp_integration";
 
 import { PropertyQuery, PropertiesView } from "./shared/properties";
-import {
-    change_property,
-    query_properties,
-} from "./shared/properties_client";
+import { change_property, query_properties } from "./properties_client";
 
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
