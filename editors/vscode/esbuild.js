@@ -60,6 +60,8 @@ esbuild
         bundle: true,
         external: [
             "vscode",
+            "vscode-languageclient",
+            "vscode-languageclient/node",
             "path",
             "fs",
         ],
