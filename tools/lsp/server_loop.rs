@@ -879,6 +879,17 @@ fn get_code_lenses(
 }
 
 pub async fn load_configuration(ctx: &Context) -> Result<(), Error> {
+    if !ctx
+        .init_param
+        .capabilities
+        .workspace
+        .as_ref()
+        .and_then(|w| w.configuration)
+        .unwrap_or(false)
+    {
+        return Ok(());
+    }
+
     let r = ctx
         .server_notifier
         .send_request::<lsp_types::request::WorkspaceConfiguration>(
