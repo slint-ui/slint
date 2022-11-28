@@ -50,20 +50,21 @@
         let link_section = document.createElement("div");
         element.append(link_section);
 
-        let edit_button = document.createElement("input");
-        edit_button.type = "button";
-        edit_button.value = "Edit 📝";
-        edit_button.onclick = () => {
-            window.open(`${editor_url}?snippet=${encodeURIComponent(source)}`, "_blank");
-        };
+        let button_style = "padding: 5px 10px 5px 10px; text-decoration: none;"
+
+        let edit_button = document.createElement("a");
+        edit_button.style = button_style;
+        edit_button.href = `${editor_url}?snippet=${encodeURIComponent(source)}`;
+        edit_button.target = "_blank";
+        edit_button.innerText = "Edit 📝";
         link_section.append(edit_button);
 
         if (should_show_automatic_preview(element)) {
             create_preview(element, source);
         } else {
-            let play_button = document.createElement("input");
-            play_button.type = "button";
-            play_button.value = "Preview ▶️";
+            let play_button = document.createElement("a");
+            play_button.style = button_style;
+            play_button.innerText = "Preview ▶️";
             play_button.onclick = async () => {
                 play_button.remove();
                 create_preview(element, source);
