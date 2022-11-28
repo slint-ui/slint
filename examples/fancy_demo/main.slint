@@ -36,6 +36,13 @@ Node := Rectangle {
         horizontal-alignment: center;
         text: root.text;
     }
+
+    TouchArea  {
+        moved => {
+            parent.x += mouse-x;
+            parent.y += mouse-y;
+        }
+    }
 }
 
 Demo := Window {
