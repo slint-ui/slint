@@ -31,20 +31,55 @@
         }
     }
 
+    async function create_preview(element, source_code) {
+        let div = document.createElement("div");
+        div.style = "float: right; padding:0; margin:0;";
+        element.prepend(div);
+        await render_or_error(source_code, div);
+    }
+
+    function should_show_automatic_preview(element) {
+        // The `no-auto-preview` doesn't map directly to a dedicated class but it is mangled differently
+        // between rustdoc and sphinx, so match fuzzy on the entire class list:
+        return !element.className.includes("no-auto-preview");
+    }
+
+    async function create_click_to_play_and_edit_buttons(element) {
+        let source = element.innerText;
+
+        let link_section = document.createElement("div");
+        element.append(link_section);
+
+        let edit_button = document.createElement("input");
+        edit_button.type = "button";
+        edit_button.value = "Edit 📝";
+        edit_button.onclick = () => {
+            window.open(`${editor_url}?snippet=${encodeURIComponent(source)}`, "_blank");
+        };
+        link_section.append(edit_button);
+
+        if (should_show_automatic_preview(element)) {
+            create_preview(element, source);
+        } else {
+            let play_button = document.createElement("input");
+            play_button.type = "button";
+            play_button.value = "Preview ▶️";
+            play_button.onclick = async () => {
+                play_button.remove();
+                create_preview(element, source);
+            };
+
+            link_section.prepend(play_button);
+        }
+    }
+
     async function run() {
         await slint.default();
         let selector = ["code.language-slint", ".rustdoc pre.language-slint", "div.highlight-slint"]
             .map((sel) => `${sel}:not([class*=slint\\,ignore]):not([class*=slint\\,no-preview])`).join(",");
         var elements = document.querySelectorAll(selector);
         for (var i = 0; i < elements.length; ++i) {
-            let source = elements[i].innerText;
-            let div = document.createElement("div");
-            div.style = "float: right; padding:0; margin:0;";
-            elements[i].prepend(div);
-            let link = document.createElement("div");
-            link.innerHTML = `<a href="${editor_url}?snippet=${encodeURIComponent(source)}" target="_blank">📝</a>`;
-            elements[i].append(link);
-            await render_or_error(source, div);
+            await create_click_to_play_and_edit_buttons(elements[i]);
         }
         slint.run_event_loop();
     }

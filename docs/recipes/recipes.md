@@ -6,7 +6,7 @@ This page provides a collection of common use-cases and how to implement them us
 
 ### A clickable Button
 
-```slint
+```slint,no-auto-preview
 import { VerticalBox, Button } from "std-widgets.slint";
 export Recipe := Window {
     property <int> counter: 0;
@@ -127,7 +127,7 @@ is generated. For the callback, a function to set the callback is generated (`on
 
 ### Use property bindings to synchronize controls
 
-```slint
+```slint,no-auto-preview
 import { VerticalBox, Slider } from "std-widgets.slint";
 export Recipe := Window {
     VerticalBox {
@@ -150,7 +150,7 @@ code between the curly braces to a string.
 ### Animate the position of an element
 
 
-```slint
+```slint,no-auto-preview
 import { CheckBox } from "std-widgets.slint";
 export Recipe := Window {
     width: 200px;
@@ -190,7 +190,7 @@ changes: Either because the property is set in a callback, or if its binding val
 
 ### Animation Sequence
 
-```slint
+```slint,no-auto-preview
 import { CheckBox } from "std-widgets.slint";
 export Recipe := Window {
     width: 200px;
@@ -235,7 +235,7 @@ This example uses the `delay` property to make one animation run after another.
 
 ### Associate multiple property values with states
 
-```slint
+```slint,no-auto-preview
 import { HorizontalBox, VerticalBox, Button } from "std-widgets.slint";
 
 Circle := Rectangle {
@@ -283,7 +283,7 @@ export Recipe := Window {
 
 ### Transitions
 
-```slint
+```slint,no-auto-preview
 import { HorizontalBox, VerticalBox, Button } from "std-widgets.slint";
 
 Circle := Rectangle {
@@ -333,7 +333,7 @@ export Recipe := Window {
 
 ### Vertical
 
-```slint
+```slint,no-auto-preview
 import { VerticalBox, Button } from "std-widgets.slint";
 export Recipe := Window {
     VerticalBox {
@@ -346,7 +346,7 @@ export Recipe := Window {
 
 ### Horizontal
 
-```slint
+```slint,no-auto-preview
 import { HorizontalBox, Button } from "std-widgets.slint";
 export Recipe := Window {
     HorizontalBox {
@@ -359,7 +359,7 @@ export Recipe := Window {
 
 ### Grid
 
-```slint
+```slint,no-auto-preview
 import { GridBox, Button, Slider } from "std-widgets.slint";
 export Recipe := Window {
     GridBox {
@@ -559,7 +559,7 @@ fn main() {
 
 ### Custom Button
 
-```slint
+```slint,no-auto-preview
 Button := Rectangle {
     property text <=> txt.text;
     callback clicked <=> touch.clicked;
@@ -587,7 +587,7 @@ export Recipe := Window {
 
 ### ToggleSwitch
 
-```slint
+```slint,no-auto-preview
 export ToggleSwitch := Rectangle {
     callback toggled;
     property <string> text;
@@ -654,7 +654,7 @@ export Recipe := Window {
 This slider can be dragged from any point within itself, because the TouchArea is covering
 the whole widget.
 
-```slint
+```slint,no-auto-preview
 import { VerticalBox } from "std-widgets.slint";
 
 export MySlider := Rectangle {
@@ -715,7 +715,7 @@ This example show another implementation that has a draggable handle:
 The handle only moves when we click on that handle.
 The TouchArea is within the handle and moves with the handle.
 
-```slint
+```slint,no-auto-preview
 import { VerticalBox } from "std-widgets.slint";
 
 export MySlider := Rectangle {
@@ -769,7 +769,7 @@ export Recipe := Window {
 ### Custom Tabs
 
 Use this recipe as a basis to when you want to create your own custom tab widget.
-```slint
+```slint,no-auto-preview
 import { Button } from "std-widgets.slint";
 
 export Recipe := Window {
@@ -817,7 +817,7 @@ export Recipe := Window {
 
 Slint doesn't currently provide a table widget. It's possible to emulate it with a ListView:
 
-```slint
+```slint,no-auto-preview
 import { VerticalBox, ListView } from "std-widgets.slint";
 
 TableView := Rectangle {
