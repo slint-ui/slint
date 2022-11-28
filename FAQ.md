@@ -45,30 +45,38 @@ types of programming languages.
 
 ## Licensing
 
-You can use Slint under either a [commercial license](./LICENSES/LicenseRef-Slint-commercial.md)
-or [GNU GPLv3](./LICENSES/GPL-3.0-only.txt).
-
-The commercial license can be provided for free if you help us promote Slint: Check out our
-[ambassador program](https://slint-ui.com/ambassador-program.html).
+You are free to use Slint under either [GNU GPLv3](./LICENSES/GPL-3.0-only.txt) or 
+a [commercial license](./LICENSES/LicenseRef-Slint-commercial.md). We also offer a completely 
+free-of-charge commercial license under the [ambassador program](https://slint-ui.com/ambassador-program.html).
 
 ### What are the commercial licensing options?
 
-We offer - Ambassador, Flex and Buyout commercial licensing options. All options
-include a perpetual, non-exclusive, non-transferable right to use Slint. Updates
-are included in the Ambassador and Buyout options. With the Flex option, updates
-are included as long as the subscription is active.
+We offer - Ambassador, Flex and Buyout commercial licensing options. All three 
+options include a perpetual right to use Slint to develop applications, unlimited 
+distribution of such applications on desktops and [standard support](https://slint-ui.com/support/slint_support_service_agreement).
 
-The Ambassador option is a free license that can be provided in lieu of helping
-us promote Slint.
+- The Ambassador option is a free license that can be provided in lieu of helping
+us promote Slint. Apart from the standard inclusiosn, unlimited User-Seats, updates and unlimited distribution 
+of Slint based applications on embedded devices are included.
 
-With the Flex option, you can choose the number of User-Seats you would need to
-develop your applications with Slint. Before distribution of such applications
-on embedded devices, you can purchase the required amount of distributions. At
-any point of time, you could also switch to the Buyout option.
+- With the Flex option, you can purchase the required number of User-Seats needed to
+develop your applications with Slint. In addition to the standard inclusions, updates are included as long 
+as the subscription is active.
 
-The Buyout option includes unlimited User-Seats and a prebuy of distribitions of
-your Slint based applications on embedded devices. 30 hours of priority support
-is also included.
+- The Buyout option includes unlimited User-Seats, updates and 30 hours of [premium support](https://slint-ui.com/support/slint_premium_support_service_agreement) in addition to the standard inclusions. 
+Slint based applications can be distributed on embedded devices as per purchased distribution license pack.
+
+### Is the Ambassador really for free? What is the catch?
+
+The Ambassador is really for free! The only 'catch' is to help us promote Slint in the following ways:
+
+- Showcase: You grant us the right to use your name, logo and your Products in our marketing materials,
+
+- Spread the word: You will include reasonably visible notices in the documentation, marketing materials 
+and social media channels related to your Products that such were built with Slint,
+
+- Give feedback: You agree to provide relevant feedback that would help us improve Slint. 
+We may use any such feedback in testimonials.
 
 ### What does perpetual mean?
 
@@ -77,24 +85,54 @@ commercial license, for ever.
 
 ### Are updates included?
 
-Yes, updates are included. With the Flex option, updates are included as long as
+Yes, updates are included with Ambassador and Buyout. With Flex, updates are included as long as
 the subscription is active.
+
+### What are the different support options that you offer?
+
+We offer [standard support](https://slint-ui.com/support/slint_support_service_agreement) and [premium support](https://slint-ui.com/support/slint_premium_support_service_agreement). 
+
+Standard support is included with the commercial license.
+
+Premium support is offered to both open source users and commercial customers. Support can be purchased in blocks of 10 hours
+for EUR 1650. Please [contact us](https://slint-ui.com/staging/#contact_us) if you are interested in purchasing premium support.
+
+### Do I need to buy distribution licenses if I distribute my Slint based application on desktop?
+
+No. Our commercial license includes unlimited distribution of Slint based application on desktop.
+
+### Do I need to buy distribution licenses if I distribute my Slint based application on embedded devices?
+
+Depends on the license option. The Ambassador includes unlimited distribution of Slint based application 
+on embedded devices. The Buyout includes such distribution limited to the quantity of purchased distribution
+license pack. With Flex, you would need to buy the appropriate distribution license pack to cover the required 
+quantity of distributions.
+
+### How much does the distribution license on embedded devices cost?
+
+Distribution licenses are sold in volume packs. The bigger the pack, the cheaper the cost of a single distribution license.
+For example, a pack of 1000 distributions cost EUR 3500 while a pack of 5000 distributions cost EUR 15400. Please [contact us](https://slint-ui.com/staging/#contact_us) if you are interested to know more.
+
+### What is the minimum distribution quantity that I can purchase?
+
+The minimum distribution quantity is 1.
+
+Other distribution packs sizes are 10, 100, 500, 1000, 3000 and 5000. 
+Please [contact us](https://slint-ui.com/staging/#contact_us) if you are interested in a bigger distribution pack.
 
 ### Can I try Slint using the Ambassador option and then switch to a paid option later?
 
-Yes. You can start using Slint with the Ambassador option, and switch to a paid
-option later. However we retain the marketing rights obtained under the
-Ambassador Program for existing materials.
+Yes. You can start using Slint with the Ambassador option, and switch to a paid option later. 
+However we retain the marketing rights obtained under the Ambassador Program for existing materials.
 
 ### Can I try Slint under the GPL and then switch to the commercial license later?
 
-Yes. You can evaluate Slint using the GPL license, and obtain the commercial
-license after the evaluation, with the option of transferring the code
-developed under the GPL to commercial for free.
+Yes. You can evaluate Slint using the GPL license, and obtain the commercial license after the evaluation, 
+with the option of transferring the code developed under the GPL to commercial in order to avoid any [copy-left obligations](https://www.gnu.org/licenses/copyleft.en.html).
 
 ### Is there a discount or reduction for independent developers or small businesses?
 
-Yes, check out our [Ambassador program](https://slint-ui.com/ambassador-program.html)
+Yes, check out our [ambassador program](https://slint-ui.com/ambassador-program.html)
 
 ### I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license
 
