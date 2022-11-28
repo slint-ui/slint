@@ -94,13 +94,11 @@ impl ServerNotifier {
                 Some(OutgoingRequest::Done(d)) => {
                     if let Some(err) = d.error {
                         Poll::Ready(Err(err.message.into()))
-                    } else if let Some(d) = d.result {
+                    } else {
                         Poll::Ready(
-                            serde_json::from_value(d)
+                            serde_json::from_value(d.result.unwrap_or_default())
                                 .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
                         )
-                    } else {
-                        Poll::Ready(Err("No response".into()))
                     }
                 }
             }
