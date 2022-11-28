@@ -46,7 +46,7 @@ In this first example, you see the basics of the Slint language:
 
 This example increments the counter using native code, instead with the slint language.
 
-```slint
+```slint,no-preview
 import { VerticalBox, Button } from "std-widgets.slint";
 export Recipe := Window {
     property <int> counter: 0;
@@ -481,7 +481,7 @@ Meanwhile, you can make your design translatable with a global callback, some na
 
 Example using gettext:
 
-```slint
+```slint,no-preview
 import { HorizontalBox, Button } from "std-widgets.slint";
 
 export global Tr := {
