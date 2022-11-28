@@ -31,8 +31,107 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub type Error = Box<dyn std::error::Error>;
+
+pub struct ProgressReporter {
+    token: Option<lsp_types::ProgressToken>,
+    notifier: crate::ServerNotifier,
+}
+
+impl ProgressReporter {
+    // Use ServerNotifier::progress_reporter!
+    pub fn new(
+        notifier: crate::ServerNotifier,
+        token: lsp_types::ProgressToken,
+        title: String,
+        message: Option<String>,
+        percentage: Option<u32>,
+        cancellable: Option<bool>,
+    ) -> Result<Self, Error> {
+        notifier.send_notification(
+            "$/progress".to_string(),
+            lsp_types::ProgressParams {
+                token: token.clone(),
+                value: lsp_types::ProgressParamsValue::WorkDone(
+                    lsp_types::WorkDoneProgress::Begin(lsp_types::WorkDoneProgressBegin {
+                        title,
+                        cancellable,
+                        message,
+                        percentage,
+                    }),
+                ),
+            },
+        )?;
+
+        Ok(Self { notifier, token: Some(token) })
+    }
+
+    pub async fn create_server_side_token(
+        notifier: &crate::ServerNotifier,
+    ) -> Result<lsp_types::ProgressToken, Error> {
+        static SERVER_SIDE_WORK_DONE_TOKEN: AtomicUsize = AtomicUsize::new(0);
+
+        let token_number = SERVER_SIDE_WORK_DONE_TOKEN.fetch_add(1, Ordering::SeqCst);
+        let token = lsp_types::NumberOrString::String(format!("slint/progress/{token_number}"));
+        notifier
+            .send_request::<lsp_types::request::WorkDoneProgressCreate>(
+                lsp_types::WorkDoneProgressCreateParams { token: token.clone() },
+            )?
+            .await?;
+        Ok(token)
+    }
+
+    pub fn update(
+        &self,
+        message: Option<String>,
+        percentage: Option<u32>,
+        cancellable: Option<bool>,
+    ) -> Result<(), Error> {
+        if let Some(token) = &self.token {
+            self.notifier.send_notification(
+                "$/progress".to_string(),
+                lsp_types::ProgressParams {
+                    token: token.clone(),
+                    value: lsp_types::ProgressParamsValue::WorkDone(
+                        lsp_types::WorkDoneProgress::Report(lsp_types::WorkDoneProgressReport {
+                            cancellable,
+                            message,
+                            percentage,
+                        }),
+                    ),
+                },
+            )
+        } else {
+            Err("Progress reporting was finished already".into())
+        }
+    }
+
+    pub fn finish(&self, message: Option<String>) -> Result<(), Error> {
+        if let Some(token) = &self.token {
+            self.notifier.send_notification(
+                "$/progress".to_string(),
+                lsp_types::ProgressParams {
+                    token: token.clone(),
+                    value: lsp_types::ProgressParamsValue::WorkDone(
+                        lsp_types::WorkDoneProgress::End(lsp_types::WorkDoneProgressEnd {
+                            message,
+                        }),
+                    ),
+                },
+            )
+        } else {
+            Err("Progress reporting was finished already".into())
+        }
+    }
+}
+
+impl Drop for ProgressReporter {
+    fn drop(&mut self) {
+        let _ = self.finish(None);
+    }
+}
 
 const SHOW_PREVIEW_COMMAND: &str = "showPreview";
 const QUERY_PROPERTIES_COMMAND: &str = "queryProperties";
