@@ -78,7 +78,7 @@ esbuild
         entryPoints: ["src/propertiesView.ts"],
         bundle: true,
         outfile: "out/propertiesView.js",
-        platform: "node",
+        platform: "browser",
         format: "iife",
     })
     .catch(() => process.exit(1));
