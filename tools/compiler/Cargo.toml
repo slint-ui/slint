@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-compiler"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -17,7 +17,7 @@ name = "slint-compiler"
 path = "main.rs"
 
 [dependencies]
-i-slint-compiler = { version = "=0.3.2", path = "../../internal/compiler", features = ["display-diagnostics", "cpp", "rust"]}
+i-slint-compiler = { version = "=0.3.3", path = "../../internal/compiler", features = ["display-diagnostics", "cpp", "rust"]}
 
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 proc-macro2 = "1.0.11"

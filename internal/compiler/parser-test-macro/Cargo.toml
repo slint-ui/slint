@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-parser-test-macro"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 publish = false

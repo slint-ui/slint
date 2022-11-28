@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-macros"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -17,7 +17,7 @@ proc-macro = true
 path = "lib.rs"
 
 [dependencies]
-i-slint-compiler = { version = "=0.3.2", path = "../../../internal/compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
+i-slint-compiler = { version = "=0.3.3", path = "../../../internal/compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
 
 proc-macro2 = "1.0.17"
 quote = "1.0"

@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-backend-winit"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -28,9 +28,9 @@ rtti = ["i-slint-core/rtti"]
 default = []
 
 [dependencies]
-i-slint-core = { version = "=0.3.2", path = "../../../internal/core" }
-i-slint-core-macros = { version = "=0.3.2", path = "../../../internal/core-macros" }
-i-slint-common = { version = "=0.3.2", path = "../../../internal/common" }
+i-slint-core = { version = "=0.3.3", path = "../../../internal/core" }
+i-slint-core-macros = { version = "=0.3.3", path = "../../../internal/core-macros" }
+i-slint-common = { version = "=0.3.3", path = "../../../internal/common" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
