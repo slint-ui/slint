@@ -3,44 +3,45 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [0.3.2] - 2022-11-28
+
 ### Changed
 
  - When using a two way binding `foo <=> bar`, the default value will always be the one of `bar`.
-   There was a warning about this change in previous versions (#1394)
- - `Window`'s `default-font-size` property is now always set to a non-zero value, provided by
-   either the style or the backend.
- - In the interpreter, calling `set_property` or `get_property` on properties of the base no longer works.
- - Renamed the `Keys` namespace for use in `key-pressed`/`key-released` callbacks to `Key`. The
-   old name continues to work.
+   There was a warning about this change in previous versions (#1394).
  - Disallow overrides or duplicated declarations of callbacks. Previously they were silently overwritten,
    now an error is produced.
- - The name "init" is now a reserved name in callbacks and properties.
+ - The name `init` is now a reserved name in callbacks and properties.
+ - In the interpreter, calling `set_property` or `get_property` on properties of the base returns an error.
  - Deprecated `slint::WindowEvent` and `slint::PointerEventButton` and moved them to the `slint::platform` module.
+ - Renamed the `Keys` namespace for use in `key-pressed`/`key-released` callbacks to `Key`. The
+   old name continues to work.
+ - The style or the backend now always set a value for the `Window`'s `default-font-size` property.
 
 ### Added
 
- - Added `material` style with `material-light` and `fluent-dark` as explicit styles
- - Added `Window::is_visible`
+ - Added new `material` style based on Material Design, with `material-light` and `material-dark` as variants.
+ - Added `Window::is_visible` in Rust and C++.
  - Added `From<char>` for `SharedString` in Rust.
  - Added `KeyPressed` and `KeyReleased` variants to `slint::WindowEvent` in Rust, along
    with `slint::platform::Key`, for use by custom platform backends.
  - Added support for the implicitly declared `init` callback that can be used to run code when
    an element or component is instantiated.
  - Properties can be annotated with `in`, `out`, `in-out`, or `private`.
- - Transitions can now be declared directly within the state
- - Online editor: The property view can now edit properties
- - LSP preview: highlight the selected element in the preview
- - LSP: Added a setting to change the style and the include paths
+ - Transitions can now be declared directly within the state.
+ - Online editor: The property view can now edit properties.
+ - LSP preview: When the cursor is on the name of an element, the element's location is highlighted in the preview.
+ - LSP: Added a setting to change the style and the include paths.
  - VSCode extension: added the property view.
  - Added `rem` as unit that represents a relative font size and is multiplied with the `Window.default-font-size` when used.
  - Added `relative-font-size` as type that holds values of `rem`.
 
 ### Fixed
 
- - Fluent style: SpinBox gets focus when buttons are clicked
- - Software renderer: Fix drawing the background color
- - Fix rust code generation when comparing percentages (#1837)
- - Fix `visible` property in `for` and `if` (#1846)
+ - Fluent style: SpinBox gets focus when buttons are clicked.
+ - Software renderer: Fix drawing the background color.
+ - Fix Rust code generation when comparing percentages (#1837).
+ - Fix `visible` property in `for` and `if` (#1846).
 
 ## [0.3.1] - 2022-10-28
 
@@ -585,3 +586,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [0.2.5]: https://github.com/slint-ui/slint/releases/tag/v0.2.5
 [0.3.0]: https://github.com/slint-ui/slint/releases/tag/v0.3.0
 [0.3.1]: https://github.com/slint-ui/slint/releases/tag/v0.3.1
+[0.3.2]: https://github.com/slint-ui/slint/releases/tag/v0.3.2
