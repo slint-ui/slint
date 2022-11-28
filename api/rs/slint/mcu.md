@@ -32,12 +32,12 @@ Start by adding a dependency to the `slint` and the `slint-build` crates to your
 ## ... your other dependencies
 
 [dependencies.slint]
-version = "0.3.0"
+version = "0.3.2"
 default-features = false
 features = ["compat-0-3-0", "unsafe-single-threaded", "libm"]
 
 [build-dependencies]
-slint-build = "0.3.1"
+slint-build = "0.3.2"
 ```
 
 The default features of the `slint` crate are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
@@ -233,7 +233,7 @@ through the callback parameter of the [`draw_if_needed()`](MinimalSoftwareWindow
 Depending on the amount of RAM your MCU is equipped with, and the kind of screen that is attached, you can choose between two different ways of using the renderer:
 
  * Use the [`SoftwareRenderer::render()`] function if you have enough RAM to allocate one, or even two, copies of the entire screen (also known as
-   frame buffer). 
+   frame buffer).
  * Use the [`SoftwareRenderer::render_by_line()`] function to render the entire user interface line by line and send each line of pixels to the screen,
    typically via the SPI. This requires allocating at least enough RAM to store one single line of pixels.
 

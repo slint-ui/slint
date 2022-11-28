@@ -20,7 +20,7 @@ Then we edit `Cargo.toml` to add the slint dependency:
 edition = "2021"
 
 [dependencies]
-slint = "0.3.1"
+slint = "0.3.2"
 ```
 
 Finally we copy the hello world program from the [Slint documentation](https://slint-ui.com/docs/rust/slint/) into our `src/main.rs`:
