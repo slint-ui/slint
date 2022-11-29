@@ -1,620 +1,785 @@
-import { HorizontalBox , ListView} from "std-widgets.slint";
-// // Copyright © SixtyFPS GmbH <info@slint-ui.com>
-// // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+// import { HorizontalBox , ListView, StyleMetrics } from "std-widgets.slint";
+// // // Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// // // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// global Palette := {
-//     property <color> window-background: #eee;
-//     property <color> widget-background: #ddd;
-//     property <color> widget-stroke: #888;
-//     property <color> window-border: #ccc;
-//     property <color> text-color: #666;
-//     property <color> hyper-blue: #90d1ff;
+// // global Palette := {
+// //     property <color> window-background: #eee;
+// //     property <color> widget-background: #ddd;
+// //     property <color> widget-stroke: #888;
+// //     property <color> window-border: #ccc;
+// //     property <color> text-color: #666;
+// //     property <color> hyper-blue: #90d1ff;
 
+// // }
+
+
+// export struct NodeModel := {
+//     x: length,
+//     y: length,
+//     title: string,
 // }
 
-export struct NodeModel := {
+// export global NodeController := {
+//     callback push(length, length, string);
+
+//     property <[NodeModel]> model;
+// }
+
+import { StyleMetrics , HorizontalBox} from "std-widgets.slint";
+
+global Palette := {
+    property <color> background: StyleMetrics.dark-color-scheme ? #1C1B1F : #FFFBFE;
+    property <color> surface: background;
+    property <color> on-surface: StyleMetrics.dark-color-scheme ? #E6E1E5 : #1C1B1F;
+    property <color> outline:  StyleMetrics.dark-color-scheme ? #938F99 : #79747E;
+}
+
+
+export global Sizes := {
+    property <length> drag-item-width: 160px;
+    property <length> drag-item-height: 32px;
+}
+
+export struct DragItem := {
     x: length,
     y: length,
-    title: string,
+    width: length,
+    height: length,
+    text: string
 }
 
-export global NodeController := {
-    callback push(length, length, string);
+DragItemVisual := Rectangle {
+    property <DragItem> model;
 
-    property <[NodeModel]> model;
-}
-
-Node := Rectangle {
-    property <string> text;
-    background: black;
-    width: 64px;
-    height: 64px;
-    border-radius: 8px;
+    x: model.x;
+    y: model.y;
+    width: model.width;
+    height: model.height;
 
     Text {  
-        vertical-alignment: center;
-        horizontal-alignment: center;
-        text: root.text;
-    }
-
-    TouchArea  {
-        moved => {
-            parent.x += mouse-x;
-            parent.y += mouse-y;
-        }
+        text: model.text;
+        x: (parent.width - width) / 2;
+        y: (parent.height - height) / 2;
     }
 }
 
-Demo := Window {
-    title: "Demo";
+DragGhost := Rectangle {
+    property <string> text: "ghost";
+
+    background: Palette.on-surface;
+    width: Sizes.drag-item-width;
+    height: Sizes.drag-item-height;
+    opacity: 0.32;
+
+    Text {  
+        color: black;
+        text: root.text;
+        x: (parent.width - width) / 2;
+        y: (parent.height - height) / 2;
+    }
+}
+
+
+export Demo := Window {
+    callback check-drag(length, length);
+    callback start-drag(length, length, string);
+
+    property <[DragItem]> drag_items;
+
+
+    start-drag(x, y, title) => {  
+        ghost.x = x;
+        ghost.y = y;
+        ghost.text = title;
+        ghost.visible = true;
+    }
+
+    title: "Drag 'n' Drop test";
     preferred-width: 1024px;
     preferred-height: 800px;
-    background: white;
 
-   
-
-    HorizontalBox { 
-        list := ListView {  
-            width: 120px;
-            horizontal-stretch: 0;
-
-            for data[index] in [
-                { text: "Node 1"},
-                { text: "Node 2"},
-                { text: "Node 3"},
-            ] : Rectangle {
-                property <string> text: data.text;
-                background: black;
-                height: 32px;
-
-                TouchArea {  
-                    moved => {  
-                      
-                        ghost.x = mouse-x;
-                        ghost.y = mouse-y + (index * parent.height);
-                       
-                    }
-
-                    pointer-event(e) => {  
-                        if(e.kind == PointerEventKind.down) {
-                            ghost.x = mouse-x;
-                            ghost.y = mouse-y + (index * parent.height);
-                            ghost.visible = true;
-                            ghost.text = parent.text;
-
-                          
-                        }
-                        if(e.kind == PointerEventKind.up) {
-                            ghost.visible = false;
-
-                            if(ghost.x > list.x) {
-                                NodeController.push(ghost.x - list.width, ghost.y, ghost.text);
-                            }
-                           
-                        }
-                    }
-
-                }
-                Text { 
-                    text: data.text;
-                }
+    TouchArea {  
+        pointer-event(e) => {  
+            if(e.kind == PointerEventKind.down) {
+                root.check-drag(mouse-x, mouse-y);
+            } else {
+                ghost.visible = false;
             }
         }
 
-        canvas := Rectangle {  
-          
-            horizontal-stretch: 1;
-
-            for node in NodeController.model : Node {
-                x: node.x;
-                y: node.y;
-                text: node.title;
+        moved => {  
+            if(ghost.visible) {
+                ghost.x = mouse-x;
+                ghost.y = mouse-y;
             }
         }
     }
-    
 
-    ghost := Rectangle {  
-        property <string> text;
+    HorizontalLayout {  
+        // drag area
+        Rectangle {  
+            width: Sizes.drag-item-width;
+            horizontal-stretch: 0;
 
-        width: 120px;
-        height: 32px;
-        background: black;
-        opacity: 0.8;
-        visible: false;
-
-        Text {   
-            text: parent.text;
+            for item in root.drag-items : DragItemVisual {
+                model: item;
+            }
         }
+
+        // drop area
+        HorizontalBox {  
+            horizontal-stretch: 1;
+            Rectangle {  
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: Palette.outline;
+               
+            }
+        } 
+    }
+
+    ghost := DragGhost {  
+        visible: false;
     }
 }
 
-// //------ MdiWindow ----
+// Node := Rectangle {
+//     property <string> text;
 
-// MdiWindow := Rectangle {
-//     property <string> title;
-//     property <length> window-x <=> window.x;
-//     property <length> window-y <=> window.y;
-//     property <bool> is-open: true;
-//     width: 100%;
-//     height: 100%;
+//     background: Palette.surface;
+//     width: 64px;
+//     height: 64px;
+//     border-radius: 8px;
+//     border-width: 1px;
+//     border-color: Palette.outline;
 
-
-//     window := Rectangle {
-//         background: Palette.window-background;
-//         border-width: 2px;
-//         border-color: Palette.window-border;
-//         border-radius: 6px;
-//         drop-shadow-blur: 25px;
-//         drop-shadow-color: Palette.window-border;
-//         property <length> open-width: l.preferred-width;
-//         property <length> open-height: l.preferred-height;
-//         width: l.preferred-width;
-//         height: l.preferred-height;
-
-//         states [
-//             open when is-open : {
-//                 width: open-width;
-//                 height: open-height;
-//                 expand.angle: 0deg;
-//             }
-//         ]
-//         transitions [
-//             in open : { animate width, height, expand.angle { duration: 150ms; easing: ease; } }
-//             out open : { animate width, height, expand.angle { duration: 150ms; easing: ease; } }
-//         ]
-
-//         clip: true;
-
-//         TouchArea {}
-
-//         l := VerticalLayout {
-//             padding: window.border-width;
-//             alignment: is-open ? stretch : start;
-//             title_bar := TouchArea {
-//                 moved => {
-//                     if (pressed) {
-//                         window-x += mouse-x - pressed-x;
-//                         window-y += mouse-y - pressed-y;
-//                     }
-//                 }
-
-//                 HorizontalLayout {
-//                     padding: window.border-width;
-//                     spacing: window.border-width * 2;
-//                     expand := TouchArea {
-//                         width: 30px;
-//                         property <angle> angle: -90deg;
-//                         clicked => { is-open = !is-open; }
-//                         Path {
-//                             MoveTo { x: cos(expand.angle) * -1 - sin(expand.angle) * -1; y: sin(expand.angle) * -1 + cos(expand.angle) * -1; }
-//                             LineTo { x: cos(expand.angle) * 1 - sin(expand.angle) * -1; y: sin(expand.angle) * 1 + cos(expand.angle) * -1; }
-//                             LineTo { x: cos(expand.angle) * 0 - sin(expand.angle) * 1; y: sin(expand.angle) * 0 + cos(expand.angle) * 1; }
-//                             LineTo { x: cos(expand.angle) * -1 - sin(expand.angle) * -1; y: sin(expand.angle) * -1 + cos(expand.angle) * -1; }
-//                             stroke-width: window.border-width * (expand.has-hover ? 1.5 : 1);
-//                             stroke: parent.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
-//                             viewbox-x: -1.5;
-//                             viewbox-y: -1.5;
-//                             viewbox-height: 3;
-//                             viewbox-width: 3;
-//                         }
-//                     }
-//                     Text {
-//                         text: title;
-//                         horizontal-alignment: center;
-//                         color: Palette.text-color;
-//                     }
-//                     close_button := TouchArea {
-//                         width: 30px;
-//                         clicked => { root.visible = false; }
-//                         Path {
-//                             MoveTo { x: -1; y: -1; }
-//                             LineTo { x: 1; y: 1; }
-//                             MoveTo { x: -1; y: 1; }
-//                             LineTo { x: 1; y: -1; }
-//                             stroke-width: window.border-width * (close-button.has-hover ? 1.5 : 1);
-//                             stroke: parent.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
-//                             viewbox-x: -1.5;
-//                             viewbox-y: -1.5;
-//                             viewbox-height: 3;
-//                             viewbox-width: 3;
-//                         }
-//                     }
-//                 }
-//             }
-//             if is-open : VerticalLayout {
-//                 Rectangle {
-//                     height: window.border-width;
-//                     background: window.border-color;
-//                 }
-//                 @children
-//             }
-//         }
-
-//         if is-open : resize-handle := TouchArea {
-//             width: 20px;
-//             height: width;
-//             x: parent.width - width;
-//             y: parent.height - height;
-//             mouse-cursor: MouseCursor.nwse-resize;
-//             Path {
-//                 MoveTo { x: 0; y: 1; }
-//                 LineTo { x: 1; y: 0; }
-//                 MoveTo { x: 0.4; y: 1; }
-//                 LineTo { x: 1; y: 0.4; }
-//                 MoveTo { x: 0.8; y: 1; }
-//                 LineTo { x: 1; y: 0.8; }
-//                 stroke-width: window.border-width;
-//                 stroke: Palette.window-border;
-//                 viewbox-height: 1.2; viewbox-width: 1.2;
-//             }
-//             moved => {
-//                 if (pressed) {
-//                     window.open-width = max(l.min-width, min(l.max-width, window.open-width + mouse-x - pressed-x));
-//                     window.open-height = max(l.min-height, min(l.max-height, window.open-height + mouse-y - pressed-y));
-//                 }
-//             }
-//         }
-//     }
-// }
-
-// //------ Widgets ------
-
-// import {LineEdit, TextEdit, ComboBox, GridBox, VerticalBox, HorizontalBox, StyleMetrics} from "std-widgets.slint";
-
-// Label := Text {
-//     color: Palette.text-color;
-// }
-
-// Button := TouchArea {
-//     min-height: t.min-height;
-//     min-width: t.min-width + 10px;
-//     property text <=> t.text;
-//     Rectangle {
-//         border-width: 1.5px;
-//         border-color: root.has-hover ? Palette.widget-stroke : transparent;
-//         border-radius: 3px;
-//         background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
-//         t := Label {
-//             width: 100%;
-//             horizontal-alignment: center;
-//         }
-//     }
-// }
-
-// CheckBox := TouchArea {
-//     property <bool> checked;
-//     property text <=> t.text;
-//     clicked => { checked = !checked; }
-//     HorizontalLayout {
-//         spacing: 5px;
-//         VerticalLayout {
-//             alignment: center;
-//             Rectangle {
-//                 width: 20px;
-//                 height: 20px;
-//                 border-width: 1.5px;
-//                 border-color: root.has-hover ? Palette.widget-stroke : transparent;
-//                 border-radius: 3px;
-//                 background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
-//                 if checked : Path {
-//                     stroke: root.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
-//                     stroke-width: root.pressed ? 2.5px : 2px;
-//                     viewbox-height: 1; viewbox-width: 1;
-//                     MoveTo { x: 0.2; y: 0.5; }
-//                     LineTo { x: 0.5; y: 0.8; }
-//                     LineTo { x: 0.8; y: 0.2; }
-//                 }
-//             }
-//         }
-//         t := Label {
-
-//         }
-//     }
-// }
-
-// RadioButton := TouchArea {
-//     property <bool> checked;
-//     property text <=> t.text;
-//     HorizontalLayout {
-//         spacing: 5px;
-//         VerticalLayout {
-//             alignment: center;
-//             Rectangle {
-//                 width: 20px;
-//                 height: 20px;
-//                 border-width: 1.5px;
-//                 border-color: root.has-hover ? Palette.widget-stroke : transparent;
-//                 border-radius: width / 2;
-//                 background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
-//                 if checked : Rectangle {
-//                     background: root.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
-//                     border-radius: width / 2;
-//                     width: parent.width / 2;
-//                     height: parent.width / 2;
-//                     x: parent.width / 4;
-//                     y: parent.width / 4;
-//                 }
-//             }
-//         }
-//         t := Label {
-
-//         }
-//     }
-// }
-
-// SelectableLabel := TouchArea {
-//     min-height: t.min-height;
-//     min-width: t.min-width + 10px;
-//     property <bool> checked;
-//     property text <=> t.text;
-//     Rectangle {
-//         border-width: 1.5px;
-//         border-color: root.has-hover ? Palette.widget-stroke : transparent;
-//         border-radius: 3px;
-//         background:
-//             root.checked ? Palette.hyper-blue :
-//             root.pressed ? Palette.widget-background.darker(30%) :
-//             root.has-hover ? Palette.widget-background : transparent;
-//         t := Label {
-//             width: 100%;
-//             horizontal-alignment: center;
-//         }
-//     }
-// }
-
-// Slider := Rectangle {
-//     property<float> maximum: 100;
-//     property<float> minimum: 0;
-//     property<float> value;
-//     property<bool> enabled <=> touch.enabled;
-//     callback changed(float);
-
-//     min-height: 24px;
-//     min-width: 100px;
-//     horizontal-stretch: 1;
-//     vertical-stretch: 0;
-
-//     Rectangle {
-//         width: parent.width;
-//         height: parent.height / 2;
-//         y: (parent.height - height) / 2;
-//         border-radius: 2px;
-//         background: Palette.widget-background;
-//     }
-
-
-//     handle := Rectangle {
-//         width: height;
-//         height: parent.height;
-//         border-radius: height / 2;
-//         border-color: touch.has-hover ? Palette.widget-stroke.darker(100%) :  Palette.widget-stroke;
-//         border-width: touch.pressed ? 4px : touch.has-hover ? 3px : 2px;
-//         background: touch.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
-//         x: (root.width - handle.width) * max(0, min(1, (value - minimum)/(maximum - minimum)));
-//     }
-//     touch := TouchArea {
-//         width: parent.width;
-//         height: parent.height;
-//         property <float> pressed-value;
-//         pointer-event(event) => {
-//             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-//                 pressed-value = root.value;
-//             }
-//         }
-//         moved => {
-//             if (enabled && pressed) {
-//                 value = max(root.minimum, min(root.maximum,
-//                     pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
-//                 root.changed(value);
-//             }
-//         }
-//     }
-// }
-
-// Hyperlink := Text {
-//     color: Palette.hyper-blue;
-//     TouchArea { mouse-cursor: pointer; }
-//     property<string> link;
-// }
-
-// DragValue := TouchArea {
-//     property <float> value;
-//     min-height: t.min-height;
-//     min-width: Math.max(t.min-width + 10px, 50px);
-//     Rectangle {
-//         border-width: 1.5px;
-//         border-color: root.has-hover ? Palette.widget-stroke : transparent;
-//         border-radius: 3px;
-//         background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
-//         t := Label {
-//             width: 100%;
-//             horizontal-alignment: center;
-//             text: round(value);
-//         }
-//     }
-//     moved => {
-//         if (pressed) {
-//             value = _pressed-value +(mouse-x - pressed-x) / 2px;
-//         }
-//     }
-//     pointer-event(e) => {
-//         if (e.kind == PointerEventKind.down) {
-//             _pressed-value = value;
-//         }
-//     }
-
-//     property <float> _pressed-value;
-//     mouse-cursor: MouseCursor.ew-resize;
-// }
-
-// ProgressBar := Rectangle {
-//     property <float> value;
-//     min-height: 24px;
-//     min-width: 100px;
-//     background: StyleMetrics.textedit-background;
-//     border-radius: height / 2;
-
-//     Rectangle {
-//         height: 100%;
-//         width: height + (parent.width - height) * max(0, min(1, value / 100));
-//         border-radius: height / 2;
-//         background: Palette.hyper-blue;
-//     }
-//     Label {
-//         height: 100%;
+//     Text {  
 //         vertical-alignment: center;
-//         x: height/2;
-//         text: round(value) + "%";
+//         horizontal-alignment: center;
+//         text: root.text;
 //     }
-// }
 
-
-// //------ Demo apps -------
-
-// Gallery := GridBox {
-
-//     callback unsel();
-//     unsel => { r1.checked = false; r2.checked = false; r3.checked = false; }
-
-//     Row {
-//         Text { text: "Label:"; }
-//         Label { text: "Welcome to the widget gallery!"; }
-//     }
-//     Row {
-//         Text { text: "Hyperlink:"; }
-//         Hyperlink { text: "Slint homepage"; link: "https://slint-ui.com"; }
-//     }
-//     Row {
-//         Text { text: "TextEdit:"; }
-//         LineEdit { placeholder-text: "WriteSomething here";}
-//     }
-//     Row {
-//         Text { text: "Button:"; }
-//         HorizontalLayout {
-//             alignment: start;
-//             Button { text: "Click me!"; clicked => { cb.checked = !cb.checked; } }
-//         }
-//     }
-//     Row {
-//         Text { text: "Checkbox:"; }
-//         cb := CheckBox { text: "Checkbox"; }
-//     }
-//     Row {
-//         Text { text: "RadioButton:"; }
-//         HorizontalBox {
-//             alignment: start;
-//             r1 := RadioButton { text: "First"; clicked => { unsel(); r1.checked = true; } }
-//             r2 := RadioButton { text: "Second"; clicked => { unsel(); r2.checked = true; } }
-//             r3 := RadioButton { text: "Third"; clicked => { unsel(); r3.checked = true; } }
-//         }
-//     }
-//     Row {
-//         Text { text: "SelectableLabel:"; }
-//         HorizontalBox {
-//             alignment: start;
-//             SelectableLabel { text: "First"; checked <=> r1.checked; clicked => { unsel(); r1.checked = true; } }
-//             SelectableLabel { text: "Second"; checked <=> r2.checked; clicked => { unsel(); r2.checked = true; } }
-//             SelectableLabel { text: "Third"; checked <=> r3.checked; clicked => { unsel(); r3.checked = true; } }
-//         }
-//     }
-//     Row {
-//         Text { text: "ComboBox:"; }
-//         HorizontalBox {
-//             alignment: start;
-//             ComboBox {
-//                 model: ["First", "Second", "Third"];
-//                 selected => {
-//                     r1.checked = current-index == 0;
-//                     r2.checked = current-index == 1;
-//                     r3.checked = current-index == 2;
-//                 }
-//             }
-//             Label { text: "Take your pick"; }
-//         }
-//     }
-//     Row {
-//         Text { text: "Slider:"; }
-//         sl := Slider { }
-//     }
-//     Row {
-//         Text { text: "DragValue:"; }
-//         HorizontalLayout {
-//             alignment: start;
-//             DragValue { value <=> sl.value; }
-//         }
-//     }
-//     Row {
-//         Text { text: "ProgressBar:"; }
-//         ProgressBar { value <=> sl.value; }
-//     }
-//     Rectangle {}
-// }
-
-// TextEditDemo := VerticalLayout {
-//     preferred-height: 150px;
-//     preferred-width: 300px;
-//     TextEdit {
-//         text: "Lorem ipsum dolor sit amet, consectetur adipisici elit, sed eiusmod tempor incidunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquid ex ea commodi consequat. Quis aute iure reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint obcaecat cupiditat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum";
+//     TouchArea  {
+//         moved => {
+//             parent.x += mouse-x;
+//             parent.y += mouse-y;
+//        } 
 //     }
 // }
 
 // Demo := Window {
+//     title: "Demo";
 //     preferred-width: 1024px;
 //     preferred-height: 800px;
-//     background: white;
 
-//     w1 := MdiWindow {
-//         title: "🗄 Widget Gallery";
-//         window-x: 30px;
-//         window-y: 20px;
-//         Gallery {  }
-//     }
-//     w2 := MdiWindow {
-//         visible: false;
-//         title: "🗉 TextEdit";
-//         window-x: 230px;
-//         window-y: 520px;
-//         TextEditDemo {  }
-//     }
 
-//     side-panel := Rectangle {
-//         border-color: resize-side-panel.has-hover ? Palette.window-border.darker(100%) :  Palette.window-border;
-//         border-width: 2px;
-//         background: Palette.window-background;
-//         x: parent.width - width;
-//         width: side-panel-l.preferred-width;
+
+//     drag-drop := TouchArea {  
+//         width: 100%;
 //         height: 100%;
-
-//         side-panel-l := VerticalBox {
-//             alignment: start;
-//             Label {
-//                 font-weight: 500;
-//                 text: "Slint Demos";
-//                 horizontal-alignment: center;
-//             }
-//             Rectangle { height: 2px; background: Palette.window-border; }
-//             Label {
-//                 preferred-width: 0px;
-//                 text: "This is a demo which is based on the demo from the egui framework";
-//                 wrap: word-wrap;
-//                 horizontal-alignment: center;
-//             }
-//             Rectangle { height: 2px; background: Palette.window-border; }
-//             CheckBox { text: w1.title; checked <=> w1.visible; }
-//             CheckBox { text: w2.title; checked <=> w2.visible; }
-
+//         // moved => {  
+                      
+//         //     ghost.x = drag-drop.mouse-x;
+//         //     ghost.y = drag-drop.mouse-y;
+           
+//         // }
+//         pointer-event(e) => {  
+//             debug("pinter");
 //         }
-//         resize-side-panel := TouchArea {
-//             height: 100%;
-//             width: 4px;
-//             mouse-cursor: ew-resize;
-//             moved => {
-//                 if (pressed) {
-//                     side-panel.width = max(side-panel-l.min-width, min(root.width, side-panel.width - (mouse-x - pressed-x)));
+//         // pointer-event(e) => {  
+//             // if(e.kind == PointerEventKind.down) {
+//             //     ghost.x = mouse-x;
+//             //     ghost.y = mouse-y + (index * parent.height);
+//             //     ghost.visible = true;
+//             //     ghost.text = parent.text;
+
+              
+//             // }
+//             // if(e.kind == PointerEventKind.up) {
+//             //     ghost.visible = false;
+
+//             //     if(ghost.x > list.x) {
+//             //         NodeController.push(ghost.x - list.width, ghost.y, ghost.text);
+//             //     }
+               
+//             // }
+//         // }
+//     }
+   
+
+//     HorizontalBox { 
+//         list := ListView {  
+//             width: 120px;
+//             horizontal-stretch: 0;
+
+//             property <int> selected;
+
+//             for data[index] in [
+//                 { text: "Node 1", hover: false },
+//                 { text: "Node 2", hover: false },
+//                 { text: "Node 3", hover: false },
+//             ] : Rectangle {
+//                 property <string> text: data.text;
+//                 background: black;
+//                 // height: 32px;
+
+//                 i_touch := TouchArea {  
+//                     pointer-event(e) => {  
+//                         // e.e
+//                         // list.selected = index;
+//                     }
+//                     // moved => {  
+                      
+//                     //     ghost.x = drag-drop.mouse-x;
+//                     //     ghost.y = drag-drop.mouse-y;
+                       
+//                     // }
+
+//                     // pointer-event(e) => {  
+//                     //     if(e.kind == PointerEventKind.down) {
+//                     //         ghost.x = drag-drop.mouse-x;
+//                     //         ghost.y = drag-drop.mouse-y;
+//                     //         ghost.visible = true;
+//                     //         ghost.text = parent.text;
+
+                          
+//                     //     }
+//                     //     // if(e.kind == PointerEventKind.up) {
+//                     //     //     ghost.visible = false;
+
+//                     //     //     if(ghost.x > list.x) {
+//                     //     //         NodeController.push(ghost.x - list.width, ghost.y, ghost.text);
+//                     //     //     }
+                           
+//                     //     // }
+//                     // }
+
+//                 }
+//                 Text { 
+//                     text: data.text;
 //                 }
 //             }
 //         }
 
+//         canvas := Rectangle {  
+          
+//             horizontal-stretch: 1;
+
+//             for node in NodeController.model : Node {
+//                 x: node.x;
+//                 y: node.y;
+//                 text: node.title;
+//             }
+
+//             // TouchArea {  
+//             //     // pointer-event(e) => { debug(e); }
+//             //     moved => {  debug("moved"); }
+//             // }
+//         }
+//     }
+    
+
+//     ghost := Rectangle {  
+//         property <string> text;
+
+//         width: 120px;
+//         height: 32px;
+//         background: black;
+//         opacity: 0.8;
+//         visible: false;
+
+//         Text {   
+//             text: parent.text;
+//         }
 //     }
 // }
+
+// // //------ MdiWindow ----
+
+// // MdiWindow := Rectangle {
+// //     property <string> title;
+// //     property <length> window-x <=> window.x;
+// //     property <length> window-y <=> window.y;
+// //     property <bool> is-open: true;
+// //     width: 100%;
+// //     height: 100%;
+
+
+// //     window := Rectangle {
+// //         background: Palette.window-background;
+// //         border-width: 2px;
+// //         border-color: Palette.window-border;
+// //         border-radius: 6px;
+// //         drop-shadow-blur: 25px;
+// //         drop-shadow-color: Palette.window-border;
+// //         property <length> open-width: l.preferred-width;
+// //         property <length> open-height: l.preferred-height;
+// //         width: l.preferred-width;
+// //         height: l.preferred-height;
+
+// //         states [
+// //             open when is-open : {
+// //                 width: open-width;
+// //                 height: open-height;
+// //                 expand.angle: 0deg;
+// //             }
+// //         ]
+// //         transitions [
+// //             in open : { animate width, height, expand.angle { duration: 150ms; easing: ease; } }
+// //             out open : { animate width, height, expand.angle { duration: 150ms; easing: ease; } }
+// //         ]
+
+// //         clip: true;
+
+// //         TouchArea {}
+
+// //         l := VerticalLayout {
+// //             padding: window.border-width;
+// //             alignment: is-open ? stretch : start;
+// //             title_bar := TouchArea {
+// //                 moved => {
+// //                     if (pressed) {
+// //                         window-x += mouse-x - pressed-x;
+// //                         window-y += mouse-y - pressed-y;
+// //                     }
+// //                 }
+
+// //                 HorizontalLayout {
+// //                     padding: window.border-width;
+// //                     spacing: window.border-width * 2;
+// //                     expand := TouchArea {
+// //                         width: 30px;
+// //                         property <angle> angle: -90deg;
+// //                         clicked => { is-open = !is-open; }
+// //                         Path {
+// //                             MoveTo { x: cos(expand.angle) * -1 - sin(expand.angle) * -1; y: sin(expand.angle) * -1 + cos(expand.angle) * -1; }
+// //                             LineTo { x: cos(expand.angle) * 1 - sin(expand.angle) * -1; y: sin(expand.angle) * 1 + cos(expand.angle) * -1; }
+// //                             LineTo { x: cos(expand.angle) * 0 - sin(expand.angle) * 1; y: sin(expand.angle) * 0 + cos(expand.angle) * 1; }
+// //                             LineTo { x: cos(expand.angle) * -1 - sin(expand.angle) * -1; y: sin(expand.angle) * -1 + cos(expand.angle) * -1; }
+// //                             stroke-width: window.border-width * (expand.has-hover ? 1.5 : 1);
+// //                             stroke: parent.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
+// //                             viewbox-x: -1.5;
+// //                             viewbox-y: -1.5;
+// //                             viewbox-height: 3;
+// //                             viewbox-width: 3;
+// //                         }
+// //                     }
+// //                     Text {
+// //                         text: title;
+// //                         horizontal-alignment: center;
+// //                         color: Palette.text-color;
+// //                     }
+// //                     close_button := TouchArea {
+// //                         width: 30px;
+// //                         clicked => { root.visible = false; }
+// //                         Path {
+// //                             MoveTo { x: -1; y: -1; }
+// //                             LineTo { x: 1; y: 1; }
+// //                             MoveTo { x: -1; y: 1; }
+// //                             LineTo { x: 1; y: -1; }
+// //                             stroke-width: window.border-width * (close-button.has-hover ? 1.5 : 1);
+// //                             stroke: parent.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
+// //                             viewbox-x: -1.5;
+// //                             viewbox-y: -1.5;
+// //                             viewbox-height: 3;
+// //                             viewbox-width: 3;
+// //                         }
+// //                     }
+// //                 }
+// //             }
+// //             if is-open : VerticalLayout {
+// //                 Rectangle {
+// //                     height: window.border-width;
+// //                     background: window.border-color;
+// //                 }
+// //                 @children
+// //             }
+// //         }
+
+// //         if is-open : resize-handle := TouchArea {
+// //             width: 20px;
+// //             height: width;
+// //             x: parent.width - width;
+// //             y: parent.height - height;
+// //             mouse-cursor: MouseCursor.nwse-resize;
+// //             Path {
+// //                 MoveTo { x: 0; y: 1; }
+// //                 LineTo { x: 1; y: 0; }
+// //                 MoveTo { x: 0.4; y: 1; }
+// //                 LineTo { x: 1; y: 0.4; }
+// //                 MoveTo { x: 0.8; y: 1; }
+// //                 LineTo { x: 1; y: 0.8; }
+// //                 stroke-width: window.border-width;
+// //                 stroke: Palette.window-border;
+// //                 viewbox-height: 1.2; viewbox-width: 1.2;
+// //             }
+// //             moved => {
+// //                 if (pressed) {
+// //                     window.open-width = max(l.min-width, min(l.max-width, window.open-width + mouse-x - pressed-x));
+// //                     window.open-height = max(l.min-height, min(l.max-height, window.open-height + mouse-y - pressed-y));
+// //                 }
+// //             }
+// //         }
+// //     }
+// // }
+
+// // //------ Widgets ------
+
+// // import {LineEdit, TextEdit, ComboBox, GridBox, VerticalBox, HorizontalBox, StyleMetrics} from "std-widgets.slint";
+
+// // Label := Text {
+// //     color: Palette.text-color;
+// // }
+
+// // Button := TouchArea {
+// //     min-height: t.min-height;
+// //     min-width: t.min-width + 10px;
+// //     property text <=> t.text;
+// //     Rectangle {
+// //         border-width: 1.5px;
+// //         border-color: root.has-hover ? Palette.widget-stroke : transparent;
+// //         border-radius: 3px;
+// //         background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
+// //         t := Label {
+// //             width: 100%;
+// //             horizontal-alignment: center;
+// //         }
+// //     }
+// // }
+
+// // CheckBox := TouchArea {
+// //     property <bool> checked;
+// //     property text <=> t.text;
+// //     clicked => { checked = !checked; }
+// //     HorizontalLayout {
+// //         spacing: 5px;
+// //         VerticalLayout {
+// //             alignment: center;
+// //             Rectangle {
+// //                 width: 20px;
+// //                 height: 20px;
+// //                 border-width: 1.5px;
+// //                 border-color: root.has-hover ? Palette.widget-stroke : transparent;
+// //                 border-radius: 3px;
+// //                 background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
+// //                 if checked : Path {
+// //                     stroke: root.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
+// //                     stroke-width: root.pressed ? 2.5px : 2px;
+// //                     viewbox-height: 1; viewbox-width: 1;
+// //                     MoveTo { x: 0.2; y: 0.5; }
+// //                     LineTo { x: 0.5; y: 0.8; }
+// //                     LineTo { x: 0.8; y: 0.2; }
+// //                 }
+// //             }
+// //         }
+// //         t := Label {
+
+// //         }
+// //     }
+// // }
+
+// // RadioButton := TouchArea {
+// //     property <bool> checked;
+// //     property text <=> t.text;
+// //     HorizontalLayout {
+// //         spacing: 5px;
+// //         VerticalLayout {
+// //             alignment: center;
+// //             Rectangle {
+// //                 width: 20px;
+// //                 height: 20px;
+// //                 border-width: 1.5px;
+// //                 border-color: root.has-hover ? Palette.widget-stroke : transparent;
+// //                 border-radius: width / 2;
+// //                 background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
+// //                 if checked : Rectangle {
+// //                     background: root.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
+// //                     border-radius: width / 2;
+// //                     width: parent.width / 2;
+// //                     height: parent.width / 2;
+// //                     x: parent.width / 4;
+// //                     y: parent.width / 4;
+// //                 }
+// //             }
+// //         }
+// //         t := Label {
+
+// //         }
+// //     }
+// // }
+
+// // SelectableLabel := TouchArea {
+// //     min-height: t.min-height;
+// //     min-width: t.min-width + 10px;
+// //     property <bool> checked;
+// //     property text <=> t.text;
+// //     Rectangle {
+// //         border-width: 1.5px;
+// //         border-color: root.has-hover ? Palette.widget-stroke : transparent;
+// //         border-radius: 3px;
+// //         background:
+// //             root.checked ? Palette.hyper-blue :
+// //             root.pressed ? Palette.widget-background.darker(30%) :
+// //             root.has-hover ? Palette.widget-background : transparent;
+// //         t := Label {
+// //             width: 100%;
+// //             horizontal-alignment: center;
+// //         }
+// //     }
+// // }
+
+// // Slider := Rectangle {
+// //     property<float> maximum: 100;
+// //     property<float> minimum: 0;
+// //     property<float> value;
+// //     property<bool> enabled <=> touch.enabled;
+// //     callback changed(float);
+
+// //     min-height: 24px;
+// //     min-width: 100px;
+// //     horizontal-stretch: 1;
+// //     vertical-stretch: 0;
+
+// //     Rectangle {
+// //         width: parent.width;
+// //         height: parent.height / 2;
+// //         y: (parent.height - height) / 2;
+// //         border-radius: 2px;
+// //         background: Palette.widget-background;
+// //     }
+
+
+// //     handle := Rectangle {
+// //         width: height;
+// //         height: parent.height;
+// //         border-radius: height / 2;
+// //         border-color: touch.has-hover ? Palette.widget-stroke.darker(100%) :  Palette.widget-stroke;
+// //         border-width: touch.pressed ? 4px : touch.has-hover ? 3px : 2px;
+// //         background: touch.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
+// //         x: (root.width - handle.width) * max(0, min(1, (value - minimum)/(maximum - minimum)));
+// //     }
+// //     touch := TouchArea {
+// //         width: parent.width;
+// //         height: parent.height;
+// //         property <float> pressed-value;
+// //         pointer-event(event) => {
+// //             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+// //                 pressed-value = root.value;
+// //             }
+// //         }
+// //         moved => {
+// //             if (enabled && pressed) {
+// //                 value = max(root.minimum, min(root.maximum,
+// //                     pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
+// //                 root.changed(value);
+// //             }
+// //         }
+// //     }
+// // }
+
+// // Hyperlink := Text {
+// //     color: Palette.hyper-blue;
+// //     TouchArea { mouse-cursor: pointer; }
+// //     property<string> link;
+// // }
+
+// // DragValue := TouchArea {
+// //     property <float> value;
+// //     min-height: t.min-height;
+// //     min-width: Math.max(t.min-width + 10px, 50px);
+// //     Rectangle {
+// //         border-width: 1.5px;
+// //         border-color: root.has-hover ? Palette.widget-stroke : transparent;
+// //         border-radius: 3px;
+// //         background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
+// //         t := Label {
+// //             width: 100%;
+// //             horizontal-alignment: center;
+// //             text: round(value);
+// //         }
+// //     }
+// //     moved => {
+// //         if (pressed) {
+// //             value = _pressed-value +(mouse-x - pressed-x) / 2px;
+// //         }
+// //     }
+// //     pointer-event(e) => {
+// //         if (e.kind == PointerEventKind.down) {
+// //             _pressed-value = value;
+// //         }
+// //     }
+
+// //     property <float> _pressed-value;
+// //     mouse-cursor: MouseCursor.ew-resize;
+// // }
+
+// // ProgressBar := Rectangle {
+// //     property <float> value;
+// //     min-height: 24px;
+// //     min-width: 100px;
+// //     background: StyleMetrics.textedit-background;
+// //     border-radius: height / 2;
+
+// //     Rectangle {
+// //         height: 100%;
+// //         width: height + (parent.width - height) * max(0, min(1, value / 100));
+// //         border-radius: height / 2;
+// //         background: Palette.hyper-blue;
+// //     }
+// //     Label {
+// //         height: 100%;
+// //         vertical-alignment: center;
+// //         x: height/2;
+// //         text: round(value) + "%";
+// //     }
+// // }
+
+
+// // //------ Demo apps -------
+
+// // Gallery := GridBox {
+
+// //     callback unsel();
+// //     unsel => { r1.checked = false; r2.checked = false; r3.checked = false; }
+
+// //     Row {
+// //         Text { text: "Label:"; }
+// //         Label { text: "Welcome to the widget gallery!"; }
+// //     }
+// //     Row {
+// //         Text { text: "Hyperlink:"; }
+// //         Hyperlink { text: "Slint homepage"; link: "https://slint-ui.com"; }
+// //     }
+// //     Row {
+// //         Text { text: "TextEdit:"; }
+// //         LineEdit { placeholder-text: "WriteSomething here";}
+// //     }
+// //     Row {
+// //         Text { text: "Button:"; }
+// //         HorizontalLayout {
+// //             alignment: start;
+// //             Button { text: "Click me!"; clicked => { cb.checked = !cb.checked; } }
+// //         }
+// //     }
+// //     Row {
+// //         Text { text: "Checkbox:"; }
+// //         cb := CheckBox { text: "Checkbox"; }
+// //     }
+// //     Row {
+// //         Text { text: "RadioButton:"; }
+// //         HorizontalBox {
+// //             alignment: start;
+// //             r1 := RadioButton { text: "First"; clicked => { unsel(); r1.checked = true; } }
+// //             r2 := RadioButton { text: "Second"; clicked => { unsel(); r2.checked = true; } }
+// //             r3 := RadioButton { text: "Third"; clicked => { unsel(); r3.checked = true; } }
+// //         }
+// //     }
+// //     Row {
+// //         Text { text: "SelectableLabel:"; }
+// //         HorizontalBox {
+// //             alignment: start;
+// //             SelectableLabel { text: "First"; checked <=> r1.checked; clicked => { unsel(); r1.checked = true; } }
+// //             SelectableLabel { text: "Second"; checked <=> r2.checked; clicked => { unsel(); r2.checked = true; } }
+// //             SelectableLabel { text: "Third"; checked <=> r3.checked; clicked => { unsel(); r3.checked = true; } }
+// //         }
+// //     }
+// //     Row {
+// //         Text { text: "ComboBox:"; }
+// //         HorizontalBox {
+// //             alignment: start;
+// //             ComboBox {
+// //                 model: ["First", "Second", "Third"];
+// //                 selected => {
+// //                     r1.checked = current-index == 0;
+// //                     r2.checked = current-index == 1;
+// //                     r3.checked = current-index == 2;
+// //                 }
+// //             }
+// //             Label { text: "Take your pick"; }
+// //         }
+// //     }
+// //     Row {
+// //         Text { text: "Slider:"; }
+// //         sl := Slider { }
+// //     }
+// //     Row {
+// //         Text { text: "DragValue:"; }
+// //         HorizontalLayout {
+// //             alignment: start;
+// //             DragValue { value <=> sl.value; }
+// //         }
+// //     }
+// //     Row {
+// //         Text { text: "ProgressBar:"; }
+// //         ProgressBar { value <=> sl.value; }
+// //     }
+// //     Rectangle {}
+// // }
+
+// // TextEditDemo := VerticalLayout {
+// //     preferred-height: 150px;
+// //     preferred-width: 300px;
+// //     TextEdit {
+// //         text: "Lorem ipsum dolor sit amet, consectetur adipisici elit, sed eiusmod tempor incidunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquid ex ea commodi consequat. Quis aute iure reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint obcaecat cupiditat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum";
+// //     }
+// // }
+
+// // Demo := Window {
+// //     preferred-width: 1024px;
+// //     preferred-height: 800px;
+// //     background: white;
+
+// //     w1 := MdiWindow {
+// //         title: "🗄 Widget Gallery";
+// //         window-x: 30px;
+// //         window-y: 20px;
+// //         Gallery {  }
+// //     }
+// //     w2 := MdiWindow {
+// //         visible: false;
+// //         title: "🗉 TextEdit";
+// //         window-x: 230px;
+// //         window-y: 520px;
+// //         TextEditDemo {  }
+// //     }
+
+// //     side-panel := Rectangle {
+// //         border-color: resize-side-panel.has-hover ? Palette.window-border.darker(100%) :  Palette.window-border;
+// //         border-width: 2px;
+// //         background: Palette.window-background;
+// //         x: parent.width - width;
+// //         width: side-panel-l.preferred-width;
+// //         height: 100%;
+
+// //         side-panel-l := VerticalBox {
+// //             alignment: start;
+// //             Label {
+// //                 font-weight: 500;
+// //                 text: "Slint Demos";
+// //                 horizontal-alignment: center;
+// //             }
+// //             Rectangle { height: 2px; background: Palette.window-border; }
+// //             Label {
+// //                 preferred-width: 0px;
+// //                 text: "This is a demo which is based on the demo from the egui framework";
+// //                 wrap: word-wrap;
+// //                 horizontal-alignment: center;
+// //             }
+// //             Rectangle { height: 2px; background: Palette.window-border; }
+// //             CheckBox { text: w1.title; checked <=> w1.visible; }
+// //             CheckBox { text: w2.title; checked <=> w2.visible; }
+
+// //         }
+// //         resize-side-panel := TouchArea {
+// //             height: 100%;
+// //             width: 4px;
+// //             mouse-cursor: ew-resize;
+// //             moved => {
+// //                 if (pressed) {
+// //                     side-panel.width = max(side-panel-l.min-width, min(root.width, side-panel.width - (mouse-x - pressed-x)));
+// //                 }
+// //             }
+// //         }
+
+// //     }
+// // }
