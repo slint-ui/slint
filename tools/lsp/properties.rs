@@ -19,6 +19,7 @@ use crate::wasm_prelude::*;
 pub(crate) struct DefinitionInformation {
     property_definition_range: lsp_types::Range,
     expression_range: lsp_types::Range,
+    delete_range: lsp_types::Range,
     expression_value: String,
 }
 
@@ -127,6 +128,7 @@ fn find_expression_range(
 ) -> Option<DefinitionInformation> {
     let mut property_definition_range = rowan::TextRange::default();
     let mut expression_range = rowan::TextRange::default();
+    let mut delete_range = rowan::TextRange::default();
     let mut expression_value = None;
 
     if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
@@ -143,6 +145,7 @@ fn find_expression_range(
                 || (ancestor.kind() == SyntaxKind::PropertyDeclaration)
             {
                 property_definition_range = ancestor.text_range();
+                delete_range = ancestor.text_range();
                 break;
             }
             if ancestor.kind() == SyntaxKind::Element {
@@ -153,9 +156,8 @@ fn find_expression_range(
     }
     if let Some(expression_value) = expression_value {
         Some(DefinitionInformation {
-            // In the CST, the range end includes the last character, while in the lsp protocol the end of the
-            // range is exclusive, i.e. it refers to the first excluded character. Hence the +1 below:
             property_definition_range: offset_to_position.map_range(property_definition_range)?,
+            delete_range: offset_to_position.map_range(delete_range)?,
             expression_range: offset_to_position.map_range(expression_range)?,
             expression_value,
         })
