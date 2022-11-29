@@ -7,7 +7,7 @@ use crate::Error;
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyVisibility};
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
+use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
 use lsp_types::WorkspaceEdit;
 
 use std::collections::HashSet;
@@ -121,6 +121,92 @@ fn add_element_properties(
     }))
 }
 
+// Move left to include white-space and comments that go with a token.
+fn left_extend(token: rowan::SyntaxToken<Language>) -> rowan::TextSize {
+    let expression_position = token.text_range().start();
+    let start_token = {
+        let mut current_token = token.prev_token();
+        let mut start_token = token.clone();
+
+        // Walk backwards:
+        while let Some(t) = current_token {
+            if t.kind() != SyntaxKind::Whitespace && t.kind() != SyntaxKind::Comment {
+                break;
+            }
+            start_token = t.clone();
+            current_token = t.prev_token();
+        }
+        start_token
+    };
+
+    let start_position = start_token.text_range().start();
+    let len = expression_position
+        .checked_sub(start_position)
+        .expect("start_position >= start of start_token");
+    if len == 0.into() {
+        return start_position;
+    }
+
+    // Collect white-space/comments into a string:
+    let possible_preamble = {
+        let mut tmp = String::with_capacity(len.into());
+        let mut current_token = start_token.clone();
+        while current_token.text_range().start() != expression_position {
+            if current_token.kind() == SyntaxKind::Whitespace {
+                tmp.push_str(current_token.text());
+            } else {
+                // Handle multiline comments by replacing forcing to single line:-)
+                tmp.push_str(&current_token.text().replace('\n', " "));
+            }
+            current_token = current_token
+                .next_token()
+                .expect("We move between the start_token and the expression token");
+        }
+        tmp
+    };
+    let lines: Vec<&str> = possible_preamble.split('\n').rev().collect();
+    if lines.len() <= 1 {
+        // just a bit of WS between expressions. Leave that alone:
+        return expression_position;
+    }
+
+    let mut result_position = expression_position;
+
+    let indent = {
+        let last_line = lines.first().expect("len was >= 1");
+        let last_line_len = last_line.len();
+        let trimmed_line_len = last_line.trim_start().len();
+        if trimmed_line_len == 0 {
+            last_line.to_string()
+        } else {
+            result_position = result_position
+                .checked_sub(trimmed_line_len.try_into().expect("This is > 0"))
+                .expect("This is safe");
+            last_line[0..last_line_len - trimmed_line_len].to_string()
+        }
+    };
+
+    for l in lines.into_iter().skip(1) {
+        let trimmed = l.trim();
+        if trimmed.is_empty() {
+            // Empty lines separate comment sections from each other:
+            return result_position;
+        } else if l.starts_with(&indent) {
+            // We have a comment, that is at least as widely indented as we are:
+            // This line is a comment about us:
+            // Move indent to the front, then one more for the `\n` and then `l.len() -
+            // indent.len()`, which turns into:
+            result_position = result_position
+                .checked_sub((l.len() + 1).try_into().expect("This is fine!"))
+                .expect("This, too");
+        } else {
+            // We had a comment less indented than ourselves, consider that unrelated:
+            return result_position;
+        }
+    }
+    result_position
+}
+
 fn find_expression_range(
     element: &syntax_nodes::Element,
     offset: u32,
@@ -145,7 +231,12 @@ fn find_expression_range(
                 || (ancestor.kind() == SyntaxKind::PropertyDeclaration)
             {
                 property_definition_range = ancestor.text_range();
-                delete_range = ancestor.text_range();
+                delete_range = rowan::TextRange::new(
+                    left_extend(
+                        ancestor.first_token().expect("A real node consists of at least one token"),
+                    ),
+                    property_definition_range.end().clone(),
+                );
                 break;
             }
             if ancestor.kind() == SyntaxKind::Element {
@@ -576,6 +667,255 @@ mod tests {
     }
 
     #[test]
+    fn test_get_property_delete_range_no_extend() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text { text: "text1"; }
+    }
+}
+            "#
+            .to_string(),
+        );
+
+        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
+
+        let p = find_property(&result, "text").unwrap();
+        let definition = p.defined_at.as_ref().unwrap();
+        assert_eq!(&definition.expression_value, "\"text1\"");
+
+        assert_eq!(definition.delete_range.start.line, 4);
+        assert_eq!(definition.delete_range.start.character, 15);
+        assert_eq!(definition.delete_range.end.line, 4);
+        assert_eq!(definition.delete_range.end.character, 29);
+    }
+
+    #[test]
+    fn test_get_property_delete_range_line_extend_left_extra_indent() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text {
+              // Cut
+            text: "text";
+        }
+    }
+}
+            "#
+            .to_string(),
+        );
+
+        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
+
+        let p = find_property(&result, "text").unwrap();
+        let definition = p.defined_at.as_ref().unwrap();
+        assert_eq!(&definition.expression_value, "\"text\"");
+
+        assert_eq!(definition.delete_range.start.line, 5);
+        assert_eq!(definition.delete_range.start.character, 12);
+        assert_eq!(definition.delete_range.end.line, 6);
+        assert_eq!(definition.delete_range.end.character, 25);
+    }
+
+    #[test]
+    fn test_get_property_delete_range_extend_left_to_empty_line() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text {
+            font-size: 12px;
+            // Keep
+
+            // Cut
+            text: "text";
+        }
+    }
+}
+            "#
+            .to_string(),
+        );
+
+        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
+
+        let p = find_property(&result, "text").unwrap();
+        let definition = p.defined_at.as_ref().unwrap();
+        assert_eq!(&definition.expression_value, "\"text\"");
+
+        assert_eq!(definition.delete_range.start.line, 8);
+        assert_eq!(definition.delete_range.start.character, 12);
+        assert_eq!(definition.delete_range.end.line, 9);
+        assert_eq!(definition.delete_range.end.character, 25);
+    }
+
+    #[test]
+    fn test_get_property_delete_range_extend_left_many_lines_to_de_indent() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text {
+            font-size: 12px;
+             // Keep
+          // Keep
+            // Cut
+              // Cut
+            // Cut
+                  // Cut
+            // Cut
+            // Cut
+            // Cut
+            // Cut
+            // Cut
+            // Cut
+            // Cut
+            text: "text";
+        }
+    }
+}
+            "#
+            .to_string(),
+        );
+
+        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
+
+        let p = find_property(&result, "text").unwrap();
+        let definition = p.defined_at.as_ref().unwrap();
+        assert_eq!(&definition.expression_value, "\"text\"");
+
+        assert_eq!(definition.delete_range.start.line, 8);
+        assert_eq!(definition.delete_range.start.character, 12);
+        assert_eq!(definition.delete_range.end.line, 19);
+        assert_eq!(definition.delete_range.end.character, 25);
+    }
+
+    #[test]
+    fn test_get_property_delete_range_extend_left_multiline_comment() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text {
+            font-size: 12px;
+          // Keep
+            /* Cut
+       Cut
+            /* Cut
+              ---  Cut */
+
+            // Cut
+            // Cut */
+            text: "text";
+        }
+    }
+}
+            "#
+            .to_string(),
+        );
+
+        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
+
+        let p = find_property(&result, "text").unwrap();
+        let definition = p.defined_at.as_ref().unwrap();
+        assert_eq!(&definition.expression_value, "\"text\"");
+
+        assert_eq!(definition.delete_range.start.line, 7);
+        assert_eq!(definition.delete_range.start.character, 12);
+        assert_eq!(definition.delete_range.end.line, 14);
+        assert_eq!(definition.delete_range.end.character, 25);
+    }
+
+    #[test]
+    fn test_get_property_delete_range_extend_left_un_indented_property() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text {
+            font-size: 12px;
+
+            /* Cut
+       Cut
+
+            /* Cut
+              ---  Cut */
+  Cut */
+                // Cut
+            // Cut
+text: "text";
+        }
+    }
+}
+            "#
+            .to_string(),
+        );
+
+        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
+
+        let p = find_property(&result, "text").unwrap();
+        let definition = p.defined_at.as_ref().unwrap();
+        assert_eq!(&definition.expression_value, "\"text\"");
+
+        assert_eq!(definition.delete_range.start.line, 7);
+        assert_eq!(definition.delete_range.start.character, 0);
+        assert_eq!(definition.delete_range.end.line, 15);
+        assert_eq!(definition.delete_range.end.character, 13);
+    }
+
+    #[test]
+    fn test_get_property_delete_range_extend_left_leading_line_comment() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text {
+            font-size: 12px;
+          // Keep
+            /* Cut
+       Cut
+
+            /* Cut
+              ---  Cut */
+  Cut */
+                // Cut
+            // Cut
+            /* cut */ text: "text";
+        }
+    }
+}
+            "#
+            .to_string(),
+        );
+
+        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
+
+        let p = find_property(&result, "text").unwrap();
+        let definition = p.defined_at.as_ref().unwrap();
+        assert_eq!(&definition.expression_value, "\"text\"");
+
+        assert_eq!(definition.delete_range.start.line, 7);
+        assert_eq!(definition.delete_range.start.character, 12);
+        assert_eq!(definition.delete_range.end.line, 15);
+        assert_eq!(definition.delete_range.end.character, 35);
+    }
+
+    #[test]
     fn test_get_property_definition() {
         let (mut dc, url, _) = loaded_document_cache("fluent",
             r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
@@ -904,7 +1244,6 @@ component MyComp {
         assert_eq!(edit, None);
         assert_eq!(result.diagnostics.len(), 1_usize);
         assert_eq!(result.diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
-        println!("{}", result.diagnostics[0].message);
         assert!(result.diagnostics[0].message.contains("end of string"));
     }
 
