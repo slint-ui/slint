@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
 [package]
 name = "i-slint-compiler-fuzz"
 version = "0.0.0"
