@@ -115,7 +115,7 @@ export ListView := ScrollView {
     @children
 }
 
-export StandardListView := ListView {
+StandardListViewBase := ListView {
     in property<[StandardListViewItem]> model;
     in-out property<int> current-item: -1;
     for item[i] in model : NativeStandardListViewItem {
@@ -127,6 +127,9 @@ export StandardListView := ListView {
             clicked => { current-item = i; }
         }
     }
+}
+
+export StandardListView := StandardListViewBase {
     FocusScope {
         key-pressed(event) => {
             if (event.text == Key.UpArrow && current-item > 0) {

@@ -10,8 +10,7 @@ export ListView := ScrollView {
     @children
 }
 
-// Like `ListView`, but with a default delegate, and a `model` property which is a model of type `StandardListViewItem`.
-export StandardListView := ListView {
+StandardListViewBase := ListView {
     in property<[StandardListViewItem]> model;
     in-out property<int> current-item: -1;
 
@@ -20,7 +19,10 @@ export StandardListView := ListView {
         text: item.text;
         clicked => { current-item = idx; }
     }
+}
 
+// Like `ListView`, but with a default delegate, and a `model` property which is a model of type `StandardListViewItem`.
+export StandardListView := StandardListViewBase {
     FocusScope {
         key-pressed(event) => {
             if (event.text == Key.UpArrow && current-item > 0) {

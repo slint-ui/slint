@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { ListView  } from "std-widgets.slint";
+
+Foo := Rectangle {
+    ListView {
+        @children
+//      ^warning{A ListView can just have a single 'for' as children. Anything else is not supported}
+    }
+}
+
+Bar := Rectangle {
+    Foo { Text {} }
+    ListView {
+        Text {}
+//      ^warning{A ListView can just have a single 'for' as children. Anything else is not supported}
+    }
+    ListView {
+        Text { }
+//      ^warning{A ListView can just have a single 'for' as children. Anything else is not supported}
+        for x in 2: Rectangle {}
+        Text { }
+//      ^warning{A ListView can just have a single 'for' as children. Anything else is not supported}
+        for x in 2: Rectangle {}
+//      ^warning{A ListView can just have a single 'for' as children. Anything else is not supported}
+    }
+
+    ListView { for x in 2: Rectangle {} }
+    ListView {
+        for x in 2: Rectangle {}
+        for x in 2: Rectangle {}
+//      ^warning{A ListView can just have a single 'for' as children. Anything else is not supported}
+    }
+}
