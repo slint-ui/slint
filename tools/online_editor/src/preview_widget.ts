@@ -134,10 +134,10 @@ export class PreviewWidget extends Widget {
         });
 
         if (component != null) {
+            // It's not enough for the canvas element to exist, in order to extract a webgl rendering
+            // context, the element needs to be attached to the window's dom.
+            await this.#ensure_attached_to_dom;
             if (this.#instance == null) {
-                // It's not enough for the canvas element to exist, in order to extract a webgl rendering
-                // context, the element needs to be attached to the window's dom.
-                await this.#ensure_attached_to_dom;
                 this.#instance = component.create(this.canvas_id);
                 this.#instance.show();
                 try {
