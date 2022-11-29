@@ -25,7 +25,7 @@
 //     property <[NodeModel]> model;
 // }
 
-import { StyleMetrics , HorizontalBox} from "std-widgets.slint";
+import { StyleMetrics , VerticalBox, HorizontalBox} from "std-widgets.slint";
 
 global Palette := {
     property <color> background: StyleMetrics.dark-color-scheme ? #1C1B1F : #FFFBFE;
@@ -48,6 +48,12 @@ export struct DragItem := {
     text: string
 }
 
+export struct NodeItem := {
+    x: length,
+    y: length,
+    text: string
+}
+
 DragItemVisual := Rectangle {
     property <DragItem> model;
 
@@ -60,6 +66,38 @@ DragItemVisual := Rectangle {
         text: model.text;
         x: (parent.width - width) / 2;
         y: (parent.height - height) / 2;
+    }
+}
+
+NodeItemVisual := Rectangle {
+    property <DragItem> model;
+
+    x: model.x;
+    y: model.y;
+    width: Sizes.drag-item-width;
+    height: 200px;
+    border-radius: 8px;
+    background: Palette.surface;
+    border-width: 1px;
+    border-color: Palette.outline;
+
+    VerticalBox {  
+        Text {
+            text: model.text;
+            horizontal-alignment: center;
+            vertical-stretch: 0;
+        }
+
+        Rectangle {  
+            vertical-stretch: 1;
+        }
+    }
+
+    TouchArea {  
+        moved => {  
+            model.x += mouse-x;
+            model.y += mouse-y;
+        }
     }
 }
 
@@ -81,16 +119,22 @@ DragGhost := Rectangle {
 
 
 export Demo := Window {
-    callback check-drag(length, length);
-    callback start-drag(length, length, string);
+    callback check-drag(length, length); 
+    callback start-drag(length, length);
+    callback drop(length, length);
 
-    property <[DragItem]> drag_items;
+    property <[DragItem]> drag-items;
+    property <DragItem> current-drag-item;
 
+    property <[NodeItem]> node-items;
 
-    start-drag(x, y, title) => {  
+    property <length> drag_zone_x: drag-zone.width + 8px;
+    property <length> drag_zone_y: 8px;
+ 
+
+    start-drag(x, y) => {  
         ghost.x = x;
         ghost.y = y;
-        ghost.text = title;
         ghost.visible = true;
     }
 
@@ -104,6 +148,7 @@ export Demo := Window {
                 root.check-drag(mouse-x, mouse-y);
             } else {
                 ghost.visible = false;
+                root.drop(mouse-x, mouse-y);
             }
         }
 
@@ -115,31 +160,34 @@ export Demo := Window {
         }
     }
 
-    HorizontalLayout {  
-        // drag area
-        Rectangle {  
-            width: Sizes.drag-item-width;
-            horizontal-stretch: 0;
+    // drag area
+    drag-zone := Rectangle {  
+        width: Sizes.drag-item-width;
+        horizontal-stretch: 0;
 
-            for item in root.drag-items : DragItemVisual {
-                model: item;
-            }
+        for item in root.drag-items : DragItemVisual {
+            model: item;
         }
+    }
 
-        // drop area
-        HorizontalBox {  
-            horizontal-stretch: 1;
-            Rectangle {  
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: Palette.outline;
-               
-            }
-        } 
+    // drop area
+    Rectangle {  
+        x: root.drag-zone-x;
+        y: root.drag-zone-y;
+        width: root.width -  drag-zone.width - 16px;
+        height: root.height - 16px;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: Palette.outline;
+
+        for node in root.node-items : NodeItemVisual {
+            model: node;
+        }
     }
 
     ghost := DragGhost {  
         visible: false;
+        text: current-drag-item.text;
     }
 }
 

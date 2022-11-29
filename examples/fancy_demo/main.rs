@@ -20,13 +20,13 @@ pub fn main() {
 
     let app = Demo::new();
 
-    let model = Rc::new(VecModel::default());
+    let drag_items = Rc::new(VecModel::default());
 
     let drag_item_width = app.global::<Sizes>().get_drag_item_width();
     let drag_item_height = app.global::<Sizes>().get_drag_item_height();
 
     for i in 0..10 {
-        model.push(DragItem {
+        drag_items.push(DragItem {
             x: 0.,
             y: i as f32 * drag_item_height,
             width: drag_item_width,
@@ -35,7 +35,8 @@ pub fn main() {
         });
     }
 
-    app.set_drag_items(model.into());
+    app.set_drag_items(drag_items.into());
+    app.set_node_items(Rc::new(VecModel::default()).into());
 
     app.on_check_drag({
         let app = app.as_weak();
@@ -47,8 +48,8 @@ pub fn main() {
                         && y >= drag_item.y
                         && y <= drag_item.y + drag_item.height
                     {
-                        println!("yes");
-                        app.invoke_start_drag(x, y, drag_item.text);
+                        app.set_current_drag_item(drag_item);
+                        app.invoke_start_drag(x, y);
                     }
                 }
             })
@@ -56,25 +57,28 @@ pub fn main() {
         }
     });
 
-    // app.global::<NodeController>().set_model(model.clone().into());
+    app.on_drop({
+        let app = app.as_weak();
+        move |x, y| {
+            app.upgrade_in_event_loop(move |app| {
+                let drop_zone_x = app.get_drag_zone_x();
+                let drop_zone_y = app.get_drag_zone_y();
+                let drag_text = app.get_current_drag_item().text.clone();
 
-    // app.global::<NodeController>().on_push({
-    //     let app = app.as_weak();
-
-    //     move |x, y, title| {
-    //         app.upgrade_in_event_loop(move |app| {
-    //             if let Some(model) = app.global::<NodeController>().get_model().as_any()
-    //             .downcast_ref::<VecModel<NodeModel>>() {
-    //                 model.push(NodeModel {
-    //                     title,
-    //                     x,
-    //                     y
-    //                 });
-    //             }
-    //             // model.push()
-    //         }).expect("Cannot add node.");
-    //     }
-    // });
+                if let Some(model) =
+                    app.get_node_items().as_any().downcast_ref::<VecModel<NodeItem>>()
+                {
+                    println!("x: {x}");
+                    model.push(NodeItem {
+                        text: drag_text,
+                        x: x - drop_zone_x,
+                        y: y - drop_zone_y,
+                    });
+                }
+            })
+            .expect("Cannot update.");
+        }
+    });
 
     app.run();
 }
