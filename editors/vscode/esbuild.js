@@ -41,6 +41,7 @@ esbuild
         external: ["vscode"],
         outfile: "out/browser.js",
         format: "cjs",
+        platform: "browser",
     })
     .catch(() => process.exit(1));
 
@@ -50,6 +51,7 @@ esbuild
         bundle: true,
         outfile: "out/browserServerMain.js",
         format: "iife",
+        platform: "browser",
         plugins: [wasmPlugin],
     })
     .catch(() => process.exit(1));
@@ -66,6 +68,7 @@ esbuild
             "fs",
         ],
         outfile: "out/extension.js",
+        platform: "node",
         format: "cjs",
     })
     .catch(() => process.exit(1));
@@ -75,6 +78,7 @@ esbuild
         entryPoints: ["src/propertiesView.ts"],
         bundle: true,
         outfile: "out/propertiesView.js",
+        platform: "browser",
         format: "iife",
     })
     .catch(() => process.exit(1));
