@@ -1126,6 +1126,23 @@ impl Element {
             }
         }
 
+        if r.borrow().base_type.to_string() == "ListView" {
+            let mut seen_for = false;
+            for se in node.children() {
+                if se.kind() == SyntaxKind::RepeatedElement && !seen_for {
+                    seen_for = true;
+                } else if matches!(
+                    se.kind(),
+                    SyntaxKind::SubElement
+                        | SyntaxKind::ConditionalElement
+                        | SyntaxKind::RepeatedElement
+                        | SyntaxKind::ChildrenPlaceholder
+                ) {
+                    diag.push_warning("A ListView can just have a single 'for' as children. Anything else is not supported".into(), &se)
+                }
+            }
+        }
+
         r
     }
 
