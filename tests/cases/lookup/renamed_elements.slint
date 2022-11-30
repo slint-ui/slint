@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+PopupWindow := Rectangle {}
+Rectangle := Image {}
+TabWidget := Text {}
+VerticalLayout := PopupWindow {}
+
+
+TestCase := Window {
+    HorizontalLayout {
+        pw := PopupWindow {
+            background: orangered;
+        }
+        Rectangle {
+            colorize: red;
+        }
+        TabWidget {
+            text: "hello";
+            TouchArea { clicked => { parent.text = "world"; } }
+        }
+        VerticalLayout {
+            background: pw.background;
+        }
+    }
+}

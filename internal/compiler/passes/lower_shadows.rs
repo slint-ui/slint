@@ -21,15 +21,10 @@ fn create_box_shadow_element(
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) -> Option<Element> {
-    if matches!(sibling_element.borrow().native_class(), Some(native)
-       if native.class_name != "Rectangle" && native.class_name != "BorderRectangle" && native.class_name != "Clip")
-    {
+    if matches!(sibling_element.borrow().builtin_type(), Some(b) if b.name != "Rectangle") {
         for (shadow_prop_name, shadow_prop_binding) in shadow_property_bindings {
             diag.push_error(
-                format!(
-                    "The {} property is only supported on Rectangle and Clip elements right now",
-                    shadow_prop_name
-                ),
+                format!("The {shadow_prop_name} property is only supported on Rectangle elements right now"),
                 &shadow_prop_binding,
             );
         }

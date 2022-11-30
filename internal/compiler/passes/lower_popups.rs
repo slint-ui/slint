@@ -22,7 +22,7 @@ pub fn lower_popups(
         component,
         &None,
         &mut |elem, parent_element: &Option<ElementRc>| {
-            let is_popup = elem.borrow().base_type.to_string() == "PopupWindow";
+            let is_popup = matches!(&elem.borrow().base_type, ElementType::Builtin(base_type) if base_type.name == "PopupWindow");
             if is_popup {
                 lower_popup_window(elem, parent_element.as_ref(), &window_type, diag);
             }

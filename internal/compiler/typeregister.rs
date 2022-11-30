@@ -320,6 +320,13 @@ impl TypeRegister {
         })
     }
 
+    pub fn lookup_builtin_element(&self, name: &str) -> Option<ElementType> {
+        self.parent_registry.as_ref().map_or_else(
+            || self.elements.get(name).cloned(),
+            |p| p.borrow().lookup_builtin_element(name),
+        )
+    }
+
     pub fn lookup_qualified<Member: AsRef<str>>(&self, qualified: &[Member]) -> Type {
         if qualified.len() != 1 {
             return Type::Invalid;
