@@ -1,0 +1,27 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+[package]
+name = "test-driver-screenshot"
+version = "0.3.3"
+authors = ["Slint Developers <info@slint-ui.com>"]
+edition = "2021"
+license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "test-driver-screenshot"
+
+[features]
+build-time = ["i-slint-compiler", "spin_on"]
+
+[dependencies]
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-0-3-0"] }
+i-slint-backend-testing = { path = "../../../internal/backends/testing" }
+
+[build-dependencies]
+i-slint-compiler = { path = "../../../internal/compiler", features = ["rust", "display-diagnostics"], optional = true }
+walkdir = "2.3"
+spin_on = { version = "0.1", optional = true}
+test_driver_lib = { path = "../driverlib" }

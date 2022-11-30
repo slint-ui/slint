@@ -4,12 +4,46 @@
 use std::io::Write;
 use std::path::Path;
 
+/// Returns a list of all the `.slint` files in the `tests/cases` subfolders.
+pub fn collect_test_cases() -> std::io::Result<Vec<test_driver_lib::TestCase>> {
+    let mut results = vec![];
+
+    let case_root_dir: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "..", "..", "screenshot"].iter().collect();
+
+    println!("cargo:rerun-if-env-changed=SLINT_TEST_FILTER");
+    let filter = std::env::var("SLINT_TEST_FILTER").ok();
+
+    for entry in walkdir::WalkDir::new(case_root_dir.clone()).follow_links(true) {
+        let entry = entry?;
+        let absolute_path = entry.into_path();
+        if absolute_path.is_dir() {
+            println!("cargo:rerun-if-changed={}", absolute_path.display());
+            continue;
+        }
+        let relative_path =
+            std::path::PathBuf::from(absolute_path.strip_prefix(&case_root_dir).unwrap());
+        if let Some(filter) = &filter {
+            if !relative_path.to_str().unwrap().contains(filter) {
+                continue;
+            }
+        }
+        if let Some(ext) = absolute_path.extension() {
+            if ext == "60" || ext == "slint" {
+                results.push(test_driver_lib::TestCase { absolute_path, relative_path });
+            }
+        }
+    }
+    Ok(results)
+}
+
+
 fn main() -> std::io::Result<()> {
     let mut generated_file = std::fs::File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
     )?;
 
-    for testcase in test_driver_lib::collect_test_cases()? {
+    for testcase in collect_test_cases()? {
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let mut module_name = testcase.identifier();
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
@@ -39,7 +73,6 @@ fn main() -> std::io::Result<()> {
                 r"
 #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
     use i_slint_backend_testing as slint_testing;
-    slint_testing::init();
     {}
     Ok(())
 }}",
@@ -48,10 +81,6 @@ fn main() -> std::io::Result<()> {
             )?;
         }
     }
-
-    // By default resources are embedded. The WASM example builds provide test coverage for that. This switch
-    // provides test coverage for the non-embedding case, compiling tests without embedding the images.
-    println!("cargo:rustc-env=SLINT_EMBED_RESOURCES=false");
 
     //Make sure to use a consistent style
     println!("cargo:rustc-env=SLINT_STYLE=fluent");
