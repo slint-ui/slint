@@ -36,8 +36,14 @@ pub(super) fn draw_texture_line(
         let c = match format {
             PixelFormat::Rgb => {
                 let p = &data[pos..pos + 3];
-                *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
-                continue;
+                if alpha == 0xff {
+                    *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
+                    continue;
+                } else {
+                    PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                        alpha, p[0], p[1], p[2],
+                    ))
+                }
             }
             PixelFormat::Rgba => {
                 let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
@@ -48,21 +54,27 @@ pub(super) fn draw_texture_line(
                 })
             }
             PixelFormat::RgbaPremultiplied => {
-                let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                if color.alpha() == 0 {
+                if color.alpha() > 0 {
+                    PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
+                        ((data[pos + 3] as u16 * alpha as u16) / 255) as u8,
+                        color.red(),
+                        color.green(),
+                        color.blue(),
+                    ))
+                } else if alpha == 0xff {
                     PremultipliedRgbaColor {
-                        alpha,
+                        alpha: data[pos + 3],
                         red: data[pos + 0],
                         green: data[pos + 1],
                         blue: data[pos + 2],
                     }
                 } else {
-                    PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        alpha,
-                        color.red(),
-                        color.green(),
-                        color.blue(),
-                    ))
+                    PremultipliedRgbaColor {
+                        alpha: (data[pos + 3] as u16 * alpha as u16 / 255) as u8,
+                        red: (data[pos + 0] as u16 * alpha as u16 / 255) as u8,
+                        green: (data[pos + 1] as u16 * alpha as u16 / 255) as u8,
+                        blue: (data[pos + 2] as u16 * alpha as u16 / 255) as u8,
+                    }
                 }
             }
             PixelFormat::AlphaMap => PremultipliedRgbaColor::premultiply(Color::from_argb_u8(

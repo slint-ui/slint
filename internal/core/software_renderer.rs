@@ -594,7 +594,10 @@ struct SceneTexture<'a> {
     /// bytes between two lines in the source
     stride: u16,
     source_size: PhysicalSize,
+    /// Color to colorize. When not transparent, consider that the image is an alpha map and always use that color.
+    /// The alpha of this color is ignored. (it is supposed to be mixed in `Self::alpha`)
     color: Color,
+    /// Global alpha
     alpha: u8,
 }
 
@@ -932,7 +935,12 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             + source_rect.origin.y as usize
                             - t.rect.origin.y as usize;
                         let stride = t.rect.width() as u16 * t.format.bpp() as u16;
-                        let t_alpha_u16 = t.color.alpha() as u16;
+                        let color = if colorize.alpha() > 0 { colorize } else { t.color };
+                        let alpha = if colorize.alpha() > 0 || t.format == PixelFormat::AlphaMap {
+                            color.alpha() as u16 * alpha_u16 / 255
+                        } else {
+                            alpha_u16
+                        } as u8;
 
                         self.processor.process_texture(
                             target_rect.cast(),
@@ -943,14 +951,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 stride,
                                 source_size: clipped_relative_source_rect.size.ceil().cast(),
                                 format: t.format,
-                                color: if colorize.alpha() > 0 { colorize } else { t.color },
-                                alpha: if colorize.alpha() > 0 {
-                                    (((alpha_u16 * colorize.alpha() as u16) / 255
-                                        * t_alpha_u16 as u16)
-                                        / 255) as u8
-                                } else {
-                                    ((alpha_u16 * t_alpha_u16) / 255) as u8
-                                },
+                                color,
+                                alpha,
                             },
                         );
                     }
@@ -975,6 +977,12 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             .round();
                         let buf_size = buffer.size().cast::<f32>();
 
+                        let alpha = if colorize.alpha() > 0 {
+                            colorize.alpha() as u16 * alpha_u16 / 255
+                        } else {
+                            alpha_u16
+                        } as u8;
+
                         self.processor.process_shared_image_buffer(
                             target_rect.cast(),
                             SharedBufferCommand {
@@ -990,9 +998,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     )
                                     .cast(),
                                 colorize,
-                                alpha: ((self.current_state.alpha_u8() as u16
-                                    * colorize.alpha() as u16)
-                                    / 255) as u8,
+                                alpha,
                             },
                         );
                     }
@@ -1258,7 +1264,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                             source_size: geometry.size,
                             format: PixelFormat::AlphaMap,
                             color,
-                            alpha: self.current_state.alpha_u8(),
+                            alpha: (self.current_state.alpha_u8() as u16 * color.alpha() as u16
+                                / 255) as u8,
                         },
                     );
                 }
