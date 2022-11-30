@@ -133,17 +133,18 @@ impl Drop for ProgressReporter {
     }
 }
 
-const SHOW_PREVIEW_COMMAND: &str = "showPreview";
 const QUERY_PROPERTIES_COMMAND: &str = "queryProperties";
+const REMOVE_BINDING_COMMAND: &str = "removeBinding";
+const SHOW_PREVIEW_COMMAND: &str = "showPreview";
 const SET_BINDING_COMMAND: &str = "setBinding";
 
 fn command_list() -> Vec<String> {
     let mut result = vec![];
 
+    result.push(QUERY_PROPERTIES_COMMAND.into());
+    result.push(REMOVE_BINDING_COMMAND.into());
     #[cfg(any(feature = "preview", feature = "preview-lense"))]
     result.push(SHOW_PREVIEW_COMMAND.into());
-
-    result.push(QUERY_PROPERTIES_COMMAND.into());
     result.push(SET_BINDING_COMMAND.into());
 
     result
@@ -401,6 +402,9 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         if params.command.as_str() == SET_BINDING_COMMAND {
             return Ok(Some(set_binding_command(&params.arguments, &ctx).await?));
         }
+        if params.command.as_str() == REMOVE_BINDING_COMMAND {
+            return Ok(Some(remove_binding_command(&params.arguments, &ctx).await?));
+        }
         Ok(None::<serde_json::Value>)
     });
     rh.register::<DocumentColor, _>(|params, ctx| async move {
@@ -628,6 +632,94 @@ pub async fn set_binding_command(
     }
 
     Ok(serde_json::to_value(result).expect("Failed to serialize set_binding result!"))
+}
+
+pub async fn remove_binding_command(
+    params: &[serde_json::Value],
+    ctx: &Rc<Context>,
+) -> Result<serde_json::Value, Error> {
+    use crate::properties;
+
+    let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
+        params.get(0).ok_or_else(|| "No text document provided")?.clone(),
+    )?;
+    let element_range = serde_json::from_value::<lsp_types::Range>(
+        params.get(1).ok_or_else(|| "No element range provided")?.clone(),
+    )?;
+    let property_name = serde_json::from_value::<String>(
+        params.get(2).ok_or_else(|| "No property name provided")?.clone(),
+    )?;
+
+    let edit = {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
+        let uri = text_document.uri;
+        if let Some(source_version) = text_document.version {
+            if let Some(current_version) = document_cache.document_version(&uri) {
+                if current_version != source_version {
+                    return Err(
+                        "Document version mismatch. Please refresh your property information"
+                            .into(),
+                    );
+                }
+            } else {
+                return Err(
+                    format!("Document with uri {} not found in cache", uri.to_string()).into()
+                );
+            }
+        }
+
+        let element =
+            element_at_position(document_cache, &uri, &element_range.start).ok_or_else(|| {
+                format!("No element found at the given start position {:?}", &element_range.start)
+            })?;
+        let node_range = element
+            .borrow()
+            .node
+            .as_ref()
+            .ok_or_else(|| "The element was found, but had no range defined!")?
+            .text_range();
+
+        let (start, end) = {
+            let mut offset_to_position = document_cache.offset_to_position_mapper(&uri);
+            (
+                offset_to_position.map(node_range.start().into()),
+                offset_to_position.map(node_range.end().into()),
+            )
+        };
+
+        if start != element_range.start {
+            return Err(format!(
+                "Element found, but does not start at the expected place (){start:?} != {:?}).",
+                element_range.start
+            )
+            .into());
+        }
+        if end != element_range.end {
+            return Err(format!(
+                "Element found, but does not end at the expected place (){end:?} != {:?}).",
+                element_range.end
+            )
+            .into());
+        }
+
+        properties::remove_binding(document_cache, &uri, &element, &property_name)?
+    };
+
+    let response = ctx
+        .server_notifier
+        .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+            lsp_types::ApplyWorkspaceEditParams { label: Some("set binding".into()), edit },
+        )?
+        .await?;
+
+    if !response.applied {
+        return Err(response
+            .failure_reason
+            .unwrap_or("Operation failed, no specific reason given".into())
+            .into());
+    }
+
+    Ok(serde_json::to_value(()).expect("Failed to serialize ()!"))
 }
 
 #[cfg(feature = "preview")]
