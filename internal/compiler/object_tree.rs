@@ -349,7 +349,7 @@ impl Display for PropertyVisibility {
 #[derive(Clone, Debug, Default)]
 pub struct PropertyDeclaration {
     pub property_type: Type,
-    pub node: Option<Either<syntax_nodes::PropertyDeclaration, syntax_nodes::CallbackDeclaration>>,
+    pub node: Option<SyntaxNode>,
     /// Tells if getter and setter will be added to expose in the native language API
     pub expose_in_public_api: bool,
     /// Public API property exposed as an alias: it shouldn't be generated but instead forward to the alias.
@@ -360,12 +360,12 @@ pub struct PropertyDeclaration {
 impl PropertyDeclaration {
     // For diagnostics: return a node pointing to the type
     pub fn type_node(&self) -> Option<SyntaxNode> {
-        self.node.as_ref().map(|x| -> crate::parser::SyntaxNode {
-            x.as_ref().either(
-                |x| x.Type().map_or_else(|| x.clone().into(), |x| x.into()),
-                |x| x.clone().into(),
-            )
-        })
+        let node = self.node.as_ref()?;
+        if let Some(x) = syntax_nodes::PropertyDeclaration::new(node.clone()) {
+            Some(x.Type().map_or_else(|| x.into(), |x| x.into()))
+        } else {
+            node.clone().into()
+        }
     }
 }
 
@@ -758,6 +758,13 @@ impl Element {
                     );
                     continue;
                 }
+                Type::Function { .. } => {
+                    diag.push_error(
+                        format!("Cannot declare property '{}' when a callback with the same name exists", prop_name),
+                        &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
+                    );
+                    continue;
+                }
                 Type::Invalid => {} // Ok to proceed with a new declaration
                 _ => {
                     diag.push_error(
@@ -804,7 +811,7 @@ impl Element {
                 prop_name.to_string(),
                 PropertyDeclaration {
                     property_type: prop_type,
-                    node: Some(Either::Left(prop_decl.clone())),
+                    node: Some(prop_decl.clone().into()),
                     visibility,
                     ..Default::default()
                 },
@@ -864,7 +871,7 @@ impl Element {
                     name,
                     PropertyDeclaration {
                         property_type: Type::InferredCallback,
-                        node: Some(Either::Right(sig_decl)),
+                        node: Some(sig_decl.into()),
                         visibility: PropertyVisibility::InOut,
                         ..Default::default()
                     },
@@ -892,7 +899,10 @@ impl Element {
                     }
                 } else {
                     diag.push_error(
-                        format!("Cannot declare callback '{}' when a property with the same name exists", existing_name),
+                        format!(
+                            "Cannot declare callback '{existing_name}' when a {} with the same name exists",
+                            if matches!(maybe_existing_prop_type, Type::Function { .. }) { "function" } else { "property" }
+                        ),
                         &sig_decl.DeclaredIdentifier(),
                     );
                 }
@@ -907,7 +917,67 @@ impl Element {
                 name,
                 PropertyDeclaration {
                     property_type: Type::Callback { return_type, args },
-                    node: Some(Either::Right(sig_decl)),
+                    node: Some(sig_decl.into()),
+                    visibility: PropertyVisibility::InOut,
+                    ..Default::default()
+                },
+            );
+        }
+
+        for func in node.Function() {
+            let name =
+                unwrap_or_continue!(parser::identifier_text(&func.DeclaredIdentifier()); diag);
+
+            let PropertyLookupResult {
+                resolved_name: existing_name,
+                property_type: maybe_existing_prop_type,
+                ..
+            } = r.lookup_property(&name);
+            if !matches!(maybe_existing_prop_type, Type::Invalid) {
+                if matches!(maybe_existing_prop_type, Type::Callback { .. } | Type::Function { .. })
+                {
+                    diag.push_error(
+                        format!("Cannot override '{}'", existing_name),
+                        &func.DeclaredIdentifier(),
+                    )
+                } else {
+                    diag.push_error(
+                        format!("Cannot declare function '{}' when a property with the same name exists", existing_name),
+                        &func.DeclaredIdentifier(),
+                    );
+                }
+                continue;
+            }
+
+            let mut args = vec![];
+            let mut arg_names = vec![];
+            for a in func.ArgumentDeclaration() {
+                args.push(type_from_node(a.Type(), diag, tr));
+                let name =
+                    unwrap_or_continue!(parser::identifier_text(&a.DeclaredIdentifier()); diag);
+                if arg_names.contains(&name) {
+                    diag.push_error(
+                        format!("Duplicated argument name '{name}'"),
+                        &a.DeclaredIdentifier(),
+                    );
+                }
+                arg_names.push(name);
+            }
+            let return_type = Box::new(
+                func.ReturnType()
+                    .map_or(Type::Void, |ret_ty| type_from_node(ret_ty.Type(), diag, tr)),
+            );
+            if r.bindings
+                .insert(name.clone(), BindingExpression::new_uncompiled(func.clone().into()).into())
+                .is_some()
+            {
+                assert!(diag.has_error());
+            }
+            r.property_declarations.insert(
+                name,
+                PropertyDeclaration {
+                    property_type: Type::Function { return_type, args },
+                    node: Some(func.into()),
                     visibility: PropertyVisibility::InOut,
                     ..Default::default()
                 },

@@ -77,7 +77,7 @@ pub fn goto_definition(
                             let mut el = nr.element();
                             loop {
                                 if let Some(x) = el.borrow().property_declarations.get(nr.name()) {
-                                    break (**x.node.as_ref()?).clone();
+                                    break x.node.clone()?;
                                 }
                                 let base = el.borrow().base_type.clone();
                                 if let ElementType::Component(c) = base {
@@ -185,7 +185,7 @@ fn find_property_declaration_in_base(
     let mut element_type = crate::util::lookup_current_element_type((*element).clone(), tr)?;
     while let ElementType::Component(com) = element_type {
         if let Some(p) = com.root_element.borrow().property_declarations.get(prop_name) {
-            return p.node.as_ref().map(|x| (**x).clone());
+            return p.node.clone();
         }
         element_type = com.root_element.borrow().base_type.clone();
     }

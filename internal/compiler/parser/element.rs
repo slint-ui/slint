@@ -58,6 +58,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Identifier if p.peek().as_str() == "callback" => {
                     parse_callback_declaration(&mut *p);
                 }
+                SyntaxKind::Identifier if p.peek().as_str() == "function" => {
+                    parse_function(&mut *p);
+                }
                 SyntaxKind::Identifier | SyntaxKind::Star if p.peek().as_str() == "animate" => {
                     parse_property_animation(&mut *p);
                 }
@@ -552,4 +555,40 @@ fn parse_transition_inner(p: &mut impl Parser) -> bool {
             }
         }
     }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,Function
+/// function foo() {}
+/// function bar(xx : int) { yy = xx; }
+/// function bar(xx : int,) -> int { return 42; }
+/// ```
+fn parse_function(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "function");
+    let mut p = p.start_node(SyntaxKind::Function);
+    p.consume(); // "function"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    if p.expect(SyntaxKind::LParent) {
+        while p.peek().kind() != SyntaxKind::RParent {
+            let mut p = p.start_node(SyntaxKind::ArgumentDeclaration);
+            {
+                let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+                p.expect(SyntaxKind::Identifier);
+            }
+            p.expect(SyntaxKind::Colon);
+            parse_type(&mut *p);
+            if !p.test(SyntaxKind::Comma) {
+                break;
+            }
+        }
+        p.expect(SyntaxKind::RParent);
+        if p.test(SyntaxKind::Arrow) {
+            let mut p = p.start_node(SyntaxKind::ReturnType);
+            parse_type(&mut *p);
+        }
+    }
+    parse_code_block(&mut *p);
 }
