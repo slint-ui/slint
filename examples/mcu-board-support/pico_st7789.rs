@@ -23,7 +23,7 @@ use rp_pico::hal::pac::interrupt;
 use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, pac, prelude::*, Timer};
 use slint::platform::software_renderer as renderer;
-use slint::{PointerEventButton, WindowEvent};
+use slint::platform::{PointerEventButton, WindowEvent};
 
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
