@@ -324,27 +324,27 @@ impl slint::platform::Platform for StmBackend {
 
                 // handle touch event
                 let touch = ft5336.detect_touch(&mut touch_i2c).unwrap();
-                let button = slint::PointerEventButton::Left;
+                let button = slint::platform::PointerEventButton::Left;
                 let event = if touch > 0 {
                     let state = ft5336.get_touch(&mut touch_i2c, 1).unwrap();
                     let position = slint::PhysicalPosition::new(state.y as i32, state.x as i32)
                         .to_logical(window.scale_factor());
                     Some(match last_touch.replace(position) {
-                        Some(_) => slint::WindowEvent::PointerMoved { position },
-                        None => slint::WindowEvent::PointerPressed { position, button },
+                        Some(_) => slint::platform::WindowEvent::PointerMoved { position },
+                        None => slint::platform::WindowEvent::PointerPressed { position, button },
                     })
                 } else {
-                    last_touch
-                        .take()
-                        .map(|position| slint::WindowEvent::PointerReleased { position, button })
+                    last_touch.take().map(|position| {
+                        slint::platform::WindowEvent::PointerReleased { position, button }
+                    })
                 };
 
                 if let Some(event) = event {
                     window.dispatch_event(event);
 
                     // removes hover state on widgets
-                    if matches!(event, slint::WindowEvent::PointerReleased { .. }) {
-                        window.dispatch_event(slint::WindowEvent::PointerExited);
+                    if matches!(event, slint::platform::WindowEvent::PointerReleased { .. }) {
+                        window.dispatch_event(slint::platform::WindowEvent::PointerExited);
                     }
                 }
             }
