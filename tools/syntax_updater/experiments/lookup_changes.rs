@@ -215,7 +215,7 @@ fn move_properties_to_root(
             for (nr, prop) in property_mappings.iter() {
                 let decl =
                     nr.element().borrow().property_declarations.get(nr.name()).unwrap().clone();
-                let n2: SyntaxNode = decl.node.clone().unwrap().either(|p| p.into(), |c| c.into());
+                let n2: SyntaxNode = decl.node.clone().unwrap();
                 let old_current_element =
                     std::mem::replace(&mut state.current_elem, Some(nr.element()));
                 state.lookup_change.replace_self = Some(

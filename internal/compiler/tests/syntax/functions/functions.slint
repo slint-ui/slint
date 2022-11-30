@@ -1,0 +1,47 @@
+
+
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+Abc := Rectangle {
+    function par() {}
+}
+
+Xxx := Rectangle {
+    function fooo(a: int, a: int) -> int { return a; }
+//                        ^error{Duplicated argument name 'a'}
+
+    function plop2() -> int {
+        return 45;
+        "xxx"
+    }
+
+    function plop3() { return 45; "xxx" }
+
+    function plop4(string: int) -> int {  return "45"; }
+
+    function plop5() {  plop4("456") }
+
+
+    function background() {}
+//          ^error{Cannot declare function 'background' when a property with the same name exists}
+
+
+    Abc {
+        property <int> par;
+//                     ^error{Cannot declare property 'par' when a callback with the same name exists}
+        callback par();
+//              ^error{Cannot declare callback 'par' when a function with the same name exists}
+    }
+
+    TouchArea {
+        function clicked() {}
+//              ^error{Cannot override 'clicked'}
+    }
+
+    Abc {  par => {} }
+//         ^error{'par' is not a callback in Abc}
+    fooo => {}
+//  ^error{'fooo' is not a callback in Rectangle}
+
+}

@@ -356,9 +356,8 @@ fn internal_properties_to_public<'a>(
             .node
             .as_ref()
             .and_then(|n| {
-                n.as_ref()
-                    .either(|n| n.DeclaredIdentifier(), |n| n.DeclaredIdentifier())
-                    .child_token(parser::SyntaxKind::Identifier)
+                n.child_node(parser::SyntaxKind::DeclaredIdentifier)
+                    .and_then(|n| n.child_token(parser::SyntaxKind::Identifier))
             })
             .map(|n| n.to_string())
             .unwrap_or_else(|| s.clone());
