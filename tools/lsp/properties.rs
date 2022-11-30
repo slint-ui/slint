@@ -683,6 +683,52 @@ pub(crate) fn set_binding<'a>(
     ))
 }
 
+fn create_workspace_edit_for_remove_binding<'a>(
+    uri: &lsp_types::Url,
+    version: i32,
+    property: &PropertyInformation,
+) -> Option<lsp_types::WorkspaceEdit> {
+    property.defined_at.as_ref().map(|defined_at| {
+        let edit = lsp_types::TextEdit { range: defined_at.delete_range, new_text: String::new() };
+        let edits = vec![lsp_types::OneOf::Left(edit)];
+        let text_document_edits = vec![lsp_types::TextDocumentEdit {
+            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
+                uri.clone(),
+                version,
+            ),
+            edits,
+        }];
+        lsp_types::WorkspaceEdit {
+            document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
+            ..Default::default()
+        }
+    })
+}
+
+pub(crate) fn remove_binding<'a>(
+    document_cache: &mut DocumentCache,
+    uri: &lsp_types::Url,
+    element: &ElementRc,
+    property_name: &str,
+) -> Result<WorkspaceEdit, Error> {
+    let property = get_property_information(
+        element,
+        &mut &mut document_cache.offset_to_position_mapper(uri),
+        property_name,
+    )?;
+
+    let workspace_edit = create_workspace_edit_for_remove_binding(
+        uri,
+        document_cache
+            .document_version(uri)
+            .ok_or_else(|| Into::<Error>::into("Document not found in cache"))?,
+        &property,
+    )
+    .ok_or_else(|| Into::<Error>::into("Failed to create workspace edit to remove property"))?;
+
+    Ok(workspace_edit)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
