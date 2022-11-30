@@ -78,7 +78,6 @@ do not have content and therefore default to fill their parent element:
 * `TouchArea`
 * `FocusScope`
 * `Flickable`
-* `Clip`
 
 ## Automatic Placement using Layouts
 
