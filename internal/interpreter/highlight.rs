@@ -203,7 +203,7 @@ pub(crate) fn add_highlight_items(doc: &Document) {
             root_element: Rc::new(RefCell::new(Element {
                 enclosing_component: comp.clone(),
                 id: "$Highlight".into(),
-                base_type: doc.local_registry.lookup_element("Rectangle").unwrap(),
+                base_type: doc.local_registry.lookup_builtin_element("Rectangle").unwrap(),
                 bindings,
                 ..Default::default()
             })),

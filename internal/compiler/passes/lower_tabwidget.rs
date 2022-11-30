@@ -38,7 +38,7 @@ pub async fn lower_tabwidget(
         type_loader.global_type_registry.borrow().lookup_element("Rectangle").unwrap();
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        if elem.borrow().base_type.to_string() == "TabWidget" {
+        if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget") {
             process_tabwidget(
                 elem,
                 ElementType::Component(tabwidget_impl.clone()),
@@ -59,6 +59,11 @@ fn process_tabwidget(
     rectangle_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
+    if matches!(&elem.borrow_mut().base_type, ElementType::Builtin(_)) {
+        // That's the TabWidget re-exported from the style, it doesn't need to be processed
+        return;
+    }
+
     elem.borrow_mut().base_type = tabwidget_impl;
     let mut children = std::mem::take(&mut elem.borrow_mut().children);
     let num_tabs = children.len();
