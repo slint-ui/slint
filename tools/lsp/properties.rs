@@ -121,7 +121,7 @@ fn add_element_properties(
     }))
 }
 
-// Move left to include white-space and comments that go with a token.
+/// Move left from the start of a `token` to include white-space and comments that go with it.
 fn left_extend(token: rowan::SyntaxToken<Language>) -> rowan::TextSize {
     let expression_position = token.text_range().start();
     let start_token = {
@@ -165,7 +165,7 @@ fn left_extend(token: rowan::SyntaxToken<Language>) -> rowan::TextSize {
         tmp
     };
     let lines: Vec<&str> = possible_preamble.split('\n').rev().collect();
-    if lines.len() <= 1 {
+    if lines.len() == 0 || (lines.len() == 1 && lines[0].trim().is_empty()) {
         // just a bit of WS between expressions. Leave that alone:
         return expression_position;
     }
@@ -173,7 +173,7 @@ fn left_extend(token: rowan::SyntaxToken<Language>) -> rowan::TextSize {
     let mut result_position = expression_position;
 
     let indent = {
-        let last_line = lines.first().expect("len was >= 1");
+        let last_line = lines.first().expect("len was != 0");
         let last_line_len = last_line.len();
         let trimmed_line_len = last_line.trim_start().len();
         if trimmed_line_len == 0 {
@@ -207,6 +207,82 @@ fn left_extend(token: rowan::SyntaxToken<Language>) -> rowan::TextSize {
     result_position
 }
 
+/// Move right from the end of the `token` to include white-space and comments that go with it.
+fn right_extend(token: rowan::SyntaxToken<Language>) -> rowan::TextSize {
+    let expression_position = token.text_range().end();
+    let (end_token, be_greedy) = {
+        let mut current_token = token.next_token();
+        let mut end_token = token.clone();
+        let mut be_greedy = false;
+
+        // Walk forward:
+        while let Some(t) = current_token {
+            if t.kind() == SyntaxKind::RBrace {
+                be_greedy = true;
+            }
+            if t.kind() != SyntaxKind::Whitespace && t.kind() != SyntaxKind::Comment {
+                break;
+            }
+            end_token = t.clone();
+            current_token = t.next_token();
+        }
+        (end_token, be_greedy)
+    };
+
+    let end_position = end_token.text_range().end();
+    let len = end_position.checked_sub(expression_position).expect("end_position >= end of token");
+    if len == 0.into() {
+        return end_position;
+    }
+
+    // Collect white-space/comments into a string:
+    let possible_epilog = {
+        let mut tmp = String::with_capacity(len.into());
+        let mut current_token = token.next_token();
+        while let Some(t) = current_token {
+            if t.kind() == SyntaxKind::Whitespace {
+                tmp.push_str(t.text());
+            } else {
+                // Handle multi-line comments by replacing forcing to single line:-)
+                tmp.push_str(&t.text().replace('\n', " "));
+            }
+            if t.text_range().end() == end_position {
+                break;
+            }
+            current_token = t.next_token();
+        }
+        tmp
+    };
+    let lines: Vec<&str> = possible_epilog.split('\n').collect();
+    if lines.len() <= 1 {
+        // Lines is either
+        // 1. empty (nothing to do)
+        // 2. Just WS (eat if greedy!)
+        // 3. A comment (eat if greedy!)
+        if be_greedy && !lines.is_empty() {
+            return expression_position
+                .checked_add(lines[0].len().try_into().expect("safe!"))
+                .expect("Safe!");
+        } else {
+            return expression_position;
+        }
+    }
+
+    let mut result_position = expression_position;
+    for l in lines.into_iter() {
+        let trimmed = l.trim();
+        if trimmed.is_empty() {
+            // Empty lines separate comment sections from each other:
+            break;
+        } else {
+            result_position = result_position
+                .checked_add((l.len() + 1).try_into().expect("This is fine!"))
+                .expect("This, too");
+        }
+    }
+    result_position
+}
+
 fn find_expression_range(
     element: &syntax_nodes::Element,
     offset: u32,
@@ -235,7 +311,9 @@ fn find_expression_range(
                     left_extend(
                         ancestor.first_token().expect("A real node consists of at least one token"),
                     ),
-                    property_definition_range.end().clone(),
+                    right_extend(
+                        ancestor.last_token().expect("A real node consists of at least one token"),
+                    ),
                 );
                 break;
             }
@@ -269,6 +347,11 @@ fn insert_property_definitions(
             if let Some(v) = element.bindings.get(prop_info.name.as_str()) {
                 if let Some(span) = &v.borrow().span {
                     let offset = span.span().offset as u32;
+                    println!(
+                        "Property {} is at {:?}",
+                        prop_info.name,
+                        offset_to_position.map(offset)
+                    );
                     if element.source_file().map(|sf| sf.path())
                         == span.source_file.as_ref().map(|sf| sf.path())
                         && element_range.contains(offset.into())
@@ -666,37 +749,68 @@ mod tests {
         );
     }
 
+    fn delete_range_test(
+        content: String,
+        pos_l: u32,
+        pos_c: u32,
+        sl: u32,
+        sc: u32,
+        el: u32,
+        ec: u32,
+    ) {
+        for (i, l) in content.split('\n').enumerate() {
+            println!("{i:2}: {l}");
+        }
+        println!("-------------------------------------------------------------------");
+        println!("   :           1         2         3         4         5");
+        println!("   : 012345678901234567890123456789012345678901234567890123456789");
+
+        let (mut dc, url, _) = loaded_document_cache("fluent", content);
+
+        let (_, result) = properties_at_position_in_cache(pos_l, pos_c, &mut dc, &url).unwrap();
+
+        let p = find_property(&result, "text").unwrap();
+        let definition = p.defined_at.as_ref().unwrap();
+
+        assert_eq!(&definition.expression_value, "\"text\"");
+
+        println!("Actual: (l: {}, c: {}) - (l: {}, c: {}) --- Expected: (l: {sl}, c: {sc}) - (l: {el}, c: {ec})",
+            definition.delete_range.start.line,
+            definition.delete_range.start.character,
+            definition.delete_range.end.line,
+            definition.delete_range.end.character,
+        );
+
+        assert_eq!(definition.delete_range.start.line, sl);
+        assert_eq!(definition.delete_range.start.character, sc);
+        assert_eq!(definition.delete_range.end.line, el);
+        assert_eq!(definition.delete_range.end.character, ec);
+    }
+
     #[test]
     fn test_get_property_delete_range_no_extend() {
-        let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
+        delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
 MainWindow := Window {
     VerticalBox {
-        Text { text: "text1"; }
+        Text { text: "text"; }
     }
 }
             "#
             .to_string(),
+            4,
+            12,
+            4,
+            15,
+            4,
+            29, // This is greedy!
         );
-
-        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
-
-        let p = find_property(&result, "text").unwrap();
-        let definition = p.defined_at.as_ref().unwrap();
-        assert_eq!(&definition.expression_value, "\"text1\"");
-
-        assert_eq!(definition.delete_range.start.line, 4);
-        assert_eq!(definition.delete_range.start.character, 15);
-        assert_eq!(definition.delete_range.end.line, 4);
-        assert_eq!(definition.delete_range.end.character, 29);
     }
 
     #[test]
     fn test_get_property_delete_range_line_extend_left_extra_indent() {
-        let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
+        delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
 MainWindow := Window {
@@ -709,24 +823,41 @@ MainWindow := Window {
 }
             "#
             .to_string(),
+            4,
+            12,
+            5,
+            12,
+            6,
+            25,
         );
+    }
 
-        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
+    #[test]
+    fn test_get_property_delete_range_line_extend_left_no_ws() {
+        delete_range_test(
+            r#"import { VerticalBox } from "std-widgets.slint";
 
-        let p = find_property(&result, "text").unwrap();
-        let definition = p.defined_at.as_ref().unwrap();
-        assert_eq!(&definition.expression_value, "\"text\"");
-
-        assert_eq!(definition.delete_range.start.line, 5);
-        assert_eq!(definition.delete_range.start.character, 12);
-        assert_eq!(definition.delete_range.end.line, 6);
-        assert_eq!(definition.delete_range.end.character, 25);
+MainWindow := Window {
+    VerticalBox {
+        Text {
+            /* Cut */text: "text";
+        }
+    }
+}
+            "#
+            .to_string(),
+            4,
+            12,
+            5,
+            12,
+            5,
+            34,
+        );
     }
 
     #[test]
     fn test_get_property_delete_range_extend_left_to_empty_line() {
-        let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
+        delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
 MainWindow := Window {
@@ -742,24 +873,18 @@ MainWindow := Window {
 }
             "#
             .to_string(),
+            4,
+            12,
+            8,
+            12,
+            9,
+            25,
         );
-
-        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
-
-        let p = find_property(&result, "text").unwrap();
-        let definition = p.defined_at.as_ref().unwrap();
-        assert_eq!(&definition.expression_value, "\"text\"");
-
-        assert_eq!(definition.delete_range.start.line, 8);
-        assert_eq!(definition.delete_range.start.character, 12);
-        assert_eq!(definition.delete_range.end.line, 9);
-        assert_eq!(definition.delete_range.end.character, 25);
     }
 
     #[test]
     fn test_get_property_delete_range_extend_left_many_lines_to_de_indent() {
-        let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
+        delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
 MainWindow := Window {
@@ -785,24 +910,18 @@ MainWindow := Window {
 }
             "#
             .to_string(),
+            4,
+            12,
+            8,
+            12,
+            19,
+            25,
         );
-
-        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
-
-        let p = find_property(&result, "text").unwrap();
-        let definition = p.defined_at.as_ref().unwrap();
-        assert_eq!(&definition.expression_value, "\"text\"");
-
-        assert_eq!(definition.delete_range.start.line, 8);
-        assert_eq!(definition.delete_range.start.character, 12);
-        assert_eq!(definition.delete_range.end.line, 19);
-        assert_eq!(definition.delete_range.end.character, 25);
     }
 
     #[test]
     fn test_get_property_delete_range_extend_left_multiline_comment() {
-        let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
+        delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
 MainWindow := Window {
@@ -823,24 +942,18 @@ MainWindow := Window {
 }
             "#
             .to_string(),
+            4,
+            12,
+            7,
+            12,
+            14,
+            25,
         );
-
-        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
-
-        let p = find_property(&result, "text").unwrap();
-        let definition = p.defined_at.as_ref().unwrap();
-        assert_eq!(&definition.expression_value, "\"text\"");
-
-        assert_eq!(definition.delete_range.start.line, 7);
-        assert_eq!(definition.delete_range.start.character, 12);
-        assert_eq!(definition.delete_range.end.line, 14);
-        assert_eq!(definition.delete_range.end.character, 25);
     }
 
     #[test]
     fn test_get_property_delete_range_extend_left_un_indented_property() {
-        let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
+        delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
 MainWindow := Window {
@@ -862,24 +975,18 @@ text: "text";
 }
             "#
             .to_string(),
+            4,
+            12,
+            7,
+            0,
+            15,
+            13,
         );
-
-        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
-
-        let p = find_property(&result, "text").unwrap();
-        let definition = p.defined_at.as_ref().unwrap();
-        assert_eq!(&definition.expression_value, "\"text\"");
-
-        assert_eq!(definition.delete_range.start.line, 7);
-        assert_eq!(definition.delete_range.start.character, 0);
-        assert_eq!(definition.delete_range.end.line, 15);
-        assert_eq!(definition.delete_range.end.character, 13);
     }
 
     #[test]
     fn test_get_property_delete_range_extend_left_leading_line_comment() {
-        let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
+        delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
 MainWindow := Window {
@@ -901,18 +1008,156 @@ MainWindow := Window {
 }
             "#
             .to_string(),
+            4,
+            12,
+            7,
+            12,
+            15,
+            35,
         );
+    }
 
-        let (_, result) = properties_at_position_in_cache(4, 12, &mut dc, &url).unwrap();
+    #[test]
+    fn test_get_property_delete_range_right_extend() {
+        delete_range_test(
+            r#"import { VerticalBox } from "std-widgets.slint";
 
-        let p = find_property(&result, "text").unwrap();
-        let definition = p.defined_at.as_ref().unwrap();
-        assert_eq!(&definition.expression_value, "\"text\"");
+MainWindow := Window {
+    VerticalBox {
+        Text {
+            text: "text"; // Cut
+                // Cut
+        }
+    }
+}
+            "#
+            .to_string(),
+            4,
+            12,
+            5,
+            12,
+            7,
+            0,
+        );
+    }
 
-        assert_eq!(definition.delete_range.start.line, 7);
-        assert_eq!(definition.delete_range.start.character, 12);
-        assert_eq!(definition.delete_range.end.line, 15);
-        assert_eq!(definition.delete_range.end.character, 35);
+    #[test]
+    fn test_get_property_delete_range_right_extend_to_empty_line() {
+        delete_range_test(
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text {
+            text: "text"; // Cut
+                // Cut
+                /*   Cut
+                 *   Cut */
+
+            // Keep
+            font-size: 12px;
+        }
+    }
+}
+            "#
+            .to_string(),
+            4,
+            12,
+            5,
+            12,
+            9,
+            0,
+        );
+    }
+
+    #[test]
+    fn test_get_property_delete_range_no_right_extend() {
+        delete_range_test(
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text {
+            text: "text";/*Keep*/ font_size: 12px;
+        }
+    }
+}
+            "#
+            .to_string(),
+            4,
+            12,
+            5,
+            12,
+            5,
+            25,
+        );
+    }
+
+    #[test]
+    fn test_get_property_delete_range_no_right_extend_with_ws() {
+        delete_range_test(
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text {
+            text: "text";  /*Keep*/ font_size: 12px;
+        }
+    }
+}
+            "#
+            .to_string(),
+            4,
+            12,
+            5,
+            12,
+            5,
+            25,
+        );
+    }
+
+    #[test]
+    fn test_get_property_delete_range_right_extend_to_rbrace() {
+        delete_range_test(
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text { text: "text";/* Cut */}
+        }
+    }
+}
+            "#
+            .to_string(),
+            4,
+            12,
+            4,
+            15,
+            4,
+            37,
+        );
+    }
+
+    #[test]
+    fn test_get_property_delete_range_right_extend_to_rbrace_ws() {
+        delete_range_test(
+            r#"import { VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    VerticalBox {
+        Text { text: "text";   /* Cut */    /* Cut */ }
+        }
+    }
+}
+            "#
+            .to_string(),
+            4,
+            12,
+            4,
+            15,
+            4,
+            54,
+        );
     }
 
     #[test]
