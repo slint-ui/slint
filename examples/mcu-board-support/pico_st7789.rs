@@ -75,7 +75,7 @@ impl slint::platform::Platform for PicoBackend {
 
     fn duration_since_start(&self) -> core::time::Duration {
         let counter = cortex_m::interrupt::free(|cs| {
-            TIMER.borrow(cs).borrow().as_ref().map(|t| t.get_counter()).unwrap_or_default()
+            TIMER.borrow(cs).borrow().as_ref().map(|t| t.get_counter().ticks()).unwrap_or_default()
         });
         core::time::Duration::from_micros(counter)
     }
