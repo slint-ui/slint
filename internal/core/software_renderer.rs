@@ -597,7 +597,6 @@ struct SceneTexture<'a> {
     /// Color to colorize. When not transparent, consider that the image is an alpha map and always use that color.
     /// The alpha of this color is ignored. (it is supposed to be mixed in `Self::alpha`)
     color: Color,
-    /// Global alpha
     alpha: u8,
 }
 
@@ -867,7 +866,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         image_fit: ImageFit,
         colorize: Color,
     ) {
-        let alpha_u16 = self.current_state.alpha_u8() as u16;
+        let global_alpha_u16 = (self.current_state.alpha * 255.) as u16;
         let image_inner: &ImageInner = source.into();
         let size: euclid::default::Size2D<u32> = source_rect.size.cast();
         let phys_size = geom.size_length().cast() * self.scale_factor;
@@ -937,9 +936,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         let stride = t.rect.width() as u16 * t.format.bpp() as u16;
                         let color = if colorize.alpha() > 0 { colorize } else { t.color };
                         let alpha = if colorize.alpha() > 0 || t.format == PixelFormat::AlphaMap {
-                            color.alpha() as u16 * alpha_u16 / 255
+                            color.alpha() as u16 * global_alpha_u16 / 255
                         } else {
-                            alpha_u16
+                            global_alpha_u16
                         } as u8;
 
                         self.processor.process_texture(
@@ -978,9 +977,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         let buf_size = buffer.size().cast::<f32>();
 
                         let alpha = if colorize.alpha() > 0 {
-                            colorize.alpha() as u16 * alpha_u16 / 255
+                            colorize.alpha() as u16 * global_alpha_u16 / 255
                         } else {
-                            alpha_u16
+                            global_alpha_u16
                         } as u8;
 
                         self.processor.process_shared_image_buffer(
@@ -1031,13 +1030,6 @@ struct RenderState {
     alpha: f32,
     offset: LogicalPoint,
     clip: LogicalRect,
-}
-
-impl RenderState {
-    /// Converts the f32 alpha value to an u8 based representation.
-    fn alpha_u8(&self) -> u8 {
-        (self.alpha * 255.) as u8
-    }
 }
 
 impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'a, T> {
@@ -1264,8 +1256,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                             source_size: geometry.size,
                             format: PixelFormat::AlphaMap,
                             color,
-                            alpha: (self.current_state.alpha_u8() as u16 * color.alpha() as u16
-                                / 255) as u8,
+                            // color already is mixed with global alpha
+                            alpha: color.alpha(),
                         },
                     );
                 }
