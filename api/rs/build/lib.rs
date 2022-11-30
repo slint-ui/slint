@@ -366,6 +366,7 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SLINT_FONT_SIZES");
     println!("cargo:rerun-if-env-changed=SLINT_SCALE_FACTOR");
     println!("cargo:rerun-if-env-changed=SLINT_ASSET_SECTION");
+    println!("cargo:rerun-if-env-changed=SLINT_EMBED_RESOURCES");
 
     println!("cargo:rustc-env=SLINT_INCLUDE_GENERATED={}", output_file_path.display());
 
