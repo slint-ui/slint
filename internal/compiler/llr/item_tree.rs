@@ -55,6 +55,7 @@ pub struct BindingExpression {
 pub struct GlobalComponent {
     pub name: String,
     pub properties: Vec<Property>,
+    pub functions: Vec<Function>,
     /// One entry per property
     pub init_values: Vec<Option<BindingExpression>>,
     pub const_properties: Vec<bool>,
@@ -82,6 +83,11 @@ pub enum PropertyReference {
     InParent { level: NonZeroUsize, parent_reference: Box<PropertyReference> },
     /// The property within a GlobalComponent
     Global { global_index: usize, property_index: usize },
+
+    /// A function in a sub component.
+    Function { sub_component_path: Vec<usize>, function_index: usize },
+    /// A function in a global.
+    GlobalFunction { global_index: usize, function_index: usize },
 }
 
 #[derive(Debug, Default)]
@@ -91,6 +97,14 @@ pub struct Property {
     /// The amount of time this property is used of another property
     /// This property is only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass
     pub use_count: Cell<usize>,
+}
+
+#[derive(Debug)]
+pub struct Function {
+    pub name: String,
+    pub ret_ty: Type,
+    pub args: Vec<Type>,
+    pub code: Expression,
 }
 
 #[derive(Debug, Clone)]
@@ -206,6 +220,7 @@ impl TreeNode {
 pub struct SubComponent {
     pub name: String,
     pub properties: Vec<Property>,
+    pub functions: Vec<Function>,
     pub items: Vec<Item>,
     pub repeated: Vec<RepeatedElement>,
     pub popup_windows: Vec<ItemTree>,

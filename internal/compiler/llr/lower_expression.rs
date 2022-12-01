@@ -123,7 +123,17 @@ pub fn lower_expression(
             }
             tree_Expression::CallbackReference(nr) => {
                 let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
-                llr_Expression::CallBackCall { callback: ctx.map_property_reference(nr), arguments }
+                if matches!(nr.ty(), Type::Function { .. }) {
+                    llr_Expression::FunctionCall {
+                        function: ctx.map_property_reference(nr),
+                        arguments,
+                    }
+                } else {
+                    llr_Expression::CallBackCall {
+                        callback: ctx.map_property_reference(nr),
+                        arguments,
+                    }
+                }
             }
             _ => panic!("not calling a function"),
         },

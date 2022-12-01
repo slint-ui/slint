@@ -639,6 +639,8 @@ fn generate_sub_component(
         }
     }
 
+    let declared_functions = generate_functions(&component.functions, &ctx);
+
     let mut init = vec![];
     let mut item_names = vec![];
     let mut item_types = vec![];
@@ -1017,10 +1019,39 @@ fn generate_sub_component(
                     _ => Default::default(),
                 }
             }
+
+            #(#declared_functions)*
         }
 
         #(#extra_components)*
     )
+}
+
+fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> Vec<TokenStream> {
+    functions
+        .iter()
+        .map(|f| {
+            let mut ctx2 = ctx.clone();
+            ctx2.argument_types = &f.args;
+            let tokens_for_expression = compile_expression(&f.code, &ctx2);
+            let as_ = if f.ret_ty == Type::Void { quote!(;) } else { quote!(as _) };
+            let fn_id = ident(&format!("fn_{}", f.name));
+            let args_ty =
+                f.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+            let return_type = rust_primitive_type(&f.ret_ty).unwrap();
+            let args_name =
+                (0..f.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
+
+            quote! {
+                #[allow(dead_code, unused)]
+                pub fn #fn_id(self: ::core::pin::Pin<&Self>, #(#args_name : #args_ty,)*) -> #return_type {
+                    let _self = self;
+                    let args = (#(#args_name,)*);
+                    (#tokens_for_expression) #as_
+                }
+            }
+        })
+        .collect()
 }
 
 fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -> TokenStream {
@@ -1061,6 +1092,8 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
         global,
         quote!(_self.root.get().unwrap().upgrade().unwrap()),
     );
+
+    let declared_functions = generate_functions(&global.functions, &ctx);
 
     for (property_index, expression) in global.init_values.iter().enumerate() {
         if global.properties[property_index].use_count.get() == 0 {
@@ -1135,6 +1168,8 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
                 let _self = self_rc.as_ref();
                 #(#init)*
             }
+
+            #(#declared_functions)*
         }
 
         #public_interface
@@ -1520,6 +1555,14 @@ fn property_set_value_tokens(
 /// let access = access_member(...)
 /// quote!(#access.get())
 /// ```
+///
+/// Or for functions:
+///
+/// ```ignore
+/// let access = access_member(...)
+/// quote!(#access(arg1, arg2))
+/// ```
+
 fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) -> TokenStream {
     fn in_native_item(
         ctx: &EvaluationContext,
@@ -1545,7 +1588,6 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             quote!((#compo_path #item_field #flick + #item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
         }
     }
-
     match reference {
         llr::PropertyReference::Local { sub_component_path, property_index } => {
             if let Some(sub_component) = ctx.current_sub_component {
@@ -1589,7 +1631,23 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                     item_index,
                     prop_name,
                 } => in_native_item(ctx, sub_component_path, *item_index, prop_name, path),
-                llr::PropertyReference::InParent { .. } | llr::PropertyReference::Global { .. } => {
+                llr::PropertyReference::Function { sub_component_path, function_index } => {
+                    let mut sub_component = ctx.current_sub_component.unwrap();
+
+                    let mut compo_path = path.clone();
+                    for i in sub_component_path {
+                        let component_id = inner_component_id(sub_component);
+                        let sub_component_name = ident(&sub_component.sub_components[*i].name);
+                        compo_path = quote!( #component_id::FIELD_OFFSETS.#sub_component_name.apply_pin(#compo_path));
+                        sub_component = &sub_component.sub_components[*i].ty;
+                    }
+                    let fn_id =
+                        ident(&format!("fn_{}", sub_component.functions[*function_index].name));
+                    quote!(#compo_path.#fn_id)
+                }
+                llr::PropertyReference::InParent { .. }
+                | llr::PropertyReference::Global { .. }
+                | llr::PropertyReference::GlobalFunction { .. } => {
                     unreachable!()
                 }
             }
@@ -1603,6 +1661,35 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 &ctx.public_component.globals[*global_index].properties[*property_index].name,
             );
             quote!(#global_name::FIELD_OFFSETS.#property_name.apply_pin(#root_access.globals.#global_id.as_ref()))
+        }
+        llr::PropertyReference::Function { sub_component_path, function_index } => {
+            if let Some(mut sub_component) = ctx.current_sub_component {
+                let mut compo_path = quote!(_self);
+                for i in sub_component_path {
+                    let component_id = inner_component_id(sub_component);
+                    let sub_component_name = ident(&sub_component.sub_components[*i].name);
+                    compo_path = quote!( #component_id::FIELD_OFFSETS.#sub_component_name.apply_pin(#compo_path));
+                    sub_component = &sub_component.sub_components[*i].ty;
+                }
+                let fn_id = ident(&format!("fn_{}", sub_component.functions[*function_index].name));
+                quote!(#compo_path.#fn_id)
+            } else if let Some(current_global) = ctx.current_global {
+                let fn_id =
+                    ident(&format!("fn_{}", current_global.functions[*function_index].name));
+                quote!(_self.#fn_id)
+            } else {
+                unreachable!()
+            }
+        }
+        llr::PropertyReference::GlobalFunction { global_index, function_index } => {
+            let root_access = &ctx.generator_state;
+            let global = &ctx.public_component.globals[*global_index];
+            let global_id = format_ident!("global_{}", ident(&global.name));
+            let fn_id = ident(&format!(
+                "fn_{}",
+                ctx.public_component.globals[*global_index].functions[*function_index].name
+            ));
+            quote!(#root_access.globals.#global_id.as_ref().#fn_id)
         }
     }
 }
@@ -1761,6 +1848,12 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let a = arguments.iter().map(|a| compile_expression(a, ctx));
             quote! { #f.call(&(#(#a as _,)*).into())}
         }
+        Expression::FunctionCall { function, arguments } => {
+            let a = arguments.iter().map(|a| compile_expression(a, ctx));
+            let access_function = access_member(function, ctx);
+            quote! { #access_function( #(#a as _),*) }
+        }
+
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
             let f = ident(function);
             let a = arguments.iter().map(|a| {

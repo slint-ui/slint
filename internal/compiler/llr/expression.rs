@@ -71,6 +71,10 @@ pub enum Expression {
         callback: PropertyReference,
         arguments: Vec<Expression>,
     },
+    FunctionCall {
+        function: PropertyReference,
+        arguments: Vec<Expression>,
+    },
 
     /// A BuiltinFunctionCall, but the function is not yet in the `BuiltinFunction` enum
     /// TODO: merge in BuiltinFunctionCall
@@ -261,6 +265,7 @@ impl Expression {
                     Type::Invalid
                 }
             }
+            Self::FunctionCall { function, .. } => ctx.property_ty(function).clone(),
             Self::ExtraBuiltinFunctionCall { return_ty, .. } => return_ty.clone(),
             Self::PropertyAssignment { .. } => Type::Void,
             Self::ModelDataAssignment { .. } => Type::Void,
@@ -308,10 +313,9 @@ macro_rules! visit_impl {
             }
             Expression::Cast { from, .. } => $visitor(from),
             Expression::CodeBlock(b) => b.$iter().for_each($visitor),
-            Expression::BuiltinFunctionCall { arguments, .. } => {
-                arguments.$iter().for_each($visitor)
-            }
-            Expression::CallBackCall { arguments, .. } => arguments.$iter().for_each($visitor),
+            Expression::BuiltinFunctionCall { arguments, .. }
+            | Expression::CallBackCall { arguments, .. }
+            | Expression::FunctionCall { arguments, .. } => arguments.$iter().for_each($visitor),
             Expression::ExtraBuiltinFunctionCall { arguments, .. } => {
                 arguments.$iter().for_each($visitor)
             }
@@ -352,7 +356,11 @@ macro_rules! visit_impl {
                 }
             }
             Expression::EnumerationValue(_) => {}
-            Expression::ReturnStatement(_) => {}
+            Expression::ReturnStatement(r) => {
+                if let Some(r) = r {
+                    $visitor(r);
+                }
+            }
             Expression::LayoutCacheAccess { repeater_index, .. } => {
                 if let Some(repeater_index) = repeater_index {
                     $visitor(repeater_index);
@@ -389,6 +397,9 @@ impl Expression {
 }
 
 pub trait TypeResolutionContext {
+    /// The type of the property.
+    ///
+    /// For reference to function, this is the return type
     fn property_ty(&self, _: &PropertyReference) -> &Type;
     // The type of the specified argument when evaluating a callback
     fn arg_type(&self, _index: usize) -> &Type {
@@ -499,6 +510,21 @@ impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
             }
             PropertyReference::Global { global_index, property_index } => {
                 &self.public_component.globals[*global_index].properties[*property_index].ty
+            }
+            PropertyReference::Function { sub_component_path, function_index } => {
+                if let Some(mut sub_component) = self.current_sub_component {
+                    for i in sub_component_path {
+                        sub_component = &sub_component.sub_components[*i].ty;
+                    }
+                    &sub_component.functions[*function_index].ret_ty
+                } else if let Some(current_global) = self.current_global {
+                    &current_global.functions[*function_index].ret_ty
+                } else {
+                    unreachable!()
+                }
+            }
+            PropertyReference::GlobalFunction { global_index, function_index } => {
+                &self.public_component.globals[*global_index].functions[*function_index].ret_ty
             }
         }
     }

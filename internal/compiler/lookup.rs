@@ -61,10 +61,12 @@ impl<'a> LookupCtx<'a> {
     }
 
     pub fn return_type(&self) -> &Type {
-        if let Type::Callback { return_type, .. } = &self.property_type {
-            return_type.as_ref().map_or(&Type::Void, |b| &(**b))
-        } else {
-            &self.property_type
+        match &self.property_type {
+            Type::Callback { return_type, .. } => {
+                return_type.as_ref().map_or(&Type::Void, |b| &(**b))
+            }
+            Type::Function { return_type, .. } => &return_type,
+            _ => &self.property_type,
         }
     }
 
@@ -419,7 +421,7 @@ impl LookupObject for ElementRc {
 }
 
 fn expression_from_reference(n: NamedReference, ty: &Type) -> Expression {
-    if matches!(ty, Type::Callback { .. }) {
+    if matches!(ty, Type::Callback { .. } | Type::Function { .. }) {
         Expression::CallbackReference(n)
     } else {
         Expression::PropertyReference(n)

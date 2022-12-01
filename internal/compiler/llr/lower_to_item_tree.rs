@@ -144,11 +144,12 @@ fn property_reference_within_sub_component(
 ) -> PropertyReference {
     match &mut prop_ref {
         PropertyReference::Local { sub_component_path, .. }
-        | PropertyReference::InNativeItem { sub_component_path, .. } => {
+        | PropertyReference::InNativeItem { sub_component_path, .. }
+        | PropertyReference::Function { sub_component_path, .. } => {
             sub_component_path.insert(0, sub_component);
         }
         PropertyReference::InParent { .. } => panic!("the sub-component had no parents"),
-        PropertyReference::Global { .. } => (),
+        PropertyReference::Global { .. } | PropertyReference::GlobalFunction { .. } => (),
     }
     prop_ref
 }
@@ -179,6 +180,7 @@ fn lower_sub_component(
     let mut sub_component = SubComponent {
         name: component_id(component),
         properties: Default::default(),
+        functions: Default::default(),
         items: Default::default(),
         repeated: Default::default(),
         popup_windows: Default::default(),
@@ -223,6 +225,21 @@ fn lower_sub_component(
         let elem = element.borrow();
         for (p, x) in &elem.property_declarations {
             if x.is_alias.is_some() {
+                continue;
+            }
+            if let Type::Function { return_type, args } = &x.property_type {
+                let function_index = sub_component.functions.len();
+                mapping.property_mapping.insert(
+                    NamedReference::new(element, p),
+                    PropertyReference::Function { sub_component_path: vec![], function_index },
+                );
+                sub_component.functions.push(Function {
+                    name: p.into(),
+                    ret_ty: (**return_type).clone(),
+                    args: args.clone(),
+                    // will be replaced later
+                    code: super::Expression::CodeBlock(vec![]),
+                });
                 continue;
             }
             let property_index = sub_component.properties.len();
@@ -292,7 +309,20 @@ fn lower_sub_component(
     });
     let ctx = ExpressionContext { mapping: &mapping, state, parent: parent_context, component };
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {
-        let prop = ctx.map_property_reference(&NamedReference::new(e, p));
+        let nr = NamedReference::new(e, p);
+        let prop = ctx.map_property_reference(&nr);
+
+        if let Type::Function { .. } = nr.ty() {
+            if let PropertyReference::Function { sub_component_path, function_index } = prop {
+                assert!(sub_component_path.is_empty());
+                sub_component.functions[function_index].code =
+                    super::lower_expression::lower_expression(&binding.expression, &ctx);
+            } else {
+                unreachable!()
+            }
+            return;
+        }
+
         for tw in &binding.two_way_bindings {
             sub_component.two_way_bindings.push((prop.clone(), ctx.map_property_reference(tw)))
         }
@@ -507,10 +537,32 @@ fn lower_global(
     let mut properties = vec![];
     let mut const_properties = vec![];
     let mut prop_analysis = vec![];
+    let mut functions = vec![];
 
     for (p, x) in &global.root_element.borrow().property_declarations {
         let property_index = properties.len();
         let nr = NamedReference::new(&global.root_element, p);
+
+        if let Type::Function { return_type, args } = &x.property_type {
+            let function_index = functions.len();
+            mapping.property_mapping.insert(
+                nr.clone(),
+                PropertyReference::Function { sub_component_path: vec![], function_index },
+            );
+            state.global_properties.insert(
+                nr.clone(),
+                PropertyReference::GlobalFunction { global_index, function_index },
+            );
+            functions.push(Function {
+                name: p.into(),
+                ret_ty: (**return_type).clone(),
+                args: args.clone(),
+                // will be replaced later
+                code: super::Expression::CodeBlock(vec![]),
+            });
+            continue;
+        }
+
         mapping.property_mapping.insert(
             nr.clone(),
             PropertyReference::Local { sub_component_path: vec![], property_index },
@@ -548,16 +600,21 @@ fn lower_global(
         assert!(binding.borrow().two_way_bindings.is_empty());
         assert!(binding.borrow().animation.is_none());
         let expression =
-            super::lower_expression::lower_expression(&binding.borrow().expression, &ctx).into();
+            super::lower_expression::lower_expression(&binding.borrow().expression, &ctx);
 
         let nr = NamedReference::new(&global.root_element, prop);
         let property_index = match mapping.property_mapping[&nr] {
             PropertyReference::Local { property_index, .. } => property_index,
+            PropertyReference::Function { ref sub_component_path, function_index } => {
+                assert!(sub_component_path.is_empty());
+                functions[function_index].code = expression;
+                continue;
+            }
             _ => unreachable!(),
         };
         let is_constant = binding.borrow().analysis.as_ref().map_or(false, |a| a.is_const);
         init_values[property_index] = Some(BindingExpression {
-            expression,
+            expression: expression.into(),
             animation: None,
             is_constant,
             is_state_info: false,
@@ -594,6 +651,7 @@ fn lower_global(
     GlobalComponent {
         name: global.root_element.borrow().id.clone(),
         properties,
+        functions,
         init_values,
         const_properties,
         public_properties,

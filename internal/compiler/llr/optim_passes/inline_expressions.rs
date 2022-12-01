@@ -35,6 +35,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::CodeBlock(_) => 0,
         Expression::BuiltinFunctionCall { function, .. } => builtin_function_cost(*function),
         Expression::CallBackCall { callback, .. } => callback_cost(callback, ctx),
+        Expression::FunctionCall { function, .. } => callback_cost(function, ctx),
         Expression::ExtraBuiltinFunctionCall { .. } => return isize::MAX,
         Expression::PropertyAssignment { .. } => return isize::MAX,
         Expression::ModelDataAssignment { .. } => return isize::MAX,
@@ -247,6 +248,9 @@ pub(crate) fn property_binding_and_analysis<'a>(
             }
             ret
         }
+        PropertyReference::Function { .. } | PropertyReference::GlobalFunction { .. } => {
+            unreachable!()
+        }
     }
 }
 
@@ -276,15 +280,21 @@ impl ContextMap {
         match self {
             ContextMap::Identity => p.clone(),
             ContextMap::InSubElement { path, parent } => {
+                let map_sub_path = |sub_component_path: &[usize]| -> Vec<usize> {
+                    path.iter().chain(sub_component_path.iter()).copied().collect()
+                };
+
                 let p2 = match p {
                     PropertyReference::Local { sub_component_path, property_index } => {
                         PropertyReference::Local {
-                            sub_component_path: path
-                                .iter()
-                                .chain(sub_component_path.iter())
-                                .copied()
-                                .collect(),
+                            sub_component_path: map_sub_path(sub_component_path),
                             property_index: *property_index,
+                        }
+                    }
+                    PropertyReference::Function { sub_component_path, function_index } => {
+                        PropertyReference::Function {
+                            sub_component_path: map_sub_path(sub_component_path),
+                            function_index: *function_index,
                         }
                     }
                     PropertyReference::InNativeItem {
@@ -294,11 +304,7 @@ impl ContextMap {
                     } => PropertyReference::InNativeItem {
                         item_index: *item_index,
                         prop_name: prop_name.clone(),
-                        sub_component_path: path
-                            .iter()
-                            .chain(sub_component_path.iter())
-                            .copied()
-                            .collect(),
+                        sub_component_path: map_sub_path(sub_component_path),
                     },
                     PropertyReference::InParent { level, parent_reference } => {
                         return PropertyReference::InParent {
@@ -306,7 +312,9 @@ impl ContextMap {
                             parent_reference: parent_reference.clone(),
                         }
                     }
-                    PropertyReference::Global { .. } => return p.clone(),
+                    PropertyReference::Global { .. } | PropertyReference::GlobalFunction { .. } => {
+                        return p.clone()
+                    }
                 };
                 if let Some(level) = NonZeroUsize::new(*parent) {
                     PropertyReference::InParent { level, parent_reference: p2.into() }

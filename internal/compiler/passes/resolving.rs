@@ -49,6 +49,7 @@ fn resolve_expression(
                 //FIXME: proper callback support (node is a codeblock)
                 Expression::from_callback_connection(node.clone().into(), &mut lookup_ctx)
             }
+            SyntaxKind::Function => Expression::from_function(node.clone().into(), &mut lookup_ctx),
             SyntaxKind::Expression => {
                 //FIXME again: this happen for non-binding expression (i.e: model)
                 Expression::from_expression_node(node.clone().into(), &mut lookup_ctx)
@@ -205,6 +206,18 @@ impl Expression {
     ) -> Expression {
         ctx.arguments =
             node.DeclaredIdentifier().map(|x| identifier_text(&x).unwrap_or_default()).collect();
+        Self::from_codeblock_node(node.CodeBlock(), ctx).maybe_convert_to(
+            ctx.return_type().clone(),
+            &node,
+            ctx.diag,
+        )
+    }
+
+    fn from_function(node: syntax_nodes::Function, ctx: &mut LookupCtx) -> Expression {
+        ctx.arguments = node
+            .ArgumentDeclaration()
+            .map(|x| identifier_text(&x.DeclaredIdentifier()).unwrap_or_default())
+            .collect();
         Self::from_codeblock_node(node.CodeBlock(), ctx).maybe_convert_to(
             ctx.return_type().clone(),
             &node,
@@ -557,7 +570,11 @@ impl Expression {
                 expression: r @ Expression::CallbackReference(..), ..
             } => {
                 if let Some(x) = it.next() {
-                    ctx.diag.push_error("Cannot access fields of callback".into(), &x)
+                    if matches!(r.ty(), Type::Function { .. }) {
+                        ctx.diag.push_error("Cannot access fields of a function".into(), &x)
+                    } else {
+                        ctx.diag.push_error("Cannot access fields of callback".into(), &x)
+                    }
                 }
                 r
             }
@@ -1044,11 +1061,19 @@ fn continue_lookup_within_element(
         }
         Expression::CallbackReference(NamedReference::new(elem, &lookup_result.resolved_name))
     } else if matches!(lookup_result.property_type, Type::Function { .. }) {
+        if let Some(x) = it.next() {
+            ctx.diag.push_error("Cannot access fields of a function".into(), &x)
+        }
         let member = elem.borrow().base_type.lookup_member_function(&lookup_result.resolved_name);
-        Expression::MemberFunction {
-            base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
-            base_node: Some(NodeOrToken::Node(node.into())),
-            member: Box::new(member),
+        if !matches!(member, Expression::Invalid) {
+            // builtin member function
+            Expression::MemberFunction {
+                base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
+                base_node: Some(NodeOrToken::Node(node.into())),
+                member: Box::new(member),
+            }
+        } else {
+            Expression::CallbackReference(NamedReference::new(elem, &lookup_result.resolved_name))
         }
     } else {
         let mut err = |extra: &str| {
