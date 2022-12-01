@@ -4,8 +4,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 
+
+Comp := Rectangle {
+    function f1() {}
+    public function f2() {}
+}
+
 Xxx := Rectangle {
     function foo(a: int) -> string { return a; }
+
+    comp := Comp {}
 
     function bar() {
         foo(45, 45);
@@ -19,6 +27,10 @@ Xxx := Rectangle {
 
         root.foo.hello(45);
         //       ^error{Cannot access fields of a function}
+
+        comp.f1();
+//           ^error{The function 'f1' is private. Annotate it with 'public' to make it accessible from other components}
+        comp.f2();
     }
 
     callback xx <=> foo;

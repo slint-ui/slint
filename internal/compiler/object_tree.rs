@@ -333,6 +333,8 @@ pub enum PropertyVisibility {
     Input,
     Output,
     InOut,
+    /// For functions, not properties
+    Public,
 }
 
 impl Display for PropertyVisibility {
@@ -342,6 +344,7 @@ impl Display for PropertyVisibility {
             PropertyVisibility::Input => f.write_str("input"),
             PropertyVisibility::Output => f.write_str("output"),
             PropertyVisibility::InOut => f.write_str("input output"),
+            PropertyVisibility::Public => f.write_str("public"),
         }
     }
 }
@@ -973,12 +976,19 @@ impl Element {
             {
                 assert!(diag.has_error());
             }
+
+            let public =
+                func.child_token(SyntaxKind::Identifier).map_or(false, |t| t.text() == "public");
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
                     property_type: Type::Function { return_type, args },
                     node: Some(func.into()),
-                    visibility: PropertyVisibility::Private,
+                    visibility: if public {
+                        PropertyVisibility::Public
+                    } else {
+                        PropertyVisibility::Private
+                    },
                     ..Default::default()
                 },
             );

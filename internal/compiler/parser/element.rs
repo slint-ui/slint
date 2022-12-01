@@ -61,6 +61,11 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Identifier if p.peek().as_str() == "function" => {
                     parse_function(&mut *p);
                 }
+                SyntaxKind::Identifier
+                    if p.peek().as_str() == "public" && p.nth(1).as_str() == "function" =>
+                {
+                    parse_function(&mut *p);
+                }
                 SyntaxKind::Identifier | SyntaxKind::Star if p.peek().as_str() == "animate" => {
                     parse_property_animation(&mut *p);
                 }
@@ -562,10 +567,14 @@ fn parse_transition_inner(p: &mut impl Parser) -> bool {
 /// function foo() {}
 /// function bar(xx : int) { yy = xx; }
 /// function bar(xx : int,) -> int { return 42; }
+/// public function aa(x: int, b: {a: int}, c: int) {}
 /// ```
 fn parse_function(p: &mut impl Parser) {
-    debug_assert_eq!(p.peek().as_str(), "function");
     let mut p = p.start_node(SyntaxKind::Function);
+    if p.peek().as_str() == "public" {
+        p.consume()
+    }
+    debug_assert_eq!(p.peek().as_str(), "function");
     p.consume(); // "function"
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
