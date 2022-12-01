@@ -34,8 +34,6 @@
 
 .preview .preview-container {
     display: flex;
-    align-items: center;
-    justify-content: center;
     background-image: linear-gradient(
             45deg,
             var(--undefined-bg) 25%,
@@ -51,7 +49,8 @@
 }
 
 .preview .preview-container > canvas {
-    margin: 0;
+    margin: auto;
+    padding: 50px;
 }
 
 .preview .error-area {
