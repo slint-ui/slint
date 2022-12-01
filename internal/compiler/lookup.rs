@@ -421,10 +421,10 @@ impl LookupObject for ElementRc {
 }
 
 fn expression_from_reference(n: NamedReference, ty: &Type) -> Expression {
-    if matches!(ty, Type::Callback { .. } | Type::Function { .. }) {
-        Expression::CallbackReference(n)
-    } else {
-        Expression::PropertyReference(n)
+    match ty {
+        Type::Callback { .. } => Expression::CallbackReference(n),
+        Type::Function { .. } => Expression::FunctionReference(n),
+        _ => Expression::PropertyReference(n),
     }
 }
 

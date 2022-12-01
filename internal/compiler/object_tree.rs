@@ -1878,7 +1878,9 @@ pub fn visit_named_references_in_expression(
 ) {
     expr.visit_mut(|sub| visit_named_references_in_expression(sub, vis));
     match expr {
-        Expression::PropertyReference(r) | Expression::CallbackReference(r) => vis(r),
+        Expression::PropertyReference(r)
+        | Expression::CallbackReference(r)
+        | Expression::FunctionReference(r) => vis(r),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::SolveLayout(l, _) => l.visit_named_references(vis),
         Expression::ComputeLayoutInfo(l, _) => l.visit_named_references(vis),

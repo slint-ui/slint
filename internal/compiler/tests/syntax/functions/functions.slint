@@ -41,6 +41,10 @@ Xxx := Rectangle {
 
     Abc {  par => {} }
 //         ^error{'par' is not a callback in Abc}
+    aa := Abc { par: 42; }
+//              ^error{Cannot assign to par in Abc because it does not have a valid property type}
+    Abc { par <=> aa.par; }
+//        ^error{Cannot assign to par in Abc because it does not have a valid property type}
     fooo => {}
 //  ^error{'fooo' is not a callback in Rectangle}
 

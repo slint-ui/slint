@@ -68,10 +68,9 @@ pub fn lower_expression(
             llr_Expression::NumberLiteral(unit.normalize(*n))
         }
         tree_Expression::BoolLiteral(b) => llr_Expression::BoolLiteral(*b),
-        tree_Expression::CallbackReference(nr) => {
-            llr_Expression::PropertyReference(ctx.map_property_reference(nr))
-        }
-        tree_Expression::PropertyReference(nr) => {
+        tree_Expression::CallbackReference(nr)
+        | tree_Expression::PropertyReference(nr)
+        | tree_Expression::FunctionReference(nr) => {
             llr_Expression::PropertyReference(ctx.map_property_reference(nr))
         }
         tree_Expression::BuiltinFunctionReference(_, _) => panic!(),
@@ -123,17 +122,11 @@ pub fn lower_expression(
             }
             tree_Expression::CallbackReference(nr) => {
                 let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
-                if matches!(nr.ty(), Type::Function { .. }) {
-                    llr_Expression::FunctionCall {
-                        function: ctx.map_property_reference(nr),
-                        arguments,
-                    }
-                } else {
-                    llr_Expression::CallBackCall {
-                        callback: ctx.map_property_reference(nr),
-                        arguments,
-                    }
-                }
+                llr_Expression::CallBackCall { callback: ctx.map_property_reference(nr), arguments }
+            }
+            tree_Expression::FunctionReference(nr) => {
+                let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
+                llr_Expression::FunctionCall { function: ctx.map_property_reference(nr), arguments }
             }
             _ => panic!("not calling a function"),
         },

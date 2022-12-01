@@ -454,6 +454,7 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
             c.kind = match expression {
                 Expression::BoolLiteral(_) => Some(CompletionItemKind::CONSTANT),
                 Expression::CallbackReference(_) => Some(CompletionItemKind::METHOD),
+                Expression::FunctionReference(_) => Some(CompletionItemKind::FUNCTION),
                 Expression::PropertyReference(_) => Some(CompletionItemKind::PROPERTY),
                 Expression::BuiltinFunctionReference(..) => Some(CompletionItemKind::FUNCTION),
                 Expression::BuiltinMacroReference(..) => Some(CompletionItemKind::FUNCTION),
