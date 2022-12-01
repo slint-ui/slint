@@ -87,7 +87,7 @@ function create_share_menu(editor: EditorWidget): Menu {
 
     commands.addCommand("slint:copy_permalink", {
         label: "Copy Permalink to Clipboard",
-        iconClass: "fa da-share",
+        iconClass: "fa fa-share",
         mnemonic: 1,
         execute: () => {
             const params = new URLSearchParams();
@@ -293,7 +293,7 @@ class DockWidgets {
 function main() {
     commands.addCommand("slint:compile", {
         label: "Compile",
-        iconClass: "fa fa-hammer",
+        iconClass: "fa fa-magic",
         mnemonic: 1,
         execute: () => {
             editor.compile();
