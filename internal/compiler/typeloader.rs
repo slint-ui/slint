@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::object_tree::{self, Document};
+use crate::object_tree::{self, Document, ExportedName, Exports};
 use crate::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxToken};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
@@ -21,9 +21,14 @@ pub struct LoadedDocuments {
     currently_loading: HashSet<PathBuf>,
 }
 
+pub enum ImportKind {
+    ImportList(syntax_nodes::ImportSpecifier),
+    ModuleReexport(syntax_nodes::ExportModule), // re-export all types, as per export * from "foo".
+}
+
 pub struct ImportedTypes {
-    pub import_token: SyntaxToken,
-    pub imported_types: syntax_nodes::ImportSpecifier,
+    pub import_uri_token: SyntaxToken,
+    pub import_kind: ImportKind,
     pub file: String,
 }
 
@@ -125,43 +130,91 @@ impl TypeLoader {
     }
 
     /// Imports of files that don't have the .slint extension are returned.
-    pub async fn load_dependencies_recursively(
-        &mut self,
-        doc: &syntax_nodes::Document,
-        diagnostics: &mut BuildDiagnostics,
-        registry_to_populate: &Rc<RefCell<TypeRegister>>,
-    ) -> Vec<ImportedTypes> {
-        let dependencies = Self::collect_dependencies(doc, diagnostics).collect::<Vec<_>>();
-        let mut foreign_imports = vec![];
-        for mut import in dependencies {
-            if import.file.ends_with(".60") || import.file.ends_with(".slint") {
-                let mut imported_types =
-                    ImportedName::extract_imported_names(&import.imported_types).peekable();
-                if !imported_types.peek().is_none() {
-                    self.load_dependency(
-                        &import,
-                        imported_types,
-                        registry_to_populate,
-                        diagnostics,
-                    )
-                    .await;
+    pub fn load_dependencies_recursively<'a>(
+        &'a mut self,
+        doc: &'a syntax_nodes::Document,
+        diagnostics: &'a mut BuildDiagnostics,
+        registry_to_populate: &'a Rc<RefCell<TypeRegister>>,
+    ) -> core::pin::Pin<Box<dyn std::future::Future<Output = (Vec<ImportedTypes>, Exports)> + 'a>>
+    {
+        Box::pin(async move {
+            let dependencies = Self::collect_dependencies(doc, diagnostics).collect::<Vec<_>>();
+            let mut foreign_imports = vec![];
+            let mut reexports = Exports::default();
+            for mut import in dependencies {
+                if import.file.ends_with(".60") || import.file.ends_with(".slint") {
+                    let mut file = import.file.as_str();
+                    if file == "sixtyfps_widgets.60" {
+                        file = "std-widgets.slint";
+                        diagnostics.push_warning(
+                        "\"sixtyfps_widgets.60\" was renamed \"std-widgets.slint\". Use of the old file name is deprecated".into(),
+                        &import.import_uri_token,
+                    );
+                    }
+
+                    let doc_path = match self
+                        .ensure_document_loaded(
+                            file,
+                            Some(import.import_uri_token.clone().into()),
+                            diagnostics,
+                        )
+                        .await
+                    {
+                        Some(path) => path,
+                        None => continue,
+                    };
+
+                    let doc = self.all_documents.docs.get(&doc_path).unwrap();
+
+                    match &import.import_kind {
+                        ImportKind::ImportList(imported_types) => {
+                            let mut imported_types =
+                                ImportedName::extract_imported_names(&imported_types).peekable();
+                            if !imported_types.peek().is_none() {
+                                Self::register_imported_types(
+                                    doc,
+                                    &import,
+                                    imported_types,
+                                    registry_to_populate,
+                                    diagnostics,
+                                );
+                            } else {
+                                diagnostics.push_error(
+                        "Import names are missing. Please specify which types you would like to import"
+                            .into(),
+                        &import.import_uri_token,
+                    );
+                            }
+                        }
+                        ImportKind::ModuleReexport(export_module_syntax_node) => {
+                            reexports.add_reexports(
+                                doc.exports.iter().map(|(exported_name, compo_or_type)| {
+                                    (
+                                        ExportedName {
+                                            name: exported_name.name.clone(),
+                                            name_ident: (**export_module_syntax_node).clone(),
+                                        },
+                                        compo_or_type.clone(),
+                                    )
+                                }),
+                                diagnostics,
+                            );
+                        }
+                    }
                 } else {
-                    diagnostics.push_error(
-                    "Import names are missing. Please specify which types you would like to import"
-                        .into(),
-                    &import.import_token,
-                );
+                    import.file = self
+                        .resolve_import_path(
+                            Some(&import.import_uri_token.clone().into()),
+                            &import.file,
+                        )
+                        .0
+                        .to_string_lossy()
+                        .to_string();
+                    foreign_imports.push(import);
                 }
-            } else {
-                import.file = self
-                    .resolve_import_path(Some(&import.import_token.clone().into()), &import.file)
-                    .0
-                    .to_string_lossy()
-                    .to_string();
-                foreign_imports.push(import);
             }
-        }
-        foreign_imports
+            (foreign_imports, reexports)
+        })
     }
 
     pub async fn import_component(
@@ -300,7 +353,7 @@ impl TypeLoader {
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&self.global_type_registry)));
         dependency_registry.borrow_mut().expose_internal_types = is_builtin;
-        let foreign_imports = self
+        let (foreign_imports, reexports) = self
             .load_dependencies_recursively(&dependency_doc, diagnostics, &dependency_registry)
             .await;
 
@@ -316,6 +369,7 @@ impl TypeLoader {
             let doc = crate::object_tree::Document::from_node(
                 dependency_doc,
                 foreign_imports,
+                reexports,
                 &mut ignore_diag,
                 &dependency_registry,
             );
@@ -325,6 +379,7 @@ impl TypeLoader {
         let doc = crate::object_tree::Document::from_node(
             dependency_doc,
             foreign_imports,
+            reexports,
             diagnostics,
             &dependency_registry,
         );
@@ -333,70 +388,45 @@ impl TypeLoader {
         self.all_documents.docs.insert(path.to_owned(), doc);
     }
 
-    fn load_dependency<'b>(
-        &'b mut self,
-        import: &'b ImportedTypes,
-        imported_types: impl Iterator<Item = ImportedName> + 'b,
-        registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
-        build_diagnostics: &'b mut BuildDiagnostics,
-    ) -> core::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'b>> {
-        Box::pin(async move {
-            let mut file = import.file.as_str();
-            if file == "sixtyfps_widgets.60" {
-                file = "std-widgets.slint";
-                build_diagnostics.push_warning(
-                    "\"sixtyfps_widgets.60\" was renamed \"std-widgets.slint\". Use of the old file name is deprecated".into(),
-                    &import.import_token,
-                );
-            }
+    fn register_imported_types(
+        doc: &Document,
+        import: &ImportedTypes,
+        imported_types: impl Iterator<Item = ImportedName>,
+        registry_to_populate: &Rc<RefCell<TypeRegister>>,
+        build_diagnostics: &mut BuildDiagnostics,
+    ) {
+        for import_name in imported_types {
+            let imported_type = doc.exports.0.iter().find_map(|(export_name, ty)| {
+                if import_name.external_name == export_name.as_str() {
+                    Some(ty.clone())
+                } else {
+                    None
+                }
+            });
 
-            let doc_path = match self
-                .ensure_document_loaded(
-                    file,
-                    Some(import.import_token.clone().into()),
-                    build_diagnostics,
-                )
-                .await
-            {
-                Some(path) => path,
-                None => return,
+            let imported_type = match imported_type {
+                Some(ty) => ty,
+                None => {
+                    build_diagnostics.push_error(
+                        format!(
+                            "No exported type called '{}' found in \"{}\"",
+                            import_name.external_name, import.file
+                        ),
+                        &import.import_uri_token,
+                    );
+                    continue;
+                }
             };
 
-            let doc = self.all_documents.docs.get(&doc_path).unwrap();
-
-            for import_name in imported_types {
-                let imported_type = doc.exports.0.iter().find_map(|(export_name, ty)| {
-                    if import_name.external_name == export_name.as_str() {
-                        Some(ty.clone())
-                    } else {
-                        None
-                    }
-                });
-
-                let imported_type = match imported_type {
-                    Some(ty) => ty,
-                    None => {
-                        build_diagnostics.push_error(
-                            format!(
-                                "No exported type called '{}' found in \"{}\"",
-                                import_name.external_name, import.file
-                            ),
-                            &import.import_token,
-                        );
-                        continue;
-                    }
-                };
-
-                match imported_type {
-                    itertools::Either::Left(c) => registry_to_populate
-                        .borrow_mut()
-                        .add_with_name(import_name.internal_name, c),
-                    itertools::Either::Right(ty) => registry_to_populate
-                        .borrow_mut()
-                        .insert_type_with_name(ty, import_name.internal_name),
+            match imported_type {
+                itertools::Either::Left(c) => {
+                    registry_to_populate.borrow_mut().add_with_name(import_name.internal_name, c)
                 }
+                itertools::Either::Right(ty) => registry_to_populate
+                    .borrow_mut()
+                    .insert_type_with_name(ty, import_name.internal_name),
             }
-        })
+        }
     }
 
     /// Lookup a filename and try to find the absolute filename based on the include path or
@@ -433,27 +463,41 @@ impl TypeLoader {
         doc: &'a syntax_nodes::Document,
         doc_diagnostics: &'a mut BuildDiagnostics,
     ) -> impl Iterator<Item = ImportedTypes> + 'a {
-        doc.ImportSpecifier().filter_map(|import| {
-            let import_uri = match import.child_token(SyntaxKind::StringLiteral) {
-                Some(import_uri) => import_uri,
-                None => {
-                    debug_assert!(doc_diagnostics.has_error());
+        doc.ImportSpecifier()
+            .map(|import| {
+                let maybe_import_uri = import.child_token(SyntaxKind::StringLiteral);
+                (maybe_import_uri, ImportKind::ImportList(import))
+            })
+            .chain(
+                // process `export * from "foo"`
+                doc.ExportsList().flat_map(|exports| exports.ExportModule()).map(|reexport| {
+                    let maybe_import_uri = reexport.child_token(SyntaxKind::StringLiteral);
+                    (maybe_import_uri, ImportKind::ModuleReexport(reexport.clone()))
+                }),
+            )
+            .filter_map(|(maybe_import_uri, type_specifier)| {
+                let import_uri = match maybe_import_uri {
+                    Some(import_uri) => import_uri,
+                    None => {
+                        debug_assert!(doc_diagnostics.has_error());
+                        return None;
+                    }
+                };
+                let path_to_import = import_uri.text().to_string();
+                let path_to_import = path_to_import.trim_matches('\"').to_string();
+
+                if path_to_import.is_empty() {
+                    doc_diagnostics
+                        .push_error("Unexpected empty import url".to_owned(), &import_uri);
                     return None;
                 }
-            };
-            let path_to_import = import_uri.text().to_string();
-            let path_to_import = path_to_import.trim_matches('\"').to_string();
-            if path_to_import.is_empty() {
-                doc_diagnostics.push_error("Unexpected empty import url".to_owned(), &import_uri);
-                return None;
-            }
 
-            Some(ImportedTypes {
-                import_token: import_uri,
-                imported_types: import,
-                file: path_to_import,
+                Some(ImportedTypes {
+                    import_uri_token: import_uri,
+                    import_kind: type_specifier,
+                    file: path_to_import,
+                })
             })
-        })
     }
 
     /// Return a document if it was already loaded

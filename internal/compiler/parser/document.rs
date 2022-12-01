@@ -135,6 +135,7 @@ pub fn parse_qualified_name(p: &mut impl Parser) -> bool {
 /// export { Type as Foo, AnotherType }
 /// export Foo := Item { }
 /// export struct Foo := { foo: bar }
+/// export * from "foo";
 /// ```
 fn parse_export(p: &mut impl Parser) -> bool {
     debug_assert_eq!(p.peek().as_str(), "export");
@@ -163,6 +164,24 @@ fn parse_export(p: &mut impl Parser) -> bool {
         }
     } else if p.peek().as_str() == "struct" {
         parse_struct_declaration(&mut *p)
+    } else if p.peek().as_str() == "*" {
+        let mut p = p.start_node(SyntaxKind::ExportModule);
+        p.consume(); // *
+        if p.peek().as_str() != "from" {
+            p.error("Expected from keyword for export statement");
+            return false;
+        }
+        p.consume();
+        let peek = p.peek();
+        if peek.kind != SyntaxKind::StringLiteral
+            || !peek.as_str().starts_with('"')
+            || !peek.as_str().ends_with('"')
+        {
+            p.error("Expected plain string literal");
+            return false;
+        }
+        p.consume();
+        p.expect(SyntaxKind::Semicolon)
     } else {
         parse_component(&mut *p)
     }

@@ -55,6 +55,7 @@ impl Document {
     pub fn from_node(
         node: syntax_nodes::Document,
         foreign_imports: Vec<ImportedTypes>,
+        reexports: Exports,
         diag: &mut BuildDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
     ) -> Self {
@@ -109,7 +110,8 @@ impl Document {
                 _ => {}
             };
         }
-        let exports = Exports::from_node(&node, &inner_components, &local_registry, diag);
+        let mut exports = Exports::from_node(&node, &inner_components, &local_registry, diag);
+        exports.add_reexports(reexports, diag);
 
         let root_component = inner_components
             .last()
@@ -142,18 +144,18 @@ impl Document {
                         || crate::fileaccess::load_file(std::path::Path::new(&import.file))
                             .is_some()
                     {
-                        Some((import.file, import.import_token))
+                        Some((import.file, import.import_uri_token))
                     } else {
                         diag.push_error(
                             format!("File \"{}\" not found", import.file),
-                            &import.import_token,
+                            &import.import_uri_token,
                         );
                         None
                     }
                 } else {
                     diag.push_error(
                         format!("Unsupported foreign import \"{}\"", import.file),
-                        &import.import_token,
+                        &import.import_uri_token,
                     );
                     None
                 }
@@ -2202,6 +2204,36 @@ impl Exports {
         }
 
         Self(sorted_deduped_exports)
+    }
+
+    pub fn add_reexports(
+        &mut self,
+        other_exports: impl IntoIterator<Item = (ExportedName, Either<Rc<Component>, Type>)>,
+        diag: &mut BuildDiagnostics,
+    ) {
+        for export in other_exports {
+            match self.0.binary_search_by(|entry| entry.0.cmp(&export.0)) {
+                Ok(_) => {
+                    diag.push_error(
+                        format!("re-export '{}' is already exported in this file", &*export.0),
+                        &export.0.name_ident,
+                    );
+                }
+                Err(insert_pos) => {
+                    self.0.insert(insert_pos, export);
+                }
+            }
+        }
+    }
+}
+
+impl std::iter::IntoIterator for Exports {
+    type Item = (ExportedName, Either<Rc<Component>, Type>);
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
