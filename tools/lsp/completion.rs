@@ -147,7 +147,7 @@ pub(crate) fn completion_at(
                         }
                     };
 
-                    for (exported_name, ty) in &doc.exports.0 {
+                    for (exported_name, ty) in &*doc.exports {
                         if available_types.contains(&exported_name.name) {
                             continue;
                         }

@@ -10,7 +10,7 @@ use crate::object_tree::{Component, Document, PropertyVisibility};
 
 pub fn check_public_api(doc: &Document, diag: &mut BuildDiagnostics) {
     check_public_api_component(&doc.root_component, diag);
-    for (export_name, e) in &doc.exports.0 {
+    for (export_name, e) in &*doc.exports {
         if let Some(c) = e.as_ref().left() {
             if c.is_global() {
                 // This global will become part of the public API.

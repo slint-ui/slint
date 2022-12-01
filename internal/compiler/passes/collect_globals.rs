@@ -16,7 +16,7 @@ pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
     doc.root_component.used_types.borrow_mut().globals.clear();
     let mut set = HashSet::new();
     let mut sorted_globals = vec![];
-    for (_, ty) in &doc.exports.0 {
+    for (_, ty) in &*doc.exports {
         if let Some(c) = ty.as_ref().left() {
             if c.is_global() {
                 if set.insert(ByAddress(c.clone())) {

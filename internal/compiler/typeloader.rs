@@ -230,13 +230,7 @@ impl TypeLoader {
 
         let doc = self.all_documents.docs.get(&doc_path).unwrap();
 
-        doc.exports.0.iter().find_map(|(export_name, ty)| {
-            if type_name == export_name.as_str() {
-                ty.clone().left()
-            } else {
-                None
-            }
-        })
+        doc.exports.find(type_name).and_then(|compo_or_type| compo_or_type.left())
     }
 
     /// Append a possibly relative path to a base path. Returns the data if it resolves to a built-in (compiled-in)
@@ -396,13 +390,7 @@ impl TypeLoader {
         build_diagnostics: &mut BuildDiagnostics,
     ) {
         for import_name in imported_types {
-            let imported_type = doc.exports.0.iter().find_map(|(export_name, ty)| {
-                if import_name.external_name == export_name.as_str() {
-                    Some(ty.clone())
-                } else {
-                    None
-                }
-            });
+            let imported_type = doc.exports.find(&import_name.external_name);
 
             let imported_type = match imported_type {
                 Some(ty) => ty,
