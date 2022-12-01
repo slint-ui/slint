@@ -2075,161 +2075,133 @@ impl Exports {
         type_registry: &TypeRegister,
         diag: &mut BuildDiagnostics,
     ) -> Self {
-        #[derive(Debug, Clone)]
-        struct NamedExport {
-            internal_name_ident: SyntaxNode,
-            internal_name: String,
-            external_name_ident: SyntaxNode,
-            exported_name: String,
-        }
-
-        let exports_it = doc.ExportsList().flat_map(|exports| exports.ExportSpecifier()).map(
-            |export_specifier| {
-                let internal_name = parser::identifier_text(&export_specifier.ExportIdentifier())
-                    .unwrap_or_else(|| {
-                        debug_assert!(diag.has_error());
-                        String::new()
-                    });
-
-                let (exported_name, name_location): (String, SyntaxNode) = export_specifier
-                    .ExportName()
-                    .and_then(|ident| {
-                        parser::identifier_text(&ident).map(|text| (text, ident.clone().into()))
-                    })
-                    .unwrap_or_else(|| {
-                        (internal_name.clone(), export_specifier.ExportIdentifier().into())
-                    });
-
-                NamedExport {
-                    internal_name_ident: export_specifier.ExportIdentifier().into(),
-                    internal_name,
-                    external_name_ident: name_location,
-                    exported_name,
+        let resolve_export_to_inner_component_or_import =
+            |internal_name: &str, internal_name_node: &dyn Spanned, diag: &mut BuildDiagnostics| {
+                if let Ok(ElementType::Component(c)) = type_registry.lookup_element(internal_name) {
+                    Some(Either::Left(c))
+                } else if let ty @ Type::Struct { .. } = type_registry.lookup(internal_name) {
+                    Some(Either::Right(ty))
+                } else if type_registry.lookup_element(internal_name).is_ok()
+                    || type_registry.lookup(internal_name) != Type::Invalid
+                {
+                    diag.push_error(
+                        format!("Cannot export '{}' because it is not a component", internal_name,),
+                        internal_name_node,
+                    );
+                    None
+                } else {
+                    diag.push_error(format!("'{}' not found", internal_name,), internal_name_node);
+                    None
                 }
-            },
+            };
+
+        let mut sorted_exports_with_duplicates: Vec<(ExportedName, _)> = Vec::new();
+
+        let mut extend_exports = |it: &mut dyn Iterator<Item = (ExportedName, _)>| {
+            for (name, compo_or_type) in it {
+                let pos = sorted_exports_with_duplicates
+                    .partition_point(|(existing_name, _)| existing_name.name <= name.name);
+                sorted_exports_with_duplicates.insert(pos, (name, compo_or_type));
+            }
+        };
+
+        extend_exports(
+            &mut doc.ExportsList().flat_map(|exports| exports.ExportSpecifier()).filter_map(
+                |export_specifier| {
+                    let internal_name =
+                        parser::identifier_text(&export_specifier.ExportIdentifier())
+                            .unwrap_or_else(|| {
+                                debug_assert!(diag.has_error());
+                                String::new()
+                            });
+
+                    let (name, name_ident): (String, SyntaxNode) = export_specifier
+                        .ExportName()
+                        .and_then(|ident| {
+                            parser::identifier_text(&ident).map(|text| (text, ident.clone().into()))
+                        })
+                        .unwrap_or_else(|| {
+                            (internal_name.clone(), export_specifier.ExportIdentifier().into())
+                        });
+
+                    Some((
+                        ExportedName { name, name_ident },
+                        resolve_export_to_inner_component_or_import(
+                            &internal_name,
+                            &export_specifier.ExportIdentifier(),
+                            diag,
+                        )?,
+                    ))
+                },
+            ),
         );
 
-        let exports_it = exports_it.chain(
-            doc.ExportsList().filter_map(|exports| exports.Component()).map(|component| {
-                let name_location: SyntaxNode = component.DeclaredIdentifier().into();
+        extend_exports(&mut doc.ExportsList().flat_map(|exports| exports.Component()).filter_map(
+            |component| {
+                let name_ident: SyntaxNode = component.DeclaredIdentifier().into();
                 let name =
                     parser::identifier_text(&component.DeclaredIdentifier()).unwrap_or_else(|| {
                         debug_assert!(diag.has_error());
                         String::new()
                     });
-                NamedExport {
-                    internal_name_ident: name_location.clone(),
-                    internal_name: name.clone(),
-                    external_name_ident: name_location,
-                    exported_name: name,
-                }
-            }),
+
+                let compo_or_type =
+                    resolve_export_to_inner_component_or_import(&name, &name_ident, diag)?;
+
+                Some((ExportedName { name, name_ident }, compo_or_type))
+            },
+        ));
+
+        extend_exports(
+            &mut doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).filter_map(
+                |st| {
+                    let name_ident: SyntaxNode = st.DeclaredIdentifier().into();
+                    let name =
+                        parser::identifier_text(&st.DeclaredIdentifier()).unwrap_or_else(|| {
+                            debug_assert!(diag.has_error());
+                            String::new()
+                        });
+
+                    let compo_or_type =
+                        resolve_export_to_inner_component_or_import(&name, &name_ident, diag)?;
+
+                    Some((ExportedName { name, name_ident }, compo_or_type))
+                },
+            ),
         );
-        let exports_it = exports_it.chain(
-            doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).map(|st| {
-                let name_location: SyntaxNode = st.DeclaredIdentifier().into();
-                let name = parser::identifier_text(&st.DeclaredIdentifier()).unwrap_or_else(|| {
-                    debug_assert!(diag.has_error());
-                    String::new()
-                });
-                NamedExport {
-                    internal_name_ident: name_location.clone(),
-                    internal_name: name.clone(),
-                    external_name_ident: name_location,
-                    exported_name: name,
+
+        let mut sorted_deduped_exports = Vec::with_capacity(sorted_exports_with_duplicates.len());
+        let mut it = sorted_exports_with_duplicates.into_iter().peekable();
+        while let Some((exported_name, compo_or_type)) = it.next() {
+            let mut warning_issued_on_first_occurrence = false;
+
+            // Skip over duplicates and issue warnings
+            while it.peek().map(|(name, _)| &name.name) == Some(&exported_name.name) {
+                let message = format!("Duplicated export '{}'", exported_name.name);
+
+                if !warning_issued_on_first_occurrence {
+                    diag.push_error(message.clone(), &exported_name.name_ident);
+                    warning_issued_on_first_occurrence = true;
                 }
-            }),
-        );
 
-        struct SeenExport {
-            name_location: SyntaxNode,
-            warned: bool,
-        }
-        let mut seen_exports: HashMap<String, SeenExport> = HashMap::new();
-        let mut export_diagnostics = Vec::new();
+                let duplicate_loc = it.next().unwrap().0.name_ident;
+                diag.push_error(message.clone(), &duplicate_loc);
+            }
 
-        let mut exports: Vec<_> = exports_it
-            .filter(|export| {
-                if let Some(other_loc) = seen_exports.get_mut(&export.exported_name) {
-                    let message = format!("Duplicated export '{}'", export.exported_name);
-                    if !other_loc.warned {
-                        export_diagnostics.push((message.clone(), other_loc.name_location.clone()));
-                        other_loc.warned = true;
-                    }
-                    export_diagnostics.push((message, export.external_name_ident.clone()));
-                    false
-                } else {
-                    seen_exports.insert(
-                        export.exported_name.clone(),
-                        SeenExport {
-                            name_location: export.external_name_ident.clone(),
-                            warned: false,
-                        },
-                    );
-
-                    true
-                }
-            })
-            .collect();
-
-        for (message, location) in export_diagnostics {
-            diag.push_error(message, &location);
+            sorted_deduped_exports.push((exported_name, compo_or_type));
         }
 
-        if exports.is_empty() {
-            if let Some(internal_name) = inner_components.last().as_ref().map(|x| x.id.clone()) {
-                exports.push(NamedExport {
-                    internal_name_ident: doc.clone().into(),
-                    internal_name: internal_name.clone(),
-                    external_name_ident: doc.clone().into(),
-                    exported_name: internal_name,
-                })
+        if sorted_deduped_exports.is_empty() {
+            if let Some(last_compo) = inner_components.last() {
+                let name = last_compo.id.clone();
+                sorted_deduped_exports.push((
+                    ExportedName { name, name_ident: doc.clone().into() },
+                    Either::Left(last_compo.clone()),
+                ))
             }
         }
 
-        let mut resolve_export_to_inner_component_or_import = |export: &NamedExport| {
-            if let Ok(ElementType::Component(c)) =
-                type_registry.lookup_element(export.internal_name.as_str())
-            {
-                Some(Either::Left(c))
-            } else if let ty @ Type::Struct { .. } =
-                type_registry.lookup(export.internal_name.as_str())
-            {
-                Some(Either::Right(ty))
-            } else if type_registry.lookup_element(export.internal_name.as_str()).is_ok()
-                || type_registry.lookup(export.internal_name.as_str()) != Type::Invalid
-            {
-                diag.push_error(
-                    format!(
-                        "Cannot export '{}' because it is not a component",
-                        export.internal_name,
-                    ),
-                    &export.internal_name_ident,
-                );
-                None
-            } else {
-                diag.push_error(
-                    format!("'{}' not found", export.internal_name,),
-                    &export.internal_name_ident,
-                );
-                None
-            }
-        };
-
-        Self(
-            exports
-                .iter()
-                .filter_map(|export| {
-                    Some((
-                        ExportedName {
-                            name: export.exported_name.clone(),
-                            name_ident: export.external_name_ident.clone(),
-                        },
-                        resolve_export_to_inner_component_or_import(export)?,
-                    ))
-                })
-                .collect(),
-        )
+        Self(sorted_deduped_exports)
     }
 }
 
