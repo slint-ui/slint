@@ -2068,7 +2068,7 @@ impl ExportedName {
 }
 
 #[derive(Default, Debug, derive_more::Deref)]
-pub struct Exports(pub Vec<(ExportedName, Either<Rc<Component>, Type>)>);
+pub struct Exports(Vec<(ExportedName, Either<Rc<Component>, Type>)>);
 
 impl Exports {
     pub fn from_node(
@@ -2224,6 +2224,13 @@ impl Exports {
                 }
             }
         }
+    }
+
+    pub fn find(&self, name: &str) -> Option<Either<Rc<Component>, Type>> {
+        self.0
+            .binary_search_by(|(exported_name, _)| exported_name.as_str().cmp(name))
+            .ok()
+            .map(|index| self.0[index].1.clone())
     }
 }
 
