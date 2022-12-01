@@ -18,22 +18,31 @@ let is_event_loop_running = false;
 export class PreviewWidget extends Widget {
     #instance: slint.WrappedInstance | null;
     #canvas_id: string;
+    #canvas: HTMLCanvasElement | null = null;
+    #canvas_observer: MutationObserver | null = null;
     #ensure_attached_to_dom: Promise<void>;
     #resolve_attached_to_dom: () => void;
     #zoom_level = 100;
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
-        const content = document.createElement("div");
-        content.className = "preview-container";
 
         const menu_area = document.createElement("div");
         menu_area.className = "menu-area";
-        content.appendChild(menu_area);
+        node.appendChild(menu_area);
+
+        const content = document.createElement("div");
+        content.className = "preview-container";
+
+        const scroll = document.createElement("div");
+        scroll.className = "preview-scrolled-area";
+        scroll.style.overflow = "hidden";
+        scroll.style.position = "relative";
+        content.appendChild(scroll);
 
         const error_area = document.createElement("div");
         error_area.className = "error-area";
-        content.appendChild(error_area);
+        node.appendChild(error_area);
 
         node.appendChild(content);
 
@@ -124,25 +133,100 @@ export class PreviewWidget extends Widget {
         this.dispose();
     }
 
+    protected update_scroll_size() {
+        if (this.#canvas == null || this.#zoom_level < 0) {
+            return;
+        }
+
+        const padding = 50;
+        const canvas_style = document.defaultView?.getComputedStyle(
+            this.#canvas,
+        );
+        const parent_style = document.defaultView?.getComputedStyle(
+            this.contentNode,
+        );
+
+        if (canvas_style == null || parent_style == null) {
+            return;
+        }
+
+        const raw_canvas_scale = parseFloat(canvas_style.scale);
+        const raw_canvas_width = parseInt(canvas_style.width, 10);
+        const raw_canvas_height = parseInt(canvas_style.height, 10);
+        const canvas_width = Math.ceil(raw_canvas_width * raw_canvas_scale);
+        const canvas_height = Math.ceil(raw_canvas_height * raw_canvas_scale);
+        const width = Math.max(
+            parseInt(parent_style.width, 10),
+            canvas_width + 2 * padding,
+        );
+        const height = Math.max(
+            parseInt(parent_style.height, 10),
+            canvas_height + 2 * padding,
+        );
+        const left = Math.ceil((width - raw_canvas_width) / 2) + "px";
+        const top = Math.ceil((height - raw_canvas_height) / 2) + "px";
+
+        const zl = this.#zoom_level;
+        this.#zoom_level = -1;
+        this.#canvas.style.left = left;
+        this.#canvas.style.top = top;
+        this.scrollNode.style.width = width + "px";
+        this.scrollNode.style.height = height + "px";
+        this.#zoom_level = zl;
+    }
+
     protected get canvas_id(): string {
         if (this.#canvas_id === "") {
             this.#canvas_id =
                 "canvas_" + Math.random().toString(36).slice(2, 11);
-            const canvas = document.createElement("canvas");
-            canvas.width = 800;
-            canvas.height = 600;
-            canvas.id = this.#canvas_id;
-            canvas.className = "slint-preview";
-            canvas.style.scale = (this.#zoom_level / 100).toString();
+            this.#canvas = document.createElement("canvas");
+            this.#canvas.width = 800;
+            this.#canvas.height = 600;
+            this.#canvas.id = this.#canvas_id;
+            this.#canvas.className = "slint-preview";
+            this.#canvas.style.scale = (this.#zoom_level / 100).toString();
+            this.#canvas.style.padding = "0px";
+            this.#canvas.style.margin = "0px";
+            this.#canvas.style.position = "absolute";
+            this.#canvas.style.imageRendering = "pixelated";
 
-            this.node.getElementsByTagName("div")[0].appendChild(canvas);
+            this.scrollNode.appendChild(this.#canvas);
+
+            const config = { attributes: true };
+
+            const update_scroll_size = () => {
+                this.update_scroll_size();
+            };
+
+            update_scroll_size();
+
+            // Callback function to execute when mutations are observed
+            this.#canvas_observer = new MutationObserver((mutationList) => {
+                for (const mutation of mutationList) {
+                    if (
+                        mutation.type === "attributes" &&
+                        mutation.attributeName === "style"
+                    ) {
+                        update_scroll_size();
+                    }
+                }
+            });
+            this.#canvas_observer.observe(this.#canvas, config);
         }
 
         return this.#canvas_id;
     }
 
     protected get contentNode(): HTMLDivElement {
-        return this.node.getElementsByTagName("div")[0] as HTMLDivElement;
+        return this.node.getElementsByClassName(
+            "preview-container",
+        )[0] as HTMLDivElement;
+    }
+
+    protected get scrollNode(): HTMLDivElement {
+        return this.node.getElementsByClassName(
+            "preview-scrolled-area",
+        )[0] as HTMLDivElement;
     }
 
     protected get canvasNode(): HTMLCanvasElement | null {
@@ -151,24 +235,31 @@ export class PreviewWidget extends Widget {
         )[0] as HTMLCanvasElement;
     }
     protected get menuNode(): HTMLDivElement {
-        return this.contentNode.getElementsByTagName(
-            "div",
+        return this.node.getElementsByClassName(
+            "menu-area",
         )[0] as HTMLDivElement;
     }
 
     protected get errorNode(): HTMLDivElement {
-        return this.contentNode.getElementsByTagName(
-            "div",
-        )[1] as HTMLDivElement;
+        return this.node.getElementsByClassName(
+            "error-area",
+        )[0] as HTMLDivElement;
     }
 
     dispose() {
         super.dispose();
+        this.#canvas_observer?.disconnect();
     }
 
     protected onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
         this.#resolve_attached_to_dom();
+    }
+
+    protected onResize(_msg: Message): void {
+        if (this.isAttached) {
+            this.update_scroll_size();
+        }
     }
 
     public async render(

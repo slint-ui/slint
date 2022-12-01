@@ -33,7 +33,6 @@
 }
 
 .preview .preview-container {
-    display: flex;
     background-image: linear-gradient(
             45deg,
             var(--undefined-bg) 25%,
@@ -46,38 +45,30 @@
     background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
     width: 100%;
     height: 100%;
-}
-
-.preview .preview-container > canvas {
-    margin: auto;
-    padding: 50px;
-    image-rendering: pixelated;
+    overflow: "auto";
 }
 
 .preview .menu-area {
     position: absolute;
+    border: none;
     padding: 10px;
     z-index: 2;
-    width: 100%;
-    height: 100%;
 }
 
 .preview .error-area {
     display: none;
-
+    border: none;
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translateX(-50%) translateY(-50%);
     width: 100%;
-    height: 100%;
+    top: 80%;
+    overflow: hidden;
+    z-index: 3;
 }
 
 .preview .error-message {
     background-color: var(--error-bg);
     color: var(--error-fg);
-
-    width: 100%;
+    padding: 10px;
 }
 
 .outline ul {
