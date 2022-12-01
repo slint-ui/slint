@@ -56,7 +56,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
     }
 
     fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> FemtoVGCanvas {
-        let opengl_context = crate::OpenGLContext::new_context(
+        let (opengl_context, window) = crate::OpenGLContext::new_context(
             window_builder,
             #[cfg(target_arch = "wasm32")]
             &self.canvas_id,
@@ -64,10 +64,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_adapter_weak.clone(),
-            &format!(
-                "FemtoVG renderer (windowing system: {})",
-                opengl_context.window().winsys_name()
-            ),
+            &format!("FemtoVG renderer (windowing system: {})", window.winsys_name()),
         );
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -116,6 +113,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
             texture_cache: Default::default(),
             rendering_metrics_collector,
             opengl_context,
+            window,
         };
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
@@ -136,7 +134,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
     }
 
     fn render(&self, canvas: &FemtoVGCanvas, window_adapter: &dyn WindowAdapter) {
-        let size = canvas.opengl_context.window().inner_size();
+        let size = canvas.window.inner_size();
         let width = size.width;
         let height = size.height;
 
@@ -423,6 +421,7 @@ pub struct FemtoVGCanvas {
     texture_cache: RefCell<images::TextureCache>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     opengl_context: crate::OpenGLContext,
+    window: Rc<winit::window::Window>,
 }
 
 impl super::WinitCompatibleCanvas for FemtoVGCanvas {
@@ -432,11 +431,11 @@ impl super::WinitCompatibleCanvas for FemtoVGCanvas {
     }
 
     fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
-        callback(&*self.opengl_context.window())
+        callback(&self.window)
     }
 
     fn resize_event(&self) {
-        self.opengl_context.ensure_resized()
+        self.opengl_context.ensure_resized(&self.window)
     }
 
     #[cfg(target_arch = "wasm32")]
