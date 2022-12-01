@@ -142,6 +142,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::CallbackReference { .. } => panic!("callback in expression"),
+        Expression::FunctionReference { .. } => panic!("function in expression"),
         Expression::BuiltinFunctionReference(..) => panic!(
             "naked builtin function reference not allowed, should be handled by function call"
         ),
@@ -211,22 +212,22 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             v
         }
         Expression::FunctionCall { function, arguments, source_location: _ } => match &**function {
+            Expression::FunctionReference(nr) => {
+                let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
+                generativity::make_guard!(guard);
+                match enclosing_component_instance_for_element(&nr.element(), local_context.component_instance, guard) {
+                    ComponentInstance::InstanceRef(c) => {
+                        let mut ctx = EvalLocalContext::from_function_arguments(c, args);
+                        eval_expression(&nr.element().borrow().bindings.get(nr.name()).unwrap().borrow().expression, &mut ctx)
+                    }
+                    ComponentInstance::GlobalComponent(g) => {
+                        g.as_ref().eval_function(nr.name(), args).unwrap()
+                    },
+                }
+            }
             Expression::CallbackReference(nr) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
-                if matches!(nr.ty(), Type::Function { .. }) {
-                    generativity::make_guard!(guard);
-                    match enclosing_component_instance_for_element(&nr.element(), local_context.component_instance, guard) {
-                        ComponentInstance::InstanceRef(c) => {
-                            let mut ctx = EvalLocalContext::from_function_arguments(c, args);
-                            eval_expression(&nr.element().borrow().bindings.get(nr.name()).unwrap().borrow().expression, &mut ctx)
-                        }
-                        ComponentInstance::GlobalComponent(g) => {
-                            g.as_ref().eval_function(nr.name(), args).unwrap()
-                        },
-                    }
-                } else {
-                    invoke_callback(local_context.component_instance, &nr.element(), nr.name(), &args).unwrap()
-                }
+                invoke_callback(local_context.component_instance, &nr.element(), nr.name(), &args).unwrap()
             }
             Expression::BuiltinFunctionReference(f, _) => call_builtin_function(*f, arguments, local_context),
             _ => panic!("call of something not a callback: {function:?}"),

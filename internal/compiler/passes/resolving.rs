@@ -570,11 +570,15 @@ impl Expression {
                 expression: r @ Expression::CallbackReference(..), ..
             } => {
                 if let Some(x) = it.next() {
-                    if matches!(r.ty(), Type::Function { .. }) {
-                        ctx.diag.push_error("Cannot access fields of a function".into(), &x)
-                    } else {
-                        ctx.diag.push_error("Cannot access fields of callback".into(), &x)
-                    }
+                    ctx.diag.push_error("Cannot access fields of callback".into(), &x)
+                }
+                r
+            }
+            LookupResult::Expression {
+                expression: r @ Expression::FunctionReference(..), ..
+            } => {
+                if let Some(x) = it.next() {
+                    ctx.diag.push_error("Cannot access fields of a function".into(), &x)
                 }
                 r
             }
@@ -1073,7 +1077,7 @@ fn continue_lookup_within_element(
                 member: Box::new(member),
             }
         } else {
-            Expression::CallbackReference(NamedReference::new(elem, &lookup_result.resolved_name))
+            Expression::FunctionReference(NamedReference::new(elem, &lookup_result.resolved_name))
         }
     } else {
         let mut err = |extra: &str| {
@@ -1292,6 +1296,10 @@ pub fn resolve_two_way_binding(
             } else {
                 Some(n)
             }
+        }
+        Expression::FunctionReference(..) => {
+            ctx.diag.push_error("Cannot bind to a function".into(), &node);
+            None
         }
         _ => {
             ctx.diag.push_error(

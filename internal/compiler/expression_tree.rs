@@ -346,8 +346,11 @@ pub enum Expression {
     /// Note: if we are to separate expression and statement, we probably do not need to have callback reference within expressions
     CallbackReference(NamedReference),
 
-    /// Reference to the callback `<name>` in the `<element>`
+    /// Reference to the property
     PropertyReference(NamedReference),
+
+    /// Reference to a Function
+    FunctionReference(NamedReference),
 
     /// Reference to a function built into the run-time, implemented natively
     BuiltinFunctionReference(BuiltinFunction, Option<SourceLocation>),
@@ -516,6 +519,7 @@ impl Expression {
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
             Expression::CallbackReference(nr) => nr.ty(),
+            Expression::FunctionReference(nr) => nr.ty(),
             Expression::PropertyReference(nr) => nr.ty(),
             Expression::BuiltinFunctionReference(funcref, _) => funcref.ty(),
             Expression::MemberFunction { member, .. } => member.ty(),
@@ -653,6 +657,7 @@ impl Expression {
             Expression::BoolLiteral(_) => {}
             Expression::CallbackReference { .. } => {}
             Expression::PropertyReference { .. } => {}
+            Expression::FunctionReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
             Expression::MemberFunction { base, member, .. } => {
@@ -749,6 +754,7 @@ impl Expression {
             Expression::BoolLiteral(_) => {}
             Expression::CallbackReference { .. } => {}
             Expression::PropertyReference { .. } => {}
+            Expression::FunctionReference { .. } => {}
             Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
             Expression::MemberFunction { base, member, .. } => {
@@ -859,6 +865,7 @@ impl Expression {
             Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,
             Expression::CallbackReference { .. } => false,
+            Expression::FunctionReference(nr) => nr.is_constant(),
             Expression::PropertyReference(nr) => nr.is_constant(),
             Expression::BuiltinFunctionReference(func, _) => func.is_pure(),
             Expression::MemberFunction { .. } => false,
@@ -1364,6 +1371,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::BoolLiteral(b) => write!(f, "{:?}", b),
         Expression::CallbackReference(a) => write!(f, "{:?}", a),
         Expression::PropertyReference(a) => write!(f, "{:?}", a),
+        Expression::FunctionReference(a) => write!(f, "{:?}", a),
         Expression::BuiltinFunctionReference(a, _) => write!(f, "{:?}", a),
         Expression::MemberFunction { base, base_node: _, member } => {
             pretty_print(f, base)?;

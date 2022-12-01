@@ -125,7 +125,10 @@ fn fully_qualify_property_access(
         let global_lookup = i_slint_compiler::lookup::global_lookup();
         match global_lookup.lookup(ctx, &first_str) {
             Some(LookupResult::Expression {
-                expression: Expression::PropertyReference(nr) | Expression::CallbackReference(nr),
+                expression:
+                    Expression::PropertyReference(nr)
+                    | Expression::CallbackReference(nr)
+                    | Expression::FunctionReference(nr),
                 ..
             }) => {
                 if let Some(new_name) = state.lookup_change.property_mappings.get(&nr) {

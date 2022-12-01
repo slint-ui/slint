@@ -71,7 +71,9 @@ pub fn goto_definition(
                         } => e.upgrade()?.borrow().node.clone()?.into(),
                         LookupResult::Expression {
                             expression:
-                                Expression::CallbackReference(nr) | Expression::PropertyReference(nr),
+                                Expression::CallbackReference(nr)
+                                | Expression::PropertyReference(nr)
+                                | Expression::FunctionReference(nr),
                             ..
                         } => {
                             let mut el = nr.element();
