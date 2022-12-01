@@ -9,7 +9,7 @@ use i_slint_core::lengths::LogicalLength;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
-use std::rc::Weak;
+use std::rc::{Rc, Weak};
 
 impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRenderer<BUFFER_COUNT> {
     type Canvas = SwCanvas;
@@ -20,7 +20,7 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
     }
 
     fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {
-        let opengl_context = crate::OpenGLContext::new_context(window_builder);
+        let (opengl_context, window) = crate::OpenGLContext::new_context(window_builder);
 
         let gl_renderer = unsafe {
             femtovg::renderer::OpenGl::new_from_function(|s| {
@@ -29,13 +29,13 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
             .unwrap()
         };
         let canvas = femtovg::Canvas::new(gl_renderer).unwrap().into();
-        SwCanvas { canvas, opengl_context }
+        SwCanvas { canvas, opengl_context, window }
     }
 
     fn release_canvas(&self, _canvas: Self::Canvas) {}
 
     fn render(&self, canvas: &SwCanvas, _: &dyn WindowAdapter) {
-        let size = canvas.opengl_context.window().inner_size();
+        let size = canvas.window.inner_size();
         let width = size.width as usize;
         let height = size.height as usize;
 
@@ -109,16 +109,17 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
 pub(crate) struct SwCanvas {
     canvas: RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>,
     opengl_context: crate::OpenGLContext,
+    window: Rc<winit::window::Window>,
 }
 
 impl WinitCompatibleCanvas for SwCanvas {
     fn component_destroyed(&self, _component: i_slint_core::component::ComponentRef) {}
 
     fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
-        callback(&*self.opengl_context.window())
+        callback(&self.window)
     }
 
     fn resize_event(&self) {
-        self.opengl_context.ensure_resized()
+        self.opengl_context.ensure_resized(&self.window)
     }
 }

@@ -67,7 +67,9 @@ send_wrapper = "0.6.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 fontdb = { version = "0.10", optional = true, features = ["memmap", "fontconfig"] }
-glutin = { version = "0.29", default-features = false }
+glutin = { version = "0.30", default-features = false }
+glutin-winit = { version = "0.2.1" }
+raw-window-handle = { version = "0.5" }
 
 # For the FemtoVG renderer
 [target.'cfg(target_family = "windows")'.dependencies]
