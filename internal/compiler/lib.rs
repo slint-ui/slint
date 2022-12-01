@@ -160,12 +160,13 @@ pub async fn compile_syntax_node(
         return (crate::object_tree::Document::default(), diagnostics);
     }
 
-    let foreign_imports =
+    let (foreign_imports, reexports) =
         loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
 
     let doc = crate::object_tree::Document::from_node(
         doc_node,
         foreign_imports,
+        reexports,
         &mut diagnostics,
         &type_registry,
     );

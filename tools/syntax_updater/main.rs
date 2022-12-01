@@ -168,7 +168,7 @@ fn process_file(
     let dependency_registry = Rc::new(RefCell::new(
         i_slint_compiler::typeregister::TypeRegister::new(&type_loader.global_type_registry),
     ));
-    let foreign_imports = spin_on::spin_on(type_loader.load_dependencies_recursively(
+    let (foreign_imports, reexports) = spin_on::spin_on(type_loader.load_dependencies_recursively(
         &doc,
         &mut diag,
         &dependency_registry,
@@ -176,6 +176,7 @@ fn process_file(
     let current_doc = crate::object_tree::Document::from_node(
         doc,
         foreign_imports,
+        reexports,
         &mut diag,
         &dependency_registry,
     );

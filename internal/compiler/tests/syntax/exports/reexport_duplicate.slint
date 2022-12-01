@@ -1,0 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export * from "../../typeloader/incpath/local_helper_type.slint";
+//     ^error{re-export 'SomeRect' is already exported in this file}
+
+export * from "../../typeloader/incpath/dependency_from_incpath.slint";
+export * from "../../typeloader/incpath/dependency_from_incpath.slint";
+//     ^error{re-export 'AnotherType' is already exported in this file}
+
+
+export SomeRect := Rectangle {}
