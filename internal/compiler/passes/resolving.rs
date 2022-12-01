@@ -1046,7 +1046,7 @@ fn continue_lookup_within_element(
 
     if lookup_result.property_type.is_property_type() {
         if !local_to_component && lookup_result.property_visibility == PropertyVisibility::Private {
-            ctx.diag.push_error(format!("'{}' is private", second.text()), &second);
+            ctx.diag.push_error(format!("The property '{}' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components", second.text()), &second);
             return Expression::Invalid;
         }
         if lookup_result.resolved_name != prop_name {
@@ -1065,7 +1065,11 @@ fn continue_lookup_within_element(
         }
         Expression::CallbackReference(NamedReference::new(elem, &lookup_result.resolved_name))
     } else if matches!(lookup_result.property_type, Type::Function { .. }) {
-        if let Some(x) = it.next() {
+        if !lookup_result.is_local_to_component
+            && lookup_result.property_visibility == PropertyVisibility::Private
+        {
+            ctx.diag.push_error(format!("The function '{}' is private. Annotate it with 'public' to make it accessible from other components", second.text()), &second);
+        } else if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of a function".into(), &x)
         }
         let member = elem.borrow().base_type.lookup_member_function(&lookup_result.resolved_name);
