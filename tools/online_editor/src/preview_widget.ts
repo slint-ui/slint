@@ -20,11 +20,16 @@ export class PreviewWidget extends Widget {
     #canvas_id: string;
     #ensure_attached_to_dom: Promise<void>;
     #resolve_attached_to_dom: () => void;
+    #zoom_level = 100;
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
         const content = document.createElement("div");
         content.className = "preview-container";
+
+        const menu_area = document.createElement("div");
+        menu_area.className = "menu-area";
+        content.appendChild(menu_area);
 
         const error_area = document.createElement("div");
         error_area.className = "error-area";
@@ -53,6 +58,65 @@ export class PreviewWidget extends Widget {
         this.#ensure_attached_to_dom = new Promise((resolve) => {
             this.#resolve_attached_to_dom = resolve;
         });
+
+        this.populate_menu();
+    }
+
+    private populate_menu() {
+        const menu = this.menuNode;
+
+        const zoom_in = document.createElement("button");
+        zoom_in.innerHTML = '<i class="fa fa-search-minus"></i>';
+
+        const zoom_level = document.createElement("input");
+        zoom_level.type = "number";
+        zoom_level.max = "1600";
+        zoom_level.min = "25";
+        zoom_level.value = this.#zoom_level.toString();
+
+        const zoom_out = document.createElement("button");
+        zoom_out.innerHTML = '<i class="fa fa-search-plus"></i>';
+
+        const set_zoom_level = (level: number) => {
+            this.#zoom_level = level;
+            const canvas = this.canvasNode;
+            if (canvas != null) {
+                canvas.style.scale = (level / 100).toString();
+            }
+            if (+zoom_level.value != level) {
+                zoom_level.value = level.toString();
+            }
+        };
+
+        zoom_in.addEventListener("click", () => {
+            let next_level = +zoom_level.max;
+            const current_level = +zoom_level.value;
+            const smallest_level = +zoom_level.min;
+
+            while (next_level > smallest_level && next_level >= current_level) {
+                next_level = Math.ceil(next_level / 2);
+            }
+            set_zoom_level(next_level);
+        });
+
+        zoom_out.addEventListener("click", () => {
+            let next_level = +zoom_level.min;
+            const current_level = +zoom_level.value;
+            const biggest_level = +zoom_level.max;
+
+            while (next_level < biggest_level && next_level <= current_level) {
+                next_level = Math.ceil(next_level * 2);
+            }
+            set_zoom_level(next_level);
+        });
+
+        zoom_level.addEventListener("change", () => {
+            set_zoom_level(+zoom_level.value);
+        });
+
+        menu.appendChild(zoom_in);
+        menu.appendChild(zoom_level);
+        menu.appendChild(zoom_out);
     }
 
     protected onCloseRequest(msg: Message): void {
@@ -69,6 +133,7 @@ export class PreviewWidget extends Widget {
             canvas.height = 600;
             canvas.id = this.#canvas_id;
             canvas.className = "slint-preview";
+            canvas.style.scale = (this.#zoom_level / 100).toString();
 
             this.node.getElementsByTagName("div")[0].appendChild(canvas);
         }
@@ -76,8 +141,25 @@ export class PreviewWidget extends Widget {
         return this.#canvas_id;
     }
 
+    protected get contentNode(): HTMLDivElement {
+        return this.node.getElementsByTagName("div")[0] as HTMLDivElement;
+    }
+
+    protected get canvasNode(): HTMLCanvasElement | null {
+        return this.contentNode.getElementsByClassName(
+            "slint-preview",
+        )[0] as HTMLCanvasElement;
+    }
+    protected get menuNode(): HTMLDivElement {
+        return this.contentNode.getElementsByTagName(
+            "div",
+        )[0] as HTMLDivElement;
+    }
+
     protected get errorNode(): HTMLDivElement {
-        return this.node.getElementsByTagName("div")[1] as HTMLDivElement;
+        return this.contentNode.getElementsByTagName(
+            "div",
+        )[1] as HTMLDivElement;
     }
 
     dispose() {
