@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+global G := {
+    property <string> hello: "hello";
+    function meh(w: string) -> string {
+        return hello + " " + w;
+    }
+}
+
+TestCase := Rectangle {
+
+    property <int> c: 100000;
+
+    function the_function(a: int, b: int) -> int { a + b + c }
+
+    if true : Rectangle {
+        background: the_function(1, 2) > 3 ? blue:red;
+    }
+
+    property <bool> test: the_function(4500, 12) == 104512 && G.meh("world") == "hello world";
+}
+
+/*
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

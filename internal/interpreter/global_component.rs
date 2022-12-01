@@ -91,6 +91,8 @@ pub trait GlobalComponent {
     fn get_property(self: Pin<&Self>, prop_name: &str) -> Result<Value, ()>;
 
     fn get_property_ptr(self: Pin<&Self>, prop_name: &str) -> *const ();
+
+    fn eval_function(self: Pin<&Self>, fn_name: &str, args: Vec<Value>) -> Result<Value, ()>;
 }
 
 /// Instantiate the global singleton and store it in `globals`
@@ -184,6 +186,27 @@ impl GlobalComponent for GlobalComponentInstance {
         let comp = self.0.unerase(guard);
         comp.description().set_callback_handler(comp.borrow(), callback_name, handler)
     }
+
+    fn eval_function(self: Pin<&Self>, fn_name: &str, args: Vec<Value>) -> Result<Value, ()> {
+        generativity::make_guard!(guard);
+        let comp = self.0.unerase(guard);
+        let mut ctx =
+            crate::eval::EvalLocalContext::from_function_arguments(comp.borrow_instance(), args);
+        let result = crate::eval::eval_expression(
+            &comp
+                .description()
+                .original
+                .root_element
+                .borrow()
+                .bindings
+                .get(fn_name)
+                .ok_or(())?
+                .borrow()
+                .expression,
+            &mut ctx,
+        );
+        Ok(result)
+    }
 }
 
 impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
@@ -223,6 +246,10 @@ impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
     ) -> Result<(), ()> {
         let cb = Self::callbacks().into_iter().find(|(k, _)| *k == callback_name).ok_or(())?.1;
         cb.set_handler(self, handler)
+    }
+
+    fn eval_function(self: Pin<&Self>, _fn_name: &str, _args: Vec<Value>) -> Result<Value, ()> {
+        Err(())
     }
 }
 

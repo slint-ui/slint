@@ -122,6 +122,22 @@ impl<T> Display for DisplayPropertyRef<'_, T> {
                 let g = &ctx.public_component.globals[*global_index];
                 write!(f, "{}.{}", g.name, g.properties[*property_index].name)
             }
+            PropertyReference::Function { sub_component_path, function_index } => {
+                if let Some(g) = ctx.current_global {
+                    write!(f, "{}.{}", g.name, g.functions[*function_index].name)
+                } else {
+                    let mut sc = ctx.current_sub_component.unwrap();
+                    for i in sub_component_path {
+                        write!(f, "{}.", sc.sub_components[*i].name)?;
+                        sc = &sc.sub_components[*i].ty;
+                    }
+                    write!(f, "{}", sc.functions[*function_index].name)
+                }
+            }
+            PropertyReference::GlobalFunction { global_index, function_index } => {
+                let g = &ctx.public_component.globals[*global_index];
+                write!(f, "{}.{}", g.name, g.functions[*function_index].name)
+            }
         }
     }
 }
@@ -155,6 +171,14 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                     f,
                     "{}({})",
                     DisplayPropertyRef(callback, ctx),
+                    arguments.iter().map(e).join(", ")
+                )
+            }
+            Expression::FunctionCall { function, arguments } => {
+                write!(
+                    f,
+                    "{}({})",
+                    DisplayPropertyRef(function, ctx),
                     arguments.iter().map(e).join(", ")
                 )
             }

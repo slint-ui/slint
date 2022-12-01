@@ -89,7 +89,20 @@ pub fn count_property_use(root: &PublicComponent) {
             visit_property(a, ctx);
             visit_property(b, ctx);
         }
-    })
+
+        // 8.functions (TODO: only visit used function)
+        for f in &sc.functions {
+            visit_expression(&f.code, &ctx);
+        }
+    });
+
+    // TODO: only visit used function
+    for g in root.globals.iter() {
+        let ctx = EvaluationContext::new_global(root, g, ());
+        for f in &g.functions {
+            f.code.visit_recursive(&mut |e| visit_expression(e, &ctx));
+        }
+    }
 }
 
 fn visit_property(pr: &PropertyReference, ctx: &EvaluationContext) {

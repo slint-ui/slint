@@ -978,7 +978,7 @@ impl Element {
                 PropertyDeclaration {
                     property_type: Type::Function { return_type, args },
                     node: Some(func.into()),
-                    visibility: PropertyVisibility::InOut,
+                    visibility: PropertyVisibility::Private,
                     ..Default::default()
                 },
             );

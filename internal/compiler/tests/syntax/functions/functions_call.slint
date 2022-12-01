@@ -1,0 +1,26 @@
+
+
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+Xxx := Rectangle {
+    function foo(a: int) -> string { return a; }
+
+    function bar() {
+        foo(45, 45);
+//      ^error{The callback or function expects 1 arguments, but 2 are provided}
+
+        foo.hello(45);
+//          ^error{Cannot access fields of a function}
+
+        root.foo();
+//      ^error{The callback or function expects 1 arguments, but 0 are provided}
+
+        root.foo.hello(45);
+        //       ^error{Cannot access fields of a function}
+
+
+    }
+
+}

@@ -1012,6 +1012,7 @@ pub(crate) fn generate_component<'id>(
                 i_slint_common::for_each_enums!(match_enum_type)
             }
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
+            Type::Function { .. } => continue,
             _ => panic!("bad type {:?}", &decl.property_type),
         };
         custom_properties.insert(
@@ -1286,7 +1287,9 @@ pub fn instantiate(
             let is_const = binding.analysis.as_ref().map_or(false, |a| a.is_const);
 
             let property_type = elem.lookup_property(prop_name).property_type;
-            if let Type::Callback { .. } = property_type {
+            if let Type::Function { .. } = property_type {
+                // function don't need initialization
+            } else if let Type::Callback { .. } = property_type {
                 let expr = binding.expression.clone();
                 let component_type = component_type.clone();
                 if let Some(callback_offset) =

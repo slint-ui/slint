@@ -1472,6 +1472,10 @@ fn generate_sub_component(
         expr_str
     }));
 
+    target_struct
+        .members
+        .extend(generate_functions(&component.functions, &ctx).map(|x| (Access::Public, x)));
+
     target_struct.members.push((
         field_access,
         Declaration::Function(Function {
@@ -1806,9 +1810,40 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
 
     let declarations = generate_public_api_for_properties(&global.public_properties, &ctx);
     global_struct.members.extend(declarations.into_iter().map(|decl| (Access::Public, decl)));
+    global_struct
+        .members
+        .extend(generate_functions(&global.functions, &ctx).map(|x| (Access::Public, x)));
 
     file.definitions.extend(global_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(global_struct));
+}
+
+fn generate_functions<'a>(
+    functions: &'a [llr::Function],
+    ctx: &'a EvaluationContext,
+) -> impl Iterator<Item = Declaration> + 'a {
+    functions.iter().map(|f| {
+        let mut ctx2 = ctx.clone();
+        ctx2.argument_types = &f.args;
+        let body = vec![
+            "[[maybe_unused]] auto self = this;".into(),
+            format!("return {};", compile_expression_wrap_return(&f.code, &ctx2)),
+        ];
+        Declaration::Function(Function {
+            name: ident(&format!("fn_{}", f.name)),
+            signature: format!(
+                "({}) const -> {}",
+                f.args
+                    .iter()
+                    .enumerate()
+                    .map(|(i, ty)| format!("{} arg_{}", ty.cpp_type().unwrap(), i))
+                    .join(", "),
+                f.ret_ty.cpp_type().unwrap()
+            ),
+            statements: Some(body),
+            ..Default::default()
+        })
+    })
 }
 
 fn generate_public_api_for_properties(
@@ -1912,6 +1947,12 @@ fn access_window_field(ctx: &EvaluationContext) -> String {
 /// let access = access_member(...);
 /// format!("{}.get()", access)
 /// ```
+/// or for a function
+/// ```ignore
+/// let access = access_member(...);
+/// format!("{access}(...)")
+/// ```
+
 fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) -> String {
     fn in_native_item(
         ctx: &EvaluationContext,
@@ -1949,6 +1990,18 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 unreachable!()
             }
         }
+        llr::PropertyReference::Function { sub_component_path, function_index } => {
+            if let Some(sub_component) = ctx.current_sub_component {
+                let (compo_path, sub_component) =
+                    follow_sub_component_path(sub_component, sub_component_path);
+                let name = ident(&sub_component.functions[*function_index].name);
+                format!("self->{compo_path}fn_{name}")
+            } else if let Some(current_global) = ctx.current_global {
+                format!("this->fn_{}", ident(&current_global.functions[*function_index].name))
+            } else {
+                unreachable!()
+            }
+        }
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
             in_native_item(ctx, sub_component_path, *item_index, prop_name, "self")
         }
@@ -1968,12 +2021,21 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                     let property_name = ident(&sub_component.properties[*property_index].name);
                     format!("{}->{}{}", path, compo_path, property_name)
                 }
+                llr::PropertyReference::Function { sub_component_path, function_index } => {
+                    let sub_component = ctx.current_sub_component.unwrap();
+                    let (compo_path, sub_component) =
+                        follow_sub_component_path(sub_component, sub_component_path);
+                    let name = ident(&sub_component.functions[*function_index].name);
+                    format!("{path}->{compo_path}fn_{name}")
+                }
                 llr::PropertyReference::InNativeItem {
                     sub_component_path,
                     item_index,
                     prop_name,
                 } => in_native_item(ctx, sub_component_path, *item_index, prop_name, &path),
-                llr::PropertyReference::InParent { .. } | llr::PropertyReference::Global { .. } => {
+                llr::PropertyReference::InParent { .. }
+                | llr::PropertyReference::Global { .. }
+                | llr::PropertyReference::GlobalFunction { .. } => {
                     unreachable!()
                 }
             }
@@ -1986,6 +2048,14 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 &ctx.public_component.globals[*global_index].properties[*property_index].name,
             );
             format!("{}->{}->{}", root_access, global_id, property_name)
+        }
+        llr::PropertyReference::GlobalFunction { global_index, function_index } => {
+            let root_access = &ctx.generator_state;
+            let global = &ctx.public_component.globals[*global_index];
+            let global_id = format!("global_{}", ident(&global.name));
+            let name =
+                ident(&ctx.public_component.globals[*global_index].functions[*function_index].name);
+            format!("{root_access}->{global_id}->fn_{name}")
         }
     }
 }
@@ -2042,6 +2112,12 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             format!("{}.call({})", f, a.join(","))
         }
+        Expression::FunctionCall{ function, arguments } => {
+            let f = access_member(function, ctx);
+            let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
+            format!("{}({})", f, a.join(","))
+        }
+
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             format!("slint::private_api::{}({})", ident(function), a.join(","))
