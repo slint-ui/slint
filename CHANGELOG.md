@@ -3,6 +3,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Changed
+
+ - Minimum rust version is now 1.64.
+
 ## [0.3.2] - 2022-11-28
 
 ### Changed
