@@ -1031,6 +1031,32 @@ App := Rectangle {
 
 Elements, globals and structs can be exported and imported.
 
+### Module Syntax
+
+The following syntax is supported for importing types:
+
+```slint,ignore
+import { export1 } from "module.slint";
+import { export1, export2 } from "module.slint";
+import { export1 as alias1 } from "module.slint";
+import { export1, export2 as alias2, /* ... */ } from "module.slint";
+```
+
+The following syntax is supported for exporting types:
+
+```slint,ignore
+// Export declarations
+export MyButton := Rectangle { /* ... */ }
+
+// Export lists
+MySwitch := Rectangle { /* ... */ }
+export { MySwitch };
+export { MySwitch as Alias1, MyButton as Alias2 };
+
+// Re-export all types from other module
+export * from "other_module.slint";
+```
+
 ## Focus Handling
 
 Certain elements such as ```TextInput``` accept not only input from the mouse/finger but
