@@ -403,8 +403,8 @@ impl super::Surface for D3DSurface {
         "d3d"
     }
 
-    fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
-        callback(&self.window)
+    fn window(&self) -> &winit::window::Window {
+        &self.window
     }
 
     fn with_graphics_api(&self, _cb: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>)) {

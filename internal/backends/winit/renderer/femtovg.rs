@@ -430,8 +430,8 @@ impl super::WinitCompatibleCanvas for FemtoVGCanvas {
             .with_current_context(|_| self.graphics_cache.component_destroyed(component))
     }
 
-    fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
-        callback(&self.window)
+    fn window(&self) -> &winit::window::Window {
+        &self.window
     }
 
     fn resize_event(&self) {

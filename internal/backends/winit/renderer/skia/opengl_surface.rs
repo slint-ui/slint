@@ -69,8 +69,8 @@ impl super::Surface for OpenGLSurface {
         callback(api)
     }
 
-    fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
-        callback(&self.window)
+    fn window(&self) -> &winit::window::Window {
+        &self.window
     }
 
     fn with_active_surface<T>(&self, callback: impl FnOnce() -> T) -> T {

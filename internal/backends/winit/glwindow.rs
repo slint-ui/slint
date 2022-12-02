@@ -145,9 +145,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
             GraphicsWindowBackendState::Mapped(old_mapped) => old_mapped,
         };
 
-        old_mapped.canvas.with_window_handle(|winit_window| {
-            crate::event_loop::unregister_window(winit_window.id());
-        });
+        crate::event_loop::unregister_window(old_mapped.canvas.window().id());
 
         self.renderer.release_canvas(old_mapped.canvas);
     }
@@ -196,7 +194,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            mapped_window.canvas.with_window_handle(callback);
+            callback(mapped_window.canvas.window());
         }
     }
 
@@ -498,17 +496,17 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
 
             let canvas = self_.renderer.create_canvas(window_builder);
 
-            let id = canvas.with_window_handle(|winit_window| {
-                WindowInner::from_pub(&self_.window).set_scale_factor(
-                    scale_factor_override.unwrap_or_else(|| winit_window.scale_factor()) as _,
-                );
-                // On wasm, with_inner_size on the WindowBuilder don't have effect, so apply manually
-                #[cfg(target_arch = "wasm32")]
-                if s.width > 0 as Coord && s.height > 0 as Coord {
-                    winit_window.set_inner_size(s);
-                }
-                winit_window.id()
-            });
+            let winit_window = canvas.window();
+
+            WindowInner::from_pub(&self_.window).set_scale_factor(
+                scale_factor_override.unwrap_or_else(|| winit_window.scale_factor()) as _,
+            );
+            // On wasm, with_inner_size on the WindowBuilder don't have effect, so apply manually
+            #[cfg(target_arch = "wasm32")]
+            if s.width > 0 as Coord && s.height > 0 as Coord {
+                winit_window.set_inner_size(s);
+            }
+            let id = winit_window.id();
 
             self_.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
                 canvas,
@@ -620,14 +618,14 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 .as_ref()
                 .map(|p| p.to_physical(self.window().scale_factor()))
                 .unwrap_or_default(),
-            GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window
-                .canvas
-                .with_window_handle(|winit_window| match winit_window.outer_position() {
+            GraphicsWindowBackendState::Mapped(mapped_window) => {
+                match mapped_window.canvas.window().outer_position() {
                     Ok(outer_position) => {
                         corelib::api::PhysicalPosition::new(outer_position.x, outer_position.y)
                     }
                     Err(_) => Default::default(),
-                }),
+                }
+            }
         }
     }
 
@@ -637,9 +635,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 *requested_position = Some(position)
             }
             GraphicsWindowBackendState::Mapped(mapped_window) => {
-                mapped_window.canvas.with_window_handle(|winit_window| {
-                    winit_window.set_outer_position(position_to_winit(&position))
-                })
+                mapped_window.canvas.window().set_outer_position(position_to_winit(&position))
             }
         }
     }
@@ -652,9 +648,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     *requested_size = Some(size)
                 }
                 GraphicsWindowBackendState::Mapped(mapped_window) => {
-                    mapped_window.canvas.with_window_handle(|winit_window| {
-                        winit_window.set_inner_size(size_to_winit(&size));
-                    });
+                    mapped_window.canvas.window().set_inner_size(size_to_winit(&size));
                 }
             }
         }
@@ -666,10 +660,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
 
     fn is_visible(&self) -> bool {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            mapped_window
-                .canvas
-                .with_window_handle(&mut |win: &winit::window::Window| win.is_visible())
-                .unwrap_or(true)
+            mapped_window.canvas.window().is_visible().unwrap_or(true)
         } else {
             false
         }
