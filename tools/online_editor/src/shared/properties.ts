@@ -88,6 +88,16 @@ export class PropertiesView {
     #current_element_range: LspRange | null = null;
     #binding_editor: BindingEditor;
 
+    get current_data_uri() {
+        return this.#current_data_uri;
+    }
+    set current_data_uri(uri: string) {
+        this.#current_data_uri = uri;
+    }
+    get current_data_version() {
+        return this.#current_data_version;
+    }
+
     static createNode(): HTMLElement {
         const node = document.createElement("div");
         const content = document.createElement("div");
