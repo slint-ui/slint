@@ -108,12 +108,13 @@ impl ProgressReporter {
         }
     }
 
-    pub fn finish(&self, message: Option<String>) -> Result<(), Error> {
-        if let Some(token) = &self.token {
+    pub fn finish(&mut self, message: Option<String>) -> Result<(), Error> {
+        let token = self.token.take();
+        if let Some(token) = token {
             self.notifier.send_notification(
                 "$/progress".to_string(),
                 lsp_types::ProgressParams {
-                    token: token.clone(),
+                    token,
                     value: lsp_types::ProgressParamsValue::WorkDone(
                         lsp_types::WorkDoneProgress::End(lsp_types::WorkDoneProgressEnd {
                             message,
