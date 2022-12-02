@@ -437,7 +437,7 @@ class EditorPaneWidget extends Widget {
         function createLanguageClient(
             transports: MessageTransports,
         ): MonacoLanguageClient {
-            return new MonacoLanguageClient({
+            const client = new MonacoLanguageClient({
                 name: "Slint Language Client",
                 clientOptions: {
                     // use a language id as a document selector
@@ -455,6 +455,8 @@ class EditorPaneWidget extends Widget {
                     },
                 },
             });
+            client.registerProgressFeatures();
+            return client;
         }
 
         const lsp_worker = new Worker(
