@@ -16,7 +16,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Corrosion)
 
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
-find_package(Rust 1.60 REQUIRED MODULE)
+find_package(Rust 1.64 REQUIRED MODULE)
 
 option(SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time" ON)
 
