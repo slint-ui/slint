@@ -15,7 +15,6 @@ import { Widget } from "@lumino/widgets";
 import { BaseLanguageClient } from "vscode-languageclient";
 
 export class PropertiesWidget extends Widget {
-    #language_client_getter: () => BaseLanguageClient | null;
     #language_client: BaseLanguageClient | null = null;
 
     #onGotoPosition: GotoPositionCallback = (_u, _p) => {
@@ -23,7 +22,7 @@ export class PropertiesWidget extends Widget {
     };
     #propertiesView: PropertiesView;
 
-    constructor(language_client_getter: () => BaseLanguageClient | null) {
+    constructor() {
         const node = PropertiesView.createNode();
         super({ node: node });
         this.setFlag(Widget.Flag.DisallowLayout);
@@ -37,7 +36,7 @@ export class PropertiesWidget extends Widget {
             node,
             (doc, element, property_name, value, dry_run) => {
                 return change_property(
-                    this.language_client,
+                    this.#language_client,
                     doc,
                     element,
                     property_name,
@@ -47,8 +46,6 @@ export class PropertiesWidget extends Widget {
             },
         );
 
-        this.#language_client_getter = language_client_getter;
-
         this.#propertiesView.property_clicked = (uri, _, p) => {
             if (p.defined_at != null) {
                 this.#onGotoPosition(uri, p.defined_at.expression_range);
@@ -56,15 +53,12 @@ export class PropertiesWidget extends Widget {
         };
     }
 
-    private get language_client(): BaseLanguageClient | null {
-        if (this.#language_client == null) {
-            this.#language_client = this.#language_client_getter();
-        }
-        return this.#language_client;
+    set_language_client(client: BaseLanguageClient | null) {
+        this.#language_client = client ?? this.#language_client;
     }
 
     position_changed(uri: LspURI, version: number, position: LspPosition) {
-        query_properties(this.language_client, uri, position)
+        query_properties(this.#language_client, uri, position)
             .then((r: PropertyQuery) => {
                 this.#propertiesView.set_properties(r);
             })
