@@ -134,6 +134,19 @@ export class PreviewWidget extends Widget {
     }
 
     protected update_scroll_size() {
+        // I use style.scale to zoom the canvas, which can be GPU accelerated
+        // and should be fast. Unfortunately that only scales at render-time,
+        // _not_ at layout time. So scrolling breaks as it calculates the scroll
+        // area based on the canvas size without scaling applied!
+        //
+        // So we have a scrollNode as the actual scroll area and watch the canvas
+        // for style changes, triggering this function.
+        //
+        // This resizes the scrollNode to be scale_factor * canvas size + padding
+        // and places the canvas into the middle- This makes scrolling work
+        // properly: The scroll area size is calculated based on the scrollNode,
+        // which has enough room around the canvas for it to be rendered in
+        // zoomed state.
         if (this.#canvas == null || this.#zoom_level < 0) {
             return;
         }
@@ -179,6 +192,7 @@ export class PreviewWidget extends Widget {
         if (this.#canvas_id === "") {
             this.#canvas_id =
                 "canvas_" + Math.random().toString(36).slice(2, 11);
+
             this.#canvas = document.createElement("canvas");
             this.#canvas.width = 800;
             this.#canvas.height = 600;
