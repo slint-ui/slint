@@ -299,7 +299,7 @@ async fn handle_notification(
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
             let uri = params.text_document.uri.to_string();
-            let progress = ctx
+            let mut progress = ctx
                 .server_notifier
                 .progress_reporter(
                     None,
@@ -322,7 +322,7 @@ async fn handle_notification(
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
             let uri = params.text_document.uri.to_string();
-            let progress = ctx
+            let mut progress = ctx
                 .server_notifier
                 .progress_reporter(
                     None,
