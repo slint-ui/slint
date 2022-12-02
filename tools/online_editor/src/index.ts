@@ -3,7 +3,12 @@
 
 // cSpell: ignore lumino permalink
 
+import { EditorWidget } from "./editor_widget";
 import { LspRange, LspPosition } from "./lsp_integration";
+import { OutlineWidget } from "./outline_widget";
+import { PreviewWidget } from "./preview_widget";
+import { PropertiesWidget } from "./properties_widget";
+import { WelcomeWidget } from "./welcome_widget";
 
 import { CommandRegistry } from "@lumino/commands";
 import {
@@ -15,12 +20,7 @@ import {
     SplitPanel,
     Widget,
 } from "@lumino/widgets";
-
-import { EditorWidget } from "./editor_widget";
-import { PreviewWidget } from "./preview_widget";
-import { OutlineWidget } from "./outline_widget";
-import { PropertiesWidget } from "./properties_widget";
-import { WelcomeWidget } from "./welcome_widget";
+import { BaseLanguageClient } from "vscode-languageclient";
 
 const commands = new CommandRegistry();
 
@@ -360,9 +360,9 @@ function main() {
         ],
         [
             () => {
-                const properties = new PropertiesWidget(
-                    () => editor.language_client,
-                );
+                const properties = new PropertiesWidget();
+
+                properties.set_language_client(editor.language_client);
 
                 properties.on_goto_position = (uri, pos) => {
                     editor.goto_position(uri, pos);
@@ -381,6 +381,12 @@ function main() {
         (
             dock_widgets.widget("Properties") as PropertiesWidget
         )?.position_changed(pos.uri, pos.version, pos.position);
+    };
+
+    const set_language_client = (client: BaseLanguageClient | null) => {
+        (
+            dock_widgets.widget("Properties") as PropertiesWidget
+        )?.set_language_client(client);
     };
 
     const menu_bar = new MenuBar();
@@ -408,6 +414,7 @@ function main() {
 
     editor.editor_ready.then(() => {
         editor.send_position_change_event();
+        set_language_client(editor.language_client);
         document.body.getElementsByClassName("loader")[0].remove();
     });
 
