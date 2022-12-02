@@ -68,7 +68,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
             self.window_adapter_weak.clone(),
             &format!(
                 "Skia renderer (windowing system: {}; skia backend {}; surface: {} bpp)",
-                surface.with_window_handle(|winit_window| winit_window.winsys_name()),
+                surface.window().winsys_name(),
                 surface.name(),
                 surface.bits_per_pixel()
             ),
@@ -326,7 +326,7 @@ pub trait Surface {
     fn new(window_builder: winit::window::WindowBuilder) -> Self;
     fn name(&self) -> &'static str;
     fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>));
-    fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T;
+    fn window(&self) -> &winit::window::Window;
     fn with_active_surface<T>(&self, callback: impl FnOnce() -> T) -> T {
         callback()
     }
@@ -349,8 +349,8 @@ impl<SurfaceType: Surface> super::WinitCompatibleCanvas for SkiaCanvas<SurfaceTy
         self.image_cache.component_destroyed(component)
     }
 
-    fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
-        self.surface.with_window_handle(callback)
+    fn window(&self) -> &winit::window::Window {
+        &self.surface.window()
     }
 
     fn resize_event(&self) {

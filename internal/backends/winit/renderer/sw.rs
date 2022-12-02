@@ -115,8 +115,8 @@ pub(crate) struct SwCanvas {
 impl WinitCompatibleCanvas for SwCanvas {
     fn component_destroyed(&self, _component: i_slint_core::component::ComponentRef) {}
 
-    fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
-        callback(&self.window)
+    fn window(&self) -> &winit::window::Window {
+        &self.window
     }
 
     fn resize_event(&self) {

@@ -47,7 +47,7 @@ mod renderer {
     pub(crate) trait WinitCompatibleCanvas {
         fn component_destroyed(&self, component: i_slint_core::component::ComponentRef);
 
-        fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T;
+        fn window(&self) -> &winit::window::Window;
 
         fn resize_event(&self);
 
