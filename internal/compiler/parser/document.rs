@@ -164,7 +164,7 @@ fn parse_export(p: &mut impl Parser) -> bool {
         }
     } else if p.peek().as_str() == "struct" {
         parse_struct_declaration(&mut *p)
-    } else if p.peek().as_str() == "*" {
+    } else if p.peek().kind == SyntaxKind::Star {
         let mut p = p.start_node(SyntaxKind::ExportModule);
         p.consume(); // *
         if p.peek().as_str() != "from" {
