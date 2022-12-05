@@ -2214,8 +2214,11 @@ impl Exports {
         for export in other_exports {
             match self.0.binary_search_by(|entry| entry.0.cmp(&export.0)) {
                 Ok(_) => {
-                    diag.push_error(
-                        format!("re-export '{}' is already exported in this file", &*export.0),
+                    diag.push_warning(
+                        format!(
+                            "'{}' is already exported in this file; it will not be re-exported",
+                            &*export.0
+                        ),
                         &export.0.name_ident,
                     );
                 }

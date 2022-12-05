@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 export * from "../../typeloader/incpath/local_helper_type.slint";
-//     ^error{re-export 'SomeRect' is already exported in this file}
+//     ^warning{'SomeRect' is already exported in this file; it will not be re-exported}
 
 export * from "../../typeloader/incpath/dependency_from_incpath.slint";
+//     ^error{re-exporting modules is only allowed once per file}
 export * from "../../typeloader/incpath/dependency_from_incpath.slint";
-//     ^error{re-export 'AnotherType' is already exported in this file}
+//     ^error{re-exporting modules is only allowed once per file}
 
 
 export SomeRect := Rectangle {}
