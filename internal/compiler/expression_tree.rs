@@ -4,6 +4,7 @@
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{BuiltinElement, EnumerationValue, Type};
 use crate::layout::Orientation;
+use crate::lookup::LookupCtx;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
 use core::cell::RefCell;
@@ -1146,15 +1147,15 @@ impl Expression {
     /// Return true if the expression is a "lvalue" that can be used as the left hand side of a `=` or `+=` or similar
     pub fn try_set_rw(
         &mut self,
-        is_legacy_component: bool,
-        diag: &mut BuildDiagnostics,
+        ctx: &mut LookupCtx,
         what: &'static str,
         node: &dyn Spanned,
     ) -> bool {
         match self {
             Expression::PropertyReference(nr) => {
                 nr.mark_as_set();
-                let lookup = nr.element().borrow().lookup_property(nr.name());
+                let mut lookup = nr.element().borrow().lookup_property(nr.name());
+                lookup.is_local_to_component &= ctx.is_local_element(&nr.element());
                 if lookup.is_valid_for_assignment() {
                     if !nr
                         .element()
@@ -1165,39 +1166,36 @@ impl Expression {
                         .map_or(false, |d| d.is_linked_to_read_only)
                     {
                         true
-                    } else if is_legacy_component {
-                        diag.push_warning("Modifying a property that is linked to a read-only property is deprecated".into(), node);
+                    } else if ctx.is_legacy_component() {
+                        ctx.diag.push_warning("Modifying a property that is linked to a read-only property is deprecated".into(), node);
                         true
                     } else {
-                        diag.push_error(
+                        ctx.diag.push_error(
                             "Cannot modify a property that is linked to a read-only property"
                                 .into(),
                             node,
                         );
                         false
                     }
-                } else if is_legacy_component
+                } else if ctx.is_legacy_component()
                     && lookup.property_visibility == PropertyVisibility::Output
                 {
-                    diag.push_warning(format!("{what} on an output property is deprecated"), node);
+                    ctx.diag
+                        .push_warning(format!("{what} on an output property is deprecated"), node);
                     true
                 } else {
-                    diag.push_error(
+                    ctx.diag.push_error(
                         format!("{what} on a {} property", lookup.property_visibility),
                         node,
                     );
                     false
                 }
             }
-            Expression::StructFieldAccess { base, .. } => {
-                base.try_set_rw(is_legacy_component, diag, what, node)
-            }
+            Expression::StructFieldAccess { base, .. } => base.try_set_rw(ctx, what, node),
             Expression::RepeaterModelReference { .. } => true,
-            Expression::ArrayIndex { array, .. } => {
-                array.try_set_rw(is_legacy_component, diag, what, node)
-            }
+            Expression::ArrayIndex { array, .. } => array.try_set_rw(ctx, what, node),
             _ => {
-                diag.push_error(format!("{what} needs to be done on a property"), node);
+                ctx.diag.push_error(format!("{what} needs to be done on a property"), node);
                 false
             }
         }

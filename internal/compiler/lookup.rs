@@ -71,6 +71,15 @@ impl<'a> LookupCtx<'a> {
     pub fn is_legacy_component(&self) -> bool {
         self.component_scope.first().map_or(false, |e| e.borrow().is_legacy_syntax)
     }
+
+    /// True if the element is in the same component as the scope
+    pub fn is_local_element(&self, elem: &ElementRc) -> bool {
+        Option::zip(
+            elem.borrow().enclosing_component.upgrade(),
+            self.component_scope.first().and_then(|x| x.borrow().enclosing_component.upgrade()),
+        )
+        .map_or(true, |(x, y)| Rc::ptr_eq(&x, &y))
+    }
 }
 
 pub enum LookupResult {
