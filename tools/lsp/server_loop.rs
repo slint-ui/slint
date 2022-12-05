@@ -108,7 +108,11 @@ impl ProgressReporter {
         }
     }
 
-    pub fn finish(&mut self, message: Option<String>) -> Result<(), Error> {
+    pub fn finish(mut self: Self, message: Option<String>) -> Result<(), Error> {
+        self.finish_impl(message)
+    }
+
+    fn finish_impl(&mut self, message: Option<String>) -> Result<(), Error> {
         let token = self.token.take();
         if let Some(token) = token {
             self.notifier.send_notification(
@@ -130,7 +134,7 @@ impl ProgressReporter {
 
 impl Drop for ProgressReporter {
     fn drop(&mut self) {
-        let _ = self.finish(None);
+        let _ = self.finish_impl(None);
     }
 }
 
