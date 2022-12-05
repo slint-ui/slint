@@ -12,7 +12,7 @@ repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint-ui.com"
 categories = ["gui", "rendering::engine"]
 keywords = ["gui", "toolkit", "graphics", "design", "ui"]
-rust-version = "1.60"
+rust-version.workspace = true
 
 [lib]
 path = "lib.rs"
