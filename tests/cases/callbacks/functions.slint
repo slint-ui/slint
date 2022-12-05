@@ -8,6 +8,10 @@ global G := {
     }
 }
 
+SubCompo := Rectangle {
+    public function hello() -> color { red }
+}
+
 TestCase := Rectangle {
 
     property <int> c: 100000;
@@ -15,10 +19,15 @@ TestCase := Rectangle {
     function the_function(a: int, b: int) -> int { a + b + c }
 
     if true : Rectangle {
-        background: the_function(1, 2) > 3 ? blue:red;
+        background: the_function(1, 2) > 3 ? blue: sc.hello();
+
     }
 
-    property <bool> test: the_function(4500, 12) == 104512 && G.meh("world") == "hello world";
+    sc := SubCompo {
+
+    }
+
+    property <bool> test: the_function(4500, 12) == 104512 && G.meh("world") == "hello world" && sc.hello() == Colors.red;
 }
 
 /*
