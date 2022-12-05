@@ -334,11 +334,12 @@ impl ImageCacheKey {
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.
 /// cbindgen:prefix-with-name
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[repr(u8)]
 #[allow(missing_docs)]
 pub enum ImageInner {
     /// A resource that does not represent any data.
+    #[default]
     None,
     EmbeddedImage {
         cache_key: ImageCacheKey,
@@ -463,12 +464,6 @@ impl PartialEq for ImageInner {
             (Self::HTMLImage(l0), Self::HTMLImage(r0)) => vtable::VRc::ptr_eq(l0, r0),
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
-    }
-}
-
-impl Default for ImageInner {
-    fn default() -> Self {
-        ImageInner::None
     }
 }
 

@@ -325,9 +325,10 @@ impl Default for Unit {
 }
 
 /// The Expression is hold by properties, so it should not hold any strong references to node from the object_tree
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Expression {
     /// Something went wrong (and an error will be reported)
+    #[default]
     Invalid,
     /// We haven't done the lookup yet
     Uncompiled(SyntaxNode),
@@ -502,12 +503,6 @@ pub enum Expression {
     /// The orientation is the orientation of the cache, not the orientation of the layout
     ComputeLayoutInfo(crate::layout::Layout, crate::layout::Orientation),
     SolveLayout(crate::layout::Layout, crate::layout::Orientation),
-}
-
-impl Default for Expression {
-    fn default() -> Self {
-        Expression::Invalid
-    }
 }
 
 impl Expression {
@@ -1342,18 +1337,13 @@ pub struct PathElement {
     pub bindings: BindingsMap,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum EasingCurve {
+    #[default]
     Linear,
     CubicBezier(f32, f32, f32, f32),
     // CubicBezierNonConst([Box<Expression>; 4]),
     // Custom(Box<dyn Fn(f32)->f32>),
-}
-
-impl Default for EasingCurve {
-    fn default() -> Self {
-        Self::Linear
-    }
 }
 
 // The compiler generates ResourceReference::AbsolutePath for all references like @image-url("foo.png")

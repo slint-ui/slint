@@ -73,31 +73,27 @@ impl MouseEvent {
 /// what the next steps are.
 /// See [`crate::items::ItemVTable::input_event`].
 #[repr(C)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default)]
 pub enum InputEventResult {
     /// The event was accepted. This may result in additional events, for example
     /// accepting a mouse move will result in a MouseExit event later.
     EventAccepted,
     /// The event was ignored.
+    #[default]
     EventIgnored,
     /// All further mouse event need to be sent to this item or component
     GrabMouse,
-}
-
-impl Default for InputEventResult {
-    fn default() -> Self {
-        Self::EventIgnored
-    }
 }
 
 /// This value is returned by the `input_event_filter_before_children` function, which
 /// can specify how to further process the event.
 /// See [`crate::items::ItemVTable::input_event_filter_before_children`].
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub enum InputEventFilterResult {
     /// The event is going to be forwarded to children, then the [`crate::items::ItemVTable::input_event`]
     /// function is called
+    #[default]
     ForwardEvent,
     /// The event will be forwarded to the children, but the [`crate::items::ItemVTable::input_event`] is not
     /// going to be called for this item
@@ -117,12 +113,6 @@ pub enum InputEventFilterResult {
     /// if a release event is seen before that delay
     //(Can't use core::time::Duration because it is not repr(c))
     DelayForwarding(u64),
-}
-
-impl Default for InputEventFilterResult {
-    fn default() -> Self {
-        Self::ForwardEvent
-    }
 }
 
 /// This module contains the constant character code used to represent the keys.
@@ -237,10 +227,11 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
 }
 
 /// This enum defines the different kinds of key events that can happen.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 #[repr(C)]
 pub enum KeyEventType {
     /// A key on a keyboard was pressed.
+    #[default]
     KeyPressed,
     /// A key on a keyboard was released.
     KeyReleased,
@@ -249,12 +240,6 @@ pub enum KeyEventType {
     UpdateComposition,
     /// The input method replaces the currently composed text with the final result of the composition.
     CommitComposition,
-}
-
-impl Default for KeyEventType {
-    fn default() -> Self {
-        KeyEventType::KeyPressed
-    }
 }
 
 /// Represents a key event sent by the windowing system.

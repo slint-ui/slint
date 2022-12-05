@@ -138,19 +138,14 @@ mod cubic_bezier {
 
 /// The representation of an easing curve, for animations
 #[repr(C, u32)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum EasingCurve {
     /// The linear curve
+    #[default]
     Linear,
     /// A Cubic bezier curve, with its 4 parameter
     CubicBezier([f32; 4]),
     //Custom(Box<dyn Fn(f32) -> f32>),
-}
-
-impl Default for EasingCurve {
-    fn default() -> Self {
-        Self::Linear
-    }
 }
 
 /// Represent an instant, in milliseconds since the AnimationDriver's initial_instant

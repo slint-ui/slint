@@ -160,19 +160,14 @@ impl Spanned for Option<SourceLocation> {
 }
 
 /// This enum describes the level or severity of a diagnostic message produced by the compiler.
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
 #[non_exhaustive]
 pub enum DiagnosticLevel {
     /// The diagnostic found is an error that prevents successful compilation.
+    #[default]
     Error,
     /// The diagnostic found is a warning.
     Warning,
-}
-
-impl Default for DiagnosticLevel {
-    fn default() -> Self {
-        Self::Error
-    }
 }
 
 #[cfg(feature = "display-diagnostics")]

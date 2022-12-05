@@ -13,9 +13,10 @@ use crate::object_tree::{Component, PropertyVisibility};
 use crate::parser::syntax_nodes;
 use crate::typeregister::TypeRegister;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum Type {
     /// Correspond to an uninitialized type, or an error
+    #[default]
     Invalid,
     /// The type of an expression that return nothing
     Void,
@@ -337,12 +338,6 @@ impl Type {
     }
 }
 
-impl Default for Type {
-    fn default() -> Self {
-        Self::Invalid
-    }
-}
-
 /// Information about properties in NativeClass
 #[derive(Debug, Clone)]
 pub struct BuiltinPropertyInfo {
@@ -656,20 +651,15 @@ impl NativeClass {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum DefaultSizeBinding {
     /// There should not be a default binding for the size
+    #[default]
     None,
     /// The size should default to `width:100%; height:100%`
     ExpandsToParentGeometry,
     /// The size should default to the item's implicit size
     ImplicitSize,
-}
-
-impl Default for DefaultSizeBinding {
-    fn default() -> Self {
-        Self::None
-    }
 }
 
 #[derive(Debug, Clone, Default)]

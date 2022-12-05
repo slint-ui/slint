@@ -326,18 +326,13 @@ impl Component {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum PropertyVisibility {
+    #[default]
     Private,
     Input,
     Output,
     InOut,
-}
-
-impl Default for PropertyVisibility {
-    fn default() -> Self {
-        Self::Private
-    }
 }
 
 impl Display for PropertyVisibility {
