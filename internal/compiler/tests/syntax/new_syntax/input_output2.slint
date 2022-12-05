@@ -1,6 +1,21 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+global Glo {
+    property <int> priv1: 34;
+    in property <int> in1: 11;
+    out property <int> out1: 33;
+    private property <int> priv2: 55;
+    in-out property <int> inout1: 2;
+
+    callback foo(int);
+    foo(x) => {
+        out1 = 42;
+        in1 = 55;
+//      ^error{Assignment on a input property}
+    }
+}
+
 component Compo inherits Rectangle {
     property <int> priv1: 42;
     private property <int> priv2: priv1;
@@ -90,6 +105,13 @@ component Foo inherits Rectangle {
             input_model[42] += 12;
 //          ^error{Self assignment on a input property}
 
+            Glo.out1 = Glo.in1;
+//          ^error{Assignment on a output property}
+            Glo.inout1 = Glo.priv1;
+//                           ^error{'priv1' is private}
+            Glo.priv2 = Glo.out1;
+//              ^error{'priv2' is private}
+            Glo.in1 = 32;
         }
     }
 }

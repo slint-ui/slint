@@ -702,12 +702,7 @@ impl Expression {
             .or_else(|| node.child_token(SyntaxKind::Equal).and(Some('=')))
             .unwrap_or('_');
         if lhs.ty() != Type::Invalid {
-            lhs.try_set_rw(
-                ctx.is_legacy_component(),
-                ctx.diag,
-                if op == '=' { "Assignment" } else { "Self assignment" },
-                &node,
-            );
+            lhs.try_set_rw(ctx, if op == '=' { "Assignment" } else { "Self assignment" }, &node);
         }
         let ty = lhs.ty();
         let expected_ty = match op {
@@ -1026,10 +1021,10 @@ fn continue_lookup_within_element(
     let prop_name = crate::parser::normalize_identifier(second.text());
 
     let lookup_result = elem.borrow().lookup_property(&prop_name);
+    let local_to_component = lookup_result.is_local_to_component && ctx.is_local_element(elem);
+
     if lookup_result.property_type.is_property_type() {
-        if !lookup_result.is_local_to_component
-            && lookup_result.property_visibility == PropertyVisibility::Private
-        {
+        if !local_to_component && lookup_result.property_visibility == PropertyVisibility::Private {
             ctx.diag.push_error(format!("'{}' is private", second.text()), &second);
             return Expression::Invalid;
         }
@@ -1166,7 +1161,9 @@ fn resolve_two_way_bindings(
                             binding.two_way_bindings.push(nr.clone());
 
                             // Check the compatibility.
-                            let rhs_lookup = nr.element().borrow().lookup_property(nr.name());
+                            let mut rhs_lookup = nr.element().borrow().lookup_property(nr.name());
+                            rhs_lookup.is_local_to_component &=
+                                lookup_ctx.is_local_element(&nr.element());
 
                             if !rhs_lookup.is_valid_for_assignment() {
                                 match (
