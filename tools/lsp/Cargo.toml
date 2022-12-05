@@ -12,7 +12,7 @@ repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint-ui.com"
 categories = ["gui", "development-tools"]
 keywords = ["lsp"]
-rust-version = "1.60"
+rust-version.workspace = true
 
 [package.metadata.bundle]
 name = "Slint Live Preview"
