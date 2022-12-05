@@ -140,7 +140,7 @@ impl TypeLoader {
         Box::pin(async move {
             let dependencies = Self::collect_dependencies(doc, diagnostics).collect::<Vec<_>>();
             let mut foreign_imports = vec![];
-            let mut reexports = Exports::default();
+            let mut reexports = None;
             for mut import in dependencies {
                 if import.file.ends_with(".60") || import.file.ends_with(".slint") {
                     let mut file = import.file.as_str();
@@ -187,18 +187,27 @@ impl TypeLoader {
                             }
                         }
                         ImportKind::ModuleReexport(export_module_syntax_node) => {
-                            reexports.add_reexports(
-                                doc.exports.iter().map(|(exported_name, compo_or_type)| {
-                                    (
-                                        ExportedName {
-                                            name: exported_name.name.clone(),
-                                            name_ident: (**export_module_syntax_node).clone(),
-                                        },
-                                        compo_or_type.clone(),
-                                    )
-                                }),
-                                diagnostics,
-                            );
+                            if reexports.is_none() {
+                                let mut exports = Exports::default();
+                                exports.add_reexports(
+                                    doc.exports.iter().map(|(exported_name, compo_or_type)| {
+                                        (
+                                            ExportedName {
+                                                name: exported_name.name.clone(),
+                                                name_ident: (**export_module_syntax_node).clone(),
+                                            },
+                                            compo_or_type.clone(),
+                                        )
+                                    }),
+                                    diagnostics,
+                                );
+                                reexports = Some(exports);
+                            } else {
+                                diagnostics.push_error(
+                                    "re-exporting modules is only allowed once per file".into(),
+                                    export_module_syntax_node,
+                                );
+                            }
                         }
                     }
                 } else {
@@ -213,7 +222,7 @@ impl TypeLoader {
                     foreign_imports.push(import);
                 }
             }
-            (foreign_imports, reexports)
+            (foreign_imports, reexports.unwrap_or_default())
         })
     }
 
