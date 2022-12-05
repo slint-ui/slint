@@ -93,15 +93,11 @@ macro_rules! declare_item_vtable {
 /// children should be handled by the caller, of if the item took care of that (for example
 /// through layer indirection)
 #[repr(C)]
+#[derive(Default)]
 pub enum RenderingResult {
+    #[default]
     ContinueRenderingChildren,
     ContinueRenderingWithoutChildren,
-}
-
-impl Default for RenderingResult {
-    fn default() -> Self {
-        Self::ContinueRenderingChildren
-    }
 }
 
 /// Items are the nodes in the render tree.

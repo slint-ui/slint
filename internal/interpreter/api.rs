@@ -81,12 +81,13 @@ impl From<LangType> for ValueType {
 /// let v = Value::from(100u32);
 /// assert_eq!(v.try_into(), Ok(100u32));
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Default)]
 #[non_exhaustive]
 #[repr(C)]
 pub enum Value {
     /// There is nothing in this value. That's the default.
     /// For example, a function that do not return a result would return a Value::Void
+    #[default]
     Void,
     /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
     Number(f64),
@@ -130,12 +131,6 @@ impl Value {
             Value::Image(_) => ValueType::Image,
             _ => ValueType::Other,
         }
-    }
-}
-
-impl Default for Value {
-    fn default() -> Self {
-        Value::Void
     }
 }
 

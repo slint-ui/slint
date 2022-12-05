@@ -290,19 +290,14 @@ pub struct Window(pub(crate) WindowInner);
 
 /// This enum describes whether a Window is allowed to be hidden when the user tries to close the window.
 /// It is the return type of the callback provided to [Window::on_close_requested].
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 #[repr(C)]
 pub enum CloseRequestResponse {
     /// The Window will be hidden (default action)
+    #[default]
     HideWindow,
     /// The close request is rejected and the window will be kept shown.
     KeepWindowShown,
-}
-
-impl Default for CloseRequestResponse {
-    fn default() -> Self {
-        Self::HideWindow
-    }
 }
 
 impl Window {
