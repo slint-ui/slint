@@ -163,7 +163,7 @@ export class PreviewWidget extends Widget {
             return;
         }
 
-        const raw_canvas_scale = parseFloat(canvas_style.scale);
+        const raw_canvas_scale = canvas_style.scale === "none" ? 1 : parseFloat(canvas_style.scale);
         const raw_canvas_width = parseInt(canvas_style.width, 10);
         const raw_canvas_height = parseInt(canvas_style.height, 10);
         const canvas_width = Math.ceil(raw_canvas_width * raw_canvas_scale);
