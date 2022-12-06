@@ -773,7 +773,13 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let model = self.data().project_ref().model;
 
         if model.is_dirty() {
-            *self.data().inner.borrow_mut() = RepeaterInner::default();
+            self.data()
+                .inner
+                .borrow_mut()
+                .components
+                .iter_mut()
+                .for_each(|c| c.0 = RepeatedComponentState::Dirty);
+
             self.data().is_dirty.set(true);
             let m = model.get();
             let peer = self.project_ref().0.model_peer();
