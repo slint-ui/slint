@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// Verify that the init callback is invoked in the correct order
+
+export global InitOrder := {
+    property <string> observed-order: "start";
+}
+
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+    init => {
+        InitOrder.observed-order += "|root";
+    }
+
+
+    HorizontalLayout {
+        for i in ["hello", "world"]: Rectangle {
+            preferred-width: 10px;
+            init => {
+                InitOrder.observed-order +="|" + i;
+            }
+        }
+    }
+
+    property <string> expected_order: "start|root|hello|world";
+
+    property <bool> test: root.preferred-width == 20px && InitOrder.observed-order == expected_order;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+
+*/
