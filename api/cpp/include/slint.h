@@ -1299,7 +1299,14 @@ public:
     void ensure_updated(const Parent *parent) const
     {
         if (model.is_dirty()) {
+            auto preserved_data = inner ? std::make_optional(std::move(inner->data)) : std::nullopt;
             inner = std::make_shared<RepeaterInner>();
+            if (auto data = preserved_data) {
+                inner->data = std::move(*data);
+                for (auto &&compo_with_state : inner->data) {
+                    compo_with_state.state = RepeaterInner::State::Dirty;
+                }
+            }
             if (auto m = model.get()) {
                 m->attach_peer(inner);
             }

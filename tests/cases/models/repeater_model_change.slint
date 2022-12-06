@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+
+TestCase := Rectangle {
+    width: 100phx;
+    height: 100phx;
+
+    property <int> creation-count: 0;
+    property <bool> condition;
+    property <length> test-width: preferred-width;
+
+    HorizontalLayout {
+        if condition: Rectangle {
+            preferred-width: 10px;
+            init => {
+                creation-count += 1;
+            }
+        }
+    }
+
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_test_width(), 0.);
+assert_eq(instance.get_creation_count(), 0);
+
+instance.set_condition(true);
+assert_eq(instance.get_test_width(), 10.);
+assert_eq(instance.get_creation_count(), 1);
+
+instance.set_condition(false);
+assert_eq(instance.get_test_width(), 0.);
+assert_eq(instance.get_creation_count(), 1);
+
+instance.set_condition(true);
+assert_eq(instance.get_test_width(), 10.);
+assert_eq(instance.get_creation_count(), 2);
+
+instance.set_condition(false);
+instance.set_condition(true);
+assert_eq(instance.get_test_width(), 10.);
+assert_eq(instance.get_creation_count(), 2);
+```
+
+
+```rust
+let instance = TestCase::new();
+
+assert_eq!(instance.get_test_width(), 0.);
+assert_eq!(instance.get_creation_count(), 0);
+
+instance.set_condition(true);
+assert_eq!(instance.get_test_width(), 10.);
+assert_eq!(instance.get_creation_count(), 1);
+
+instance.set_condition(false);
+assert_eq!(instance.get_test_width(), 0.);
+assert_eq!(instance.get_creation_count(), 1);
+
+instance.set_condition(true);
+assert_eq!(instance.get_test_width(), 10.);
+assert_eq!(instance.get_creation_count(), 2);
+
+instance.set_condition(false);
+instance.set_condition(true);
+assert_eq!(instance.get_test_width(), 10.);
+assert_eq!(instance.get_creation_count(), 2);
+```
+
+```js
+var instance = new slint.TestCase();
+
+assert.equal(instance.test_width, 0.);
+assert.equal(instance.creation_count, 0);
+
+instance.condition = true;
+assert.equal(instance.test_width, 10.);
+assert.equal(instance.creation_count, 1);
+
+instance.condition = false;
+assert.equal(instance.test_width, 0.);
+assert.equal(instance.creation_count, 1);
+
+instance.condition = true;
+assert.equal(instance.test_width, 10.);
+assert.equal(instance.creation_count, 2);
+
+instance.condition = false;
+instance.condition = true;
+assert.equal(instance.test_width, 10.);
+assert.equal(instance.creation_count, 2);
+```
+*/
