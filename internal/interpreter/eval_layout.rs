@@ -227,7 +227,6 @@ fn box_layout_data(
                     window_adapter,
                     Default::default(),
                 );
-                instance.run_setup_code();
                 instance
             });
             let component_vec = rep.0.as_ref().components_vec();
@@ -286,7 +285,6 @@ fn repeater_indices(children: &[ElementRc], component: InstanceRef) -> Vec<u32> 
                     window_adapter,
                     Default::default(),
                 );
-                instance.run_setup_code();
                 instance
             });
             let component_vec = rep.0.as_ref().components_vec();
