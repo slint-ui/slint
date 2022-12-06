@@ -7,6 +7,17 @@ All notable changes to this project are documented in this file.
 
  - Minimum rust version is now 1.64.
 
+### Added
+
+### Fixed
+
+ - Fixed privacy rules in global properties (#1951)
+ - Fixed drawing of images with the software renderer
+ - Fixed `visible` property on element with drop shadow (#1460)
+ - Warn on bad use of ListView (#860)
+ - Fixed two way bindings between globals
+
+
 ## [0.3.2] - 2022-11-28
 
 ### Changed
