@@ -45,6 +45,24 @@ export async function change_property(
     return new Promise((accept) => accept({ diagnostics: [] }));
 }
 
+export async function remove_binding(
+    client: BaseLanguageClient | null,
+    doc: OptionalVersionedTextDocumentIdentifier,
+    element_range: LspRange,
+    property_name: string,
+): Promise<boolean> {
+    if (client != null) {
+        console.log("REMOVING PROPERTY", property_name);
+        const result = await client.sendRequest(ExecuteCommandRequest.type, {
+            command: "removeBinding",
+            arguments: [doc, element_range, property_name],
+        } as ExecuteCommandParams);
+
+        return result;
+    }
+    return Promise.resolve(false);
+}
+
 export async function query_properties(
     client: BaseLanguageClient | null,
     uri: LspURI,
