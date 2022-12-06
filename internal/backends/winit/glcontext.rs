@@ -11,6 +11,7 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
+use raw_window_handle::HasRawDisplayHandle;
 
 // glutin::WindowedContext tries to enforce being current or not. Since we need the WindowedContext's window() function
 // in the GL renderer regardless whether we're current or not, we wrap the two states back into one type.
@@ -140,37 +141,44 @@ impl OpenGLContext {
     ) -> (Self, Rc<winit::window::Window>) {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let (maybe_window, config) = crate::event_loop::with_window_target(|event_loop| {
-                glutin_winit::DisplayBuilder::new()
-                    .with_preference(glutin_winit::ApiPrefence::PreferEgl)
-                    .with_window_builder(Some(window_builder))
-                    .build(
-                        event_loop.event_loop_target(),
-                        glutin::config::ConfigTemplateBuilder::new(),
-                        |configs| {
-                            configs
-                                .reduce(|accum, config| {
-                                    let transparency_check =
-                                        config.supports_transparency().unwrap_or(false)
-                                            & !accum.supports_transparency().unwrap_or(false);
-
-                                    if transparency_check
-                                        || config.num_samples() < accum.num_samples()
-                                    {
-                                        config
-                                    } else {
-                                        accum
-                                    }
-                                })
-                                .unwrap()
-                        },
-                    )
-                    .unwrap()
+            let window = crate::event_loop::with_window_target(|event_loop| {
+                window_builder.build(event_loop.event_loop_target()).unwrap()
             });
 
-            let window = maybe_window.unwrap();
+            cfg_if::cfg_if! {
+                if #[cfg(target_os = "macos")] {
+                    let pref = glutin::display::DisplayApiPreference::Cgl;
+                } else if #[cfg(not(target_family = "windows"))] {
+                    let pref = glutin::display::DisplayApiPreference::Egl;
+                } else {
+                    let pref = glutin::display::DisplayApiPreference::EglThenWgl(Some(window.raw_window_handle()));
+                }
+            }
 
-            let gl_display = config.display();
+            let gl_display = unsafe {
+                glutin::display::Display::new(window.raw_display_handle(), pref).unwrap()
+            };
+
+            let config_template = glutin::config::ConfigTemplateBuilder::new()
+                .compatible_with_native_window(window.raw_window_handle())
+                .build();
+
+            let config = unsafe {
+                gl_display
+                    .find_configs(config_template)
+                    .unwrap()
+                    .reduce(|accum, config| {
+                        let transparency_check = config.supports_transparency().unwrap_or(false)
+                            & !accum.supports_transparency().unwrap_or(false);
+
+                        if transparency_check || config.num_samples() < accum.num_samples() {
+                            config
+                        } else {
+                            accum
+                        }
+                    })
+                    .unwrap()
+            };
 
             use raw_window_handle::HasRawWindowHandle;
             let gles_context_attributes = ContextAttributesBuilder::new()
