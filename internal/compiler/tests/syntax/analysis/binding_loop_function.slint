@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+Compo1 := Rectangle {
+
+    property <int> a : aa();
+//                    ^error{The binding for the property 'a' is part of a binding loop}
+    callback aa() -> int;
+
+    function factorial(n: int) -> int {
+//  ^error{The binding for the property 'factorial' is part of a binding loop}
+        return n == 0 ? 1 : factorial(n - 1) * n;
+    }
+
+
+    property <int> b;
+    public function bb() -> int { return b; }
+//  ^error{The binding for the property 'bb' is part of a binding loop}
+}
+
+App := Rectangle {
+    cc := Compo1 {
+        aa() => { return self.a; }
+//      ^error{The binding for the property 'aa' is part of a binding loop}
+
+        b: self.bb();
+//        ^error{The binding for the property 'b' is part of a binding loop}
+    }
+
+
+
+}
