@@ -133,13 +133,14 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         })
     }
 
-    fn render(&self, canvas: &FemtoVGCanvas, window_adapter: &dyn WindowAdapter) {
+    fn render(&self, canvas: &FemtoVGCanvas) {
         let size = canvas.window.inner_size();
         let width = size.width;
         let height = size.height;
 
         canvas.opengl_context.make_current();
 
+        let window_adapter = self.window_adapter_weak.upgrade().unwrap();
         let window = WindowInner::from_pub(window_adapter.window());
 
         window.draw_contents(|components| {
@@ -178,6 +179,8 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
                 canvas
                     .with_graphics_api(|api| callback.notify(RenderingState::BeforeRendering, &api))
             }
+
+            let window_adapter = self.window_adapter_weak.upgrade().unwrap();
 
             let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
                 canvas,

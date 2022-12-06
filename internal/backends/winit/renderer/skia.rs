@@ -94,7 +94,8 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         });
     }
 
-    fn render(&self, canvas: &Self::Canvas, window_adapter: &dyn WindowAdapter) {
+    fn render(&self, canvas: &Self::Canvas) {
+        let window_adapter = self.window_adapter_weak.upgrade().unwrap();
         let window_inner = WindowInner::from_pub(window_adapter.window());
 
         canvas.surface.render(|skia_canvas, gr_context| {
@@ -119,6 +120,8 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
                 }
 
                 let mut box_shadow_cache = Default::default();
+
+                let window_adapter = self.window_adapter_weak.upgrade().unwrap();
 
                 let mut item_renderer = itemrenderer::SkiaRenderer::new(
                     skia_canvas,
