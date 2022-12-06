@@ -8,7 +8,11 @@ import { LspPosition, LspURI } from "./lsp_integration";
 
 import { extract_uri_from_progress_message } from "./shared/utils";
 import { PropertyQuery, PropertiesView } from "./shared/properties";
-import { change_property, query_properties } from "./properties_client";
+import {
+    change_property,
+    query_properties,
+    remove_property,
+} from "./properties_client";
 
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
@@ -51,6 +55,14 @@ export class PropertiesWidget extends Widget {
                     property_name,
                     value,
                     dry_run,
+                );
+            },
+            (doc, element, property_name) => {
+                return remove_property(
+                    this.#language_client,
+                    doc,
+                    element,
+                    property_name,
                 );
             },
         );

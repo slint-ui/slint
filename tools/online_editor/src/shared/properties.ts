@@ -82,11 +82,18 @@ export type BindingEditor = (
     _dry_run: boolean,
 ) => Promise<SetBindingResponse>;
 
+export type BindingRemover = (
+    _doc: OptionalVersionedTextDocumentIdentifier,
+    _element: LspRange,
+    _property_name: string,
+) => Promise<boolean>;
+
 export class PropertiesView {
     #current_data_uri = "";
     #current_data_version = -10000;
     #current_element_range: LspRange | null = null;
     #binding_editor: BindingEditor;
+    #binding_remover: BindingRemover;
 
     get current_data_uri() {
         return this.#current_data_uri;
@@ -126,8 +133,13 @@ export class PropertiesView {
         return node;
     }
 
-    constructor(node: HTMLElement, binding_editor: BindingEditor) {
+    constructor(
+        node: HTMLElement,
+        binding_editor: BindingEditor,
+        binding_remover: BindingRemover,
+    ) {
         this.#binding_editor = binding_editor;
+        this.#binding_remover = binding_remover;
         this.node = node;
         this.show_welcome("Waiting for data from Slint LSP");
     }
@@ -189,7 +201,7 @@ export class PropertiesView {
 
                 const group_cell = document.createElement("td");
                 group_cell.innerText = p.group;
-                group_cell.setAttribute("colspan", "2");
+                group_cell.setAttribute("colspan", "3");
                 current_group = p.group;
 
                 group_header.appendChild(group_cell);
@@ -218,8 +230,16 @@ export class PropertiesView {
             value_field.className = "value-column";
             value_field.classList.add(type_class_for_typename(p.type_name));
             value_field.setAttribute("title", p.type_name);
+            const extra_field = document.createElement("td");
+            extra_field.className = "extra-column";
+            extra_field.setAttribute("title", p.type_name);
+            const delete_button = document.createElement("button");
+            delete_button.style.display = "hidden";
+            extra_field.appendChild(delete_button);
             const input = document.createElement("input");
             input.type = "text";
+            value_field.appendChild(input);
+
             if (p.defined_at != null) {
                 const code_text = p.defined_at.expression_value;
                 input.value = code_text;
@@ -284,11 +304,26 @@ export class PropertiesView {
                         );
                     }
                 });
+
+                delete_button.className = "fa fa-trash-o";
+                if (element_range != null) {
+                    delete_button.addEventListener("click", () => {
+                        this.#binding_remover(
+                            { uri: uri, version: version },
+                            element_range,
+                            p.name,
+                        );
+                    });
+                } else {
+                    delete_button.disabled = true;
+                }
             } else {
                 input.disabled = true;
+
+                delete_button.className = "fa fa-plus-square-o";
             }
-            value_field.appendChild(input);
             row.appendChild(value_field);
+            row.appendChild(extra_field);
 
             table.appendChild(row);
         }
