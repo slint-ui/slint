@@ -9,6 +9,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+ - Added functions in the language
+
 ### Fixed
 
  - Fixed privacy rules in global properties (#1951)
