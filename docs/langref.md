@@ -427,6 +427,21 @@ Example := Rectangle {
 }
 ```
 
+## Functions
+
+You can declare helper functions with the function keyword.
+Functions are private by default, but can be annotated with public.
+
+```slint,no-preview
+Example := Rectangle {
+    property <int> min;
+    property <int> max;
+    public function inbound(x: int) -> int {
+        return Math.min(root.max, Math.max(root.min, x));
+    }
+}
+```
+
 ## Expressions
 
 Expressions are a powerful way to declare relationships and connections in your user interface. They
