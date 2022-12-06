@@ -187,7 +187,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
         };
 
         self.pending_redraw.set(false);
-        self.renderer.render(&window.canvas, self);
+        self.renderer.render(&window.canvas);
 
         self.pending_redraw.get()
     }

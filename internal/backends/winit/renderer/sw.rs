@@ -34,7 +34,7 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
 
     fn release_canvas(&self, _canvas: Self::Canvas) {}
 
-    fn render(&self, canvas: &SwCanvas, _: &dyn WindowAdapter) {
+    fn render(&self, canvas: &SwCanvas) {
         let size = canvas.window.inner_size();
         let width = size.width as usize;
         let height = size.height as usize;

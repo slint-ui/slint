@@ -39,7 +39,7 @@ mod renderer {
         fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas;
         fn release_canvas(&self, canvas: Self::Canvas);
 
-        fn render(&self, canvas: &Self::Canvas, window: &dyn WindowAdapter);
+        fn render(&self, canvas: &Self::Canvas);
 
         fn default_font_size() -> LogicalLength;
     }
