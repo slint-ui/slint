@@ -170,8 +170,7 @@ SysInfo := Dialog {
     property<int> swap_free_kb;
     property <[{dev: string, mnt: string, total: int, free: int}]> partitions;
 
-    callback human-unit(int) -> string;
-    human-unit(unit) => {
+    function human-unit(unit : int) -> string {
         if (unit > 900 * 1000 * 1000) {
             return "\{round(unit / 1000 / 1000 / 100) / 10} GB";
         } else if (unit > 900 * 1000) {

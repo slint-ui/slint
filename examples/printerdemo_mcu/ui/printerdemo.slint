@@ -86,8 +86,7 @@ MainWindow := Window {
         width: 48px;
         x: 5px;
 
-        callback icon-y(int) -> length;
-        icon-y(index) => {
+        function icon-y(index: int) -> length {
             return 34px // top padding
                 + index * 50px;
         }
