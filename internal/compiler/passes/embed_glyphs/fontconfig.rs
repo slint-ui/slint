@@ -19,7 +19,7 @@ pub fn find_families(requested_family: &str) -> Vec<String> {
             feature = "fontconfig-dlopen",
             LIB,
             FcNameParse,
-            family_cstr.as_ptr() as *mut core::ffi::c_uchar
+            family_cstr.as_ptr() as *mut libc::c_uchar
         );
         ffi_dispatch!(
             feature = "fontconfig-dlopen",
@@ -50,7 +50,7 @@ pub fn find_families(requested_family: &str) -> Vec<String> {
                 LIB,
                 FcPatternGetString,
                 *(*result_set).fonts.offset(idx as isize),
-                b"family\0".as_ptr() as *const core::ffi::c_char,
+                b"family\0".as_ptr() as *const libc::c_char,
                 0,
                 &mut raw_family_name
             ) != ffi::FcResultMatch
@@ -62,7 +62,7 @@ pub fn find_families(requested_family: &str) -> Vec<String> {
                 continue;
             }
             if let Some(family_name) =
-                std::ffi::CStr::from_ptr(raw_family_name as *const core::ffi::c_char)
+                std::ffi::CStr::from_ptr(raw_family_name as *const libc::c_char)
                     .to_str()
                     .ok()
                     .map(|raw_family_name| raw_family_name.to_owned())

@@ -21,7 +21,7 @@ path = "lib.rs"
 [features]
 wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland"]
 x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
-renderer-winit-femtovg = ["femtovg", "fontdb", "yeslogic-fontconfig-sys", "winapi", "dwrote", "imgref", "unicode-script", "ttf-parser", "rgb"]
+renderer-winit-femtovg = ["femtovg", "fontdb", "libc", "yeslogic-fontconfig-sys", "winapi", "dwrote", "imgref", "unicode-script", "ttf-parser", "rgb"]
 renderer-winit-skia = ["skia-safe", "glow", "unicode-segmentation", "metal", "objc", "core-graphics-types", "foreign-types", "wio", "winapi/d3d12", "winapi/dxgi", "winapi/dxgi1_2", "winapi/dxgi1_3", "winapi/dxgi1_4", "winapi/d3d12sdklayers", "winapi/synchapi"]
 renderer-winit-skia-opengl = ["skia-safe/gl", "glow", "unicode-segmentation"]
 renderer-winit-software = ["femtovg", "imgref", "rgb"]
@@ -77,6 +77,7 @@ skia-safe = { version = "0.56.1", optional = true, features = ["d3d"] }
 wio = { version = "0.2.2", optional = true }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
+libc = { version = "0.2", optional = true }
 yeslogic-fontconfig-sys = { version = "3.2", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
