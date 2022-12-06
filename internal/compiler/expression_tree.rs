@@ -349,7 +349,7 @@ pub enum Expression {
     /// Reference to the property
     PropertyReference(NamedReference),
 
-    /// Reference to a Function
+    /// Reference to a function
     FunctionReference(NamedReference),
 
     /// Reference to a function built into the run-time, implemented natively
