@@ -355,8 +355,7 @@ ProgressBar := Rectangle {
 
 Gallery := GridBox {
 
-    callback unsel();
-    unsel => { r1.checked = false; r2.checked = false; r3.checked = false; }
+    function unsel() { r1.checked = false; r2.checked = false; r3.checked = false; }
 
     Row {
         Text { text: "Label:"; }
