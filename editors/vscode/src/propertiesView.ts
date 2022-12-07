@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore codicon
+
 import {
     PropertiesView,
     SetBindingResponse,
@@ -26,6 +28,17 @@ let view = new PropertiesView(
         });
         return ensure_set_binding_response(set_binding_response_timeout);
     },
+    "codicon codicon-trash",
+    (doc, element, property_name) => {
+        vscode.postMessage({
+            command: "remove_binding",
+            document: doc,
+            element_range: element,
+            property_name: property_name,
+        });
+        return Promise.resolve(true); // Cheat: Claim it was a success...
+    },
+    "codicon codicon-add",
 );
 
 async function ensure_set_binding_response(

@@ -1,0 +1,80 @@
+:root {
+    /* Slint colors */
+    --slint-blue: #0025ff;
+    --slint-black: #000000;
+    --slint-dark-grey: #191c20;
+    --slint-grey: #2c2f36;
+    --slint-white: #ffffff;
+    --slint-green: #dbff00;
+
+    /* style properties */
+    --error-bg: #ff0000;
+    --error-fg: var(--slint-black);
+
+    --highlight-bg: var(--slint-blue);
+    --highlight-fg: var(--slint-white);
+
+    --highlight2-bg: var(--slint-green);
+    --highlight2-fg: var(--slint-black);
+
+    --undefined-bg: #c0c0c0;
+    --undefined-fg: var(--slint-black);
+
+    --default-font: 12px Helvetica, Arial, sans-serif;
+}
+
+.properties-editor {
+    padding-top: 10px;
+}
+
+.properties-editor .welcome-page {
+    color: var(--vscode-disabledForeground);
+}
+
+.properties-editor .element-header {
+    background: var(--highlight-bg);
+    color: var(--highlight-fg);
+    font-size: 140%;
+    font-weight: bold;
+
+    width: 100%;
+    height: 50px;
+}
+
+.properties-editor .name-column {
+    white-space: nowrap;
+}
+
+.properties-editor .value-column {
+    width: 90%;
+}
+
+.properties-editor .properties-table {
+    width: 100%;
+}
+
+.properties-editor .properties-table .group-header td {
+    background-color: var(--highlight2-bg);
+    color: var(--highlight2-fg);
+    font-weight: bold;
+}
+
+.properties-editor .properties-table .undefined {
+    background-color: var(--undefined-bg);
+    color: var(--undefined-fg);
+}
+
+.properties-editor .value-column.type-unknown:before {
+    content: "??? ";
+    padding: 2px;
+}
+
+.properties-editor .properties-table input {
+    margin: 0px;
+    border: none;
+    width: 100%;
+}
+
+.properties-editor .properties-table input.value-changed {
+    color: var(--error-bg);
+}

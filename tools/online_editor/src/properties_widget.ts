@@ -11,7 +11,7 @@ import { PropertyQuery, PropertiesView } from "./shared/properties";
 import {
     change_property,
     query_properties,
-    remove_property,
+    remove_binding,
 } from "./properties_client";
 
 import { Message } from "@lumino/messaging";
@@ -57,14 +57,16 @@ export class PropertiesWidget extends Widget {
                     dry_run,
                 );
             },
+            "fa fa-trash-o",
             (doc, element, property_name) => {
-                return remove_property(
+                return remove_binding(
                     this.#language_client,
                     doc,
                     element,
                     property_name,
                 );
             },
+            "fa fa-plus-square-o",
         );
 
         this.#propertiesView.property_clicked = (uri, _, p) => {

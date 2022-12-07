@@ -1,13 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore codicon codicons
+
 // This file contains the common code for both the normal and the browser extension
 
 import {
     Property,
     PropertyQuery,
 } from "../../../tools/online_editor/src/shared/properties";
-import { change_property, query_properties } from "./properties_client";
+import {
+    change_property,
+    query_properties,
+    remove_binding,
+} from "./properties_client";
 
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
@@ -86,11 +92,22 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                         });
                     });
                     break;
+                case "remove_binding":
+                    remove_binding(
+                        data.document,
+                        data.element_range,
+                        data.property_name,
+                    ).catch((_) => {
+                        // catch this to avoid errors showing up in the console
+                        return;
+                    });
+
+                    break;
             }
         });
 
         vscode.window.onDidChangeTextEditorSelection(
-            async (event: vscode.TextEditorSelectionChangeEvent) => {
+            (event: vscode.TextEditorSelectionChangeEvent) => {
                 if (event.selections.length === 0) {
                     return;
                 }
@@ -118,7 +135,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
             },
         );
         vscode.window.onDidChangeActiveTextEditor(
-            async (editor: vscode.TextEditor | undefined) => {
+            (editor: vscode.TextEditor | undefined) => {
                 if (editor === undefined) {
                     this.update_view("No buffer!", "", -1, -1, -1);
                     return;
@@ -147,20 +164,18 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
             },
         );
         // This is triggered on changes to the language!
-        vscode.workspace.onDidOpenTextDocument(
-            async (doc: vscode.TextDocument) => {
-                const uri = doc.uri.toString();
-                if (uri === this.#current_uri) {
-                    this.update_view(
-                        doc.languageId,
-                        uri,
-                        doc.version,
-                        this.#current_cursor_line,
-                        this.#current_cursor_character,
-                    );
-                }
-            },
-        );
+        vscode.workspace.onDidOpenTextDocument((doc: vscode.TextDocument) => {
+            const uri = doc.uri.toString();
+            if (uri === this.#current_uri) {
+                this.update_view(
+                    doc.languageId,
+                    uri,
+                    doc.version,
+                    this.#current_cursor_line,
+                    this.#current_cursor_character,
+                );
+            }
+        });
     }
 
     refresh_view() {
@@ -254,114 +269,32 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
         const scriptUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this._extensionUri, "out/propertiesView.js"),
         );
-        const nonce = getNonce();
-
-        // FIXME: share with the online editor?
-        const css = `
-            :root {
-                /* Slint colors */
-                --slint-blue: #0025ff;
-                --slint-black: #000000;
-                --slint-dark-grey: #191c20;
-                --slint-grey: #2c2f36;
-                --slint-white: #ffffff;
-                --slint-green: #dbff00;
-
-                /* style properties */
-                --error-bg: #ff0000;
-                --error-fg: var(--slint-black);
-
-                --highlight-bg: var(--slint-blue);
-                --highlight-fg: var(--slint-white);
-
-                --highlight2-bg: var(--slint-green);
-                --highlight2-fg: var(--slint-black);
-
-                --undefined-bg: #c0c0c0;
-                --undefined-fg: var(--slint-black);
-
-                --default-font: 12px Helvetica, Arial, sans-serif;
-            }
-
-            .properties-editor {
-                padding-top: 10px;
-            }
-
-            .properties-editor .welcome-page {
-                color: var(--vscode-disabledForeground);
-            }
-
-            .properties-editor .element-header {
-                background: var(--highlight-bg);
-                color: var(--highlight-fg);
-                font-size: 140%;
-                font-weight: bold;
-
-                width: 100%;
-                height: 50px;
-            }
-
-            .properties-editor .name-column {
-                white-space: nowrap;
-            }
-
-            .properties-editor .value-column {
-                width: 90%;
-            }
-
-            .properties-editor .properties-table {
-                width: 100%;
-            }
-
-            .properties-editor .properties-table .group-header td {
-                background-color: var(--highlight2-bg);
-                color: var(--highlight2-fg);
-                font-weight: bold;
-            }
-
-            .properties-editor .properties-table .undefined {
-                background-color: var(--undefined-bg);
-                color: var(--undefined-fg);
-            }
-
-            .properties-editor .value-column.type-unknown:before {
-                content: "??? ";
-                padding: 2px;
-            }
-
-            .properties-editor .properties-table input {
-                margin: 0px;
-                border: none;
-                width: 100%;
-            }
-
-            .properties-editor .properties-table input.value-changed {
-                color: var(--error-bg);
-            }
-        `;
+        const styleUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this._extensionUri, "css", "content.css"),
+        );
+        const codiconsUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(
+                this._extensionUri,
+                "node_modules",
+                "@vscode/codicons",
+                "dist",
+                "codicon.css",
+            ),
+        );
 
         return `<!DOCTYPE html>
 			<html lang="en">
 			<head>
 				<meta charset="UTF-8">
-                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';">
+                <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource}; style-src ${webview.cspSource}; script-src ${webview.cspSource}">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Slint preview</title>
-                <style nonce=${nonce}">${css}</style>
+                <link href="${styleUri}" rel="stylesheet" />
+				<link href="${codiconsUri}" rel="stylesheet" />
 			</head>
 			<body class="properties-editor">
-                <script nonce="${nonce}" src="${scriptUri}"></script>
+                <script src="${scriptUri}"></script>
 			</body>
 			</html>`;
     }
-}
-
-function getNonce() {
-    let text = "";
-    const possible =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    for (let i = 0; i < 32; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
 }
