@@ -12,6 +12,7 @@ use std::rc::{Rc, Weak};
 use crate::event_loop::WinitWindow;
 use crate::renderer::{WinitCompatibleCanvas, WinitCompatibleRenderer};
 use const_field_offset::FieldOffsets;
+use corelib::api::PhysicalSize;
 use corelib::component::ComponentRc;
 use corelib::graphics::euclid::num::Zero;
 use corelib::items::{ItemRef, MouseCursor};
@@ -86,6 +87,8 @@ pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
     pending_redraw: Cell<bool>,
 
     renderer: Renderer,
+    #[cfg(target_arch = "wasm32")]
+    canvas_id: String,
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
@@ -108,11 +111,9 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
             }),
             currently_pressed_key_code: Default::default(),
             pending_redraw: Cell::new(false),
-            renderer: Renderer::new(
-                &(self_weak.clone() as _),
-                #[cfg(target_arch = "wasm32")]
-                canvas_id,
-            ),
+            renderer: Renderer::new(&(self_weak.clone() as _)),
+            #[cfg(target_arch = "wasm32")]
+            canvas_id,
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
         });
@@ -145,7 +146,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
             GraphicsWindowBackendState::Mapped(old_mapped) => old_mapped,
         };
 
-        crate::event_loop::unregister_window(old_mapped.canvas.window().id());
+        crate::event_loop::unregister_window(old_mapped.window.id());
 
         self.renderer.release_canvas(old_mapped.canvas);
     }
@@ -187,14 +188,17 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
         };
 
         self.pending_redraw.set(false);
-        self.renderer.render(&window.canvas);
+
+        let inner_size = window.window.inner_size();
+        let physical_size = PhysicalSize::new(inner_size.width, inner_size.height);
+        self.renderer.render(&window.canvas, physical_size);
 
         self.pending_redraw.get()
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            callback(mapped_window.canvas.window());
+            callback(&mapped_window.window);
         }
     }
 
@@ -223,8 +227,13 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
 
     fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            self.window().set_size(corelib::api::PhysicalSize::new(size.width, size.height));
-            mapped_window.canvas.resize_event()
+            // NOTE: slint::Window::set_size will call set_size() on this type, which calls
+            // set_inner_size on the winit Window. On Windows that triggers an new resize event.
+            // Therefore we call slint::Window::set_size within the borrow, so that the set_size's
+            // borrow in this type fails.
+            let physical_size = PhysicalSize::new(size.width, size.height);
+            self.window.set_size(physical_size);
+            mapped_window.canvas.resize_event(physical_size);
         }
     }
 }
@@ -297,7 +306,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 must_resize = true;
 
                 let winit_size =
-                    winit_window.inner_size().to_logical(self.window().scale_factor() as f64);
+                    winit_window.inner_size().to_logical(self.window.scale_factor() as f64);
 
                 if width <= 0. {
                     width = winit_size.width;
@@ -308,7 +317,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             }
 
             let existing_size: winit::dpi::LogicalSize<f32> =
-                winit_window.inner_size().to_logical(self.window().scale_factor().into());
+                winit_window.inner_size().to_logical(self.window.scale_factor().into());
 
             if (existing_size.width - width).abs() > 1.
                 || (existing_size.height - height).abs() > 1.
@@ -323,9 +332,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         });
 
         if must_resize {
-            let win = self.window();
-
-            win.set_size(i_slint_core::api::LogicalSize::new(width, height));
+            self.window.set_size(i_slint_core::api::LogicalSize::new(width, height));
         }
     }
 
@@ -348,7 +355,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 let max_width = constraints_horizontal.max.max(constraints_horizontal.min) as f32;
                 let max_height = constraints_vertical.max.max(constraints_vertical.min) as f32;
 
-                let sf = self.window().scale_factor();
+                let sf = self.window.scale_factor();
 
                 winit_window.set_resizable(true);
                 winit_window.set_min_inner_size(if min_width > 0. || min_height > 0. {
@@ -494,9 +501,36 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 window_builder
             };
 
-            let canvas = self_.renderer.create_canvas(window_builder);
+            #[cfg(target_arch = "wasm32")]
+            let window_builder = {
+                use wasm_bindgen::JsCast;
 
-            let winit_window = canvas.window();
+                let canvas = web_sys::window()
+                    .unwrap()
+                    .document()
+                    .unwrap()
+                    .get_element_by_id(&self_.canvas_id)
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlCanvasElement>()
+                    .unwrap();
+
+                use winit::platform::web::WindowBuilderExtWebSys;
+                window_builder.with_canvas(Some(canvas.clone()))
+            };
+
+            let winit_window = crate::event_loop::with_window_target(|event_loop| {
+                window_builder.build(event_loop.event_loop_target()).unwrap()
+            });
+
+            let inner_size = winit_window.inner_size();
+
+            let canvas = self_.renderer.create_canvas(
+                &winit_window,
+                &winit_window,
+                PhysicalSize::new(inner_size.width, inner_size.height),
+                #[cfg(target_arch = "wasm32")]
+                &self_.canvas_id,
+            );
 
             WindowInner::from_pub(&self_.window).set_scale_factor(
                 scale_factor_override.unwrap_or_else(|| winit_window.scale_factor()) as _,
@@ -508,9 +542,87 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             }
             let id = winit_window.id();
 
+            let winit_window = Rc::new(winit_window);
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                use wasm_bindgen::JsCast;
+
+                let canvas = web_sys::window()
+                    .unwrap()
+                    .document()
+                    .unwrap()
+                    .get_element_by_id(&self_.canvas_id)
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlCanvasElement>()
+                    .unwrap();
+
+                let existing_canvas_size = winit::dpi::LogicalSize::new(
+                    canvas.client_width() as u32,
+                    canvas.client_height() as u32,
+                );
+
+                // Try to maintain the existing size of the canvas element. A window created with winit
+                // on the web will always have 1024x768 as size otherwise.
+
+                let resize_canvas = {
+                    let window = winit_window.clone();
+                    let canvas = canvas.clone();
+                    move |_: web_sys::Event| {
+                        let existing_canvas_size = winit::dpi::LogicalSize::new(
+                            canvas.client_width() as u32,
+                            canvas.client_height() as u32,
+                        );
+
+                        window.set_inner_size(existing_canvas_size);
+                        let winit_window_weak =
+                            send_wrapper::SendWrapper::new(Rc::downgrade(&window));
+                        i_slint_core::api::invoke_from_event_loop(move || {
+                            if let Some(winit_window) = winit_window_weak.take().upgrade() {
+                                winit_window.request_redraw();
+                            }
+                        })
+                        .unwrap();
+                    }
+                };
+
+                let resize_closure = wasm_bindgen::closure::Closure::wrap(
+                    Box::new(resize_canvas) as Box<dyn FnMut(_)>
+                );
+                web_sys::window()
+                    .unwrap()
+                    .add_event_listener_with_callback(
+                        "resize",
+                        resize_closure.as_ref().unchecked_ref(),
+                    )
+                    .unwrap();
+                resize_closure.forget();
+
+                {
+                    let default_size =
+                        winit_window.inner_size().to_logical(winit_window.scale_factor());
+                    let new_size = winit::dpi::LogicalSize::new(
+                        if existing_canvas_size.width > 0 {
+                            existing_canvas_size.width
+                        } else {
+                            default_size.width
+                        },
+                        if existing_canvas_size.height > 0 {
+                            existing_canvas_size.height
+                        } else {
+                            default_size.height
+                        },
+                    );
+                    if new_size != default_size {
+                        winit_window.set_inner_size(new_size);
+                    }
+                }
+            }
+
             self_.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
                 canvas,
                 constraints: Default::default(),
+                window: winit_window,
             }));
 
             crate::event_loop::register_window(id, self_.self_weak.upgrade().unwrap());
@@ -616,10 +728,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { requested_position, .. } => requested_position
                 .as_ref()
-                .map(|p| p.to_physical(self.window().scale_factor()))
+                .map(|p| p.to_physical(self.window.scale_factor()))
                 .unwrap_or_default(),
             GraphicsWindowBackendState::Mapped(mapped_window) => {
-                match mapped_window.canvas.window().outer_position() {
+                match mapped_window.window.outer_position() {
                     Ok(outer_position) => {
                         corelib::api::PhysicalPosition::new(outer_position.x, outer_position.y)
                     }
@@ -635,7 +747,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 *requested_position = Some(position)
             }
             GraphicsWindowBackendState::Mapped(mapped_window) => {
-                mapped_window.canvas.window().set_outer_position(position_to_winit(&position))
+                mapped_window.window.set_outer_position(position_to_winit(&position))
             }
         }
     }
@@ -648,7 +760,11 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     *requested_size = Some(size)
                 }
                 GraphicsWindowBackendState::Mapped(mapped_window) => {
-                    mapped_window.canvas.window().set_inner_size(size_to_winit(&size));
+                    // NOTE: This could also be done as non-mutable borrow (see try_borrow_mut() above), but
+                    // we borrow mutable here to work around the fact that when calling set_size on the slint::Window
+                    // from resize_event, this function is called and setting the window size from within
+                    // the resize event on Windows cause a new resize event in the next loop iteation.
+                    mapped_window.window.set_inner_size(size_to_winit(&size));
                 }
             }
         }
@@ -660,7 +776,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
 
     fn is_visible(&self) -> bool {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            mapped_window.canvas.window().is_visible().unwrap_or(true)
+            mapped_window.window.is_visible().unwrap_or(true)
         } else {
             false
         }
@@ -676,6 +792,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> Drop for GLWindow<Renderer> {
 struct MappedWindow<Renderer: WinitCompatibleRenderer> {
     canvas: Renderer::Canvas,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
+    window: Rc<winit::window::Window>,
 }
 
 enum GraphicsWindowBackendState<Renderer: WinitCompatibleRenderer> {

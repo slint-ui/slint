@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use std::cell::RefCell;
-use std::rc::Rc;
 
 #[cfg(not(target_arch = "wasm32"))]
 use glutin::{
@@ -11,7 +10,7 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use raw_window_handle::HasRawDisplayHandle;
+use i_slint_core::api::PhysicalSize;
 
 // glutin::WindowedContext tries to enforce being current or not. Since we need the WindowedContext's window() function
 // in the GL renderer regardless whether we're current or not, we wrap the two states back into one type.
@@ -103,7 +102,7 @@ impl OpenGLContext {
         }
     }
 
-    pub fn ensure_resized(&self, _window: &winit::window::Window) {
+    pub fn ensure_resized(&self, _size: PhysicalSize) {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let mut ctx = self.0.borrow_mut();
@@ -111,11 +110,10 @@ impl OpenGLContext {
                 #[cfg(not(target_arch = "wasm32"))]
                 OpenGLContextState::NotCurrent((not_current_ctx, surface)) => {
                     let current_ctx = not_current_ctx.make_current(&surface).unwrap();
-                    let size = _window.inner_size();
                     surface.resize(
                         &current_ctx,
-                        size.width.try_into().unwrap(),
-                        size.height.try_into().unwrap(),
+                        _size.width.try_into().unwrap(),
+                        _size.height.try_into().unwrap(),
                     );
                     OpenGLContextState::NotCurrent((
                         current_ctx.make_not_current().unwrap(),
@@ -123,11 +121,10 @@ impl OpenGLContext {
                     ))
                 }
                 OpenGLContextState::Current((current, surface)) => {
-                    let size = _window.inner_size();
                     surface.resize(
                         &current,
-                        size.width.try_into().unwrap(),
-                        size.height.try_into().unwrap(),
+                        _size.width.try_into().unwrap(),
+                        _size.height.try_into().unwrap(),
                     );
                     OpenGLContextState::Current((current, surface))
                 }
@@ -136,31 +133,29 @@ impl OpenGLContext {
     }
 
     pub fn new_context(
-        window_builder: winit::window::WindowBuilder,
+        _window: &dyn raw_window_handle::HasRawWindowHandle,
+        _display: &dyn raw_window_handle::HasRawDisplayHandle,
+        _size: PhysicalSize,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> (Self, Rc<winit::window::Window>) {
+    ) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let window = crate::event_loop::with_window_target(|event_loop| {
-                window_builder.build(event_loop.event_loop_target()).unwrap()
-            });
-
             cfg_if::cfg_if! {
                 if #[cfg(target_os = "macos")] {
                     let pref = glutin::display::DisplayApiPreference::Cgl;
                 } else if #[cfg(not(target_family = "windows"))] {
                     let pref = glutin::display::DisplayApiPreference::Egl;
                 } else {
-                    let pref = glutin::display::DisplayApiPreference::EglThenWgl(Some(window.raw_window_handle()));
+                    let pref = glutin::display::DisplayApiPreference::EglThenWgl(Some(_window.raw_window_handle()));
                 }
             }
 
             let gl_display = unsafe {
-                glutin::display::Display::new(window.raw_display_handle(), pref).unwrap()
+                glutin::display::Display::new(_display.raw_display_handle(), pref).unwrap()
             };
 
             let config_template = glutin::config::ConfigTemplateBuilder::new()
-                .compatible_with_native_window(window.raw_window_handle())
+                .compatible_with_native_window(_window.raw_window_handle())
                 .build();
 
             let config = unsafe {
@@ -180,16 +175,15 @@ impl OpenGLContext {
                     .unwrap()
             };
 
-            use raw_window_handle::HasRawWindowHandle;
             let gles_context_attributes = ContextAttributesBuilder::new()
                 .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
                     major: 2,
                     minor: 0,
                 })))
-                .build(Some(window.raw_window_handle()));
+                .build(Some(_window.raw_window_handle()));
 
             let fallback_context_attributes =
-                ContextAttributesBuilder::new().build(Some(window.raw_window_handle()));
+                ContextAttributesBuilder::new().build(Some(_window.raw_window_handle()));
 
             let not_current_gl_context = unsafe {
                 gl_display
@@ -198,34 +192,31 @@ impl OpenGLContext {
                     .expect("failed to create context")
             };
 
+            let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+                _window.raw_window_handle(),
+                _size.width.try_into().unwrap(),
+                _size.height.try_into().unwrap(),
+            );
+
+            let surface =
+                unsafe { config.display().create_window_surface(&config, &attrs).unwrap() };
+
             #[cfg(target_os = "macos")]
+            if let raw_window_handle::RawWindowHandle::AppKit(
+                raw_window_handle::AppKitWindowHandle { ns_view, .. },
+            ) = _window.raw_window_handle()
             {
                 use cocoa::appkit::NSView;
-                use winit::platform::macos::WindowExtMacOS;
-                let ns_view = window.ns_view();
                 let view_id: cocoa::base::id = ns_view as *const _ as *mut _;
                 unsafe {
                     NSView::setLayerContentsPlacement(view_id, cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft)
                 }
             }
 
-            let (width, height): (u32, u32) = window.inner_size().into();
-            let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-                window.raw_window_handle(),
-                width.try_into().unwrap(),
-                height.try_into().unwrap(),
-            );
-
-            let surface =
-                unsafe { config.display().create_window_surface(&config, &attrs).unwrap() };
-
-            (
-                Self(RefCell::new(Some(OpenGLContextState::Current((
-                    not_current_gl_context.make_current(&surface).unwrap(),
-                    surface,
-                ))))),
-                Rc::new(window),
-            )
+            Self(RefCell::new(Some(OpenGLContextState::Current((
+                not_current_gl_context.make_current(&surface).unwrap(),
+                surface,
+            )))))
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -241,71 +232,7 @@ impl OpenGLContext {
                 .dyn_into::<web_sys::HtmlCanvasElement>()
                 .unwrap();
 
-            use winit::platform::web::WindowBuilderExtWebSys;
-
-            let existing_canvas_size = winit::dpi::LogicalSize::new(
-                canvas.client_width() as u32,
-                canvas.client_height() as u32,
-            );
-
-            let window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
-                window_builder
-                    .with_canvas(Some(canvas.clone()))
-                    .build(&event_loop.event_loop_target())
-                    .unwrap()
-            }));
-
-            // Try to maintain the existing size of the canvas element. A window created with winit
-            // on the web will always have 1024x768 as size otherwise.
-
-            let resize_canvas = {
-                let window = window.clone();
-                let canvas = canvas.clone();
-                move |_: web_sys::Event| {
-                    let existing_canvas_size = winit::dpi::LogicalSize::new(
-                        canvas.client_width() as u32,
-                        canvas.client_height() as u32,
-                    );
-
-                    window.set_inner_size(existing_canvas_size);
-                    let winit_window_weak = send_wrapper::SendWrapper::new(Rc::downgrade(&window));
-                    i_slint_core::api::invoke_from_event_loop(move || {
-                        if let Some(winit_window) = winit_window_weak.take().upgrade() {
-                            winit_window.request_redraw();
-                        }
-                    })
-                    .unwrap();
-                }
-            };
-
-            let resize_closure =
-                wasm_bindgen::closure::Closure::wrap(Box::new(resize_canvas) as Box<dyn FnMut(_)>);
-            web_sys::window()
-                .unwrap()
-                .add_event_listener_with_callback("resize", resize_closure.as_ref().unchecked_ref())
-                .unwrap();
-            resize_closure.forget();
-
-            {
-                let default_size = window.inner_size().to_logical(window.scale_factor());
-                let new_size = winit::dpi::LogicalSize::new(
-                    if existing_canvas_size.width > 0 {
-                        existing_canvas_size.width
-                    } else {
-                        default_size.width
-                    },
-                    if existing_canvas_size.height > 0 {
-                        existing_canvas_size.height
-                    } else {
-                        default_size.height
-                    },
-                );
-                if new_size != default_size {
-                    window.set_inner_size(new_size);
-                }
-            }
-
-            (Self(RefCell::new(Some(OpenGLContextState::Current { canvas }))), window)
+            Self(RefCell::new(Some(OpenGLContextState::Current { canvas })))
         }
     }
 

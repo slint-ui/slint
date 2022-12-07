@@ -4,29 +4,28 @@
 use cocoa::{appkit::NSView, base::id as cocoa_id};
 use core_graphics_types::geometry::CGSize;
 use foreign_types::ForeignTypeRef;
+use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use metal::MTLPixelFormat;
 use objc::{rc::autoreleasepool, runtime::YES};
 
 use skia_safe::gpu::mtl;
 
 use std::cell::RefCell;
-use winit::platform::macos::WindowExtMacOS;
 
 pub struct MetalSurface {
     command_queue: metal::CommandQueue,
     layer: metal::MetalLayer,
     gr_context: RefCell<skia_safe::gpu::DirectContext>,
-    window: winit::window::Window,
 }
 
 impl super::Surface for MetalSurface {
     const SUPPORTS_GRAPHICS_API: bool = false;
 
-    fn new(window_builder: winit::window::WindowBuilder) -> Self {
-        let window = crate::event_loop::with_window_target(|event_loop| {
-            window_builder.build(event_loop.event_loop_target()).unwrap()
-        });
-
+    fn new(
+        window: &dyn raw_window_handle::HasRawWindowHandle,
+        _display: &dyn raw_window_handle::HasRawDisplayHandle,
+        size: PhysicalWindowSize,
+    ) -> Self {
         let device = metal::Device::system_default().expect("no metal device found");
 
         let layer = metal::MetalLayer::new();
@@ -34,11 +33,15 @@ impl super::Surface for MetalSurface {
         layer.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
         layer.set_presents_with_transaction(false);
 
-        let size = window.inner_size();
         layer.set_drawable_size(CGSize::new(size.width as f64, size.height as f64));
 
         unsafe {
-            let view = window.ns_view() as cocoa_id;
+            let view = match window.raw_window_handle() {
+                raw_window_handle::RawWindowHandle::AppKit(
+                    raw_window_handle::AppKitWindowHandle { ns_view, .. },
+                ) => ns_view,
+                _ => panic!("Metal surface is only supported with AppKit"),
+            } as cocoa_id;
             view.setWantsLayer(YES);
             view.setLayer(layer.as_ref() as *const _ as _);
         }
@@ -55,28 +58,24 @@ impl super::Surface for MetalSurface {
 
         let gr_context = skia_safe::gpu::DirectContext::new_metal(&backend, None).unwrap().into();
 
-        Self { command_queue, layer, gr_context, window }
+        Self { command_queue, layer, gr_context }
     }
 
     fn name(&self) -> &'static str {
         "metal"
     }
 
-    fn window(&self) -> &winit::window::Window {
-        &self.window
-    }
-
     fn with_graphics_api(&self, _cb: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>)) {
         unimplemented!()
     }
 
-    fn resize_event(&self) {
-        let size = self.window.inner_size();
+    fn resize_event(&self, size: PhysicalWindowSize) {
         self.layer.set_drawable_size(CGSize::new(size.width as f64, size.height as f64));
     }
 
     fn render(
         &self,
+        _size: PhysicalWindowSize,
         callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     ) {
         autoreleasepool(|| {

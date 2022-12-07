@@ -6,7 +6,8 @@ use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use i_slint_core::api::{
-    GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
+    GraphicsAPI, PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
+    SetRenderingNotifierError,
 };
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::items::Item;
@@ -32,8 +33,6 @@ const PASSWORD_CHARACTER: &str = "●";
 
 pub struct FemtoVGRenderer {
     window_adapter_weak: Weak<dyn WindowAdapter>,
-    #[cfg(target_arch = "wasm32")]
-    canvas_id: String,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 }
 
@@ -41,28 +40,31 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
     type Canvas = FemtoVGCanvas;
     const NAME: &'static str = "FemtoVG";
 
-    fn new(
-        window_adapter_weak: &Weak<dyn WindowAdapter>,
-        #[cfg(target_arch = "wasm32")] canvas_id: String,
-    ) -> Self {
+    fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
         Self {
             window_adapter_weak: window_adapter_weak.clone(),
-            #[cfg(target_arch = "wasm32")]
-            canvas_id,
             rendering_notifier: Default::default(),
         }
     }
 
-    fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> FemtoVGCanvas {
-        let (opengl_context, window) = crate::OpenGLContext::new_context(
-            window_builder,
+    fn create_canvas(
+        &self,
+        window: &dyn raw_window_handle::HasRawWindowHandle,
+        display: &dyn raw_window_handle::HasRawDisplayHandle,
+        size: PhysicalWindowSize,
+        #[cfg(target_arch = "wasm32")] canvas_id: &str,
+    ) -> FemtoVGCanvas {
+        let opengl_context = crate::OpenGLContext::new_context(
+            window,
+            display,
+            size,
             #[cfg(target_arch = "wasm32")]
-            &self.canvas_id,
+            canvas_id,
         );
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_adapter_weak.clone(),
-            &format!("FemtoVG renderer (windowing system: {})", crate::winsys_name(&*window)),
+            &format!("FemtoVG renderer (windowing system: {})", crate::winsys_name(window)),
         );
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -111,7 +113,6 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
             texture_cache: Default::default(),
             rendering_metrics_collector,
             opengl_context,
-            window,
         };
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
@@ -131,8 +132,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         })
     }
 
-    fn render(&self, canvas: &FemtoVGCanvas) {
-        let size = canvas.window.inner_size();
+    fn render(&self, canvas: &FemtoVGCanvas, size: PhysicalWindowSize) {
         let width = size.width;
         let height = size.height;
 
@@ -422,7 +422,6 @@ pub struct FemtoVGCanvas {
     texture_cache: RefCell<images::TextureCache>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     opengl_context: crate::OpenGLContext,
-    window: Rc<winit::window::Window>,
 }
 
 impl super::WinitCompatibleCanvas for FemtoVGCanvas {
@@ -431,12 +430,8 @@ impl super::WinitCompatibleCanvas for FemtoVGCanvas {
             .with_current_context(|_| self.graphics_cache.component_destroyed(component))
     }
 
-    fn window(&self) -> &winit::window::Window {
-        &self.window
-    }
-
-    fn resize_event(&self) {
-        self.opengl_context.ensure_resized(&self.window)
+    fn resize_event(&self, size: PhysicalWindowSize) {
+        self.opengl_context.ensure_resized(size)
     }
 
     #[cfg(target_arch = "wasm32")]

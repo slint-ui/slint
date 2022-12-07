@@ -46,6 +46,7 @@ scoped-tls-hkt = "0.1"
 winit = { version = "0.27.5", default-features = false }
 dark-light = "0.2.2"
 instant = "0.1"
+raw-window-handle = { version = "0.5" }
 
 # For the FemtoVG renderer
 femtovg = { version = "0.3.7", optional = true, default-features = false, features = ["image-loading"] }
@@ -68,7 +69,6 @@ send_wrapper = "0.6.0"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 fontdb = { version = "0.10", optional = true, features = ["memmap", "fontconfig"] }
 glutin = { version = "0.30", default-features = false, features = ["egl", "wgl"] }
-raw-window-handle = { version = "0.5" }
 
 # For the FemtoVG renderer
 [target.'cfg(target_family = "windows")'.dependencies]

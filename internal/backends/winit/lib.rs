@@ -18,9 +18,11 @@ mod glcontext;
 #[cfg(any(feature = "femtovg", skia_backend_opengl))]
 use glcontext::*;
 pub(crate) mod event_loop;
+
 mod renderer {
     use std::rc::Weak;
 
+    use i_slint_core::api::PhysicalSize;
     use i_slint_core::lengths::LogicalLength;
     use i_slint_core::window::WindowAdapter;
 
@@ -31,15 +33,18 @@ mod renderer {
         type Canvas: WinitCompatibleCanvas;
         const NAME: &'static str;
 
-        fn new(
-            window_adapter_weak: &Weak<dyn WindowAdapter>,
-            #[cfg(target_arch = "wasm32")] canvas_id: String,
-        ) -> Self;
+        fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self;
 
-        fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas;
+        fn create_canvas(
+            &self,
+            window: &dyn raw_window_handle::HasRawWindowHandle,
+            display: &dyn raw_window_handle::HasRawDisplayHandle,
+            size: PhysicalSize,
+            #[cfg(target_arch = "wasm32")] canvas_id: &str,
+        ) -> Self::Canvas;
         fn release_canvas(&self, canvas: Self::Canvas);
 
-        fn render(&self, canvas: &Self::Canvas);
+        fn render(&self, canvas: &Self::Canvas, size: PhysicalSize);
 
         fn default_font_size() -> LogicalLength;
     }
@@ -47,9 +52,7 @@ mod renderer {
     pub(crate) trait WinitCompatibleCanvas {
         fn component_destroyed(&self, component: i_slint_core::component::ComponentRef);
 
-        fn window(&self) -> &winit::window::Window;
-
-        fn resize_event(&self);
+        fn resize_event(&self, size: PhysicalSize);
 
         #[cfg(target_arch = "wasm32")]
         fn html_canvas_element(&self) -> std::cell::Ref<web_sys::HtmlCanvasElement>;
@@ -205,7 +208,7 @@ impl i_slint_core::platform::Platform for Backend {
     }
 }
 
-fn winsys_name(_window: &impl raw_window_handle::HasRawWindowHandle) -> &'static str {
+fn winsys_name(_window: &dyn raw_window_handle::HasRawWindowHandle) -> &'static str {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
             let winsys = "HTML Canvas";
@@ -216,7 +219,6 @@ fn winsys_name(_window: &impl raw_window_handle::HasRawWindowHandle) -> &'static
             target_os = "netbsd",
             target_os = "openbsd"
         ))] {
-            use winit::platform::unix::WindowExtUnix;
             let mut winsys = "unknown";
 
             #[cfg(feature = "x11")]
