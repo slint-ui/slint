@@ -230,8 +230,7 @@ mod for_unit_test {
     }
 
     pub fn image_buffer(path: &str) -> SharedPixelBuffer<Rgb8Pixel> {
-        let image =
-            image::open(path).expect("Cannot open image.").into_rgb8();
+        let image = image::open(path).expect("Cannot open image.").into_rgb8();
 
         SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
             image.as_raw(),

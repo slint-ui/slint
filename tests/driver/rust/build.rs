@@ -29,7 +29,6 @@ fn main() -> std::io::Result<()> {
         #[cfg(feature = "build-time")]
         generate_source(&source, &mut output, testcase)?;
 
-       
         for (i, x) in test_driver_lib::extract_test_functions(&source)
             .filter(|x| x.language_id == "rust")
             .enumerate()

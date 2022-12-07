@@ -37,7 +37,6 @@ pub fn collect_test_cases() -> std::io::Result<Vec<test_driver_lib::TestCase>> {
     Ok(results)
 }
 
-
 fn main() -> std::io::Result<()> {
     let mut generated_file = std::fs::File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
@@ -63,7 +62,6 @@ fn main() -> std::io::Result<()> {
         #[cfg(feature = "build-time")]
         generate_source(&source, &mut output, testcase)?;
 
-       
         for (i, x) in test_driver_lib::extract_test_functions(&source)
             .filter(|x| x.language_id == "rust")
             .enumerate()
