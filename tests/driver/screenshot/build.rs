@@ -95,7 +95,6 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-#[cfg(not(feature = "build-time"))]
 fn generate_macro(
     source: &str,
     output: &mut std::fs::File,
