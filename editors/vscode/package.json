@@ -126,6 +126,7 @@
         "@types/vscode": "1.70.0",
         "@typescript-eslint/eslint-plugin": "^5.44.0",
         "@typescript-eslint/parser": "^5.44.0",
+        "@vscode/codicons": "0.0.32",
         "esbuild": "^0.14.54",
         "eslint": "^8.28.0",
         "glob": "^7.2.3",

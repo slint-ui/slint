@@ -23,7 +23,7 @@ Files: helper_crates/const-field-offset/*
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: MIT or Apache-2.0
 
-Files:  api/cpp/docs/* docs/* api/*/*.json 
+Files:  api/cpp/docs/* docs/* api/*/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
@@ -59,7 +59,7 @@ Files: tools/online_editor/*.html tools/online_editor/styles/*.css tools/online_
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Files: editors/vscode/*.json editors/vscode/README.md
+Files: editors/vscode/*.json editors/vscode/README.md editors/vscode/css/*.css
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 

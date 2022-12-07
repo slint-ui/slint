@@ -46,3 +46,16 @@ export async function query_properties(
         position,
     );
 }
+
+export async function remove_binding(
+    doc: OptionalVersionedTextDocumentIdentifier,
+    element_range: LspRange,
+    property_name: string,
+): Promise<SetBindingResponse> {
+    return vscode.commands.executeCommand(
+        "removeBinding",
+        doc,
+        element_range,
+        property_name,
+    );
+}

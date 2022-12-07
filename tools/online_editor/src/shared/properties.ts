@@ -94,6 +94,8 @@ export class PropertiesView {
     #current_element_range: LspRange | null = null;
     #binding_editor: BindingEditor;
     #binding_remover: BindingRemover;
+    #remover_icon_class: string;
+    #adder_icon_class: string;
 
     get current_data_uri() {
         return this.#current_data_uri;
@@ -136,9 +138,13 @@ export class PropertiesView {
     constructor(
         node: HTMLElement,
         binding_editor: BindingEditor,
+        remover_icon_class: string,
         binding_remover: BindingRemover,
+        adder_icon_class: string,
     ) {
         this.#binding_editor = binding_editor;
+        this.#remover_icon_class = remover_icon_class;
+        this.#adder_icon_class = adder_icon_class;
         this.#binding_remover = binding_remover;
         this.node = node;
         this.show_welcome("Waiting for data from Slint LSP");
@@ -305,9 +311,10 @@ export class PropertiesView {
                     }
                 });
 
-                delete_button.className = "fa fa-trash-o";
+                delete_button.className = this.#remover_icon_class;
                 if (element_range != null) {
-                    delete_button.addEventListener("click", () => {
+                    delete_button.addEventListener("click", (event) => {
+                        event.stopPropagation();
                         this.#binding_remover(
                             { uri: uri, version: version },
                             element_range,
@@ -320,7 +327,7 @@ export class PropertiesView {
             } else {
                 input.disabled = true;
 
-                delete_button.className = "fa fa-plus-square-o";
+                delete_button.className = this.#adder_icon_class;
             }
             row.appendChild(value_field);
             row.appendChild(extra_field);
