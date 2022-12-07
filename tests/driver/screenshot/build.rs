@@ -42,7 +42,11 @@ fn main() -> std::io::Result<()> {
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
     )?;
 
-    for testcase in collect_test_cases()? {
+    for (i, testcase) in collect_test_cases()?.into_iter().enumerate() {
+        let template_path =
+            testcase.absolute_path.with_extension("png").into_os_string().into_string().unwrap();
+        let template_path = format!("\"{}\"", template_path.as_str());
+
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let mut module_name = testcase.identifier();
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
@@ -62,22 +66,29 @@ fn main() -> std::io::Result<()> {
         #[cfg(feature = "build-time")]
         generate_source(&source, &mut output, testcase)?;
 
-        for (i, x) in test_driver_lib::extract_test_functions(&source)
-            .filter(|x| x.language_id == "rust")
-            .enumerate()
-        {
-            write!(
-                output,
-                r"
-#[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
+        write!(
+            output,
+            r"
+    #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
     use i_slint_backend_testing as slint_testing;
-    {}
+
+    let window = slint_testing::init_swr();
+    window.set_size(slint::PhysicalSize::new(64, 64));
+    let pattern = slint_testing::image_buffer({});
+
+    let instance = TestCase::new();
+    instance.show();
+
+    let screenshot = slint_testing::screenshot(window.clone());
+    assert_eq!(pattern.as_bytes(), screenshot.as_bytes());
+
+    let line_screenshot = slint_testing::screenshot_render_by_line(window.clone());
+    assert_eq!(pattern.as_bytes(), line_screenshot.as_bytes());
     Ok(())
-}}",
-                i,
-                x.source.replace('\n', "\n    ")
-            )?;
-        }
+    }}",
+            i,
+            template_path.as_str()
+        )?;
     }
 
     //Make sure to use a consistent style
