@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 TestCase := Window {
-    width: 100px;
-    height: 100px;
+    width: 60px;
+    height: 60px;
 
     GridLayout {
         Rectangle { background: red; }
@@ -17,12 +17,15 @@ TestCase := Window {
 ```rust
 
 let window = slint_testing::init_swr();
-window.set_size(slint::PhysicalSize::new(100, 100));
+window.set_size(slint::PhysicalSize::new(60, 60));
 
 let pattern = slint_testing::image_buffer("../../screenshot/rgb.png");
 
 let instance = TestCase::new();
 instance.show();
+
+//slint_testing::save_screenshot("rgb.png", window.clone());
+
 let screenshot = slint_testing::screenshot(window.clone());
 assert_eq!(pattern.as_bytes(), screenshot.as_bytes());
 

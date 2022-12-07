@@ -301,6 +301,18 @@ mod for_unit_test {
 
         buffer
     }
+
+    pub fn save_screenshot(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<1>>) {
+        let buffer = screenshot(window.clone());
+        image::save_buffer(
+            path,
+            buffer.as_bytes(),
+            window.size().width,
+            window.size().height,
+            image::ColorType::Rgb8,
+        )
+        .unwrap();
+    }
 }
 
 pub use for_unit_test::*;
