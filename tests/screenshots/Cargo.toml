@@ -13,15 +13,12 @@ publish = false
 path = "main.rs"
 name = "test-driver-screenshot"
 
-[features]
-build-time = ["i-slint-compiler", "spin_on"]
-
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-0-3-0"] }
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
 
 [build-dependencies]
-i-slint-compiler = { path = "../../internal/compiler", features = ["rust", "display-diagnostics"], optional = true }
+i-slint-compiler = { path = "../../internal/compiler", features = ["rust", "display-diagnostics"] }
 walkdir = "2.3"
-spin_on = { version = "0.1", optional = true}
+spin_on = { version = "0.1" }
 test_driver_lib = { path = "../driver/driverlib" }

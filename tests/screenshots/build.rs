@@ -66,9 +66,7 @@ fn main() -> std::io::Result<()> {
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
         )?;
 
-        if !generate_macro(&source, &mut output, testcase)? {
-            continue;
-        }
+        generate_source(source.as_str(), &mut output, testcase).unwrap();
 
         write!(
             output,
@@ -102,35 +100,37 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-fn generate_macro(
+fn generate_source(
     source: &str,
     output: &mut std::fs::File,
     testcase: test_driver_lib::TestCase,
-) -> Result<bool, std::io::Error> {
-    if source.contains("\\{") {
-        // Unfortunately, \{ is not valid in a rust string so it cannot be used in a slint! macro
-        output.write_all(b"#[test] #[ignore] fn ignored_because_string_template() {{}}")?;
-        return Ok(false);
-    }
-    let include_paths = test_driver_lib::extract_include_paths(source);
-    output.write_all(b"slint::slint!{")?;
-    for path in include_paths {
-        let mut abs_path = testcase.absolute_path.clone();
-        abs_path.pop();
-        abs_path.push(path);
+) -> Result<(), std::io::Error> {
+    use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 
-        output.write_all(b"#[include_path=r#\"")?;
-        output.write_all(abs_path.to_string_lossy().as_bytes())?;
-        output.write_all(b"\"#]\n")?;
+    let include_paths = test_driver_lib::extract_include_paths(source)
+        .map(std::path::PathBuf::from)
+        .collect::<Vec<_>>();
 
-        println!("cargo:rerun-if-changed={}", abs_path.to_string_lossy());
+    let mut diag = BuildDiagnostics::default();
+    diag.enable_experimental = true;
+    let syntax_node = parser::parse(source.to_owned(), Some(&testcase.absolute_path), &mut diag);
+    let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
+    compiler_config.include_paths = include_paths;
+    // compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
+    compiler_config.style = Some("fluent".to_string());
+    let (root_component, diag) =
+        spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
+
+    if diag.has_error() {
+        diag.print_warnings_and_exit_on_error();
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("build error in {:?}", testcase.absolute_path),
+        ));
+    } else {
+        diag.print();
     }
-    let mut abs_path = testcase.absolute_path;
-    abs_path.pop();
-    output.write_all(b"#[include_path=r#\"")?;
-    output.write_all(abs_path.to_string_lossy().as_bytes())?;
-    output.write_all(b"\"#]\n")?;
-    output.write_all(source.as_bytes())?;
-    output.write_all(b"}\n")?;
-    Ok(true)
+
+    generator::generate(generator::OutputFormat::Rust, output, &root_component)?;
+    Ok(())
 }
