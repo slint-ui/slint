@@ -205,42 +205,36 @@ impl i_slint_core::platform::Platform for Backend {
     }
 }
 
-pub(crate) trait WindowSystemName {
-    fn winsys_name(&self) -> &'static str;
-}
+fn winsys_name(_window: &impl raw_window_handle::HasRawWindowHandle) -> &'static str {
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            let winsys = "HTML Canvas";
+        } else if #[cfg(any(
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        ))] {
+            use winit::platform::unix::WindowExtUnix;
+            let mut winsys = "unknown";
 
-impl WindowSystemName for winit::window::Window {
-    fn winsys_name(&self) -> &'static str {
-        cfg_if::cfg_if! {
-            if #[cfg(target_arch = "wasm32")] {
-                let winsys = "HTML Canvas";
-            } else if #[cfg(any(
-                target_os = "linux",
-                target_os = "dragonfly",
-                target_os = "freebsd",
-                target_os = "netbsd",
-                target_os = "openbsd"
-            ))] {
-                use winit::platform::unix::WindowExtUnix;
-                let mut winsys = "unknown";
-
-                #[cfg(feature = "x11")]
-                if self.xlib_window().is_some() {
-                    winsys = "x11";
-                }
-
-                #[cfg(feature = "wayland")]
-                if self.wayland_surface().is_some() {
-                    winsys = "wayland"
-                }
-            } else if #[cfg(target_os = "windows")] {
-                let winsys = "windows";
-            } else if #[cfg(target_os = "macos")] {
-                let winsys = "macos";
-            } else {
-                let winsys = "unknown";
+            #[cfg(feature = "x11")]
+            if matches!(_window.raw_window_handle(), raw_window_handle::RawWindowHandle::Xcb(..)) {
+                winsys = "x11";
             }
+
+            #[cfg(feature = "wayland")]
+            if matches!(_window.raw_window_handle(), raw_window_handle::RawWindowHandle::Wayland(..)) {
+                winsys = "wayland"
+            }
+        } else if #[cfg(target_os = "windows")] {
+            let winsys = "windows";
+        } else if #[cfg(target_os = "macos")] {
+            let winsys = "macos";
+        } else {
+            let winsys = "unknown";
         }
-        winsys
     }
+    winsys
 }

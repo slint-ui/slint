@@ -17,8 +17,6 @@ use i_slint_core::lengths::{
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
 
-use crate::WindowSystemName;
-
 type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
@@ -68,7 +66,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
             self.window_adapter_weak.clone(),
             &format!(
                 "Skia renderer (windowing system: {}; skia backend {}; surface: {} bpp)",
-                surface.window().winsys_name(),
+                crate::winsys_name(&surface.window()),
                 surface.name(),
                 surface.bits_per_pixel()
             ),

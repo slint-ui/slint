@@ -17,8 +17,6 @@ use i_slint_core::renderer::Renderer;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
 
-use crate::WindowSystemName;
-
 type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
@@ -64,7 +62,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_adapter_weak.clone(),
-            &format!("FemtoVG renderer (windowing system: {})", window.winsys_name()),
+            &format!("FemtoVG renderer (windowing system: {})", crate::winsys_name(&*window)),
         );
 
         #[cfg(not(target_arch = "wasm32"))]
