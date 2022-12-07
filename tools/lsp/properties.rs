@@ -347,11 +347,6 @@ fn insert_property_definitions(
             if let Some(v) = element.bindings.get(prop_info.name.as_str()) {
                 if let Some(span) = &v.borrow().span {
                     let offset = span.span().offset as u32;
-                    println!(
-                        "Property {} is at {:?}",
-                        prop_info.name,
-                        offset_to_position.map(offset)
-                    );
                     if element.source_file().map(|sf| sf.path())
                         == span.source_file.as_ref().map(|sf| sf.path())
                         && element_range.contains(offset.into())
