@@ -280,6 +280,14 @@ mod for_unit_test {
         }
     }
 
+    pub fn assert_with_render(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<1>>) {
+        assert_eq!(image_buffer(path).as_bytes(), screenshot(window).as_bytes());
+    }
+
+    pub fn assert_with_render_by_line(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<1>>) {
+        assert_eq!(image_buffer(path).as_bytes(), screenshot_render_by_line(window).as_bytes());
+    }
+
     pub fn screenshot_render_by_line(
         window: std::rc::Rc<MinimalSoftwareWindow<1>>,
     ) -> SharedPixelBuffer<Rgb8Pixel> {

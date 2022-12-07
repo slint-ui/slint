@@ -71,16 +71,15 @@ fn main() -> std::io::Result<()> {
 
     let window = slint_testing::init_swr();
     window.set_size(slint::PhysicalSize::new(64, 64));
-    let pattern = slint_testing::image_buffer({});
+    let screenshot = {};
 
     let instance = TestCase::new();
     instance.show();
 
-    let screenshot = slint_testing::screenshot(window.clone());
-    assert_eq!(pattern.as_bytes(), screenshot.as_bytes());
+    slint_testing::assert_with_render(screenshot, window.clone());
 
-    let line_screenshot = slint_testing::screenshot_render_by_line(window.clone());
-    assert_eq!(pattern.as_bytes(), line_screenshot.as_bytes());
+    slint_testing::assert_with_render_by_line(screenshot, window.clone());
+
     Ok(())
     }}",
             i,
