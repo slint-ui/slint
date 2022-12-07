@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 [package]
-name = "test-driver-screenshot"
+name = "test-driver-screenshots"
 version = "0.3.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
@@ -17,11 +17,11 @@ name = "test-driver-screenshot"
 build-time = ["i-slint-compiler", "spin_on"]
 
 [dependencies]
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-0-3-0"] }
-i-slint-backend-testing = { path = "../../../internal/backends/testing" }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-0-3-0"] }
+i-slint-backend-testing = { path = "../../internal/backends/testing" }
 
 [build-dependencies]
-i-slint-compiler = { path = "../../../internal/compiler", features = ["rust", "display-diagnostics"], optional = true }
+i-slint-compiler = { path = "../../internal/compiler", features = ["rust", "display-diagnostics"], optional = true }
 walkdir = "2.3"
 spin_on = { version = "0.1", optional = true}
-test_driver_lib = { path = "../driverlib" }
+test_driver_lib = { path = "../driver/driverlib" }

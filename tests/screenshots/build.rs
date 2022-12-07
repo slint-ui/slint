@@ -8,8 +8,7 @@ use std::path::Path;
 pub fn collect_test_cases() -> std::io::Result<Vec<test_driver_lib::TestCase>> {
     let mut results = vec![];
 
-    let case_root_dir: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "..", "..", "screenshot"].iter().collect();
+    let case_root_dir: std::path::PathBuf = [env!("CARGO_MANIFEST_DIR"), "cases"].iter().collect();
 
     println!("cargo:rerun-if-env-changed=SLINT_TEST_FILTER");
     let filter = std::env::var("SLINT_TEST_FILTER").ok();
@@ -42,10 +41,22 @@ fn main() -> std::io::Result<()> {
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
     )?;
 
+    let references_root_dir: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "references"].iter().collect();
+
     for (i, testcase) in collect_test_cases()?.into_iter().enumerate() {
-        let template_path =
-            testcase.absolute_path.with_extension("png").into_os_string().into_string().unwrap();
-        let template_path = format!("\"{}\"", template_path.as_str());
+        let case_root_dir: std::path::PathBuf =
+            [env!("CARGO_MANIFEST_DIR"), "cases"].iter().collect();
+
+        let reference_path = testcase.absolute_path.strip_prefix(case_root_dir).unwrap();
+        let mut reference_path = references_root_dir
+            .join(reference_path)
+            .with_extension("png")
+            .into_os_string()
+            .into_string()
+            .unwrap();
+
+        reference_path = format!("\"{}\"", reference_path);
 
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let mut module_name = testcase.identifier();
@@ -83,7 +94,7 @@ fn main() -> std::io::Result<()> {
     Ok(())
     }}",
             i,
-            template_path.as_str()
+            reference_path.as_str()
         )?;
     }
 
