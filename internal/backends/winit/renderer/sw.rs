@@ -4,12 +4,13 @@
 //! Delegate the rendering to the [`i_slint_core::software_renderer::SoftwareRenderer`]
 
 use super::WinitCompatibleCanvas;
+use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::lengths::LogicalLength;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 
 impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRenderer<BUFFER_COUNT> {
     type Canvas = SwCanvas;
@@ -19,8 +20,13 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
         SoftwareRenderer::new(window_adapter_weak.clone())
     }
 
-    fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {
-        let (opengl_context, window) = crate::OpenGLContext::new_context(window_builder);
+    fn create_canvas(
+        &self,
+        window: &dyn raw_window_handle::HasRawWindowHandle,
+        display: &dyn raw_window_handle::HasRawDisplayHandle,
+        size: PhysicalWindowSize,
+    ) -> Self::Canvas {
+        let opengl_context = crate::OpenGLContext::new_context(window, display, size);
 
         let gl_renderer = unsafe {
             femtovg::renderer::OpenGl::new_from_function(|s| {
@@ -29,13 +35,12 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
             .unwrap()
         };
         let canvas = femtovg::Canvas::new(gl_renderer).unwrap().into();
-        SwCanvas { canvas, opengl_context, window }
+        SwCanvas { canvas, opengl_context }
     }
 
     fn release_canvas(&self, _canvas: Self::Canvas) {}
 
-    fn render(&self, canvas: &SwCanvas) {
-        let size = canvas.window.inner_size();
+    fn render(&self, canvas: &SwCanvas, size: PhysicalWindowSize) {
         let width = size.width as usize;
         let height = size.height as usize;
 
@@ -109,17 +114,12 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
 pub(crate) struct SwCanvas {
     canvas: RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>,
     opengl_context: crate::OpenGLContext,
-    window: Rc<winit::window::Window>,
 }
 
 impl WinitCompatibleCanvas for SwCanvas {
     fn component_destroyed(&self, _component: i_slint_core::component::ComponentRef) {}
 
-    fn window(&self) -> &winit::window::Window {
-        &self.window
-    }
-
-    fn resize_event(&self) {
-        self.opengl_context.ensure_resized(&self.window)
+    fn resize_event(&self, size: PhysicalWindowSize) {
+        self.opengl_context.ensure_resized(size)
     }
 }

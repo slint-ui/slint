@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use std::cell::RefCell;
 
 use winapi::{
@@ -70,11 +71,10 @@ impl SwapChain {
         command_queue: ComPtr<d3d12::ID3D12CommandQueue>,
         device: &ComPtr<d3d12::ID3D12Device>,
         mut gr_context: skia_safe::gpu::DirectContext,
-        window: &winit::window::Window,
+        window: &dyn raw_window_handle::HasRawWindowHandle,
+        size: PhysicalWindowSize,
         dxgi_factory: &ComPtr<dxgi1_4::IDXGIFactory4>,
     ) -> Self {
-        let size = window.inner_size();
-
         let swap_chain_desc = dxgi1_2::DXGI_SWAP_CHAIN_DESC1 {
             Width: size.width,
             Height: size.height,
@@ -86,12 +86,18 @@ impl SwapChain {
             ..Default::default()
         };
 
-        use winit::platform::windows::WindowExtWindows;
+        let hwnd = match window.raw_window_handle() {
+            raw_window_handle::RawWindowHandle::Win32(raw_window_handle::Win32WindowHandle {
+                hwnd,
+                ..
+            }) => hwnd,
+            _ => panic!("Metal surface is only supported with Win32WindowHandle"),
+        };
 
         let swap_chain1 = resolve_specific(|ptr| unsafe {
             dxgi_factory.CreateSwapChainForHwnd(
                 command_queue.as_raw() as _,
-                window.hwnd() as _,
+                hwnd as _,
                 &swap_chain_desc,
                 std::ptr::null(),
                 std::ptr::null_mut(),
@@ -266,17 +272,16 @@ impl SwapChain {
 
 pub struct D3DSurface {
     swap_chain: RefCell<SwapChain>,
-    window: winit::window::Window,
 }
 
 impl super::Surface for D3DSurface {
     const SUPPORTS_GRAPHICS_API: bool = false;
 
-    fn new(window_builder: winit::window::WindowBuilder) -> Self {
-        let window = crate::event_loop::with_window_target(|event_loop| {
-            window_builder.build(event_loop.event_loop_target()).unwrap()
-        });
-
+    fn new(
+        window: &dyn raw_window_handle::HasRawWindowHandle,
+        _display: &dyn raw_window_handle::HasRawDisplayHandle,
+        size: PhysicalWindowSize,
+    ) -> Self {
         let factory_flags = 0;
         /*
         let factory_flags = dxgi1_3::DXGI_CREATE_FACTORY_DEBUG;
@@ -394,30 +399,26 @@ impl super::Surface for D3DSurface {
             .expect("unable to create Skia D3D DirectContext");
 
         let swap_chain =
-            RefCell::new(SwapChain::new(queue, &device, gr_context, &window, &dxgi_factory));
+            RefCell::new(SwapChain::new(queue, &device, gr_context, &window, size, &dxgi_factory));
 
-        Self { swap_chain, window }
+        Self { swap_chain }
     }
 
     fn name(&self) -> &'static str {
         "d3d"
     }
 
-    fn window(&self) -> &winit::window::Window {
-        &self.window
-    }
-
     fn with_graphics_api(&self, _cb: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>)) {
         unimplemented!()
     }
 
-    fn resize_event(&self) {
-        let size = self.window.inner_size();
+    fn resize_event(&self, size: PhysicalWindowSize) {
         self.swap_chain.borrow_mut().resize(size.width, size.height);
     }
 
     fn render(
         &self,
+        _size: PhysicalWindowSize,
         callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     ) {
         self.swap_chain

@@ -5,7 +5,8 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use i_slint_core::api::{
-    GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
+    GraphicsAPI, PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
+    SetRenderingNotifierError,
 };
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
@@ -59,14 +60,19 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         }
     }
 
-    fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {
-        let surface = DefaultSurface::new(window_builder);
+    fn create_canvas(
+        &self,
+        window: &dyn raw_window_handle::HasRawWindowHandle,
+        display: &dyn raw_window_handle::HasRawDisplayHandle,
+        size: PhysicalWindowSize,
+    ) -> Self::Canvas {
+        let surface = DefaultSurface::new(window, display, size);
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_adapter_weak.clone(),
             &format!(
                 "Skia renderer (windowing system: {}; skia backend {}; surface: {} bpp)",
-                crate::winsys_name(&surface.window()),
+                crate::winsys_name(&window),
                 surface.name(),
                 surface.bits_per_pixel()
             ),
@@ -92,11 +98,11 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         });
     }
 
-    fn render(&self, canvas: &Self::Canvas) {
+    fn render(&self, canvas: &Self::Canvas, size: PhysicalWindowSize) {
         let window_adapter = self.window_adapter_weak.upgrade().unwrap();
         let window_inner = WindowInner::from_pub(window_adapter.window());
 
-        canvas.surface.render(|skia_canvas, gr_context| {
+        canvas.surface.render(size, |skia_canvas, gr_context| {
             window_inner.draw_contents(|components| {
                 let window_background_brush =
                     window_inner.window_item().map(|w| w.as_pin_ref().background());
@@ -324,18 +330,22 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
 pub trait Surface {
     const SUPPORTS_GRAPHICS_API: bool;
-    fn new(window_builder: winit::window::WindowBuilder) -> Self;
+    fn new(
+        window: &dyn raw_window_handle::HasRawWindowHandle,
+        display: &dyn raw_window_handle::HasRawDisplayHandle,
+        size: PhysicalWindowSize,
+    ) -> Self;
     fn name(&self) -> &'static str;
     fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>));
-    fn window(&self) -> &winit::window::Window;
     fn with_active_surface<T>(&self, callback: impl FnOnce() -> T) -> T {
         callback()
     }
     fn render(
         &self,
+        size: PhysicalWindowSize,
         callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     );
-    fn resize_event(&self);
+    fn resize_event(&self, size: PhysicalWindowSize);
     fn bits_per_pixel(&self) -> u8;
 }
 
@@ -350,12 +360,8 @@ impl<SurfaceType: Surface> super::WinitCompatibleCanvas for SkiaCanvas<SurfaceTy
         self.image_cache.component_destroyed(component)
     }
 
-    fn window(&self) -> &winit::window::Window {
-        &self.surface.window()
-    }
-
-    fn resize_event(&self) {
-        self.surface.resize_event()
+    fn resize_event(&self, size: PhysicalWindowSize) {
+        self.surface.resize_event(size)
     }
 }
 

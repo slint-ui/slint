@@ -1,24 +1,28 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
 
 use glutin::{config::GetGlConfig, prelude::GlConfig};
 use i_slint_core::api::GraphicsAPI;
+use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 
 pub struct OpenGLSurface {
     fb_info: skia_safe::gpu::gl::FramebufferInfo,
     surface: RefCell<skia_safe::Surface>,
     gr_context: RefCell<skia_safe::gpu::DirectContext>,
     opengl_context: crate::OpenGLContext,
-    window: Rc<winit::window::Window>,
 }
 
 impl super::Surface for OpenGLSurface {
     const SUPPORTS_GRAPHICS_API: bool = true;
 
-    fn new(window_builder: winit::window::WindowBuilder) -> Self {
-        let (opengl_context, window) = crate::OpenGLContext::new_context(window_builder);
+    fn new(
+        window: &dyn raw_window_handle::HasRawWindowHandle,
+        display: &dyn raw_window_handle::HasRawDisplayHandle,
+        size: PhysicalWindowSize,
+    ) -> Self {
+        let opengl_context = crate::OpenGLContext::new_context(window, display, size);
 
         let (fb_info, surface, gr_context) =
             opengl_context.with_current_context(|opengl_context| {
@@ -49,13 +53,13 @@ impl super::Surface for OpenGLSurface {
                     fb_info,
                     &opengl_context.glutin_context(),
                     &mut gr_context,
-                    &window,
+                    size,
                 )
                 .into();
 
                 (fb_info, surface, gr_context)
             });
-        Self { fb_info, surface, gr_context: RefCell::new(gr_context), opengl_context, window }
+        Self { fb_info, surface, gr_context: RefCell::new(gr_context), opengl_context }
     }
 
     fn name(&self) -> &'static str {
@@ -69,19 +73,15 @@ impl super::Surface for OpenGLSurface {
         callback(api)
     }
 
-    fn window(&self) -> &winit::window::Window {
-        &self.window
-    }
-
     fn with_active_surface<T>(&self, callback: impl FnOnce() -> T) -> T {
         self.opengl_context.with_current_context(|_| callback())
     }
 
     fn render(
         &self,
+        size: PhysicalWindowSize,
         callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     ) {
-        let size = self.window.inner_size();
         let width = size.width;
         let height = size.height;
 
@@ -95,7 +95,7 @@ impl super::Surface for OpenGLSurface {
                 self.fb_info,
                 &self.opengl_context.glutin_context(),
                 gr_context,
-                &self.window,
+                size,
             );
         }
 
@@ -107,8 +107,8 @@ impl super::Surface for OpenGLSurface {
         self.opengl_context.make_not_current();
     }
 
-    fn resize_event(&self) {
-        self.opengl_context.ensure_resized(&self.window);
+    fn resize_event(&self, size: PhysicalWindowSize) {
+        self.opengl_context.ensure_resized(size);
     }
 
     fn bits_per_pixel(&self) -> u8 {
@@ -128,10 +128,9 @@ impl OpenGLSurface {
         fb_info: skia_safe::gpu::gl::FramebufferInfo,
         gl_context: &glutin::context::PossiblyCurrentContext,
         gr_context: &mut skia_safe::gpu::DirectContext,
-        window: &winit::window::Window,
+        size: PhysicalWindowSize,
     ) -> skia_safe::Surface {
         let config = gl_context.config();
-        let size = window.inner_size();
         let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_gl(
             (size.width.try_into().unwrap(), size.height.try_into().unwrap()),
             Some(config.num_samples() as _),
