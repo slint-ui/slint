@@ -7,6 +7,8 @@ use core::ffi::c_void;
 use i_slint_core::window::{ffi::WindowAdapterRcOpaque, WindowAdapter};
 use std::rc::Rc;
 
+pub mod platform;
+
 #[doc(hidden)]
 #[cold]
 pub fn use_modules() -> usize {
