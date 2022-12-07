@@ -13,6 +13,11 @@ import { PropertiesViewProvider, set_client } from "./common";
 import {
     LanguageClient,
     LanguageClientOptions,
+    HandleWorkDoneProgressSignature,
+    ProgressToken,
+    WorkDoneProgressBegin,
+    WorkDoneProgressEnd,
+    WorkDoneProgressReport,
     ServerOptions,
     NotificationType,
     ExecutableOptions,
@@ -36,6 +41,12 @@ const program_extension = process.platform === "win32" ? ".exe" : "";
 interface Platform {
     program_name: string;
     options?: ExecutableOptions;
+}
+
+function extract_uri_from_progress_message(input: string): string {
+    const start = input.indexOf(": ");
+    const end = input.lastIndexOf("@");
+    return input.slice(start + 2, end);
 }
 
 function lspPlatform(): Platform | null {
@@ -142,6 +153,23 @@ function startClient(context: vscode.ExtensionContext) {
 
     let clientOptions: LanguageClientOptions = {
         documentSelector: [{ scheme: "file", language: "slint" }],
+        middleware: {
+            handleWorkDoneProgress: (
+                token: ProgressToken,
+                params:
+                    | WorkDoneProgressBegin
+                    | WorkDoneProgressReport
+                    | WorkDoneProgressEnd,
+                next: HandleWorkDoneProgressSignature,
+            ) => {
+                if (params.kind === "end") {
+                    uri_loaded(
+                        extract_uri_from_progress_message(params.message || ""),
+                    );
+                }
+                next(token, params);
+            },
+        },
     };
 
     client = new LanguageClient(
@@ -160,6 +188,12 @@ function startClient(context: vscode.ExtensionContext) {
         );
     };
     client.onReady().then(initClient);
+}
+
+function uri_loaded(_uri: string) {
+    if (properties_provider != null) {
+        properties_provider.refresh_view();
+    }
 }
 
 export function activate(context: vscode.ExtensionContext) {

@@ -6,11 +6,25 @@
 import { Uri } from "vscode";
 import * as vscode from "vscode";
 import { LanguageClientOptions } from "vscode-languageclient";
-import { LanguageClient } from "vscode-languageclient/browser";
+import {
+    HandleWorkDoneProgressSignature,
+    ProgressToken,
+    WorkDoneProgressBegin,
+    WorkDoneProgressEnd,
+    WorkDoneProgressReport,
+    LanguageClient,
+} from "vscode-languageclient/browser";
 import { set_client, PropertiesViewProvider } from "./common";
 
 let client: LanguageClient;
 let statusBar: vscode.StatusBarItem;
+let properties_provider: PropertiesViewProvider;
+
+function extract_uri_from_progress_message(input: string): string {
+    const start = input.indexOf(": ");
+    const end = input.lastIndexOf("@");
+    return input.slice(start + 2, end);
+}
 
 function startClient(context: vscode.ExtensionContext) {
     //let args = vscode.workspace.getConfiguration('slint').get<[string]>('lsp-args');
@@ -22,6 +36,23 @@ function startClient(context: vscode.ExtensionContext) {
         documentSelector,
         synchronize: {},
         initializationOptions: {},
+        middleware: {
+            handleWorkDoneProgress: (
+                token: ProgressToken,
+                params:
+                    | WorkDoneProgressBegin
+                    | WorkDoneProgressReport
+                    | WorkDoneProgressEnd,
+                next: HandleWorkDoneProgressSignature,
+            ) => {
+                if (params.kind === "end") {
+                    uri_loaded(
+                        extract_uri_from_progress_message(params.message || ""),
+                    );
+                }
+                next(token, params);
+            },
+        },
     };
 
     const serverMain = Uri.joinPath(
@@ -75,6 +106,12 @@ function startClient(context: vscode.ExtensionContext) {
             });
         }
     };
+}
+
+function uri_loaded(_uri: string) {
+    if (properties_provider != null) {
+        properties_provider.refresh_view();
+    }
 }
 
 let previewPanel: vscode.WebviewPanel | undefined = undefined;
@@ -166,9 +203,7 @@ export function activate(context: vscode.ExtensionContext) {
         new PreviewSerializer(context),
     );
 
-    const properties_provider = new PropertiesViewProvider(
-        context.extensionUri,
-    );
+    properties_provider = new PropertiesViewProvider(context.extensionUri);
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
             PropertiesViewProvider.viewType,

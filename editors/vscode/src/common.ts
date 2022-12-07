@@ -245,16 +245,9 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 };
                 this._view?.webview.postMessage(msg);
             })
-            .catch(() =>
-                setTimeout(
-                    () =>
-                        query_properties(uri, {
-                            line: line,
-                            character: character,
-                        }),
-                    2000,
-                ),
-            );
+            .catch((_) => {
+                return;
+            });
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
