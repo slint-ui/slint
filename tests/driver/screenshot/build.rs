@@ -59,12 +59,9 @@ fn main() -> std::io::Result<()> {
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
         )?;
 
-        #[cfg(not(feature = "build-time"))]
         if !generate_macro(&source, &mut output, testcase)? {
             continue;
         }
-        #[cfg(feature = "build-time")]
-        generate_source(&source, &mut output, testcase)?;
 
         write!(
             output,
