@@ -63,7 +63,7 @@ Files: editors/vscode/*.json editors/vscode/README.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Files: tests/screenshot/*.png
+Files: tests/screenshots/references/software/basic/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
