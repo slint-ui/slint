@@ -6,6 +6,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
+use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
@@ -25,8 +26,6 @@ use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 use super::images::{Texture, TextureCacheKey};
 use super::{fonts, PhysicalLength, PhysicalPoint, PhysicalRect};
 use super::{PhysicalSize, PASSWORD_CHARACTER};
-
-use super::super::boxshadowcache::BoxShadowCache;
 
 type FemtovgBoxShadowCache = BoxShadowCache<ItemGraphicsCacheEntry>;
 

@@ -1,21 +1,31 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+/*!
+This module contains a cache helper for caching box shadow textures.
+*/
+
 use std::{cell::RefCell, collections::BTreeMap};
 
-use i_slint_core::graphics::euclid;
-use i_slint_core::items::ItemRc;
-use i_slint_core::{
+use super::euclid;
+use crate::items::ItemRc;
+use crate::{
     lengths::{PhysicalPx, ScaleFactor},
     Color,
 };
 
+/// Struct to store options affecting the rendering of a box shadow
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct BoxShadowOptions {
+    /// The width of the box shadow texture in physical pixels.
     pub width: euclid::Length<f32, PhysicalPx>,
+    /// The height of the box shadow texture in physical pixels.
     pub height: euclid::Length<f32, PhysicalPx>,
+    /// The color for the box shadow.
     pub color: Color,
+    /// The blur to apply to the box shadow in pixels.
     pub blur: euclid::Length<f32, PhysicalPx>,
+    /// The radius of the box shadow.
     pub radius: euclid::Length<f32, PhysicalPx>,
 }
 
@@ -43,8 +53,11 @@ impl PartialOrd for BoxShadowOptions {
 }
 
 impl BoxShadowOptions {
-    fn new(
-        box_shadow: std::pin::Pin<&i_slint_core::items::BoxShadow>,
+    /// Extracts the rendering specific properties from the BoxShadow item and scales the logical
+    /// coordinates to physical pixels used in the BoxShadowOptions. Returns None if for example the
+    /// alpha on the box shadow would imply that no shadow is to be rendered.
+    pub fn new(
+        box_shadow: std::pin::Pin<&crate::items::BoxShadow>,
         scale_factor: ScaleFactor,
     ) -> Option<Self> {
         let color = box_shadow.color();
@@ -61,6 +74,7 @@ impl BoxShadowOptions {
     }
 }
 
+/// Cache to hold box textures for given box shadow options.
 pub struct BoxShadowCache<ImageType>(RefCell<BTreeMap<BoxShadowOptions, ImageType>>);
 
 impl<ImageType> Default for BoxShadowCache<ImageType> {
@@ -70,11 +84,12 @@ impl<ImageType> Default for BoxShadowCache<ImageType> {
 }
 
 impl<ImageType: Clone> BoxShadowCache<ImageType> {
+    /// Look up a box shadow texture for a given box shadow item, or create a new one if needed.
     pub fn get_box_shadow(
         &self,
         item_rc: &ItemRc,
-        item_cache: &i_slint_core::item_rendering::ItemCache<Option<ImageType>>,
-        box_shadow: std::pin::Pin<&i_slint_core::items::BoxShadow>,
+        item_cache: &crate::item_rendering::ItemCache<Option<ImageType>>,
+        box_shadow: std::pin::Pin<&crate::items::BoxShadow>,
         scale_factor: ScaleFactor,
         shadow_render_fn: impl FnOnce(&BoxShadowOptions) -> ImageType,
     ) -> Option<ImageType> {

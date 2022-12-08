@@ -4,6 +4,7 @@
 use std::pin::Pin;
 
 use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
+use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
@@ -14,8 +15,6 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{items, Brush, Color, Property};
-
-use super::super::boxshadowcache::BoxShadowCache;
 
 pub type SkiaBoxShadowCache = BoxShadowCache<skia_safe::Image>;
 
