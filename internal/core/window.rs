@@ -82,9 +82,8 @@ pub trait WindowAdapterSealed {
     fn unregister_component<'a>(
         &self,
         _component: ComponentRef,
-        items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
+        _items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
     ) {
-        self.renderer().free_graphics_resources(items);
     }
 
     /// Create a window for a popup.

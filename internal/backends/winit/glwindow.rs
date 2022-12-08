@@ -14,7 +14,7 @@ use crate::renderer::WinitCompatibleRenderer;
 use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
 use corelib::graphics::euclid::num::Zero;
-use corelib::items::{ItemRef, MouseCursor};
+use corelib::items::MouseCursor;
 use corelib::layout::Orientation;
 use corelib::lengths::{LogicalLength, LogicalPoint, LogicalSize};
 use corelib::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
@@ -249,17 +249,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
     fn request_redraw(&self) {
         self.pending_redraw.set(true);
         self.with_window_handle(&mut |window| window.request_redraw())
-    }
-
-    fn unregister_component<'a>(
-        &self,
-        component: corelib::component::ComponentRef,
-        _items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
-    ) {
-        if !self.is_mapped() {
-            return;
-        }
-        self.renderer.component_destroyed(component)
     }
 
     fn request_window_properties_update(&self) {

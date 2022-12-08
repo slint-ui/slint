@@ -1439,11 +1439,6 @@ impl QtWindow {
     fn close_popup(&self) {
         WindowInner::from_pub(&self.window).close_popup();
     }
-
-    fn free_graphics_resources(&self, component: ComponentRef) {
-        // Invalidate caches:
-        self.cache.component_destroyed(component);
-    }
 }
 
 impl WindowAdapter for QtWindow {
@@ -1598,11 +1593,9 @@ impl WindowAdapterSealed for QtWindow {
 
     fn unregister_component<'a>(
         &self,
-        component: ComponentRef,
+        _component: ComponentRef,
         _: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
     ) {
-        self.free_graphics_resources(component);
-
         self.tree_structure_changed.replace(true);
     }
 
@@ -1913,6 +1906,15 @@ impl Renderer for QtWindow {
         // as a FontChange event is received. This is relevant for the case of using the Qt backend
         // with a non-native style.
         LogicalLength::new(default_font_size as f32)
+    }
+
+    fn free_graphics_resources(
+        &self,
+        component: ComponentRef,
+        _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
+    ) {
+        // Invalidate caches:
+        self.cache.component_destroyed(component);
     }
 }
 
