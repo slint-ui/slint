@@ -12,7 +12,7 @@ use std::rc::{Rc, Weak};
 
 pub struct WinitSoftwareRenderer<const MAX_BUFFER_AGE: usize> {
     renderer: SoftwareRenderer<MAX_BUFFER_AGE>,
-    canvas: RefCell<Option<SwCanvas>>,
+    canvas: RefCell<Option<softbuffer::GraphicsContext<Rc<winit::window::Window>>>>,
 }
 
 impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
@@ -28,21 +28,8 @@ impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
     }
 
     fn show(&self, window: &Rc<winit::window::Window>) {
-        let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
-        let opengl_context = crate::OpenGLContext::new_context(
-            window,
-            window,
-            PhysicalWindowSize::new(size.width, size.height),
-        );
-
-        let gl_renderer = unsafe {
-            femtovg::renderer::OpenGl::new_from_function(|s| {
-                opengl_context.get_proc_address(s) as *const _
-            })
-            .unwrap()
-        };
-        let canvas = femtovg::Canvas::new(gl_renderer).unwrap().into();
-        *self.canvas.borrow_mut() = Some(SwCanvas { canvas, opengl_context })
+        *self.canvas.borrow_mut() =
+            Some(unsafe { softbuffer::GraphicsContext::new(window.clone()).unwrap() });
     }
 
     fn hide(&self) {
@@ -50,8 +37,10 @@ impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
     }
 
     fn render(&self, size: PhysicalWindowSize) {
-        let canvas = if self.canvas.borrow().is_some() {
-            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
+        let mut canvas = if self.canvas.borrow().is_some() {
+            std::cell::RefMut::map(self.canvas.borrow_mut(), |canvas_opt| {
+                canvas_opt.as_mut().unwrap()
+            })
         } else {
             return;
         };
@@ -90,53 +79,19 @@ impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
             });
         }
 
-        let image_ref: imgref::ImgRef<rgb::RGB8> =
-            imgref::ImgRef::new(&buffer, width, height).into();
+        let mut softbuffer_buffer = Vec::with_capacity(width * height * 4);
+        softbuffer_buffer.extend(
+            buffer
+                .iter()
+                .map(|pixel| ((pixel.r as u32) << 16) | ((pixel.g as u32) << 8) | (pixel.b as u32)),
+        );
 
-        canvas.opengl_context.make_current();
-        {
-            let mut canvas = canvas.canvas.borrow_mut();
-
-            canvas.set_size(width as u32, height as u32, 1.0);
-
-            let image_id = canvas.create_image(image_ref, femtovg::ImageFlags::empty()).unwrap();
-            let mut path = femtovg::Path::new();
-            path.rect(0., 0., image_ref.width() as _, image_ref.height() as _);
-
-            let fill_paint = femtovg::Paint::image(
-                image_id,
-                0.,
-                0.,
-                image_ref.width() as _,
-                image_ref.height() as _,
-                0.0,
-                1.0,
-            );
-            canvas.fill_path(&mut path, fill_paint);
-            canvas.flush();
-            canvas.delete_image(image_id);
-        }
-
-        canvas.opengl_context.swap_buffers();
-        canvas.opengl_context.make_not_current();
+        canvas.set_buffer(&softbuffer_buffer, width as u16, height as u16);
     }
 
-    fn resize_event(&self, size: PhysicalWindowSize) {
-        let canvas = if self.canvas.borrow().is_some() {
-            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
-        } else {
-            return;
-        };
-
-        canvas.opengl_context.ensure_resized(size)
-    }
+    fn resize_event(&self, _size: PhysicalWindowSize) {}
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
     }
-}
-
-struct SwCanvas {
-    canvas: RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>,
-    opengl_context: crate::OpenGLContext,
 }

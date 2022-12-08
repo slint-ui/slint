@@ -24,7 +24,7 @@ x11 = ["winit/x11", "glutin/x11", "copypasta/x11", "i-slint-renderer-skia?/x11"]
 renderer-winit-femtovg = ["femtovg", "fontdb", "libc", "yeslogic-fontconfig-sys", "winapi", "dwrote", "imgref", "unicode-script", "ttf-parser", "rgb", "i-slint-core/box-shadow-cache"]
 renderer-winit-skia = ["i-slint-renderer-skia"]
 renderer-winit-skia-opengl = ["renderer-winit-skia", "i-slint-renderer-skia/opengl"]
-renderer-winit-software = ["femtovg", "imgref", "rgb"]
+renderer-winit-software = ["softbuffer", "imgref", "rgb"]
 rtti = ["i-slint-core/rtti"]
 default = []
 
@@ -60,6 +60,10 @@ rgb = { version = "0.8.27", optional = true }
 # For the Skia renderer
 i-slint-renderer-skia = { version = "=0.3.3", path = "../../renderers/skia", optional = true }
 
+# For the software renderer
+softbuffer = { version = "0.1.1", optional = true }
+raw-window-handle-old = { package = "raw-window-handle", version = "0.4.1", features = ["alloc"] }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features=["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "CssStyleDeclaration", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent"] }
 wasm-bindgen = { version = "0.2" }
@@ -67,7 +71,7 @@ send_wrapper = "0.6.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 fontdb = { version = "0.10", optional = true, features = ["memmap", "fontconfig"] }
-glutin = { version = "0.30", default-features = false, features = ["egl", "wgl"] }
+glutin = { version = "0.30", optional = true, default-features = false, features = ["egl", "wgl"] }
 
 # For the FemtoVG renderer
 [target.'cfg(target_family = "windows")'.dependencies]
