@@ -68,6 +68,28 @@ fn main() -> std::io::Result<()> {
 
         generate_source(source.as_str(), &mut output, testcase).unwrap();
 
+        #[cfg(feature = "create_references")]
+        write!(
+            output,
+            r"
+    #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
+    use i_slint_backend_testing as slint_testing;
+
+    let window = slint_testing::init_swr();
+    window.set_size(slint::PhysicalSize::new(64, 64));
+
+    let instance = TestCase::new();
+    instance.show();
+
+    i_slint_backend_testing::save_screenshot({}, window.clone());
+
+    Ok(())
+    }}",
+            i,
+            reference_path.as_str()
+        )?;
+
+        #[cfg(not(feature = "create_references"))]
         write!(
             output,
             r"

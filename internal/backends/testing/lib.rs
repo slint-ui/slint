@@ -15,7 +15,7 @@ use std::rc::Rc;
 use std::sync::Mutex;
 
 pub struct SwrTestingBackend {
-    window: Rc<MinimalSoftwareWindow<1>>,
+    window: Rc<MinimalSoftwareWindow<0>>,
 }
 
 impl i_slint_core::platform::Platform for SwrTestingBackend {
@@ -218,7 +218,7 @@ mod for_unit_test {
         WindowInner::from_pub(component.window()).set_scale_factor(factor)
     }
 
-    pub fn init_swr() -> std::rc::Rc<MinimalSoftwareWindow<1>> {
+    pub fn init_swr() -> std::rc::Rc<MinimalSoftwareWindow<0>> {
         let window = MinimalSoftwareWindow::new();
 
         i_slint_core::platform::set_platform(Box::new(crate::SwrTestingBackend {
@@ -240,7 +240,7 @@ mod for_unit_test {
     }
 
     pub fn screenshot(
-        window: std::rc::Rc<MinimalSoftwareWindow<1>>,
+        window: std::rc::Rc<MinimalSoftwareWindow<0>>,
     ) -> SharedPixelBuffer<Rgb8Pixel> {
         let size = window.size();
         let width = size.width;
@@ -280,16 +280,16 @@ mod for_unit_test {
         }
     }
 
-    pub fn assert_with_render(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<1>>) {
+    pub fn assert_with_render(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
         assert_eq!(image_buffer(path).as_bytes(), screenshot(window).as_bytes());
     }
 
-    pub fn assert_with_render_by_line(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<1>>) {
+    pub fn assert_with_render_by_line(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
         assert_eq!(image_buffer(path).as_bytes(), screenshot_render_by_line(window).as_bytes());
     }
 
     pub fn screenshot_render_by_line(
-        window: std::rc::Rc<MinimalSoftwareWindow<1>>,
+        window: std::rc::Rc<MinimalSoftwareWindow<0>>,
     ) -> SharedPixelBuffer<Rgb8Pixel> {
         let size = window.size();
         let width = size.width;
@@ -310,7 +310,7 @@ mod for_unit_test {
         buffer
     }
 
-    pub fn save_screenshot(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<1>>) {
+    pub fn save_screenshot(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
         let buffer = screenshot(window.clone());
         image::save_buffer(
             path,
