@@ -71,6 +71,12 @@ pub(crate) fn completion_at(
             r.extend(
                 [
                     ("property", "property <$1> $2;"),
+                    ("in property", "in property <$1> $2;"),
+                    ("in-out property", "in-out property <$1> $2;"),
+                    ("out property", "out property <$1> $2;"),
+                    ("private property", "private property <$1> $2;"),
+                    ("function", "function $1() {}"),
+                    ("public function", "public function $1() {}"),
                     ("callback", "callback $1();"),
                     ("animate", "animate $1 { $2 }"),
                     ("states", "states [ $1 ]"),
