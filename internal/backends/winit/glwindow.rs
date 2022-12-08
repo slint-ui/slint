@@ -262,14 +262,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         self.renderer.component_destroyed(component)
     }
 
-    fn register_root_component(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
-        let default_font_size_prop =
-            i_slint_core::items::WindowItem::FIELD_OFFSETS.default_font_size.apply_pin(window_item);
-        if default_font_size_prop.get().get() <= 0 as Coord {
-            default_font_size_prop.set(Renderer::default_font_size());
-        }
-    }
-
     fn request_window_properties_update(&self) {
         self.call_with_event_loop(|self_| {
             self_.with_window_handle(&mut |window| {

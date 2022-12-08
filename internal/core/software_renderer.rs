@@ -252,11 +252,6 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
             );
         }
     }
-
-    #[doc(hidden)]
-    pub fn default_font_size() -> LogicalLength {
-        self::fonts::DEFAULT_FONT_SIZE
-    }
 }
 
 #[doc(hidden)]
@@ -301,6 +296,10 @@ impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> 
 
     fn register_bitmap_font(&self, font_data: &'static crate::graphics::BitmapFont) {
         fonts::register_bitmap_font(font_data);
+    }
+
+    fn default_font_size(&self) -> LogicalLength {
+        self::fonts::DEFAULT_FONT_SIZE
     }
 }
 
@@ -1398,13 +1397,6 @@ impl<const MAX_BUFFER_AGE: usize> crate::window::WindowAdapterSealed
     }
     fn renderer(&self) -> &dyn Renderer {
         &self.renderer
-    }
-    fn register_root_component(&self, window_item: Pin<&crate::items::WindowItem>) {
-        let default_font_size_prop =
-            crate::items::WindowItem::FIELD_OFFSETS.default_font_size.apply_pin(window_item);
-        if default_font_size_prop.get().get() <= 0 as Coord {
-            default_font_size_prop.set(SoftwareRenderer::<MAX_BUFFER_AGE>::default_font_size());
-        }
     }
 }
 
