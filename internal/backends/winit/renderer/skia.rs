@@ -47,20 +47,21 @@ cfg_if::cfg_if! {
 pub struct SkiaRenderer {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
+    canvas: RefCell<Option<SkiaCanvas<DefaultSurface>>>,
 }
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
-    type Canvas = SkiaCanvas<DefaultSurface>;
     const NAME: &'static str = "Skia";
 
     fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
         Self {
             window_adapter_weak: window_adapter_weak.clone(),
             rendering_notifier: Default::default(),
+            canvas: Default::default(),
         }
     }
 
-    fn create_canvas(&self, window: &Rc<winit::window::Window>) -> Self::Canvas {
+    fn show(&self, window: &Rc<winit::window::Window>) {
         let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
         let surface =
             DefaultSurface::new(window, window, PhysicalWindowSize::new(size.width, size.height));
@@ -82,20 +83,28 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
             canvas.with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))
         }
 
-        canvas
+        *self.canvas.borrow_mut() = Some(canvas);
     }
 
-    fn release_canvas(&self, canvas: Self::Canvas) {
-        canvas.surface.with_active_surface(|| {
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                canvas.with_graphics_api(|api| {
-                    callback.notify(RenderingState::RenderingTeardown, &api)
-                })
-            }
-        });
+    fn hide(&self) {
+        if let Some(canvas) = self.canvas.borrow_mut().take() {
+            canvas.surface.with_active_surface(|| {
+                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                    canvas.with_graphics_api(|api| {
+                        callback.notify(RenderingState::RenderingTeardown, &api)
+                    })
+                }
+            });
+        }
     }
 
-    fn render(&self, canvas: &Self::Canvas, size: PhysicalWindowSize) {
+    fn render(&self, size: PhysicalWindowSize) {
+        let canvas = if self.canvas.borrow().is_some() {
+            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
+        } else {
+            return;
+        };
+
         let window_adapter = self.window_adapter_weak.upgrade().unwrap();
         let window_inner = WindowInner::from_pub(window_adapter.window());
 
@@ -170,6 +179,26 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         self
+    }
+
+    fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
+        let canvas = if self.canvas.borrow().is_some() {
+            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
+        } else {
+            return;
+        };
+
+        canvas.image_cache.component_destroyed(component)
+    }
+
+    fn resize_event(&self, size: PhysicalWindowSize) {
+        let canvas = if self.canvas.borrow().is_some() {
+            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
+        } else {
+            return;
+        };
+
+        canvas.surface.resize_event(size)
     }
 }
 
@@ -350,20 +379,10 @@ pub trait Surface {
     fn bits_per_pixel(&self) -> u8;
 }
 
-pub struct SkiaCanvas<SurfaceType: Surface> {
+struct SkiaCanvas<SurfaceType: Surface> {
     image_cache: ItemCache<Option<skia_safe::Image>>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     surface: SurfaceType,
-}
-
-impl<SurfaceType: Surface> super::WinitCompatibleCanvas for SkiaCanvas<SurfaceType> {
-    fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
-        self.image_cache.component_destroyed(component)
-    }
-
-    fn resize_event(&self, size: PhysicalWindowSize) {
-        self.surface.resize_event(size)
-    }
 }
 
 impl<SurfaceType: Surface> SkiaCanvas<SurfaceType> {

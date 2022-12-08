@@ -3,7 +3,6 @@
 
 //! Delegate the rendering to the [`i_slint_core::software_renderer::SoftwareRenderer`]
 
-use super::WinitCompatibleCanvas;
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::lengths::LogicalLength;
@@ -14,19 +13,22 @@ use std::rc::{Rc, Weak};
 
 pub struct WinitSoftwareRenderer<const MAX_BUFFER_AGE: usize> {
     renderer: SoftwareRenderer<MAX_BUFFER_AGE>,
+    canvas: RefCell<Option<SwCanvas>>,
 }
 
 impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
     for WinitSoftwareRenderer<MAX_BUFFER_AGE>
 {
-    type Canvas = SwCanvas;
     const NAME: &'static str = "Software";
 
     fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
-        Self { renderer: SoftwareRenderer::new(window_adapter_weak.clone()) }
+        Self {
+            renderer: SoftwareRenderer::new(window_adapter_weak.clone()),
+            canvas: Default::default(),
+        }
     }
 
-    fn create_canvas(&self, window: &Rc<winit::window::Window>) -> Self::Canvas {
+    fn show(&self, window: &Rc<winit::window::Window>) {
         let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
         let opengl_context = crate::OpenGLContext::new_context(
             window,
@@ -41,12 +43,20 @@ impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
             .unwrap()
         };
         let canvas = femtovg::Canvas::new(gl_renderer).unwrap().into();
-        SwCanvas { canvas, opengl_context }
+        *self.canvas.borrow_mut() = Some(SwCanvas { canvas, opengl_context })
     }
 
-    fn release_canvas(&self, _canvas: Self::Canvas) {}
+    fn hide(&self) {
+        self.canvas.borrow_mut().take();
+    }
 
-    fn render(&self, canvas: &SwCanvas, size: PhysicalWindowSize) {
+    fn render(&self, size: PhysicalWindowSize) {
+        let canvas = if self.canvas.borrow().is_some() {
+            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
+        } else {
+            return;
+        };
+
         let width = size.width as usize;
         let height = size.height as usize;
 
@@ -116,20 +126,24 @@ impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
         i_slint_core::software_renderer::SoftwareRenderer::<MAX_BUFFER_AGE>::default_font_size()
     }
 
+    fn component_destroyed(&self, _component: i_slint_core::component::ComponentRef) {}
+
+    fn resize_event(&self, size: PhysicalWindowSize) {
+        let canvas = if self.canvas.borrow().is_some() {
+            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
+        } else {
+            return;
+        };
+
+        canvas.opengl_context.ensure_resized(size)
+    }
+
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
     }
 }
 
-pub(crate) struct SwCanvas {
+struct SwCanvas {
     canvas: RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>,
     opengl_context: crate::OpenGLContext,
-}
-
-impl WinitCompatibleCanvas for SwCanvas {
-    fn component_destroyed(&self, _component: i_slint_core::component::ComponentRef) {}
-
-    fn resize_event(&self, size: PhysicalWindowSize) {
-        self.opengl_context.ensure_resized(size)
-    }
 }

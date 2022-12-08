@@ -935,7 +935,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 }
 
 impl<'a> GLItemRenderer<'a> {
-    pub fn new(
+    pub(super) fn new(
         canvas: &'a super::FemtoVGCanvas,
         window: &'a i_slint_core::api::Window,
         width: u32,
