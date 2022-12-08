@@ -1,0 +1,37 @@
+{
+    "scopeName": "source.rust.slint",
+    "injectionSelector": "L:source.rust",
+    "patterns": [
+        {
+            "include": "#slint-macro"
+        }
+    ],
+    "repository": {
+        "slint-macro": {
+            "name": "source.slint",
+            "begin": "slint\\s*!\\s*\\{",
+            "end": "}",
+            "patterns": [
+                {
+                    "include": "source.slint"
+                },
+                {
+                    "include": "#inner_block"
+                }
+            ]
+        },
+        "inner_block": {
+            "name": "source.slint",
+            "begin": "{",
+            "end": "}",
+            "patterns": [
+                {
+                    "include": "source.slint"
+                },
+                {
+                    "include": "#inner_block"
+                }
+            ]
+        }
+    }
+}
