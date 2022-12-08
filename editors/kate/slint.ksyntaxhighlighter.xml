@@ -28,8 +28,12 @@
       <item>component</item>
       <item>inherits</item>
       <item>property</item>
-      <item>input</item>
-      <item>output</item>
+      <item>in</item>
+      <item>out</item>
+      <item>in-out</item>
+      <item>function</item>
+      <item>private</item>
+      <item>public</item>
       <item>callback</item>
       <item>animate</item>
       <item>states</item>
