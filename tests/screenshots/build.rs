@@ -68,10 +68,12 @@ fn main() -> std::io::Result<()> {
 
         generate_source(source.as_str(), &mut output, testcase).unwrap();
 
-        #[cfg(feature = "create_references")]
-        write!(
-            output,
-            r"
+        let create_screenshots = std::env::var("SLINT_CREATE_SCREENSHOTS").ok();
+
+        if create_screenshots.is_some() && create_screenshots.unwrap().eq("1") {
+            write!(
+                output,
+                r"
     #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
     let window = crate::init_swr();
     window.set_size(slint::PhysicalSize::new(64, 64));
@@ -83,14 +85,14 @@ fn main() -> std::io::Result<()> {
 
     Ok(())
     }}",
-            i,
-            reference_path.as_str()
-        )?;
-
-        #[cfg(not(feature = "create_references"))]
-        write!(
-            output,
-            r"
+                i,
+                reference_path.as_str()
+            )?;
+        } else {
+            #[cfg(not(feature = "create_references"))]
+            write!(
+                output,
+                r"
     #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
    
     let window = crate::init_swr();
@@ -106,9 +108,10 @@ fn main() -> std::io::Result<()> {
 
     Ok(())
     }}",
-            i,
-            reference_path.as_str()
-        )?;
+                i,
+                reference_path.as_str()
+            )?;
+        }
     }
 
     //Make sure to use a consistent style

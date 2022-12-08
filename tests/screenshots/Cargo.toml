@@ -24,7 +24,3 @@ i-slint-compiler = { path = "../../internal/compiler", features = ["rust", "disp
 walkdir = "2.3"
 spin_on = { version = "0.1" }
 test_driver_lib = { path = "../driver/driverlib" }
-
-[features]
-default = []
-create_references = []
