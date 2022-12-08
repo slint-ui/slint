@@ -76,8 +76,10 @@ unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
 #!  * `SLINT_BACKEND=winit-femtovg` selects the winit backend with the femtovg renderer
 #!  * `SLINT_BACKEND=winit-skia` selects the winit backend with the skia renderer
 #!  * `SLINT_BACKEND=winit-software` selects the winit backend with the software renderer
+#!
 #! If the selected backend is not available, the default will be used.
-
+#!
+#! Here are the cargo features controlling the backend:
 
 ## The Qt backend feature uses Qt for the windowing system integration and rendering.
 ## This backend also provides the `native` style.

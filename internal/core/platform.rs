@@ -160,6 +160,8 @@ pub fn update_timers_and_animations() {
 /// Returns the duration before the next timer is expected to be activated. This is the
 /// largest amount of time that you can wait before calling [`update_timers_and_animations()`].
 ///
+/// `None` is returned if there is no active timer.
+///
 /// Call this in your own event loop implementation to know how long the current thread can
 /// go to sleep. Note that this does not take currently activate animations into account.
 /// Only go to sleep if [`Window::has_active_animations()`](crate::api::Window::has_active_animations())
