@@ -4,6 +4,7 @@
 use alloc::boxed::Box;
 use core::pin::Pin;
 
+use crate::component::ComponentRef;
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 
 pub trait Renderer {
@@ -39,6 +40,7 @@ pub trait Renderer {
     /// Clear the caches for the items that are being removed
     fn free_graphics_resources(
         &self,
+        _component: ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
     ) {
     }

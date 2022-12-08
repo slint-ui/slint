@@ -139,6 +139,10 @@ pub fn unregister_component<Base>(
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window_adapter: &Rc<dyn WindowAdapter>,
 ) {
+    window_adapter.renderer().free_graphics_resources(
+        component,
+        &mut item_array.iter().map(|item| item.apply_pin(base)),
+    );
     window_adapter
         .unregister_component(component, &mut item_array.iter().map(|item| item.apply_pin(base)));
 }

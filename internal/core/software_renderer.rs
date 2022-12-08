@@ -283,6 +283,7 @@ impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> 
 
     fn free_graphics_resources(
         &self,
+        _component: crate::component::ComponentRef,
         items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
     ) {
         for item in items {
@@ -1397,6 +1398,13 @@ impl<const MAX_BUFFER_AGE: usize> crate::window::WindowAdapterSealed
     }
     fn renderer(&self) -> &dyn Renderer {
         &self.renderer
+    }
+
+    fn unregister_component<'a>(
+        &self,
+        _component: crate::component::ComponentRef,
+        _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'a>>>,
+    ) {
     }
 }
 

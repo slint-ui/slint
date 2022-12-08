@@ -41,8 +41,6 @@ mod renderer {
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
 
-        fn component_destroyed(&self, component: i_slint_core::component::ComponentRef);
-
         fn resize_event(&self, size: PhysicalSize);
 
         #[cfg(target_arch = "wasm32")]

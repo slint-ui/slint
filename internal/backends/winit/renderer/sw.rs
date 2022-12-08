@@ -5,7 +5,6 @@
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::graphics::Rgb8Pixel;
-use i_slint_core::lengths::LogicalLength;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
@@ -122,8 +121,6 @@ impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
         canvas.opengl_context.make_not_current();
     }
 
-    fn component_destroyed(&self, _component: i_slint_core::component::ComponentRef) {}
-
     fn resize_event(&self, size: PhysicalWindowSize) {
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
@@ -136,10 +133,6 @@ impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
-    }
-
-    fn default_font_size(&self) -> LogicalLength {
-        self.renderer.default_font_size()
     }
 }
 

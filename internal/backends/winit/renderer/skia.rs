@@ -177,16 +177,6 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         self
     }
 
-    fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
-        let canvas = if self.canvas.borrow().is_some() {
-            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
-        } else {
-            return;
-        };
-
-        canvas.image_cache.component_destroyed(component)
-    }
-
     fn resize_event(&self, size: PhysicalWindowSize) {
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
@@ -355,6 +345,20 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
     fn default_font_size(&self) -> LogicalLength {
         self::textlayout::DEFAULT_FONT_SIZE
+    }
+
+    fn free_graphics_resources(
+        &self,
+        component: i_slint_core::component::ComponentRef,
+        _items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'_>>>,
+    ) {
+        let canvas = if self.canvas.borrow().is_some() {
+            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
+        } else {
+            return;
+        };
+
+        canvas.image_cache.component_destroyed(component)
     }
 }
 
