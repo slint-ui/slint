@@ -12,12 +12,18 @@ use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRenderer<BUFFER_COUNT> {
+pub struct WinitSoftwareRenderer<const MAX_BUFFER_AGE: usize> {
+    renderer: SoftwareRenderer<MAX_BUFFER_AGE>,
+}
+
+impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
+    for WinitSoftwareRenderer<MAX_BUFFER_AGE>
+{
     type Canvas = SwCanvas;
     const NAME: &'static str = "Software";
 
     fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
-        SoftwareRenderer::new(window_adapter_weak.clone())
+        Self { renderer: SoftwareRenderer::new(window_adapter_weak.clone()) }
     }
 
     fn create_canvas(&self, window: &Rc<winit::window::Window>) -> Self::Canvas {
@@ -47,7 +53,7 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
         let mut buffer = vec![Rgb8Pixel::default(); width * height];
 
         if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
-            Self::render(&self, buffer.as_mut_slice(), width);
+            self.renderer.render(buffer.as_mut_slice(), width);
         } else {
             struct FrameBuffer<'a> {
                 buffer: &'a mut [Rgb8Pixel],
@@ -69,7 +75,7 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
                     }
                 }
             }
-            self.render_by_line(FrameBuffer {
+            self.renderer.render_by_line(FrameBuffer {
                 buffer: &mut buffer,
                 line: vec![Default::default(); width],
             });
@@ -107,7 +113,11 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
     }
 
     fn default_font_size() -> LogicalLength {
-        i_slint_core::software_renderer::SoftwareRenderer::<BUFFER_COUNT>::default_font_size()
+        i_slint_core::software_renderer::SoftwareRenderer::<MAX_BUFFER_AGE>::default_font_size()
+    }
+
+    fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
+        &self.renderer
     }
 }
 

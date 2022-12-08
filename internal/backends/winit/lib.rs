@@ -26,7 +26,7 @@ mod renderer {
     use i_slint_core::lengths::LogicalLength;
     use i_slint_core::window::WindowAdapter;
 
-    pub(crate) trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
+    pub(crate) trait WinitCompatibleRenderer {
         type Canvas: WinitCompatibleCanvas;
         const NAME: &'static str;
 
@@ -42,6 +42,8 @@ mod renderer {
         fn render(&self, canvas: &Self::Canvas, size: PhysicalSize);
 
         fn default_font_size() -> LogicalLength;
+
+        fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
     }
 
     pub(crate) trait WinitCompatibleCanvas {
@@ -83,7 +85,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(enable_skia_renderer)] {
         type DefaultRenderer = renderer::skia::SkiaRenderer;
     } else if #[cfg(feature = "renderer-winit-software")] {
-        type DefaultRenderer = renderer::sw::SoftwareRenderer<0>;
+        type DefaultRenderer = renderer::sw::WinitSoftwareRenderer<0>;
     } else {
         compile_error!("Please select a feature to build with the winit backend: `renderer-winit-femtovg`, `renderer-winit-skia`, `renderer-winit-skia-opengl` or `renderer-winit-software`");
     }
@@ -111,7 +113,9 @@ impl Backend {
             #[cfg(enable_skia_renderer)]
             Some("skia") => window_factory_fn::<renderer::skia::SkiaRenderer>,
             #[cfg(feature = "renderer-winit-software")]
-            Some("sw") | Some("software") => window_factory_fn::<renderer::sw::SoftwareRenderer<0>>,
+            Some("sw") | Some("software") => {
+                window_factory_fn::<renderer::sw::WinitSoftwareRenderer<0>>
+            }
             None => window_factory_fn::<DefaultRenderer>,
             Some(renderer_name) => {
                 eprintln!(

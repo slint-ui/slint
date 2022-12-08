@@ -227,6 +227,10 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
     fn default_font_size() -> LogicalLength {
         self::fonts::DEFAULT_FONT_SIZE
     }
+
+    fn as_core_renderer(&self) -> &dyn Renderer {
+        self
+    }
 }
 
 impl Renderer for FemtoVGRenderer {

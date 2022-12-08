@@ -681,7 +681,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
     }
 
     fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
-        &self.renderer
+        self.renderer.as_core_renderer()
     }
 
     fn enable_input_method(&self, _it: corelib::items::InputType) {
