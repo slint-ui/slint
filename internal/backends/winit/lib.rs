@@ -26,9 +26,6 @@ mod renderer {
     use i_slint_core::lengths::LogicalLength;
     use i_slint_core::window::WindowAdapter;
 
-    #[cfg(any(feature = "renderer-winit-femtovg", enable_skia_renderer))]
-    mod boxshadowcache;
-
     pub(crate) trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
         type Canvas: WinitCompatibleCanvas;
         const NAME: &'static str;

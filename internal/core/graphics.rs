@@ -50,6 +50,9 @@ pub use self::bitmapfont::*;
 #[cfg(feature = "std")]
 pub mod rendering_metrics_collector;
 
+#[cfg(feature = "box-shadow-cache")]
+pub mod boxshadowcache;
+
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
 /// for a lazy computation. Typically back ends store either compute intensive data or handles that refer to
