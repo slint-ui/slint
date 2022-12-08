@@ -19,6 +19,7 @@
     "preview": true,
     "activationEvents": [
         "onLanguage:slint",
+        "onLanguage:rust",
         "onWebviewPanel:slint-preview",
         "onView:slint.propertiesView"
     ],
@@ -43,6 +44,16 @@
                 "language": "slint",
                 "scopeName": "source.slint",
                 "path": "./slint.tmLanguage.json"
+            },
+            {
+                "injectTo": [
+                    "source.rust"
+                ],
+                "scopeName": "source.rust.slint",
+                "path": "./slint.injection.json",
+                "embeddedLanguages": {
+                    "source.slint": "slint"
+                }
             }
         ],
         "commands": [
