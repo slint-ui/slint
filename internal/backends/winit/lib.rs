@@ -23,7 +23,6 @@ mod renderer {
     use std::rc::{Rc, Weak};
 
     use i_slint_core::api::PhysicalSize;
-    use i_slint_core::lengths::LogicalLength;
     use i_slint_core::window::WindowAdapter;
 
     pub(crate) trait WinitCompatibleRenderer {
@@ -39,8 +38,6 @@ mod renderer {
         fn hide(&self);
 
         fn render(&self, size: PhysicalSize);
-
-        fn default_font_size() -> LogicalLength;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
 

@@ -20,7 +20,7 @@ use crate::items::{ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::Callback;
+use crate::{Callback, Coord};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use core::cell::{Cell, RefCell};
@@ -76,9 +76,6 @@ pub trait WindowAdapterSealed {
 
     /// This function is called by the generated code when a component and therefore its tree of items are created.
     fn register_component(&self) {}
-
-    /// This function is called when the root component is set/changed.
-    fn register_root_component(&self, _window_item: Pin<&crate::items::WindowItem>) {}
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
@@ -293,7 +290,12 @@ impl WindowInner {
             let component = ComponentRc::borrow_pin(&component);
             let root_item = component.as_ref().get_item_ref(0);
             let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item).unwrap();
-            window_adapter.register_root_component(window_item);
+
+            let default_font_size_prop =
+                crate::items::WindowItem::FIELD_OFFSETS.default_font_size.apply_pin(window_item);
+            if default_font_size_prop.get().get() <= 0 as Coord {
+                default_font_size_prop.set(window_adapter.renderer().default_font_size());
+            }
         }
         window_adapter.request_window_properties_update();
         window_adapter.request_redraw();

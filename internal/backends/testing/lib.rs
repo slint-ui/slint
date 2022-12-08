@@ -120,6 +120,10 @@ impl Renderer for TestingWindow {
     ) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
+
+    fn default_font_size(&self) -> LogicalLength {
+        LogicalLength::new(10.)
+    }
 }
 
 /// Initialize the testing backend.

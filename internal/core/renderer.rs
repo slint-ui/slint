@@ -82,4 +82,6 @@ pub trait Renderer {
     ) -> Result<(), crate::api::SetRenderingNotifierError> {
         Err(crate::api::SetRenderingNotifierError::Unsupported)
     }
+
+    fn default_font_size(&self) -> LogicalLength;
 }

@@ -122,10 +122,6 @@ impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
         canvas.opengl_context.make_not_current();
     }
 
-    fn default_font_size() -> LogicalLength {
-        i_slint_core::software_renderer::SoftwareRenderer::<MAX_BUFFER_AGE>::default_font_size()
-    }
-
     fn component_destroyed(&self, _component: i_slint_core::component::ComponentRef) {}
 
     fn resize_event(&self, size: PhysicalWindowSize) {
@@ -140,6 +136,10 @@ impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
+    }
+
+    fn default_font_size(&self) -> LogicalLength {
+        self.renderer.default_font_size()
     }
 }
 
