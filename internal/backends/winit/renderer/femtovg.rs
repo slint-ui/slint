@@ -34,24 +34,25 @@ const PASSWORD_CHARACTER: &str = "●";
 pub struct FemtoVGRenderer {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
+    canvas: RefCell<Option<FemtoVGCanvas>>,
 }
 
 impl super::WinitCompatibleRenderer for FemtoVGRenderer {
-    type Canvas = FemtoVGCanvas;
     const NAME: &'static str = "FemtoVG";
 
     fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
         Self {
             window_adapter_weak: window_adapter_weak.clone(),
             rendering_notifier: Default::default(),
+            canvas: Default::default(),
         }
     }
 
-    fn create_canvas(
+    fn show(
         &self,
         window: &Rc<winit::window::Window>,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> FemtoVGCanvas {
+    ) {
         let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
         let opengl_context = crate::OpenGLContext::new_context(
             window,
@@ -100,14 +101,14 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
             }
         };
 
-        let canvas = femtovg::Canvas::new_with_text_context(
+        let femtovg_canvas = femtovg::Canvas::new_with_text_context(
             gl_renderer,
             self::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
         )
         .unwrap();
-        let canvas = Rc::new(RefCell::new(canvas));
-        let result = FemtoVGCanvas {
-            canvas,
+        let femtovg_canvas = Rc::new(RefCell::new(femtovg_canvas));
+        let canvas = FemtoVGCanvas {
+            canvas: femtovg_canvas,
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
             rendering_metrics_collector,
@@ -115,25 +116,33 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         };
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            result.with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))
+            canvas.with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))
         }
 
-        result
+        *self.canvas.borrow_mut() = Some(canvas);
     }
 
-    fn release_canvas(&self, canvas: Self::Canvas) {
-        canvas.opengl_context.with_current_context(|_| {
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                canvas.with_graphics_api(|api| {
-                    callback.notify(RenderingState::RenderingTeardown, &api)
-                })
-            }
-        })
+    fn hide(&self) {
+        if let Some(canvas) = self.canvas.borrow_mut().take() {
+            canvas.opengl_context.with_current_context(|_| {
+                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                    canvas.with_graphics_api(|api| {
+                        callback.notify(RenderingState::RenderingTeardown, &api)
+                    })
+                }
+            })
+        }
     }
 
-    fn render(&self, canvas: &FemtoVGCanvas, size: PhysicalWindowSize) {
+    fn render(&self, size: PhysicalWindowSize) {
         let width = size.width;
         let height = size.height;
+
+        let canvas = if self.canvas.borrow().is_some() {
+            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
+        } else {
+            return;
+        };
 
         canvas.opengl_context.make_current();
 
@@ -180,7 +189,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
             let window_adapter = self.window_adapter_weak.upgrade().unwrap();
 
             let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
-                canvas,
+                &canvas,
                 window_adapter.window(),
                 width,
                 height,
@@ -230,6 +239,33 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
     fn as_core_renderer(&self) -> &dyn Renderer {
         self
+    }
+
+    fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
+        let canvas = if self.canvas.borrow().is_some() {
+            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
+        } else {
+            return;
+        };
+
+        canvas
+            .opengl_context
+            .with_current_context(|_| canvas.graphics_cache.component_destroyed(component))
+    }
+
+    fn resize_event(&self, size: PhysicalWindowSize) {
+        let canvas = if self.canvas.borrow().is_some() {
+            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
+        } else {
+            return;
+        };
+
+        canvas.opengl_context.ensure_resized(size)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement {
+        self.canvas.borrow().as_ref().unwrap().opengl_context.html_canvas_element()
     }
 }
 
@@ -419,28 +455,12 @@ impl Renderer for FemtoVGRenderer {
     }
 }
 
-pub struct FemtoVGCanvas {
+struct FemtoVGCanvas {
     canvas: CanvasRc,
     graphics_cache: itemrenderer::ItemGraphicsCache,
     texture_cache: RefCell<images::TextureCache>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     opengl_context: crate::OpenGLContext,
-}
-
-impl super::WinitCompatibleCanvas for FemtoVGCanvas {
-    fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
-        self.opengl_context
-            .with_current_context(|_| self.graphics_cache.component_destroyed(component))
-    }
-
-    fn resize_event(&self, size: PhysicalWindowSize) {
-        self.opengl_context.ensure_resized(size)
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn html_canvas_element(&self) -> std::cell::Ref<web_sys::HtmlCanvasElement> {
-        self.opengl_context.html_canvas_element()
-    }
 }
 
 impl FemtoVGCanvas {

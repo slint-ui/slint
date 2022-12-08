@@ -10,7 +10,7 @@ use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use crate::event_loop::WinitWindow;
-use crate::renderer::{WinitCompatibleCanvas, WinitCompatibleRenderer};
+use crate::renderer::WinitCompatibleRenderer;
 use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
 use corelib::graphics::euclid::num::Zero;
@@ -85,7 +85,7 @@ fn icon_to_winit(icon: corelib::graphics::Image) -> Option<winit::window::Icon> 
 pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
     window: corelib::api::Window,
     self_weak: Weak<Self>,
-    map_state: RefCell<GraphicsWindowBackendState<Renderer>>,
+    map_state: RefCell<GraphicsWindowBackendState>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     pending_redraw: Cell<bool>,
 
@@ -127,7 +127,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
         matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped { .. })
     }
 
-    fn borrow_mapped_window(&self) -> Option<std::cell::Ref<MappedWindow<Renderer>>> {
+    fn borrow_mapped_window(&self) -> Option<std::cell::Ref<MappedWindow>> {
         if self.is_mapped() {
             std::cell::Ref::map(self.map_state.borrow(), |state| match state {
                 GraphicsWindowBackendState::Unmapped{..} => {
@@ -151,7 +151,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
 
         crate::event_loop::unregister_window(old_mapped.winit_window.id());
 
-        self.renderer.release_canvas(old_mapped.canvas);
+        self.renderer.hide();
     }
 
     fn call_with_event_loop(&self, callback: fn(&Self)) {
@@ -192,8 +192,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
 
         self.pending_redraw.set(false);
 
-        self.renderer
-            .render(&window.canvas, physical_size_to_slint(&window.winit_window.inner_size()));
+        self.renderer.render(physical_size_to_slint(&window.winit_window.inner_size()));
 
         self.pending_redraw.get()
     }
@@ -228,14 +227,14 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
     }
 
     fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) {
-        if let Some(mapped_window) = self.borrow_mapped_window() {
+        if self.borrow_mapped_window().is_some() {
             // NOTE: slint::Window::set_size will call set_size() on this type, which calls
             // set_inner_size on the winit Window. On Windows that triggers an new resize event.
             // Therefore we call slint::Window::set_size within the borrow, so that the set_size's
             // borrow in this type fails.
             let physical_size = physical_size_to_slint(&size);
             self.window.set_size(physical_size);
-            mapped_window.canvas.resize_event(physical_size);
+            self.renderer.resize_event(physical_size);
         }
     }
 }
@@ -257,12 +256,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         component: corelib::component::ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
     ) {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped { .. } => {}
-            GraphicsWindowBackendState::Mapped(mapped_window) => {
-                mapped_window.canvas.component_destroyed(component)
-            }
+        if !self.is_mapped() {
+            return;
         }
+        self.renderer.component_destroyed(component)
     }
 
     fn register_root_component(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
@@ -524,7 +521,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 window_builder.build(event_loop.event_loop_target()).unwrap()
             }));
 
-            let canvas = self_.renderer.create_canvas(
+            self_.renderer.show(
                 &winit_window,
                 #[cfg(target_arch = "wasm32")]
                 &self_.canvas_id,
@@ -616,7 +613,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             }
 
             self_.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-                canvas,
                 constraints: Default::default(),
                 winit_window,
             }));
@@ -689,8 +685,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         {
             let mut vkh = self.virtual_keyboard_helper.borrow_mut();
             let h = vkh.get_or_insert_with(|| {
-                let canvas =
-                    self.borrow_mapped_window().unwrap().canvas.html_canvas_element().clone();
+                let canvas = self.renderer.html_canvas_element();
                 super::wasm_input_helper::WasmInputHelper::new(self.self_weak.clone(), canvas)
             });
             h.show();
@@ -785,18 +780,17 @@ impl<Renderer: WinitCompatibleRenderer + 'static> Drop for GLWindow<Renderer> {
     }
 }
 
-struct MappedWindow<Renderer: WinitCompatibleRenderer> {
-    canvas: Renderer::Canvas,
+struct MappedWindow {
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
     winit_window: Rc<winit::window::Window>,
 }
 
-enum GraphicsWindowBackendState<Renderer: WinitCompatibleRenderer> {
+enum GraphicsWindowBackendState {
     Unmapped {
         requested_position: Option<corelib::api::WindowPosition>,
         requested_size: Option<corelib::api::WindowSize>,
     },
-    Mapped(MappedWindow<Renderer>),
+    Mapped(MappedWindow),
 }
 
 #[derive(FieldOffsets)]

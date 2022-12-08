@@ -37,10 +37,10 @@ pub struct OpenGLContext(RefCell<Option<OpenGLContextState>>);
 
 impl OpenGLContext {
     #[cfg(target_arch = "wasm32")]
-    pub fn html_canvas_element(&self) -> std::cell::Ref<web_sys::HtmlCanvasElement> {
-        std::cell::Ref::map(self.0.borrow(), |state| match state.as_ref().unwrap() {
-            OpenGLContextState::Current { canvas, .. } => canvas,
-        })
+    pub fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement {
+        match self.0.borrow().as_ref().unwrap() {
+            OpenGLContextState::Current { canvas, .. } => canvas.clone(),
+        }
     }
 
     #[cfg(skia_backend_opengl)]

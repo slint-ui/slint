@@ -27,32 +27,29 @@ mod renderer {
     use i_slint_core::window::WindowAdapter;
 
     pub(crate) trait WinitCompatibleRenderer {
-        type Canvas: WinitCompatibleCanvas;
         const NAME: &'static str;
 
         fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self;
 
-        fn create_canvas(
+        fn show(
             &self,
             window: &Rc<winit::window::Window>,
             #[cfg(target_arch = "wasm32")] canvas_id: &str,
-        ) -> Self::Canvas;
-        fn release_canvas(&self, canvas: Self::Canvas);
+        );
+        fn hide(&self);
 
-        fn render(&self, canvas: &Self::Canvas, size: PhysicalSize);
+        fn render(&self, size: PhysicalSize);
 
         fn default_font_size() -> LogicalLength;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
-    }
 
-    pub(crate) trait WinitCompatibleCanvas {
         fn component_destroyed(&self, component: i_slint_core::component::ComponentRef);
 
         fn resize_event(&self, size: PhysicalSize);
 
         #[cfg(target_arch = "wasm32")]
-        fn html_canvas_element(&self) -> std::cell::Ref<web_sys::HtmlCanvasElement>;
+        fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement;
     }
 
     #[cfg(feature = "renderer-winit-femtovg")]
