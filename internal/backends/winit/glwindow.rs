@@ -149,7 +149,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
             GraphicsWindowBackendState::Mapped(old_mapped) => old_mapped,
         };
 
-        crate::event_loop::unregister_window(old_mapped.window.id());
+        crate::event_loop::unregister_window(old_mapped.winit_window.id());
 
         self.renderer.release_canvas(old_mapped.canvas);
     }
@@ -192,14 +192,15 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
 
         self.pending_redraw.set(false);
 
-        self.renderer.render(&window.canvas, physical_size_to_slint(&window.window.inner_size()));
+        self.renderer
+            .render(&window.canvas, physical_size_to_slint(&window.winit_window.inner_size()));
 
         self.pending_redraw.get()
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            callback(&mapped_window.window);
+            callback(&mapped_window.winit_window);
         }
     }
 
@@ -621,7 +622,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             self_.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
                 canvas,
                 constraints: Default::default(),
-                window: winit_window,
+                winit_window,
             }));
 
             crate::event_loop::register_window(id, self_.self_weak.upgrade().unwrap());
@@ -730,7 +731,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 .map(|p| p.to_physical(self.window.scale_factor()))
                 .unwrap_or_default(),
             GraphicsWindowBackendState::Mapped(mapped_window) => {
-                match mapped_window.window.outer_position() {
+                match mapped_window.winit_window.outer_position() {
                     Ok(outer_position) => {
                         corelib::api::PhysicalPosition::new(outer_position.x, outer_position.y)
                     }
@@ -746,7 +747,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 *requested_position = Some(position)
             }
             GraphicsWindowBackendState::Mapped(mapped_window) => {
-                mapped_window.window.set_outer_position(position_to_winit(&position))
+                mapped_window.winit_window.set_outer_position(position_to_winit(&position))
             }
         }
     }
@@ -763,7 +764,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     // we borrow mutable here to work around the fact that when calling set_size on the slint::Window
                     // from resize_event, this function is called and setting the window size from within
                     // the resize event on Windows cause a new resize event in the next loop iteation.
-                    mapped_window.window.set_inner_size(window_size_to_slint(&size));
+                    mapped_window.winit_window.set_inner_size(window_size_to_slint(&size));
                 }
             }
         }
@@ -775,7 +776,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
 
     fn is_visible(&self) -> bool {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            mapped_window.window.is_visible().unwrap_or(true)
+            mapped_window.winit_window.is_visible().unwrap_or(true)
         } else {
             false
         }
@@ -791,7 +792,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> Drop for GLWindow<Renderer> {
 struct MappedWindow<Renderer: WinitCompatibleRenderer> {
     canvas: Renderer::Canvas,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
-    window: Rc<winit::window::Window>,
+    winit_window: Rc<winit::window::Window>,
 }
 
 enum GraphicsWindowBackendState<Renderer: WinitCompatibleRenderer> {
