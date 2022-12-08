@@ -60,13 +60,10 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         }
     }
 
-    fn create_canvas(
-        &self,
-        window: &dyn raw_window_handle::HasRawWindowHandle,
-        display: &dyn raw_window_handle::HasRawDisplayHandle,
-        size: PhysicalWindowSize,
-    ) -> Self::Canvas {
-        let surface = DefaultSurface::new(window, display, size);
+    fn create_canvas(&self, window: &Rc<winit::window::Window>) -> Self::Canvas {
+        let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
+        let surface =
+            DefaultSurface::new(window, window, PhysicalWindowSize::new(size.width, size.height));
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_adapter_weak.clone(),

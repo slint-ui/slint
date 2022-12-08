@@ -10,7 +10,7 @@ use i_slint_core::lengths::LogicalLength;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
-use std::rc::Weak;
+use std::rc::{Rc, Weak};
 
 impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRenderer<BUFFER_COUNT> {
     type Canvas = SwCanvas;
@@ -20,13 +20,13 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
         SoftwareRenderer::new(window_adapter_weak.clone())
     }
 
-    fn create_canvas(
-        &self,
-        window: &dyn raw_window_handle::HasRawWindowHandle,
-        display: &dyn raw_window_handle::HasRawDisplayHandle,
-        size: PhysicalWindowSize,
-    ) -> Self::Canvas {
-        let opengl_context = crate::OpenGLContext::new_context(window, display, size);
+    fn create_canvas(&self, window: &Rc<winit::window::Window>) -> Self::Canvas {
+        let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
+        let opengl_context = crate::OpenGLContext::new_context(
+            window,
+            window,
+            PhysicalWindowSize::new(size.width, size.height),
+        );
 
         let gl_renderer = unsafe {
             femtovg::renderer::OpenGl::new_from_function(|s| {

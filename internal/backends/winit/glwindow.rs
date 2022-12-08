@@ -520,14 +520,12 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 window_builder.with_canvas(Some(canvas.clone()))
             };
 
-            let winit_window = crate::event_loop::with_window_target(|event_loop| {
+            let winit_window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
                 window_builder.build(event_loop.event_loop_target()).unwrap()
-            });
+            }));
 
             let canvas = self_.renderer.create_canvas(
                 &winit_window,
-                &winit_window,
-                physical_size_to_slint(&winit_window.inner_size()),
                 #[cfg(target_arch = "wasm32")]
                 &self_.canvas_id,
             );
@@ -541,8 +539,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 winit_window.set_inner_size(s);
             }
             let id = winit_window.id();
-
-            let winit_window = Rc::new(winit_window);
 
             #[cfg(target_arch = "wasm32")]
             {
