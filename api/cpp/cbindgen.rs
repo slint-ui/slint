@@ -203,6 +203,7 @@ fn gen_corelib(
         "slint_image_path",
         "slint_image_load_from_path",
         "slint_image_load_from_embedded_data",
+        "slint_image_from_embedded_textures",
         "Coord",
         "LogicalRect",
         "LogicalPoint",
@@ -272,6 +273,7 @@ fn gen_corelib(
                 "slint_image_path",
                 "slint_image_load_from_path",
                 "slint_image_load_from_embedded_data",
+                "slint_image_from_embedded_textures",
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
                 "StaticTextures",
@@ -333,6 +335,7 @@ fn gen_corelib(
             "slint_image_path",
             "slint_image_load_from_path",
             "slint_image_load_from_embedded_data",
+            "slint_image_from_embedded_textures",
         ]
         .iter()
         .filter(|exclusion| !rust_types.iter().any(|inclusion| inclusion == *exclusion))

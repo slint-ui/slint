@@ -35,6 +35,7 @@ software-renderer = ["image", "tiny-skia", "resvg", "usvg", "fontdb", "fontdue",
 i-slint-common = { version = "=0.3.3", path = "../common" }
 
 num_enum = "0.5.1"
+strum = { version = "0.24.0", default-features = false, features = ["derive"] }
 rowan = "0.15.5"
 smol_str = "0.1.17"
 derive_more = "0.99.5"

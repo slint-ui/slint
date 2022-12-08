@@ -10,7 +10,7 @@ pub struct Size {
     pub height: u32,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, strum::Display)]
 pub enum PixelFormat {
     // 24 bit RGB
     Rgb,

@@ -74,6 +74,13 @@ inline Image load_image_from_embedded_data(std::span<const uint8_t> data,
             &img);
     return Image(img);
 }
+
+inline Image image_from_embedded_textures(const cbindgen_private::types::StaticTextures *textures)
+{
+    cbindgen_private::types::Image img(cbindgen_private::types::Image::ImageInner_None());
+    cbindgen_private::types::slint_image_from_embedded_textures(textures, &img);
+    return Image(img);
+}
 }
 
 }

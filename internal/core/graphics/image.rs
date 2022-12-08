@@ -733,4 +733,12 @@ pub(crate) mod ffi {
             _ => None,
         }
     }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_image_from_embedded_textures(
+        textures: &'static StaticTextures,
+        image: *mut Image,
+    ) {
+        core::ptr::write(image, Image::from(ImageInner::StaticTextures(textures)));
+    }
 }

@@ -479,41 +479,103 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
     file.includes.push("<cmath>".into()); // TODO: ideally only include this if needed (by floor/ceil/round)
     file.includes.push("<slint.h>".into());
 
-    file.declarations.extend(doc.root_component.embedded_file_resources.borrow().iter().map(
-        |(path, er)| {
-            match &er.kind {
-                crate::embedded_resources::EmbeddedResourcesKind::RawData => {
-                    let file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
-                    let data = file.read();
+    for (path, er) in doc.root_component.embedded_file_resources.borrow().iter() {
+        match &er.kind {
+            crate::embedded_resources::EmbeddedResourcesKind::RawData => {
+                let resource_file =
+                    crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
+                let data = resource_file.read();
 
-                    let mut init = "{ ".to_string();
+                let mut init = "{ ".to_string();
 
-                    for (index, byte) in data.iter().enumerate() {
-                        if index > 0 {
-                            init.push(',');
-                        }
-                        write!(&mut init, "0x{:x}", byte).unwrap();
-                        if index % 16 == 0 {
-                            init.push('\n');
-                        }
+                for (index, byte) in data.iter().enumerate() {
+                    if index > 0 {
+                        init.push(',');
                     }
-
-                    init.push('}');
-
-                    Declaration::Var(Var {
-                        ty: "inline uint8_t".into(),
-                        name: format!("slint_embedded_resource_{}", er.id),
-                        array_size: Some(data.len()),
-                        init: Some(init),
-                    })
+                    write!(&mut init, "0x{:x}", byte).unwrap();
+                    if index % 16 == 0 {
+                        init.push('\n');
+                    }
                 }
-                #[cfg(feature = "software-renderer")]
-                crate::embedded_resources::EmbeddedResourcesKind::TextureData(_) => todo!(),
-                #[cfg(feature = "software-renderer")]
-                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(_) => todo!(),
+
+                init.push('}');
+
+                file.declarations.push(Declaration::Var(Var {
+                    ty: "inline uint8_t".into(),
+                    name: format!("slint_embedded_resource_{}", er.id),
+                    array_size: Some(data.len()),
+                    init: Some(init),
+                }));
             }
-        },
-    ));
+            #[cfg(feature = "software-renderer")]
+            crate::embedded_resources::EmbeddedResourcesKind::TextureData(
+                crate::embedded_resources::Texture {
+                    data,
+                    format,
+                    rect,
+                    total_size: crate::embedded_resources::Size { width, height },
+                    original_size:
+                        crate::embedded_resources::Size {
+                            width: unscaled_width,
+                            height: unscaled_height,
+                        },
+                },
+            ) => {
+                let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
+                let color =
+                    if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format {
+                        format!("slint::Color::from_rgb_uint8({r}, {g}, {b})")
+                    } else {
+                        "slint::Color{}".to_string()
+                    };
+                let count = data.len();
+                let data = data.iter().map(ToString::to_string).join(", ");
+                let data_name = format!("slint_embedded_resource_{}_data", er.id);
+                file.declarations.push(Declaration::Var(Var {
+                    ty: "inline uint8_t".into(),
+                    name: data_name.clone(),
+                    array_size: Some(count),
+                    init: Some(format!("{{ {data} }}")),
+                }));
+                let texture_name = format!("slint_embedded_resource_{}_texture", er.id);
+                file.declarations.push(Declaration::Var(Var {
+                    ty: "inline slint::cbindgen_private::types::StaticTexture".into(),
+                    name: texture_name.clone(),
+                    array_size: None,
+                    init: Some(format!(
+                        "{{
+                            .rect = {{ {r_x}, {r_y}, {r_w}, {r_h} }},
+                            .format = slint::cbindgen_private::types::PixelFormat::{format},
+                            .color = {color},
+                            .index = 0,
+                            }}"
+                    )),
+                }));
+                let init = format!("slint::cbindgen_private::types::StaticTextures {{
+                        .size = {{ {width}, {height} }},
+                        .original_size = {{ {unscaled_width}, {unscaled_height} }},
+                        .data = slint::cbindgen_private::Slice<uint8_t>{{  {data_name} , {count} }},
+                        .textures = slint::cbindgen_private::Slice<slint::cbindgen_private::types::StaticTexture>{{ &{texture_name}, 1 }}
+                    }}");
+                file.declarations.push(Declaration::Var(Var {
+                    ty: "inline slint::cbindgen_private::types::StaticTextures".into(),
+                    name: format!("slint_embedded_resource_{}", er.id),
+                    array_size: None,
+                    init: Some(init),
+                }))
+            }
+            #[cfg(feature = "software-renderer")]
+            crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(_) => {
+                // FIXME! TODO
+                file.declarations.push(Declaration::Var(Var {
+                    ty: "inline int".into(),
+                    name: format!("slint_embedded_resource_{}", er.id),
+                    array_size: None,
+                    init: Some("0".into()),
+                }))
+            }
+        }
+    }
 
     for ty in doc.root_component.used_types.borrow().structs.iter() {
         if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
@@ -2319,7 +2381,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     let symbol = format!("slint_embedded_resource_{}", resource_id);
                     format!(r#"slint::private_api::load_image_from_embedded_data({symbol}, "{}")"#, escape_string(extension))
                 }
-                crate::expression_tree::ImageReference::EmbeddedTexture{..} => todo!(),
+                crate::expression_tree::ImageReference::EmbeddedTexture{resource_id} => {
+                    format!("slint::private_api::image_from_embedded_textures(&slint_embedded_resource_{resource_id})")
+                },
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {
@@ -2594,7 +2658,8 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::RegisterBitmapFont => {
-            todo!()
+            // TODO
+            "/*TODO: REGISTER FONT*/".into()
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
