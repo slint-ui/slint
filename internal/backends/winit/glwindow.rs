@@ -12,7 +12,6 @@ use std::rc::{Rc, Weak};
 use crate::event_loop::WinitWindow;
 use crate::renderer::{WinitCompatibleCanvas, WinitCompatibleRenderer};
 use const_field_offset::FieldOffsets;
-use corelib::api::PhysicalSize;
 use corelib::component::ComponentRc;
 use corelib::graphics::euclid::num::Zero;
 use corelib::items::{ItemRef, MouseCursor};
@@ -34,8 +33,8 @@ fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position
     }
 }
 
-fn size_to_winit(pos: &corelib::api::WindowSize) -> winit::dpi::Size {
-    match pos {
+fn window_size_to_slint(size: &corelib::api::WindowSize) -> winit::dpi::Size {
+    match size {
         corelib::api::WindowSize::Logical(size) => {
             winit::dpi::Size::new(winit::dpi::LogicalSize::new(size.width, size.height))
         }
@@ -43,6 +42,10 @@ fn size_to_winit(pos: &corelib::api::WindowSize) -> winit::dpi::Size {
             winit::dpi::Size::new(winit::dpi::PhysicalSize::new(size.width, size.height))
         }
     }
+}
+
+fn physical_size_to_slint(size: &winit::dpi::PhysicalSize<u32>) -> corelib::api::PhysicalSize {
+    corelib::api::PhysicalSize::new(size.width, size.height)
 }
 
 fn icon_to_winit(icon: corelib::graphics::Image) -> Option<winit::window::Icon> {
@@ -189,9 +192,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
 
         self.pending_redraw.set(false);
 
-        let inner_size = window.window.inner_size();
-        let physical_size = PhysicalSize::new(inner_size.width, inner_size.height);
-        self.renderer.render(&window.canvas, physical_size);
+        self.renderer.render(&window.canvas, physical_size_to_slint(&window.window.inner_size()));
 
         self.pending_redraw.get()
     }
@@ -231,7 +232,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
             // set_inner_size on the winit Window. On Windows that triggers an new resize event.
             // Therefore we call slint::Window::set_size within the borrow, so that the set_size's
             // borrow in this type fails.
-            let physical_size = PhysicalSize::new(size.width, size.height);
+            let physical_size = physical_size_to_slint(&size);
             self.window.set_size(physical_size);
             mapped_window.canvas.resize_event(physical_size);
         }
@@ -483,7 +484,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                             ),
                         ))
                     } else {
-                        window_builder.with_inner_size(size_to_winit(requested_size))
+                        window_builder.with_inner_size(window_size_to_slint(&requested_size))
                     }
                 } else if s.width > 0 as Coord && s.height > 0 as Coord {
                     // Make sure that the window's inner size is in sync with the root window item's
@@ -522,12 +523,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 window_builder.build(event_loop.event_loop_target()).unwrap()
             });
 
-            let inner_size = winit_window.inner_size();
-
             let canvas = self_.renderer.create_canvas(
                 &winit_window,
                 &winit_window,
-                PhysicalSize::new(inner_size.width, inner_size.height),
+                physical_size_to_slint(&winit_window.inner_size()),
                 #[cfg(target_arch = "wasm32")]
                 &self_.canvas_id,
             );
@@ -764,7 +763,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     // we borrow mutable here to work around the fact that when calling set_size on the slint::Window
                     // from resize_event, this function is called and setting the window size from within
                     // the resize event on Windows cause a new resize event in the next loop iteation.
-                    mapped_window.window.set_inner_size(size_to_winit(&size));
+                    mapped_window.window.set_inner_size(window_size_to_slint(&size));
                 }
             }
         }
