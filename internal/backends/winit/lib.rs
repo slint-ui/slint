@@ -20,7 +20,7 @@ use glcontext::*;
 pub(crate) mod event_loop;
 
 mod renderer {
-    use std::rc::Weak;
+    use std::rc::{Rc, Weak};
 
     use i_slint_core::api::PhysicalSize;
     use i_slint_core::lengths::LogicalLength;
@@ -34,9 +34,7 @@ mod renderer {
 
         fn create_canvas(
             &self,
-            window: &dyn raw_window_handle::HasRawWindowHandle,
-            display: &dyn raw_window_handle::HasRawDisplayHandle,
-            size: PhysicalSize,
+            window: &Rc<winit::window::Window>,
             #[cfg(target_arch = "wasm32")] canvas_id: &str,
         ) -> Self::Canvas;
         fn release_canvas(&self, canvas: Self::Canvas);

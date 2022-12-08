@@ -49,15 +49,14 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
     fn create_canvas(
         &self,
-        window: &dyn raw_window_handle::HasRawWindowHandle,
-        display: &dyn raw_window_handle::HasRawDisplayHandle,
-        size: PhysicalWindowSize,
+        window: &Rc<winit::window::Window>,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> FemtoVGCanvas {
+        let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
         let opengl_context = crate::OpenGLContext::new_context(
             window,
-            display,
-            size,
+            window,
+            PhysicalWindowSize::new(size.width, size.height),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
         );
