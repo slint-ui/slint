@@ -239,81 +239,82 @@ export class PropertiesView {
             const extra_field = document.createElement("td");
             extra_field.className = "extra-column";
             extra_field.setAttribute("title", p.type_name);
-            const delete_button = document.createElement("button");
-            delete_button.style.display = "hidden";
-            extra_field.appendChild(delete_button);
+            const add_or_delete_button = document.createElement("button");
+            add_or_delete_button.style.display = "hidden";
+            extra_field.appendChild(add_or_delete_button);
             const input = document.createElement("input");
             input.type = "text";
             value_field.appendChild(input);
 
+            const code_text = p.defined_at?.expression_value ?? "";
+            const changed_class = "value-changed";
+            const error_class = "value-has-error";
+            const warn_class = "value-has-warning";
+
+            input.addEventListener("focus", () => {
+                if (FOCUSING) {
+                    FOCUSING = false;
+                } else {
+                    FOCUSING = true;
+                    goto_property();
+                    input.focus();
+                }
+            });
+            input.addEventListener("input", () => {
+                const current_text = input.value;
+                if (current_text != code_text) {
+                    input.classList.add(changed_class);
+                } else {
+                    input.classList.remove(changed_class);
+                }
+                input.classList.remove(error_class);
+                input.classList.remove(warn_class);
+                if (current_text != code_text && element_range != null) {
+                    this.#binding_editor(
+                        { uri: uri, version: version },
+                        element_range,
+                        p.name,
+                        current_text,
+                        true,
+                    ).then((r: SetBindingResponse) => {
+                        const diagnostics = r.diagnostics;
+                        let has_error = false;
+                        let has_warning = false;
+                        for (const d of diagnostics) {
+                            if (d.severity == 1) {
+                                has_error = true;
+                            } else if (d.severity == 2) {
+                                has_warning = true;
+                            }
+                        }
+
+                        if (has_error) {
+                            input.classList.add(error_class);
+                        } else if (has_warning) {
+                            input.classList.add(warn_class);
+                        }
+                    });
+                }
+            });
+            input.addEventListener("change", () => {
+                const current_text = input.value;
+                if (current_text != code_text && element_range != null) {
+                    this.#binding_editor(
+                        { uri: uri, version: version },
+                        element_range,
+                        p.name,
+                        current_text,
+                        false,
+                    );
+                }
+            });
+
             if (p.defined_at != null) {
-                const code_text = p.defined_at.expression_value;
                 input.value = code_text;
-                const changed_class = "value-changed";
-                const error_class = "value-has-error";
-                const warn_class = "value-has-warning";
 
-                input.addEventListener("focus", () => {
-                    if (FOCUSING) {
-                        FOCUSING = false;
-                    } else {
-                        FOCUSING = true;
-                        goto_property();
-                        input.focus();
-                    }
-                });
-                input.addEventListener("input", () => {
-                    const current_text = input.value;
-                    if (current_text != code_text) {
-                        input.classList.add(changed_class);
-                    } else {
-                        input.classList.remove(changed_class);
-                    }
-                    input.classList.remove(error_class);
-                    input.classList.remove(warn_class);
-                    if (current_text != code_text && element_range != null) {
-                        this.#binding_editor(
-                            { uri: uri, version: version },
-                            element_range,
-                            p.name,
-                            current_text,
-                            true,
-                        ).then((r: SetBindingResponse) => {
-                            const diagnostics = r.diagnostics;
-                            let has_error = false;
-                            let has_warning = false;
-                            for (const d of diagnostics) {
-                                if (d.severity == 1) {
-                                    has_error = true;
-                                } else if (d.severity == 2) {
-                                    has_warning = true;
-                                }
-                            }
-
-                            if (has_error) {
-                                input.classList.add(error_class);
-                            } else if (has_warning) {
-                                input.classList.add(warn_class);
-                            }
-                        });
-                    }
-                });
-                input.addEventListener("change", () => {
-                    const current_text = input.value;
-                    if (current_text != code_text && element_range != null) {
-                        this.#binding_editor(
-                            { uri: uri, version: version },
-                            element_range,
-                            p.name,
-                            current_text,
-                            false,
-                        );
-                    }
-                });
-
-                delete_button.className = this.#remover_icon_class;
+                add_or_delete_button.className = this.#remover_icon_class;
                 if (element_range != null) {
-                    delete_button.addEventListener("click", (event) => {
+                    add_or_delete_button.addEventListener("click", (event) => {
                         event.stopPropagation();
                         this.#binding_remover(
                             { uri: uri, version: version },
@@ -322,12 +323,20 @@ export class PropertiesView {
                         );
                     });
                 } else {
-                    delete_button.disabled = true;
+                    add_or_delete_button.disabled = true;
                 }
             } else {
                 input.disabled = true;
 
-                delete_button.className = this.#adder_icon_class;
+                add_or_delete_button.className = this.#adder_icon_class;
+                if (element_range != null) {
+                    add_or_delete_button.addEventListener("click", (event) => {
+                        event.stopPropagation();
+                        input.disabled = false;
+                    });
+                } else {
+                    add_or_delete_button.disabled = true;
+                }
             }
             row.appendChild(value_field);
             row.appendChild(extra_field);
