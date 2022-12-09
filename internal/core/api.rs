@@ -377,6 +377,11 @@ impl Window {
         self.0.scale_factor()
     }
 
+    /// Sets the scale factor for the window. This is set by the backend or for testing.
+    pub fn set_scale_factor(&self, factor: f32) {
+        self.0.set_scale_factor(factor)
+    }
+
     /// Returns the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     pub fn position(&self) -> PhysicalPosition {

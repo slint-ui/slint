@@ -57,9 +57,9 @@ pub struct SkiaRenderer {
 
 impl SkiaRenderer {
     /// Creates a new renderer is associated with the provided window adapter.
-    pub fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
+    pub fn new(window_adapter_weak: Weak<dyn WindowAdapter>) -> Self {
         Self {
-            window_adapter_weak: window_adapter_weak.clone(),
+            window_adapter_weak,
             rendering_notifier: Default::default(),
             canvas: Default::default(),
         }

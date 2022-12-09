@@ -23,6 +23,7 @@ members = [
     'examples/todo/rust',
     'examples/carousel/rust',
     'examples/mcu-board-support',
+    'examples/winit',
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
