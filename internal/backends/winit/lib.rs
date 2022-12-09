@@ -13,9 +13,9 @@ use std::rc::Rc;
 
 mod glwindow;
 use glwindow::*;
-#[cfg(any(feature = "femtovg", skia_backend_opengl))]
+#[cfg(feature = "femtovg")]
 mod glcontext;
-#[cfg(any(feature = "femtovg", skia_backend_opengl))]
+#[cfg(feature = "femtovg")]
 use glcontext::*;
 pub(crate) mod event_loop;
 

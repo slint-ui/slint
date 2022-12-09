@@ -19,11 +19,11 @@ path = "lib.rs"
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland"]
-x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
+wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland"]
+x11 = ["winit/x11", "glutin/x11", "copypasta/x11", "i-slint-renderer-skia?/x11"]
 renderer-winit-femtovg = ["femtovg", "fontdb", "libc", "yeslogic-fontconfig-sys", "winapi", "dwrote", "imgref", "unicode-script", "ttf-parser", "rgb", "i-slint-core/box-shadow-cache"]
-renderer-winit-skia = ["skia-safe", "glow", "unicode-segmentation", "metal", "objc", "core-graphics-types", "foreign-types", "wio", "winapi/d3d12", "winapi/dxgi", "winapi/dxgi1_2", "winapi/dxgi1_3", "winapi/dxgi1_4", "winapi/d3d12sdklayers", "winapi/synchapi", "i-slint-core/box-shadow-cache"]
-renderer-winit-skia-opengl = ["skia-safe/gl", "glow", "unicode-segmentation", "renderer-winit-skia"]
+renderer-winit-skia = ["i-slint-renderer-skia"]
+renderer-winit-skia-opengl = ["renderer-winit-skia", "i-slint-renderer-skia/opengl"]
 renderer-winit-software = ["femtovg", "imgref", "rgb"]
 rtti = ["i-slint-core/rtti"]
 default = []
@@ -57,9 +57,7 @@ imgref = { version = "1.6.1", optional = true }
 rgb = { version = "0.8.27", optional = true }
 
 # For the Skia renderer
-skia-safe = { version = "0.56.1", optional = true, features = ["textlayout"] }
-glow = { version = "0.11", optional = true }
-unicode-segmentation = { version = "1.8.0", optional = true }
+i-slint-renderer-skia = { version = "=0.3.3", path = "../../renderers/skia", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features=["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "CssStyleDeclaration", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent"] }
@@ -74,8 +72,6 @@ glutin = { version = "0.30", default-features = false, features = ["egl", "wgl"]
 [target.'cfg(target_family = "windows")'.dependencies]
 dwrote = { version = "0.11.0", optional = true }
 winapi = { version = "0.3", optional = true, features = ["dwrite"] }
-skia-safe = { version = "0.56.1", optional = true, features = ["d3d"] }
-wio = { version = "0.2.2", optional = true }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 libc = { version = "0.2", optional = true }
@@ -86,16 +82,6 @@ yeslogic-fontconfig-sys = { version = "3.2", optional = true }
 cocoa = { version = "0.24.0" }
 core-foundation = { version = "0.9.1" }
 core-text = { version = "19.1.0" }
-# For Metal rendering with Skia
-metal = { version = "0.24.0", optional = true }
-# Use the same version of foreign-types as the metal crate uses.
-foreign-types = { version = "0.3.2", optional = true }
-objc = { version = "0.2.7", optional = true }
-core-graphics-types = { version = "0.1.1", optional = true }
-skia-safe = { version = "0.56.1", optional = true, features = ["metal"] }
-
-[target.'cfg(not(any(target_os = "macos", target_family = "windows")))'.dependencies]
-skia-safe = { version = "0.56.1", optional = true, features = ["gl"] }
 
 [build-dependencies]
 cfg_aliases = "0.1.0"

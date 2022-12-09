@@ -43,16 +43,6 @@ impl OpenGLContext {
         }
     }
 
-    #[cfg(skia_backend_opengl)]
-    pub fn glutin_context(&self) -> std::cell::Ref<glutin::context::PossiblyCurrentContext> {
-        std::cell::Ref::map(self.0.borrow(), |state| match state.as_ref().unwrap() {
-            OpenGLContextState::Current((gl_context, ..)) => gl_context,
-            OpenGLContextState::NotCurrent(..) => {
-                panic!("internal error: glutin_context() called without current context")
-            }
-        })
-    }
-
     pub fn make_current(&self) {
         let mut ctx = self.0.borrow_mut();
         *ctx = Some(match ctx.take().unwrap() {
