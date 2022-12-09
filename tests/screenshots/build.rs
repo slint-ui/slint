@@ -44,13 +44,11 @@ fn main() -> std::io::Result<()> {
     let references_root_dir: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "references"].iter().collect();
 
-    for (i, testcase) in collect_test_cases()?.into_iter().enumerate() {
-        let case_root_dir: std::path::PathBuf =
-            [env!("CARGO_MANIFEST_DIR"), "cases"].iter().collect();
-
-        let reference_path = testcase.absolute_path.strip_prefix(case_root_dir).unwrap();
+    for (i, testcase) in
+        test_driver_lib::collect_test_cases("screenshots/cases")?.into_iter().enumerate()
+    {
         let mut reference_path = references_root_dir
-            .join(reference_path)
+            .join(testcase.relative_path.clone())
             .with_extension("png")
             .to_str()
             .unwrap()

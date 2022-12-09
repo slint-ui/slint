@@ -9,7 +9,7 @@ fn main() -> std::io::Result<()> {
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
     )?;
 
-    for testcase in test_driver_lib::collect_test_cases()? {
+    for testcase in test_driver_lib::collect_test_cases("cases")? {
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let mut module_name = testcase.identifier();
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {

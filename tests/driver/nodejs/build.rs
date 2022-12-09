@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut tests_file = std::fs::File::create(&tests_file_path)?;
 
-    for testcase in test_driver_lib::collect_test_cases()? {
+    for testcase in test_driver_lib::collect_test_cases("cases")? {
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let test_function_name = testcase.identifier();
 
