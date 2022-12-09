@@ -80,13 +80,15 @@ fn main() -> std::io::Result<()> {
                 output,
                 r"
     #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
-    let window = crate::init_swr();
+    use crate::testing;
+
+    let window = testing::init_swr();
     window.set_size(slint::PhysicalSize::new(64, 64));
 
     let instance = TestCase::new();
     instance.show();
 
-    crate::save_screenshot({}, window.clone());
+    testing::save_screenshot({}, window.clone());
 
     Ok(())
     }}",
@@ -98,17 +100,18 @@ fn main() -> std::io::Result<()> {
                 output,
                 r"
     #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
+    use crate::testing;
    
-    let window = crate::init_swr();
+    let window = testing::init_swr();
     window.set_size(slint::PhysicalSize::new(64, 64));
     let screenshot = {};
 
     let instance = TestCase::new();
     instance.show();
 
-    crate::assert_with_render(screenshot, window.clone());
+    testing::assert_with_render(screenshot, window.clone());
 
-    crate::assert_with_render_by_line(screenshot, window.clone());
+    testing::assert_with_render_by_line(screenshot, window.clone());
 
     Ok(())
     }}",
