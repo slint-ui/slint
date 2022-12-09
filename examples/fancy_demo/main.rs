@@ -77,7 +77,7 @@ pub fn main() {
                 }
             })
             .expect("Cannot update.");
-        }
+        } 
     });
 
     app.run();

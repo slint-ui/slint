@@ -31,7 +31,9 @@ global Palette := {
     property <color> background: StyleMetrics.dark-color-scheme ? #1C1B1F : #FFFBFE;
     property <color> surface: background;
     property <color> on-surface: StyleMetrics.dark-color-scheme ? #E6E1E5 : #1C1B1F;
-    property <color> outline:  StyleMetrics.dark-color-scheme ? #938F99 : #79747E;
+    property <color> outline: StyleMetrics.dark-color-scheme ? #938F99 : #79747E;
+    property <color> primary: StyleMetrics.dark-color-scheme ? #6750A4 : #D0BCFF;
+    property <color> on-primary: !StyleMetrics.dark-color-scheme ? #FFFFFF : #371E73;
 }
 
 
@@ -48,10 +50,15 @@ export struct DragItem := {
     text: string
 }
 
+export struct Connection := {
+    x: length,
+    y: length,
+}
+
 export struct NodeItem := {
     x: length,
     y: length,
-    text: string
+    text: string,
 }
 
 DragItemVisual := Rectangle {
@@ -69,8 +76,18 @@ DragItemVisual := Rectangle {
     }
 }
 
+Connection := TouchArea {
+    width: 16px;
+    height: 16px;
+   
+    Rectangle {  
+        border-radius: 8px;
+        background: Palette.primary;
+    }
+}
+
 NodeItemVisual := Rectangle {
-    property <DragItem> model;
+    property <NodeItem> model;
 
     x: model.x;
     y: model.y;
@@ -91,6 +108,51 @@ NodeItemVisual := Rectangle {
         Rectangle {  
             vertical-stretch: 1;
         }
+    }
+
+    connection-in := Connection {  
+        x: - width / 2;
+        y: (parent.height - height) / 2;
+    }
+
+    connection-out := Connection {  
+        x: parent.width - width / 2;
+        y: (parent.height - height) / 2;
+
+        pointer-event(e) => {  
+            if(e.kind == PointerEventKind.down) {
+                connection_path.x = (self.x + width / 2);
+                connection_path.y = (self.y + height / 2);
+                connection_path.end-x = 0;
+                connection_path.end-y = 0;
+            }
+        }
+
+        moved => {  
+            connection-path.end-x = mouse_x / 1px;
+            connection-path.end-y = mouse_y / 1px;
+        }
+    }
+
+    connection_path := Path {
+        property <float> end_x;
+        property <float> end_y;
+
+        visible: connection-out.pressed;
+        stroke-width: 1px;
+        stroke: Palette.outline;
+
+        MoveTo {
+            x: 0;
+            y: 0;
+        }
+
+        LineTo {
+            x: parent.end_x;
+            y: parent.end_y;
+        }
+
+        Close {}
     }
 
     TouchArea {  
