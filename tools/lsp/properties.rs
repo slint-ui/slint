@@ -8,7 +8,7 @@ use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
-use lsp_types::WorkspaceEdit;
+use lsp_types::{Position, WorkspaceEdit};
 
 use std::collections::HashSet;
 
@@ -43,6 +43,7 @@ pub(crate) struct ElementInformation {
     id: String,
     type_name: String,
     range: Option<lsp_types::Range>,
+    block_range: Option<lsp_types::Range>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -494,16 +495,65 @@ fn get_properties(
     result
 }
 
+fn find_block(token: Option<i_slint_compiler::parser::SyntaxToken>) -> Option<(u32, u32)> {
+    let mut current_token = token;
+    let mut brace_level = 0_u32;
+    let mut start_offset = u32::MAX;
+    let mut end_offset = u32::MAX;
+
+    while let Some(t) = current_token {
+        if t.kind() == SyntaxKind::LBrace {
+            brace_level += 1;
+            if brace_level == 1 {
+                start_offset = t.text_range().end().into();
+            }
+        } else if t.kind() == SyntaxKind::RBrace {
+            brace_level -= 1;
+            if brace_level == 0 {
+                end_offset = Into::<u32>::into(t.text_range().start());
+                break;
+            }
+        }
+        current_token = t.next_token();
+    }
+
+    if start_offset != u32::MAX && start_offset <= end_offset {
+        return Some((start_offset, end_offset));
+    }
+
+    None
+}
+
 fn get_element_information(
     element: &ElementRc,
     offset_to_position: &mut OffsetToPositionMapper,
-) -> Option<ElementInformation> {
+) -> ElementInformation {
     let e = element.borrow();
-    let range = e.node.as_ref().map(|n| n.text_range()).map(|r| lsp_types::Range {
-        start: offset_to_position.map(r.start().into()),
-        end: offset_to_position.map(r.end().into()),
+    let node = e.node.as_ref();
+    let range: Option<(u32, u32)> =
+        node.map(|n| n.text_range()).map(|r| (r.start().into(), r.end().into()));
+    let block_range = range.and_then(|r| {
+        find_block(node.expect("range was Some, so node must have been Some, too.").first_token())
+            .and_then(|br| {
+                if br.0 > r.0 && br.1 < r.1 {
+                    Some(lsp_types::Range::new(
+                        offset_to_position.map(br.0),
+                        offset_to_position.map(br.1),
+                    ))
+                } else {
+                    None
+                }
+            })
     });
-    Some(ElementInformation { id: e.id.clone(), type_name: format!("{}", e.base_type), range })
+
+    ElementInformation {
+        id: e.id.clone(),
+        type_name: format!("{}", e.base_type),
+        range: range.map(|r| {
+            lsp_types::Range::new(offset_to_position.map(r.0), offset_to_position.map(r.1))
+        }),
+        block_range,
+    }
 }
 
 pub(crate) fn query_properties<'a>(
@@ -516,51 +566,36 @@ pub(crate) fn query_properties<'a>(
 
     Ok(QueryPropertyResponse {
         properties: get_properties(&element, &mut mapper),
-        element: get_element_information(&element, &mut mapper),
+        element: Some(get_element_information(&element, &mut mapper)),
         source_uri: uri.to_string(),
         source_version,
     })
 }
 
 fn get_property_information<'a>(
-    element: &ElementRc,
-    offset_to_position: &mut OffsetToPositionMapper<'a>,
+    properties: &[PropertyInformation],
     property_name: &str,
 ) -> Result<PropertyInformation, Error> {
-    if let Some(property) = get_properties(element, offset_to_position)
-        .into_iter()
-        .find(|pi| pi.name == property_name)
-        .clone()
-    {
+    if let Some(property) = properties.into_iter().find(|pi| pi.name == property_name).clone() {
         Ok(property.clone())
     } else {
         Err(format!("Element has no property with name {property_name}").into())
     }
 }
 
-fn validate_property_information(
+fn validate_property_expression_type(
     property: &PropertyInformation,
-    property_name: &str,
     new_expression_type: Type,
     diag: &mut BuildDiagnostics,
 ) {
-    if property.defined_at.is_none() {
-        diag.push_error_with_span(
-            format!("Property \"{property_name}\" is declared but undefined"),
-            i_slint_compiler::diagnostics::SourceLocation {
-                source_file: None,
-                span: i_slint_compiler::diagnostics::Span::new(0),
-            },
-        );
-    }
-
     // Check return type match:
     if new_expression_type != i_slint_compiler::langtype::Type::Invalid
         && new_expression_type.to_string() != property.type_name
     {
         diag.push_error_with_span(
             format!(
-                "return type mismatch in \"{property_name}\" (was: {}, expected: {})",
+                "return type mismatch in \"{}\" (was: {}, expected: {})",
+                property.name,
                 new_expression_type.to_string(),
                 property.type_name
             ),
@@ -572,7 +607,7 @@ fn validate_property_information(
     }
 }
 
-fn create_workspace_edit_for_set_binding<'a>(
+fn create_workspace_edit_for_set_binding_on_existing_property<'a>(
     uri: &lsp_types::Url,
     version: i32,
     property: &PropertyInformation,
@@ -594,6 +629,153 @@ fn create_workspace_edit_for_set_binding<'a>(
             ..Default::default()
         }
     })
+}
+
+fn set_binding_on_existing_property(
+    document_cache: &mut DocumentCache,
+    uri: &lsp_types::Url,
+    property: &PropertyInformation,
+    new_expression: String,
+    diag: &mut BuildDiagnostics,
+) -> Result<(SetBindingResponse, Option<WorkspaceEdit>), Error> {
+    let workspace_edit = (!diag.has_error())
+        .then(|| {
+            create_workspace_edit_for_set_binding_on_existing_property(
+                uri,
+                document_cache.document_version(uri)?,
+                &property,
+                new_expression,
+            )
+        })
+        .flatten();
+
+    Ok((
+        SetBindingResponse {
+            diagnostics: diag.iter().map(|d| crate::util::to_lsp_diag(d)).collect::<Vec<_>>(),
+        },
+        workspace_edit,
+    ))
+}
+
+fn find_insert_position_for_property(
+    element_range: &Option<lsp_types::Range>,
+    properties: &[PropertyInformation],
+    property_name: &str,
+) -> Option<Position> {
+    let mut previous_index = usize::MAX;
+    let mut property_index = usize::MAX;
+    let mut next_index = usize::MAX;
+
+    for (i, p) in properties.iter().enumerate() {
+        if p.name == property_name {
+            property_index = i;
+        } else {
+            if p.defined_at.is_some() {
+                if property_index == usize::MAX {
+                    previous_index = i;
+                } else {
+                    next_index = i;
+                    break;
+                }
+            }
+        }
+    }
+
+    assert!((previous_index < property_index) ^ (previous_index == usize::MAX));
+    assert!(property_index != usize::MAX);
+    assert!(property_index < next_index);
+
+    if previous_index != usize::MAX
+        && (property_index - previous_index <= next_index - property_index)
+    {
+        // There is a previous index and it is closer than the next one
+        Some(
+            properties
+                .get(previous_index)
+                .expect("Index was checked to exist")
+                .defined_at
+                .as_ref()
+                .expect("This index had a defined_at")
+                .delete_range
+                .end
+                .clone(),
+        )
+    } else if next_index != usize::MAX {
+        // There is a property following us
+        Some(
+            properties
+                .get(next_index)
+                .expect("Index was checked to exist")
+                .defined_at
+                .as_ref()
+                .expect("This index had a defined_at")
+                .delete_range
+                .start
+                .clone(),
+        )
+    } else if let Some(r) = element_range {
+        Some(r.start)
+    } else {
+        None
+    }
+}
+
+fn create_workspace_edit_for_set_binding_on_known_property<'a>(
+    uri: &lsp_types::Url,
+    version: i32,
+    element_range: &Option<lsp_types::Range>,
+    properties: &[PropertyInformation],
+    property_name: &str,
+    new_expression: &str,
+) -> Option<lsp_types::WorkspaceEdit> {
+    find_insert_position_for_property(element_range, properties, property_name).and_then(|p| {
+        let edit = lsp_types::TextEdit {
+            range: lsp_types::Range::new(p.clone(), p),
+            new_text: format!("{}: {};", property_name, new_expression),
+        };
+        let edits = vec![lsp_types::OneOf::Left(edit)];
+        let text_document_edits = vec![lsp_types::TextDocumentEdit {
+            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
+                uri.clone(),
+                version,
+            ),
+            edits,
+        }];
+        Some(lsp_types::WorkspaceEdit {
+            document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
+            ..Default::default()
+        })
+    })
+}
+
+fn set_binding_on_known_property(
+    document_cache: &mut DocumentCache,
+    uri: &lsp_types::Url,
+    element_range: &Option<lsp_types::Range>,
+    properties: &[PropertyInformation],
+    property_name: &str,
+    new_expression: &str,
+    diag: &mut BuildDiagnostics,
+) -> Result<(SetBindingResponse, Option<WorkspaceEdit>), Error> {
+    let workspace_edit = (!diag.has_error())
+        .then(|| {
+            create_workspace_edit_for_set_binding_on_known_property(
+                uri,
+                document_cache.document_version(uri)?,
+                element_range,
+                &properties,
+                &property_name,
+                new_expression,
+            )
+        })
+        .flatten();
+
+    Ok((
+        SetBindingResponse {
+            diagnostics: diag.iter().map(|d| crate::util::to_lsp_diag(d)).collect::<Vec<_>>(),
+        },
+        workspace_edit,
+    ))
 }
 
 pub(crate) fn set_binding<'a>(
@@ -631,11 +813,9 @@ pub(crate) fn set_binding<'a>(
         }
     };
 
-    let property = match get_property_information(
-        element,
-        &mut &mut document_cache.offset_to_position_mapper(uri),
-        property_name,
-    ) {
+    let mut offset_mapper = document_cache.offset_to_position_mapper(uri);
+    let properties = get_properties(element, &mut offset_mapper);
+    let property = match get_property_information(&properties, property_name) {
         Ok(p) => p,
         Err(e) => {
             diag.push_error_with_span(
@@ -657,25 +837,23 @@ pub(crate) fn set_binding<'a>(
         }
     };
 
-    validate_property_information(&property, property_name, new_expression_type, &mut diag);
-
-    let workspace_edit = (!diag.has_error())
-        .then(|| {
-            create_workspace_edit_for_set_binding(
-                uri,
-                document_cache.document_version(uri)?,
-                &property,
-                new_expression,
-            )
-        })
-        .flatten();
-
-    Ok((
-        SetBindingResponse {
-            diagnostics: diag.iter().map(|d| crate::util::to_lsp_diag(d)).collect::<Vec<_>>(),
-        },
-        workspace_edit,
-    ))
+    validate_property_expression_type(&property, new_expression_type, &mut diag);
+    if property.defined_at.is_some() {
+        // Change an already defined property:
+        set_binding_on_existing_property(document_cache, uri, &property, new_expression, &mut diag)
+    } else {
+        let element_info = get_element_information(&element, &mut offset_mapper);
+        // Add a new definition to a known property:
+        set_binding_on_known_property(
+            document_cache,
+            uri,
+            &element_info.block_range,
+            &properties,
+            &property.name,
+            &new_expression,
+            &mut diag,
+        )
+    }
 }
 
 fn create_workspace_edit_for_remove_binding<'a>(
@@ -706,11 +884,9 @@ pub(crate) fn remove_binding<'a>(
     element: &ElementRc,
     property_name: &str,
 ) -> Result<WorkspaceEdit, Error> {
-    let property = get_property_information(
-        element,
-        &mut &mut document_cache.offset_to_position_mapper(uri),
-        property_name,
-    )?;
+    let properties =
+        get_properties(element, &mut &mut document_cache.offset_to_position_mapper(uri));
+    let property = get_property_information(&properties, property_name)?;
 
     let workspace_edit = create_workspace_edit_for_remove_binding(
         uri,
@@ -788,6 +964,29 @@ mod tests {
                 as usize,
             "lightblue".len()
         );
+    }
+
+    #[test]
+    fn test_element_information() {
+        let (mut dc, url, _) = complex_document_cache("fluent");
+        let element =
+            server_loop::element_at_position(&mut dc, &url, &lsp_types::Position::new(33, 4))
+                .unwrap();
+
+        let result =
+            get_element_information(&element, &mut &mut dc.offset_to_position_mapper(&url));
+
+        let r = result.range.unwrap();
+        assert_eq!(r.start.line, 32);
+        assert_eq!(r.start.character, 12);
+        assert_eq!(r.end.line, 35);
+        assert_eq!(r.end.character, 13);
+
+        let br = result.block_range.unwrap();
+        assert_eq!(br.start.line, 32);
+        assert_eq!(br.start.character, 18);
+        assert_eq!(br.end.line, 35);
+        assert_eq!(br.end.character, 12);
     }
 
     fn delete_range_test(
@@ -1497,10 +1696,27 @@ component MyComp {
     fn test_set_binding_valid_expression_undefined_property() {
         let (result, edit) = set_binding_helper("x", "30px");
 
-        assert_eq!(edit, None);
-        assert_eq!(result.diagnostics.len(), 1_usize);
-        assert_eq!(result.diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
-        assert!(result.diagnostics[0].message.contains("undefined"));
+        let edit = edit.unwrap();
+        let dcs = if let Some(lsp_types::DocumentChanges::Edits(e)) = &edit.document_changes {
+            e
+        } else {
+            unreachable!();
+        };
+        assert_eq!(dcs.len(), 1_usize);
+
+        let tcs = &dcs[0].edits;
+        assert_eq!(tcs.len(), 1_usize);
+
+        let tc = if let lsp_types::OneOf::Left(tc) = &tcs[0] {
+            tc
+        } else {
+            unreachable!();
+        };
+        assert_eq!(&tc.new_text, "x: 30px;");
+        assert_eq!(tc.range.start, lsp_types::Position { line: 17, character: 16 });
+        assert_eq!(tc.range.end, lsp_types::Position { line: 17, character: 16 });
+
+        assert_eq!(result.diagnostics.len(), 0_usize);
     }
 
     #[test]
