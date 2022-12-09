@@ -6,6 +6,7 @@
 import { GotoPositionCallback } from "./text";
 import { LspPosition, LspURI } from "./lsp_integration";
 
+import { extract_uri_from_progress_message } from "./shared/utils";
 import { PropertyQuery, PropertiesView } from "./shared/properties";
 import { change_property, query_properties } from "./properties_client";
 
@@ -20,12 +21,6 @@ import {
     WorkDoneProgressEnd,
     WorkDoneProgressReport,
 } from "vscode-languageclient";
-
-function extract_uri_from_progress_message(input: string): string {
-    const start = input.indexOf(": ");
-    const end = input.lastIndexOf("@");
-    return input.slice(start + 2, end);
-}
 
 export class PropertiesWidget extends Widget {
     #language_client: BaseLanguageClient | null = null;

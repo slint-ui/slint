@@ -8,7 +8,10 @@
 import * as path from "path";
 import { existsSync } from "fs";
 import * as vscode from "vscode";
+
 import { PropertiesViewProvider, set_client } from "./common";
+
+import { extract_uri_from_progress_message } from "../../../tools/online_editor/src/shared/utils";
 
 import {
     LanguageClient,
@@ -41,12 +44,6 @@ const program_extension = process.platform === "win32" ? ".exe" : "";
 interface Platform {
     program_name: string;
     options?: ExecutableOptions;
-}
-
-function extract_uri_from_progress_message(input: string): string {
-    const start = input.indexOf(": ");
-    const end = input.lastIndexOf("@");
-    return input.slice(start + 2, end);
 }
 
 function lspPlatform(): Platform | null {

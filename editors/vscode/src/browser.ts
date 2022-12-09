@@ -14,17 +14,14 @@ import {
     WorkDoneProgressReport,
     LanguageClient,
 } from "vscode-languageclient/browser";
+
+import { extract_uri_from_progress_message } from "../../../tools/online_editor/src/shared/utils";
+
 import { set_client, PropertiesViewProvider } from "./common";
 
 let client: LanguageClient;
 let statusBar: vscode.StatusBarItem;
 let properties_provider: PropertiesViewProvider;
-
-function extract_uri_from_progress_message(input: string): string {
-    const start = input.indexOf(": ");
-    const end = input.lastIndexOf("@");
-    return input.slice(start + 2, end);
-}
 
 function startClient(context: vscode.ExtensionContext) {
     //let args = vscode.workspace.getConfiguration('slint').get<[string]>('lsp-args');
