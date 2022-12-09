@@ -358,7 +358,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
     }
 }
 
-pub trait Surface {
+trait Surface {
     const SUPPORTS_GRAPHICS_API: bool;
     fn new(
         window: &dyn raw_window_handle::HasRawWindowHandle,
