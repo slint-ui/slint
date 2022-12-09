@@ -29,7 +29,7 @@ export async function change_property(
     dry_run: boolean,
 ): Promise<SetBindingResponse> {
     if (client != null) {
-        const result = await client.sendRequest(ExecuteCommandRequest.type, {
+        return await client.sendRequest(ExecuteCommandRequest.type, {
             command: "setBinding",
             arguments: [
                 doc,
@@ -39,8 +39,6 @@ export async function change_property(
                 dry_run,
             ],
         } as ExecuteCommandParams);
-
-        return result;
     }
     return new Promise((accept) => accept({ diagnostics: [] }));
 }
@@ -52,12 +50,10 @@ export async function remove_binding(
     property_name: string,
 ): Promise<boolean> {
     if (client != null) {
-        const result = await client.sendRequest(ExecuteCommandRequest.type, {
+        return await client.sendRequest(ExecuteCommandRequest.type, {
             command: "removeBinding",
             arguments: [doc, element_range, property_name],
         } as ExecuteCommandParams);
-
-        return result;
     }
     return Promise.resolve(false);
 }
