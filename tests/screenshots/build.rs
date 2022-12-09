@@ -89,7 +89,6 @@ fn main() -> std::io::Result<()> {
                 reference_path.as_str()
             )?;
         } else {
-            #[cfg(not(feature = "create_references"))]
             write!(
                 output,
                 r"
