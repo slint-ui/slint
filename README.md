@@ -195,6 +195,7 @@ request to add yours)
   Cross-platform game launcher made for Project Trains simulator.
 - **[Mastermind](https://github.com/ElevenJune/mastermind_Rust)**: Mastermind
   game coded in Rust.
+- **[coop_widgets](https://codeberg.org/flovansl/co_sl)**: Custom widget library for Slint.
 
 ## License
 
