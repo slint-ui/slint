@@ -52,9 +52,10 @@ fn main() -> std::io::Result<()> {
         let mut reference_path = references_root_dir
             .join(reference_path)
             .with_extension("png")
-            .into_os_string()
-            .into_string()
-            .unwrap();
+            .to_str()
+            .unwrap()
+            .escape_default()
+            .to_string();
 
         reference_path = format!("\"{}\"", reference_path);
 
