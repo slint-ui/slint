@@ -30,6 +30,7 @@ members = [
     'internal/backends/qt',
     'internal/backends/selector',
     'internal/backends/testing',
+    'internal/renderers/skia',
     'internal/common',
     'internal/compiler',
     'internal/compiler/parser-test-macro',
