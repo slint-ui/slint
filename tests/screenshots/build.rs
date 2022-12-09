@@ -49,8 +49,12 @@ fn main() -> std::io::Result<()> {
             [env!("CARGO_MANIFEST_DIR"), "cases"].iter().collect();
 
         let reference_path = testcase.absolute_path.strip_prefix(case_root_dir).unwrap();
-        let mut reference_path =
-            references_root_dir.join(reference_path).with_extension("png").display().to_string();
+        let mut reference_path = references_root_dir
+            .join(reference_path)
+            .with_extension("png")
+            .into_os_string()
+            .into_string()
+            .unwrap();
 
         reference_path = format!("\"{}\"", reference_path);
 
