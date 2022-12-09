@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+#![doc = include_str!("README.md")]
+#![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
+
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
@@ -44,6 +47,8 @@ cfg_if::cfg_if! {
     }
 }
 
+/// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
+/// Slint and want the scene to be rendered using Skia as underlying graphics library.
 pub struct SkiaRenderer {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
@@ -51,6 +56,7 @@ pub struct SkiaRenderer {
 }
 
 impl SkiaRenderer {
+    /// Creates a new renderer is associated with the provided window adapter.
     pub fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
         Self {
             window_adapter_weak: window_adapter_weak.clone(),
@@ -59,6 +65,8 @@ impl SkiaRenderer {
         }
     }
 
+    /// Use the provided window and display for rendering the Slint scene in future calls to [`Self::render()`].
+    /// The size must be identical to the size of the window in physical pixels that is providing the window handle.
     pub fn show(
         &self,
         window: &dyn raw_window_handle::HasRawWindowHandle,
@@ -86,6 +94,8 @@ impl SkiaRenderer {
         *self.canvas.borrow_mut() = Some(canvas);
     }
 
+    /// Release any graphics resources and disconnect the rendere from a window that it was previously associated when when
+    /// calling [`Self::show()]`.
     pub fn hide(&self) {
         if let Some(canvas) = self.canvas.borrow_mut().take() {
             canvas.surface.with_active_surface(|| {
@@ -98,6 +108,7 @@ impl SkiaRenderer {
         }
     }
 
+    /// Render the scene in the previously associated window. The size parameter must match the size of the window.
     pub fn render(&self, size: PhysicalWindowSize) {
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
@@ -173,6 +184,7 @@ impl SkiaRenderer {
         });
     }
 
+    /// Call this when you receive a notification from the windowing system that the size of the window has changed.
     pub fn resize_event(&self, size: PhysicalWindowSize) {
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
