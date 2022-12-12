@@ -27,7 +27,7 @@ export async function change_property(
     dry_run: boolean,
 ): Promise<SetBindingResponse> {
     return vscode.commands.executeCommand(
-        "setBinding",
+        "slint/setBinding",
         doc,
         element_range,
         property_name,
@@ -41,7 +41,7 @@ export async function query_properties(
     position: LspPosition,
 ): Promise<PropertyQuery> {
     return vscode.commands.executeCommand(
-        "queryProperties",
+        "slint/queryProperties",
         { uri: uri.toString() },
         position,
     );
@@ -53,7 +53,7 @@ export async function remove_binding(
     property_name: string,
 ): Promise<SetBindingResponse> {
     return vscode.commands.executeCommand(
-        "removeBinding",
+        "slint/removeBinding",
         doc,
         element_range,
         property_name,
