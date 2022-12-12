@@ -333,6 +333,7 @@ export class PropertiesView {
                     add_or_delete_button.addEventListener("click", (event) => {
                         event.stopPropagation();
                         input.disabled = false;
+                        input.focus();
                     });
                 } else {
                     add_or_delete_button.disabled = true;
