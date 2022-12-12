@@ -386,7 +386,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
 
             let mut window_builder = winit::window::WindowBuilder::new();
 
-            let runtime_window = WindowInner::from_pub(self_.window());
+            let runtime_window = WindowInner::from_pub(&self_.window);
             let component_rc = runtime_window.component();
             let component = ComponentRc::borrow_pin(&component_rc);
 
