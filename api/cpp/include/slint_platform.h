@@ -23,7 +23,6 @@ namespace platform {
 /// The Renderer is one of the Type provided by Slint to do the rendering of a scene.
 ///
 /// See for example SoftwareRenderer
-
 template<typename R>
 concept Renderer = requires(R r)
 {
@@ -31,40 +30,10 @@ concept Renderer = requires(R r)
     cbindgen_private::RendererPtr { r.renderer_handle() };
 };
 
-template<Renderer R>
-class Platform;
-
-/// Base class for the layer between a slint::Window and the internal window from the platform
-///
-/// Re-implement this class to do the link between the two.
-///
-/// The R template parameter is the Renderer which is one of the renderer type provided by Slint
-
-template<Renderer R>
-class WindowAdapter
+/// Base class common to all WindowAdapter<R>.  See the documentation of WindowAdapter
+class AbstractWindowAdapter
 {
-    friend class Platform<R>;
-    // This is a pointer to the rust window that own us.
-    // Note that we do not have ownership (there is no reference increase for this)
-    // because it would otherwise be a reference loop
-    cbindgen_private::WindowAdapterRcOpaque self {};
-    // Whether this WindowAdapter was already given to the slint runtime
-    const R m_renderer;
-    bool was_initialized = false;
-
 public:
-    /// Construct a WindowAdapter.  The arguments are forwarded to initialize the renderer
-    template<typename... Args>
-    explicit WindowAdapter(Args... a) : m_renderer(std::forward<Args>(a)...)
-    {
-    }
-    virtual ~WindowAdapter() = default;
-    WindowAdapter(const WindowAdapter &) = delete;
-    WindowAdapter &operator=(const WindowAdapter &) = delete;
-
-    /// Return a reference to the renderer that can be used to do the rendering.
-    const R &renderer() const { return m_renderer; }
-
     /// This function is called by Slint when the slint window is shown.
     ///
     /// Re-implement this function to forward the call to show to the native window
@@ -81,6 +50,58 @@ public:
     /// You should not render the window in the implementation of this call. Instead you should
     /// do that in the next iteration of the event loop, or in a callback from the window manager.
     virtual void request_redraw() const { }
+
+private:
+    friend class Platform;
+    virtual cbindgen_private::WindowAdapterRcOpaque initialize() = 0;
+};
+
+/// Base class for the layer between a slint::Window and the internal window from the platform
+///
+/// Re-implement this class to do the link between the two.
+///
+/// The R template parameter is the Renderer which is one of the renderer type provided by Slint
+
+template<Renderer R>
+class WindowAdapter : public AbstractWindowAdapter
+{
+    // This is a pointer to the rust window that own us.
+    // Note that we do not have ownership (there is no reference increase for this)
+    // because it would otherwise be a reference loop
+    cbindgen_private::WindowAdapterRcOpaque self {};
+    // Whether this WindowAdapter was already given to the slint runtime
+    const R m_renderer;
+    bool was_initialized = false;
+
+private:
+    cbindgen_private::WindowAdapterRcOpaque initialize() final
+    {
+        using WA = WindowAdapter<R>;
+        cbindgen_private::slint_window_adapter_new(
+                this, [](void *wa) { delete reinterpret_cast<const WA *>(wa); },
+                [](void *wa) {
+                    return reinterpret_cast<const WA *>(wa)->m_renderer.renderer_handle();
+                },
+                [](void *wa) { reinterpret_cast<const WA *>(wa)->show(); },
+                [](void *wa) { reinterpret_cast<const WA *>(wa)->hide(); },
+                [](void *wa) { reinterpret_cast<const WA *>(wa)->request_redraw(); }, &self);
+        m_renderer.init(&self);
+        was_initialized = true;
+        return self;
+    }
+
+public:
+    /// Construct a WindowAdapter.  The arguments are forwarded to initialize the renderer
+    template<typename... Args>
+    explicit WindowAdapter(Args... a) : m_renderer(std::forward<Args>(a)...)
+    {
+    }
+    virtual ~WindowAdapter() = default;
+    WindowAdapter(const WindowAdapter &) = delete;
+    WindowAdapter &operator=(const WindowAdapter &) = delete;
+
+    /// Return a reference to the renderer that can be used to do the rendering.
+    const R &renderer() const { return m_renderer; }
 
     /// Return the slint::Window associated with this window.
     ///
@@ -122,12 +143,11 @@ public:
     }
 };
 
-/// The platform is acting like a factory to create a WindowAdapter<R>
+/// The platform is acting like a factory to create a WindowAdapter
 ///
 /// Platform::register_platform() need to be called before any other Slint handle
 /// are created, and if it is called, it will use the WindowAdapter provided by the
 /// create_window_adaptor function.
-template<Renderer R>
 class Platform
 {
 public:
@@ -137,31 +157,18 @@ public:
     Platform() = default;
 
     /// Returns a new WindowAdapter
-    virtual std::unique_ptr<WindowAdapter<R>> create_window_adaptor() const = 0;
+    virtual std::unique_ptr<AbstractWindowAdapter> create_window_adaptor() const = 0;
 
     /// Register the platform to Slint. Must be called before Slint window are created. Can only
     /// be called once in an application.
     static void register_platform(std::unique_ptr<Platform> platform)
     {
-        using WA = WindowAdapter<R>;
         cbindgen_private::slint_platform_register(
                 platform.release(), [](void *p) { delete reinterpret_cast<const Platform *>(p); },
                 [](void *p, cbindgen_private::WindowAdapterRcOpaque *out) {
                     auto w = reinterpret_cast<const Platform *>(p)->create_window_adaptor();
-                    auto w_ptr = w.release();
-                    cbindgen_private::slint_window_adapter_new(
-                            w_ptr, [](void *wa) { delete reinterpret_cast<const WA *>(wa); },
-                            [](void *wa) {
-                                return reinterpret_cast<const WA *>(wa)
-                                        ->m_renderer.renderer_handle();
-                            },
-                            [](void *wa) { reinterpret_cast<const WA *>(wa)->show(); },
-                            [](void *wa) { reinterpret_cast<const WA *>(wa)->hide(); },
-                            [](void *wa) { reinterpret_cast<const WA *>(wa)->request_redraw(); },
-                            out);
-                    w_ptr->self = *out;
-                    w_ptr->m_renderer.init(out);
-                    w_ptr->was_initialized = true;
+                    *out = w->initialize();
+                    w.release();
                 });
     }
 };
