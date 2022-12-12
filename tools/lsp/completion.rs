@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore rfind
+
 use super::util::lookup_current_element_type;
 use super::DocumentCache;
 #[cfg(target_arch = "wasm32")]
@@ -99,18 +101,16 @@ pub(crate) fn completion_at(
                     return None;
                 };
                 let current_file = token.source_file.path().to_owned();
+                let current_uri = lsp_types::Url::from_file_path(&current_file).ok()?;
+                let mapper = document_cache.offset_to_position_mapper(&current_uri).ok()?;
                 let current_doc =
                     document_cache.documents.get_document(&current_file)?.node.as_ref()?;
-                let current_uri = lsp_types::Url::from_file_path(&current_file).ok()?;
                 let mut import_locations = HashMap::new();
                 let mut last = 0u32;
                 for import in current_doc.ImportSpecifier() {
                     if let Some((loc, file)) = import.ImportIdentifierList().and_then(|list| {
                         Some((
-                            document_cache.byte_offset_to_position(
-                                list.ImportIdentifier().last()?.text_range().end().into(),
-                                &current_uri,
-                            )?,
+                            mapper.map(list.ImportIdentifier().last()?.text_range().end()),
                             import.child_token(SyntaxKind::StringLiteral)?,
                         ))
                     }) {
@@ -119,13 +119,7 @@ pub(crate) fn completion_at(
                     }
                     last = import.text_range().end().into();
                 }
-                let last = if last == 0 {
-                    0
-                } else {
-                    document_cache
-                        .byte_offset_to_position(last, &current_uri)
-                        .map_or(0, |p| p.line + 1)
-                };
+                let last = if last == 0 { 0 } else { mapper.map_u32(last).line + 1 };
                 Some((import_locations, last, current_uri))
             })();
 
