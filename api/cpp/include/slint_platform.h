@@ -9,6 +9,10 @@
 
 #    include "slint.h"
 
+struct xcb_connection_t;
+struct wl_surface;
+struct wl_display;
+
 namespace slint {
 
 /// This namespace contains experimental API.
@@ -22,7 +26,7 @@ namespace platform {
 
 /// The Renderer is one of the Type provided by Slint to do the rendering of a scene.
 ///
-/// See for example SoftwareRenderer
+/// See SoftwareRenderer or SkiaRenderer
 template<typename R>
 concept Renderer = requires(R r)
 {
@@ -109,6 +113,16 @@ public:
     ///
     /// Note that this function can only be called if the window was initialized, which is only
     /// the case after it has been returned from a call to Platform::create_window_adaptor
+    const Window &window() const
+    {
+        if (!was_initialized)
+            std::abort();
+        // This works because cbindgen_private::WindowAdapterRcOpaque and Window have the same
+        // layout
+        return *reinterpret_cast<const Window *>(&self);
+    }
+
+    /// Overload
     Window &window()
     {
         if (!was_initialized)
@@ -170,7 +184,7 @@ public:
                 [](void *p, cbindgen_private::WindowAdapterRcOpaque *out) {
                     auto w = reinterpret_cast<const Platform *>(p)->create_window_adaptor();
                     *out = w->initialize();
-                    w.release();
+                    (void)w.release();
                 });
     }
 };
@@ -226,6 +240,76 @@ public:
     {
         cbindgen_private::slint_software_renderer_render_rgb8(MAX_BUFFER_AGE, inner, buffer.data(),
                                                               buffer.size(), stride);
+    }
+};
+
+/// Slint's Skia renderer.
+///
+/// To be used as a template parameter of the WindowAdapter.
+///
+/// The show() and hide() function must be called from the WindowAdapter's re-implementation
+/// of the homonymous functions
+///
+/// Use render to perform the rendering.
+
+class SkiaRenderer
+{
+    mutable cbindgen_private::SkiaRendererOpaque inner;
+
+public:
+    virtual ~SkiaRenderer()
+    {
+        if (inner) {
+            cbindgen_private::slint_skia_renderer_drop(inner);
+        }
+    };
+    SkiaRenderer(const SkiaRenderer &) = delete;
+    SkiaRenderer &operator=(const SkiaRenderer &) = delete;
+    SkiaRenderer() = default;
+
+    /// \private
+    void init(const cbindgen_private::WindowAdapterRcOpaque *win) const
+    {
+        if (inner) {
+            cbindgen_private::slint_skia_renderer_drop(inner);
+        }
+        inner = cbindgen_private::slint_skia_renderer_new(win);
+    }
+
+    /// \private
+    cbindgen_private::RendererPtr renderer_handle() const
+    {
+        return cbindgen_private::slint_skia_renderer_handle(inner);
+    }
+
+    void render(PhysicalSize size) const
+    {
+        cbindgen_private::slint_skia_renderer_render(inner, size);
+    }
+
+    void resize(PhysicalSize size) const
+    {
+        cbindgen_private::slint_skia_renderer_resize(inner, size);
+    }
+
+    void hide() const { cbindgen_private::slint_skia_renderer_hide(inner); }
+
+    void show(uint32_t /*xcb_window_t*/ window, uint32_t /*xcb_visualid_t*/ visual_id,
+              xcb_connection_t *connection, int screen, PhysicalSize size) const
+    {
+        cbindgen_private::slint_skia_renderer_show_x11(inner, window, visual_id, connection, screen,
+                                                       size);
+    }
+
+    void show(wl_surface *surface, wl_display *display, PhysicalSize size) const
+    {
+        cbindgen_private::slint_skia_renderer_show_wayland(inner, surface, display, size);
+    }
+
+    /// Windows handle
+    void show(void *HWND, void *hinstance, PhysicalSize size) const
+    {
+        cbindgen_private::slint_skia_renderer_show_win32(inner, HWND, hinstance, size);
     }
 };
 
