@@ -49,7 +49,7 @@ unicode-segmentation = { version = "1.8.0" }
 glutin = { version = "0.30", default-features = false, features = ["egl", "wgl"] }
 
 [target.'cfg(target_family = "windows")'.dependencies]
-winapi = { version = "0.3", features = ["dwrite", "d3d12", "dxgi", "dxgi1_2", "dxgi1_3", "dxgi1_4", "d3d12sdklayers", "synchapi"] }
+winapi = { version = "0.3", features = ["dwrite", "d3d12", "dxgi", "dxgi1_2", "dxgi1_3", "dxgi1_4", "d3d12sdklayers", "synchapi", "winbase"] }
 skia-safe = { version = "0.57", features = ["d3d"] }
 wio = { version = "0.2.2" }
 
