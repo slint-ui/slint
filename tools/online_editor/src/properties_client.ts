@@ -30,7 +30,7 @@ export async function change_property(
 ): Promise<SetBindingResponse> {
     if (client != null) {
         return await client.sendRequest(ExecuteCommandRequest.type, {
-            command: "setBinding",
+            command: "slint/setBinding",
             arguments: [
                 doc,
                 element_range,
@@ -51,7 +51,7 @@ export async function remove_binding(
 ): Promise<boolean> {
     if (client != null) {
         return await client.sendRequest(ExecuteCommandRequest.type, {
-            command: "removeBinding",
+            command: "slint/removeBinding",
             arguments: [doc, element_range, property_name],
         } as ExecuteCommandParams);
     }
@@ -65,7 +65,7 @@ export async function query_properties(
 ): Promise<PropertyQuery> {
     if (client != null) {
         return client.sendRequest(ExecuteCommandRequest.type, {
-            command: "queryProperties",
+            command: "slint/queryProperties",
             arguments: [{ uri: uri.toString() }, position],
         } as ExecuteCommandParams);
     }

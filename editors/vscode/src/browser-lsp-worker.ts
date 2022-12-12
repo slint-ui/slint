@@ -53,7 +53,7 @@ slint_init(slint_wasm_data).then((_) => {
     connection.onRequest(async (method, params, token) => {
         if (
             method === "workspace/executeCommand" &&
-            (params as ExecuteCommandParams).command === "showPreview"
+            (params as ExecuteCommandParams).command === "slint/showPreview"
         ) {
             // forward back to the client so it can send the command to the webview
             return await connection.sendRequest(

@@ -138,10 +138,10 @@ impl Drop for ProgressReporter {
     }
 }
 
-const QUERY_PROPERTIES_COMMAND: &str = "queryProperties";
-const REMOVE_BINDING_COMMAND: &str = "removeBinding";
-const SHOW_PREVIEW_COMMAND: &str = "showPreview";
-const SET_BINDING_COMMAND: &str = "setBinding";
+const QUERY_PROPERTIES_COMMAND: &str = "slint/queryProperties";
+const REMOVE_BINDING_COMMAND: &str = "slint/removeBinding";
+const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
+const SET_BINDING_COMMAND: &str = "slint/setBinding";
 
 fn command_list() -> Vec<String> {
     let mut result = vec![];
