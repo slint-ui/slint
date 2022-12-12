@@ -17,14 +17,7 @@ thread_local! {
     static FONTS: RefCell<Vec<&'static BitmapFont>> = RefCell::default()
 }
 
-trait FontMetrics {
-    fn ascent(&self, font: &BitmapFont) -> PhysicalLength;
-    fn descent(&self, font: &BitmapFont) -> PhysicalLength;
-    fn height(&self, font: &BitmapFont) -> PhysicalLength;
-    fn pixel_size(&self) -> PhysicalLength;
-}
-
-impl FontMetrics for BitmapGlyphs {
+impl BitmapGlyphs {
     fn ascent(&self, font: &BitmapFont) -> PhysicalLength {
         (PhysicalLength::new(self.pixel_size).cast() * font.ascent / font.units_per_em).cast()
     }
