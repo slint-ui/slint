@@ -21,7 +21,7 @@ path = "lib.rs"
 [features]
 wayland = ["glutin/wayland"]
 x11 = ["glutin/x11"]
-opengl = ["skia-safe/gl", "glow"]
+opengl = ["skia-safe/gl"]
 default = []
 
 [dependencies]
@@ -43,7 +43,7 @@ instant = "0.1"
 raw-window-handle = { version = "0.5", features = ["alloc"] }
 
 skia-safe = { version = "0.56.1", features = ["textlayout"] }
-glow = { version = "0.11", optional = true }
+glow = { version = "0.11" }
 unicode-segmentation = { version = "1.8.0" }
 
 glutin = { version = "0.30", default-features = false, features = ["egl", "wgl"] }
