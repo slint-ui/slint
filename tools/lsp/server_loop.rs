@@ -966,6 +966,7 @@ fn get_document_symbols(
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<DocumentSymbolResponse> {
     let uri = &text_document.uri;
+    let offset_mapper = document_cache.offset_to_position_mapper(&uri).ok()?;
     let doc = document_cache.documents.get_document(&uri.to_file_path().ok()?)?;
 
     // DocumentSymbol doesn't implement default and some field depends on features or are deprecated
@@ -976,14 +977,13 @@ fn get_document_symbols(
 
     let inner_components = doc.inner_components.clone();
     let inner_structs = doc.inner_structs.clone();
-    let mut make_range = document_cache.offset_to_position_mapper(uri).ok()?;
 
     let mut r = inner_components
         .iter()
         .filter_map(|c| {
             Some(DocumentSymbol {
-                range: make_range.map_range(c.root_element.borrow().node.as_ref()?.text_range()),
-                selection_range: make_range.map_range(
+                range: offset_mapper.map_range(c.root_element.borrow().node.as_ref()?.text_range()),
+                selection_range: offset_mapper.map_range(
                     c.root_element.borrow().node.as_ref()?.QualifiedName().as_ref()?.text_range(),
                 ),
                 name: c.id.clone(),
@@ -992,7 +992,7 @@ fn get_document_symbols(
                 } else {
                     lsp_types::SymbolKind::CLASS
                 },
-                children: gen_children(&c.root_element, &ds, &mut make_range),
+                children: gen_children(&c.root_element, &ds, &offset_mapper),
                 ..ds.clone()
             })
         })
@@ -1000,8 +1000,8 @@ fn get_document_symbols(
 
     r.extend(inner_structs.iter().filter_map(|c| match c {
         Type::Struct { name: Some(name), node: Some(node), .. } => Some(DocumentSymbol {
-            range: make_range.map_range(node.parent().as_ref()?.text_range()),
-            selection_range: make_range.map_range(node.text_range()),
+            range: offset_mapper.map_range(node.parent().as_ref()?.text_range()),
+            selection_range: offset_mapper.map_range(node.text_range()),
             name: name.clone(),
             kind: lsp_types::SymbolKind::STRUCT,
             ..ds.clone()
@@ -1012,7 +1012,7 @@ fn get_document_symbols(
     fn gen_children(
         elem: &ElementRc,
         ds: &DocumentSymbol,
-        make_range: &mut OffsetToPositionMapper,
+        offset_mapper: &OffsetToPositionMapper,
     ) -> Option<Vec<DocumentSymbol>> {
         let r = elem
             .borrow()
@@ -1021,19 +1021,29 @@ fn get_document_symbols(
             .filter_map(|child| {
                 let e = child.borrow();
                 Some(DocumentSymbol {
-                    range: make_range.map_range(e.node.as_ref()?.text_range()),
-                    selection_range: make_range
+                    range: offset_mapper.map_range(e.node.as_ref()?.text_range()),
+                    selection_range: offset_mapper
                         .map_range(e.node.as_ref()?.QualifiedName().as_ref()?.text_range()),
                     name: e.base_type.to_string(),
                     detail: (!e.id.is_empty()).then(|| e.id.clone()),
                     kind: lsp_types::SymbolKind::VARIABLE,
-                    children: gen_children(child, ds, make_range),
+                    children: gen_children(child, ds, offset_mapper),
                     ..ds.clone()
                 })
             })
             .collect::<Vec<_>>();
         (!r.is_empty()).then(|| r)
     }
+
+    r.sort_by(|a, b| {
+        if a.range.start.line.cmp(&b.range.start.line) == std::cmp::Ordering::Less {
+            std::cmp::Ordering::Less
+        } else if a.range.start.line.cmp(&b.range.start.line) == std::cmp::Ordering::Equal {
+            a.range.start.character.cmp(&b.range.start.character)
+        } else {
+            std::cmp::Ordering::Greater
+        }
+    });
 
     Some(r.into())
 }
