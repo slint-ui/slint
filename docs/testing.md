@@ -114,7 +114,7 @@ To generate references images for all test files in `tests/screenshots/cases` ru
 SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots
 ```
 
-To start the tests run:
+To start the tests run and compare images:
 
 ```
 cargo test -p test-driver-screenshots
