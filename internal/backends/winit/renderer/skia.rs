@@ -14,7 +14,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
     const NAME: &'static str = "Skia";
 
     fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
-        Self { renderer: i_slint_renderer_skia::SkiaRenderer::new(window_adapter_weak) }
+        Self { renderer: i_slint_renderer_skia::SkiaRenderer::new(window_adapter_weak.clone()) }
     }
 
     fn show(&self, window: &Rc<winit::window::Window>) {
