@@ -85,7 +85,7 @@ fn source_file(element: &Element) -> Option<String> {
 
 fn add_element_properties(
     element: &Element,
-    offset_to_position: &mut OffsetToPositionMapper,
+    offset_to_position: &OffsetToPositionMapper,
     group: &str,
     is_local_element: bool,
     result: &mut Vec<PropertyInformation>,
@@ -105,7 +105,7 @@ fn add_element_properties(
         }
         let type_node = value.type_node()?; // skip fake and materialized properties
         let declared_at = file.as_ref().map(|file| {
-            let start_position = offset_to_position.map(type_node.text_range().start().into());
+            let start_position = offset_to_position.map(type_node.text_range().start());
             let uri = lsp_types::Url::from_file_path(file).unwrap_or_else(|_| {
                 lsp_types::Url::parse("file:///)").expect("That should have been valid as URL!")
             });
@@ -287,7 +287,7 @@ fn right_extend(token: rowan::SyntaxToken<Language>) -> rowan::TextSize {
 fn find_expression_range(
     element: &syntax_nodes::Element,
     offset: u32,
-    offset_to_position: &mut OffsetToPositionMapper,
+    offset_to_position: &OffsetToPositionMapper,
 ) -> Option<DefinitionInformation> {
     let mut property_definition_range = rowan::TextRange::default();
     let mut expression_range = rowan::TextRange::default();
@@ -324,22 +324,18 @@ fn find_expression_range(
             }
         }
     }
-    if let Some(expression_value) = expression_value {
-        Some(DefinitionInformation {
-            property_definition_range: offset_to_position.map_range(property_definition_range)?,
-            delete_range: offset_to_position.map_range(delete_range)?,
-            expression_range: offset_to_position.map_range(expression_range)?,
-            expression_value,
-        })
-    } else {
-        None
-    }
+    expression_value.map(|e| DefinitionInformation {
+        property_definition_range: offset_to_position.map_range(property_definition_range),
+        delete_range: offset_to_position.map_range(delete_range),
+        expression_range: offset_to_position.map_range(expression_range),
+        expression_value: e,
+    })
 }
 
 fn insert_property_definitions(
     element: &Element,
     properties: &mut Vec<PropertyInformation>,
-    offset_to_position: &mut OffsetToPositionMapper,
+    offset_to_position: &OffsetToPositionMapper,
 ) {
     if let Some(element_node) = element.node.as_ref() {
         let element_range = element_node.text_range();
@@ -366,7 +362,7 @@ fn insert_property_definitions(
 
 fn get_properties(
     element: &ElementRc,
-    offset_to_position: &mut OffsetToPositionMapper,
+    offset_to_position: &OffsetToPositionMapper,
 ) -> Vec<PropertyInformation> {
     let mut result = Vec::new();
     add_element_properties(&element.borrow(), offset_to_position, "", true, &mut result);
@@ -526,7 +522,7 @@ fn find_block(token: Option<i_slint_compiler::parser::SyntaxToken>) -> Option<(u
 
 fn get_element_information(
     element: &ElementRc,
-    offset_to_position: &mut OffsetToPositionMapper,
+    offset_to_position: &OffsetToPositionMapper,
 ) -> ElementInformation {
     let e = element.borrow();
     let node = e.node.as_ref();
@@ -537,8 +533,8 @@ fn get_element_information(
             .and_then(|br| {
                 if br.0 > r.0 && br.1 < r.1 {
                     Some(lsp_types::Range::new(
-                        offset_to_position.map(br.0),
-                        offset_to_position.map(br.1),
+                        offset_to_position.map_u32(br.0),
+                        offset_to_position.map_u32(br.1),
                     ))
                 } else {
                     None
@@ -550,7 +546,7 @@ fn get_element_information(
         id: e.id.clone(),
         type_name: format!("{}", e.base_type),
         range: range.map(|r| {
-            lsp_types::Range::new(offset_to_position.map(r.0), offset_to_position.map(r.1))
+            lsp_types::Range::new(offset_to_position.map_u32(r.0), offset_to_position.map_u32(r.1))
         }),
         block_range,
     }
@@ -562,11 +558,11 @@ pub(crate) fn query_properties<'a>(
     source_version: i32,
     element: &ElementRc,
 ) -> Result<QueryPropertyResponse, crate::Error> {
-    let mut mapper = document_cache.offset_to_position_mapper(uri);
+    let mapper = document_cache.offset_to_position_mapper(uri)?;
 
     Ok(QueryPropertyResponse {
-        properties: get_properties(&element, &mut mapper),
-        element: Some(get_element_information(&element, &mut mapper)),
+        properties: get_properties(&element, &mapper),
+        element: Some(get_element_information(&element, &mapper)),
         source_uri: uri.to_string(),
         source_version,
     })
@@ -813,8 +809,8 @@ pub(crate) fn set_binding<'a>(
         }
     };
 
-    let mut offset_mapper = document_cache.offset_to_position_mapper(uri);
-    let properties = get_properties(element, &mut offset_mapper);
+    let offset_mapper = document_cache.offset_to_position_mapper(uri)?;
+    let properties = get_properties(element, &offset_mapper);
     let property = match get_property_information(&properties, property_name) {
         Ok(p) => p,
         Err(e) => {
@@ -842,7 +838,7 @@ pub(crate) fn set_binding<'a>(
         // Change an already defined property:
         set_binding_on_existing_property(document_cache, uri, &property, new_expression, &mut diag)
     } else {
-        let element_info = get_element_information(&element, &mut offset_mapper);
+        let element_info = get_element_information(&element, &offset_mapper);
         // Add a new definition to a known property:
         set_binding_on_known_property(
             document_cache,
@@ -884,8 +880,8 @@ pub(crate) fn remove_binding<'a>(
     element: &ElementRc,
     property_name: &str,
 ) -> Result<WorkspaceEdit, Error> {
-    let properties =
-        get_properties(element, &mut &mut document_cache.offset_to_position_mapper(uri));
+    let offset_mapper = document_cache.offset_to_position_mapper(uri)?;
+    let properties = get_properties(element, &offset_mapper);
     let property = get_property_information(&properties, property_name)?;
 
     let workspace_edit = create_workspace_edit_for_remove_binding(
@@ -923,7 +919,7 @@ mod tests {
     ) -> Option<(ElementRc, Vec<PropertyInformation>)> {
         let element =
             server_loop::element_at_position(dc, &url, &lsp_types::Position { line, character })?;
-        Some((element.clone(), get_properties(&element, &mut dc.offset_to_position_mapper(url))))
+        Some((element.clone(), get_properties(&element, &dc.offset_to_position_mapper(url).ok()?)))
     }
 
     fn properties_at_position(
@@ -974,7 +970,7 @@ mod tests {
                 .unwrap();
 
         let result =
-            get_element_information(&element, &mut &mut dc.offset_to_position_mapper(&url));
+            get_element_information(&element, &dc.offset_to_position_mapper(&url).unwrap());
 
         let r = result.range.unwrap();
         assert_eq!(r.start.line, 32);

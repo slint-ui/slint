@@ -201,7 +201,7 @@ fn goto_node(
     let path = node.source_file.path();
     let target_uri = Url::from_file_path(path).ok()?;
     let offset = node.span().offset as u32;
-    let pos = document_cache.byte_offset_to_position(offset, &target_uri)?;
+    let pos = document_cache.offset_to_position_mapper(&target_uri).ok()?.map_u32(offset);
     let range = Range::new(pos, pos);
     Some(GotoDefinitionResponse::Link(vec![LocationLink {
         origin_selection_range: None,

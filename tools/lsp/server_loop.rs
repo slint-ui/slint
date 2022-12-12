@@ -162,7 +162,7 @@ fn create_show_preview_command(pretty: bool, file: &str, component_name: &str) -
 
 pub struct DocumentCache {
     pub(crate) documents: TypeLoader,
-    newline_offsets: HashMap<Url, Vec<u32>>,
+    newline_offsets: HashMap<Url, Rc<Vec<u32>>>,
     versions: HashMap<Url, i32>,
 }
 
@@ -189,58 +189,51 @@ impl DocumentCache {
         self.versions.get(target_uri).cloned()
     }
 
-    pub fn byte_offset_to_position(
-        &mut self,
-        offset: u32,
-        target_uri: &lsp_types::Url,
-    ) -> Option<lsp_types::Position> {
-        let newline_offsets = match self.newline_offsets.entry(target_uri.clone()) {
+    fn newline_offsets_of_url(&mut self, uri: &lsp_types::Url) -> Option<Rc<Vec<u32>>> {
+        let newline_offsets = match self.newline_offsets.entry(uri.clone()) {
             std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
             std::collections::hash_map::Entry::Vacant(e) => {
-                let path = target_uri.to_file_path().ok()?;
+                let path = uri.to_file_path().ok()?;
                 let content =
                     self.documents.get_document(&path)?.node.as_ref()?.source_file()?.source()?;
-                e.insert(Self::newline_offsets_from_content(content))
+                e.insert(Rc::new(Self::newline_offsets_from_content(content)))
             }
         };
+        Some(newline_offsets.clone())
+    }
 
-        let pos = newline_offsets.binary_search(&offset).map_or_else(
+    pub fn offset_to_position_mapper(
+        &mut self,
+        uri: &lsp_types::Url,
+    ) -> Result<OffsetToPositionMapper, Error> {
+        self.newline_offsets_of_url(uri)
+            .map(|no| OffsetToPositionMapper(no))
+            .ok_or_else(|| Into::<Error>::into("Document not found in cache"))
+    }
+}
+
+pub struct OffsetToPositionMapper(Rc<Vec<u32>>);
+
+impl OffsetToPositionMapper {
+    pub fn map_u32(&self, offset: u32) -> lsp_types::Position {
+        self.0.binary_search(&offset).map_or_else(
             |line| {
                 if line == 0 {
                     Position::new(0, offset)
                 } else {
-                    Position::new(
-                        line as u32 - 1,
-                        newline_offsets.get(line - 1).map_or(0, |x| offset - *x),
-                    )
+                    Position::new(line as u32 - 1, self.0.get(line - 1).map_or(0, |x| offset - *x))
                 }
             },
             |line| Position::new(line as u32, 0),
-        );
-        Some(pos)
-    }
-
-    pub fn offset_to_position_mapper<'a>(
-        &'a mut self,
-        uri: &'a lsp_types::Url,
-    ) -> OffsetToPositionMapper {
-        OffsetToPositionMapper(self, uri)
-    }
-}
-
-pub struct OffsetToPositionMapper<'a>(&'a mut DocumentCache, &'a lsp_types::Url);
-
-impl OffsetToPositionMapper<'_> {
-    pub fn map(&mut self, offset: u32) -> lsp_types::Position {
-        self.0.byte_offset_to_position(offset, self.1).expect("invalid offset")
-    }
-
-    pub fn map_range(&mut self, r: rowan::TextRange) -> Option<lsp_types::Range> {
-        lsp_types::Range::new(
-            self.0.byte_offset_to_position(r.start().into(), self.1)?,
-            self.0.byte_offset_to_position(r.end().into(), self.1)?,
         )
-        .into()
+    }
+
+    pub fn map(&self, s: rowan::TextSize) -> lsp_types::Position {
+        self.map_u32(s.into())
+    }
+
+    pub fn map_range(&self, r: rowan::TextRange) -> lsp_types::Range {
+        lsp_types::Range::new(self.map(r.start()), self.map(r.end()))
     }
 }
 
@@ -462,6 +455,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         {
             let document_cache = &mut _ctx.document_cache.borrow_mut();
             let uri = _params.text_document_position_params.text_document.uri;
+            let offset_mapper = document_cache.offset_to_position_mapper(&uri)?;
             if let Some((tk, off)) =
                 token_descr(document_cache, &uri, &_params.text_document_position_params.position)
             {
@@ -470,11 +464,8 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
                 {
                     crate::preview::highlight(uri.to_file_path().ok(), off);
-                    let range =
-                        document_cache.offset_to_position_mapper(&uri).map_range(p.text_range());
-                    return Ok(
-                        range.map(|range| vec![lsp_types::DocumentHighlight { range, kind: None }])
-                    );
+                    let range = offset_mapper.map_range(p.text_range());
+                    return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
                 }
             }
             crate::preview::highlight(None, 0);
@@ -605,7 +596,7 @@ pub async fn set_binding_command(
             .text_range();
 
         let (start, end) = {
-            let mut offset_to_position = document_cache.offset_to_position_mapper(&uri);
+            let offset_to_position = document_cache.offset_to_position_mapper(&uri)?;
             (
                 offset_to_position.map(node_range.start().into()),
                 offset_to_position.map(node_range.end().into()),
@@ -669,6 +660,8 @@ pub async fn remove_binding_command(
     let edit = {
         let document_cache = &mut ctx.document_cache.borrow_mut();
         let uri = text_document.uri;
+        let offset_mapper = document_cache.offset_to_position_mapper(&uri)?;
+
         if let Some(source_version) = text_document.version {
             if let Some(current_version) = document_cache.document_version(&uri) {
                 if current_version != source_version {
@@ -695,25 +688,19 @@ pub async fn remove_binding_command(
             .ok_or_else(|| "The element was found, but had no range defined!")?
             .text_range();
 
-        let (start, end) = {
-            let mut offset_to_position = document_cache.offset_to_position_mapper(&uri);
-            (
-                offset_to_position.map(node_range.start().into()),
-                offset_to_position.map(node_range.end().into()),
-            )
-        };
+        let node_range = offset_mapper.map_range(node_range);
 
-        if start != element_range.start {
+        if node_range.start != element_range.start {
             return Err(format!(
-                "Element found, but does not start at the expected place (){start:?} != {:?}).",
-                element_range.start
+                "Element found, but does not start at the expected place (){:?} != {:?}).",
+                node_range.start, element_range.start
             )
             .into());
         }
-        if end != element_range.end {
+        if node_range.end != element_range.end {
             return Err(format!(
-                "Element found, but does not end at the expected place (){end:?} != {:?}).",
-                element_range.end
+                "Element found, but does not end at the expected place (){:?} != {:?}).",
+                node_range.end, element_range.end
             )
             .into());
         }
@@ -788,7 +775,7 @@ pub async fn reload_document_impl(
     version: i32,
     document_cache: &mut DocumentCache,
 ) -> Result<HashMap<Url, Vec<lsp_types::Diagnostic>>, Error> {
-    let newline_offsets = DocumentCache::newline_offsets_from_content(&content);
+    let newline_offsets = Rc::new(DocumentCache::newline_offsets_from_content(&content));
     document_cache.newline_offsets.insert(uri.clone(), newline_offsets);
     document_cache.versions.insert(uri.clone(), version);
 
@@ -950,17 +937,18 @@ fn get_document_color(
 ) -> Option<Vec<ColorInformation>> {
     let mut result = Vec::new();
     let uri = &text_document.uri;
+    let offset_mapper = document_cache.offset_to_position_mapper(&uri).ok()?;
     let doc = document_cache.documents.get_document(&uri.to_file_path().ok()?)?;
     let root_node = &doc.node.as_ref()?.node;
     let mut token = root_node.first_token()?;
     loop {
         if token.kind() == SyntaxKind::ColorLiteral {
             (|| -> Option<()> {
-                let range = token.text_range();
+                let range = offset_mapper.map_range(token.text_range());
                 let col = i_slint_compiler::literals::parse_color_literal(token.text())?;
                 let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
                 result.push(ColorInformation {
-                    range: document_cache.offset_to_position_mapper(uri).map_range(range)?,
+                    range,
                     color: Color {
                         alpha: shift(24),
                         red: shift(16),
@@ -993,16 +981,16 @@ fn get_document_symbols(
 
     let inner_components = doc.inner_components.clone();
     let inner_structs = doc.inner_structs.clone();
-    let mut make_range = document_cache.offset_to_position_mapper(uri);
+    let mut make_range = document_cache.offset_to_position_mapper(uri).ok()?;
 
     let mut r = inner_components
         .iter()
         .filter_map(|c| {
             Some(DocumentSymbol {
-                range: make_range.map_range(c.root_element.borrow().node.as_ref()?.text_range())?,
+                range: make_range.map_range(c.root_element.borrow().node.as_ref()?.text_range()),
                 selection_range: make_range.map_range(
                     c.root_element.borrow().node.as_ref()?.QualifiedName().as_ref()?.text_range(),
-                )?,
+                ),
                 name: c.id.clone(),
                 kind: if c.is_global() {
                     lsp_types::SymbolKind::OBJECT
@@ -1017,8 +1005,8 @@ fn get_document_symbols(
 
     r.extend(inner_structs.iter().filter_map(|c| match c {
         Type::Struct { name: Some(name), node: Some(node), .. } => Some(DocumentSymbol {
-            range: make_range.map_range(node.parent().as_ref()?.text_range())?,
-            selection_range: make_range.map_range(node.text_range())?,
+            range: make_range.map_range(node.parent().as_ref()?.text_range()),
+            selection_range: make_range.map_range(node.text_range()),
             name: name.clone(),
             kind: lsp_types::SymbolKind::STRUCT,
             ..ds.clone()
@@ -1038,9 +1026,9 @@ fn get_document_symbols(
             .filter_map(|child| {
                 let e = child.borrow();
                 Some(DocumentSymbol {
-                    range: make_range.map_range(e.node.as_ref()?.text_range())?,
+                    range: make_range.map_range(e.node.as_ref()?.text_range()),
                     selection_range: make_range
-                        .map_range(e.node.as_ref()?.QualifiedName().as_ref()?.text_range())?,
+                        .map_range(e.node.as_ref()?.QualifiedName().as_ref()?.text_range()),
                     name: e.base_type.to_string(),
                     detail: (!e.id.is_empty()).then(|| e.id.clone()),
                     kind: lsp_types::SymbolKind::VARIABLE,
@@ -1061,6 +1049,7 @@ fn get_code_lenses(
 ) -> Option<Vec<CodeLens>> {
     if cfg!(feature = "preview-lense") {
         let uri = &text_document.uri;
+        let offset_mapper = document_cache.offset_to_position_mapper(&uri).ok()?;
         let filepath = uri.to_file_path().ok()?;
         let doc = document_cache.documents.get_document(&filepath)?;
 
@@ -1071,9 +1060,7 @@ fn get_code_lenses(
         // Handle preview lense
         r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
-                range: document_cache
-                    .offset_to_position_mapper(uri)
-                    .map_range(c.root_element.borrow().node.as_ref()?.text_range())?,
+                range: offset_mapper.map_range(c.root_element.borrow().node.as_ref()?.text_range()),
                 command: Some(create_show_preview_command(true, filepath.to_str()?, c.id.as_str())),
                 data: None,
             })
@@ -1161,22 +1148,13 @@ mod tests {
             "Thiß is not valid!\n and more...".into(),
         );
 
-        assert_eq!(
-            dc.byte_offset_to_position(0, &url),
-            Some(lsp_types::Position { line: 0, character: 0 })
-        );
-        assert_eq!(
-            dc.byte_offset_to_position(4, &url),
-            Some(lsp_types::Position { line: 0, character: 4 })
-        );
-        assert_eq!(
-            dc.byte_offset_to_position(5, &url),
-            Some(lsp_types::Position { line: 0, character: 5 })
-        ); // TODO: Figure out whether this is actually correct...
-        assert_eq!(
-            dc.byte_offset_to_position(1024, &url),
-            Some(lsp_types::Position { line: 1, character: 1004 })
-        ); // TODO: This is nonsense!
+        let mapper = dc.offset_to_position_mapper(&url).unwrap();
+
+        assert_eq!(mapper.map_u32(0), lsp_types::Position { line: 0, character: 0 });
+        assert_eq!(mapper.map_u32(4), lsp_types::Position { line: 0, character: 4 });
+        assert_eq!(mapper.map_u32(5), lsp_types::Position { line: 0, character: 5 }); // TODO: Figure out whether this is actually correct...
+        assert_eq!(mapper.map_u32(1024), lsp_types::Position { line: 1, character: 1004 });
+        // TODO: This is nonsense!
     }
 
     #[test]
