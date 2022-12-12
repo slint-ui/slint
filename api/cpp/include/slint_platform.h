@@ -34,7 +34,10 @@ concept Renderer = requires(R r)
 class AbstractWindowAdapter
 {
 public:
-    virtual ~AbstractWindowAdapter() { }
+    virtual ~AbstractWindowAdapter() = default;
+    AbstractWindowAdapter(const AbstractWindowAdapter &) = delete;
+    AbstractWindowAdapter &operator=(const AbstractWindowAdapter &) = delete;
+    AbstractWindowAdapter() = default;
 
     /// This function is called by Slint when the slint window is shown.
     ///
@@ -98,9 +101,6 @@ public:
     explicit WindowAdapter(Args... a) : m_renderer(std::forward<Args>(a)...)
     {
     }
-    virtual ~WindowAdapter() = default;
-    WindowAdapter(const WindowAdapter &) = delete;
-    WindowAdapter &operator=(const WindowAdapter &) = delete;
 
     /// Return a reference to the renderer that can be used to do the rendering.
     const R &renderer() const { return m_renderer; }
