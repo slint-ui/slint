@@ -1,0 +1,220 @@
+
+import { LineEditInner } from "../common/common.slint";
+import { Palette, ScrollView } from "std-widgets-impl.slint";
+
+export TableViewColumn := Rectangle {
+    callback clicked <=> touch-area.clicked;
+
+    in property <bool> ascending;
+    in property <bool> descending;
+    
+    touch-area := TouchArea {}
+
+    HorizontalLayout {  
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 2px;
+
+        HorizontalLayout { 
+            @children
+        }
+
+        Path {
+            opacity: ascending || descending ? 1.0 : 0.0;
+            width: 12px;
+            height: 12px;
+            y: (parent.height - height) / 2;
+            commands: ascending ? 
+                "M6 10.5C6.27614 10.5 6.5 10.2761 6.5 10V3.20711L9.14645 5.85355C9.34171 6.04882 9.65829 6.04882 9.85355 5.85355C10.0488 5.65829 10.0488 5.34171 9.85355 5.14645L6.35355 1.64645C6.15829 1.45118 5.84171 1.45118 5.64645 1.64645L2.14645 5.14645C1.95118 5.34171 1.95118 5.65829 2.14645 5.85355C2.34171 6.04882 2.65829 6.04882 2.85355 5.85355L5.5 3.20711V10C5.5 10.2761 5.72386 10.5 6 10.5Z" :
+                "M6 1.5C6.27614 1.5 6.5 1.72386 6.5 2V8.79289L9.14645 6.14645C9.34171 5.95118 9.65829 5.95118 9.85355 6.14645C10.0488 6.34171 10.0488 6.65829 9.85355 6.85355L6.35355 10.3536C6.15829 10.5488 5.84171 10.5488 5.64645 10.3536L2.14645 6.85355C1.95118 6.65829 1.95118 6.34171 2.14645 6.14645C2.34171 5.95118 2.65829 5.95118 2.85355 6.14645L5.5 8.79289V2C5.5 1.72386 5.72386 1.5 6 1.5Z";
+            fill: Palette.neutralDark;
+        }
+    }
+
+    // border
+    Rectangle {  
+        y: parent.height - height;
+        width: 100%;
+        height: 1px;
+        background: Palette.neutralPrimaryAlt;
+    }
+   
+    states [
+        pressed when touch-area.pressed : {
+            background: Palette.neutralLight;
+        }
+        hover when touch-area.has-hover : {
+            background: Palette.neutralLighter;
+        }
+    ]
+}
+
+export TableViewCell := Rectangle {
+    clip: true;
+
+    HorizontalLayout {  
+        padding-left: 16px;
+        padding-right: 16px;
+
+        @children
+    }
+
+    // border
+    Rectangle {  
+        y: parent.height - height;
+        width: 100%;
+        height: 1px;
+        background: Palette.neutralPrimaryAlt;
+    }
+}
+
+export TableViewRow := Rectangle {
+    min-height: 42px;
+
+    touch-area := TouchArea {}
+
+    HorizontalLayout {  
+       @children
+    }
+
+    states [
+        hover when touch-area.has-hover : {
+            background: Palette.neutralLighter;
+        }
+    ]
+}
+
+export StandardTableView := Rectangle {
+    callback column-clicked(int);
+    
+    in-out property <[TableColumn]> columns;
+    in property <[StandardTableRow]> rows;
+    in property <length> min-header-height: 42px;
+   
+    min-width: 400px;
+    min-height: 200px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    VerticalLayout {  
+        HorizontalLayout {  
+            padding-right: 20px;
+            min-height: root.min-header-height;
+            vertical-stretch: 0;
+            for column[index] in columns : TableViewColumn {
+                ascending: column.sort-by-ascending;
+                descending: column.sort-by-descending;
+                min-width: column.min-width;
+                horizontal-stretch: column.horizontal-stretch;
+
+                Text {  
+                    vertical-alignment: center;
+                    horizontal-stretch: column.horizontal-stretch;
+                    min-width: column.min-width;
+                    text: column.title;
+                    font-weight: 900;
+                }
+                
+                clicked => {  
+                    column_clicked(index);
+                }
+            }
+        }
+
+        scroll-view := ScrollView {  
+            border-width: 0;
+            vertical-stretch: 1;
+
+            VerticalLayout {  
+                alignment: start;
+
+                for row in rows : TableViewRow {
+                    for cell[index] in row.items : TableViewCell {
+                        private property <bool> has_inner_focus;
+                        horizontal-stretch: columns[index].horizontal-stretch;
+                        min-width: columns[index].min-width;
+
+                        Rectangle {  
+                            // height: 100%;
+                            line-edit := LineEditInner {
+                                opacity: has-focus ? 1.0 : 0.0;
+                                visible: cell.editable;
+                                text: cell.text;
+                                edited => {  
+                                    cell.text = text;
+                                }
+                            }
+    
+                            if(!cell.editable || !line-edit.has-focus) : Text {
+                                width: 100%;
+                                height: 100%;
+                                overflow: elide;
+                                vertical-alignment: center;
+                                text: cell.text;
+                            }
+                        }
+                    }
+                }
+            }
+           
+        } 
+    }
+}
+
+TableViewTest := Window {
+
+    property <StandardTableRow> first-row: {
+        items: [
+           { editable: true, text: "Item 1" },
+           { text: "Item 2" },
+           { text: "Item 3" },
+           { text: "Item 4" },
+        ]
+    };
+
+    property <StandardTableRow> second-row: {
+        items: [
+            { editable: true, text: "Item 1" },
+           { text: "Item 2" },
+           { text: "Item 3" },
+           { text: "Item 4" },
+        ]
+    };
+
+    property <StandardTableRow> third-row: {
+        items: [
+            { editable: true, text: "Item 1" },
+           { text: "Item 2" },
+           { text: "Item 3" },
+           { text: "Item 4" },
+        ]
+    };
+
+    property <StandardTableRow> foured-row: {
+        items: [
+            { editable: true, text: "Item 1" },
+           { text: "Item 2" },
+           { text: "Item 3" },
+           { text: "Item 4" },
+        ]
+    };
+   
+    VerticalLayout {  
+        padding: 16px;
+
+        StandardTableView {  
+            columns: [
+                { title: "Header 1" },
+                { title: "Header 2" },
+                { title: "Header 3" },
+                { title: "Header 4" },
+            ];
+            rows: [
+                first-row,
+                second-row,
+                third-row,
+                foured-row
+            ];
+        }
+    }
+}

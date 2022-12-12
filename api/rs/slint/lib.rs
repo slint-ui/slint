@@ -248,7 +248,7 @@ pub use i_slint_core::graphics::{
 };
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
-    SortModel, StandardListViewItem, VecModel,
+    SortModel, StandardListViewItem, TableColumn, VecModel,
 };
 pub use i_slint_core::sharedvector::SharedVector;
 pub use i_slint_core::timers::{Timer, TimerMode};

@@ -10,7 +10,7 @@ use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
-use crate::{Coord, Property, SharedString, SharedVector};
+use crate::{Coord, Property, SharedVector};
 pub use adapters::{FilterModel, MapModel, SortModel};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -1117,18 +1117,37 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 pub struct StandardListViewItem {
     /// The text content of the item
     pub text: crate::SharedString,
+
+    /// If set to `true` the text can be edited.
+    pub editable: bool,
 }
 
-impl From<&str> for StandardListViewItem {
-    fn from(other: &str) -> Self {
-        return Self { text: other.into() };
-    }
+/// Represent an StandardTableRow
+#[repr(C)]
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct StandardTableRow {
+    /// Contains a list of list items.
+    pub items: ModelRc<StandardListViewItem>,
 }
 
-impl From<SharedString> for StandardListViewItem {
-    fn from(other: SharedString) -> Self {
-        return Self { text: other };
-    }
+/// Represent an TableColumn header
+#[repr(C)]
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct TableColumn {
+    /// The title of the column header
+    pub title: crate::SharedString,
+
+    /// The minimum column width
+    pub min_width: f64,
+
+    /// The horizontal column stretch
+    pub horizontal_stretch: f32,
+
+    /// Sorts the column ascending
+    pub sort_by_ascending: bool,
+
+    /// Sorts the column descending
+    pub sort_by_descending: bool,
 }
 
 #[test]

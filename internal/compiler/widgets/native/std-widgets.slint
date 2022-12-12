@@ -260,3 +260,45 @@ export component GridBox inherits GridLayout {
     spacing: NativeStyleMetrics.layout-spacing;
     padding: NativeStyleMetrics.layout-spacing;
 }
+
+export StandardTableView := Rectangle {
+    callback column-clicked(int);
+    
+    in-out property <[TableColumn]> columns;
+    in property <[StandardTableRow]> rows;
+    in property <length> min-header-height: 42px;
+   
+    min-width: 400px;
+    min-height: 200px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    VerticalLayout {  
+        HorizontalLayout {  
+            for column in columns : NativeTableColumn {
+                item: column;
+            }
+        }
+
+        scroll-view := ScrollView {  
+            vertical-stretch: 1;
+
+            VerticalLayout {  
+                alignment: start;
+                
+                for row[i] in rows : HorizontalLayout {
+               
+                    for cell in row.items : NativeStandardListViewItem {
+                        item: cell;
+                        index: i;
+                       
+                        has-hover: ta.has-hover;
+                        ta := TouchArea {
+                           
+                        }
+                    }
+                }
+            }  
+        }
+    }
+}

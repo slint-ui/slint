@@ -1,0 +1,158 @@
+
+import { LineEditInner } from "../common/common.slint";
+import { ScrollView } from "std-widgets-impl.slint";
+import { StateLayer } from "comp-state-layer.slint";
+import { md } from "md.slint";
+
+export TableViewColumn := Rectangle {
+    callback clicked <=> state-layer.clicked;
+
+    in property <bool> ascending;
+    in property <bool> descending;
+    
+    state-layer := StateLayer {
+        background: md.sys.color.primary;
+        selection-background: md.sys.color.secondary-container; 
+        ripple-color: md.sys.color.primary-ripple;
+        has-ripple: true;
+    }
+
+    HorizontalLayout {  
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 4px;
+
+        HorizontalLayout {  
+            @children
+        }
+
+        Path {
+            opacity: ascending || descending ? 1.0 : 0.0;
+            width: 12px;
+            height: 12px;
+            y: (parent.height - height) / 2;
+            commands: ascending ? 
+                "M24 44 10 30l2.1-2.1 10.4 10.4V4h3v34.3l10.4-10.4L38 30Z" :
+                "M22.5 44V9.7L12.1 20.1 10 18 24 4l14 14-2.1 2.1L25.5 9.7V44Z";
+            fill: md.sys.color.on-surface;
+        }
+    }
+
+    // border
+    Rectangle {  
+        y: parent.height - height;
+        width: 100%;
+        height: 1px;
+        background: md.sys.color.outline;
+    }
+}
+
+export TableViewCell := Rectangle {
+    clip: true;
+
+    HorizontalLayout {  
+        padding-left: 16px;
+        padding-right: 16px;
+
+        @children
+    }
+
+    // border
+    Rectangle {  
+        y: parent.height - height;
+        width: 100%;
+        height: 1px;
+        background: md.sys.color.outline;
+    }
+}
+
+export TableViewRow := Rectangle {
+    min-height: 42px;
+
+    state-layer := StateLayer {
+        background: md.sys.color.primary;
+        selection-background: md.sys.color.secondary-container; 
+        ripple-color: md.sys.color.primary-ripple;
+        has-ripple: true;
+    }
+
+    HorizontalLayout {  
+       @children
+    }
+}
+
+export StandardTableView := Rectangle {
+    callback column-clicked(int);
+
+    in-out property <[TableColumn]> columns;
+    in property <[StandardTableRow]> rows;
+    in property <length> min-header-height: 42px;
+
+    min-width: 400px;
+    min-height: 200px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    VerticalLayout {  
+        HorizontalLayout {  
+            padding-right: 20px;
+            min-height: root.min-header-height;
+            vertical-stretch: 0;
+            for column[index] in columns : TableViewColumn {
+                ascending: column.sort-by-ascending;
+                descending: column.sort-by-descending;
+                min-width: column.min-width;
+                horizontal-stretch: column.horizontal-stretch;
+
+                Text {  
+                    vertical-alignment: center;
+                    horizontal-stretch: column.horizontal-stretch;
+                    min-width: column.min-width;
+                    text: column.title;
+                    font-weight: 900;
+                }
+
+                clicked => {  
+                    column-clicked(index);
+                }
+            }
+        }
+
+        scroll-view := ScrollView {  
+            border-width: 0;
+            vertical-stretch: 1;
+
+            VerticalLayout {  
+                alignment: start;
+
+                for row in rows : TableViewRow {
+                    for cell[index] in row.items : TableViewCell {
+                        private property <bool> has_inner_focus;
+                        horizontal-stretch: columns[index].horizontal-stretch;
+                        min-width: columns[index].min-width;
+
+                        Rectangle {  
+                            // height: 100%;
+                            line-edit := LineEditInner {
+                                opacity: has-focus ? 1.0 : 0.0;
+                                visible: cell.editable;
+                                text: cell.text;
+                                edited => {  
+                                    cell.text = text;
+                                }
+                            }
+    
+                            if(!cell.editable || !line-edit.has-focus) : Text {
+                                width: 100%;
+                                height: 100%;
+                                overflow: elide;
+                                vertical-alignment: center;
+                                text: cell.text;
+                            }
+                        }
+                    }
+                }
+            } 
+        } 
+    }
+}
