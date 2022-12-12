@@ -17,7 +17,7 @@ use crate::lengths::{
     RectLengths, ScaleFactor, SizeLengths,
 };
 use crate::renderer::Renderer;
-use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
+use crate::textlayout::{AbstractFont, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
@@ -27,6 +27,8 @@ use core::pin::Pin;
 use euclid::num::Zero;
 
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
+
+use self::fonts::GlyphRenderer;
 
 type PhysicalLength = euclid::Length<i16, PhysicalPx>;
 type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
@@ -297,6 +299,22 @@ impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> 
 
     fn register_bitmap_font(&self, font_data: &'static crate::graphics::BitmapFont) {
         fonts::register_bitmap_font(font_data);
+    }
+
+    #[cfg(feature = "systemfonts")]
+    fn register_font_from_memory(
+        &self,
+        data: &'static [u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self::fonts::systemfonts::register_font_from_memory(data)
+    }
+
+    #[cfg(feature = "systemfonts")]
+    fn register_font_from_path(
+        &self,
+        path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self::fonts::systemfonts::register_font_from_path(path)
     }
 
     fn default_font_size(&self) -> LogicalLength {
@@ -600,8 +618,22 @@ struct SceneTexture<'a> {
     alpha: u8,
 }
 
+enum SharedBufferData {
+    SharedImage(SharedImageBuffer),
+    AlphaMap { data: Rc<[u8]>, width: u16 },
+}
+
+impl SharedBufferData {
+    fn width(&self) -> usize {
+        match self {
+            SharedBufferData::SharedImage(image) => image.width() as usize,
+            SharedBufferData::AlphaMap { width, .. } => *width as usize,
+        }
+    }
+}
+
 struct SharedBufferCommand {
-    buffer: SharedImageBuffer,
+    buffer: SharedBufferData,
     /// The source rectangle that is mapped into this command span
     source_rect: PhysicalRect,
     colorize: Color,
@@ -610,11 +642,11 @@ struct SharedBufferCommand {
 
 impl SharedBufferCommand {
     fn as_texture(&self) -> SceneTexture<'_> {
-        let begin = self.buffer.width() as usize * self.source_rect.min_y() as usize
+        let begin = self.buffer.width() * self.source_rect.min_y() as usize
             + self.source_rect.min_x() as usize;
 
         match &self.buffer {
-            SharedImageBuffer::RGB8(b) => SceneTexture {
+            SharedBufferData::SharedImage(SharedImageBuffer::RGB8(b)) => SceneTexture {
                 data: &b.as_bytes()[begin * 3..],
                 stride: 3 * b.stride() as u16,
                 format: PixelFormat::Rgb,
@@ -622,7 +654,7 @@ impl SharedBufferCommand {
                 color: self.colorize,
                 alpha: self.alpha,
             },
-            SharedImageBuffer::RGBA8(b) => SceneTexture {
+            SharedBufferData::SharedImage(SharedImageBuffer::RGBA8(b)) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
                 stride: 4 * b.stride() as u16,
                 format: PixelFormat::Rgba,
@@ -630,10 +662,20 @@ impl SharedBufferCommand {
                 color: self.colorize,
                 alpha: self.alpha,
             },
-            SharedImageBuffer::RGBA8Premultiplied(b) => SceneTexture {
-                data: &b.as_bytes()[begin * 4..],
-                stride: 4 * b.stride() as u16,
-                format: PixelFormat::RgbaPremultiplied,
+            SharedBufferData::SharedImage(SharedImageBuffer::RGBA8Premultiplied(b)) => {
+                SceneTexture {
+                    data: &b.as_bytes()[begin * 4..],
+                    stride: 4 * b.stride() as u16,
+                    format: PixelFormat::RgbaPremultiplied,
+                    source_size: self.source_rect.size,
+                    color: self.colorize,
+                    alpha: self.alpha,
+                }
+            }
+            SharedBufferData::AlphaMap { data, width } => SceneTexture {
+                data: &data[begin * 4..],
+                stride: *width,
+                format: PixelFormat::AlphaMap,
                 source_size: self.source_rect.size,
                 color: self.colorize,
                 alpha: self.alpha,
@@ -985,7 +1027,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         self.processor.process_shared_image_buffer(
                             target_rect.cast(),
                             SharedBufferCommand {
-                                buffer,
+                                buffer: SharedBufferData::SharedImage(buffer),
                                 source_rect: clipped_relative_source_rect
                                     .translate(
                                         euclid::Point2D::from_untyped(source_rect.origin.cast())
@@ -1006,6 +1048,77 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 }
             }
         };
+    }
+
+    fn draw_text_paragraph<'b, Font: AbstractFont>(
+        &mut self,
+        paragraph: TextParagraphLayout<'b, Font>,
+        physical_clip: euclid::Rect<f32, PhysicalPx>,
+        offset: euclid::Vector2D<f32, PhysicalPx>,
+        color: Color,
+    ) where
+        Font: crate::textlayout::TextShaper<Length = PhysicalLength>,
+        Font: GlyphRenderer,
+    {
+        paragraph.layout_lines(|glyphs, line_x, line_y| {
+            let baseline_y = line_y + paragraph.layout.font.ascent();
+            while let Some(positioned_glyph) = glyphs.next() {
+                let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);
+
+                let src_rect = PhysicalRect::new(
+                    PhysicalPoint::from_lengths(
+                        line_x + positioned_glyph.x + glyph.x,
+                        baseline_y - glyph.y - glyph.height,
+                    ),
+                    glyph.size(),
+                )
+                .cast();
+
+                if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
+                    let geometry = clipped_src.translate(offset).round();
+                    let origin = (geometry.origin - offset.round()).cast::<usize>();
+                    let actual_x = origin.x - src_rect.origin.x as usize;
+                    let actual_y = origin.y - src_rect.origin.y as usize;
+                    let stride = glyph.width.get() as u16;
+                    let geometry = geometry.cast();
+
+                    match &glyph.alpha_map {
+                        fonts::GlyphAlphaMap::Static(data) => {
+                            self.processor.process_texture(
+                                geometry,
+                                SceneTexture {
+                                    data: &data[actual_x + actual_y * stride as usize..],
+                                    stride,
+                                    source_size: geometry.size,
+                                    format: PixelFormat::AlphaMap,
+                                    color,
+                                    // color already is mixed with global alpha
+                                    alpha: color.alpha(),
+                                },
+                            );
+                        }
+                        fonts::GlyphAlphaMap::Shared(data) => {
+                            self.processor.process_shared_image_buffer(
+                                geometry,
+                                SharedBufferCommand {
+                                    buffer: SharedBufferData::AlphaMap {
+                                        data: data.clone(),
+                                        width: stride,
+                                    },
+                                    source_rect: PhysicalRect::new(
+                                        PhysicalPoint::new(actual_x as _, actual_y as _),
+                                        geometry.size,
+                                    ),
+                                    colorize: color,
+                                    // color already is mixed with global alpha
+                                    alpha: color.alpha(),
+                                },
+                            );
+                        }
+                    };
+                }
+            }
+        });
     }
 
     /// Returns the color of the brush, mixed with the current_state's alpha
@@ -1197,23 +1310,9 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
 
         let font_request = text.font_request(self.window);
-        let font = fonts::match_font(&font_request, self.scale_factor);
-        let layout = fonts::text_layout_for_font(&font, &font_request, self.scale_factor);
 
         let color = self.alpha_color(&text.color());
         let max_size = (geom.size.cast() * self.scale_factor).cast();
-
-        let paragraph = TextParagraphLayout {
-            string: &string,
-            layout,
-            max_width: max_size.width_length(),
-            max_height: max_size.height_length(),
-            horizontal_alignment: text.horizontal_alignment(),
-            vertical_alignment: text.vertical_alignment(),
-            wrap: text.wrap(),
-            overflow: text.overflow(),
-            single_line: false,
-        };
 
         // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
         // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
@@ -1226,49 +1325,45 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         };
         let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
-        paragraph.layout_lines(|glyphs, line_x, line_y| {
-            let baseline_y = line_y + font.ascent();
-            while let Some(positioned_glyph) = glyphs.next() {
-                let glyph_index =
-                    self::fonts::PixelFont::glyph_id_to_glyph_index(positioned_glyph.glyph_id);
-                let glyph = &font.glyphs.glyph_data[glyph_index];
-                let glyph_x = PhysicalLength::new(glyph.x);
-                let glyph_y = PhysicalLength::new(glyph.y);
-                let glyph_width = PhysicalLength::new(glyph.width);
-                let glyph_height = PhysicalLength::new(glyph.height);
-                let glyph_size = PhysicalSize::from_lengths(glyph_width, glyph_height);
+        let font = fonts::match_font(&font_request, self.scale_factor);
 
-                let src_rect = PhysicalRect::new(
-                    PhysicalPoint::from_lengths(
-                        line_x + positioned_glyph.x + glyph_x,
-                        baseline_y - glyph_y - glyph_height,
-                    ),
-                    glyph_size,
-                )
-                .cast();
+        match font {
+            fonts::Font::PixelFont(pf) => {
+                let layout = fonts::text_layout_for_font(&pf, &font_request, self.scale_factor);
 
-                if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
-                    let geometry = clipped_src.translate(offset).round();
-                    let origin = (geometry.origin - offset.round()).cast::<usize>();
-                    let actual_x = origin.x - src_rect.origin.x as usize;
-                    let actual_y = origin.y - src_rect.origin.y as usize;
-                    let stride = glyph.width as u16;
-                    let geometry = geometry.cast();
-                    self.processor.process_texture(
-                        geometry,
-                        SceneTexture {
-                            data: &glyph.data.as_slice()[actual_x + actual_y * stride as usize..],
-                            stride,
-                            source_size: geometry.size,
-                            format: PixelFormat::AlphaMap,
-                            color,
-                            // color already is mixed with global alpha
-                            alpha: color.alpha(),
-                        },
-                    );
-                }
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: max_size.width_length(),
+                    max_height: max_size.height_length(),
+                    horizontal_alignment: text.horizontal_alignment(),
+                    vertical_alignment: text.vertical_alignment(),
+                    wrap: text.wrap(),
+                    overflow: text.overflow(),
+                    single_line: false,
+                };
+
+                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
             }
-        });
+            #[cfg(feature = "systemfonts")]
+            fonts::Font::VectorFont(vf) => {
+                let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: max_size.width_length(),
+                    max_height: max_size.height_length(),
+                    horizontal_alignment: text.horizontal_alignment(),
+                    vertical_alignment: text.vertical_alignment(),
+                    wrap: text.wrap(),
+                    overflow: text.overflow(),
+                    single_line: false,
+                };
+
+                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
+            }
+        }
     }
 
     fn draw_text_input(&mut self, text_input: Pin<&crate::items::TextInput>, _: &ItemRc) {
