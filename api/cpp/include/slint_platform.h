@@ -34,6 +34,8 @@ concept Renderer = requires(R r)
 class AbstractWindowAdapter
 {
 public:
+    virtual ~AbstractWindowAdapter() { }
+
     /// This function is called by Slint when the slint window is shown.
     ///
     /// Re-implement this function to forward the call to show to the native window
