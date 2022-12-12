@@ -527,9 +527,15 @@ pub fn query_properties_command(
         params.get(1).ok_or_else(|| "No position provided")?.clone(),
     )?;
 
-    let source_version = document_cache.document_version(&text_document_uri).ok_or_else(|| {
-        format!("Document with uri {} not found in cache.", text_document_uri.to_string())
-    })?;
+    let source_version = if let Some(v) = document_cache.document_version(&text_document_uri) {
+        v
+    } else {
+        return Ok(serde_json::to_value(properties::QueryPropertyResponse::no_element_response(
+            text_document_uri.to_string(),
+            -1,
+        ))
+        .expect("Failed to serialize none-element property query result!"));
+    };
 
     if let Some(element) = element_at_position(document_cache, &text_document_uri, &position) {
         properties::query_properties(document_cache, &text_document_uri, source_version, &element)
