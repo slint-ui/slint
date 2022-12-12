@@ -49,13 +49,16 @@ cfg_if::cfg_if! {
 
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using Skia as underlying graphics library.
-pub struct SkiaRenderer {
+pub struct SkiaRenderer<NativeWindowWrapper> {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
-    canvas: RefCell<Option<SkiaCanvas<DefaultSurface>>>,
+    canvas: RefCell<Option<SkiaCanvas<DefaultSurface, NativeWindowWrapper>>>,
 }
 
-impl SkiaRenderer {
+impl<
+        NativeWindowWrapper: raw_window_handle::HasRawWindowHandle + raw_window_handle::HasRawDisplayHandle,
+    > SkiaRenderer<NativeWindowWrapper>
+{
     /// Creates a new renderer is associated with the provided window adapter.
     pub fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
         Self {
@@ -67,13 +70,8 @@ impl SkiaRenderer {
 
     /// Use the provided window and display for rendering the Slint scene in future calls to [`Self::render()`].
     /// The size must be identical to the size of the window in physical pixels that is providing the window handle.
-    pub fn show(
-        &self,
-        window: &dyn raw_window_handle::HasRawWindowHandle,
-        display: &dyn raw_window_handle::HasRawDisplayHandle,
-        size: PhysicalWindowSize,
-    ) {
-        let surface = DefaultSurface::new(window, display, size);
+    pub fn show(&self, native_window: NativeWindowWrapper, size: PhysicalWindowSize) {
+        let surface = DefaultSurface::new(&native_window, &native_window, size);
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_adapter_weak.clone(),
@@ -84,8 +82,12 @@ impl SkiaRenderer {
             ),
         );
 
-        let canvas =
-            SkiaCanvas { image_cache: Default::default(), surface, rendering_metrics_collector };
+        let canvas = SkiaCanvas {
+            image_cache: Default::default(),
+            surface,
+            rendering_metrics_collector,
+            native_window,
+        };
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
             canvas.with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))
@@ -196,7 +198,16 @@ impl SkiaRenderer {
     }
 }
 
-impl i_slint_core::renderer::Renderer for SkiaRenderer {
+impl<
+        NativeWindowWrapper: raw_window_handle::HasRawWindowHandle + raw_window_handle::HasRawDisplayHandle + Clone,
+    > SkiaRenderer<NativeWindowWrapper>
+{
+    pub fn window(&self) -> Option<NativeWindowWrapper> {
+        self.canvas.borrow().as_ref().map(|canvas| canvas.native_window.clone())
+    }
+}
+
+impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<NativeWindowWrapper> {
     fn text_size(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
@@ -391,13 +402,15 @@ trait Surface {
     fn bits_per_pixel(&self) -> u8;
 }
 
-struct SkiaCanvas<SurfaceType: Surface> {
+struct SkiaCanvas<SurfaceType: Surface, NativeWindowWrapper> {
     image_cache: ItemCache<Option<skia_safe::Image>>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     surface: SurfaceType,
+    // Kept here to make sure that the raw window handles used by the surface are kept alive
+    native_window: NativeWindowWrapper,
 }
 
-impl<SurfaceType: Surface> SkiaCanvas<SurfaceType> {
+impl<SurfaceType: Surface, NativeWindowWrapper> SkiaCanvas<SurfaceType, NativeWindowWrapper> {
     fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>)) {
         self.surface.with_graphics_api(callback)
     }

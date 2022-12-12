@@ -7,7 +7,7 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::window::WindowAdapter;
 
 pub struct SkiaRenderer {
-    renderer: i_slint_renderer_skia::SkiaRenderer,
+    renderer: i_slint_renderer_skia::SkiaRenderer<Rc<winit::window::Window>>,
 }
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
@@ -19,7 +19,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
 
     fn show(&self, window: &Rc<winit::window::Window>) {
         let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
-        self.renderer.show(&window, &window, PhysicalWindowSize::new(size.width, size.height));
+        self.renderer.show(window.clone(), PhysicalWindowSize::new(size.width, size.height));
     }
 
     fn hide(&self) {
