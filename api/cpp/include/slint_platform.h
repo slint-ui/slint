@@ -3,7 +3,11 @@
 
 #pragma once
 
-#include "slint.h"
+#ifndef SLINT_FEATURE_EXPERIMENTAL
+#    warning "slint_platform.h API only available when SLINT_FEATURE_EXPERIMENTAL is activated"
+#else
+
+#    include "slint.h"
 
 namespace slint {
 
@@ -226,3 +230,4 @@ inline void update_timers_and_animations()
 }
 }
 }
+#endif

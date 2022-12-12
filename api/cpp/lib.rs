@@ -7,6 +7,7 @@ use core::ffi::c_void;
 use i_slint_core::window::{ffi::WindowAdapterRcOpaque, WindowAdapter};
 use std::rc::Rc;
 
+#[cfg(feature = "experimental")]
 pub mod platform;
 
 #[doc(hidden)]

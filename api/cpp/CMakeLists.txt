@@ -90,6 +90,8 @@ define_cargo_feature(renderer-winit-skia-opengl "Enable support for the Skia bas
 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
+define_cargo_feature(experimental "Enable experimental features (no compatibility guarentees" OFF)
+
 # Compat options
 option(SLINT_FEATURE_BACKEND_GL_ALL "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
 option(SLINT_FEATURE_BACKEND_GL_X11 "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT_X11 and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
@@ -191,6 +193,10 @@ if((SLINT_FEATURE_RENDERER_WINIT_SKIA OR SLINT_FEATURE_RENDERER_WINIT_SKIA_OPENG
             CFLAGS_${cargo_host_target_underscore}=""
         )
     endif()
+endif()
+
+if(SLINT_FEATURE_EXPERIMENTAL)
+    target_compile_definitions(Slint INTERFACE SLINT_FEATURE_EXPERIMENTAL)
 endif()
 
 file(GLOB api_headers RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/include/"
