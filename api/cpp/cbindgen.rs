@@ -327,6 +327,8 @@ fn gen_corelib(
             "slint_windowrc_set_logical_size",
             "slint_windowrc_set_physical_size",
             "slint_windowrc_dark_color_scheme",
+            "slint_windowrc_dispatch_pointer_event",
+            "slint_windowrc_dispatch_key_event",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",
@@ -551,7 +553,11 @@ fn gen_backend(
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
-        .with_header("#include <slint_internal.h>")
+        .with_include("slint_image_internal.h")
+        .with_include("slint_internal.h")
+        .with_after_include(
+            "namespace slint::cbindgen_private { using slint::cbindgen_private::types::Rgb8Pixel; }",
+        )
         .generate()
         .context("Unable to generate bindings for slint_backend_internal.h")?
         .write_to_file(include_dir.join("slint_backend_internal.h"));

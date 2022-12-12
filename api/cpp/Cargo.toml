@@ -34,6 +34,8 @@ renderer-winit-femtovg = ["i-slint-backend-selector/renderer-winit-femtovg"]
 renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia"]
 renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl"]
 
+experimental = []
+
 default = ["backend-winit", "renderer-winit-femtovg", "backend-qt"]
 
 [dependencies]

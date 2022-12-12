@@ -89,16 +89,13 @@ class WindowAdapterRc
 {
 public:
     explicit WindowAdapterRc(cbindgen_private::WindowAdapterRcOpaque adopted_inner)
-        : inner(adopted_inner)
     {
+        assert_main_thread();
+        cbindgen_private::slint_windowrc_clone(&adopted_inner, &inner);
     }
     WindowAdapterRc() { cbindgen_private::slint_windowrc_init(&inner); }
     ~WindowAdapterRc() { cbindgen_private::slint_windowrc_drop(&inner); }
-    WindowAdapterRc(const WindowAdapterRc &other)
-    {
-        assert_main_thread();
-        cbindgen_private::slint_windowrc_clone(&other.inner, &inner);
-    }
+    WindowAdapterRc(const WindowAdapterRc &other) : WindowAdapterRc(other.inner) { }
     WindowAdapterRc(WindowAdapterRc &&) = delete;
     WindowAdapterRc &operator=(WindowAdapterRc &&) = delete;
     WindowAdapterRc &operator=(const WindowAdapterRc &other)

@@ -1035,7 +1035,7 @@ pub mod ffi {
         size: &IntSize,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.set_size(crate::api::PhysicalSize::new(size.width, size.height).into());
+        window_adapter.window().set_size(crate::api::PhysicalSize::new(size.width, size.height));
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
@@ -1046,7 +1046,7 @@ pub mod ffi {
         size: &Size,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.set_size(crate::api::LogicalSize::new(size.width, size.height).into());
+        window_adapter.window().set_size(crate::api::LogicalSize::new(size.width, size.height));
     }
 
     /// Return wether the style is using a dark theme
@@ -1056,5 +1056,25 @@ pub mod ffi {
     ) -> bool {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.dark_color_scheme()
+    }
+
+    /// Dispatch a key pressed or release event
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_dispatch_key_event(
+        handle: *const WindowAdapterRcOpaque,
+        event: crate::input::KeyInputEvent,
+    ) {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().0.process_key_input(event);
+    }
+
+    /// Dispatch a mouse event
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_dispatch_pointer_event(
+        handle: *const WindowAdapterRcOpaque,
+        event: crate::input::MouseEvent,
+    ) {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().0.process_mouse_input(event);
     }
 }
