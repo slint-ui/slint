@@ -90,7 +90,7 @@ define_cargo_feature(renderer-winit-skia-opengl "Enable support for the Skia bas
 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
-define_cargo_feature(experimental "Enable experimental features (no compatibility guarentees" OFF)
+define_cargo_feature(experimental "Enable experimental features (no compatibility guarantees)" OFF)
 
 # Compat options
 option(SLINT_FEATURE_BACKEND_GL_ALL "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
