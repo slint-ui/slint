@@ -102,6 +102,12 @@
     padding: 2px;
 }
 
+.outline .kind-struct.outline-element span:before {
+    font-family: "FontAwesome";
+    content: "\f0f2 ";
+    padding: 2px;
+}
+
 .outline .outline-element .active {
     background: var(--highlight-bg);
     color: var(--highlight-fg);
