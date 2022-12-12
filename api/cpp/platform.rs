@@ -285,6 +285,23 @@ pub unsafe extern "C" fn slint_skia_renderer_show_wayland(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn slint_skia_renderer_show_appkit(
+    r: SkiaRendererOpaque,
+    ns_view: *mut c_void,
+    ns_window: *mut c_void,
+    size: IntSize,
+) {
+    use raw_window_handle::{AppKitDisplayHandle, AppKitWindowHandle};
+
+    let r = &*(r as *const SkiaRenderer);
+    let handle = CppRawHandle(
+        RawWindowHandle::AppKit(init_raw!(AppKitWindowHandle { ns_view, ns_window })),
+        RawDisplayHandle::AppKit(AppKitDisplayHandle::empty()),
+    );
+    r.show(handle, PhysicalSize { width: size.width, height: size.height })
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn slint_skia_renderer_hide(r: SkiaRendererOpaque) {
     let r = &*(r as *const SkiaRenderer);
     r.hide()

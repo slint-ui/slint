@@ -294,6 +294,7 @@ public:
 
     void hide() const { cbindgen_private::slint_skia_renderer_hide(inner); }
 
+#    if !defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
     void show(uint32_t /*xcb_window_t*/ window, uint32_t /*xcb_visualid_t*/ visual_id,
               xcb_connection_t *connection, int screen, PhysicalSize size) const
     {
@@ -306,11 +307,21 @@ public:
         cbindgen_private::slint_skia_renderer_show_wayland(inner, surface, display, size);
     }
 
+#    elif defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
+
+    void show(void *nsview, void *nswindow, PhysicalSize size) const
+    {
+        cbindgen_private::slint_skia_renderer_show_appkit(inner, nsview, nswindow, size);
+    }
+
+#    elif !defined(__APPLE__) && (defined(_WIN32) || !defined(_WIN64))
+
     /// Windows handle
     void show(void *HWND, void *hinstance, PhysicalSize size) const
     {
         cbindgen_private::slint_skia_renderer_show_win32(inner, HWND, hinstance, size);
     }
+#    endif
 };
 
 /// Call this function at each iteration of the event loop to call the timer handler and advance
