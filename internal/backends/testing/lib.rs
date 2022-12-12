@@ -8,6 +8,7 @@ use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSiz
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::WindowAdapter;
 use i_slint_core::window::WindowAdapterSealed;
+
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Mutex;

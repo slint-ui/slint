@@ -18,12 +18,12 @@ impl TestCase {
     }
 }
 
-/// Returns a list of all the `.slint` files in the `tests/cases` subfolders.
-pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
+/// Returns a list of all the `.slint` files in the subfolders e.g. `tests/cases` .
+pub fn collect_test_cases(sub_folders: &str) -> std::io::Result<Vec<TestCase>> {
     let mut results = vec![];
 
     let case_root_dir: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "..", "..", "cases"].iter().collect();
+        [env!("CARGO_MANIFEST_DIR"), "..", "..", sub_folders].iter().collect();
 
     println!("cargo:rerun-if-env-changed=SLINT_TEST_FILTER");
     let filter = std::env::var("SLINT_TEST_FILTER").ok();

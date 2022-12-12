@@ -103,6 +103,22 @@ You need to build the node integration before running the tests, even if the cha
 cargo  build -p slint-node  && cargo  test -p test-driver-nodejs
 ```
 
+## Screenshot tests
+
+This is used to test renderer backends. At the moment it supports the `SoftwareRenderer`. Each `.slint` file in `tests/screenshots/cases` will be loaded
+rendered and the results will be compared to the reference images in `tests/screenshots/references`.
+
+To generate references images for all test files in `tests/screenshots/cases` run:
+
+```
+SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots
+```
+
+To start the tests run and compare images:
+
+```
+cargo test -p test-driver-screenshots
+```
 
 ## Doctests
 
