@@ -82,7 +82,7 @@ impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
         let mut softbuffer_buffer = Vec::with_capacity(width * height * 4);
         softbuffer_buffer.extend(
             buffer
-                .iter()
+                .into_iter()
                 .map(|pixel| ((pixel.r as u32) << 16) | ((pixel.g as u32) << 8) | (pixel.b as u32)),
         );
 
