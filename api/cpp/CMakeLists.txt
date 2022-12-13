@@ -259,11 +259,6 @@ if(WIN32)
     if(GENERATOR_IS_MULTI_CONFIG)
         set(config_subdir_genex "$<CONFIG>/")
     endif()
-
-    add_custom_target(Slint_dll_convenience ALL DEPENDS slint-cpp-shared
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:slint-cpp-shared>
-        ${CMAKE_BINARY_DIR}/bin/${config_subdir_genex}$<TARGET_FILE_NAME:slint-cpp-shared>)
 endif()
 
 if(SLINT_FEATURE_COMPILER)
