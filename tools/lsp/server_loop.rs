@@ -22,7 +22,7 @@ use lsp_types::{
     CodeActionOrCommand, CodeActionProviderCapability, CodeLens, CodeLensOptions, Color,
     ColorInformation, ColorPresentation, Command, CompletionOptions, DocumentSymbol,
     DocumentSymbolResponse, Hover, InitializeParams, InitializeResult, OneOf, Position,
-    PublishDiagnosticsParams, ReferencesOptions, SemanticTokensFullOptions, SemanticTokensLegend,
+    PublishDiagnosticsParams, SemanticTokensFullOptions, SemanticTokensLegend,
     SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, Url,
     WorkDoneProgressOptions,
 };
@@ -320,11 +320,6 @@ pub fn server_initialize_result() -> InitializeResult {
                 .into(),
             ),
             document_highlight_provider: Some(OneOf::Left(true)),
-            references_provider: Some(OneOf::Right(ReferencesOptions {
-                work_done_progress_options: WorkDoneProgressOptions {
-                    work_done_progress: Some(true),
-                },
-            })),
             ..ServerCapabilities::default()
         },
         server_info: Some(ServerInfo {
