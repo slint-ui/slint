@@ -24,11 +24,12 @@
 }
 
 .properties-editor {
-    padding-top: 10px;
+    padding: 0;
 }
 
 .properties-editor .welcome-page {
     color: var(--vscode-disabledForeground);
+    padding: 10px 22px 0;
 }
 
 .properties-editor .element-header {
@@ -39,14 +40,16 @@
 
     width: 100%;
     height: 50px;
+    padding: 5px;
 }
 
 .properties-editor .name-column {
     white-space: nowrap;
+    padding-left: 5px;
 }
 
 .properties-editor .value-column {
-    width: 90%;
+    width: 100%;
 }
 
 .properties-editor .properties-table {
@@ -57,16 +60,13 @@
     background-color: var(--highlight2-bg);
     color: var(--highlight2-fg);
     font-weight: bold;
+    padding: 0 5px;
+
 }
 
 .properties-editor .properties-table .undefined {
     background-color: var(--undefined-bg);
     color: var(--undefined-fg);
-}
-
-.properties-editor .value-column.type-unknown:before {
-    content: "??? ";
-    padding: 2px;
 }
 
 .properties-editor .properties-table input {
