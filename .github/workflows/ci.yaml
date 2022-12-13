@@ -148,7 +148,7 @@ jobs:
         buildWithCMakeArgs: '--config Debug'
     - name: ctest
       working-directory: ${{ runner.workspace }}/cppbuild
-      run: ctest --verbose
+      run: ctest --verbose -C Debug
     - name: cpack
       working-directory: ${{ runner.workspace }}/cppbuild
       run: cmake --build . --config Debug --target package
