@@ -112,7 +112,7 @@ public:
     /// Return the slint::Window associated with this window.
     ///
     /// Note that this function can only be called if the window was initialized, which is only
-    /// the case after it has been returned from a call to Platform::create_window_adaptor
+    /// the case after it has been returned from a call to Platform::create_window_adapter
     const Window &window() const
     {
         if (!was_initialized)
@@ -163,7 +163,7 @@ public:
 ///
 /// Platform::register_platform() need to be called before any other Slint handle
 /// are created, and if it is called, it will use the WindowAdapter provided by the
-/// create_window_adaptor function.
+/// create_window_adapter function.
 class Platform
 {
 public:
@@ -173,7 +173,7 @@ public:
     Platform() = default;
 
     /// Returns a new WindowAdapter
-    virtual std::unique_ptr<AbstractWindowAdapter> create_window_adaptor() const = 0;
+    virtual std::unique_ptr<AbstractWindowAdapter> create_window_adapter() const = 0;
 
     /// Register the platform to Slint. Must be called before Slint window are created. Can only
     /// be called once in an application.
@@ -182,7 +182,7 @@ public:
         cbindgen_private::slint_platform_register(
                 platform.release(), [](void *p) { delete reinterpret_cast<const Platform *>(p); },
                 [](void *p, cbindgen_private::WindowAdapterRcOpaque *out) {
-                    auto w = reinterpret_cast<const Platform *>(p)->create_window_adaptor();
+                    auto w = reinterpret_cast<const Platform *>(p)->create_window_adapter();
                     *out = w->initialize();
                     (void)w.release();
                 });

@@ -1350,7 +1350,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     }
 }
 
-/// This is a minimal adaptor for a Window that doesn't have any other feature than rendering
+/// This is a minimal adapter for a Window that doesn't have any other feature than rendering
 /// using the software renderer.
 ///
 /// The [`MAX_BUFFER_AGE`](SoftwareRenderer#max_buffer_age) generic parameter is forwarded to
