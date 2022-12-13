@@ -33,7 +33,7 @@ slint_init().then((_) => {
 
     connection.onInitialize((params: InitializeParams): InitializeResult => {
         the_lsp = slint_lsp.create(params, send_notification, send_request, load_file);
-        const response = the_lsp.server_initialize_result();
+        const response = the_lsp.server_initialize_result(params.capabilities);
         response.capabilities.codeLensProvider = null; // CodeLenses are not relevant for the online editor
         return response;
     });

@@ -16,15 +16,15 @@ use i_slint_compiler::CompilerConfiguration;
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
     DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, GotoDefinition, HoverRequest,
-    Rename, SemanticTokensFullRequest,
+    PrepareRenameRequest, Rename, SemanticTokensFullRequest,
 };
 use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
     CodeLensOptions, Color, ColorInformation, ColorPresentation, Command, CompletionOptions,
     DocumentSymbol, DocumentSymbolResponse, Hover, InitializeParams, InitializeResult, OneOf,
-    Position, PublishDiagnosticsParams, SemanticTokensFullOptions, SemanticTokensLegend,
-    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextEdit,
-    Url, WorkDoneProgressOptions, WorkspaceEdit,
+    Position, PrepareRenameResponse, PublishDiagnosticsParams, RenameOptions,
+    SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities,
+    ServerInfo, TextDocumentSyncCapability, TextEdit, Url, WorkDoneProgressOptions, WorkspaceEdit,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -279,7 +279,7 @@ impl RequestHandler {
     }
 }
 
-pub fn server_initialize_result() -> InitializeResult {
+pub fn server_initialize_result(client_cap: &ClientCapabilities) -> InitializeResult {
     InitializeResult {
         capabilities: ServerCapabilities {
             completion_provider: Some(CompletionOptions {
@@ -313,7 +313,22 @@ pub fn server_initialize_result() -> InitializeResult {
                 .into(),
             ),
             document_highlight_provider: Some(OneOf::Left(true)),
-            rename_provider: Some(OneOf::Left(true)),
+            rename_provider: Some(
+                if client_cap
+                    .text_document
+                    .as_ref()
+                    .and_then(|td| td.rename.as_ref())
+                    .and_then(|r| r.prepare_support)
+                    .unwrap_or(false)
+                {
+                    OneOf::Right(RenameOptions {
+                        prepare_provider: Some(true),
+                        work_done_progress_options: WorkDoneProgressOptions::default(),
+                    })
+                } else {
+                    OneOf::Left(true)
+                },
+            ),
             ..ServerCapabilities::default()
         },
         server_info: Some(ServerInfo {
@@ -500,6 +515,18 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     changes: Some(std::iter::once((uri, edits)).collect()),
                     ..Default::default()
                 }));
+            }
+        };
+        Err("This symbol cannot be renamed. (Only element id can be renamed at the moment)".into())
+    });
+    rh.register::<PrepareRenameRequest, _>(|params, ctx| async move {
+        let mut document_cache = ctx.document_cache.borrow_mut();
+        let uri = params.text_document.uri;
+        if let Some((tk, _off)) = token_descr(&mut document_cache, &uri, &params.position) {
+            if let Some(_) = find_element_id_for_highlight(&tk, &tk.parent()) {
+                return Ok(Some(PrepareRenameResponse::Range(
+                    document_cache.offset_to_position_mapper(&uri)?.map_range(tk.text_range()),
+                )));
             }
         };
         Err("This symbol cannot be renamed. (Only element id can be renamed at the moment)".into())

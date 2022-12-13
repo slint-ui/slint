@@ -47,7 +47,7 @@ slint_init(slint_wasm_data).then((_) => {
             send_request,
             load_file,
         );
-        return the_lsp.server_initialize_result();
+        return the_lsp.server_initialize_result(params.capabilities);
     });
 
     connection.onRequest(async (method, params, token) => {
