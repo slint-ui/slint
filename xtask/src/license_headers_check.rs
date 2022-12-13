@@ -481,6 +481,7 @@ lazy_static! {
         ("\\.xml$", LicenseLocation::NoLicense),
         ("\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.yml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("\\.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
