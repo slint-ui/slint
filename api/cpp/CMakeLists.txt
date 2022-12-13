@@ -190,7 +190,7 @@ if((SLINT_FEATURE_RENDERER_WINIT_SKIA OR SLINT_FEATURE_RENDERER_WINIT_SKIA_OPENG
             TARGET slint-cpp
             APPEND
             PROPERTY CORROSION_ENVIRONMENT_VARIABLES
-            CFLAGS_${cargo_host_target_underscore}=""
+            CFLAGS_${cargo_host_target_underscore}=
         )
     endif()
 endif()
