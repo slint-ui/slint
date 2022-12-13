@@ -11,6 +11,7 @@ All notable changes to this project are documented in this file.
 
  - Added support for declaring functions in the language.
  - Add support for re-exporting types from other files using `export * from "./other_file.slint";`.
+ - LSP: highlight and renaming of element id
 
 ### Fixed
 
