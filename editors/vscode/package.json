@@ -104,15 +104,17 @@
         }
     },
     "dependencies": {
+        "@vscode/codicons": "0.0.32",
         "vscode-languageclient": "^7.0.0",
-        "vscode-languageserver": "^8.0.2",
-        "@vscode/codicons": "0.0.32"
+        "vscode-languageserver": "^8.0.2"
     },
     "files": [
         "bin/slint-lsp-*"
     ],
     "scripts": {
-        "vscode:prepublish": "wasm-pack build --target web --out-name index ../../tools/lsp --no-default-features --features preview-lense && wasm-pack build --release --target web --out-dir $PWD/out ../../api/wasm-interpreter && npm run compile",
+        "build:wasm-lsp": "env-cmd wasm-pack build --release --target web --out-name index ../../tools/lsp -- --no-default-features --features preview-lense",
+        "build:wasm-interpreter": "env-cmd wasm-pack build --release --target web --out-dir $PWD/out ../../api/wasm-interpreter",
+        "vscode:prepublish": "npm run build:wasm-lsp && npm run build:wasm-interpreter && npm run compile",
         "compile": "node ./esbuild.js",
         "local-package": "mkdir -p bin && cp ../../target/debug/slint-lsp bin/ && npx vsce package",
         "watch": "tsc -watch -p ./",
@@ -127,6 +129,7 @@
         "@types/vscode": "1.70.0",
         "@typescript-eslint/eslint-plugin": "^5.44.0",
         "@typescript-eslint/parser": "^5.44.0",
+        "env-cmd": "^10.1.0",
         "esbuild": "^0.14.54",
         "eslint": "^8.28.0",
         "glob": "^7.2.3",
