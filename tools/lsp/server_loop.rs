@@ -9,22 +9,22 @@ use crate::{completion, goto, semantic_tokens, util};
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
     DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, GotoDefinition, HoverRequest,
-    SemanticTokensFullRequest,
+    Rename, SemanticTokensFullRequest,
 };
 use lsp_types::{
-    CodeActionOrCommand, CodeActionProviderCapability, CodeLens, CodeLensOptions, Color,
-    ColorInformation, ColorPresentation, Command, CompletionOptions, DocumentSymbol,
-    DocumentSymbolResponse, Hover, InitializeParams, InitializeResult, OneOf, Position,
-    PublishDiagnosticsParams, SemanticTokensFullOptions, SemanticTokensLegend,
-    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, Url,
-    WorkDoneProgressOptions,
+    ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
+    CodeLensOptions, Color, ColorInformation, ColorPresentation, Command, CompletionOptions,
+    DocumentSymbol, DocumentSymbolResponse, Hover, InitializeParams, InitializeResult, OneOf,
+    Position, PublishDiagnosticsParams, SemanticTokensFullOptions, SemanticTokensLegend,
+    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextEdit,
+    Url, WorkDoneProgressOptions, WorkspaceEdit,
 };
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -313,6 +313,7 @@ pub fn server_initialize_result() -> InitializeResult {
                 .into(),
             ),
             document_highlight_provider: Some(OneOf::Left(true)),
+            rename_provider: Some(OneOf::Left(true)),
             ..ServerCapabilities::default()
         },
         server_info: Some(ServerInfo {
@@ -446,26 +447,62 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(semantic_tokens::get_semantic_tokens(document_cache, &params.text_document))
     });
     rh.register::<DocumentHighlightRequest, _>(|_params, _ctx| async move {
-        #[cfg(feature = "preview")]
+        let document_cache = &mut _ctx.document_cache.borrow_mut();
+        let uri = _params.text_document_position_params.text_document.uri;
+        let offset_mapper = document_cache.offset_to_position_mapper(&uri)?;
+        if let Some((tk, _off)) =
+            token_descr(document_cache, &uri, &_params.text_document_position_params.position)
         {
-            let document_cache = &mut _ctx.document_cache.borrow_mut();
-            let uri = _params.text_document_position_params.text_document.uri;
-            let offset_mapper = document_cache.offset_to_position_mapper(&uri)?;
-            if let Some((tk, off)) =
-                token_descr(document_cache, &uri, &_params.text_document_position_params.position)
+            let p = tk.parent();
+            #[cfg(feature = "preview")]
+            if p.kind() == SyntaxKind::QualifiedName
+                && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
-                let p = tk.parent();
-                if p.kind() == SyntaxKind::QualifiedName
-                    && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
-                {
-                    crate::preview::highlight(uri.to_file_path().ok(), off);
-                    let range = offset_mapper.map_range(p.text_range());
-                    return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
-                }
+                crate::preview::highlight(uri.to_file_path().ok(), _off);
+                let range = offset_mapper.map_range(p.text_range());
+                return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
+            } else {
+                crate::preview::highlight(None, 0);
             }
-            crate::preview::highlight(None, 0);
+
+            if let Some(value) = find_element_id_for_highlight(&tk, &p) {
+                return Ok(Some(
+                    value
+                        .into_iter()
+                        .map(|r| lsp_types::DocumentHighlight {
+                            range: offset_mapper.map_range(r),
+                            kind: None,
+                        })
+                        .collect(),
+                ));
+            }
         }
+        #[cfg(feature = "preview")]
+        crate::preview::highlight(None, 0);
         Ok(None)
+    });
+    rh.register::<Rename, _>(|params, ctx| async move {
+        let mut document_cache = ctx.document_cache.borrow_mut();
+        let uri = params.text_document_position.text_document.uri;
+        if let Some((tk, _off)) =
+            token_descr(&mut document_cache, &uri, &params.text_document_position.position)
+        {
+            if let Some(value) = find_element_id_for_highlight(&tk, &tk.parent()) {
+                let mapper = document_cache.offset_to_position_mapper(&uri)?;
+                let edits = value
+                    .into_iter()
+                    .map(|r| TextEdit {
+                        range: mapper.map_range(r),
+                        new_text: params.new_name.clone(),
+                    })
+                    .collect();
+                return Ok(Some(WorkspaceEdit {
+                    changes: Some(std::iter::once((uri, edits)).collect()),
+                    ..Default::default()
+                }));
+            }
+        };
+        Err("This symbol cannot be renamed. (Only element id can be renamed at the moment)".into())
     });
 }
 
@@ -1065,6 +1102,72 @@ fn get_code_lenses(
     } else {
         None
     }
+}
+
+/// If the token is matching a Element ID, return the list of all element id in the same component
+fn find_element_id_for_highlight(
+    token: &SyntaxToken,
+    parent: &SyntaxNode,
+) -> Option<Vec<rowan::TextRange>> {
+    fn is_element_id(tk: &SyntaxToken, parent: &SyntaxNode) -> bool {
+        if tk.kind() != SyntaxKind::Identifier {
+            return false;
+        }
+        if parent.kind() == SyntaxKind::SubElement {
+            return true;
+        };
+        if parent.kind() == SyntaxKind::QualifiedName
+            && matches!(
+                parent.parent().map(|n| n.kind()),
+                Some(SyntaxKind::Expression | SyntaxKind::StatePropertyChange)
+            )
+        {
+            let mut c = parent.children_with_tokens();
+            if let Some(NodeOrToken::Token(first)) = c.next() {
+                return first.text_range() == tk.text_range()
+                    && matches!(c.next(), Some(NodeOrToken::Token(second)) if second.kind() == SyntaxKind::Dot);
+            }
+        }
+
+        false
+    }
+    if is_element_id(token, parent) {
+        // An id: search all use of the id in this Component
+        let mut candidate = parent.parent();
+        while let Some(c) = candidate {
+            if c.kind() == SyntaxKind::Component {
+                let mut ranges = Vec::new();
+                let mut found_definition = false;
+                recurse(&mut ranges, &mut found_definition, c, token.text());
+                fn recurse(
+                    ranges: &mut Vec<rowan::TextRange>,
+                    found_definition: &mut bool,
+                    c: SyntaxNode,
+                    text: &str,
+                ) {
+                    for x in c.children_with_tokens() {
+                        match x {
+                            NodeOrToken::Node(n) => recurse(ranges, found_definition, n, text),
+                            NodeOrToken::Token(tk) => {
+                                if is_element_id(&tk, &c) && tk.text() == text {
+                                    ranges.push(tk.text_range());
+                                    if c.kind() == SyntaxKind::SubElement {
+                                        *found_definition = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if !found_definition {
+                    return None;
+                }
+                return Some(ranges);
+            }
+            candidate = c.parent()
+        }
+    }
+    None
 }
 
 pub async fn load_configuration(ctx: &Context) -> Result<(), Error> {
