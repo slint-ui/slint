@@ -88,6 +88,7 @@ pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
     map_state: RefCell<GraphicsWindowBackendState>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     pending_redraw: Cell<bool>,
+    in_resize_event: Cell<bool>,
 
     renderer: Renderer,
     #[cfg(target_arch = "wasm32")]
@@ -114,6 +115,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
             }),
             currently_pressed_key_code: Default::default(),
             pending_redraw: Cell::new(false),
+            in_resize_event: Cell::new(false),
             renderer: Renderer::new(&(self_weak.clone() as _)),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
@@ -227,15 +229,19 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
     }
 
     fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) {
-        if let Some(_) = self.borrow_mapped_window() {
-            // NOTE: slint::Window::set_size will call set_size() on this type, which calls
-            // set_inner_size on the winit Window. On Windows that triggers an new resize event.
-            // Therefore we call slint::Window::set_size within the borrow, so that the set_size's
-            // borrow in this type fails.
-            let physical_size = physical_size_to_slint(&size);
-            self.window.set_size(physical_size);
-            self.renderer.resize_event(physical_size);
-        }
+        // slint::Window::set_size will call set_size() on this type, which would call
+        // set_inner_size on the winit Window. On Windows that triggers an new resize event
+        // in the next event loop iteration for mysterious reasons, with slightly different sizes.
+        // I suspect a bug in the way the frame decorations are added and subtracted from the size
+        // we provide.
+        // Work around it with this guard that prevents us from calling set_inner_size again.
+        assert!(!self.in_resize_event.get());
+        self.in_resize_event.set(true);
+        scopeguard::defer! { self.in_resize_event.set(false); }
+
+        let physical_size = physical_size_to_slint(&size);
+        self.window.set_size(physical_size);
+        self.renderer.resize_event(physical_size);
     }
 }
 
@@ -725,17 +731,15 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
     }
 
     fn set_size(&self, size: corelib::api::WindowSize) {
+        if self.in_resize_event.get() {
+            return;
+        }
         if let Ok(mut map_state) = self.map_state.try_borrow_mut() {
-            // otherwise we are called from the resize event
             match &mut *map_state {
                 GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
                     *requested_size = Some(size)
                 }
                 GraphicsWindowBackendState::Mapped(mapped_window) => {
-                    // NOTE: This could also be done as non-mutable borrow (see try_borrow_mut() above), but
-                    // we borrow mutable here to work around the fact that when calling set_size on the slint::Window
-                    // from resize_event, this function is called and setting the window size from within
-                    // the resize event on Windows cause a new resize event in the next loop iteation.
                     mapped_window.winit_window.set_inner_size(window_size_to_slint(&size));
                 }
             }
