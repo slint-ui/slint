@@ -227,7 +227,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
     }
 
     fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) {
-        if self.borrow_mapped_window().is_some() {
+        if let Some(_) = self.borrow_mapped_window() {
             // NOTE: slint::Window::set_size will call set_size() on this type, which calls
             // set_inner_size on the winit Window. On Windows that triggers an new resize event.
             // Therefore we call slint::Window::set_size within the borrow, so that the set_size's
