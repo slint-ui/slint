@@ -200,16 +200,17 @@ pub fn run_lsp_server() -> Result<(), Error> {
     let (connection, io_threads) = Connection::stdio();
     let (id, params) = connection.initialize_start()?;
 
-    let initialize_result = serde_json::to_value(server_loop::server_initialize_result())?;
+    let init_param: InitializeParams = serde_json::from_value(params).unwrap();
+    let initialize_result =
+        serde_json::to_value(server_loop::server_initialize_result(&init_param.capabilities))?;
     connection.initialize_finish(id, initialize_result)?;
 
-    main_loop(&connection, params)?;
+    main_loop(&connection, init_param)?;
     io_threads.join()?;
     Ok(())
 }
 
-fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), Error> {
-    let init_params: InitializeParams = serde_json::from_value(params).unwrap();
+fn main_loop(connection: &Connection, init_param: InitializeParams) -> Result<(), Error> {
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
 
@@ -226,7 +227,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
     let ctx = Rc::new(Context {
         document_cache: RefCell::new(DocumentCache::new(compiler_config)),
         server_notifier: server_notifier.clone(),
-        init_param: init_params,
+        init_param,
     });
 
     let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<(), Error>>>>>::new();
