@@ -1,0 +1,30 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+[package]
+name = "pyslint"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Slint Python integration"
+repository.workspace = true
+homepage.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+name = "slint"
+path = "lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+i-slint-backend-selector = { version = "=1.4.0", path="../../internal/backends/selector" }
+i-slint-backend-testing = { version = "=1.4.0", path="../../internal/backends/testing", optional = true }
+i-slint-renderer-skia = { version = "=1.4.0", path="../../internal/renderers/skia", optional = true, features = ["x11", "wayland"] }
+i-slint-core = { version = "=1.4.0", path="../../internal/core", features = ["ffi"] }
+slint-interpreter = { workspace = true, features = ["default", "display-diagnostics", "internal"] }
+pyo3 = { version = "0.20.0", features = ["extension-module", "indexmap"] }
+
+[build-dependencies]
+i-slint-common = { version = "=1.4.0", path="../../internal/common" }
