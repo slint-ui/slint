@@ -15,3 +15,5 @@ docs/reference/src/language/builtins/structs.md
 
 *.node
 *.d.ts
+
+.env
