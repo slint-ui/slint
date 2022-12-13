@@ -62,7 +62,6 @@ i-slint-renderer-skia = { version = "=0.3.3", path = "../../renderers/skia", opt
 
 # For the software renderer
 softbuffer = { version = "0.1.1", optional = true }
-raw-window-handle-old = { package = "raw-window-handle", version = "0.4.1", features = ["alloc"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features=["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "CssStyleDeclaration", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent"] }
