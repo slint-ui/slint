@@ -377,7 +377,7 @@ if(BUILD_TESTING)
         target_compile_definitions(test_${NAME} PRIVATE
             SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\"
         )
-        add_test(test_${NAME} ${CMAKE_CURRENT_BINARY_DIR}/test_${NAME})
+        add_test(NAME test_${NAME} COMMAND test_${NAME})
 
         # Somehow the wrong relative rpath ends up in the binary, requiring us to change the
         # working directory.
