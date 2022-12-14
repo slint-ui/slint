@@ -523,13 +523,12 @@ fn get_element_information(
 ) -> ElementInformation {
     let e = element.borrow();
     let node = e.node.as_ref();
-    let range: Option<(u32, u32)> =
-        node.map(|n| n.text_range()).map(|r| (r.start().into(), r.end().into()));
+    let range = node.map(|n| n.text_range());
     let block_range = range.and_then(|r| {
         find_block(node.expect("range was Some, so node must have been Some, too.").first_token())
             .and_then(|(st, et)| {
                 let br = rowan::TextRange::new(st.text_range().end(), et.text_range().start());
-                if br.start() > r.0.into() && br.end() < r.1.into() {
+                if br.start() > r.start() && br.end() <= r.end() {
                     Some(offset_to_position.map_range(br))
                 } else {
                     None
@@ -540,9 +539,7 @@ fn get_element_information(
     ElementInformation {
         id: e.id.clone(),
         type_name: format!("{}", e.base_type),
-        range: range.map(|r| {
-            lsp_types::Range::new(offset_to_position.map_u32(r.0), offset_to_position.map_u32(r.1))
-        }),
+        range: range.map(|r| offset_to_position.map_range(r)),
         block_range,
     }
 }
