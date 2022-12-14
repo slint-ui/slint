@@ -487,30 +487,32 @@ fn get_properties(
     result
 }
 
-fn find_block(token: Option<i_slint_compiler::parser::SyntaxToken>) -> Option<(u32, u32)> {
+fn find_block(
+    token: Option<i_slint_compiler::parser::SyntaxToken>,
+) -> Option<(i_slint_compiler::parser::SyntaxToken, i_slint_compiler::parser::SyntaxToken)> {
     let mut current_token = token;
     let mut brace_level = 0_u32;
-    let mut start_offset = u32::MAX;
-    let mut end_offset = u32::MAX;
+    let mut start_token = None;
+    let mut end_token = None;
 
     while let Some(t) = current_token {
         if t.kind() == SyntaxKind::LBrace {
             brace_level += 1;
             if brace_level == 1 {
-                start_offset = t.text_range().end().into();
+                start_token = Some(t.clone());
             }
         } else if t.kind() == SyntaxKind::RBrace {
             brace_level -= 1;
             if brace_level == 0 {
-                end_offset = Into::<u32>::into(t.text_range().start());
+                end_token = Some(t.clone());
                 break;
             }
         }
         current_token = t.next_token();
     }
 
-    if start_offset != u32::MAX && start_offset <= end_offset {
-        return Some((start_offset, end_offset));
+    if start_token.is_some() && end_token.is_some() {
+        return Some((start_token.expect("Was some!"), end_token.expect("Was some!")));
     }
 
     None
@@ -526,12 +528,10 @@ fn get_element_information(
         node.map(|n| n.text_range()).map(|r| (r.start().into(), r.end().into()));
     let block_range = range.and_then(|r| {
         find_block(node.expect("range was Some, so node must have been Some, too.").first_token())
-            .and_then(|br| {
-                if br.0 > r.0 && br.1 < r.1 {
-                    Some(lsp_types::Range::new(
-                        offset_to_position.map_u32(br.0),
-                        offset_to_position.map_u32(br.1),
-                    ))
+            .and_then(|(st, et)| {
+                let br = rowan::TextRange::new(st.text_range().end(), et.text_range().start());
+                if br.start() > r.0.into() && br.end() < r.1.into() {
+                    Some(offset_to_position.map_range(br))
                 } else {
                     None
                 }
