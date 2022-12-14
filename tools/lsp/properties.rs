@@ -104,7 +104,7 @@ fn add_element_properties(
         }
         let type_node = value.type_node()?; // skip fake and materialized properties
         let declared_at = file.as_ref().map(|file| {
-            let start_position = offset_to_position.map(type_node.text_range().start());
+            let start_position = offset_to_position.map_node(&type_node).start;
             let uri = lsp_types::Url::from_file_path(file).unwrap_or_else(|_| {
                 lsp_types::Url::parse("file:///)").expect("That should have been valid as URL!")
             });
@@ -288,10 +288,10 @@ fn find_expression_range(
     offset: u32,
     offset_to_position: &OffsetToPositionMapper,
 ) -> Option<DefinitionInformation> {
-    let mut property_definition_range = None;
-    let mut expression_range = None;
     let mut delete_range = None;
+    let mut expression_range = None;
     let mut expression_value = None;
+    let mut property_definition_range = None;
 
     if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
         for ancestor in token.parent_ancestors() {
@@ -538,8 +538,8 @@ fn get_element_information(
 
     ElementInformation {
         id: e.id.clone(),
-        type_name: format!("{}", e.base_type),
-        range: range.map(|r| offset_to_position.map_range(r)),
+        type_name: e.base_type.to_string(),
+        range: node.map(|n| offset_to_position.map_node(n)),
         block_range,
     }
 }

@@ -35,6 +35,42 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub type Error = Box<dyn std::error::Error>;
 
+fn range_from_token(token: Option<SyntaxToken>, range: &rowan::TextRange) -> rowan::TextRange {
+    let mut current_token = token;
+    let mut start_pos = None;
+    let mut end_pos = None;
+
+    while let Some(ct) = current_token {
+        current_token = ct.next_token();
+
+        if ct.text_range().end() > range.end() {
+            break;
+        }
+        if ct.kind() != SyntaxKind::Whitespace {
+            let r = ct.text_range();
+            start_pos = Some(r.start());
+            end_pos = Some(r.end());
+            break;
+        }
+    }
+
+    while let Some(ct) = current_token {
+        current_token = ct.next_token();
+
+        if ct.text_range().end() > range.end() {
+            break;
+        }
+        if ct.kind() != SyntaxKind::Whitespace {
+            end_pos = Some(ct.text_range().end());
+        }
+    }
+
+    return rowan::TextRange::new(
+        start_pos.unwrap_or(range.start()),
+        end_pos.unwrap_or(range.end()),
+    );
+}
+
 pub struct ProgressReporter {
     token: Option<lsp_types::ProgressToken>,
     notifier: crate::ServerNotifier,
@@ -234,6 +270,10 @@ impl OffsetToPositionMapper {
 
     pub fn map_range(&self, r: rowan::TextRange) -> lsp_types::Range {
         lsp_types::Range::new(self.map(r.start()), self.map(r.end()))
+    }
+
+    pub fn map_node(&self, n: &SyntaxNode) -> lsp_types::Range {
+        self.map_range(range_from_token(n.first_token(), &n.text_range()))
     }
 }
 
@@ -1158,10 +1198,9 @@ fn get_document_symbols(
         .iter()
         .filter_map(|c| {
             Some(DocumentSymbol {
-                range: offset_mapper.map_range(c.root_element.borrow().node.as_ref()?.text_range()),
-                selection_range: offset_mapper.map_range(
-                    c.root_element.borrow().node.as_ref()?.QualifiedName().as_ref()?.text_range(),
-                ),
+                range: offset_mapper.map_node(c.root_element.borrow().node.as_ref()?),
+                selection_range: offset_mapper
+                    .map_node(c.root_element.borrow().node.as_ref()?.QualifiedName().as_ref()?),
                 name: c.id.clone(),
                 kind: if c.is_global() {
                     lsp_types::SymbolKind::OBJECT
@@ -1176,8 +1215,8 @@ fn get_document_symbols(
 
     r.extend(inner_structs.iter().filter_map(|c| match c {
         Type::Struct { name: Some(name), node: Some(node), .. } => Some(DocumentSymbol {
-            range: offset_mapper.map_range(node.parent().as_ref()?.text_range()),
-            selection_range: offset_mapper.map_range(node.text_range()),
+            range: offset_mapper.map_node(node.parent().as_ref()?),
+            selection_range: offset_mapper.map_node(node),
             name: name.clone(),
             kind: lsp_types::SymbolKind::STRUCT,
             ..ds.clone()
@@ -1197,9 +1236,9 @@ fn get_document_symbols(
             .filter_map(|child| {
                 let e = child.borrow();
                 Some(DocumentSymbol {
-                    range: offset_mapper.map_range(e.node.as_ref()?.text_range()),
+                    range: offset_mapper.map_node(e.node.as_ref()?),
                     selection_range: offset_mapper
-                        .map_range(e.node.as_ref()?.QualifiedName().as_ref()?.text_range()),
+                        .map_node(e.node.as_ref()?.QualifiedName().as_ref()?),
                     name: e.base_type.to_string(),
                     detail: (!e.id.is_empty()).then(|| e.id.clone()),
                     kind: lsp_types::SymbolKind::VARIABLE,
@@ -1534,5 +1573,22 @@ mod tests {
         assert_eq!(base_type_at_position(&mut dc, &url, 27, 4), Some("VerticalBox".to_string()));
         assert_eq!(base_type_at_position(&mut dc, &url, 28, 8), Some("Text".to_string()));
         assert_eq!(base_type_at_position(&mut dc, &url, 51, 4), Some("VerticalBox".to_string()));
+    }
+
+    #[test]
+    fn test_document_symbols() {
+        let (mut dc, uri, _) = complex_document_cache("fluent");
+
+        let result =
+            get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri }).unwrap();
+
+        if let DocumentSymbolResponse::Nested(result) = result {
+            assert_eq!(result.len(), 1);
+
+            let first = result.get(0).unwrap();
+            assert_eq!(&first.name, "MainWindow");
+        } else {
+            unreachable!();
+        }
     }
 }
