@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 global G {
-    callback is-center(length, length, length) -> bool;
-    is-center(pos, size, parent) => {
+    public pure function is-center(pos: length, size: length, parent: length) -> bool {
         return abs(pos / 1px - (parent - size) / 2px) < 0.001;
     }
 }

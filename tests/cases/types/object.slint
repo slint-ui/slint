@@ -18,8 +18,8 @@ TestCase := Rectangle {
         foo.b += 8 + obj_conversion2.b;
     }
 
-    callback return_object() -> { aa: { bb: int } };
-    return_object => { return { aa: { bb: { cc: 42 }.cc } }; }
+    function return_object() -> { aa: { bb: int } }
+    { return { aa: { bb: { cc: 42 }.cc } }; }
     property <bool> test: return_object().aa.bb == 42 && obj_binop_merge;
 
 }

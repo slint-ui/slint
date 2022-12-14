@@ -393,7 +393,7 @@ connected to the native code.
 import { HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint";
 
 export global Logic := {
-    callback to-upper-case(string) -> string;
+    pure callback to-upper-case(string) -> string;
     // You can collect other global properties here
 }
 
@@ -486,7 +486,7 @@ import { HorizontalBox, Button } from "std-widgets.slint";
 
 export global Tr := {
     // Do the translation of the first argument, with an array of string as supstitution
-    callback gettext(string, [string]) -> string;
+    pure callback gettext(string, [string]) -> string;
 
     // A default implementation that returns the original string for preview purposes.
     gettext(text, _) => { return text; }

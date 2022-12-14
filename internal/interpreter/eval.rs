@@ -212,7 +212,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             v
         }
         Expression::FunctionCall { function, arguments, source_location: _ } => match &**function {
-            Expression::FunctionReference(nr) => {
+            Expression::FunctionReference(nr, _) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
                 generativity::make_guard!(guard);
                 match enclosing_component_instance_for_element(&nr.element(), local_context.component_instance, guard) {
@@ -225,14 +225,14 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     },
                 }
             }
-            Expression::CallbackReference(nr) => {
+            Expression::CallbackReference(nr, _) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
                 invoke_callback(local_context.component_instance, &nr.element(), nr.name(), &args).unwrap()
             }
             Expression::BuiltinFunctionReference(f, _) => call_builtin_function(*f, arguments, local_context),
             _ => panic!("call of something not a callback: {function:?}"),
         }
-        Expression::SelfAssignment { lhs, rhs, op } => {
+        Expression::SelfAssignment { lhs, rhs, op, .. } => {
             let rhs = eval_expression(&**rhs, local_context);
             eval_assignment(lhs, *op, rhs, local_context);
             Value::Void

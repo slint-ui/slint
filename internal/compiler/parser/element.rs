@@ -55,14 +55,18 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Identifier if p.peek().as_str() == "for" => {
                     parse_repeated_element(&mut *p);
                 }
-                SyntaxKind::Identifier if p.peek().as_str() == "callback" => {
+                SyntaxKind::Identifier
+                    if p.peek().as_str() == "callback"
+                        || (p.peek().as_str() == "pure" && p.nth(1).as_str() == "callback") =>
+                {
                     parse_callback_declaration(&mut *p);
                 }
-                SyntaxKind::Identifier if p.peek().as_str() == "function" => {
-                    parse_function(&mut *p);
-                }
                 SyntaxKind::Identifier
-                    if p.peek().as_str() == "public" && p.nth(1).as_str() == "function" =>
+                    if p.peek().as_str() == "function"
+                        || (matches!(p.peek().as_str(), "public" | "pure")
+                            && p.nth(1).as_str() == "function")
+                        || (matches!(p.nth(1).as_str(), "public" | "pure")
+                            && p.nth(2).as_str() == "function") =>
                 {
                     parse_function(&mut *p);
                 }
@@ -288,7 +292,7 @@ fn parse_two_way_binding(p: &mut impl Parser) {
 /// callback foobar;
 /// callback my_callback();
 /// callback foo(int, string);
-/// callback one_arg({ a: string, b: string});
+/// pure callback one_arg({ a: string, b: string});
 /// callback end_coma(a, b, c,);
 /// callback with_return(a, b) -> int;
 /// callback with_return2({a: string}) -> { a: string };
@@ -296,8 +300,11 @@ fn parse_two_way_binding(p: &mut impl Parser) {
 /// ```
 /// Must consume at least one token
 fn parse_callback_declaration(p: &mut impl Parser) {
-    debug_assert_eq!(p.peek().as_str(), "callback");
     let mut p = p.start_node(SyntaxKind::CallbackDeclaration);
+    if p.peek().as_str() == "pure" {
+        p.consume();
+    }
+    debug_assert_eq!(p.peek().as_str(), "callback");
     p.expect(SyntaxKind::Identifier); // "callback"
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
@@ -572,7 +579,22 @@ fn parse_transition_inner(p: &mut impl Parser) -> bool {
 fn parse_function(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Function);
     if p.peek().as_str() == "public" {
-        p.consume()
+        p.consume();
+        if p.peek().as_str() == "pure" {
+            p.consume()
+        }
+    } else if p.peek().as_str() == "pure" {
+        p.consume();
+        if p.peek().as_str() == "public" {
+            p.consume()
+        }
+    }
+    if p.peek().as_str() != "function" {
+        p.error("Unexpected identifier");
+        p.consume();
+        while p.peek().kind == SyntaxKind::Identifier && p.peek().as_str() != "function" {
+            p.consume();
+        }
     }
     debug_assert_eq!(p.peek().as_str(), "function");
     p.expect(SyntaxKind::Identifier); // "function"

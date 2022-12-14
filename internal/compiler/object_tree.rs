@@ -360,6 +360,8 @@ pub struct PropertyDeclaration {
     /// Public API property exposed as an alias: it shouldn't be generated but instead forward to the alias.
     pub is_alias: Option<NamedReference>,
     pub visibility: PropertyVisibility,
+    /// For function or callback: whether it is declared as `pure` (None for private function for which this has to be deduced)
+    pub pure: Option<bool>,
 }
 
 impl PropertyDeclaration {
@@ -869,6 +871,10 @@ impl Element {
             let name =
                 unwrap_or_continue!(parser::identifier_text(&sig_decl.DeclaredIdentifier()); diag);
 
+            let pure = Some(
+                sig_decl.child_token(SyntaxKind::Identifier).map_or(false, |t| t.text() == "pure"),
+            );
+
             if let Some(csn) = sig_decl.TwoWayBinding() {
                 r.bindings
                     .insert(name.clone(), BindingExpression::new_uncompiled(csn.into()).into());
@@ -878,6 +884,7 @@ impl Element {
                         property_type: Type::InferredCallback,
                         node: Some(sig_decl.into()),
                         visibility: PropertyVisibility::InOut,
+                        pure,
                         ..Default::default()
                     },
                 );
@@ -924,6 +931,7 @@ impl Element {
                     property_type: Type::Callback { return_type, args },
                     node: Some(sig_decl.into()),
                     visibility: PropertyVisibility::InOut,
+                    pure,
                     ..Default::default()
                 },
             );
@@ -979,18 +987,29 @@ impl Element {
                 assert!(diag.has_error());
             }
 
-            let public =
-                func.child_token(SyntaxKind::Identifier).map_or(false, |t| t.text() == "public");
+            let mut visibility = PropertyVisibility::Private;
+            let mut pure = None;
+            for token in func.children_with_tokens() {
+                if token.kind() != SyntaxKind::Identifier {
+                    continue;
+                }
+                match token.as_token().unwrap().text() {
+                    "pure" => pure = Some(true),
+                    "public" => {
+                        visibility = PropertyVisibility::Public;
+                        pure = pure.or_else(|| Some(false));
+                    }
+                    _ => (),
+                }
+            }
+
             r.property_declarations.insert(
                 name,
                 PropertyDeclaration {
                     property_type: Type::Function { return_type, args },
                     node: Some(func.into()),
-                    visibility: if public {
-                        PropertyVisibility::Public
-                    } else {
-                        PropertyVisibility::Private
-                    },
+                    visibility,
+                    pure,
                     ..Default::default()
                 },
             );
@@ -1334,6 +1353,7 @@ impl Element {
                 resolved_name: name.into(),
                 property_type: p.property_type.clone(),
                 property_visibility: p.visibility,
+                declared_pure: p.pure,
                 is_local_to_component: true,
             },
         )
@@ -1891,8 +1911,8 @@ pub fn visit_named_references_in_expression(
     expr.visit_mut(|sub| visit_named_references_in_expression(sub, vis));
     match expr {
         Expression::PropertyReference(r)
-        | Expression::CallbackReference(r)
-        | Expression::FunctionReference(r) => vis(r),
+        | Expression::CallbackReference(r, _)
+        | Expression::FunctionReference(r, _) => vis(r),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::SolveLayout(l, _) => l.visit_named_references(vis),
         Expression::ComputeLayoutInfo(l, _) => l.visit_named_references(vis),

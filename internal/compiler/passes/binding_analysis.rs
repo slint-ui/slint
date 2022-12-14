@@ -335,8 +335,8 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath)) {
     expr.visit(|sub| recurse_expression(sub, vis));
     match expr {
         Expression::PropertyReference(r)
-        | Expression::CallbackReference(r)
-        | Expression::FunctionReference(r) => vis(&r.clone().into()),
+        | Expression::CallbackReference(r, _)
+        | Expression::FunctionReference(r, _) => vis(&r.clone().into()),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => {
             vis(&layout_cache_prop.clone().into())
         }

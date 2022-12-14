@@ -35,6 +35,7 @@ mod lower_tabwidget;
 mod materialize_fake_properties;
 mod move_declarations;
 mod optimize_useless_rectangles;
+mod purity_check;
 mod remove_aliases;
 mod remove_unused_properties;
 mod repeater_component;
@@ -74,11 +75,7 @@ pub async fn run_passes(
 
     let global_type_registry = type_loader.global_type_registry.clone();
     let root_component = &doc.root_component;
-    infer_aliases_types::resolve_aliases(doc, diag);
-    resolving::resolve_expressions(doc, type_loader, diag);
-    check_expressions::check_expressions(doc, diag);
-    check_rotation::check_rotation(doc, diag);
-    unique_id::check_unique_id(doc, diag);
+    run_import_passes(doc, type_loader, diag);
     check_public_api::check_public_api(doc, diag);
 
     collect_subcomponents::collect_subcomponents(root_component);
@@ -268,6 +265,7 @@ pub fn run_import_passes(
     infer_aliases_types::resolve_aliases(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
     check_expressions::check_expressions(doc, diag);
+    purity_check::purity_check(doc, diag);
     check_rotation::check_rotation(doc, diag);
     unique_id::check_unique_id(doc, diag);
 }

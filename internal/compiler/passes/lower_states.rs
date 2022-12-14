@@ -215,9 +215,9 @@ fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProp
                     // Check that the expresison is valid in the new scope
                     let mut has_invalid = false;
                     e.expression.visit_recursive(&mut |ex| match ex {
-                        Expression::CallbackReference(nr)
+                        Expression::CallbackReference(nr, _)
                         | Expression::PropertyReference(nr)
-                        | Expression::FunctionReference(nr) => {
+                        | Expression::FunctionReference(nr, _) => {
                             let e = nr.element();
                             if !Rc::ptr_eq(&e, &element)
                                 && Weak::ptr_eq(

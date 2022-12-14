@@ -746,6 +746,7 @@ impl Expression {
             lhs: Box::new(lhs),
             rhs: Box::new(rhs.maybe_convert_to(expected_ty, &rhs_n, ctx.diag)),
             op,
+            node: Some(NodeOrToken::Node(node.into())),
         }
     }
 
@@ -1063,7 +1064,10 @@ fn continue_lookup_within_element(
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
         }
-        Expression::CallbackReference(NamedReference::new(elem, &lookup_result.resolved_name))
+        Expression::CallbackReference(
+            NamedReference::new(elem, &lookup_result.resolved_name),
+            Some(NodeOrToken::Token(second)),
+        )
     } else if matches!(lookup_result.property_type, Type::Function { .. }) {
         if !lookup_result.is_local_to_component
             && lookup_result.property_visibility == PropertyVisibility::Private
@@ -1083,7 +1087,10 @@ fn continue_lookup_within_element(
                     .into(),
             }
         } else {
-            Expression::FunctionReference(NamedReference::new(elem, &lookup_result.resolved_name))
+            Expression::FunctionReference(
+                NamedReference::new(elem, &lookup_result.resolved_name),
+                Some(NodeOrToken::Token(second)),
+            )
         }
     } else {
         let mut err = |extra: &str| {
@@ -1295,7 +1302,7 @@ pub fn resolve_two_way_binding(
             }
             Some(n)
         }
-        Expression::CallbackReference(n) => {
+        Expression::CallbackReference(n, _) => {
             if ctx.property_type != Type::InferredCallback && ty != ctx.property_type {
                 ctx.diag.push_error("Cannot bind to a callback".into(), &node);
                 None

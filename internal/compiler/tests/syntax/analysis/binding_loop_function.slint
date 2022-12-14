@@ -5,7 +5,7 @@ Compo1 := Rectangle {
 
     property <int> a : aa();
 //                    ^error{The binding for the property 'a' is part of a binding loop}
-    callback aa() -> int;
+    pure callback aa() -> int;
 
     function factorial(n: int) -> int {
 //  ^error{The binding for the property 'factorial' is part of a binding loop}
@@ -14,7 +14,7 @@ Compo1 := Rectangle {
 
 
     property <int> b;
-    public function bb() -> int { return b; }
+    public pure function bb() -> int { return b; }
 //  ^error{The binding for the property 'bb' is part of a binding loop}
 }
 

@@ -453,8 +453,8 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
             let mut c = CompletionItem::new_simple(str.to_string(), expression.ty().to_string());
             c.kind = match expression {
                 Expression::BoolLiteral(_) => Some(CompletionItemKind::CONSTANT),
-                Expression::CallbackReference(_) => Some(CompletionItemKind::METHOD),
-                Expression::FunctionReference(_) => Some(CompletionItemKind::FUNCTION),
+                Expression::CallbackReference(..) => Some(CompletionItemKind::METHOD),
+                Expression::FunctionReference(..) => Some(CompletionItemKind::FUNCTION),
                 Expression::PropertyReference(_) => Some(CompletionItemKind::PROPERTY),
                 Expression::BuiltinFunctionReference(..) => Some(CompletionItemKind::FUNCTION),
                 Expression::BuiltinMacroReference(..) => Some(CompletionItemKind::FUNCTION),

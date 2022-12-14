@@ -8,7 +8,7 @@ export MainWindow := Window {
     preferred-width: 800px;
     preferred-height: 600px;
 
-    callback render_plot(float /* pitch */, float /* yaw */, float /* amplitude */) -> image;
+    pure callback render_plot(float /* pitch */, float /* yaw */, float /* amplitude */) -> image;
 
     property <float> pitch: 0.15;
     property <float> yaw: 0.5;

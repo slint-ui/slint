@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 TestCase := Rectangle {
-    callback test_func(int) -> int;
-    callback test_func2(string, int) -> string;
+    pure callback test_func(int) -> int;
+    pure callback test_func2(string, int) -> string;
     test_func2(str, val) => { str + "=" + (val + some_value) }
 
     property <int> test_prop: 4 + test_func(2);
