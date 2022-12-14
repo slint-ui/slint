@@ -438,10 +438,39 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 window_item.width.set(LogicalLength::new(layout_info_h.preferred_bounded()));
             }
             let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
-            let s = winit::dpi::LogicalSize::new(
+            #[allow(unused_mut)]
+            let mut s = winit::dpi::LogicalSize::new(
                 layout_info_h.preferred_bounded(),
                 layout_info_v.preferred_bounded(),
             );
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                use wasm_bindgen::JsCast;
+
+                let canvas = web_sys::window()
+                    .unwrap()
+                    .document()
+                    .unwrap()
+                    .get_element_by_id(&self_.canvas_id)
+                    .unwrap()
+                    .dyn_into::<web_sys::HtmlCanvasElement>()
+                    .unwrap();
+
+                let existing_canvas_size = winit::dpi::LogicalSize::new(
+                    canvas.client_width() as f32,
+                    canvas.client_height() as f32,
+                );
+
+                // Try to maintain the existing size of the canvas element. A window created with winit
+                // on the web will always have 1024x768 as size otherwise.
+                if s.width <= 0. {
+                    s.width = existing_canvas_size.width;
+                }
+                if s.height <= 0. {
+                    s.height = existing_canvas_size.height;
+                }
+            }
 
             let window_builder = if std::env::var("SLINT_FULLSCREEN").is_ok() {
                 window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
@@ -523,81 +552,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 winit_window.set_inner_size(s);
             }
             let id = winit_window.id();
-
-            #[cfg(target_arch = "wasm32")]
-            {
-                use wasm_bindgen::JsCast;
-
-                let canvas = web_sys::window()
-                    .unwrap()
-                    .document()
-                    .unwrap()
-                    .get_element_by_id(&self_.canvas_id)
-                    .unwrap()
-                    .dyn_into::<web_sys::HtmlCanvasElement>()
-                    .unwrap();
-
-                let existing_canvas_size = winit::dpi::LogicalSize::new(
-                    canvas.client_width() as u32,
-                    canvas.client_height() as u32,
-                );
-
-                // Try to maintain the existing size of the canvas element. A window created with winit
-                // on the web will always have 1024x768 as size otherwise.
-
-                let resize_canvas = {
-                    let window = winit_window.clone();
-                    let canvas = canvas.clone();
-                    move |_: web_sys::Event| {
-                        let existing_canvas_size = winit::dpi::LogicalSize::new(
-                            canvas.client_width() as u32,
-                            canvas.client_height() as u32,
-                        );
-
-                        window.set_inner_size(existing_canvas_size);
-                        let winit_window_weak =
-                            send_wrapper::SendWrapper::new(Rc::downgrade(&window));
-                        i_slint_core::api::invoke_from_event_loop(move || {
-                            if let Some(winit_window) = winit_window_weak.take().upgrade() {
-                                winit_window.request_redraw();
-                            }
-                        })
-                        .unwrap();
-                    }
-                };
-
-                let resize_closure = wasm_bindgen::closure::Closure::wrap(
-                    Box::new(resize_canvas) as Box<dyn FnMut(_)>
-                );
-                web_sys::window()
-                    .unwrap()
-                    .add_event_listener_with_callback(
-                        "resize",
-                        resize_closure.as_ref().unchecked_ref(),
-                    )
-                    .unwrap();
-                resize_closure.forget();
-
-                {
-                    let default_size =
-                        winit_window.inner_size().to_logical(winit_window.scale_factor());
-                    let new_size = winit::dpi::LogicalSize::new(
-                        if existing_canvas_size.width > 0 {
-                            existing_canvas_size.width
-                        } else {
-                            default_size.width
-                        },
-                        if existing_canvas_size.height > 0 {
-                            existing_canvas_size.height
-                        } else {
-                            default_size.height
-                        },
-                    );
-                    if new_size != default_size {
-                        winit_window.set_inner_size(new_size);
-                    }
-                }
-            }
 
             self_.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
                 constraints: Default::default(),
