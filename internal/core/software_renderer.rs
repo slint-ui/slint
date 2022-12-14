@@ -1229,14 +1229,21 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         paragraph.layout_lines(|glyphs, line_x, line_y| {
             let baseline_y = line_y + font.ascent();
             while let Some(positioned_glyph) = glyphs.next() {
+                let glyph_index =
+                    self::fonts::PixelFont::glyph_id_to_glyph_index(positioned_glyph.glyph_id);
+                let glyph = &font.glyphs.glyph_data[glyph_index];
+                let glyph_x = PhysicalLength::new(glyph.x);
+                let glyph_y = PhysicalLength::new(glyph.y);
+                let glyph_width = PhysicalLength::new(glyph.width);
+                let glyph_height = PhysicalLength::new(glyph.height);
+                let glyph_size = PhysicalSize::from_lengths(glyph_width, glyph_height);
+
                 let src_rect = PhysicalRect::new(
                     PhysicalPoint::from_lengths(
-                        line_x + positioned_glyph.x + positioned_glyph.platform_glyph.x(),
-                        baseline_y
-                            - positioned_glyph.platform_glyph.y()
-                            - positioned_glyph.platform_glyph.height(),
+                        line_x + positioned_glyph.x + glyph_x,
+                        baseline_y - glyph_y - glyph_height,
                     ),
-                    positioned_glyph.platform_glyph.size(),
+                    glyph_size,
                 )
                 .cast();
 
@@ -1245,13 +1252,12 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     let origin = (geometry.origin - offset.round()).cast::<usize>();
                     let actual_x = origin.x - src_rect.origin.x as usize;
                     let actual_y = origin.y - src_rect.origin.y as usize;
-                    let stride = positioned_glyph.platform_glyph.width().get() as u16;
+                    let stride = glyph.width as u16;
                     let geometry = geometry.cast();
                     self.processor.process_texture(
                         geometry,
                         SceneTexture {
-                            data: &positioned_glyph.platform_glyph.data().as_slice()
-                                [actual_x + actual_y * stride as usize..],
+                            data: &glyph.data.as_slice()[actual_x + actual_y * stride as usize..],
                             stride,
                             source_size: geometry.size,
                             format: PixelFormat::AlphaMap,

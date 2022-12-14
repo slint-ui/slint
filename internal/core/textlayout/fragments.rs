@@ -18,15 +18,15 @@ pub struct TextFragment<Length> {
 }
 
 #[derive(Clone)]
-pub struct TextFragmentIterator<'a, Length, PlatformGlyph> {
+pub struct TextFragmentIterator<'a, Length> {
     line_breaks: LineBreakIterator<'a>,
-    glyph_clusters: GlyphClusterIterator<'a, Length, PlatformGlyph>,
+    glyph_clusters: GlyphClusterIterator<'a, Length>,
     text_len: usize,
     pub break_anywhere: bool,
 }
 
-impl<'a, Length, PlatformGlyph> TextFragmentIterator<'a, Length, PlatformGlyph> {
-    pub fn new(text: &'a str, shape_buffer: &'a ShapeBuffer<Length, PlatformGlyph>) -> Self {
+impl<'a, Length> TextFragmentIterator<'a, Length> {
+    pub fn new(text: &'a str, shape_buffer: &'a ShapeBuffer<Length>) -> Self {
         Self {
             line_breaks: LineBreakIterator::new(text),
             glyph_clusters: GlyphClusterIterator::new(text, shape_buffer),
@@ -36,8 +36,8 @@ impl<'a, Length, PlatformGlyph> TextFragmentIterator<'a, Length, PlatformGlyph> 
     }
 }
 
-impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy, PlatformGlyph> Iterator
-    for TextFragmentIterator<'a, Length, PlatformGlyph>
+impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy> Iterator
+    for TextFragmentIterator<'a, Length>
 {
     type Item = TextFragment<Length>;
 
