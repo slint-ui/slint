@@ -794,9 +794,8 @@ fn adjust_rect_and_border_for_inner_drawing(
     *border_width = border_width.min(rect.width_length() / 2.);
     // adjust the size so that the border is drawn within the geometry
 
-    let half_border_size = PhysicalSize::from_lengths(*border_width / 2., *border_width / 2.);
-    rect.origin += half_border_size;
-    rect.size -= half_border_size;
+    rect.origin += PhysicalSize::from_lengths(*border_width / 2., *border_width / 2.);
+    rect.size -= PhysicalSize::from_lengths(*border_width, *border_width);
 }
 
 /// Changes the source or the destination rectangle to respect the image fit
