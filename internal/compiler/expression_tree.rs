@@ -172,8 +172,8 @@ impl BuiltinFunction {
         }
     }
 
-    /// It is pure if the return value only depends on its argument and has no side effect
-    fn is_pure(&self) -> bool {
+    /// It is const if the return value only depends on its argument and has no side effect
+    fn is_const(&self) -> bool {
         match self {
             BuiltinFunction::GetWindowScaleFactor => false,
             BuiltinFunction::GetWindowDefaultFontSize => false,
@@ -210,6 +210,43 @@ impl BuiltinFunction {
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
+            BuiltinFunction::RegisterCustomFontByPath
+            | BuiltinFunction::RegisterCustomFontByMemory
+            | BuiltinFunction::RegisterBitmapFont => false,
+        }
+    }
+
+    // It is pure if it has no side effect
+    pub fn is_pure(&self) -> bool {
+        match self {
+            BuiltinFunction::GetWindowScaleFactor => true,
+            BuiltinFunction::GetWindowDefaultFontSize => true,
+            BuiltinFunction::AnimationTick => true,
+            BuiltinFunction::DarkColorScheme => true,
+            // Even if it has technically side effect, we still consider it as pure for our purpose
+            BuiltinFunction::Debug => true,
+            BuiltinFunction::Mod
+            | BuiltinFunction::Round
+            | BuiltinFunction::Ceil
+            | BuiltinFunction::Floor
+            | BuiltinFunction::Abs
+            | BuiltinFunction::Sqrt
+            | BuiltinFunction::Cos
+            | BuiltinFunction::Sin
+            | BuiltinFunction::Tan
+            | BuiltinFunction::ACos
+            | BuiltinFunction::ASin
+            | BuiltinFunction::Log
+            | BuiltinFunction::Pow
+            | BuiltinFunction::ATan => true,
+            BuiltinFunction::SetFocusItem => false,
+            BuiltinFunction::ShowPopupWindow => false,
+            BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
+            BuiltinFunction::ColorBrighter | BuiltinFunction::ColorDarker => true,
+            BuiltinFunction::ImageSize => true,
+            BuiltinFunction::ArrayLength => true,
+            BuiltinFunction::Rgb => true,
+            BuiltinFunction::ImplicitLayoutInfo(_) => true,
             BuiltinFunction::RegisterCustomFontByPath
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
@@ -344,13 +381,13 @@ pub enum Expression {
     /// Reference to the callback `<name>` in the `<element>`
     ///
     /// Note: if we are to separate expression and statement, we probably do not need to have callback reference within expressions
-    CallbackReference(NamedReference),
+    CallbackReference(NamedReference, Option<NodeOrToken>),
 
     /// Reference to the property
     PropertyReference(NamedReference),
 
     /// Reference to a function
-    FunctionReference(NamedReference),
+    FunctionReference(NamedReference, Option<NodeOrToken>),
 
     /// Reference to a function built into the run-time, implemented natively
     BuiltinFunctionReference(BuiltinFunction, Option<SourceLocation>),
@@ -436,12 +473,13 @@ pub enum Expression {
         source_location: Option<SourceLocation>,
     },
 
-    /// A SelfAssignment or an Assignment.  When op is '=' this is a signal assignment.
+    /// A SelfAssignment or an Assignment.  When op is '=' this is a simple assignment.
     SelfAssignment {
         lhs: Box<Expression>,
         rhs: Box<Expression>,
         /// '+', '-', '/', '*', or '='
         op: char,
+        node: Option<NodeOrToken>,
     },
 
     BinaryExpression {
@@ -518,8 +556,8 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
-            Expression::CallbackReference(nr) => nr.ty(),
-            Expression::FunctionReference(nr) => nr.ty(),
+            Expression::CallbackReference(nr, _) => nr.ty(),
+            Expression::FunctionReference(nr, _) => nr.ty(),
             Expression::PropertyReference(nr) => nr.ty(),
             Expression::BuiltinFunctionReference(funcref, _) => funcref.ty(),
             Expression::MemberFunction { member, .. } => member.ty(),
@@ -865,9 +903,9 @@ impl Expression {
             Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,
             Expression::CallbackReference { .. } => false,
-            Expression::FunctionReference(nr) => nr.is_constant(),
+            Expression::FunctionReference(nr, _) => nr.is_constant(),
             Expression::PropertyReference(nr) => nr.is_constant(),
-            Expression::BuiltinFunctionReference(func, _) => func.is_pure(),
+            Expression::BuiltinFunctionReference(func, _) => func.is_const(),
             Expression::MemberFunction { .. } => false,
             Expression::ElementReference(_) => false,
             Expression::RepeaterIndexReference { .. } => false,
@@ -1369,9 +1407,9 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::StringLiteral(s) => write!(f, "{:?}", s),
         Expression::NumberLiteral(vl, unit) => write!(f, "{}{}", vl, unit),
         Expression::BoolLiteral(b) => write!(f, "{:?}", b),
-        Expression::CallbackReference(a) => write!(f, "{:?}", a),
+        Expression::CallbackReference(a, _) => write!(f, "{:?}", a),
         Expression::PropertyReference(a) => write!(f, "{:?}", a),
-        Expression::FunctionReference(a) => write!(f, "{:?}", a),
+        Expression::FunctionReference(a, _) => write!(f, "{:?}", a),
         Expression::BuiltinFunctionReference(a, _) => write!(f, "{:?}", a),
         Expression::MemberFunction { base, base_node: _, member } => {
             pretty_print(f, base)?;
@@ -1425,7 +1463,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::SelfAssignment { lhs, rhs, op } => {
+        Expression::SelfAssignment { lhs, rhs, op, .. } => {
             pretty_print(f, lhs)?;
             write!(f, " {}= ", if *op == '=' { ' ' } else { *op })?;
             pretty_print(f, rhs)

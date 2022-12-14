@@ -127,8 +127,8 @@ fn fully_qualify_property_access(
             Some(LookupResult::Expression {
                 expression:
                     Expression::PropertyReference(nr)
-                    | Expression::CallbackReference(nr)
-                    | Expression::FunctionReference(nr),
+                    | Expression::CallbackReference(nr, _)
+                    | Expression::FunctionReference(nr, _),
                 ..
             }) => {
                 if let Some(new_name) = state.lookup_change.property_mappings.get(&nr) {

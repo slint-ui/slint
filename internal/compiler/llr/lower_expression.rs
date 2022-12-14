@@ -68,9 +68,9 @@ pub fn lower_expression(
             llr_Expression::NumberLiteral(unit.normalize(*n))
         }
         tree_Expression::BoolLiteral(b) => llr_Expression::BoolLiteral(*b),
-        tree_Expression::CallbackReference(nr)
+        tree_Expression::CallbackReference(nr, _)
         | tree_Expression::PropertyReference(nr)
-        | tree_Expression::FunctionReference(nr) => {
+        | tree_Expression::FunctionReference(nr, _) => {
             llr_Expression::PropertyReference(ctx.map_property_reference(nr))
         }
         tree_Expression::BuiltinFunctionReference(_, _) => panic!(),
@@ -120,17 +120,19 @@ pub fn lower_expression(
                 let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
                 llr_Expression::BuiltinFunctionCall { function: *f, arguments }
             }
-            tree_Expression::CallbackReference(nr) => {
+            tree_Expression::CallbackReference(nr, _) => {
                 let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
                 llr_Expression::CallBackCall { callback: ctx.map_property_reference(nr), arguments }
             }
-            tree_Expression::FunctionReference(nr) => {
+            tree_Expression::FunctionReference(nr, _) => {
                 let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
                 llr_Expression::FunctionCall { function: ctx.map_property_reference(nr), arguments }
             }
             _ => panic!("not calling a function"),
         },
-        tree_Expression::SelfAssignment { lhs, rhs, op } => lower_assignment(lhs, rhs, *op, ctx),
+        tree_Expression::SelfAssignment { lhs, rhs, op, .. } => {
+            lower_assignment(lhs, rhs, *op, ctx)
+        }
         tree_Expression::BinaryExpression { lhs, rhs, op } => llr_Expression::BinaryExpression {
             lhs: Box::new(lower_expression(lhs, ctx)),
             rhs: Box::new(lower_expression(rhs, ctx)),

@@ -11,7 +11,7 @@ struct MyStruct := { x:int, y: int, }
 global InternalGlobal := {
     property <int> hello: 42;
     property <MyStruct> my_struct;
-    callback sum(int, int)->int;
+    pure callback sum(int, int)->int;
 }
 
 export { InternalGlobal as PublicGlobal }

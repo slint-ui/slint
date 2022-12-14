@@ -940,7 +940,7 @@ It is possible to re-expose a callback or properties from a global using the two
 ```slint,no-preview
 global Logic := {
     property <int> the-value;
-    callback magic-operation(int) -> int;
+    pure callback magic-operation(int) -> int;
 }
 
 SomeComponent := Text {
@@ -952,7 +952,7 @@ export MainWindow := Window {
     // re-expose the global properties such that the native code
     // can access or modify them
     property the-value <=> Logic.the-value;
-    callback magic-operation <=> Logic.magic-operation;
+    pure callback magic-operation <=> Logic.magic-operation;
 
     SomeComponent {}
 }

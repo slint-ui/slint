@@ -344,6 +344,7 @@ impl LookupObject for InScopeLookup {
                     let e = expression_from_reference(
                         NamedReference::new(elem, name),
                         &prop.property_type,
+                        &ctx.current_token,
                     );
                     if let Some(r) = f.borrow_mut()(name, e.into()) {
                         return Some(r);
@@ -364,8 +365,12 @@ impl LookupObject for InScopeLookup {
             |elem| elem.lookup(ctx, name),
             |elem| {
                 elem.borrow().property_declarations.get(name).map(|prop| {
-                    expression_from_reference(NamedReference::new(elem, name), &prop.property_type)
-                        .into()
+                    expression_from_reference(
+                        NamedReference::new(elem, name),
+                        &prop.property_type,
+                        &ctx.current_token,
+                    )
+                    .into()
                 })
             },
         )
@@ -375,24 +380,33 @@ impl LookupObject for InScopeLookup {
 impl LookupObject for ElementRc {
     fn for_each_entry<R>(
         &self,
-        _ctx: &LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, prop) in &self.borrow().property_declarations {
-            let e = expression_from_reference(NamedReference::new(self, name), &prop.property_type);
+            let e = expression_from_reference(
+                NamedReference::new(self, name),
+                &prop.property_type,
+                &ctx.current_token,
+            );
             if let Some(r) = f(name, e.into()) {
                 return Some(r);
             }
         }
         let list = self.borrow().base_type.property_list();
         for (name, ty) in list {
-            let e = expression_from_reference(NamedReference::new(self, &name), &ty);
+            let e = expression_from_reference(
+                NamedReference::new(self, &name),
+                &ty,
+                &ctx.current_token,
+            );
             if let Some(r) = f(&name, e.into()) {
                 return Some(r);
             }
         }
         for (name, ty) in crate::typeregister::reserved_properties() {
-            let e = expression_from_reference(NamedReference::new(self, name), &ty);
+            let e =
+                expression_from_reference(NamedReference::new(self, name), &ty, &ctx.current_token);
             if let Some(r) = f(name, e.into()) {
                 return Some(r);
             }
@@ -400,7 +414,7 @@ impl LookupObject for ElementRc {
         None
     }
 
-    fn lookup(&self, _ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         let lookup_result = self.borrow().lookup_property(name);
         if lookup_result.property_type != Type::Invalid
             && (lookup_result.is_local_to_component
@@ -410,6 +424,7 @@ impl LookupObject for ElementRc {
                 expression: expression_from_reference(
                     NamedReference::new(self, &lookup_result.resolved_name),
                     &lookup_result.property_type,
+                    &ctx.current_token,
                 ),
                 deprecated: (lookup_result.resolved_name != name)
                     .then(|| lookup_result.resolved_name.to_string()),
@@ -420,10 +435,14 @@ impl LookupObject for ElementRc {
     }
 }
 
-fn expression_from_reference(n: NamedReference, ty: &Type) -> Expression {
+fn expression_from_reference(
+    n: NamedReference,
+    ty: &Type,
+    node: &Option<NodeOrToken>,
+) -> Expression {
     match ty {
-        Type::Callback { .. } => Expression::CallbackReference(n),
-        Type::Function { .. } => Expression::FunctionReference(n),
+        Type::Callback { .. } => Expression::CallbackReference(n, node.clone()),
+        Type::Function { .. } => Expression::FunctionReference(n, node.clone()),
         _ => Expression::PropertyReference(n),
     }
 }

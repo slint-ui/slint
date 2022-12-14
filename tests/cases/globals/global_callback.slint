@@ -3,9 +3,9 @@
 
 global Glo := {
     property <int> hello: 42;
-    callback sum(int, int) -> int;
-    callback mul(int, int) -> int;
-    callback calculate_profit() -> int;
+    pure callback sum(int, int) -> int;
+    pure callback mul(int, int) -> int;
+    pure callback calculate_profit() -> int;
     calculate_profit() => { return 1000; }
 }
 
@@ -16,8 +16,8 @@ ExtraComp := Rectangle {
 
 
 TestCase := Window {
-    callback sum <=> Glo.sum;
-    callback mul <=> Glo.mul;
+    pure callback sum <=> Glo.sum;
+    pure callback mul <=> Glo.mul;
 
     x := ExtraComp {}
     property<int> five: x.five;

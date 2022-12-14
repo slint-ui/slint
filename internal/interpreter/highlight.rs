@@ -148,6 +148,7 @@ pub(crate) fn add_highlight_items(doc: &Document) {
             expose_in_public_api: false,
             is_alias: None,
             visibility: PropertyVisibility::Input,
+            pure: None,
         },
     );
     doc.root_component.root_element.borrow_mut().property_analysis.borrow_mut().insert(

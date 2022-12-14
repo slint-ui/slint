@@ -15,7 +15,7 @@ TestCase := Rectangle {
     cb1(foo) => { return { b: foo.a.member+1 }; }
 
     property<Foo2> xx;
-    callback cb2(Foo2, Foo2)->Foo2;
+    pure callback cb2(Foo2, Foo2)->Foo2;
     property<Foo2> xx2: cb2(xx, xx);
 
 

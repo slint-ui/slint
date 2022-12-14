@@ -17,7 +17,7 @@ slint::slint! {
 
         property original-image <=> original.source;
         property filters <=> filter-combo.model;
-        callback filter-image(int) -> image;
+        pure callback filter-image(int) -> image;
 
         HorizontalBox {
             VerticalBox {

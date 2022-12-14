@@ -403,6 +403,7 @@ impl ElementType {
                                 resolved_name,
                                 property_type: Type::Invalid,
                                 property_visibility: PropertyVisibility::Private,
+                                declared_pure: None,
                                 is_local_to_component: false,
                             }
                         } else {
@@ -413,6 +414,7 @@ impl ElementType {
                         resolved_name,
                         property_type: p.ty.clone(),
                         property_visibility: p.property_visibility,
+                        declared_pure: None,
                         is_local_to_component: false,
                     },
                 }
@@ -429,6 +431,7 @@ impl ElementType {
                     resolved_name,
                     property_type,
                     property_visibility: PropertyVisibility::InOut,
+                    declared_pure: None,
                     is_local_to_component: false,
                 }
             }
@@ -436,6 +439,7 @@ impl ElementType {
                 resolved_name: Cow::Borrowed(name),
                 property_type: Type::Invalid,
                 property_visibility: PropertyVisibility::Private,
+                declared_pure: None,
                 is_local_to_component: false,
             },
         }
@@ -690,6 +694,7 @@ pub struct PropertyLookupResult<'a> {
     pub resolved_name: std::borrow::Cow<'a, str>,
     pub property_type: Type,
     pub property_visibility: PropertyVisibility,
+    pub declared_pure: Option<bool>,
     /// True if the property is part of the the current component (for visibility purposes)
     pub is_local_to_component: bool,
 }

@@ -497,6 +497,7 @@ fn lower_dialog_layout(
                                             "clicked",
                                         )),
                                         visibility: PropertyVisibility::InOut,
+                                        pure: None,
                                     });
                             }
                         }

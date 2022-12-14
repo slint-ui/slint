@@ -5,10 +5,10 @@ import { LineEdit, Button, ComboBox, VerticalBox } from "std-widgets.slint";
 
 Booker := Window {
     // returns true if the string parameter is a valid date
-    callback validate-date(string) -> bool;
+    pure callback validate-date(string) -> bool;
     validate-date(_) => { true }
     // returns true if the first date is before the second date and they are both valid
-    callback compare-date(string, string) -> bool;
+    pure callback compare-date(string, string) -> bool;
     compare-date(a, b) => { a <= b }
     property <bool> message-visible;
     VerticalBox {

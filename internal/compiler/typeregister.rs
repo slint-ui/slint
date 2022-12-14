@@ -141,6 +141,7 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
                 resolved_name: name.into(),
                 is_local_to_component: false,
                 property_visibility: crate::object_tree::PropertyVisibility::InOut,
+                declared_pure: None,
             };
         }
     }
@@ -156,6 +157,7 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
                             resolved_name: format!("{}-{}", pre, suf).into(),
                             is_local_to_component: false,
                             property_visibility: crate::object_tree::PropertyVisibility::InOut,
+                            declared_pure: None,
                         };
                     }
                 }
@@ -167,6 +169,7 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
         property_type: Type::Invalid,
         is_local_to_component: false,
         property_visibility: crate::object_tree::PropertyVisibility::Private,
+        declared_pure: None,
     }
 }
 
