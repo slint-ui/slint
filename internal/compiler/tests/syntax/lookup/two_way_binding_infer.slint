@@ -10,13 +10,12 @@ X := Rectangle {
     property infer_loop3 <=> infer_loop;
 //  ^error{Could not infer type of property 'infer-loop3'}
 //                           ^^error{Unknown unqualified identifier 'infer_loop'}
-//                       ^^^error{The expression in a two way binding must be a property reference}
 
     property infer_error <=> r.infer_error;
 //  ^error{Could not infer type of property 'infer-error'}
     r := Rectangle {
         property infer_error <=> 0;
-//                           ^error{The expression in a two way binding must be a property reference}
+//                              ^error{The expression in a two way binding must be a property reference}
 //      ^^error{Could not infer type of property 'infer-error'}
     }
 

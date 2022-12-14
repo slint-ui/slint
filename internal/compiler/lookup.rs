@@ -442,6 +442,7 @@ fn expression_from_reference(
 ) -> Expression {
     match ty {
         Type::Callback { .. } => Expression::CallbackReference(n, node.clone()),
+        Type::InferredCallback => Expression::CallbackReference(n, node.clone()),
         Type::Function { .. } => Expression::FunctionReference(n, node.clone()),
         _ => Expression::PropertyReference(n),
     }

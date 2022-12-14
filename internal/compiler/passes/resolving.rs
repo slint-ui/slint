@@ -1287,14 +1287,24 @@ pub fn resolve_two_way_binding(
     node: syntax_nodes::TwoWayBinding,
     ctx: &mut LookupCtx,
 ) -> Option<NamedReference> {
-    let e = node
-        .Expression()
-        .QualifiedName()
-        .map_or(Expression::Invalid, |n| Expression::from_qualified_name_node(n, ctx));
+    let e = if let Some(n) = node.Expression().QualifiedName() {
+        Expression::from_qualified_name_node(n, ctx)
+    } else {
+        ctx.diag.push_error(
+            "The expression in a two way binding must be a property reference".into(),
+            &node.Expression(),
+        );
+        return None;
+    };
+    // If type is invalid, error has already been reported,  when inferring, the error will be reported by the inferring code
+    let report_error = !matches!(
+        ctx.property_type,
+        Type::InferredProperty | Type::InferredCallback | Type::Invalid
+    );
     let ty = e.ty();
     match e {
         Expression::PropertyReference(n) => {
-            if ty != ctx.property_type && ctx.property_type != Type::InferredProperty {
+            if report_error && ty != ctx.property_type {
                 ctx.diag.push_error(
                     "The property does not have the same type as the bound property".into(),
                     &node,
@@ -1303,7 +1313,7 @@ pub fn resolve_two_way_binding(
             Some(n)
         }
         Expression::CallbackReference(n, _) => {
-            if ctx.property_type != Type::InferredCallback && ty != ctx.property_type {
+            if report_error && ty != ctx.property_type {
                 ctx.diag.push_error("Cannot bind to a callback".into(), &node);
                 None
             } else {
@@ -1311,7 +1321,13 @@ pub fn resolve_two_way_binding(
             }
         }
         Expression::FunctionReference(..) => {
-            ctx.diag.push_error("Cannot bind to a function".into(), &node);
+            if report_error {
+                ctx.diag.push_error("Cannot bind to a function".into(), &node);
+            }
+            None
+        }
+        Expression::Invalid => {
+            debug_assert!(ctx.diag.has_error());
             None
         }
         _ => {
