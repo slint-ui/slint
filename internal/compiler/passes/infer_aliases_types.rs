@@ -93,13 +93,38 @@ fn resolve_alias(
         }
     }
 
-    if ty == Type::Invalid && old_type == Type::InferredProperty {
-        diag.push_error(
-            format!("Could not infer type of property '{}'", prop),
-            &elem.borrow().property_declarations[prop].type_node(),
-        );
-    } else {
-        elem.borrow_mut().property_declarations.get_mut(prop).unwrap().property_type = ty;
+    if old_type == Type::InferredProperty {
+        if !ty.is_property_type() {
+            diag.push_error(
+                format!("Could not infer type of property '{}'", prop),
+                &elem.borrow().property_declarations[prop].type_node(),
+            );
+        } else {
+            elem.borrow_mut().property_declarations.get_mut(prop).unwrap().property_type = ty;
+        }
+    } else if old_type == Type::InferredCallback {
+        if !matches!(ty, Type::Callback { .. }) {
+            if nr.is_some() && ty == Type::Invalid {
+                debug_assert!(diag.has_error());
+            } else {
+                diag.push_error(
+                    format!("Binding to callback '{}' must bind to another callback", prop),
+                    &elem.borrow().property_declarations[prop].type_node(),
+                );
+            }
+        } else {
+            let nr = nr.unwrap();
+            let purity = nr.element().borrow().lookup_property(nr.name()).declared_pure;
+            let mut elem = elem.borrow_mut();
+            let mut decl = elem.property_declarations.get_mut(prop).unwrap();
+            if decl.pure.unwrap_or(false) != purity.unwrap_or(false) {
+                diag.push_error(
+                    format!("Purity of callbacks '{prop}' and '{nr:?}' doesn't match"),
+                    &decl.type_node(),
+                );
+            }
+            decl.property_type = ty;
+        }
     }
 }
 

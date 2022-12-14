@@ -13,15 +13,14 @@ Xxx := Rectangle {
     }
 
     callback colr <=> foo.background;
-//                   ^error{The property does not have the same type as the bound property}
+//  ^error{Binding to callback 'colr' must bind to another callback}
     property propr <=> foo.hello;
-//                 ^error{Cannot bind to a callback}
-//  ^^error{Could not infer type of property 'propr'}
+//  ^error{Could not infer type of property 'propr'}
 
     callback loop1 <=> loop2;
     callback loop3 <=> loop1;
 //                     ^error{Unknown unqualified identifier 'loop1'}
-//                    ^^error{The expression in a two way binding must be a property reference}
+//  ^^error{Binding to callback 'loop3' must bind to another callback}
     callback loop2 <=> loop3;
 
     Sub {
