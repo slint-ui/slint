@@ -8,40 +8,13 @@ use core::cell::RefCell;
 use crate::thread_local_ as thread_local;
 
 use super::{PhysicalLength, PhysicalSize};
-use crate::graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest};
+use crate::graphics::{BitmapFont, BitmapGlyphs, FontRequest};
 use crate::lengths::{LogicalLength, LogicalSize, ScaleFactor};
-use crate::slice::Slice;
 use crate::textlayout::{Glyph, TextLayout, TextShaper};
 use crate::Coord;
 
 thread_local! {
     static FONTS: RefCell<Vec<&'static BitmapFont>> = RefCell::default()
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct PlatformGlyph {
-    pub(crate) bitmap_glyph: Option<&'static BitmapGlyph>,
-}
-
-impl PlatformGlyph {
-    pub fn x(&self) -> PhysicalLength {
-        self.bitmap_glyph.map(|g| PhysicalLength::new(g.x)).unwrap_or_default()
-    }
-    pub fn y(&self) -> PhysicalLength {
-        self.bitmap_glyph.map(|g| PhysicalLength::new(g.y)).unwrap_or_default()
-    }
-    pub fn width(&self) -> PhysicalLength {
-        self.bitmap_glyph.map(|g| PhysicalLength::new(g.width)).unwrap_or_default()
-    }
-    pub fn height(&self) -> PhysicalLength {
-        self.bitmap_glyph.map(|g| PhysicalLength::new(g.height)).unwrap_or_default()
-    }
-    pub fn size(&self) -> PhysicalSize {
-        PhysicalSize::from_lengths(self.width(), self.height())
-    }
-    pub fn data(&self) -> &Slice<'static, u8> {
-        &self.bitmap_glyph.expect("invalid error: Glyph::data called on null").data
-    }
 }
 
 trait FontMetrics {
@@ -74,38 +47,44 @@ pub(super) const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12 as Coo
 // A font that is resolved to a specific pixel size.
 pub struct PixelFont {
     bitmap_font: &'static BitmapFont,
-    glyphs: &'static BitmapGlyphs,
+    pub glyphs: &'static BitmapGlyphs,
 }
 
 impl PixelFont {
     pub fn pixel_size(&self) -> PhysicalLength {
         self.glyphs.pixel_size()
     }
+    pub fn glyph_index_to_glyph_id(index: usize) -> core::num::NonZeroU16 {
+        core::num::NonZeroU16::new(index as u16 + 1).unwrap()
+    }
+    pub fn glyph_id_to_glyph_index(id: core::num::NonZeroU16) -> usize {
+        id.get() as usize - 1
+    }
 }
 
 impl TextShaper for PixelFont {
     type LengthPrimitive = i16;
     type Length = PhysicalLength;
-    type PlatformGlyphData = PlatformGlyph;
-    fn shape_text<GlyphStorage: core::iter::Extend<Glyph<PhysicalLength, PlatformGlyph>>>(
+    fn shape_text<GlyphStorage: core::iter::Extend<Glyph<PhysicalLength>>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
     ) {
         let glyphs_iter = text.char_indices().map(|(byte_offset, char)| {
-            let bitmap_glyph = self
+            let glyph_index = self
                 .bitmap_font
                 .character_map
                 .binary_search_by_key(&char, |char_map_entry| char_map_entry.code_point)
                 .ok()
-                .map_or(None, |char_map_index| {
-                    let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
-                    Some(&self.glyphs.glyph_data[glyph_index as usize])
+                .map(|char_map_index| {
+                    self.bitmap_font.character_map[char_map_index].glyph_index as usize
                 });
-            let x_advance = bitmap_glyph
-                .map_or_else(|| self.pixel_size(), |g| PhysicalLength::new(g.x_advance));
+            let x_advance = glyph_index.map_or_else(
+                || self.pixel_size(),
+                |glyph_index| PhysicalLength::new(self.glyphs.glyph_data[glyph_index].x_advance),
+            );
             Glyph {
-                platform_glyph: PlatformGlyph { bitmap_glyph },
+                glyph_id: glyph_index.map(|index| Self::glyph_index_to_glyph_id(index)),
                 advance: x_advance,
                 text_byte_offset: byte_offset,
                 ..Default::default()
@@ -114,17 +93,18 @@ impl TextShaper for PixelFont {
         glyphs.extend(glyphs_iter);
     }
 
-    fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength, PlatformGlyph>> {
+    fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength>> {
         self.bitmap_font
             .character_map
             .binary_search_by_key(&ch, |char_map_entry| char_map_entry.code_point)
             .ok()
             .map(|char_map_index| {
-                let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
+                let glyph_index =
+                    self.bitmap_font.character_map[char_map_index].glyph_index as usize;
                 let bitmap_glyph = &self.glyphs.glyph_data[glyph_index as usize];
                 let x_advance = PhysicalLength::new(bitmap_glyph.x_advance);
                 Glyph {
-                    platform_glyph: PlatformGlyph { bitmap_glyph: Some(bitmap_glyph) },
+                    glyph_id: Some(Self::glyph_index_to_glyph_id(glyph_index)),
                     advance: x_advance,
                     text_byte_offset: 0,
                     ..Default::default()

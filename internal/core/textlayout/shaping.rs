@@ -9,11 +9,13 @@ use super::TextLayout;
 /// This struct describes a glyph from shaping to rendering. This includes the relative shaping
 /// offsets, advance (in abstract lengths) and platform specific glyph data.
 #[derive(Clone, Default, Debug)]
-pub struct Glyph<Length, PlatformGlyphData> {
+pub struct Glyph<Length> {
     pub advance: Length,
     pub offset_x: Length,
     pub offset_y: Length,
-    pub platform_glyph: PlatformGlyphData,
+    /// Glyph IDs are font specific identifiers. In TrueType fonts zero indicates the missing glyph, which
+    /// is mapped to an Option here.
+    pub glyph_id: Option<core::num::NonZeroU16>,
     /// The byte offset back in the original (Rust) string to the character that
     /// "produced" this glyph. When one character produces multiple glyphs (for example
     /// decomposed ligature), then all glyphs have the same offset.
@@ -53,14 +55,13 @@ pub trait TextShaper {
         + core::cmp::PartialOrd
         + core::ops::Mul<Self::LengthPrimitive, Output = Self::Length>
         + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>;
-    type PlatformGlyphData: Clone;
     // Shapes the given string and emits the result into the given glyphs buffer.
-    fn shape_text<GlyphStorage: core::iter::Extend<Glyph<Self::Length, Self::PlatformGlyphData>>>(
+    fn shape_text<GlyphStorage: core::iter::Extend<Glyph<Self::Length>>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
     );
-    fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length, Self::PlatformGlyphData>>;
+    fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length>>;
 }
 
 pub trait FontMetrics<Length: Copy + core::ops::Sub<Output = Length>> {
@@ -161,15 +162,15 @@ pub struct TextRun {
     // TODO: direction, etc.
 }
 
-pub struct ShapeBuffer<Length, PlatformGlyphData> {
-    pub glyphs: Vec<Glyph<Length, PlatformGlyphData>>,
+pub struct ShapeBuffer<Length> {
+    pub glyphs: Vec<Glyph<Length>>,
     pub text_runs: Vec<TextRun>,
 }
 
-impl<Length, PlatformGlyphData> ShapeBuffer<Length, PlatformGlyphData> {
+impl<Length> ShapeBuffer<Length> {
     pub fn new<Font>(layout: &TextLayout<Font>, text: &str) -> Self
     where
-        Font: AbstractFont<Length = Length, PlatformGlyphData = PlatformGlyphData>,
+        Font: AbstractFont<Length = Length>,
         Length: Copy + core::ops::AddAssign,
     {
         let mut glyphs = Vec::new();
@@ -250,22 +251,10 @@ fn test_shape_boundaries_script_change() {
 }
 
 #[cfg(test)]
-#[derive(Clone, Debug, Default)]
-pub struct TestGlyphData {
-    pub bearing_x: f32,
-    pub bearing_y: f32,
-    pub width: f32,
-    pub height: f32,
-    pub glyph_id: Option<core::num::NonZeroU16>,
-    pub char: Option<char>,
-}
-
-#[cfg(test)]
 impl<'a> TextShaper for &rustybuzz::Face<'a> {
     type LengthPrimitive = f32;
     type Length = f32;
-    type PlatformGlyphData = TestGlyphData;
-    fn shape_text<GlyphStorage: std::iter::Extend<Glyph<f32, Self::PlatformGlyphData>>>(
+    fn shape_text<GlyphStorage: std::iter::Extend<Glyph<f32>>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
@@ -278,28 +267,11 @@ impl<'a> TextShaper for &rustybuzz::Face<'a> {
             glyph_buffer.glyph_infos().iter().zip(glyph_buffer.glyph_positions().iter()).map(
                 |(info, position)| {
                     let mut out_glyph = Glyph::default();
-
-                    out_glyph.platform_glyph = Self::PlatformGlyphData {
-                        glyph_id: core::num::NonZeroU16::new(info.glyph_id as u16),
-                        char: text[info.cluster as usize..].chars().next(),
-                        ..Default::default()
-                    };
-
+                    out_glyph.glyph_id = core::num::NonZeroU16::new(info.glyph_id as u16);
                     out_glyph.offset_x = position.x_offset as _;
                     out_glyph.offset_y = position.y_offset as _;
                     out_glyph.advance = position.x_advance as _;
-
-                    if let Some(bounding_box) = out_glyph.platform_glyph.glyph_id.and_then(|id| {
-                        self.glyph_bounding_box(rustybuzz::ttf_parser::GlyphId(id.get()))
-                    }) {
-                        out_glyph.platform_glyph.width = bounding_box.width() as _;
-                        out_glyph.platform_glyph.height = bounding_box.height() as _;
-                        out_glyph.platform_glyph.bearing_x = bounding_box.x_min as _;
-                        out_glyph.platform_glyph.bearing_y = bounding_box.y_min as _;
-                    }
-
                     out_glyph.text_byte_offset = info.cluster as usize;
-
                     out_glyph
                 },
             );
@@ -308,7 +280,7 @@ impl<'a> TextShaper for &rustybuzz::Face<'a> {
         glyphs.extend(output_glyph_generator);
     }
 
-    fn glyph_for_char(&self, _ch: char) -> Option<Glyph<f32, Self::PlatformGlyphData>> {
+    fn glyph_for_char(&self, _ch: char) -> Option<Glyph<f32>> {
         todo!()
     }
 }
@@ -360,13 +332,13 @@ fn test_shaping() {
             face.shape_text("a\u{0304}\u{0301}b", &mut shaped_glyphs);
 
             assert_eq!(shaped_glyphs.len(), 3);
-            assert_eq!(shaped_glyphs[0].platform_glyph.glyph_id, NonZeroU16::new(195));
+            assert_eq!(shaped_glyphs[0].glyph_id, NonZeroU16::new(195));
             assert_eq!(shaped_glyphs[0].text_byte_offset, 0);
 
-            assert_eq!(shaped_glyphs[1].platform_glyph.glyph_id, NonZeroU16::new(690));
+            assert_eq!(shaped_glyphs[1].glyph_id, NonZeroU16::new(690));
             assert_eq!(shaped_glyphs[1].text_byte_offset, 0);
 
-            assert_eq!(shaped_glyphs[2].platform_glyph.glyph_id, NonZeroU16::new(69));
+            assert_eq!(shaped_glyphs[2].glyph_id, NonZeroU16::new(69));
             assert_eq!(shaped_glyphs[2].text_byte_offset, 5);
         }
 
@@ -376,12 +348,12 @@ fn test_shaping() {
             face.shape_text("a b", &mut shaped_glyphs);
 
             assert_eq!(shaped_glyphs.len(), 3);
-            assert_eq!(shaped_glyphs[0].platform_glyph.glyph_id, NonZeroU16::new(68));
+            assert_eq!(shaped_glyphs[0].glyph_id, NonZeroU16::new(68));
             assert_eq!(shaped_glyphs[0].text_byte_offset, 0);
 
             assert_eq!(shaped_glyphs[1].text_byte_offset, 1);
 
-            assert_eq!(shaped_glyphs[2].platform_glyph.glyph_id, NonZeroU16::new(69));
+            assert_eq!(shaped_glyphs[2].glyph_id, NonZeroU16::new(69));
             assert_eq!(shaped_glyphs[2].text_byte_offset, 2);
         }
     });

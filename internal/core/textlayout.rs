@@ -78,10 +78,10 @@ impl<'a, Font: AbstractFont> TextLayout<'a, Font> {
     }
 }
 
-pub struct PositionedGlyph<'a, Length, PlatformGlyphData> {
+pub struct PositionedGlyph<Length> {
     pub x: Length,
     pub y: Length,
-    pub platform_glyph: &'a PlatformGlyphData,
+    pub glyph_id: core::num::NonZeroU16,
 }
 
 pub struct TextParagraphLayout<'a, Font: AbstractFont> {
@@ -103,14 +103,14 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
     pub fn layout_lines(
         &self,
         mut line_callback: impl FnMut(
-            &mut dyn Iterator<Item = PositionedGlyph<'_, Font::Length, Font::PlatformGlyphData>>,
+            &mut dyn Iterator<Item = PositionedGlyph<Font::Length>>,
             Font::Length,
             Font::Length,
         ),
     ) -> Font::Length {
         let wrap = self.wrap == TextWrap::WordWrap;
         let elide_glyph = if self.overflow == TextOverflow::Elide {
-            self.layout.font.glyph_for_char('…')
+            self.layout.font.glyph_for_char('…').filter(|glyph| glyph.glyph_id.is_some())
         } else {
             None
         };
@@ -147,49 +147,52 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
 
         let mut y = baseline_y;
 
-        let mut process_line =
-            |line: &TextLine<Font::Length>,
-             glyphs: &[Glyph<Font::Length, Font::PlatformGlyphData>]| {
-                let x = match self.horizontal_alignment {
-                    TextHorizontalAlignment::Left => Font::Length::zero(),
-                    TextHorizontalAlignment::Center => {
-                        self.max_width / two
-                            - euclid::approxord::min(self.max_width, line.text_width) / two
-                    }
-                    TextHorizontalAlignment::Right => {
-                        self.max_width - euclid::approxord::min(self.max_width, line.text_width)
-                    }
-                };
-
-                let mut elide_glyph = elide_glyph.as_ref().clone();
-
-                let glyph_it = glyphs[line.glyph_range.clone()].iter();
-                let mut glyph_x = Font::Length::zero();
-                let mut positioned_glyph_it = glyph_it.map_while(|glyph| {
-                    // TODO: cut off at grapheme boundaries
-                    if glyph_x > max_width_without_elision {
-                        if let Some(elide_glyph) = elide_glyph.take() {
-                            return Some(PositionedGlyph {
-                                x: glyph_x,
-                                y: Font::Length::zero(),
-                                platform_glyph: &elide_glyph.platform_glyph,
-                            });
-                        } else {
-                            return None;
-                        }
-                    }
-                    let positioned_glyph = PositionedGlyph {
-                        x: glyph_x,
-                        y: Font::Length::zero(),
-                        platform_glyph: &glyph.platform_glyph,
-                    };
-                    glyph_x += glyph.advance;
-                    Some(positioned_glyph)
-                });
-
-                line_callback(&mut positioned_glyph_it, x, y);
-                y += self.layout.font.height();
+        let mut process_line = |line: &TextLine<Font::Length>, glyphs: &[Glyph<Font::Length>]| {
+            let x = match self.horizontal_alignment {
+                TextHorizontalAlignment::Left => Font::Length::zero(),
+                TextHorizontalAlignment::Center => {
+                    self.max_width / two
+                        - euclid::approxord::min(self.max_width, line.text_width) / two
+                }
+                TextHorizontalAlignment::Right => {
+                    self.max_width - euclid::approxord::min(self.max_width, line.text_width)
+                }
             };
+
+            let mut elide_glyph = elide_glyph.as_ref().clone();
+
+            let glyph_it = glyphs[line.glyph_range.clone()].iter();
+            let mut glyph_x = Font::Length::zero();
+            let mut positioned_glyph_it = glyph_it.filter_map(|glyph| {
+                // TODO: cut off at grapheme boundaries
+                if glyph_x > max_width_without_elision {
+                    if let Some(elide_glyph) = elide_glyph.take() {
+                        return Some(PositionedGlyph {
+                            x: glyph_x,
+                            y: Font::Length::zero(),
+                            glyph_id: elide_glyph.glyph_id.unwrap(), // checked earlier when initializing elide_glyph
+                        });
+                    } else {
+                        return None;
+                    }
+                }
+                let x = glyph_x;
+                glyph_x += glyph.advance;
+
+                if let Some(existing_glyph_id) = glyph.glyph_id {
+                    Some(PositionedGlyph {
+                        x,
+                        y: Font::Length::zero(),
+                        glyph_id: existing_glyph_id,
+                    })
+                } else {
+                    None
+                }
+            });
+
+            line_callback(&mut positioned_glyph_it, x, y);
+            y += self.layout.font.height();
+        };
 
         if let Some(lines_vec) = text_lines.take() {
             for line in lines_vec {
@@ -220,41 +223,34 @@ pub struct FixedTestFont;
 impl TextShaper for FixedTestFont {
     type LengthPrimitive = f32;
     type Length = f32;
-    type PlatformGlyphData = shaping::TestGlyphData;
-    fn shape_text<GlyphStorage: std::iter::Extend<Glyph<f32, Self::PlatformGlyphData>>>(
+    fn shape_text<GlyphStorage: std::iter::Extend<Glyph<f32>>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
     ) {
-        let glyph_iter = text.char_indices().map(|(byte_offset, char)| Glyph {
-            offset_x: 0.,
-            offset_y: 0.,
-            platform_glyph: Self::PlatformGlyphData {
-                bearing_x: 0.,
-                bearing_y: 0.,
-                width: 10.,
-                height: 10.,
-                glyph_id: None,
-                char: Some(char),
-            },
-            advance: 10.,
-            text_byte_offset: byte_offset,
+        let glyph_iter = text.char_indices().map(|(byte_offset, char)| {
+            let mut utf16_buf = [0; 2];
+            let utf16_char_as_glyph_id = char.encode_utf16(&mut utf16_buf)[0];
+
+            Glyph {
+                offset_x: 0.,
+                offset_y: 0.,
+                glyph_id: core::num::NonZeroU16::new(utf16_char_as_glyph_id),
+                advance: 10.,
+                text_byte_offset: byte_offset,
+            }
         });
         glyphs.extend(glyph_iter);
     }
 
-    fn glyph_for_char(&self, ch: char) -> Option<Glyph<f32, Self::PlatformGlyphData>> {
+    fn glyph_for_char(&self, ch: char) -> Option<Glyph<f32>> {
+        let mut utf16_buf = [0; 2];
+        let utf16_char_as_glyph_id = ch.encode_utf16(&mut utf16_buf)[0];
+
         Glyph {
             offset_x: 0.,
             offset_y: 0.,
-            platform_glyph: Self::PlatformGlyphData {
-                bearing_x: 0.,
-                bearing_y: 0.,
-                width: 10.,
-                height: 10.,
-                glyph_id: None,
-                char: Some(ch),
-            },
+            glyph_id: core::num::NonZeroU16::new(utf16_char_as_glyph_id),
             advance: 10.,
             text_byte_offset: 0,
         }
@@ -293,15 +289,19 @@ fn test_elision() {
     };
     paragraph.layout_lines(|glyphs, _, _| {
         lines.push(
-            glyphs
-                .map(|positioned_glyph| positioned_glyph.platform_glyph.clone())
-                .collect::<Vec<_>>(),
+            glyphs.map(|positioned_glyph| positioned_glyph.glyph_id.clone()).collect::<Vec<_>>(),
         );
     });
 
     assert_eq!(lines.len(), 1);
-    let rendered_text =
-        lines[0].iter().map(|platform_glyph| platform_glyph.char.unwrap()).collect::<String>();
+    let rendered_text = lines[0]
+        .iter()
+        .flat_map(|glyph_id| {
+            core::char::decode_utf16(core::iter::once(glyph_id.get()))
+                .map(|r| r.unwrap())
+                .collect::<Vec<char>>()
+        })
+        .collect::<String>();
     debug_assert_eq!(rendered_text, "This is a lon…")
 }
 
@@ -325,15 +325,19 @@ fn test_exact_fit() {
     };
     paragraph.layout_lines(|glyphs, _, _| {
         lines.push(
-            glyphs
-                .map(|positioned_glyph| positioned_glyph.platform_glyph.clone())
-                .collect::<Vec<_>>(),
+            glyphs.map(|positioned_glyph| positioned_glyph.glyph_id.clone()).collect::<Vec<_>>(),
         );
     });
 
     assert_eq!(lines.len(), 1);
-    let rendered_text =
-        lines[0].iter().map(|platform_glyph| platform_glyph.char.unwrap()).collect::<String>();
+    let rendered_text = lines[0]
+        .iter()
+        .flat_map(|glyph_id| {
+            core::char::decode_utf16(core::iter::once(glyph_id.get()))
+                .map(|r| r.unwrap())
+                .collect::<Vec<char>>()
+        })
+        .collect::<String>();
     debug_assert_eq!(rendered_text, "Fits")
 }
 
@@ -357,9 +361,7 @@ fn test_no_line_separators_characters_rendered() {
     };
     paragraph.layout_lines(|glyphs, _, _| {
         lines.push(
-            glyphs
-                .map(|positioned_glyph| positioned_glyph.platform_glyph.clone())
-                .collect::<Vec<_>>(),
+            glyphs.map(|positioned_glyph| positioned_glyph.glyph_id.clone()).collect::<Vec<_>>(),
         );
     });
 
@@ -369,7 +371,11 @@ fn test_no_line_separators_characters_rendered() {
         .map(|glyphs_per_line| {
             glyphs_per_line
                 .iter()
-                .map(|platform_glyph| platform_glyph.char.unwrap())
+                .flat_map(|glyph_id| {
+                    core::char::decode_utf16(core::iter::once(glyph_id.get()))
+                        .map(|r| r.unwrap())
+                        .collect::<Vec<char>>()
+                })
                 .collect::<String>()
         })
         .collect::<Vec<_>>();

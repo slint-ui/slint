@@ -17,9 +17,9 @@ pub struct GlyphCluster<Length: Clone> {
 }
 
 #[derive(Clone)]
-pub struct GlyphClusterIterator<'a, Length, PlatformGlyph> {
+pub struct GlyphClusterIterator<'a, Length> {
     text: &'a str,
-    shaped_text: &'a ShapeBuffer<Length, PlatformGlyph>,
+    shaped_text: &'a ShapeBuffer<Length>,
     current_run: usize,
     // absolute byte offset in the entire text
     byte_offset: usize,
@@ -27,8 +27,8 @@ pub struct GlyphClusterIterator<'a, Length, PlatformGlyph> {
     marker: PhantomData<Length>,
 }
 
-impl<'a, Length, PlatformGlyph> GlyphClusterIterator<'a, Length, PlatformGlyph> {
-    pub fn new(text: &'a str, shaped_text: &'a ShapeBuffer<Length, PlatformGlyph>) -> Self {
+impl<'a, Length> GlyphClusterIterator<'a, Length> {
+    pub fn new(text: &'a str, shaped_text: &'a ShapeBuffer<Length>) -> Self {
         Self {
             text,
             shaped_text,
@@ -40,8 +40,8 @@ impl<'a, Length, PlatformGlyph> GlyphClusterIterator<'a, Length, PlatformGlyph> 
     }
 }
 
-impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign, PlatformGlyph> Iterator
-    for GlyphClusterIterator<'a, Length, PlatformGlyph>
+impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign> Iterator
+    for GlyphClusterIterator<'a, Length>
 {
     type Item = GlyphCluster<Length>;
 
