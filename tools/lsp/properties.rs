@@ -8,7 +8,6 @@ use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
-use lsp_types::{Position, WorkspaceEdit};
 
 use std::collections::HashSet;
 
@@ -629,7 +628,7 @@ fn set_binding_on_existing_property(
     property: &PropertyInformation,
     new_expression: String,
     diag: &mut BuildDiagnostics,
-) -> Result<(SetBindingResponse, Option<WorkspaceEdit>), Error> {
+) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>), Error> {
     let workspace_edit = (!diag.has_error())
         .then(|| {
             create_workspace_edit_for_set_binding_on_existing_property(
@@ -649,11 +648,17 @@ fn set_binding_on_existing_property(
     ))
 }
 
-fn find_insert_position_for_property(
+enum InsertPosition {
+    Before,
+    After,
+    InBetween,
+}
+
+fn find_insert_range_for_property(
     element_range: &Option<lsp_types::Range>,
     properties: &[PropertyInformation],
     property_name: &str,
-) -> Option<Position> {
+) -> Option<(lsp_types::Range, InsertPosition)> {
     let mut previous_index = usize::MAX;
     let mut property_index = usize::MAX;
     let mut next_index = usize::MAX;
@@ -681,32 +686,30 @@ fn find_insert_position_for_property(
         && (property_index - previous_index <= next_index - property_index)
     {
         // There is a previous index and it is closer than the next one
-        Some(
-            properties
-                .get(previous_index)
-                .expect("Index was checked to exist")
-                .defined_at
-                .as_ref()
-                .expect("This index had a defined_at")
-                .delete_range
-                .end
-                .clone(),
-        )
+        let p = properties
+            .get(previous_index)
+            .expect("Index was checked to exist")
+            .defined_at
+            .as_ref()
+            .expect("This index had a defined_at")
+            .delete_range
+            .end
+            .clone();
+        Some((lsp_types::Range::new(p.clone(), p), InsertPosition::After))
     } else if next_index != usize::MAX {
         // There is a property following us
-        Some(
-            properties
-                .get(next_index)
-                .expect("Index was checked to exist")
-                .defined_at
-                .as_ref()
-                .expect("This index had a defined_at")
-                .delete_range
-                .start
-                .clone(),
-        )
+        let p = properties
+            .get(next_index)
+            .expect("Index was checked to exist")
+            .defined_at
+            .as_ref()
+            .expect("This index had a defined_at")
+            .delete_range
+            .start
+            .clone();
+        Some((lsp_types::Range::new(p.clone(), p), InsertPosition::Before))
     } else if let Some(r) = element_range {
-        Some(r.start)
+        Some((r.clone(), InsertPosition::InBetween))
     } else {
         None
     }
@@ -715,46 +718,65 @@ fn find_insert_position_for_property(
 fn create_workspace_edit_for_set_binding_on_known_property<'a>(
     uri: &lsp_types::Url,
     version: i32,
-    element_range: &Option<lsp_types::Range>,
+    element: &ElementRc,
+    offset_mapper: &OffsetToPositionMapper,
     properties: &[PropertyInformation],
     property_name: &str,
     new_expression: &str,
 ) -> Option<lsp_types::WorkspaceEdit> {
-    find_insert_position_for_property(element_range, properties, property_name).and_then(|p| {
-        let edit = lsp_types::TextEdit {
-            range: lsp_types::Range::new(p.clone(), p),
-            new_text: format!("{}: {};", property_name, new_expression),
-        };
-        let edits = vec![lsp_types::OneOf::Left(edit)];
-        let text_document_edits = vec![lsp_types::TextDocumentEdit {
-            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
-                uri.clone(),
-                version,
-            ),
-            edits,
-        }];
-        Some(lsp_types::WorkspaceEdit {
-            document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
-            ..Default::default()
-        })
-    })
+    let element_info = get_element_information(&element, &offset_mapper);
+
+    find_insert_range_for_property(&element_info.block_range, properties, property_name).and_then(
+        |(range, insert_type)| {
+            let indent = find_element_indent(element).unwrap_or_default();
+            let edit = lsp_types::TextEdit {
+                range,
+                new_text: match insert_type {
+                    InsertPosition::Before => {
+                        format!("{property_name}: {new_expression};\n{indent}    ")
+                    }
+                    InsertPosition::After => {
+                        format!("\n{indent}    {property_name}: {new_expression};")
+                    }
+                    InsertPosition::InBetween => {
+                        format!("\n{indent}    {property_name}: {new_expression};\n{indent}")
+                    }
+                },
+            };
+            let edits = vec![lsp_types::OneOf::Left(edit)];
+            let text_document_edits = vec![lsp_types::TextDocumentEdit {
+                text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
+                    uri.clone(),
+                    version,
+                ),
+                edits,
+            }];
+            Some(lsp_types::WorkspaceEdit {
+                document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
+                ..Default::default()
+            })
+        },
+    )
 }
 
 fn set_binding_on_known_property(
     document_cache: &mut DocumentCache,
     uri: &lsp_types::Url,
-    element_range: &Option<lsp_types::Range>,
+    element: &ElementRc,
     properties: &[PropertyInformation],
     property_name: &str,
     new_expression: &str,
     diag: &mut BuildDiagnostics,
-) -> Result<(SetBindingResponse, Option<WorkspaceEdit>), Error> {
+) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>), Error> {
     let workspace_edit = (!diag.has_error())
         .then(|| {
             create_workspace_edit_for_set_binding_on_known_property(
                 uri,
                 document_cache.document_version(uri)?,
-                element_range,
+                element,
+                &document_cache
+                    .offset_to_position_mapper(uri)
+                    .expect("This URI is known at this point!"),
                 &properties,
                 &property_name,
                 new_expression,
@@ -770,13 +792,31 @@ fn set_binding_on_known_property(
     ))
 }
 
+// Find the indentation of the element itself as well as the indentation of properties inside the
+// element. Returns the element indent followed by the block indent
+fn find_element_indent(element: &ElementRc) -> Option<String> {
+    element
+        .borrow()
+        .node
+        .as_ref()
+        .and_then(|n| n.first_token())
+        .and_then(|t| t.prev_token())
+        .and_then(|t| {
+            if t.kind() != SyntaxKind::Whitespace {
+                None
+            } else {
+                t.text().split('\n').last().map(|s| s.to_owned())
+            }
+        })
+}
+
 pub(crate) fn set_binding<'a>(
     document_cache: &mut DocumentCache,
     uri: &lsp_types::Url,
     element: &ElementRc,
     property_name: &str,
     new_expression: String,
-) -> Result<(SetBindingResponse, Option<WorkspaceEdit>), Error> {
+) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>), Error> {
     let (mut diag, expression_node) = {
         let mut diagnostics = BuildDiagnostics::default();
 
@@ -834,12 +874,11 @@ pub(crate) fn set_binding<'a>(
         // Change an already defined property:
         set_binding_on_existing_property(document_cache, uri, &property, new_expression, &mut diag)
     } else {
-        let element_info = get_element_information(&element, &offset_mapper);
         // Add a new definition to a known property:
         set_binding_on_known_property(
             document_cache,
             uri,
-            &element_info.block_range,
+            &element,
             &properties,
             &property.name,
             &new_expression,
@@ -875,7 +914,7 @@ pub(crate) fn remove_binding<'a>(
     uri: &lsp_types::Url,
     element: &ElementRc,
     property_name: &str,
-) -> Result<WorkspaceEdit, Error> {
+) -> Result<lsp_types::WorkspaceEdit, Error> {
     let offset_mapper = document_cache.offset_to_position_mapper(uri)?;
     let properties = get_properties(element, &offset_mapper);
     let property = get_property_information(&properties, property_name)?;
@@ -1682,7 +1721,7 @@ component MyComp {
     fn set_binding_helper(
         property_name: &str,
         new_value: &str,
-    ) -> (SetBindingResponse, Option<WorkspaceEdit>) {
+    ) -> (SetBindingResponse, Option<lsp_types::WorkspaceEdit>) {
         let (element, _, mut dc, url) = properties_at_position(18, 15).unwrap();
         set_binding(&mut dc, &url, &element, property_name, new_value.to_string()).unwrap()
     }
@@ -1717,7 +1756,7 @@ component MyComp {
         } else {
             unreachable!();
         };
-        assert_eq!(&tc.new_text, "x: 30px;");
+        assert_eq!(&tc.new_text, "x: 30px;\n                ");
         assert_eq!(tc.range.start, lsp_types::Position { line: 17, character: 16 });
         assert_eq!(tc.range.end, lsp_types::Position { line: 17, character: 16 });
 
