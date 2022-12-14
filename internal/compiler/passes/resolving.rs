@@ -1072,13 +1072,15 @@ fn continue_lookup_within_element(
         } else if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of a function".into(), &x)
         }
-        let member = elem.borrow().base_type.lookup_member_function(&lookup_result.resolved_name);
-        if !matches!(member, Expression::Invalid) {
+        if let Some(f) =
+            elem.borrow().base_type.lookup_member_function(&lookup_result.resolved_name)
+        {
             // builtin member function
             Expression::MemberFunction {
                 base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
                 base_node: Some(NodeOrToken::Node(node.into())),
-                member: Box::new(member),
+                member: Expression::BuiltinFunctionReference(f, Some(second.to_source_location()))
+                    .into(),
             }
         } else {
             Expression::FunctionReference(NamedReference::new(elem, &lookup_result.resolved_name))

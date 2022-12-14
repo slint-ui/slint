@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use crate::expression_tree::{BuiltinFunction, Expression};
+use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyInfo, ElementType, Enumeration, PropertyLookupResult, Type,
 };
@@ -171,17 +171,15 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
 }
 
 /// These member functions are injected in every time
-pub fn reserved_member_function(name: &str) -> Expression {
+pub fn reserved_member_function(name: &str) -> Option<BuiltinFunction> {
     for (m, e) in [
-        ("focus", Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem, None)), // match for callable "focus" property
-    ]
-    .iter()
-    {
-        if *m == name {
-            return e.clone();
+        ("focus", BuiltinFunction::SetFocusItem), // match for callable "focus" property
+    ] {
+        if m == name {
+            return Some(e);
         }
     }
-    Expression::Invalid
+    None
 }
 
 #[derive(Debug, Default)]
@@ -254,10 +252,10 @@ impl TypeRegister {
                     "show".into(),
                     BuiltinPropertyInfo::new(BuiltinFunction::ShowPopupWindow.ty()),
                 );
-                Rc::get_mut(b).unwrap().member_functions.insert(
-                    "show".into(),
-                    Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow, None),
-                );
+                Rc::get_mut(b)
+                    .unwrap()
+                    .member_functions
+                    .insert("show".into(), BuiltinFunction::ShowPopupWindow);
             }
             _ => unreachable!(),
         };
