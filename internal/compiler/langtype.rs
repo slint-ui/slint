@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use itertools::Itertools;
 
-use crate::expression_tree::{Expression, Unit};
+use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::parser::syntax_nodes;
 use crate::typeregister::TypeRegister;
@@ -512,17 +512,17 @@ impl ElementType {
         })
     }
 
-    pub fn lookup_member_function(&self, name: &str) -> Expression {
+    pub fn lookup_member_function(&self, name: &str) -> Option<BuiltinFunction> {
         match self {
             Self::Builtin(builtin) => builtin
                 .member_functions
                 .get(name)
                 .cloned()
-                .unwrap_or_else(|| crate::typeregister::reserved_member_function(name)),
+                .or_else(|| crate::typeregister::reserved_member_function(name)),
             Self::Component(component) => {
                 component.root_element.borrow().base_type.lookup_member_function(name)
             }
-            _ => Expression::Invalid,
+            _ => None,
         }
     }
 
@@ -672,7 +672,7 @@ pub struct BuiltinElement {
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
     pub is_non_item_type: bool,
     pub accepts_focus: bool,
-    pub member_functions: HashMap<String, Expression>,
+    pub member_functions: HashMap<String, BuiltinFunction>,
     pub is_global: bool,
     pub default_size_binding: DefaultSizeBinding,
     /// When true this is an internal type not shown in the auto-completion
