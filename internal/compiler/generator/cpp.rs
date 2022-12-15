@@ -1201,10 +1201,8 @@ fn generate_item_tree(
 
     let mut destructor = vec!["auto self = this;".to_owned()];
 
-    destructor.push(format!(
-        "{}->m_window.window_handle().unregister_component(self, item_array());",
-        root_access
-    ));
+    destructor
+        .push(format!("{}->m_window.window_handle().unregister_component(self);", root_access));
 
     target_struct.members.push((
         Access::Public,

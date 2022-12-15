@@ -133,15 +133,9 @@ pub fn register_component<Base>(
 }
 
 /// Free the backend graphics resources allocated by the component's items.
-pub fn unregister_component<Base>(
-    base: core::pin::Pin<&Base>,
-    component: ComponentRef,
-    item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
-    window_adapter: &Rc<dyn WindowAdapter>,
-) {
+pub fn unregister_component(component: ComponentRef, window_adapter: &Rc<dyn WindowAdapter>) {
     window_adapter.renderer().free_graphics_resources(component);
-    window_adapter
-        .unregister_component(component, &mut item_array.iter().map(|item| item.apply_pin(base)));
+    window_adapter.unregister_component(component);
 }
 
 #[cfg(feature = "ffi")]
@@ -171,15 +165,9 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_unregister_component(
         component: ComponentRefPin,
-        item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
         window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
     ) {
         let window_adapter = &*(window_handle as *const Rc<dyn WindowAdapter>);
-        super::unregister_component(
-            core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
-            core::pin::Pin::into_inner(component),
-            item_array.as_slice(),
-            window_adapter,
-        )
+        super::unregister_component(core::pin::Pin::into_inner(component), window_adapter)
     }
 }

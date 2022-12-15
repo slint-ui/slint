@@ -79,12 +79,7 @@ pub trait WindowAdapterSealed {
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
-    fn unregister_component<'a>(
-        &self,
-        _component: ComponentRef,
-        _items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
-    ) {
-    }
+    fn unregister_component<'a>(&self, _component: ComponentRef) {}
 
     /// Create a window for a popup.
     ///

@@ -1591,11 +1591,7 @@ impl WindowAdapterSealed for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn unregister_component<'a>(
-        &self,
-        _component: ComponentRef,
-        _: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
-    ) {
+    fn unregister_component<'a>(&self, _component: ComponentRef) {
         self.tree_structure_changed.replace(true);
     }
 

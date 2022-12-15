@@ -1335,7 +1335,7 @@ fn generate_item_tree(
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
                 use slint::private_unstable_api::re_exports::*;
                 new_vref!(let vref : VRef<ComponentVTable> for Component = self.as_ref().get_ref());
-                slint::private_unstable_api::re_exports::unregister_component(self.as_ref(), vref, Self::item_array(), self.window_adapter.get().unwrap());
+                slint::private_unstable_api::re_exports::unregister_component(vref, self.window_adapter.get().unwrap());
             }
         }
 

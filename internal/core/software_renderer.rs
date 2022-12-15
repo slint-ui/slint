@@ -1394,12 +1394,7 @@ impl<const MAX_BUFFER_AGE: usize> crate::window::WindowAdapterSealed
         &self.renderer
     }
 
-    fn unregister_component<'a>(
-        &self,
-        _component: crate::component::ComponentRef,
-        _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'a>>>,
-    ) {
-    }
+    fn unregister_component<'a>(&self, _component: crate::component::ComponentRef) {}
 }
 
 impl<const MAX_BUFFER_AGE: usize> WindowAdapter for MinimalSoftwareWindow<MAX_BUFFER_AGE> {

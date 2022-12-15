@@ -117,11 +117,11 @@ public:
 
     bool dark_color_scheme() const { return slint_windowrc_dark_color_scheme(&inner); }
 
-    template<typename Component, typename ItemArray>
-    void unregister_component(Component *c, ItemArray items) const
+    template<typename Component>
+    void unregister_component(Component *c) const
     {
         cbindgen_private::slint_unregister_component(
-                vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
+                vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, &inner);
     }
 
     void set_focus_item(const ComponentRc &component_rc, uintptr_t item_index)

@@ -220,12 +220,7 @@ impl<'id> Drop for ErasedComponentBox {
         let unerase = self.unerase(guard);
         let instance_ref = unerase.borrow_instance();
         if let Some(window_adapter) = eval::window_adapter_ref(instance_ref) {
-            i_slint_core::component::unregister_component(
-                instance_ref.instance,
-                vtable::VRef::new(self),
-                instance_ref.component_type.item_array.as_slice(),
-                window_adapter,
-            );
+            i_slint_core::component::unregister_component(vtable::VRef::new(self), window_adapter);
         }
     }
 }
