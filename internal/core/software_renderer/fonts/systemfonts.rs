@@ -4,6 +4,7 @@
 use core::cell::RefCell;
 
 use alloc::rc::Rc;
+use std::collections::HashMap;
 
 use crate::lengths::{LogicalLength, ScaleFactor};
 
@@ -11,11 +12,36 @@ use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
 
 thread_local! {
-    pub static VECTOR_FONTS: Rc<RefCell<fontdb::Database>> = Rc::new(RefCell::new({
+    static VECTOR_FONTS: Rc<RefCell<fontdb::Database>> = Rc::new(RefCell::new({
         let mut db = fontdb::Database::new();
         db.load_system_fonts();
         db
     }))
+}
+
+thread_local! {
+    static FONTDUE_FONTS: RefCell<HashMap<fontdb::ID, Rc<fontdue::Font>>> = Default::default();
+}
+
+fn get_or_create_fontdue_font(fontdb: &fontdb::Database, id: fontdb::ID) -> Rc<fontdue::Font> {
+    FONTDUE_FONTS.with(|font_cache| {
+        font_cache
+            .borrow_mut()
+            .entry(id)
+            .or_insert_with(|| {
+                fontdb
+                    .with_face_data(id, |face_data, font_index| {
+                        fontdue::Font::from_bytes(
+                            face_data,
+                            fontdue::FontSettings { collection_index: font_index, scale: 40. },
+                        )
+                        .expect("fatal: fontdue is unable to parse truetype font")
+                        .into()
+                    })
+                    .unwrap()
+            })
+            .clone()
+    })
 }
 
 pub fn match_font(
@@ -33,10 +59,11 @@ pub fn match_font(
         (request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
     VECTOR_FONTS.with(|fonts| {
-        fonts
-            .borrow()
-            .query(&query)
-            .map(|font_id| VectorFont::new(fonts.clone(), font_id, requested_pixel_size))
+        let borrowed_fontdb = fonts.borrow();
+        borrowed_fontdb.query(&query).map(|font_id| {
+            let fontdue_font = get_or_create_fontdue_font(&*borrowed_fontdb, font_id);
+            VectorFont::new(fonts.clone(), font_id, fontdue_font.clone(), requested_pixel_size)
+        })
     })
 }
 
@@ -51,7 +78,10 @@ pub fn fallbackfont(pixel_size: Option<LogicalLength>, scale_factor: ScaleFactor
             fonts
                 .borrow()
                 .query(&query)
-                .map(|font_id| VectorFont::new(fonts.clone(), font_id, requested_pixel_size))
+                .map(|font_id| {
+                    let fontdue_font = get_or_create_fontdue_font(&*fonts.borrow(), font_id);
+                    VectorFont::new(fonts.clone(), font_id, fontdue_font, requested_pixel_size)
+                })
                 .expect("fatal: fontdb could not locate a sans-serif font on the system")
         })
         .into()

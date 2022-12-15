@@ -9,14 +9,46 @@ use crate::lengths::PhysicalPx;
 use crate::software_renderer::PhysicalLength;
 use crate::textlayout::{Glyph, TextShaper};
 
+use super::RenderableGlyph;
+
 // A length in font design space.
 struct FontUnit;
 type FontLength = euclid::Length<i32, FontUnit>;
 type FontScaleFactor = euclid::Scale<f32, FontUnit, PhysicalPx>;
 
+type GlyphCacheKey = (fontdb::ID, PhysicalLength, core::num::NonZeroU16);
+
+struct RenderableGlyphWeightScale;
+
+impl clru::WeightScale<GlyphCacheKey, RenderableGlyph> for RenderableGlyphWeightScale {
+    fn weight(&self, _: &GlyphCacheKey, value: &RenderableGlyph) -> usize {
+        match &value.alpha_map {
+            super::GlyphAlphaMap::Static(_) => 0,
+            super::GlyphAlphaMap::Shared(data) => data.len(),
+        }
+    }
+}
+
+type GlyphCache = clru::CLruCache<
+    GlyphCacheKey,
+    RenderableGlyph,
+    std::collections::hash_map::RandomState,
+    RenderableGlyphWeightScale,
+>;
+
+thread_local!(static GLYPH_CACHE: core::cell::RefCell<GlyphCache>  =
+    core::cell::RefCell::new(
+        clru::CLruCache::with_config(
+            clru::CLruCacheConfig::new(core::num::NonZeroUsize::new(1 * 1024 * 1024).unwrap())
+                .with_scale(RenderableGlyphWeightScale)
+        )
+    )
+);
+
 pub struct VectorFont {
     db: Rc<RefCell<fontdb::Database>>,
     id: fontdb::ID,
+    fontdue_font: Rc<fontdue::Font>,
     ascender: PhysicalLength,
     descender: PhysicalLength,
     height: PhysicalLength,
@@ -28,6 +60,7 @@ impl VectorFont {
     pub fn new(
         db: Rc<RefCell<fontdb::Database>>,
         id: fontdb::ID,
+        fontdue_font: Rc<fontdue::Font>,
         pixel_size: PhysicalLength,
     ) -> Self {
         let db_for_font = db.clone();
@@ -43,6 +76,7 @@ impl VectorFont {
                 Self {
                     db: db_for_font,
                     id,
+                    fontdue_font,
                     ascender: (ascender.cast() * scale).cast(),
                     descender: (descender.cast() * scale).cast(),
                     height: (height.cast() * scale).cast(),
@@ -140,29 +174,30 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for VectorFont {
 
 impl super::GlyphRenderer for VectorFont {
     fn render_glyph(&self, glyph_id: core::num::NonZeroU16) -> super::RenderableGlyph {
-        // FIXME: This is very slow, parses the font every time, and re-renders. Should cache the rasterized glyphs.
-        self.db
-            .borrow()
-            .with_face_data(self.id, |face_data, font_index| {
-                let font = fontdue::Font::from_bytes(
-                    face_data,
-                    fontdue::FontSettings { collection_index: font_index, scale: 40. },
-                )
-                .expect("fatal: fontdue is unable to parse truetype font");
+        GLYPH_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
 
+            let cache_key = (self.id, self.pixel_size, glyph_id);
+
+            if let Some(entry) = cache.get(&cache_key) {
+                entry.clone()
+            } else {
                 let (metrics, alpha_map) =
-                    font.rasterize_indexed(glyph_id.get(), self.pixel_size.get() as _);
+                    self.fontdue_font.rasterize_indexed(glyph_id.get(), self.pixel_size.get() as _);
 
                 let alpha_map: Rc<[u8]> = alpha_map.into();
 
-                super::RenderableGlyph {
+                let glyph = super::RenderableGlyph {
                     x: PhysicalLength::new(metrics.xmin.try_into().unwrap()),
                     y: PhysicalLength::new(metrics.ymin.try_into().unwrap()),
                     width: PhysicalLength::new(metrics.width.try_into().unwrap()),
                     height: PhysicalLength::new(metrics.height.try_into().unwrap()),
                     alpha_map: alpha_map.into(),
-                }
-            })
-            .unwrap()
+                };
+
+                cache.put_with_weight(cache_key, glyph.clone()).ok();
+                glyph
+            }
+        })
     }
 }
