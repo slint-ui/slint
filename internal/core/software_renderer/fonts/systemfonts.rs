@@ -5,6 +5,8 @@ use core::cell::RefCell;
 
 use alloc::rc::Rc;
 
+use crate::lengths::{LogicalLength, ScaleFactor};
+
 use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
 
@@ -38,8 +40,21 @@ pub fn match_font(
     })
 }
 
-pub fn fallbackfont() -> VectorFont {
-    todo!()
+pub fn fallbackfont(pixel_size: Option<LogicalLength>, scale_factor: ScaleFactor) -> VectorFont {
+    let query = fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() };
+
+    let requested_pixel_size: PhysicalLength =
+        (pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
+
+    VECTOR_FONTS
+        .with(|fonts| {
+            fonts
+                .borrow()
+                .query(&query)
+                .map(|font_id| VectorFont::new(fonts.clone(), font_id, requested_pixel_size))
+                .expect("fatal: fontdb could not locate a sans-serif font on the system")
+        })
+        .into()
 }
 
 pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {

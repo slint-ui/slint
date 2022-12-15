@@ -82,7 +82,7 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
         Some(bitmap_font) => bitmap_font,
         None => {
             #[cfg(feature = "systemfonts")]
-            return systemfonts::fallbackfont().into();
+            return systemfonts::fallbackfont(request.pixel_size, scale_factor).into();
             #[cfg(not(feature = "systemfonts"))]
             BITMAP_FONTS.with(|fonts| {
                 *fonts.borrow().first().expect("The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files.")
