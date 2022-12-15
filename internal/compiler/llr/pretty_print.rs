@@ -47,6 +47,17 @@ impl<'a> PrettyPrinter<'a> {
             self.indent()?;
             writeln!(self.writer, "property <{}> {}; //{}", p.ty, p.name, p.use_count.get())?;
         }
+        for f in &sc.functions {
+            self.indent()?;
+            writeln!(
+                self.writer,
+                "function {} ({}) -> {} {{ {} }}; ",
+                f.name,
+                f.args.iter().map(ToString::to_string).join(", "),
+                f.ret_ty,
+                DisplayExpression(&f.code, &ctx)
+            )?;
+        }
         for (p, init) in &sc.property_init {
             self.indent()?;
             writeln!(
