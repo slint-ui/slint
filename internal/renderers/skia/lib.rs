@@ -366,11 +366,7 @@ impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<Nati
         self::textlayout::DEFAULT_FONT_SIZE
     }
 
-    fn free_graphics_resources(
-        &self,
-        component: i_slint_core::component::ComponentRef,
-        _items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'_>>>,
-    ) {
+    fn free_graphics_resources(&self, component: i_slint_core::component::ComponentRef) {
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
         } else {

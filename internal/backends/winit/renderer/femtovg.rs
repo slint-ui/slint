@@ -442,11 +442,7 @@ impl Renderer for FemtoVGRenderer {
         self::fonts::DEFAULT_FONT_SIZE
     }
 
-    fn free_graphics_resources(
-        &self,
-        component: i_slint_core::component::ComponentRef,
-        _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
-    ) {
+    fn free_graphics_resources(&self, component: i_slint_core::component::ComponentRef) {
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
         } else {

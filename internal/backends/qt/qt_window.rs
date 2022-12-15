@@ -1908,11 +1908,7 @@ impl Renderer for QtWindow {
         LogicalLength::new(default_font_size as f32)
     }
 
-    fn free_graphics_resources(
-        &self,
-        component: ComponentRef,
-        _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
-    ) {
+    fn free_graphics_resources(&self, component: ComponentRef) {
         // Invalidate caches:
         self.cache.component_destroyed(component);
     }

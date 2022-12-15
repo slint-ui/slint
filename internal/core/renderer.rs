@@ -38,12 +38,7 @@ pub trait Renderer {
     ) -> LogicalRect;
 
     /// Clear the caches for the items that are being removed
-    fn free_graphics_resources(
-        &self,
-        _component: ComponentRef,
-        _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
-    ) {
-    }
+    fn free_graphics_resources(&self, _component: ComponentRef) {}
 
     /// Mark a given region as dirty regardless whether the items actually are dirty.
     ///

@@ -22,7 +22,7 @@ use crate::window::{WindowAdapter, WindowInner};
 use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
 use alloc::{vec, vec::Vec};
-use core::cell::{Cell, RefCell};
+use core::cell::Cell;
 use core::pin::Pin;
 use euclid::num::Zero;
 
@@ -86,7 +86,7 @@ pub trait LineBufferProvider {
 ///  - **2:** Redraw the part that have changed during the two last frames.
 ///           This is assuming double buffering and swapping of the buffers.
 pub struct SoftwareRenderer<const MAX_BUFFER_AGE: usize> {
-    partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
+    partial_cache: crate::item_rendering::PartialRenderingCache,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
     force_dirty: Cell<crate::item_rendering::DirtyRegion>,
     /// This is the area which was dirty on the previous frames, in case we do double buffering
@@ -281,14 +281,8 @@ impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> 
         Default::default()
     }
 
-    fn free_graphics_resources(
-        &self,
-        _component: crate::component::ComponentRef,
-        items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
-    ) {
-        for item in items {
-            item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
-        }
+    fn free_graphics_resources(&self, component: crate::component::ComponentRef) {
+        self.partial_cache.component_destroyed(component);
     }
 
     fn mark_dirty_region(&self, region: crate::item_rendering::DirtyRegion) {

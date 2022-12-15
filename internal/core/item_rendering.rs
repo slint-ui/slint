@@ -132,6 +132,27 @@ impl<T: Clone> ItemCache<T> {
             .and_then(|entry| callback(&entry.data))
     }
 
+    /// Updates an existing entry with the result of calling update_fn or inserts
+    /// a new cache entry with the value returned by update_fn.
+    pub fn update_entry(&self, item_rc: &ItemRc, update_fn: impl FnOnce() -> T) {
+        let component = &(*item_rc.component()) as *const _;
+        let mut borrowed = self.map.borrow_mut();
+        match borrowed.get_mut(&component).and_then(|item_hash| item_hash.get_mut(&item_rc.index()))
+        {
+            Some(entry) => {
+                entry
+                    .dependency_tracker
+                    .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
+                    .as_ref()
+                    .evaluate(update_fn);
+            }
+            None => {
+                let cache_entry = crate::graphics::CachedGraphicsData::new(update_fn);
+                borrowed.entry(component).or_default().insert(item_rc.index(), cache_entry);
+            }
+        }
+    }
+
     /// free the whole cache
     pub fn clear_all(&self) {
         self.map.borrow_mut().clear();
@@ -172,7 +193,8 @@ pub fn render_item_children(
         |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
             renderer.save_state();
 
-            let (do_draw, item_geometry) = renderer.filter_item(item);
+            let (do_draw, item_geometry) =
+                renderer.filter_item(item, &ItemRc::new(component.clone(), index));
 
             let item_origin = item_geometry.origin;
             renderer.translate(item_origin.to_vector());
@@ -348,7 +370,7 @@ pub trait ItemRenderer {
     /// Returns
     ///  - if the item needs to be drawn (false means it is clipped or doesn't need to be drawn)
     ///  - the geometry of the item
-    fn filter_item(&mut self, item: Pin<ItemRef>) -> (bool, LogicalRect) {
+    fn filter_item(&mut self, item: Pin<ItemRef>, _item_rc: &ItemRc) -> (bool, LogicalRect) {
         let item_geometry = item.as_ref().geometry();
         (self.get_current_clip().intersects(&item_geometry), item_geometry)
     }
@@ -367,14 +389,14 @@ pub trait ItemRenderer {
 }
 
 /// The cache that needs to be held by the Window for the partial rendering
-pub type PartialRenderingCache = RenderingCache<LogicalRect>;
+pub type PartialRenderingCache = ItemCache<LogicalRect>;
 
 /// FIXME: Should actually be a region and not just a rectangle
 pub type DirtyRegion = euclid::Box2D<Coord, LogicalPx>;
 
 /// Put this structure in the renderer to help with partial rendering
 pub struct PartialRenderer<'a, T> {
-    cache: &'a RefCell<PartialRenderingCache>,
+    cache: &'a PartialRenderingCache,
     /// The region of the screen which is considered dirty and that should be repainted
     pub dirty_region: DirtyRegion,
     /// The actual renderer which the drawing call will be forwarded to
@@ -384,7 +406,7 @@ pub struct PartialRenderer<'a, T> {
 impl<'a, T> PartialRenderer<'a, T> {
     /// Create a new PartialRenderer
     pub fn new(
-        cache: &'a RefCell<PartialRenderingCache>,
+        cache: &'a PartialRenderingCache,
         initial_dirty_region: DirtyRegion,
         actual_renderer: T,
     ) -> Self {
@@ -396,9 +418,9 @@ impl<'a, T> PartialRenderer<'a, T> {
         crate::item_tree::visit_items(
             component,
             crate::item_tree::TraversalOrder::BackToFront,
-            |_, item, _, offset| {
-                let mut borrowed = self.cache.borrow_mut();
-                match item.cached_rendering_data_offset().get_entry(&mut borrowed) {
+            |_, item, item_index, offset| {
+                let mut borrowed = self.cache.map.borrow_mut();
+                match borrowed.entry(&(**component) as *const _).or_default().get(&item_index) {
                     Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
                         if tr.is_dirty() {
                             let old_geom = *data;
@@ -433,25 +455,6 @@ impl<'a, T> PartialRenderer<'a, T> {
         }
     }
 
-    fn do_rendering(
-        cache: &RefCell<PartialRenderingCache>,
-        rendering_data: &CachedRenderingData,
-        render_fn: impl FnOnce() -> LogicalRect,
-    ) {
-        if let Some(entry) = rendering_data.get_entry(&mut cache.borrow_mut()) {
-            entry
-                .dependency_tracker
-                .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
-                .as_ref()
-                .evaluate(render_fn);
-        } else {
-            let cache_entry = crate::graphics::CachedGraphicsData::new(render_fn);
-            let mut cache = cache.borrow_mut();
-            rendering_data.cache_index.set(cache.insert(cache_entry));
-            rendering_data.cache_generation.set(cache.generation());
-        }
-    }
-
     /// Move the actual renderer
     pub fn into_inner(self) -> T {
         self.actual_renderer
@@ -461,7 +464,7 @@ impl<'a, T> PartialRenderer<'a, T> {
 macro_rules! forward_rendering_call {
     (fn $fn:ident($Ty:ty)) => {
         fn $fn(&mut self, obj: Pin<&$Ty>, item_rc: &ItemRc) {
-            Self::do_rendering(&self.cache, &obj.cached_rendering_data, || {
+            self.cache.update_entry(item_rc, || {
                 self.actual_renderer.$fn(obj, item_rc);
                 type Ty = $Ty;
                 let width = Ty::FIELD_OFFSETS.width.apply_pin(obj).get_untracked();
@@ -478,26 +481,9 @@ macro_rules! forward_rendering_call {
 }
 
 impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
-    fn filter_item(&mut self, item: Pin<ItemRef>) -> (bool, LogicalRect) {
-        let rendering_data = item.cached_rendering_data_offset();
-        let mut cache = self.cache.borrow_mut();
-        let item_geometry = match rendering_data.get_entry(&mut cache) {
-            Some(CachedGraphicsData { data, dependency_tracker }) => {
-                dependency_tracker
-                    .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
-                    .as_ref()
-                    .evaluate_if_dirty(|| *data = item.as_ref().geometry());
-                *data
-            }
-            None => {
-                let cache_entry =
-                    crate::graphics::CachedGraphicsData::new(|| item.as_ref().geometry());
-                let geom = cache_entry.data;
-                rendering_data.cache_index.set(cache.insert(cache_entry));
-                rendering_data.cache_generation.set(cache.generation());
-                geom
-            }
-        };
+    fn filter_item(&mut self, item: Pin<ItemRef>, item_rc: &ItemRc) -> (bool, LogicalRect) {
+        let item_geometry =
+            self.cache.get_or_update_cache_entry(item_rc, || item.as_ref().geometry());
 
         //let clip = self.get_current_clip().intersection(&self.dirty_region.to_rect());
         //let draw = clip.map_or(false, |r| r.intersects(&item_geometry));
