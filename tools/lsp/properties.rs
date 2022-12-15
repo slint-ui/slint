@@ -1527,6 +1527,19 @@ SomeRect := Rectangle {
     }
 
     #[test]
+    fn test_invalid_property_panic() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"export Demo := Rectangle { Text { text: } }"#.to_string(),
+        );
+
+        let (_, result) = properties_at_position_in_cache(0, 35, &mut dc, &url).unwrap();
+
+        let prop = find_property(&result, "text").unwrap();
+        assert_eq!(prop.defined_at, None); // The property has no valid definition at this time
+    }
+
+    #[test]
     fn test_codeblock_property_declaration() {
         let (mut dc, url, _) = loaded_document_cache(
             "fluent",
