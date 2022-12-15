@@ -289,33 +289,29 @@ fn find_expression_range(
     offset: u32,
     offset_to_position: &OffsetToPositionMapper,
 ) -> Option<DefinitionInformation> {
-    let mut property_definition_range = rowan::TextRange::default();
-    let mut expression_range = rowan::TextRange::default();
-    let mut delete_range = rowan::TextRange::default();
+    let mut property_definition_range = None;
+    let mut expression_range = None;
+    let mut delete_range = None;
     let mut expression_value = None;
 
     if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
         for ancestor in token.parent_ancestors() {
             if ancestor.kind() == SyntaxKind::BindingExpression {
                 // The BindingExpression contains leading and trailing whitespace + `;`
-                let expr =
-                    &ancestor.first_child().expect("A BindingExpression needs to have a child");
-                expression_range = expr.text_range();
-                expression_value = Some(expr.text().to_string());
+                let expr = &ancestor.first_child();
+                expression_range = expr.as_ref().map(|e| e.text_range());
+                expression_value = expr.as_ref().map(|e| e.text().to_string());
                 continue;
             }
             if (ancestor.kind() == SyntaxKind::Binding)
                 || (ancestor.kind() == SyntaxKind::PropertyDeclaration)
             {
-                property_definition_range = ancestor.text_range();
-                delete_range = rowan::TextRange::new(
-                    left_extend(
-                        ancestor.first_token().expect("A real node consists of at least one token"),
-                    ),
-                    right_extend(
-                        ancestor.last_token().expect("A real node consists of at least one token"),
-                    ),
-                );
+                property_definition_range = Some(ancestor.text_range());
+                delete_range = Some(rowan::TextRange::new(
+                    left_extend(ancestor.first_token()?),
+                    right_extend(ancestor.last_token()?),
+                ))
+                .or_else(|| property_definition_range.clone());
                 break;
             }
             if ancestor.kind() == SyntaxKind::Element {
@@ -324,11 +320,11 @@ fn find_expression_range(
             }
         }
     }
-    expression_value.map(|e| DefinitionInformation {
-        property_definition_range: offset_to_position.map_range(property_definition_range),
-        delete_range: offset_to_position.map_range(delete_range),
-        expression_range: offset_to_position.map_range(expression_range),
-        expression_value: e,
+    Some(DefinitionInformation {
+        property_definition_range: offset_to_position.map_range(property_definition_range?),
+        delete_range: offset_to_position.map_range(delete_range?),
+        expression_range: offset_to_position.map_range(expression_range?),
+        expression_value: expression_value?,
     })
 }
 
