@@ -15,20 +15,20 @@ SubCompo := Rectangle {
 TestCase := Rectangle {
 
     property <int> c: 100000;
+    private property <int> one: 1 + Math.round((x / 1px) - (y / 1px));
 
     function foo() {}
-    function the_function(a: int, b: int) -> int { foo(); a + b + c }
+    function the_function(a: int, b: int) -> int { foo(); a + b + c + one }
 
     if true : Rectangle {
         background: the_function(1, 2) > 3 ? blue: sc.hello();
-
     }
 
     sc := SubCompo {
 
     }
 
-    property <bool> test: the_function(4500, 12) == 104512 && G.meh("world") == "hello world" && sc.hello() == Colors.red;
+    property <bool> test: the_function(4500, 20) == 104521 && G.meh("world") == "hello world" && sc.hello() == Colors.red;
 }
 
 /*
