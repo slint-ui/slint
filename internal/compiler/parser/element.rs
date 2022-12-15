@@ -148,7 +148,7 @@ fn parse_sub_element(p: &mut impl Parser) {
 fn parse_repeated_element(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "for");
     let mut p = p.start_node(SyntaxKind::RepeatedElement);
-    p.consume(); // "for"
+    p.expect(SyntaxKind::Identifier); // "for"
     if p.nth(0).kind() == SyntaxKind::Identifier {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
@@ -182,7 +182,7 @@ fn parse_repeated_element(p: &mut impl Parser) {
 fn parse_if_element(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "if");
     let mut p = p.start_node(SyntaxKind::ConditionalElement);
-    p.consume(); // "if"
+    p.expect(SyntaxKind::Identifier); // "if"
     parse_expression(&mut *p);
     if !p.expect(SyntaxKind::Colon) {
         drop(p.start_node(SyntaxKind::SubElement).start_node(SyntaxKind::Element));
@@ -298,7 +298,7 @@ fn parse_two_way_binding(p: &mut impl Parser) {
 fn parse_callback_declaration(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "callback");
     let mut p = p.start_node(SyntaxKind::CallbackDeclaration);
-    p.consume(); // "callback"
+    p.expect(SyntaxKind::Identifier); // "callback"
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
@@ -394,7 +394,7 @@ fn parse_property_declaration(p: &mut impl Parser) {
 fn parse_property_animation(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "animate");
     let mut p = p.start_node(SyntaxKind::PropertyAnimation);
-    p.consume(); // animate
+    p.expect(SyntaxKind::Identifier); // animate
     if p.nth(0).kind() == SyntaxKind::Star {
         p.consume();
     } else {
@@ -436,7 +436,7 @@ fn parse_property_animation(p: &mut impl Parser) {
 fn parse_states(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "states");
     let mut p = p.start_node(SyntaxKind::States);
-    p.consume(); // "states"
+    p.expect(SyntaxKind::Identifier); // "states"
     p.expect(SyntaxKind::LBracket);
     while parse_state(&mut *p) {}
     p.expect(SyntaxKind::RBracket);
@@ -508,7 +508,7 @@ fn parse_state(p: &mut impl Parser) -> bool {
 fn parse_transitions(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "transitions");
     let mut p = p.start_node(SyntaxKind::Transitions);
-    p.consume(); // "transitions"
+    p.expect(SyntaxKind::Identifier); // "transitions"
     p.expect(SyntaxKind::LBracket);
     while p.nth(0).kind() != SyntaxKind::RBracket && parse_transition(&mut *p) {}
     p.expect(SyntaxKind::RBracket);
@@ -575,7 +575,7 @@ fn parse_function(p: &mut impl Parser) {
         p.consume()
     }
     debug_assert_eq!(p.peek().as_str(), "function");
-    p.consume(); // "function"
+    p.expect(SyntaxKind::Identifier); // "function"
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);

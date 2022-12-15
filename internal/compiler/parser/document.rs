@@ -140,7 +140,7 @@ pub fn parse_qualified_name(p: &mut impl Parser) -> bool {
 fn parse_export(p: &mut impl Parser) -> bool {
     debug_assert_eq!(p.peek().as_str(), "export");
     let mut p = p.start_node(SyntaxKind::ExportsList);
-    p.consume(); // "export"
+    p.expect(SyntaxKind::Identifier); // "export"
     if p.test(SyntaxKind::LBrace) {
         loop {
             parse_export_specifier(&mut *p);
@@ -219,7 +219,7 @@ fn parse_export_specifier(p: &mut impl Parser) -> bool {
 fn parse_import_specifier(p: &mut impl Parser) -> bool {
     debug_assert_eq!(p.peek().as_str(), "import");
     let mut p = p.start_node(SyntaxKind::ImportSpecifier);
-    p.consume(); // "import"
+    p.expect(SyntaxKind::Identifier); // "import"
     if p.peek().kind != SyntaxKind::StringLiteral {
         if !parse_import_identifier_list(&mut *p) {
             return false;
