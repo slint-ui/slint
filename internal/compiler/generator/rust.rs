@@ -68,6 +68,7 @@ impl quote::ToTokens for crate::embedded_resources::PixelFormat {
 
 fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
+        Type::Void => Some(quote!(())),
         Type::Int32 => Some(quote!(i32)),
         Type::Float32 => Some(quote!(f32)),
         Type::String => Some(quote!(slint::private_unstable_api::re_exports::SharedString)),
