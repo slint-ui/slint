@@ -11,8 +11,8 @@ use crate::object_tree::*;
 use std::rc::Rc;
 
 pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
-    recurse_elem_including_sub_components(root_component, &(), &mut |parent, _| {
-        let mut parent = parent.borrow_mut();
+    recurse_elem_including_sub_components(root_component, &(), &mut |parent_, _| {
+        let mut parent = parent_.borrow_mut();
         let children = std::mem::take(&mut parent.children);
 
         for elem in children {
@@ -23,13 +23,16 @@ pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
 
             parent.children.extend(std::mem::take(&mut elem.borrow_mut().children));
 
-            parent
-                .enclosing_component
-                .upgrade()
-                .unwrap()
-                .optimized_elements
-                .borrow_mut()
-                .push(elem);
+            let enclosing = parent.enclosing_component.upgrade().unwrap();
+
+            for popup in enclosing.popup_windows.borrow_mut().iter_mut() {
+                if Rc::ptr_eq(&popup.parent_element, &elem) {
+                    // parent element is use for x/y, and the position of the removed element is 0,0
+                    popup.parent_element = parent_.clone();
+                }
+            }
+
+            enclosing.optimized_elements.borrow_mut().push(elem);
         }
     });
 }

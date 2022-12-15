@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+Foo := Rectangle {
+    public function show() { x.show(); }
+    x := PopupWindow {  }
+}
+
+Bar := Rectangle {
+
+    TouchArea {
+        clicked => { x.show();  f.show(); }
+    }
+
+    Rectangle {
+        Rectangle {
+            Rectangle {
+                x := PopupWindow {}
+            }
+        }
+    }
+
+    f := Foo {}
+}
+
