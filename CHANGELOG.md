@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file.
  - Added support for declaring functions in the language.
  - Add support for re-exporting types from other files using `export * from "./other_file.slint";`.
  - LSP: highlight and renaming of element id
+ - online editor: Add zoom to the preview
+ - VSCode and online editor: Add and remove bindings via custom LSP commands
 
 ### Fixed
 
@@ -20,6 +22,7 @@ All notable changes to this project are documented in this file.
  - Fixed `visible` property on element with drop shadow (#1460)
  - Warn on bad use of ListView (#860)
  - Fixed two way bindings between globals
+ - Fixed scrolling of preview area in online editor
 
 
 ## [0.3.2] - 2022-11-28
