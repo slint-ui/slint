@@ -18,12 +18,13 @@ thread_local! {
     static BITMAP_FONTS: RefCell<Vec<&'static BitmapFont>> = RefCell::default()
 }
 
-#[derive(derive_more::From)]
+#[derive(derive_more::From, Clone)]
 pub enum GlyphAlphaMap {
     Static(&'static [u8]),
     Shared(Rc<[u8]>),
 }
 
+#[derive(Clone)]
 pub struct RenderableGlyph {
     pub x: PhysicalLength,
     pub y: PhysicalLength,
