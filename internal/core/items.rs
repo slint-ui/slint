@@ -25,7 +25,6 @@ use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, KeyEventType, MouseEvent,
 };
-use crate::item_rendering::CachedRenderingData;
 pub use crate::item_tree::ItemRc;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
@@ -112,12 +111,6 @@ pub struct ItemVTable {
     /// Returns the geometry of this item (relative to its parent item)
     pub geometry: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> LogicalRect,
 
-    /// offset in bytes from the *const ItemImpl.
-    /// isize::MAX  means None
-    #[allow(non_upper_case_globals)]
-    #[field_offset(CachedRenderingData)]
-    pub cached_rendering_data_offset: usize,
-
     /// We would need max/min/preferred size, and all layout info
     pub layout_info: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
@@ -178,7 +171,6 @@ pub struct Empty {
     pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for Empty {
@@ -244,13 +236,6 @@ impl Item for Empty {
     }
 }
 
-impl ItemConsts for Empty {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        Empty,
-        CachedRenderingData,
-    > = Empty::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
     fn slint_get_EmptyVTable() -> EmptyVTable for Empty
 }
@@ -265,7 +250,6 @@ pub struct Rectangle {
     pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for Rectangle {
@@ -332,13 +316,6 @@ impl Item for Rectangle {
     }
 }
 
-impl ItemConsts for Rectangle {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        Rectangle,
-        CachedRenderingData,
-    > = Rectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
     fn slint_get_RectangleVTable() -> RectangleVTable for Rectangle
 }
@@ -356,7 +333,6 @@ pub struct BorderRectangle {
     pub border_width: Property<LogicalLength>,
     pub border_radius: Property<LogicalLength>,
     pub border_color: Property<Brush>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for BorderRectangle {
@@ -423,13 +399,6 @@ impl Item for BorderRectangle {
     }
 }
 
-impl ItemConsts for BorderRectangle {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        BorderRectangle,
-        CachedRenderingData,
-    > = BorderRectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
     fn slint_get_BorderRectangleVTable() -> BorderRectangleVTable for BorderRectangle
 }
@@ -459,8 +428,6 @@ pub struct TouchArea {
     pub clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
     pub pointer_event: Callback<PointerEventArg>,
-    /// FIXME: remove this
-    pub cached_rendering_data: CachedRenderingData,
     /// true when we are currently grabbing the mouse
     grabbed: Cell<bool>,
 }
@@ -610,13 +577,6 @@ impl Item for TouchArea {
     }
 }
 
-impl ItemConsts for TouchArea {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        TouchArea,
-        CachedRenderingData,
-    > = TouchArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
     fn slint_get_TouchAreaVTable() -> TouchAreaVTable for TouchArea
 }
@@ -634,8 +594,6 @@ pub struct FocusScope {
     pub has_focus: Property<bool>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
-    /// FIXME: remove this
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for FocusScope {
@@ -730,13 +688,6 @@ impl Item for FocusScope {
     }
 }
 
-impl ItemConsts for FocusScope {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        FocusScope,
-        CachedRenderingData,
-    > = FocusScope::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
     fn slint_get_FocusScopeVTable() -> FocusScopeVTable for FocusScope
 }
@@ -752,7 +703,6 @@ pub struct Clip {
     pub height: Property<LogicalLength>,
     pub border_radius: Property<LogicalLength>,
     pub border_width: Property<LogicalLength>,
-    pub cached_rendering_data: CachedRenderingData,
     pub clip: Property<bool>,
 }
 
@@ -829,11 +779,6 @@ impl Item for Clip {
     }
 }
 
-impl ItemConsts for Clip {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Clip, CachedRenderingData> =
-        Clip::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
     fn slint_get_ClipVTable() -> ClipVTable for Clip
 }
@@ -849,7 +794,6 @@ pub struct Opacity {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
     pub opacity: Property<f32>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for Opacity {
@@ -942,13 +886,6 @@ impl Opacity {
     }
 }
 
-impl ItemConsts for Opacity {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        Opacity,
-        CachedRenderingData,
-    > = Opacity::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
     fn slint_get_OpacityVTable() -> OpacityVTable for Opacity
 }
@@ -964,7 +901,6 @@ pub struct Layer {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
     pub cache_rendering_hint: Property<bool>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for Layer {
@@ -1030,13 +966,6 @@ impl Item for Layer {
     }
 }
 
-impl ItemConsts for Layer {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        Layer,
-        CachedRenderingData,
-    > = Layer::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
     fn slint_get_LayerVTable() -> LayerVTable for Layer
 }
@@ -1053,7 +982,6 @@ pub struct Rotate {
     pub rotation_origin_y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for Rotate {
@@ -1124,13 +1052,6 @@ impl Item for Rotate {
     }
 }
 
-impl ItemConsts for Rotate {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        Rotate,
-        CachedRenderingData,
-    > = Rotate::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
     fn slint_get_RotateVTable() -> RotateVTable for Rotate
 }
@@ -1176,7 +1097,6 @@ pub struct WindowItem {
     pub default_font_family: Property<SharedString>,
     pub default_font_size: Property<LogicalLength>,
     pub default_font_weight: Property<i32>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for WindowItem {
@@ -1271,11 +1191,6 @@ impl WindowItem {
     }
 }
 
-impl ItemConsts for WindowItem {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
     fn slint_get_WindowItemVTable() -> WindowItemVTable for WindowItem
 }
@@ -1296,7 +1211,6 @@ pub struct BoxShadow {
     pub offset_y: Property<LogicalLength>,
     pub color: Property<Color>,
     pub blur: Property<LogicalLength>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for BoxShadow {
@@ -1361,11 +1275,6 @@ impl Item for BoxShadow {
         (*backend).draw_box_shadow(self, self_rc);
         RenderingResult::ContinueRenderingChildren
     }
-}
-
-impl ItemConsts for BoxShadow {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {

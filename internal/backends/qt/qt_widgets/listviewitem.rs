@@ -16,7 +16,6 @@ pub struct NativeStandardListViewItem {
     pub item: Property<i_slint_core::model::StandardListViewItem>,
     pub index: Property<i32>,
     pub is_selected: Property<bool>,
-    pub cached_rendering_data: CachedRenderingData,
     pub has_hover: Property<bool>,
 }
 
@@ -148,11 +147,6 @@ impl Item for NativeStandardListViewItem {
             engine->setSystemClip(old_clip);
         });
     }
-}
-
-impl ItemConsts for NativeStandardListViewItem {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {

@@ -30,7 +30,6 @@ pub struct NativeSlider {
     pub value: Property<f32>,
     pub minimum: Property<f32>,
     pub maximum: Property<f32>,
-    pub cached_rendering_data: CachedRenderingData,
     data: Property<NativeSliderData>,
     pub changed: Callback<FloatArg>,
 }
@@ -245,11 +244,6 @@ impl Item for NativeSlider {
             style->drawComplexControl(QStyle::CC_Slider, &option, painter->get(), widget);
         });
     }
-}
-
-impl ItemConsts for NativeSlider {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {

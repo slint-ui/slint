@@ -17,7 +17,6 @@ pub struct NativeComboBox {
     pub pressed: Property<bool>,
     pub is_open: Property<bool>,
     pub current_value: Property<SharedString>,
-    pub cached_rendering_data: CachedRenderingData,
     pub open_popup: Callback<VoidArg>,
 }
 
@@ -155,11 +154,6 @@ impl Item for NativeComboBox {
     }
 }
 
-impl ItemConsts for NativeComboBox {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
 fn slint_get_NativeComboBoxVTable() -> NativeComboBoxVTable for NativeComboBox
 }
@@ -172,7 +166,6 @@ pub struct NativeComboBoxPopup {
     pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for NativeComboBoxPopup {
@@ -261,11 +254,6 @@ impl Item for NativeComboBoxPopup {
             style->drawControl(QStyle::CE_ShapedFrame, &option, painter->get(), widget);
         });
     }
-}
-
-impl ItemConsts for NativeComboBoxPopup {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {

@@ -15,7 +15,6 @@ pub struct NativeTabWidget {
     pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub cached_rendering_data: CachedRenderingData,
     pub content_min_height: Property<LogicalLength>,
     pub content_min_width: Property<LogicalLength>,
     pub tabbar_preferred_height: Property<LogicalLength>,
@@ -316,11 +315,6 @@ impl Item for NativeTabWidget {
     }
 }
 
-impl ItemConsts for NativeTabWidget {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 declare_item_vtable! {
 fn slint_get_NativeTabWidgetVTable() -> NativeTabWidgetVTable for NativeTabWidget
 }
@@ -341,7 +335,6 @@ pub struct NativeTab {
     pub current_focused: Property<i32>,
     pub tab_index: Property<i32>,
     pub num_tabs: Property<i32>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for NativeTab {
@@ -528,11 +521,6 @@ impl Item for NativeTab {
             qApp->style()->drawControl(QStyle::CE_TabBarTab, &option, painter->get(), widget);
         });
     }
-}
-
-impl ItemConsts for NativeTab {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {

@@ -75,61 +75,6 @@ impl<T> CachedGraphicsData<T> {
     }
 }
 
-/// The RenderingCache, in combination with CachedGraphicsData, allows back ends to store data that's either
-/// intensive to compute or has bad CPU locality. Back ends typically keep a RenderingCache instance and use
-/// the item's cached_rendering_data() integer as index in the vec_arena::Arena.
-///
-/// This is used only for the [`crate::item_rendering::PartialRenderingCache`]
-pub struct RenderingCache<T> {
-    slab: slab::Slab<CachedGraphicsData<T>>,
-    generation: usize,
-}
-
-impl<T> Default for RenderingCache<T> {
-    fn default() -> Self {
-        Self { slab: Default::default(), generation: 1 }
-    }
-}
-
-impl<T> RenderingCache<T> {
-    /// Returns the generation of the cache. The generation starts at 1 and is increased
-    /// whenever the cache is cleared, for example when the GL context is lost.
-    pub fn generation(&self) -> usize {
-        self.generation
-    }
-
-    /// Retrieves a mutable reference to the cached graphics data at index.
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut CachedGraphicsData<T>> {
-        self.slab.get_mut(index)
-    }
-
-    /// Returns true if a cache entry exists for the given index.
-    pub fn contains(&self, index: usize) -> bool {
-        self.slab.contains(index)
-    }
-
-    /// Inserts data into the cache and returns the index for retrieval later.
-    pub fn insert(&mut self, data: CachedGraphicsData<T>) -> usize {
-        self.slab.insert(data)
-    }
-
-    /// Retrieves an immutable reference to the cached graphics data at index.
-    pub fn get(&self, index: usize) -> Option<&CachedGraphicsData<T>> {
-        self.slab.get(index)
-    }
-
-    /// Removes the cached graphics data at the given index.
-    pub fn remove(&mut self, index: usize) -> CachedGraphicsData<T> {
-        self.slab.remove(index)
-    }
-
-    /// Removes all entries from the cache and increases the cache's generation count, so
-    /// that stale index access can be avoided.
-    pub fn clear(&mut self) {
-        self.slab.clear();
-        self.generation += 1;
-    }
-}
 /// FontRequest collects all the developer-configurable properties for fonts, such as family, weight, etc.
 /// It is submitted as a request to the platform font system (i.e. CoreText on macOS) and in exchange the
 /// backend returns a `Box<dyn Font>`.

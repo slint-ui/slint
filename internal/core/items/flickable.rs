@@ -8,14 +8,11 @@
 
 //! The `Flickable` item
 
-use super::{
-    Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
-};
+use super::{Item, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult};
 use crate::animations::{EasingCurve, Instant};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, MouseEvent,
 };
-use crate::item_rendering::CachedRenderingData;
 use crate::items::{Empty, PropertyAnimation};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
@@ -51,9 +48,6 @@ pub struct Flickable {
     pub viewport: Empty,
     pub interactive: Property<bool>,
     data: FlickableDataBox,
-
-    /// FIXME: remove this
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for Flickable {
@@ -149,11 +143,6 @@ impl Item for Flickable {
         );
         RenderingResult::ContinueRenderingChildren
     }
-}
-
-impl ItemConsts for Flickable {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 #[repr(C)]

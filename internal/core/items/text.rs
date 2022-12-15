@@ -9,16 +9,16 @@ Lookup the [`crate::items`] module documentation.
 */
 
 use super::{
-    InputType, Item, ItemConsts, ItemRc, KeyEventResult, KeyEventType, PointArg,
-    PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow,
-    TextVerticalAlignment, TextWrap, VoidArg,
+    InputType, Item, ItemRc, KeyEventResult, KeyEventType, PointArg, PointerEventButton,
+    RenderingResult, TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap,
+    VoidArg,
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
     key_codes, FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
-use crate::item_rendering::{CachedRenderingData, ItemRenderer};
+use crate::item_rendering::ItemRenderer;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 #[cfg(feature = "rtti")]
@@ -53,7 +53,6 @@ pub struct Text {
     pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for Text {
@@ -167,11 +166,6 @@ impl Item for Text {
     }
 }
 
-impl ItemConsts for Text {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Text, CachedRenderingData> =
-        Text::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 impl Text {
     pub fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest {
         let window_item = window.window_item();
@@ -242,7 +236,6 @@ pub struct TextInput {
     pub preedit_text: Property<SharedString>,
     pub preedit_selection_start: Property<i32>, // byte offset, relative to cursor
     pub preedit_selection_end: Property<i32>,   // byte offset, relative to cursor
-    pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
     preferred_x_pos: core::cell::Cell<Coord>,
@@ -544,13 +537,6 @@ impl Item for TextInput {
         (*backend).draw_text_input(self, self_rc);
         RenderingResult::ContinueRenderingChildren
     }
-}
-
-impl ItemConsts for TextInput {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        TextInput,
-        CachedRenderingData,
-    > = TextInput::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 pub enum TextCursorDirection {

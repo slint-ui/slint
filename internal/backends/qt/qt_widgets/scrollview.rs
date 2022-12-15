@@ -19,7 +19,6 @@ pub struct NativeScrollView {
     pub vertical_max: Property<LogicalLength>,
     pub vertical_page_size: Property<LogicalLength>,
     pub vertical_value: Property<LogicalLength>,
-    pub cached_rendering_data: CachedRenderingData,
     pub native_padding_left: Property<LogicalLength>,
     pub native_padding_right: Property<LogicalLength>,
     pub native_padding_top: Property<LogicalLength>,
@@ -426,11 +425,6 @@ impl Item for NativeScrollView {
             initial_state
         );
     }
-}
-
-impl ItemConsts for NativeScrollView {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {

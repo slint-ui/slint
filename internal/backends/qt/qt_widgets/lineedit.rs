@@ -14,7 +14,6 @@ pub struct NativeLineEdit {
     pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub cached_rendering_data: CachedRenderingData,
     pub native_padding_left: Property<LogicalLength>,
     pub native_padding_right: Property<LogicalLength>,
     pub native_padding_top: Property<LogicalLength>,
@@ -156,11 +155,6 @@ impl Item for NativeLineEdit {
             qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, painter->get(), widget);
         });
     }
-}
-
-impl ItemConsts for NativeLineEdit {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {

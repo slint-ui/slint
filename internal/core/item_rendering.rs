@@ -4,7 +4,6 @@
 #![warn(missing_docs)]
 //! module for rendering the tree of items
 
-use super::graphics::RenderingCache;
 use super::items::*;
 use crate::component::ComponentRc;
 use crate::graphics::CachedGraphicsData;
@@ -16,52 +15,11 @@ use crate::lengths::{
 };
 use crate::Coord;
 use alloc::boxed::Box;
-use core::cell::{Cell, RefCell};
+use core::cell::RefCell;
 use core::pin::Pin;
 #[cfg(feature = "std")]
 use std::collections::HashMap;
 use vtable::VRc;
-
-/// This structure must be present in items that are Rendered and contains information.
-/// Used by the backend.
-#[derive(Default, Debug)]
-#[repr(C)]
-pub struct CachedRenderingData {
-    /// Used and modified by the backend, should be initialized to 0 by the user code
-    pub(crate) cache_index: Cell<usize>,
-    /// Used and modified by the backend, should be initialized to 0 by the user code.
-    /// The backend compares this generation against the one of the cache to verify
-    /// the validity of the cache_index field.
-    pub(crate) cache_generation: Cell<usize>,
-}
-
-impl CachedRenderingData {
-    /// This function can be used to remove an entry from the rendering cache for a given item, if it
-    /// exists, i.e. if any data was ever cached. This is typically called by the graphics backend's
-    /// implementation of the release_item_graphics_cache function.
-    pub fn release<T>(&self, cache: &mut RenderingCache<T>) -> Option<T> {
-        if self.cache_generation.get() == cache.generation() {
-            let index = self.cache_index.get();
-            self.cache_generation.set(0);
-            Some(cache.remove(index).data)
-        } else {
-            None
-        }
-    }
-
-    /// Return the value if it is in the cache
-    pub fn get_entry<'a, T>(
-        &self,
-        cache: &'a mut RenderingCache<T>,
-    ) -> Option<&'a mut crate::graphics::CachedGraphicsData<T>> {
-        let index = self.cache_index.get();
-        if self.cache_generation.get() == cache.generation() {
-            cache.get_mut(index)
-        } else {
-            None
-        }
-    }
-}
 
 /// A per-item cache.
 ///

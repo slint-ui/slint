@@ -8,13 +8,12 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 
-use super::{FillRule, Item, ItemConsts, ItemRc, ItemRendererRef, RenderingResult};
+use super::{FillRule, Item, ItemRc, ItemRendererRef, RenderingResult};
 use crate::graphics::{Brush, PathData, PathDataIterator};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
 };
-use crate::item_rendering::CachedRenderingData;
 
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
@@ -49,7 +48,6 @@ pub struct Path {
     pub viewbox_width: Property<f32>,
     pub viewbox_height: Property<f32>,
     pub clip: Property<bool>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for Path {
@@ -162,9 +160,4 @@ impl Path {
         elements_iter.fit(bounds_width.get() as _, bounds_height.get() as _, maybe_viewbox);
         (offset, elements_iter)
     }
-}
-
-impl ItemConsts for Path {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Path, CachedRenderingData> =
-        Path::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }

@@ -15,7 +15,6 @@ pub struct NativeGroupBox {
     pub height: Property<LogicalLength>,
     pub enabled: Property<bool>,
     pub title: Property<SharedString>,
-    pub cached_rendering_data: CachedRenderingData,
     pub native_padding_left: Property<LogicalLength>,
     pub native_padding_right: Property<LogicalLength>,
     pub native_padding_top: Property<LogicalLength>,
@@ -235,11 +234,6 @@ impl Item for NativeGroupBox {
             qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, painter->get(), widget);
         });
     }
-}
-
-impl ItemConsts for NativeGroupBox {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {

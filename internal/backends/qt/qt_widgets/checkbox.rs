@@ -18,7 +18,6 @@ pub struct NativeCheckBox {
     pub toggled: Callback<VoidArg>,
     pub text: Property<SharedString>,
     pub checked: Property<bool>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for NativeCheckBox {
@@ -160,11 +159,6 @@ impl Item for NativeCheckBox {
             qApp->style()->drawControl(QStyle::CE_CheckBox, &option, painter->get(), widget);
         });
     }
-}
-
-impl ItemConsts for NativeCheckBox {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {

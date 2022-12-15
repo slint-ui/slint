@@ -7,12 +7,11 @@ This module contains the builtin image related items.
 When adding an item or a property, it needs to be kept in sync with different place.
 Lookup the [`crate::items`] module documentation.
 */
-use super::{ImageFit, ImageRendering, Item, ItemConsts, ItemRc, RenderingResult};
+use super::{ImageFit, ImageRendering, Item, ItemRc, RenderingResult};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
 };
-use crate::item_rendering::CachedRenderingData;
 use crate::item_rendering::ItemRenderer;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
@@ -37,7 +36,6 @@ pub struct ImageItem {
     pub height: Property<LogicalLength>,
     pub image_fit: Property<ImageFit>,
     pub image_rendering: Property<ImageRendering>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for ImageItem {
@@ -114,13 +112,6 @@ impl Item for ImageItem {
     }
 }
 
-impl ItemConsts for ImageItem {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        ImageItem,
-        CachedRenderingData,
-    > = ImageItem::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
-}
-
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
@@ -138,7 +129,6 @@ pub struct ClippedImage {
     pub source_clip_y: Property<i32>,
     pub source_clip_width: Property<i32>,
     pub source_clip_height: Property<i32>,
-    pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for ClippedImage {
@@ -213,11 +203,4 @@ impl Item for ClippedImage {
         (*backend).draw_clipped_image(self, self_rc);
         RenderingResult::ContinueRenderingChildren
     }
-}
-
-impl ItemConsts for ClippedImage {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        ClippedImage,
-        CachedRenderingData,
-    > = ClippedImage::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }

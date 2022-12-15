@@ -25,7 +25,6 @@ pub struct NativeSpinBox {
     pub value: Property<i32>,
     pub minimum: Property<i32>,
     pub maximum: Property<i32>,
-    pub cached_rendering_data: CachedRenderingData,
     data: Property<NativeSpinBoxData>,
 }
 
@@ -285,11 +284,6 @@ impl Item for NativeSpinBox {
             (*painter)->drawText(text_rect, QString::number(value));
         });
     }
-}
-
-impl ItemConsts for NativeSpinBox {
-    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {
