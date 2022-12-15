@@ -309,7 +309,7 @@ fn parse_template_string(p: &mut impl Parser) {
     debug_assert!(p.nth(0).as_str().ends_with("\\{"));
     {
         let mut p = p.start_node(SyntaxKind::Expression);
-        p.consume();
+        p.expect(SyntaxKind::StringLiteral);
     }
     loop {
         parse_expression(&mut *p);
