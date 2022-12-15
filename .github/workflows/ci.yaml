@@ -25,6 +25,10 @@ jobs:
         include:
           - os: windows-2022
             extra_args: "--exclude slint-node --exclude test-driver-nodejs"
+          # For one of the configuration, do run the tests in release mode
+          - os: ubuntu-20.04
+            rust_version: stable
+            extra_args: "--release"
         exclude:
           - os: macos-11
             rust_version: "1.64"
