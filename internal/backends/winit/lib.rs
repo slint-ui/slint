@@ -198,36 +198,3 @@ impl i_slint_core::platform::Platform for Backend {
         })
     }
 }
-
-fn winsys_name(_window: &dyn raw_window_handle::HasRawWindowHandle) -> &'static str {
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
-            let winsys = "HTML Canvas";
-        } else if #[cfg(any(
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd"
-        ))] {
-            let mut winsys = "unknown";
-
-            #[cfg(feature = "x11")]
-            if matches!(_window.raw_window_handle(), raw_window_handle::RawWindowHandle::Xcb(..)) {
-                winsys = "x11";
-            }
-
-            #[cfg(feature = "wayland")]
-            if matches!(_window.raw_window_handle(), raw_window_handle::RawWindowHandle::Wayland(..)) {
-                winsys = "wayland"
-            }
-        } else if #[cfg(target_os = "windows")] {
-            let winsys = "windows";
-        } else if #[cfg(target_os = "macos")] {
-            let winsys = "macos";
-        } else {
-            let winsys = "unknown";
-        }
-    }
-    winsys
-}

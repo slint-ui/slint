@@ -64,7 +64,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_adapter_weak.clone(),
-            &format!("FemtoVG renderer (windowing system: {})", crate::winsys_name(window)),
+            &format!("FemtoVG renderer (windowing system: {})", winsys_name(window)),
         );
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -500,4 +500,37 @@ impl Drop for FemtoVGCanvas {
             i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
         }
     }
+}
+
+fn winsys_name(_window: &dyn raw_window_handle::HasRawWindowHandle) -> &'static str {
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            let winsys = "HTML Canvas";
+        } else if #[cfg(any(
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        ))] {
+            let mut winsys = "unknown";
+
+            #[cfg(feature = "x11")]
+            if matches!(_window.raw_window_handle(), raw_window_handle::RawWindowHandle::Xcb(..)) {
+                winsys = "x11";
+            }
+
+            #[cfg(feature = "wayland")]
+            if matches!(_window.raw_window_handle(), raw_window_handle::RawWindowHandle::Wayland(..)) {
+                winsys = "wayland"
+            }
+        } else if #[cfg(target_os = "windows")] {
+            let winsys = "windows";
+        } else if #[cfg(target_os = "macos")] {
+            let winsys = "macos";
+        } else {
+            let winsys = "unknown";
+        }
+    }
+    winsys
 }
