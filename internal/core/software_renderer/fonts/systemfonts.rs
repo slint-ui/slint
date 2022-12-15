@@ -11,10 +11,33 @@ use crate::lengths::{LogicalLength, ScaleFactor};
 use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
 
+fn init_fontdb(db: &mut fontdb::Database) {
+    db.load_system_fonts();
+
+    if db
+        .query(&fontdb::Query {
+            families: &[fontdb::Family::Name(db.family_name(&fontdb::Family::SansSerif))],
+            ..Default::default()
+        })
+        .is_none()
+    {
+        if let Some(fallback_id) = db.query(&fontdb::Query {
+            families: &[
+                fontdb::Family::Name("Noto Sans"),
+                fontdb::Family::Name("DejaVu Sans"),
+                fontdb::Family::Name("FreeSans"),
+            ],
+            ..Default::default()
+        }) {
+            db.set_sans_serif_family(db.face(fallback_id).unwrap().family.clone());
+        }
+    }
+}
+
 thread_local! {
     static VECTOR_FONTS: Rc<RefCell<fontdb::Database>> = Rc::new(RefCell::new({
         let mut db = fontdb::Database::new();
-        db.load_system_fonts();
+        init_fontdb(&mut db);
         db
     }))
 }
