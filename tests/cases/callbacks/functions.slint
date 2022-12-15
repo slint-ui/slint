@@ -16,7 +16,8 @@ TestCase := Rectangle {
 
     property <int> c: 100000;
 
-    function the_function(a: int, b: int) -> int { a + b + c }
+    function foo() {}
+    function the_function(a: int, b: int) -> int { foo(); a + b + c }
 
     if true : Rectangle {
         background: the_function(1, 2) > 3 ? blue: sc.hello();
