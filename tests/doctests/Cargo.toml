@@ -14,8 +14,8 @@ path = "main.rs"
 name = "doctests"
 
 [dev-dependencies]
-i-slint-compiler = { path = "../../internal/compiler", features = ["display-diagnostics"] }
-slint-interpreter = { path = "../../internal/interpreter" }
+i-slint-compiler = { path = "../../internal/compiler" }
+slint-interpreter = { path = "../../internal/interpreter", features = ["display-diagnostics"] }
 slint = { path = "../../api/rs/slint" }
 
 lazy_static = "1.4.0"

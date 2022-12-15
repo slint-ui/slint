@@ -9,7 +9,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");
     let mut tests_file = std::fs::File::create(&tests_file_path)?;
 
-    for entry in std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs"))? {
+    for entry in std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs"))?
+        .chain(std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/recipes"))?)
+    {
         let entry = entry?;
         let path = entry.path();
         if path.extension().map_or(true, |e| e != "md") {

@@ -7,7 +7,6 @@ fn do_test(snippet: &str) -> Result<(), Box<dyn std::error::Error>> {
     let component =
         spin_on::spin_on(compiler.build_from_source(snippet.into(), Default::default()));
 
-    #[cfg(feature = "display-diagnostics")]
     slint_interpreter::print_diagnostics(&compiler.diagnostics());
 
     for d in compiler.diagnostics() {
