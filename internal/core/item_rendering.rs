@@ -6,7 +6,6 @@
 
 use super::items::*;
 use crate::component::ComponentRc;
-use crate::graphics::CachedGraphicsData;
 use crate::item_tree::{
     ItemRc, ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult,
 };
@@ -21,6 +20,28 @@ use core::pin::Pin;
 use std::collections::HashMap;
 use vtable::VRc;
 
+/// ItemCacheEntry allows renderers to store an arbitrary piece of data associated with
+/// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
+/// for a lazy computation. Typically back ends store either compute intensive data or handles that refer to
+/// data that's stored in GPU memory.
+pub struct ItemCacheEntry<T> {
+    /// The backend specific data.
+    pub data: T,
+    /// The property tracker that should be used to evaluate whether the primitive needs to be re-created
+    /// or not.
+    pub dependency_tracker: Option<core::pin::Pin<Box<crate::properties::PropertyTracker>>>,
+}
+
+impl<T> ItemCacheEntry<T> {
+    /// Creates a new TrackingRenderingPrimitive by evaluating the provided update_fn once, storing the returned
+    /// rendering primitive and initializing the dependency tracker.
+    pub fn new(update_fn: impl FnOnce() -> T) -> Self {
+        let dependency_tracker = Box::pin(crate::properties::PropertyTracker::default());
+        let data = dependency_tracker.as_ref().evaluate(update_fn);
+        Self { data, dependency_tracker: Some(dependency_tracker) }
+    }
+}
+
 /// A per-item cache.
 ///
 /// Cache rendering information for a given item.
@@ -33,7 +54,7 @@ use vtable::VRc;
 #[derive(Default)]
 pub struct ItemCache<T> {
     /// The pointer is a pointer to a component
-    map: RefCell<HashMap<*const vtable::Dyn, HashMap<usize, CachedGraphicsData<T>>>>,
+    map: RefCell<HashMap<*const vtable::Dyn, HashMap<usize, ItemCacheEntry<T>>>>,
 }
 #[cfg(feature = "std")]
 impl<T: Clone> ItemCache<T> {
@@ -63,7 +84,7 @@ impl<T: Clone> ItemCache<T> {
             }
             std::collections::hash_map::Entry::Vacant(_) => {
                 drop(borrowed);
-                let new_entry = CachedGraphicsData::new(update_fn);
+                let new_entry = ItemCacheEntry::new(update_fn);
                 let data = new_entry.data.clone();
                 self.map
                     .borrow_mut()
@@ -105,7 +126,7 @@ impl<T: Clone> ItemCache<T> {
                     .evaluate(update_fn);
             }
             None => {
-                let cache_entry = crate::graphics::CachedGraphicsData::new(update_fn);
+                let cache_entry = ItemCacheEntry::new(update_fn);
                 borrowed.entry(component).or_default().insert(item_rc.index(), cache_entry);
             }
         }
@@ -379,7 +400,7 @@ impl<'a, T> PartialRenderer<'a, T> {
             |_, item, item_index, offset| {
                 let mut borrowed = self.cache.map.borrow_mut();
                 match borrowed.entry(&(**component) as *const _).or_default().get(&item_index) {
-                    Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
+                    Some(ItemCacheEntry { data, dependency_tracker: Some(tr) }) => {
                         if tr.is_dirty() {
                             let old_geom = *data;
                             drop(borrowed);

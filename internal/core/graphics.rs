@@ -6,15 +6,11 @@
     Graphics Abstractions.
 
     This module contains the abstractions and convenience types used for rendering.
-
-    The run-time library also makes use of [RenderingCache] to store the rendering primitives
-    created by the backend in a type-erased manner.
 */
 extern crate alloc;
 use crate::lengths::LogicalLength;
 use crate::Coord;
 use crate::SharedString;
-use alloc::boxed::Box;
 
 pub use euclid;
 /// 2D Rectangle
@@ -52,28 +48,6 @@ pub mod rendering_metrics_collector;
 
 #[cfg(feature = "box-shadow-cache")]
 pub mod boxshadowcache;
-
-/// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
-/// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
-/// for a lazy computation. Typically back ends store either compute intensive data or handles that refer to
-/// data that's stored in GPU memory.
-pub struct CachedGraphicsData<T> {
-    /// The backend specific data.
-    pub data: T,
-    /// The property tracker that should be used to evaluate whether the primitive needs to be re-created
-    /// or not.
-    pub dependency_tracker: Option<core::pin::Pin<Box<crate::properties::PropertyTracker>>>,
-}
-
-impl<T> CachedGraphicsData<T> {
-    /// Creates a new TrackingRenderingPrimitive by evaluating the provided update_fn once, storing the returned
-    /// rendering primitive and initializing the dependency tracker.
-    pub fn new(update_fn: impl FnOnce() -> T) -> Self {
-        let dependency_tracker = Box::pin(crate::properties::PropertyTracker::default());
-        let data = dependency_tracker.as_ref().evaluate(update_fn);
-        Self { data, dependency_tracker: Some(dependency_tracker) }
-    }
-}
 
 /// FontRequest collects all the developer-configurable properties for fonts, such as family, weight, etc.
 /// It is submitted as a request to the platform font system (i.e. CoreText on macOS) and in exchange the
