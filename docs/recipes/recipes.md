@@ -891,8 +891,7 @@ Example := Window {
 
 ### Breakpoints for responsive ui
 
-Uses this recipe to implement a responsive SideBar that collapses when the parent width is smaller then the given break-point. On Button
-click the SideBar can be expanded if collapsed on break-point.
+Use this recipe to implement a responsive SideBar that collapses when the parent width is smaller than the given break-point. When the button is clicked, the SideBar expands if collapsed on break-point.
 
 ```slint,no-auto-preview
 import { Button } from "std-widgets.slint";
