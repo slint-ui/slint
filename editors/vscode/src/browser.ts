@@ -26,7 +26,7 @@ let properties_provider: PropertiesViewProvider;
 function startClient(context: vscode.ExtensionContext) {
     //let args = vscode.workspace.getConfiguration('slint').get<[string]>('lsp-args');
 
-    const documentSelector = [{ language: "slint" }];
+    const documentSelector = [{ language: "slint" }, { language: "rust" }];
 
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {

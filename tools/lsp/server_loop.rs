@@ -829,16 +829,24 @@ fn maybe_goto_preview(
 }
 
 pub async fn reload_document_impl(
-    content: String,
+    mut content: String,
     uri: lsp_types::Url,
     version: i32,
     document_cache: &mut DocumentCache,
 ) -> Result<HashMap<Url, Vec<lsp_types::Diagnostic>>, Error> {
+    let path = uri.to_file_path().unwrap();
+    if path.extension().map_or(false, |e| e == "rs") {
+        content = match extract_rust_macro(content) {
+            Some(content) => content,
+            // A rust file without a rust macro, just ignore it
+            None => return Ok([(uri, vec![])].into_iter().collect()),
+        };
+    }
+
     let newline_offsets = Rc::new(DocumentCache::newline_offsets_from_content(&content));
     document_cache.newline_offsets.insert(uri.clone(), newline_offsets);
     document_cache.versions.insert(uri.clone(), version);
 
-    let path = uri.to_file_path().unwrap();
     let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
     #[cfg(feature = "preview")]
     crate::preview::set_contents(&path_canon, content.clone());
@@ -882,6 +890,97 @@ pub async fn reload_document(
         )?;
     }
     Ok(())
+}
+
+fn extract_rust_macro(content: String) -> Option<String> {
+    let mut begin = 0;
+    loop {
+        if let Some(m) = content[begin..].find("slint") {
+            begin += m + 5;
+            while content[begin..].starts_with(' ') {
+                begin += 1;
+            }
+            if !content[begin..].starts_with('!') {
+                continue;
+            }
+            begin += 1;
+            while content[begin..].starts_with(' ') {
+                begin += 1;
+            }
+            if !content[begin..].starts_with('{') {
+                continue;
+            }
+            begin += 1;
+            break;
+        } else {
+            // No macro found, just return
+            return None;
+        }
+    }
+
+    // Now find the matching '}'
+    // Technically, we should be lexing rust, not slint
+    let mut state = i_slint_compiler::lexer::LexState::default();
+    let mut end = begin;
+    let mut level = 0;
+    while !content[end..].is_empty() {
+        let len = match i_slint_compiler::parser::lex_next_token(&content[end..], &mut state) {
+            Some((len, i_slint_compiler::parser::SyntaxKind::LBrace)) => {
+                level += 1;
+                len
+            }
+            Some((_, i_slint_compiler::parser::SyntaxKind::RBrace)) if level == 0 => {
+                break;
+            }
+            Some((len, i_slint_compiler::parser::SyntaxKind::RBrace)) => {
+                level -= 1;
+                len
+            }
+            Some((len, _)) => len,
+            None => {
+                // Lex error
+                break;
+            }
+        };
+        if len == 0 {
+            break; // Shouldn't happen
+        }
+        end += len;
+    }
+    let mut bytes = content.into_bytes();
+    for c in &mut bytes[..begin] {
+        if *c != b'\n' {
+            *c = b' '
+        }
+    }
+    for c in &mut bytes[end..] {
+        if *c != b'\n' {
+            *c = b' '
+        }
+    }
+    Some(String::from_utf8(bytes).expect("We just added spaces"))
+}
+
+#[test]
+fn test_extract_rust_macro() {
+    assert_eq!(extract_rust_macro("\nslint{!{}}".into()), None);
+    assert_eq!(
+        extract_rust_macro(
+            "abc\n€\nslint !  {x \" \\\" }🦀\" { () {}\n {} }xx =}-  ;}\n xxx \n yyy {}\n".into(),
+        ),
+        Some(
+            "   \n   \n          x \" \\\" }🦀\" { () {}\n {} }xx =      \n     \n       \n".into(),
+        )
+    );
+
+    assert_eq!(
+        extract_rust_macro("xx\nabcd::slint!{abc{}efg".into()),
+        Some("  \n             abc{}efg".into())
+    );
+    assert_eq!(
+        extract_rust_macro("slint!\nnot.\nslint!{\nunterminated\nxxx".into()),
+        Some("      \n    \n       \nunterminated\nxxx".into())
+    );
 }
 
 fn get_document_and_offset<'a>(
