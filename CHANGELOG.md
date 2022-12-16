@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+### Added
+
+### Fixed
+
+## [0.3.3] - 2022-12-16
+
+### Changed
+
  - Minimum rust version is now 1.64.
 
 ### Added
@@ -611,3 +619,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [0.3.0]: https://github.com/slint-ui/slint/releases/tag/v0.3.0
 [0.3.1]: https://github.com/slint-ui/slint/releases/tag/v0.3.1
 [0.3.2]: https://github.com/slint-ui/slint/releases/tag/v0.3.2
+[0.3.3]: https://github.com/slint-ui/slint/releases/tag/v0.3.3
