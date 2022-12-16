@@ -149,7 +149,7 @@ function startClient(context: vscode.ExtensionContext) {
     };
 
     let clientOptions: LanguageClientOptions = {
-        documentSelector: [{ scheme: "file", language: "slint" }],
+        documentSelector: [{ language: "slint" }, { language: "rust" }],
         middleware: {
             handleWorkDoneProgress: (
                 token: ProgressToken,
