@@ -898,8 +898,15 @@ import { Button } from "std-widgets.slint";
 
 export SideBar := Rectangle {
     private property <bool> collapsed: reference-width < break-point;
+
+    /// Defines the reference width to check `break-point`.
     property <length> reference-width;
+
+    /// If `reference-width` is less `break-point` the `SideBar` collapses.
     property <length> break-point: 600px;
+
+    /// Set the text of the expand button.
+    property <string> expand-button-text;
 
     width: 160px;
    
@@ -909,11 +916,11 @@ export SideBar := Rectangle {
         background: black;
 
         VerticalLayout { 
-            padding: 4px;
+            padding: 2px;
             alignment: start;
             if (collapsed) : Button {
                 checked: container.expaned;
-                text: "C";
+                text: expand-button-text;
 
                 clicked => {  
                     container.expaned = !container.expaned;
@@ -931,7 +938,7 @@ export SideBar := Rectangle {
 
     states [
         collapsed when collapsed : {
-            width: 32px;
+            width: 48px;
         }
     ]
 }
@@ -958,6 +965,7 @@ SideBarTest := Window {
         SideBar {  
             col: 0;
             reference-width: parent.width;
+            expand-button-text: "C";
         }
     }
 }
