@@ -23,6 +23,8 @@ All notable changes to this project are documented in this file.
  - Warn on bad use of ListView. #860
  - Fixed two way bindings between globals.
  - Fixed scrolling of preview area in online editor.
+ - Fixed the CMake build to respect `CMAKE_*_OUTPUT_DIRECTORY` variables. #1979
+ - Fixed build when using `renderer-winit-skia-opengl` on macOS or Windows.
 
 
 ## [0.3.2] - 2022-11-28
