@@ -889,6 +889,81 @@ Example := Window {
 }
 ```
 
+### Breakpoints for responsive ui
+
+Uses this recipe to implement a responsive SideBar that collapses when the parent width is smaller then the given break-point. On Button
+click the SideBar can be expanded if collapsed on break-point.
+
+```slint,no-auto-preview
+import { Button } from "std-widgets.slint";
+
+export SideBar := Rectangle {
+    private property <bool> collapsed: reference-width < break-point;
+    property <length> reference-width;
+    property <length> break-point: 600px;
+
+    width: 160px;
+   
+    container := Rectangle {   
+        private property <bool> expaned;
+        width: parent.width;
+        background: black;
+
+        VerticalLayout { 
+            padding: 4px;
+            alignment: start;
+            if (collapsed) : Button {
+                checked: container.expaned;
+                text: "C";
+
+                clicked => {  
+                    container.expaned = !container.expaned;
+                }
+            }
+            @children
+        }
+
+        states [
+            expaned when container.expaned && root.collapsed : {
+                width: 160px;
+            }
+        ]
+    }
+
+    states [
+        collapsed when collapsed : {
+            width: 32px;
+        }
+    ]
+}
+
+SideBarTest := Window {
+    preferred-width: 700px;
+    min-height: 400px;
+   
+    GridLayout {  
+        Rectangle {  
+            height: 100%;
+            col: 1;
+            background: white;
+
+            HorizontalLayout {  
+                padding: 8px;
+
+                Text {  
+                    color: black;
+                    text: "Content";
+                }
+            }
+        }
+        SideBar {  
+            col: 0;
+            reference-width: parent.width;
+        }
+    }
+}
+```
+
 <!--
 
 more content:
