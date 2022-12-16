@@ -3,7 +3,7 @@
 
 [package]
 name = "xtask"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Slint Developers <info@slint-ui.com>"]
 description = "Development helper tool for the Slint project"
 edition = "2021"
@@ -23,4 +23,4 @@ serde_json = "1.0"
 cbindgen = "0.24"
 proc-macro2 = "1.0.11"
 which = "4.2.4"
-i-slint-common = { version = "=0.3.3", path="../internal/common" }
+i-slint-common = { version = "=0.3.4", path="../internal/common" }

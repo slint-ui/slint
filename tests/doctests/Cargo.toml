@@ -3,7 +3,7 @@
 
 [package]
 name = "doctests"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 publish = false

@@ -1,6 +1,6 @@
 {
     "name": "carousel",
-    "version": "0.3.3",
+    "version": "0.3.4",
     "main": "main.js",
     "dependencies": {
         "slint-ui": "../../../api/node"

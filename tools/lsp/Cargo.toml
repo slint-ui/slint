@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-lsp"
-version = "0.3.3"
+version = "0.3.4"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -55,7 +55,7 @@ preview-lense = []
 default = ["backend-qt", "backend-winit", "renderer-winit-femtovg", "preview"]
 
 [dependencies]
-i-slint-compiler = { version = "=0.3.3", path = "../../internal/compiler"}
+i-slint-compiler = { version = "=0.3.4", path = "../../internal/compiler"}
 dunce = "1.0.1"
 euclid = "0.22"
 lsp-types = { version = "0.93.0", features = ["proposed"] }
@@ -65,9 +65,9 @@ rowan = "0.15.5"
 
 
 # for the preview
-i-slint-core = { version = "=0.3.3", path = "../../internal/core", optional = true }
-slint-interpreter = { version = "=0.3.3", path = "../../internal/interpreter", default-features = false, features = ["compat-0-3-0", "highlight"], optional = true  }
-i-slint-backend-selector = { version = "=0.3.3", path="../../internal/backends/selector", optional = true }
+i-slint-core = { version = "=0.3.4", path = "../../internal/core", optional = true }
+slint-interpreter = { version = "=0.3.4", path = "../../internal/interpreter", default-features = false, features = ["compat-0-3-0", "highlight"], optional = true  }
+i-slint-backend-selector = { version = "=0.3.4", path="../../internal/backends/selector", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
