@@ -32,12 +32,12 @@ Start by adding a dependency to the `slint` and the `slint-build` crates to your
 ## ... your other dependencies
 
 [dependencies.slint]
-version = "0.3.2"
+version = "0.3.3"
 default-features = false
 features = ["compat-0-3-0", "unsafe-single-threaded", "libm"]
 
 [build-dependencies]
-slint-build = "0.3.2"
+slint-build = "0.3.3"
 ```
 
 The default features of the `slint` crate are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
