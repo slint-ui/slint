@@ -275,10 +275,10 @@ fn load_image(
     if file.path.ends_with(".svg") || file.path.ends_with(".svgz") {
         let options = usvg::Options::default();
         let tree = match file.builtin_contents {
-            Some(data) => usvg::Tree::from_data(data, &options.to_ref()),
+            Some(data) => usvg::Tree::from_data(data, &options),
             None => usvg::Tree::from_data(
                 std::fs::read(file.path.as_ref()).map_err(image::ImageError::IoError)?.as_slice(),
-                &options.to_ref(),
+                &options,
             ),
         }
         .map_err(|e| {
