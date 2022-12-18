@@ -57,7 +57,7 @@ impl ParsedSVG {
     }
 }
 
-fn with_svg_options<T>(callback: impl FnOnce(usvg::OptionsRef<'_>) -> T) -> T {
+fn with_svg_options<T>(callback: impl FnOnce(&usvg::Options) -> T) -> T {
     // TODO: When the font db cache is a feature in corelib, use it:
     /*
     crate::fonts::FONT_CACHE.with(|cache| {
@@ -70,8 +70,7 @@ fn with_svg_options<T>(callback: impl FnOnce(usvg::OptionsRef<'_>) -> T) -> T {
     */
 
     let options = usvg::Options::default();
-    let options_ref = options.to_ref();
-    callback(options_ref)
+    callback(&options)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
