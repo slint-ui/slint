@@ -6,8 +6,11 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 ### Added
+ - LSP: support of Slint features (auto-complete, preview, ...) in `slint!{}` macro in rust files
+ - Support for software renderer without pre-rendered font at compile time
 
 ### Fixed
+ - Compiler panic for files containing no component (#2005)
 
 ## [0.3.3] - 2022-12-16
 
