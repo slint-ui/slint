@@ -132,11 +132,6 @@ fn set_primitive_property_value(ty: &Type, value_expression: TokenStream) -> Tok
 
 /// Generate the rust code for the given component.
 pub fn generate(doc: &Document) -> TokenStream {
-    if matches!(doc.root_component.root_element.borrow().base_type, ElementType::Error) {
-        // empty document, nothing to generate
-        return TokenStream::default();
-    }
-
     let (structs_ids, structs): (Vec<_>, Vec<_>) = doc
         .root_component
         .used_types
@@ -151,6 +146,14 @@ pub fn generate(doc: &Document) -> TokenStream {
             }
         })
         .unzip();
+
+    if matches!(
+        doc.root_component.root_element.borrow().base_type,
+        ElementType::Error | ElementType::Global
+    ) {
+        // empty document, nothing to generate
+        return TokenStream::default();
+    }
 
     let llr = crate::llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component);
 

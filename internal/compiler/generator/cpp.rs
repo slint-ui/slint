@@ -287,7 +287,7 @@ mod cpp_ast {
 }
 
 use crate::expression_tree::{BuiltinFunction, EasingCurve};
-use crate::langtype::{NativeClass, Type};
+use crate::langtype::{ElementType, NativeClass, Type};
 use crate::layout::Orientation;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, ParentCtx as llr_ParentCtx,
@@ -581,6 +581,14 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
         if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
             generate_struct(&mut file, name, fields);
         }
+    }
+
+    if matches!(
+        doc.root_component.root_element.borrow().base_type,
+        ElementType::Error | ElementType::Global
+    ) {
+        // empty document, nothing to generate
+        return file;
     }
 
     let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component);
