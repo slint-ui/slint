@@ -12,4 +12,5 @@ fn simple_window() {
 fn empty_stuff() {
     slint!();
     slint!(struct Hei := { abcd: bool });
+    slint!(global G := { });
 }
