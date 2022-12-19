@@ -894,7 +894,7 @@ Example := Window {
 Use this recipe to implement a responsive SideBar that collapses when the parent width is smaller than the given break-point. When the button is clicked, the SideBar expands if collapsed on break-point.
 
 ```slint,no-auto-preview
-import { Button } from "std-widgets.slint";
+import { Button, StyleMetrics } from "std-widgets.slint";
 
 export SideBar := Rectangle {
     private property <bool> collapsed: reference-width < break-point;
@@ -912,33 +912,48 @@ export SideBar := Rectangle {
    
     container := Rectangle {   
         private property <bool> expaned;
+        
         width: parent.width;
-        background: black;
+        background: StyleMetrics.window-background.darker(0.2);
 
         VerticalLayout { 
             padding: 2px;
             alignment: start;
-            if (collapsed) : Button {
-                checked: container.expaned;
-                text: expand-button-text;
 
-                clicked => {  
-                    container.expaned = !container.expaned;
+            HorizontalLayout {  
+                alignment: start;
+
+                if (collapsed) : Button {
+                    checked: container.expaned;
+                    text: expand-button-text;
+    
+                    clicked => {  
+                        container.expaned = !container.expaned;
+                    }
                 }
             }
+         
             @children
         }
 
         states [
             expaned when container.expaned && root.collapsed : {
                 width: 160px;
+
+                in {
+                    animate width { duration: 200ms; }
+                }
+
+                out {
+                    animate width { duration: 200ms; }
+                }
             }
         ]
     }
 
     states [
         collapsed when collapsed : {
-            width: 48px;
+            width: 62px;
         }
     ]
 }
@@ -965,7 +980,7 @@ SideBarTest := Window {
         SideBar {  
             col: 0;
             reference-width: parent.width;
-            expand-button-text: "C";
+            expand-button-text: "E";
         }
     }
 }
