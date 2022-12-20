@@ -187,11 +187,17 @@ export function activate(context: vscode.ExtensionContext) {
                     .toString(),
             )
         ) {
-            let content_str =
-                uri === previewUrl
-                    ? event.document.getText()
-                    : await getDocumentSource(previewUrl);
+            let content_str;
+            if (uri === previewUrl) {
+                content_str = event.document.getText();
+                if (uri.endsWith(".rs")) {
+                    content_str = extract_rust_macro(content_str)
+                }
+            } else {
+                content_str = await getDocumentSource(previewUrl);
+            }
             reload_preview(previewUrl, content_str, previewComponent);
+
         }
     });
 
@@ -239,12 +245,53 @@ async function getDocumentSource(url: string): Promise<string> {
     let x = vscode.workspace.textDocuments.find(
         (d) => d.uri.toString() === url,
     );
-    if (x) {
-        return x.getText();
-    }
-    return new TextDecoder().decode(
+    let source = x ? x.getText() : new TextDecoder().decode(
         await vscode.workspace.fs.readFile(Uri.parse(url)),
     );
+
+    if (url.endsWith(".rs")) {
+        source = extract_rust_macro(source);
+    }
+
+    return source;
+}
+
+function extract_rust_macro(source: string): string {
+    let match;
+    const re = /slint!\s*([\{\(\[])/g;
+
+    let last = 0;
+    let result = "";
+
+    while ((match = re.exec(source)) != null) {
+        let start = match.index + match[0].length;
+        let end = source.length;
+        let level = 0;
+        let open = match[1];
+        let close;
+        switch (open) {
+            case '(': close = ')'; break;
+            case '{': close = '}'; break;
+            case '[': close = ']'; break;
+        }
+        for (let i = start; i < source.length; i++) {
+            if (source.charAt(i) == open) {
+                level++;
+            } else if (source.charAt(i) == close) {
+                level--;
+                if (level < 0) {
+                    end = i;
+                    break;
+                }
+            }
+        }
+
+        result += source.slice(last, start).replace(/[^\n]/g, ' ');
+        result += source.slice(start, end);
+        last = end;
+    }
+    result += source.slice(last).replace(/[^\n]/g, ' ');
+    return result;
 }
 
 function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
