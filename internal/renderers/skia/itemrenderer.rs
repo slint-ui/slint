@@ -143,7 +143,7 @@ impl<'a> SkiaRenderer<'a> {
         target_height: std::pin::Pin<&Property<LogicalLength>>,
         image_fit: ImageFit,
         rendering: ImageRendering,
-        colorize_property: Option<Pin<&Property<Brush>>>,
+        colorize_property: Pin<&Property<Brush>>,
     ) {
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
         let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
@@ -156,9 +156,11 @@ impl<'a> SkiaRenderer<'a> {
                 self.scale_factor,
             )
             .and_then(|skia_image| {
-                match colorize_property.map(|p| p.get()).filter(|c| !c.is_transparent()) {
-                    Some(color) => self.colorize_image(skia_image, color),
-                    None => Some(skia_image),
+                let brush = colorize_property.get();
+                if !brush.is_transparent() {
+                    self.colorize_image(skia_image, brush)
+                } else {
+                    Some(skia_image)
                 }
             })
         });
@@ -340,7 +342,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             image.image_rendering(),
-            None,
+            items::ImageItem::FIELD_OFFSETS.colorize.apply_pin(image),
         );
     }
 
@@ -370,7 +372,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             items::ClippedImage::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             image.image_rendering(),
-            Some(items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(image)),
+            items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(image),
         );
     }
 

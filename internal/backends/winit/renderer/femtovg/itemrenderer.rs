@@ -224,7 +224,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
             items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
-            None,
+            items::ImageItem::FIELD_OFFSETS.colorize.apply_pin(image),
             image.image_rendering(),
         );
     }
@@ -242,7 +242,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             items::ClippedImage::FIELD_OFFSETS.width.apply_pin(clipped_image),
             items::ClippedImage::FIELD_OFFSETS.height.apply_pin(clipped_image),
             clipped_image.image_fit(),
-            Some(items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(clipped_image)),
+            items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(clipped_image),
             clipped_image.image_rendering(),
         );
     }
@@ -1077,10 +1077,10 @@ impl<'a> GLItemRenderer<'a> {
     fn colorize_image(
         &self,
         original_cache_entry: ItemGraphicsCacheEntry,
-        colorize_property: Option<Pin<&Property<Brush>>>,
+        colorize_property: Pin<&Property<Brush>>,
         scaling: ImageRendering,
     ) -> ItemGraphicsCacheEntry {
-        let colorize_brush = colorize_property.map_or(Brush::default(), |prop| prop.get());
+        let colorize_brush = colorize_property.get();
         if colorize_brush.is_transparent() {
             return original_cache_entry;
         };
@@ -1158,7 +1158,7 @@ impl<'a> GLItemRenderer<'a> {
         target_width: Pin<&Property<LogicalLength>>,
         target_height: Pin<&Property<LogicalLength>>,
         image_fit: ImageFit,
-        colorize_property: Option<Pin<&Property<Brush>>>,
+        colorize_property: Pin<&Property<Brush>>,
         image_rendering: ImageRendering,
     ) {
         let target_w = target_width.get() * self.scale_factor;
@@ -1227,9 +1227,7 @@ impl<'a> GLItemRenderer<'a> {
             // It's possible that our item cache contains an image but it's not colorized yet because it was only
             // placed there via the `image_size` function (which doesn't colorize). So we may have to invalidate our
             // item cache and try again.
-            if colorize_property.map_or(false, |prop| !prop.get().is_transparent())
-                && !cached_image.is_colorized_image()
-            {
+            if !cached_image.is_colorized_image() && !colorize_property.get().is_transparent() {
                 self.graphics_cache.release(item_rc);
                 continue;
             }
