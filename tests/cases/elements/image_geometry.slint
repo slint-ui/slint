@@ -37,14 +37,23 @@ TestCase := Rectangle {
         property <bool> expected_width_ok: self.width == 400phx;
     }
 
+    image_with_missing_width_clipped := Image {
+        source: @image-url("cat.jpg");
+        height: 600phx;
+        source-clip-width: 20;
+        source-clip-height: 20;
+        property <bool> expected_width_ok: self.width == 600phx;
+    }
+
     property <bool> fixed_image_default_image_fit_ok: fixed_image.image-fit == ImageFit.fill;
     property <bool> fixed_image_image_fit_override_ok: fixed_image_contain.image-fit == ImageFit.contain;
     property <bool> image_in_layout_fit_ok: image_in_layout.image-fit == ImageFit.contain;
     property <bool> image_in_layout_custom_fit_ok: image_in_layout_with_explicit_fit.image-fit == ImageFit.fill;
     property <bool> image_with_missing_height_ok <=> image_with_missing_height.expected_height_ok;
     property <bool> image_with_missing_width_ok <=> image_with_missing_width.expected_width_ok;
+    property <bool> image_with_missing_width_clipped_ok <=> image_with_missing_width.expected_width_ok;
 
-    property <bool> test: fixed_image_default_image_fit_ok && fixed_image_image_fit_override_ok && image_in_layout_fit_ok && image_in_layout_custom_fit_ok && image_with_missing_height_ok && image_with_missing_width_ok;
+    property <bool> test: fixed_image_default_image_fit_ok && fixed_image_image_fit_override_ok && image_in_layout_fit_ok && image_in_layout_custom_fit_ok && image_with_missing_height_ok && image_with_missing_width_ok && image_with_missing_width_clipped_ok;
 }
 
 /*
@@ -58,6 +67,7 @@ assert(instance.get_image_in_layout_fit_ok());
 assert(instance.get_image_in_layout_custom_fit_ok());
 assert(instance.get_image_with_missing_height_ok());
 assert(instance.get_image_with_missing_width_ok());
+assert(instance.get_image_with_missing_width_clipped_ok());
 ```
 
 
@@ -69,6 +79,7 @@ assert!(instance.get_image_in_layout_fit_ok());
 assert!(instance.get_image_in_layout_custom_fit_ok());
 assert!(instance.get_image_with_missing_height_ok());
 assert!(instance.get_image_with_missing_width_ok());
+assert!(instance.get_image_with_missing_width_clipped_ok());
 ```
 
 ```js
@@ -79,6 +90,7 @@ assert(instance.image_in_layout_fit_ok);
 assert(instance.image_in_layout_custom_fit_ok);
 assert(instance.image_with_missing_height_ok);
 assert(instance.image_with_missing_width_ok);
+assert(instance.image_with_missing_width_clipped_ok);
 ```
 
 */
