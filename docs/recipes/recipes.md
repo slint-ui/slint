@@ -889,6 +889,103 @@ Example := Window {
 }
 ```
 
+### Breakpoints for responsive ui
+
+Use this recipe to implement a responsive SideBar that collapses when the parent width is smaller than the given break-point. When the button is clicked, the SideBar expands if collapsed on break-point.
+
+```slint,no-auto-preview
+import { Button, StyleMetrics } from "std-widgets.slint";
+
+export SideBar := Rectangle {
+    private property <bool> collapsed: reference-width < break-point;
+
+    /// Defines the reference width to check `break-point`.
+    property <length> reference-width;
+
+    /// If `reference-width` is less `break-point` the `SideBar` collapses.
+    property <length> break-point: 600px;
+
+    /// Set the text of the expand button.
+    property <string> expand-button-text;
+
+    width: 160px;
+   
+    container := Rectangle {   
+        private property <bool> expaned;
+        
+        width: parent.width;
+        background: StyleMetrics.window-background.darker(0.2);
+
+        VerticalLayout { 
+            padding: 2px;
+            alignment: start;
+
+            HorizontalLayout {  
+                alignment: start;
+
+                if (collapsed) : Button {
+                    checked: container.expaned;
+                    text: expand-button-text;
+    
+                    clicked => {  
+                        container.expaned = !container.expaned;
+                    }
+                }
+            }
+         
+            @children
+        }
+
+        states [
+            expaned when container.expaned && root.collapsed : {
+                width: 160px;
+
+                in {
+                    animate width { duration: 200ms; }
+                }
+
+                out {
+                    animate width { duration: 200ms; }
+                }
+            }
+        ]
+    }
+
+    states [
+        collapsed when collapsed : {
+            width: 62px;
+        }
+    ]
+}
+
+SideBarTest := Window {
+    preferred-width: 700px;
+    min-height: 400px;
+   
+    GridLayout {  
+        Rectangle {  
+            height: 100%;
+            col: 1;
+            background: white;
+
+            HorizontalLayout {  
+                padding: 8px;
+
+                Text {  
+                    color: black;
+                    text: "Content";
+                }
+            }
+        }
+        SideBar {  
+            col: 0;
+            reference-width: parent.width;
+            expand-button-text: "E";
+        }
+    }
+}
+```
+
 <!--
 
 more content:
