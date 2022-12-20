@@ -464,10 +464,10 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
     rh.register::<DocumentHighlightRequest, _>(|_params, _ctx| async move {
         let document_cache = &mut _ctx.document_cache.borrow_mut();
         let uri = _params.text_document_position_params.text_document.uri;
-        let offset_mapper = document_cache.offset_to_position_mapper(&uri)?;
         if let Some((tk, _off)) =
             token_descr(document_cache, &uri, &_params.text_document_position_params.position)
         {
+            let offset_mapper = document_cache.offset_to_position_mapper(&uri)?;
             let p = tk.parent();
             #[cfg(feature = "preview")]
             if p.kind() == SyntaxKind::QualifiedName

@@ -231,7 +231,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
         if (this._view === null) {
             return;
         }
-        if (language !== "slint") {
+        if (language !== "slint" && language != "rust") {
             this._view?.webview.postMessage({
                 command: "show_welcome",
                 message: "The active editor does not contain a Slint file.",
