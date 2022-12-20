@@ -7,8 +7,16 @@ TestCase := Rectangle {
     img := Image {
         source: @image-url("cat.jpg");
     }
+
+    img2 := Image {
+        source: @image-url("cat.jpg");
+        source-clip-x: 20;
+    }
+
     property <length> img_width: img.width;
     property <length> img_height: img.height;
+    property <bool> test: img2.source-clip-height * 1px == img2.height && img2.source-clip-width * 1px == img2.width &&
+         img2.width/1px == img2.source.width - 20;
 }
 
 /*
@@ -18,6 +26,7 @@ const TestCase &instance = *handle;
 
 assert_eq(instance.get_img_width(), 320.);
 assert_eq(instance.get_img_height(), 480.);
+assert(instance.get_test());
 ```
 
 
@@ -26,6 +35,7 @@ let instance = TestCase::new();
 
 assert_eq!(instance.get_img_width(), 320.);
 assert_eq!(instance.get_img_height(), 480.);
+assert!(instance.get_test());
 ```
 
 ```js
@@ -34,5 +44,6 @@ var instance = new slint.TestCase();
 
 assert.equal(instance.img_width, 320);
 assert.equal(instance.img_height, 480);
+assert(instance.test);
 ```
 */

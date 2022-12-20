@@ -22,7 +22,7 @@ pub fn apply_default_properties_from_style(
         &(),
         &mut |elem, _| {
             let mut elem = elem.borrow_mut();
-            match elem.base_type.to_string().as_str() {
+            match elem.builtin_type().as_ref().map_or("", |b| b.name.as_str()) {
                 "TextInput" => {
                     elem.set_binding_if_not_set("text-cursor-width".into(), || {
                         Expression::PropertyReference(NamedReference::new(
@@ -49,7 +49,7 @@ pub fn apply_default_properties_from_style(
                         to: Type::Brush,
                     });
                 }
-                "Dialog" | "Window" | "WindowItem" => {
+                "Dialog" | "Window" => {
                     elem.set_binding_if_not_set("background".into(), || Expression::Cast {
                         from: Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,

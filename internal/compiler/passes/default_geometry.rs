@@ -16,6 +16,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::Spanned;
 use crate::expression_tree::Unit;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, NamedReference};
+use crate::langtype::BuiltinElement;
 use crate::langtype::{DefaultSizeBinding, PropertyLookupResult, Type};
 use crate::layout::Orientation;
 use crate::object_tree::{Component, ElementRc};
@@ -37,8 +38,17 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
 
             gen_layout_info_prop(elem);
 
-            let base_type = elem.borrow().builtin_type();
-            if let (Some(parent), Some(builtin_type)) = (parent, base_type) {
+            let builtin_type = match elem.borrow().builtin_type() {
+                Some(b) => b,
+                None => return Some(elem.clone()),
+            };
+
+            let is_image = builtin_type.name == "Image";
+            if is_image {
+                adjust_image_clip_rect(elem, &builtin_type);
+            }
+
+            if let Some(parent) = parent {
                 match builtin_type.default_size_binding {
                     DefaultSizeBinding::None => {}
                     DefaultSizeBinding::ExpandsToParentGeometry => {
@@ -59,8 +69,6 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
 
                         let width_specified = has_length_property_binding(elem, "width");
                         let height_specified = has_length_property_binding(elem, "height");
-
-                        let is_image = builtin_type.name == "Image";
 
                         if !elem.borrow().child_of_layout {
                             // Add aspect-ratio preserving width or height bindings
@@ -252,43 +260,59 @@ fn make_default_aspect_ratio_preserving_binding(
 
     debug_assert_eq!(elem.borrow().lookup_property("source").property_type, Type::Image);
 
-    let implicit_size_var = Box::new(Expression::ReadLocalVariable {
-        name: "image_implicit_size".into(),
-        ty: match BuiltinFunction::ImageSize.ty() {
-            Type::Function { return_type, .. } => *return_type,
-            _ => panic!("invalid type for ImplicitItemSize built-in function"),
-        },
-    });
-
-    let binding = Expression::CodeBlock(vec![
-        Expression::StoreLocalVariable {
-            name: "image_implicit_size".into(),
-            value: Box::new(Expression::FunctionCall {
-                function: Box::new(Expression::BuiltinFunctionReference(
-                    BuiltinFunction::ImageSize,
-                    None,
-                )),
-                arguments: vec![Expression::PropertyReference(NamedReference::new(elem, "source"))],
-                source_location: None,
-            }),
-        },
+    let ratio = if elem.borrow().is_binding_set("source-clip-height", false) {
         Expression::BinaryExpression {
-            lhs: Box::new(Expression::BinaryExpression {
-                lhs: Expression::PropertyReference(NamedReference::new(elem, given_size_property))
-                    .into(),
-                rhs: Box::new(Expression::StructFieldAccess {
+            lhs: Box::new(Expression::PropertyReference(NamedReference::new(
+                elem,
+                &format!("source-clip-{missing_size_property}"),
+            ))),
+            rhs: Box::new(Expression::PropertyReference(NamedReference::new(
+                elem,
+                &format!("source-clip-{given_size_property}"),
+            ))),
+            op: '/',
+        }
+    } else {
+        let implicit_size_var = Box::new(Expression::ReadLocalVariable {
+            name: "image_implicit_size".into(),
+            ty: match BuiltinFunction::ImageSize.ty() {
+                Type::Function { return_type, .. } => *return_type,
+                _ => panic!("invalid type for ImplicitItemSize built-in function"),
+            },
+        });
+
+        Expression::CodeBlock(vec![
+            Expression::StoreLocalVariable {
+                name: "image_implicit_size".into(),
+                value: Box::new(Expression::FunctionCall {
+                    function: Box::new(Expression::BuiltinFunctionReference(
+                        BuiltinFunction::ImageSize,
+                        None,
+                    )),
+                    arguments: vec![Expression::PropertyReference(NamedReference::new(
+                        elem, "source",
+                    ))],
+                    source_location: None,
+                }),
+            },
+            Expression::BinaryExpression {
+                lhs: Box::new(Expression::StructFieldAccess {
                     base: implicit_size_var.clone(),
                     name: missing_size_property.into(),
                 }),
-                op: '*',
-            }),
-            rhs: Box::new(Expression::StructFieldAccess {
-                base: implicit_size_var,
-                name: given_size_property.into(),
-            }),
-            op: '/',
-        },
-    ]);
+                rhs: Box::new(Expression::StructFieldAccess {
+                    base: implicit_size_var,
+                    name: given_size_property.into(),
+                }),
+                op: '/',
+            },
+        ])
+    };
+    let binding = Expression::BinaryExpression {
+        lhs: Box::new(ratio),
+        rhs: Expression::PropertyReference(NamedReference::new(elem, given_size_property)).into(),
+        op: '*',
+    };
 
     elem.borrow_mut()
         .bindings
@@ -316,4 +340,37 @@ fn maybe_center_in_parent(elem: &ElementRc, parent: &ElementRc, pos_prop: &str, 
         op: '/',
         rhs: Expression::NumberLiteral(2., Unit::None).into(),
     });
+}
+
+fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
+    debug_assert_eq!(builtin.native_class.class_name, "ClippedImage");
+
+    if builtin.native_class.properties.keys().any(|p| {
+        elem.borrow().bindings.contains_key(p)
+            || elem.borrow().property_analysis.borrow().get(p).map_or(false, |a| a.is_used())
+    }) {
+        let source = NamedReference::new(elem, "source");
+        let x = NamedReference::new(elem, "source-clip-x");
+        let y = NamedReference::new(elem, "source-clip-y");
+        let make_expr = |dim: &str, prop: NamedReference| Expression::BinaryExpression {
+            lhs: Box::new(Expression::StructFieldAccess {
+                base: Box::new(Expression::FunctionCall {
+                    function: Box::new(Expression::BuiltinFunctionReference(
+                        BuiltinFunction::ImageSize,
+                        None,
+                    )),
+                    arguments: vec![Expression::PropertyReference(source.clone())],
+                    source_location: None,
+                }),
+                name: dim.into(),
+            }),
+            rhs: Expression::PropertyReference(prop).into(),
+            op: '-',
+        };
+
+        elem.borrow_mut()
+            .set_binding_if_not_set("source-clip-width".into(), || make_expr("width", x));
+        elem.borrow_mut()
+            .set_binding_if_not_set("source-clip-height".into(), || make_expr("height", y));
+    }
 }

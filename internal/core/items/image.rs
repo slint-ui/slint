@@ -157,13 +157,17 @@ impl Item for ClippedImage {
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
-        let natural_size = self.source().size();
         LayoutInfo {
             preferred: match orientation {
-                _ if natural_size.width == 0 || natural_size.height == 0 => 0 as Coord,
-                Orientation::Horizontal => natural_size.width as Coord,
+                Orientation::Horizontal => self.source_clip_width() as Coord,
                 Orientation::Vertical => {
-                    natural_size.height as Coord * self.width().get() / natural_size.width as Coord
+                    let source_clip_width = self.source_clip_width();
+                    if source_clip_width == 0 {
+                        0 as Coord
+                    } else {
+                        self.source_clip_height() as Coord * self.width().get()
+                            / source_clip_width as Coord
+                    }
                 }
             },
             ..Default::default()
