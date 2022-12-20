@@ -190,7 +190,7 @@ export function activate(context: vscode.ExtensionContext) {
             let content_str;
             if (uri === previewUrl) {
                 content_str = event.document.getText();
-                if (uri.endsWith(".rs")) {
+                if (event.document.languageId == "rust") {
                     content_str = extract_rust_macro(content_str)
                 }
             } else {
@@ -245,14 +245,20 @@ async function getDocumentSource(url: string): Promise<string> {
     let x = vscode.workspace.textDocuments.find(
         (d) => d.uri.toString() === url,
     );
-    let source = x ? x.getText() : new TextDecoder().decode(
-        await vscode.workspace.fs.readFile(Uri.parse(url)),
-    );
-
-    if (url.endsWith(".rs")) {
-        source = extract_rust_macro(source);
+    let source;
+    if (x) {
+        source = x.getText();
+        if (x.languageId == "rust") {
+            source = extract_rust_macro(source);
+        }
+    } else {
+        source = new TextDecoder().decode(
+            await vscode.workspace.fs.readFile(Uri.parse(url)),
+        );
+        if (url.endsWith(".rs")) {
+            source = extract_rust_macro(source);
+        }
     }
-
     return source;
 }
 
