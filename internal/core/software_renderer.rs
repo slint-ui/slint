@@ -1266,7 +1266,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 &source,
                 euclid::Rect::new(Default::default(), source.size().cast()),
                 image.image_fit(),
-                Default::default(),
+                image.colorize().color(),
             );
         }
     }

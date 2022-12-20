@@ -37,6 +37,7 @@ pub struct ImageItem {
     pub height: Property<LogicalLength>,
     pub image_fit: Property<ImageFit>,
     pub image_rendering: Property<ImageRendering>,
+    pub colorize: Property<Brush>,
     pub cached_rendering_data: CachedRenderingData,
 }
 

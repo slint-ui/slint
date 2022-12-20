@@ -549,7 +549,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             image.image_rendering(),
-            None,
+            items::ImageItem::FIELD_OFFSETS.colorize.apply_pin(image),
         );
     }
 
@@ -570,7 +570,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             items::ClippedImage::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             image.image_rendering(),
-            Some(items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(image)),
+            items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(image),
         );
     }
 
@@ -1140,7 +1140,7 @@ impl QtItemRenderer<'_> {
         target_height: std::pin::Pin<&Property<LogicalLength>>,
         image_fit: ImageFit,
         rendering: ImageRendering,
-        colorize_property: Option<Pin<&Property<Brush>>>,
+        colorize_property: Pin<&Property<Brush>>,
     ) {
         // Caller ensured that zero/negative width/height resulted in an early return via get_geometry!.
         debug_assert!(target_width.get() > LogicalLength::zero());
@@ -1176,7 +1176,7 @@ impl QtItemRenderer<'_> {
             image_to_pixmap(source, source_size).map_or_else(
                 Default::default,
                 |mut pixmap: qttypes::QPixmap| {
-                    let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
+                    let colorize = colorize_property.get();
                     if !colorize.is_transparent() {
                         let brush: qttypes::QBrush =
                             into_qbrush(colorize, dest_rect.width, dest_rect.height);

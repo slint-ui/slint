@@ -50,6 +50,7 @@ ImageItem := Empty {
     in property <image> source;
     in property <ImageFit> image-fit;
     in property <ImageRendering> image-rendering;
+    in property <brush> colorize;
 }
 
 export ClippedImage := ImageItem {
@@ -57,7 +58,6 @@ export ClippedImage := ImageItem {
     in property <int> source-clip-y;
     in property <int> source-clip-width;
     in property <int> source-clip-height;
-    in property <brush> colorize;
     //-default_size_binding:implicit_size
 }
 
