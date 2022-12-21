@@ -17,7 +17,7 @@ pub struct OpenGLSurface {
     fb_info: skia_safe::gpu::gl::FramebufferInfo,
     surface: RefCell<skia_safe::Surface>,
     gr_context: RefCell<skia_safe::gpu::DirectContext>,
-    glutin_context: RefCell<Option<glutin::context::NotCurrentContext>>,
+    glutin_context: glutin::context::PossiblyCurrentContext,
     glutin_surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
 }
 
@@ -66,7 +66,7 @@ impl super::Surface for OpenGLSurface {
             fb_info,
             surface,
             gr_context: RefCell::new(gr_context),
-            glutin_context: RefCell::new(Some(current_glutin_context.make_not_current().unwrap())),
+            glutin_context: current_glutin_context,
             glutin_surface,
         }
     }
@@ -79,9 +79,6 @@ impl super::Surface for OpenGLSurface {
         let api = GraphicsAPI::NativeOpenGL {
             get_proc_address: &|name| {
                 self.glutin_context
-                    .borrow()
-                    .as_ref()
-                    .unwrap()
                     .display()
                     .get_proc_address(&std::ffi::CString::new(name).unwrap())
                     as *const _
@@ -91,9 +88,8 @@ impl super::Surface for OpenGLSurface {
     }
 
     fn with_active_surface(&self, callback: impl FnOnce()) {
-        let current_context = self.make_current();
+        self.ensure_context_current();
         callback();
-        self.make_not_current(current_context);
     }
 
     fn render(
@@ -104,7 +100,9 @@ impl super::Surface for OpenGLSurface {
         let width = size.width;
         let height = size.height;
 
-        let current_context = self.make_current();
+        self.ensure_context_current();
+
+        let current_context = &self.glutin_context;
 
         let gr_context = &mut self.gr_context.borrow_mut();
 
@@ -119,24 +117,20 @@ impl super::Surface for OpenGLSurface {
         callback(skia_canvas, gr_context);
 
         self.glutin_surface.swap_buffers(&current_context).unwrap();
-
-        self.make_not_current(current_context);
     }
 
     fn resize_event(&self, size: PhysicalWindowSize) {
-        let current_context = self.make_current();
+        self.ensure_context_current();
 
         self.glutin_surface.resize(
-            &current_context,
+            &self.glutin_context,
             size.width.try_into().unwrap(),
             size.height.try_into().unwrap(),
         );
-
-        self.make_not_current(current_context);
     }
 
     fn bits_per_pixel(&self) -> u8 {
-        let config = self.glutin_context.borrow().as_ref().unwrap().config();
+        let config = self.glutin_context.config();
         let rgb_bits = match config.color_buffer_type() {
             Some(glutin::config::ColorBufferType::Rgb { r_size, g_size, b_size }) => {
                 r_size + g_size + b_size
@@ -256,18 +250,16 @@ impl OpenGLSurface {
         surface
     }
 
-    fn make_current(&self) -> glutin::context::PossiblyCurrentContext {
-        self.glutin_context.borrow_mut().take().unwrap().make_current(&self.glutin_surface).unwrap()
-    }
-
-    fn make_not_current(&self, current_context: glutin::context::PossiblyCurrentContext) {
-        *self.glutin_context.borrow_mut() = Some(current_context.make_not_current().unwrap())
+    fn ensure_context_current(&self) {
+        if !self.glutin_context.is_current() {
+            self.glutin_context.make_current(&self.glutin_surface).unwrap();
+        }
     }
 }
 
 impl Drop for OpenGLSurface {
     fn drop(&mut self) {
         // Make sure that the context is current before Skia calls glDelete***
-        self.make_current();
+        self.ensure_context_current();
     }
 }
