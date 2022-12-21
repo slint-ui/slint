@@ -5,7 +5,11 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+ - Warning when calling non-pure function or callback from pure context (eg: a property binding).
+   callbacks and function can be annotated with `pure`
+
 ### Added
+
  - LSP: support of Slint features (auto-complete, preview, ...) in `slint!{}` macro in rust files
  - Support for software renderer without pre-rendered font at compile time
 
