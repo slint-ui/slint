@@ -896,6 +896,13 @@ fn extract_rust_macro(content: String) -> Option<String> {
     let mut begin = 0;
     loop {
         if let Some(m) = content[begin..].find("slint") {
+            // heuristics to find if we are not in a comment or a string literal. Not perfect, but should work in most cases
+            if let Some(x) = content[begin..(begin + m)].rfind(['\\', '\n', '/', '\"']) {
+                if content.as_bytes()[begin + x] != b'\n' {
+                    begin += m + 5;
+                    continue;
+                }
+            }
             begin += m + 5;
             while content[begin..].starts_with(' ') {
                 begin += 1;
@@ -981,6 +988,12 @@ fn test_extract_rust_macro() {
         extract_rust_macro("slint!\nnot.\nslint!{\nunterminated\nxxx".into()),
         Some("      \n    \n       \nunterminated\nxxx".into())
     );
+    assert_eq!(extract_rust_macro("foo\n/* slint! { hello }\n".into()), None);
+    assert_eq!(
+        extract_rust_macro("foo\n// slint! { hello }\nslint!{world}\na".into()),
+        Some("   \n                   \n       world \n ".into())
+    );
+    assert_eq!(extract_rust_macro("foo\n\" slint! { hello }\"\n".into()), None);
 }
 
 fn get_document_and_offset<'a>(
