@@ -16,44 +16,44 @@ component Foo {
     pure function f3() {
         f2();
         f1();
-//      ^error{Cannot call impure function 'f1'}
+//      ^error{Call of impure function 'f1'}
 
         prop /= 5;
-//      ^error{Cannot assign in a pure context}
+//      ^error{Assignment in a pure context}
     }
     public function f4() {}
 
 
     pure function f5() {
         f1();
-//      ^error{Cannot call impure function 'f1'}
+//      ^error{Call of impure function 'f1'}
         f2(); // ok, private function auto-detected as pure
         f3();
         f4();
-//      ^error{Cannot call impure function 'f4'}
+//      ^error{Call of impure function 'f4'}
         c1();
-//      ^error{Cannot call impure callback 'c1'}
+//      ^error{Call of impure callback 'c1'}
         c2();
     }
 
     c1 => { f2() }
     c2 => {
         c1();
-//      ^error{Cannot call impure callback 'c1'}
+//      ^error{Call of impure callback 'c1'}
     }
 
 
     property <int> p1: f2();
     property <int> p2: {
         p1 = 42;
-//      ^error{Cannot assign in a pure context}
+//      ^error{Assignment in a pure context}
         42
     };
     property <int> p3: {
         pw.show();
-//         ^error{Cannot call impure function}
+//         ^error{Call of impure function}
         fs.focus();
-//         ^error{Cannot call impure function}
+//         ^error{Call of impure function}
         42
     };
 
@@ -70,7 +70,83 @@ component Bar {
     f := Foo {
         c2 => {
             self.c1();
-//               ^error{Cannot call impure callback 'c1'}
+//               ^error{Call of impure callback 'c1'}
+        }
+    }
+}
+
+
+
+
+
+Foo_Legacy := Rectangle {
+    property <int> prop;
+    callback c1;
+    pure callback c2;
+
+    function f1() {
+        prop = 1;
+    }
+    function f2() -> int { 42 }
+
+    pure function f3() {
+        f2();
+        f1();
+//      ^warning{Call of impure function 'f1'}
+
+        prop /= 5;
+//      ^warning{Assignment in a pure context}
+    }
+    public function f4() {}
+
+
+    pure function f5() {
+        f1();
+//      ^warning{Call of impure function 'f1'}
+        f2(); // ok, private function auto-detected as pure
+        f3();
+        f4();
+//      ^warning{Call of impure function 'f4'}
+        c1();
+//      ^warning{Call of impure callback 'c1'}
+        c2();
+    }
+
+    c1 => { f2() }
+    c2 => {
+        c1();
+//      ^warning{Call of impure callback 'c1'}
+    }
+
+
+    property <int> p1: f2();
+    property <int> p2: {
+        p1 = 42;
+//      ^warning{Assignment in a pure context}
+        42
+    };
+    property <int> p3: {
+        pw.show();
+//         ^warning{Call of impure function}
+        fs.focus();
+//         ^warning{Call of impure function}
+        42
+    };
+
+    pw := PopupWindow {}
+    fs := FocusScope {}
+}
+
+
+Bar_Legacy := Rectangle {
+    pure callback xc1 <=> f.c1;
+//  ^error{Purity of callbacks 'xc1' and 'f.c1' doesn't match}
+    callback xc2 <=> f.c2;
+//  ^error{Purity of callbacks 'xc2' and 'f.c2' doesn't match}
+    f := Foo {
+        c2 => {
+            self.c1();
+//               ^warning{Call of impure callback 'c1'}
         }
     }
 }
