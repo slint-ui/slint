@@ -26,6 +26,7 @@ type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
 use self::itemrenderer::CanvasRc;
 
 mod fonts;
+mod glcontext;
 mod images;
 mod itemrenderer;
 
@@ -54,7 +55,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) {
         let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
-        let opengl_context = crate::OpenGLContext::new_context(
+        let opengl_context = glcontext::OpenGLContext::new_context(
             window,
             window,
             PhysicalWindowSize::new(size.width, size.height),
@@ -464,7 +465,7 @@ struct FemtoVGCanvas {
     graphics_cache: itemrenderer::ItemGraphicsCache,
     texture_cache: RefCell<images::TextureCache>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
-    opengl_context: crate::OpenGLContext,
+    opengl_context: glcontext::OpenGLContext,
 }
 
 impl FemtoVGCanvas {
