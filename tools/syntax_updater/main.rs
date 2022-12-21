@@ -20,6 +20,7 @@ mod experiments {
     pub(super) mod input_output_properties;
     pub(super) mod lookup_changes;
     pub(super) mod new_component_declaration;
+    pub(super) mod purity;
     pub(super) mod transitions;
 }
 
@@ -180,6 +181,7 @@ fn process_file(
         &mut diag,
         &dependency_registry,
     );
+    i_slint_compiler::passes::infer_aliases_types::resolve_aliases(&current_doc, &mut diag);
     state.current_doc = Rc::new(current_doc).into();
 
     visit_node(syntax_node, &mut file, &mut state, args)?;
@@ -222,8 +224,13 @@ fn visit_node(
         }
         SyntaxKind::Component => {
             if let Some(doc) = &state.current_doc {
-                let component_name =
-                    syntax_nodes::Component::from(node.clone()).DeclaredIdentifier().to_string();
+                let component_name = i_slint_compiler::parser::normalize_identifier(
+                    &syntax_nodes::Component::from(node.clone())
+                        .DeclaredIdentifier()
+                        .child_text(SyntaxKind::Identifier)
+                        .unwrap_or(String::new()),
+                );
+
                 state.current_component =
                     doc.inner_components.iter().find(|c| c.id == component_name).cloned();
                 if args.move_declaration {
@@ -297,6 +304,9 @@ fn fold_node(
         return Ok(true);
     }
     if experiments::transitions::fold_node(node, file, state, args)? {
+        return Ok(true);
+    }
+    if experiments::purity::fold_node(node, file, state, args)? {
         return Ok(true);
     }
     Ok(false)
