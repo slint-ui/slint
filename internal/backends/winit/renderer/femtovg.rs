@@ -145,7 +145,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
             return;
         };
 
-        canvas.opengl_context.make_current();
+        canvas.opengl_context.ensure_current();
 
         let window_adapter = self.window_adapter_weak.upgrade().unwrap();
         let window = WindowInner::from_pub(window_adapter.window());
@@ -231,7 +231,6 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         }
 
         canvas.opengl_context.swap_buffers();
-        canvas.opengl_context.make_not_current();
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {
@@ -491,7 +490,7 @@ impl FemtoVGCanvas {
 impl Drop for FemtoVGCanvas {
     fn drop(&mut self) {
         // The GL renderer must be destructed with a GL context current, in order to clean up correctly.
-        self.opengl_context.make_current();
+        self.opengl_context.ensure_current();
 
         // Clear these manually to drop any Rc<Canvas>.
         self.graphics_cache.clear_all();

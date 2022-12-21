@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::cell::RefCell;
-
 #[cfg(not(target_arch = "wasm32"))]
 use glutin::{
     context::{ContextApi, ContextAttributesBuilder},
@@ -12,112 +10,47 @@ use glutin::{
 };
 use i_slint_core::api::PhysicalSize;
 
-// glutin::WindowedContext tries to enforce being current or not. Since we need the WindowedContext's window() function
-// in the GL renderer regardless whether we're current or not, we wrap the two states back into one type.
-enum OpenGLContextState {
+pub struct OpenGLContext {
     #[cfg(not(target_arch = "wasm32"))]
-    NotCurrent(
-        (
-            glutin::context::NotCurrentContext,
-            glutin::surface::Surface<glutin::surface::WindowSurface>,
-        ),
-    ),
+    context: glutin::context::PossiblyCurrentContext,
     #[cfg(not(target_arch = "wasm32"))]
-    Current(
-        (
-            glutin::context::PossiblyCurrentContext,
-            glutin::surface::Surface<glutin::surface::WindowSurface>,
-        ),
-    ),
+    surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
     #[cfg(target_arch = "wasm32")]
-    Current { canvas: web_sys::HtmlCanvasElement },
+    canvas: web_sys::HtmlCanvasElement,
 }
-
-pub struct OpenGLContext(RefCell<Option<OpenGLContextState>>);
 
 impl OpenGLContext {
     #[cfg(target_arch = "wasm32")]
     pub fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement {
-        match self.0.borrow().as_ref().unwrap() {
-            OpenGLContextState::Current { canvas, .. } => canvas.clone(),
-        }
+        self.canvas.clone()
     }
 
-    pub fn make_current(&self) {
-        let mut ctx = self.0.borrow_mut();
-        *ctx = Some(match ctx.take().unwrap() {
-            #[cfg(not(target_arch = "wasm32"))]
-            OpenGLContextState::NotCurrent((not_current_ctx, surface)) => {
-                let current_ctx = not_current_ctx.make_current(&surface).unwrap();
-                OpenGLContextState::Current((current_ctx, surface))
-            }
-            state @ OpenGLContextState::Current { .. } => state,
-        });
-    }
-
-    pub fn make_not_current(&self) {
+    pub fn ensure_current(&self) {
         #[cfg(not(target_arch = "wasm32"))]
-        {
-            let mut ctx = self.0.borrow_mut();
-            *ctx = Some(match ctx.take().unwrap() {
-                state @ OpenGLContextState::NotCurrent(_) => state,
-                OpenGLContextState::Current((current_ctx_rc, surface)) => {
-                    OpenGLContextState::NotCurrent({
-                        (current_ctx_rc.make_not_current().unwrap(), surface)
-                    })
-                }
-            });
+        if !self.context.is_current() {
+            self.context.make_current(&self.surface).unwrap();
         }
     }
 
     pub fn with_current_context<T>(&self, cb: impl FnOnce(&Self) -> T) -> T {
-        if matches!(self.0.borrow().as_ref().unwrap(), OpenGLContextState::Current { .. }) {
-            cb(self)
-        } else {
-            self.make_current();
-            let result = cb(self);
-            self.make_not_current();
-            result
-        }
+        self.ensure_current();
+        cb(&self)
     }
 
     pub fn swap_buffers(&self) {
         #[cfg(not(target_arch = "wasm32"))]
-        match &self.0.borrow().as_ref().unwrap() {
-            OpenGLContextState::NotCurrent(_) => {}
-            OpenGLContextState::Current((current_ctx, surface)) => {
-                surface.swap_buffers(current_ctx).unwrap();
-            }
-        }
+        self.surface.swap_buffers(&self.context).unwrap();
     }
 
     pub fn ensure_resized(&self, _size: PhysicalSize) {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let mut ctx = self.0.borrow_mut();
-            *ctx = Some(match ctx.take().unwrap() {
-                #[cfg(not(target_arch = "wasm32"))]
-                OpenGLContextState::NotCurrent((not_current_ctx, surface)) => {
-                    let current_ctx = not_current_ctx.make_current(&surface).unwrap();
-                    surface.resize(
-                        &current_ctx,
-                        _size.width.try_into().unwrap(),
-                        _size.height.try_into().unwrap(),
-                    );
-                    OpenGLContextState::NotCurrent((
-                        current_ctx.make_not_current().unwrap(),
-                        surface,
-                    ))
-                }
-                OpenGLContextState::Current((current, surface)) => {
-                    surface.resize(
-                        &current,
-                        _size.width.try_into().unwrap(),
-                        _size.height.try_into().unwrap(),
-                    );
-                    OpenGLContextState::Current((current, surface))
-                }
-            });
+            self.ensure_current();
+            self.surface.resize(
+                &self.context,
+                _size.width.try_into().unwrap(),
+                _size.height.try_into().unwrap(),
+            );
         }
     }
 
@@ -202,10 +135,7 @@ impl OpenGLContext {
                 }
             }
 
-            Self(RefCell::new(Some(OpenGLContextState::Current((
-                not_current_gl_context.make_current(&surface).unwrap(),
-                surface,
-            )))))
+            Self { context: not_current_gl_context.make_current(&surface).unwrap(), surface }
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -221,18 +151,13 @@ impl OpenGLContext {
                 .dyn_into::<web_sys::HtmlCanvasElement>()
                 .unwrap();
 
-            Self(RefCell::new(Some(OpenGLContextState::Current { canvas })))
+            Self { canvas }
         }
     }
 
     // TODO: fix this interface to also take a ffi::CStr so that we can avoid the allocation. Problem: It's in our public api.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn get_proc_address(&self, name: &str) -> *const std::ffi::c_void {
-        match &self.0.borrow().as_ref().unwrap() {
-            OpenGLContextState::NotCurrent(_) => std::ptr::null(),
-            OpenGLContextState::Current((current_ctx, _)) => {
-                current_ctx.display().get_proc_address(&std::ffi::CString::new(name).unwrap())
-            }
-        }
+        self.context.display().get_proc_address(&std::ffi::CString::new(name).unwrap())
     }
 }
