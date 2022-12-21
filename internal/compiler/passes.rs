@@ -23,7 +23,7 @@ mod ensure_window;
 mod flickable;
 mod focus_item;
 pub mod generate_item_indices;
-mod infer_aliases_types;
+pub mod infer_aliases_types;
 mod inlining;
 mod lower_accessibility;
 mod lower_layout;

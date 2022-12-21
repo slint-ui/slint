@@ -253,7 +253,10 @@ fn move_properties_to_root(
     Ok(true)
 }
 
-fn with_lookup_ctx<R>(state: &crate::State, f: impl FnOnce(&mut LookupCtx) -> R) -> Option<R> {
+pub(crate) fn with_lookup_ctx<R>(
+    state: &crate::State,
+    f: impl FnOnce(&mut LookupCtx) -> R,
+) -> Option<R> {
     let mut build_diagnostics = Default::default();
     let tr = &state.current_doc.as_ref()?.local_registry;
     let mut lookup_context = LookupCtx::empty_context(tr, &mut build_diagnostics);
