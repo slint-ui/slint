@@ -13,10 +13,6 @@ use std::rc::Rc;
 
 mod glwindow;
 use glwindow::*;
-#[cfg(feature = "femtovg")]
-mod glcontext;
-#[cfg(feature = "femtovg")]
-use glcontext::*;
 pub(crate) mod event_loop;
 
 mod renderer {
