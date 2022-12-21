@@ -24,9 +24,13 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build slint-wasm-interpreter
+        env:
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: "s"
         run: npm run build:wasm_preview-release
         working-directory: tools/online_editor
       - name: Build slint-wasm-lsp
+        env:
+          CARGO_PROFILE_RELEASE_OPT_LEVEL: "s"
         run: npm run build:wasm_lsp-release
         working-directory: tools/online_editor
 

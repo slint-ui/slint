@@ -216,6 +216,8 @@ jobs:
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Build package and optionally publish to Visual Studio Marketplace
+      env:
+        CARGO_PROFILE_RELEASE_OPT_LEVEL: "s"
       id: publishToVSCM
       uses: HaaLeo/publish-vscode-extension@v1
       with:
