@@ -125,13 +125,11 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
     fn hide(&self) {
         if let Some(canvas) = self.canvas.borrow_mut().take() {
-            canvas.opengl_context.with_current_context(|_| {
-                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                    canvas.with_graphics_api(|api| {
-                        callback.notify(RenderingState::RenderingTeardown, &api)
-                    })
-                }
-            })
+            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                canvas.with_graphics_api(|api| {
+                    callback.notify(RenderingState::RenderingTeardown, &api)
+                })
+            }
         }
     }
 
@@ -453,9 +451,8 @@ impl Renderer for FemtoVGRenderer {
             return;
         };
 
-        canvas
-            .opengl_context
-            .with_current_context(|_| canvas.graphics_cache.component_destroyed(component))
+        canvas.opengl_context.ensure_current();
+        canvas.graphics_cache.component_destroyed(component);
     }
 }
 
@@ -470,6 +467,7 @@ struct FemtoVGCanvas {
 impl FemtoVGCanvas {
     #[cfg(not(target_arch = "wasm32"))]
     fn with_graphics_api(&self, callback: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>)) {
+        self.opengl_context.ensure_current();
         let api = GraphicsAPI::NativeOpenGL {
             get_proc_address: &|name| self.opengl_context.get_proc_address(name),
         };

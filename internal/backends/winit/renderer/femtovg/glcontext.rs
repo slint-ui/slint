@@ -32,11 +32,6 @@ impl OpenGLContext {
         }
     }
 
-    pub fn with_current_context<T>(&self, cb: impl FnOnce(&Self) -> T) -> T {
-        self.ensure_current();
-        cb(&self)
-    }
-
     pub fn swap_buffers(&self) {
         #[cfg(not(target_arch = "wasm32"))]
         self.surface.swap_buffers(&self.context).unwrap();
