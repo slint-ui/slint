@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+TestCase := Window {
+    width: 64px;
+    height: 64px;
+    VerticalLayout { 
+        Text {
+            text: "Hello Everyone";
+            wrap: word-wrap;
+            color: green;
+            font-size: 10px;
+        }
+        Text {
+            text: "Hello";
+            color: #abcd;
+            opacity: 0.9;
+            font-size: 10px;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: "Everyone";
+            font-size: 10px;
+            width: 100%;
+            horizontal-alignment: right;
+        }
+    }
+}
