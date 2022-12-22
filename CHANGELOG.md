@@ -7,6 +7,9 @@ All notable changes to this project are documented in this file.
 
  - Warning when calling non-pure function or callback from pure context (eg: a property binding).
    callbacks and function can be annotated with `pure`
+ - On an `Image`, the default value of `source-clip-width` and `source-clip-height` is now set to
+   the size of the image minus the `source-clip-{x,y}`. The source clip size is now used to compute
+   the default aspect ratio of the image.
 
 ### Added
 
