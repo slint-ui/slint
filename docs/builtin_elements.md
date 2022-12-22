@@ -154,8 +154,14 @@ An Image can be used to represent an image loaded from an image file.
 
 * **`source`** (*image*): The image to load. In order to reference image, one uses the `@image-url("...")` macro
   which loads the file relative to the directory containing the .slint file.
-* **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (*int*): properties in source
-  image coordinates that, when specified, can be used to render only a portion of the specified image.
+* **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (*int*): Properties in source
+  image coordinates that define the region of the source image that is rendered. By default the entire source image is visible:
+  | Property | Default Binding |
+  |----------|---------------|
+  | `source-clip-x` | `0` |
+  | `source-clip-y` | `0` |
+  | `source-clip-width` | `source.width - source-clip-x` |
+  | `source-clip-height` | `source.height - source-clip-y` |
 * **`image-fit`** (*enum*): Specifies how the source image shall be fit into the image element. Possible values are:
   * `fill`: Scales and stretches the image to fit the width and height of the element.
   * `contain`: The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
