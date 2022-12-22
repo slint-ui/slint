@@ -14,7 +14,9 @@ All notable changes to this project are documented in this file.
  - Support for software renderer without pre-rendered font at compile time
 
 ### Fixed
+
  - Compiler panic for files containing no component (#2005)
+ - Calling public function from native code
 
 ## [0.3.3] - 2022-12-16
 

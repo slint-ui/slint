@@ -561,6 +561,19 @@ fn public_api(
                     )
                 }
             ));
+        } else if let Type::Function { return_type, args } = &p.ty {
+            let callback_args =
+                args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+            let return_type = rust_primitive_type(return_type).unwrap();
+            let args_name = (0..args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
+            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            property_and_callback_accessors.push(quote!(
+                #[allow(dead_code)]
+                pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
+                    let _self = #self_init;
+                    #prop(#(#args_name,)*)
+                }
+            ));
         } else {
             let rust_property_type = rust_primitive_type(&p.ty).unwrap();
 

@@ -1961,6 +1961,30 @@ fn generate_public_api_for_properties(
                 ]),
                 ..Default::default()
             }));
+        } else if let Type::Function { return_type, args } = &p.ty {
+            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let ret = return_type.cpp_type().unwrap();
+            let call_code = vec![
+                "[[maybe_unused]] auto self = this;".into(),
+                format!(
+                    "{}{access}({});",
+                    if **return_type == Type::Void { "" } else { "return " },
+                    (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
+                ),
+            ];
+            declarations.push(Declaration::Function(Function {
+                name: format!("invoke_{}", ident(&p.name)),
+                signature: format!(
+                    "({}) const -> {ret}",
+                    param_types
+                        .iter()
+                        .enumerate()
+                        .map(|(i, ty)| format!("{} arg_{}", ty, i))
+                        .join(", "),
+                ),
+                statements: Some(call_code),
+                ..Default::default()
+            }));
         } else {
             let cpp_property_type = p.ty.cpp_type().expect("Invalid type in public properties");
             let prop_getter: Vec<String> = vec![
