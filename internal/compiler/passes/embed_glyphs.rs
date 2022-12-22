@@ -32,6 +32,8 @@ pub fn embed_glyphs<'a>(
     all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     diag: &mut BuildDiagnostics,
 ) {
+    use crate::diagnostics::Spanned;
+
     characters_seen.extend(
         ('a'..='z')
             .chain('A'..='Z')
@@ -70,6 +72,35 @@ pub fn embed_glyphs<'a>(
         fontdb.set_sans_serif_family(default_sans_serif_family);
     }
 
+    let maybe_override_default_font_id =
+        std::env::var_os("SLINT_DEFAULT_FONT").and_then(|maybe_font_path| {
+
+            let generic_warning_location = component.root_element.borrow().node.as_ref().map(|e| e.to_source_location());
+
+            let path = std::path::Path::new(&maybe_font_path);
+            if path.extension().is_some() {
+                let face_count = fontdb.len();
+                match fontdb.load_font_file(path) {
+                    Ok(()) => {
+                        fontdb.faces().get(face_count).map(|face_info| face_info.id)
+                    },
+                    Err(err) => {
+                        diag.push_warning(
+                            format!("Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}", path.display(), err),
+                            &generic_warning_location,
+                        );
+                        None
+                    },
+                }
+            } else {
+                diag.push_warning(
+                    "The environment variable `SLINT_DEFAULT_FONT` is set, but its value is not referring to a file".into(),
+                    &generic_warning_location,
+                );
+                None
+            }
+        });
+
     let (fallback_fonts, fallback_font) = get_fallback_fonts(&fontdb);
 
     let mut custom_fonts = Vec::new();
@@ -86,7 +117,7 @@ pub fn embed_glyphs<'a>(
         }
     }
 
-    let (default_font_face_id, default_font_path) = {
+    let (default_font_face_id, default_font_path) = maybe_override_default_font_id.map_or_else(||{
         // TODO: improve heuristics in choice of which fonts to embed. use default-font-family, etc.
         let (family, source_location) = component
             .root_element
@@ -124,7 +155,15 @@ pub fn embed_glyphs<'a>(
                 _ => panic!("internal errormemory fonts are not supported in the compiler"),
             },
         )
-    };
+    }, |override_default_font_id| {
+        let path = match &fontdb.face(override_default_font_id).unwrap().source {
+            fontdb::Source::Binary(_) => unreachable!(),
+            fontdb::Source::File(path_buf) => path_buf.clone(),
+            fontdb::Source::SharedFile(path_buf, _) => path_buf.clone(),
+        };
+
+        (override_default_font_id, path.to_string_lossy().into())
+    });
 
     // Map from path to family name
     let mut fonts = std::collections::BTreeMap::<String, fontdb::ID>::new();
