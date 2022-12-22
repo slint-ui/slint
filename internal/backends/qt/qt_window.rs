@@ -278,16 +278,14 @@ cpp! {{
                 preedit_cursor: i32 as "int"] {
                     let runtime_window = WindowInner::from_pub(&rust_window.window);
 
-                    if !preedit_string.is_empty() {
-                        let event = KeyInputEvent {
-                            event_type: KeyEventType::UpdateComposition,
-                            text: preedit_string.to_string().into(),
-                            preedit_selection_start: replacement_start as usize,
-                            preedit_selection_end: replacement_start as usize + replacement_length as usize,
-                            ..Default::default()
-                        };
-                        runtime_window.process_key_input(event);
-                    }
+                    let event = KeyInputEvent {
+                        event_type: KeyEventType::UpdateComposition,
+                        text: preedit_string.to_string().into(),
+                        preedit_selection_start: replacement_start as usize,
+                        preedit_selection_end: replacement_start as usize + replacement_length as usize,
+                        ..Default::default()
+                    };
+                    runtime_window.process_key_input(event);
 
                     if !commit_string.is_empty() {
                         let event = KeyInputEvent {
