@@ -214,16 +214,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::FunctionCall { function, arguments, source_location: _ } => match &**function {
             Expression::FunctionReference(nr, _) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
-                generativity::make_guard!(guard);
-                match enclosing_component_instance_for_element(&nr.element(), local_context.component_instance, guard) {
-                    ComponentInstance::InstanceRef(c) => {
-                        let mut ctx = EvalLocalContext::from_function_arguments(c, args);
-                        eval_expression(&nr.element().borrow().bindings.get(nr.name()).unwrap().borrow().expression, &mut ctx)
-                    }
-                    ComponentInstance::GlobalComponent(g) => {
-                        g.as_ref().eval_function(nr.name(), args).unwrap()
-                    },
-                }
+                call_function(local_context.component_instance, &nr.element(), nr.name(), args).unwrap()
             }
             Expression::CallbackReference(nr, _) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
@@ -1044,7 +1035,7 @@ pub(crate) fn invoke_callback(
                             .get(callback_name)
                             .map(|d| &d.property_type)
                     {
-                        // If the callback was not se, the return value will be Value::Void, but we need
+                        // If the callback was not set, the return value will be Value::Void, but we need
                         // to make sure that the value is actually of the right type as returned by the
                         // callback, otherwise we will get panics later
                         default_value_for_type(&*rt)
@@ -1062,6 +1053,29 @@ pub(crate) fn invoke_callback(
         ComponentInstance::GlobalComponent(global) => {
             Some(global.as_ref().invoke_callback(callback_name, args).unwrap())
         }
+    }
+}
+
+/// Invoke the function.
+///
+/// Return None if the function don't exist
+pub(crate) fn call_function(
+    component_instance: ComponentInstance,
+    element: &ElementRc,
+    function_name: &str,
+    args: Vec<Value>,
+) -> Option<Value> {
+    generativity::make_guard!(guard);
+    match enclosing_component_instance_for_element(element, component_instance, guard) {
+        ComponentInstance::InstanceRef(c) => {
+            let mut ctx = EvalLocalContext::from_function_arguments(c, args);
+            eval_expression(
+                &element.borrow().bindings.get(function_name)?.borrow().expression,
+                &mut ctx,
+            )
+            .into()
+        }
+        ComponentInstance::GlobalComponent(g) => g.as_ref().eval_function(function_name, args).ok(),
     }
 }
 

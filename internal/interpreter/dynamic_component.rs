@@ -582,29 +582,21 @@ impl<'id> ComponentDescription<'id> {
         generativity::make_guard!(guard);
         // Safety: we just verified that the component has the right vtable
         let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
-        if let Some(alias) = self
-            .original
-            .root_element
-            .borrow()
-            .property_declarations
-            .get(name)
-            .and_then(|d| d.is_alias.as_ref())
-        {
-            eval::invoke_callback(
-                eval::ComponentInstance::InstanceRef(c),
-                &alias.element(),
-                alias.name(),
-                args,
-            )
-            .ok_or(())
+        let borrow = self.original.root_element.borrow();
+        let decl = borrow.property_declarations.get(name).ok_or(())?;
+
+        let (elem, name) = if let Some(alias) = &decl.is_alias {
+            (alias.element(), alias.name())
         } else {
-            eval::invoke_callback(
-                eval::ComponentInstance::InstanceRef(c),
-                &self.original.root_element,
-                name,
-                args,
-            )
-            .ok_or(())
+            (self.original.root_element.clone(), name)
+        };
+
+        let inst = eval::ComponentInstance::InstanceRef(c);
+
+        if matches!(&decl.property_type, Type::Function { .. }) {
+            eval::call_function(inst, &elem, name, args.iter().cloned().collect()).ok_or(())
+        } else {
+            eval::invoke_callback(inst, &elem, name, args).ok_or(())
         }
     }
 
