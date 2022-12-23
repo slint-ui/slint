@@ -369,7 +369,7 @@ SCENARIO("Invoke callback")
             return Value(SharedString(res));
         }));
         Value args[] = { SharedString("Hello"), 42. };
-        auto res = instance->invoke_callback("some_callback", args);
+        auto res = instance->invoke("some_callback", args);
         REQUIRE(res.has_value());
         REQUIRE(*res->to_string() == SharedString("Hello:42_string_on_the_stack_"));
     }
@@ -382,7 +382,7 @@ SCENARIO("Invoke callback")
         auto instance = result->create();
         REQUIRE(!instance->set_callback("bar", [](auto) { return Value(); }));
         Value args[] = { SharedString("Hello"), 42. };
-        auto res = instance->invoke_callback("bar", args);
+        auto res = instance->invoke("bar", args);
         REQUIRE(!res.has_value());
     }
 }
@@ -505,6 +505,7 @@ SCENARIO("Global properties")
         export global The-Global := {
             property <string> the-property: "€€€";
             callback to_uppercase(string)->string;
+            public function ff() -> string { return the-property; }
         }
         export Dummy := Rectangle {
             property <string> result: The-Global.to_uppercase("abc");
@@ -578,7 +579,7 @@ SCENARIO("Global properties")
         REQUIRE(result->to_string().value() == "ABC");
 
         Value args[] = { SharedString("Hello") };
-        auto res = instance->invoke_global_callback("The_Global", "to-uppercase", args);
+        auto res = instance->invoke_global("The_Global", "to-uppercase", args);
         REQUIRE(res.has_value());
         REQUIRE(*res->to_string() == SharedString("HELLO"));
     }
@@ -588,7 +589,14 @@ SCENARIO("Global properties")
                                                [](auto) { return Value {}; }));
         REQUIRE(!instance->set_global_callback("The-Global", "touppercase",
                                                [](auto) { return Value {}; }));
-        REQUIRE(!instance->invoke_global_callback("TheGlobal", "touppercase", {}));
-        REQUIRE(!instance->invoke_global_callback("The-Global", "touppercase", {}));
+        REQUIRE(!instance->invoke_global("TheGlobal", "touppercase", {}));
+        REQUIRE(!instance->invoke_global("The-Global", "touppercase", {}));
+    }
+    SECTION("invoke function")
+    {
+        REQUIRE(instance->set_global_property("The-Global", "the-property", SharedString("&&&")));
+        auto res = instance->invoke_global("The_Global", "ff", {});
+        REQUIRE(res.has_value());
+        REQUIRE(*res->to_string() == SharedString("&&&"));
     }
 }

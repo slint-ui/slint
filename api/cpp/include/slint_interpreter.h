@@ -619,7 +619,7 @@ public:
             return {};
         }
     }
-    /// Invoke the specified callback declared in .slint with the given arguments
+    /// Invoke the specified callback or function declared in .slint with the given arguments
     ///
     /// Example: imagine the .slint file contains the given callback declaration:
     /// ```
@@ -628,25 +628,32 @@ public:
     /// Then one can call it with this function
     /// ```
     ///     slint::Value args[] = { SharedString("Hello"), 42. };
-    ///     instance->invoke_callback("foo", { args, 2 });
+    ///     instance->invoke("foo", { args, 2 });
     /// ```
     ///
     /// Returns an null optional if the callback don't exist or if the argument don't match
     /// Otherwise return the returned value from the callback, which may be an empty Value if
     /// the callback did not return a value.
-    std::optional<Value> invoke_callback(std::string_view name, std::span<const Value> args) const
+    std::optional<Value> invoke(std::string_view name, std::span<const Value> args) const
     {
         using namespace cbindgen_private;
         Slice<ValueOpaque> args_view { const_cast<ValueOpaque *>(
                                                reinterpret_cast<const ValueOpaque *>(args.data())),
                                        args.size() };
         ValueOpaque out;
-        if (slint_interpreter_component_instance_invoke_callback(
+        if (slint_interpreter_component_instance_invoke(
                     inner(), slint::private_api::string_to_slice(name), args_view, &out)) {
             return Value(out);
         } else {
             return {};
         }
+    }
+
+    /// \deprecated  rename to invoke()
+    [[deprecated("renamed to invoke()")]] std::optional<Value>
+    invoke_callback(std::string_view name, std::span<const Value> args) const
+    {
+        return invoke(name, args);
     }
 
     /// Set a handler for the callback with the given name.
@@ -757,23 +764,30 @@ public:
                 [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 
-    /// Invoke the specified callback declared in an exported global singleton
-    std::optional<Value> invoke_global_callback(std::string_view global,
-                                                std::string_view callback_name,
-                                                std::span<const Value> args) const
+    /// Invoke the specified callback or function declared in an exported global singleton
+    std::optional<Value> invoke_global(std::string_view global, std::string_view callable_name,
+                                       std::span<const Value> args) const
     {
         using namespace cbindgen_private;
         Slice<ValueOpaque> args_view { const_cast<ValueOpaque *>(
                                                reinterpret_cast<const ValueOpaque *>(args.data())),
                                        args.size() };
         ValueOpaque out;
-        if (slint_interpreter_component_instance_invoke_global_callback(
+        if (slint_interpreter_component_instance_invoke_global(
                     inner(), slint::private_api::string_to_slice(global),
-                    slint::private_api::string_to_slice(callback_name), args_view, &out)) {
+                    slint::private_api::string_to_slice(callable_name), args_view, &out)) {
             return Value(out);
         } else {
             return {};
         }
+    }
+
+    /// \deprecated renamed to invoke_global
+    [[deprecated("renamed to invoke_global()")]] std::optional<Value>
+    invoke_global_callback(std::string_view global, std::string_view callback_name,
+                           std::span<const Value> args) const
+    {
+        return invoke_global(global, callback_name, args);
     }
 };
 
@@ -841,7 +855,7 @@ public:
     }
 
     /// Returns a vector of strings that describe the list of public callbacks that can be invoked
-    /// using ComponentInstance::invoke_callback and set using ComponentInstance::set_callback.
+    /// using ComponentInstance::invoke and set using ComponentInstance::set_callback.
     slint::SharedVector<slint::SharedString> callbacks() const
     {
         slint::SharedVector<slint::SharedString> callbacks;

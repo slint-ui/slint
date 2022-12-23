@@ -1006,7 +1006,7 @@ impl ComponentInstance {
                 .borrow()
                 .lookup_property(callable_name)
                 .property_type,
-            i_slint_compiler::langtype::Type::Function { .. }
+            LangType::Function { .. }
         ) {
             g.as_ref()
                 .eval_function(callable_name, args.iter().cloned().collect())
@@ -1126,12 +1126,14 @@ pub enum InvokeError {
     #[error("no such callback or function")]
     NoSuchCallable,
 }
+/// deprecated alias to [`InvokeError`]
 #[deprecated(note = "Renamed to InvokeError")]
-type InvokeCallbackError = InvokeError;
+pub type InvokeCallbackError = InvokeError;
 impl InvokeError {
+    /// deprecated alias to [`InvokeCallbackError::NoSuchCallback`]
     #[deprecated(note = "Renamed NoSuchCallable")]
     #[allow(non_upper_case_globals)]
-    const NoSuchCallback: Self = Self::NoSuchCallable;
+    pub const NoSuchCallback: Self = Self::NoSuchCallable;
 }
 
 /// Enters the main event loop. This is necessary in order to receive
