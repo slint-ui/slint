@@ -1360,6 +1360,52 @@ fn globals() {
 }
 
 #[test]
+fn call_functions() {
+    i_slint_backend_testing::init();
+    let mut compiler = ComponentCompiler::default();
+    compiler.set_style("fluent".into());
+    let definition = spin_on::spin_on(
+        compiler.build_from_source(
+            r#"
+    export global Gl := {
+        out property<string> q;
+        public function foo-bar(a-a: string, b-b:int) -> string {
+            q = a-a;
+            return a-a + b-b;
+        }
+    }
+    export Test := Rectangle {
+        out property<int> p;
+        public function foo-bar(a: int, b:int) -> int {
+            p = a;
+            return a + b;
+        }
+    }"#
+            .into(),
+            "".into(),
+        ),
+    );
+    let instance = definition.unwrap().create();
+
+    assert_eq!(
+        instance.invoke_callback("foo-bar", &[Value::Number(3.), Value::Number(4.)]),
+        Ok(Value::Number(7.))
+    );
+    assert_eq!(instance.invoke_callback("p", &[]), Err(InvokeCallbackError::NoSuchCallback));
+    assert_eq!(instance.get_property("p"), Ok(Value::Number(3.)));
+
+    assert_eq!(
+        instance.invoke_global_callback(
+            "Gl",
+            "foo-bar",
+            &[Value::String("Hello".into()), Value::Number(10.)]
+        ),
+        Ok(Value::String("Hello10".into()))
+    );
+    assert_eq!(instance.get_global_property("Gl", "q"), Ok(Value::String("Hello".into())));
+}
+
+#[test]
 fn component_definition_struct_properties() {
     i_slint_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
