@@ -101,7 +101,7 @@ fn assert_compare_image(imga: SharedPixelBuffer<Rgb8Pixel>, imgb: SharedPixelBuf
                 let ca = crossterm::style::Color::Rgb { r: pa.r, g: pa.g, b: pa.b };
                 let cb = crossterm::style::Color::Rgb { r: pb.r, g: pb.g, b: pb.b };
                 if pa == pb {
-                    eprint!("{}", crossterm::style::style("  ").on(ca));
+                    eprint!("{}", crossterm::style::style("██").on(ca).with(cb));
                 } else {
                     eprint!(
                         "{}{}",
