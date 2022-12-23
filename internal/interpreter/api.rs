@@ -832,7 +832,7 @@ impl ComponentInstance {
     ///     Value::from(arg + my_prop)
     /// }).unwrap();
     ///
-    /// let res = instance.invoke_callback("foo", &[Value::from(500)]).unwrap();
+    /// let res = instance.invoke("foo", &[Value::from(500)]).unwrap();
     /// assert_eq!(res, Value::from(500+12));
     /// ```
     pub fn set_callback(
@@ -849,18 +849,22 @@ impl ComponentInstance {
 
     /// Call the given callback with the arguments
     ///
+    /// This function was renamed to [`invoke()`](Self::invoke)
+    #[deprecated(note = "renamed to invoke()")]
+    pub fn invoke_callback(&self, name: &str, args: &[Value]) -> Result<Value, InvokeError> {
+        self.invoke(name, args)
+    }
+
+    /// Call the given callback or function with the arguments
+    ///
     /// ## Examples
     /// See the documentation of [`Self::set_callback`] for an example
-    pub fn invoke_callback(
-        &self,
-        name: &str,
-        args: &[Value],
-    ) -> Result<Value, InvokeCallbackError> {
+    pub fn invoke(&self, name: &str, args: &[Value]) -> Result<Value, InvokeError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .invoke_callback(comp.borrow(), &normalize_identifier(name), args)
-            .map_err(|()| InvokeCallbackError::NoSuchCallback)
+            .invoke(comp.borrow(), &normalize_identifier(name), args)
+            .map_err(|()| InvokeError::NoSuchCallable)
     }
 
     /// Return the value for a property within an exported global singleton used by this component.
@@ -946,7 +950,7 @@ impl ComponentInstance {
     /// let res = instance.get_property("hello").unwrap();
     /// assert_eq!(res, Value::from(SharedString::from("WORLD")));
     ///
-    /// let abc = instance.invoke_global_callback("Logic", "to_uppercase", &[
+    /// let abc = instance.invoke_global("Logic", "to_uppercase", &[
     ///     SharedString::from("abc").into()
     /// ]).unwrap();
     /// assert_eq!(abc, Value::from(SharedString::from("ABC")));
@@ -967,24 +971,51 @@ impl ComponentInstance {
             .map_err(|()| SetCallbackError::NoSuchCallback)
     }
 
-    /// Call the given callback within a global singleton with the arguments
+    /// Call the given callback or function within a global singleton with the arguments
     ///
-    /// ## Examples
-    /// See the documentation of [`Self::set_global_callback`] for an example
+    /// Renamed to `invoke_global()`
+    #[deprecated(note = "renamed to invoke_global")]
     pub fn invoke_global_callback(
         &self,
         global: &str,
         callback_name: &str,
         args: &[Value],
-    ) -> Result<Value, InvokeCallbackError> {
+    ) -> Result<Value, InvokeError> {
+        self.invoke_global(global, callback_name, args)
+    }
+    /// Call the given callback or function within a global singleton with the arguments
+    ///
+    /// ## Examples
+    /// See the documentation of [`Self::set_global_callback`] for an example
+    pub fn invoke_global(
+        &self,
+        global: &str,
+        callable_name: &str,
+        args: &[Value],
+    ) -> Result<Value, InvokeError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.description()
+        let g = comp
+            .description()
             .get_global(comp.borrow(), &normalize_identifier(global))
-            .map_err(|()| InvokeCallbackError::NoSuchCallback)? // FIXME: should there be a NoSuchGlobal error?
-            .as_ref()
-            .invoke_callback(&normalize_identifier(callback_name), args)
-            .map_err(|()| InvokeCallbackError::NoSuchCallback)
+            .map_err(|()| InvokeError::NoSuchCallable)?; // FIXME: should there be a NoSuchGlobal error?
+        if matches!(
+            comp.description()
+                .original
+                .root_element
+                .borrow()
+                .lookup_property(callable_name)
+                .property_type,
+            i_slint_compiler::langtype::Type::Function { .. }
+        ) {
+            g.as_ref()
+                .eval_function(callable_name, args.iter().cloned().collect())
+                .map_err(|()| InvokeError::NoSuchCallable)
+        } else {
+            g.as_ref()
+                .invoke_callback(&normalize_identifier(callable_name), args)
+                .map_err(|()| InvokeError::NoSuchCallable)
+        }
     }
 
     /// Highlight the elements which are pointed by a given source location.
@@ -1087,13 +1118,20 @@ pub enum SetCallbackError {
     NoSuchCallback,
 }
 
-/// Error returned by [`ComponentInstance::invoke_callback`]
+/// Error returned by [`ComponentInstance::invoke`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
-pub enum InvokeCallbackError {
-    /// There is no callback with the given name
-    #[error("no such callback")]
-    NoSuchCallback,
+pub enum InvokeError {
+    /// There is no callback or function with the given name
+    #[error("no such callback or function")]
+    NoSuchCallable,
+}
+#[deprecated(note = "Renamed to InvokeError")]
+type InvokeCallbackError = InvokeError;
+impl InvokeError {
+    #[deprecated(note = "Renamed NoSuchCallable")]
+    #[allow(non_upper_case_globals)]
+    const NoSuchCallback: Self = Self::NoSuchCallable;
 }
 
 /// Enters the main event loop. This is necessary in order to receive
@@ -1346,16 +1384,16 @@ fn globals() {
     );
 
     assert_eq!(
-        instance.invoke_global_callback("DontExist", "the-property", &[]),
-        Err(InvokeCallbackError::NoSuchCallback)
+        instance.invoke_global("DontExist", "the-property", &[]),
+        Err(InvokeError::NoSuchCallable)
     );
     assert_eq!(
-        instance.invoke_global_callback("My_Super_Global", "the-property", &[]),
-        Err(InvokeCallbackError::NoSuchCallback)
+        instance.invoke_global("My_Super_Global", "the-property", &[]),
+        Err(InvokeError::NoSuchCallable)
     );
     assert_eq!(
-        instance.invoke_global_callback("My_Super_Global", "yoyo", &[]),
-        Err(InvokeCallbackError::NoSuchCallback)
+        instance.invoke_global("My_Super_Global", "yoyo", &[]),
+        Err(InvokeError::NoSuchCallable)
     );
 }
 
@@ -1388,14 +1426,14 @@ fn call_functions() {
     let instance = definition.unwrap().create();
 
     assert_eq!(
-        instance.invoke_callback("foo-bar", &[Value::Number(3.), Value::Number(4.)]),
+        instance.invoke("foo-bar", &[Value::Number(3.), Value::Number(4.)]),
         Ok(Value::Number(7.))
     );
-    assert_eq!(instance.invoke_callback("p", &[]), Err(InvokeCallbackError::NoSuchCallback));
+    assert_eq!(instance.invoke("p", &[]), Err(InvokeError::NoSuchCallable));
     assert_eq!(instance.get_property("p"), Ok(Value::Number(3.)));
 
     assert_eq!(
-        instance.invoke_global_callback(
+        instance.invoke_global(
             "Gl",
             "foo-bar",
             &[Value::String("Hello".into()), Value::Number(10.)]
