@@ -351,11 +351,11 @@ pub extern "C" fn slint_interpreter_component_instance_set_property(
         .is_ok()
 }
 
-/// Invoke a callback.
+/// Invoke a callback or function
 /// The `out` parameter must be uninitialized. If this function returns true, the out will be initialized
 /// to the resulting value. If this function returns false, out is unchanged
 #[no_mangle]
-pub unsafe extern "C" fn slint_interpreter_component_instance_invoke_callback(
+pub unsafe extern "C" fn slint_interpreter_component_instance_invoke(
     inst: &ErasedComponentBox,
     name: Slice<u8>,
     args: Slice<ValueOpaque>,
@@ -364,7 +364,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_invoke_callback(
     let args = std::mem::transmute::<Slice<ValueOpaque>, Slice<Value>>(args);
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
-    match comp.description().invoke_callback(
+    match comp.description().invoke(
         comp.borrow(),
         &normalize_identifier(std::str::from_utf8(&name).unwrap()),
         args.as_slice(),
@@ -507,28 +507,41 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_set_global_callbac
         .is_ok()
 }
 
-/// Invoke a global callback.
+/// Invoke a global callback or function.
 /// The `out` parameter must be uninitialized. If this function returns true, the out will be initialized
 /// to the resulting value. If this function returns false, out is unchanged
 #[no_mangle]
-pub unsafe extern "C" fn slint_interpreter_component_instance_invoke_global_callback(
+pub unsafe extern "C" fn slint_interpreter_component_instance_invoke_global(
     inst: &ErasedComponentBox,
     global: Slice<u8>,
-    callback_name: Slice<u8>,
+    callable_name: Slice<u8>,
     args: Slice<ValueOpaque>,
     out: *mut ValueOpaque,
 ) -> bool {
     let args = std::mem::transmute::<Slice<ValueOpaque>, Slice<Value>>(args);
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
+    let callable_name = std::str::from_utf8(&callable_name).unwrap();
     match comp
         .description()
         .get_global(comp.borrow(), &normalize_identifier(std::str::from_utf8(&global).unwrap()))
         .and_then(|g| {
-            g.as_ref().invoke_callback(
-                &normalize_identifier(std::str::from_utf8(&callback_name).unwrap()),
-                args.as_slice(),
-            )
+            if matches!(
+                comp.description()
+                    .original
+                    .root_element
+                    .borrow()
+                    .lookup_property(callable_name)
+                    .property_type,
+                i_slint_compiler::langtype::Type::Function { .. }
+            ) {
+                g.as_ref().eval_function(
+                    &normalize_identifier(callable_name),
+                    args.as_slice().iter().cloned().collect(),
+                )
+            } else {
+                g.as_ref().invoke_callback(&normalize_identifier(callable_name), args.as_slice())
+            }
         }) {
         Ok(val) => {
             std::ptr::write(out as *mut Value, val);
