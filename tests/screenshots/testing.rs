@@ -3,6 +3,7 @@
 
 use std::rc::Rc;
 
+use crossterm::style::Stylize;
 use i_slint_core::{
     graphics::{
         euclid::{Box2D, Point2D},
@@ -81,11 +82,35 @@ impl<'a> LineBufferProvider for TestingLineBuffer<'a> {
 }
 
 pub fn assert_with_render(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
-    assert_eq!(image_buffer(path).as_bytes(), screenshot(window).as_bytes());
+    assert_compare_image(image_buffer(path), screenshot(window));
 }
 
 pub fn assert_with_render_by_line(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
-    assert_eq!(image_buffer(path).as_bytes(), screenshot_render_by_line(window).as_bytes());
+    assert_compare_image(image_buffer(path), screenshot_render_by_line(window));
+}
+
+#[track_caller]
+fn assert_compare_image(imga: SharedPixelBuffer<Rgb8Pixel>, imgb: SharedPixelBuffer<Rgb8Pixel>) {
+    assert_eq!(imga.width(), imgb.width(), "with don't match");
+    assert_eq!(imga.height(), imgb.height(), "height don't match");
+    if imga.as_bytes() != imgb.as_bytes() {
+        for y in 0..imga.height() {
+            for x in 0..imga.width() {
+                let pa = imga.as_slice()[(y * imga.stride() + x) as usize];
+                let pb = imgb.as_slice()[(y * imgb.stride() + x) as usize];
+                let ca = crossterm::style::Color::Rgb { r: pa.r, g: pa.g, b: pa.b };
+                let cb = crossterm::style::Color::Rgb { r: pb.r, g: pb.g, b: pb.b };
+                let mut x = crossterm::style::style("█").with(cb).on(ca);
+                if pa != pb {
+                    x = x.slow_blink();
+                }
+                eprint!("{x}");
+            }
+            eprintln!("");
+        }
+        assert_eq!(base64::encode(imga.as_bytes()), base64::encode(imgb.as_bytes()));
+        panic!("Image not the same");
+    }
 }
 
 pub fn screenshot_render_by_line(

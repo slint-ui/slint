@@ -17,7 +17,9 @@ name = "test-driver-screenshot"
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-0-3-0"] }
 i-slint-core = { version = "=0.3.4", path = "../../internal/core" }
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
-image = { version = "0.24.0", default-features = false, features = ["png", "jpeg"] }
+image = { version = "0.24.0", default-features = false, features = ["png"] }
+base64 = "0.20"
+crossterm = "0.25"
 
 [build-dependencies]
 i-slint-compiler = { path = "../../internal/compiler", features = ["rust", "display-diagnostics", "software-renderer"] }
