@@ -100,11 +100,15 @@ fn assert_compare_image(imga: SharedPixelBuffer<Rgb8Pixel>, imgb: SharedPixelBuf
                 let pb = imgb.as_slice()[(y * imgb.stride() + x) as usize];
                 let ca = crossterm::style::Color::Rgb { r: pa.r, g: pa.g, b: pa.b };
                 let cb = crossterm::style::Color::Rgb { r: pb.r, g: pb.g, b: pb.b };
-                let mut x = crossterm::style::style("█").with(cb).on(ca);
-                if pa != pb {
-                    x = x.slow_blink();
+                if pa == pb {
+                    eprint!("{}", crossterm::style::style("  ").on(ca));
+                } else {
+                    eprint!(
+                        "{}{}",
+                        crossterm::style::style("•").on(ca).slow_blink().red(),
+                        crossterm::style::style("•").on(cb).slow_blink().green()
+                    );
                 }
-                eprint!("{x}");
             }
             eprintln!("");
         }
