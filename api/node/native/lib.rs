@@ -422,7 +422,7 @@ declare_types! {
             };
 
             let res = run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.invoke_callback(callback_name.as_str(), args.as_slice())
+                component.invoke(callback_name.as_str(), args.as_slice())
                     .map_err(|_| "Cannot emit callback".to_string())
             })?;
             to_js_value(res, &mut cx, &persistent_context)

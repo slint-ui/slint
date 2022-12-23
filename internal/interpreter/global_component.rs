@@ -174,7 +174,7 @@ impl GlobalComponent for GlobalComponentInstance {
     fn invoke_callback(self: Pin<&Self>, callback_name: &str, args: &[Value]) -> Result<Value, ()> {
         generativity::make_guard!(guard);
         let comp = self.0.unerase(guard);
-        comp.description().invoke_callback(comp.borrow(), callback_name, args)
+        comp.description().invoke(comp.borrow(), callback_name, args)
     }
 
     fn set_callback_handler(
