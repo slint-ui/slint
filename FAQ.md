@@ -5,7 +5,7 @@
   - [Why are you creating a new markup language?](#why-are-you-creating-a-new-markup-language)
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
-  - [Can I license my code under a more permissive license than GPL?](#can-i-license-my-code-under-a-more-permissive-license-than-gpl)
+  - [Can I license my code under an open-source license more permissive than GPL?](#can-i-license-my-code-under-an-open-source-license-more-permissive-than-gpl)
   - [What are the different proprietary licensing options?](#what-are-the-different-proprietary-licensing-options)
   - [What does perpetual mean?](#what-does-perpetual-mean)
   - [What are the different support options?](#what-are-the-different-support-options)
@@ -58,7 +58,7 @@ types of programming languages.
 Slint is available under either a [proprietary license](LICENSES/LicenseRef-Slint-commercial.md)
 or [GNU GPLv3](LICENSES/GPL-3.0-only.txt)
 
-### Can I license my code under a open-source license more permissive than GPL?
+### Can I license my code under an open-source license more permissive than GPL?
 
 Yes. While the binary or the package containing Slint needs to be licensed under GPL,
 the code you write can be under any license compatible with the GPL, such as BSD, MIT, or Apache license. 
@@ -72,16 +72,7 @@ The person doing that have the choice to either use Slint according to one of ou
 
 ### What are the different proprietary licensing options?
 
-|   | Ambassador  | Flex  | Buyout  |
-|--- |:---: |:---: |:---: |
-| Price  | Free of charge  | from EUR 59 /user/month  | from EUR 5900  |
-| Type of license  | Perpetual  | Perpetual  | Perpetual  |
-| Users  | Unlimited  | As per license  | Unlimited  |
-| Distribution on Desktop  | Unlimited  | Unlimited  | Unlimited  |
-| Distribution on Embedded  | Unlimited  | As per purchased volume  | As per purchased volume  |
-| Support  | Standard  | Standard  | Standard + 30 hours of Premium Support  |
-| Updates  | Included  | Included  | Included  |
-| Additional Obligations  | (1) consent to showcase the application,  (2) attribution of Slint and  (3) feedback to improve Slint.  | None  | None  |
+Our licensing options are available [here](https://slint-ui.com/#offering).
 
 The terms and conditions of the proprietary license is available [here](LICENSES/LicenseRef-Slint-commercial.md).
 
@@ -92,12 +83,7 @@ proprietary license, for ever.
 
 ### What are the different support options?
 
-|   | Standard Support  | Premium Support  |
-|--- |:---: |:---: |
-| Price  | Included with the proprietary license  | EUR 1650 per block of 10 hours  |
-| Support Issues  | Tracked in public issue tracker  | Tracked in private issue tracker  |
-| Support Scope  | Bug Fixes and defect corrections  | Answer technical questions,  conduct architecture reviews,  provide code snippets,  conduct trainings etc.  |
-| Target Platforms  | Limited to official supported target platforms  | Support can be provided on  any platform and/or  operating system of choice  |
+Standard support and Premium support.
 
 The terms and conditions of standard support is available [here](https://slint-ui.com/support/slint_support_service_agreement) and premium support is available [here](https://slint-ui.com/support/slint_premium_support_service_agreement).
 
