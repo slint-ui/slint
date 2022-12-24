@@ -58,14 +58,17 @@ types of programming languages.
 Slint is available under either a [proprietary license](LICENSES/LicenseRef-Slint-commercial.md)
 or [GNU GPLv3](LICENSES/GPL-3.0-only.txt)
 
-### Can I license my code under a more permissive license than GPL?
+### Can I license my code under a open-source license more permissive than GPL?
 
-Yes. You can publish your own source code under a permissive license compatible with
-the GPL, such as BSD, MIT, or Apache license. However, the binary or the package
-containing Slint needs to be licensed under GPL. For more info, you can check the following GPL FAQs:
+Yes. While the binary or the package containing Slint needs to be licensed under GPL,
+the code you write can be under any license compatible with the GPL, such as BSD, MIT, or Apache license. 
+For more info, you can check the following GPL FAQs:
 
 - [https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL](https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL)
 - [https://www.gnu.org/licenses/gpl-faq.en.html#IfLibraryIsGPL](https://www.gnu.org/licenses/gpl-faq.en.html#IfLibraryIsGPL)
+
+In other words, you can still allow others to fork your code for proprietary software.
+The person doing that have the choice to either use Slint according to one of our proprietary options, or remove the dependency.
 
 ### What are the different proprietary licensing options?
 
