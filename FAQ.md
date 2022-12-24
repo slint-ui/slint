@@ -5,19 +5,23 @@
   - [Why are you creating a new markup language?](#why-are-you-creating-a-new-markup-language)
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
-  - [What are the commercial licensing options?](#what-are-the-commercial-licensing-options)
-  - [Is the Ambassador really for free? What is the catch?](#is-the-ambassador-really-for-free-what-is-the-catch)
+  - [Can I license my code under an open-source license more permissive than GPL?](#can-i-license-my-code-under-an-open-source-license-more-permissive-than-gpl)
+  - [What are the different proprietary licensing options?](#what-are-the-different-proprietary-licensing-options)
   - [What does perpetual mean?](#what-does-perpetual-mean)
-  - [Are updates included?](#are-updates-included)
-  - [What are the different support options that you offer?](#what-are-the-different-support-options-that-you-offer)
-  - [Do I need to buy distribution licenses if I distribute my Slint based application on desktop?](#do-i-need-to-buy-distribution-licenses-if-i-distribute-my-slint-based-application-on-desktop)
-  - [Do I need to buy distribution licenses if I distribute my Slint based application on embedded devices](#do-i-need-to-buy-distribution-licenses-if-i-distribute-my-slint-based-application-on-embedded-devices)
-  - [How much does the distribution license on embedded devices cost?](#how-much-does-the-distribution-license-on-embedded-devices-cost)
-  - [What is the minimum distribution quantity that I can purchase?](#what-is-the-minimum-distribution-quantity-that-i-can-purchase)
-  - [Can I try Slint using the Ambassador option and then switch to a paid option later?](#can-i-try-slint-using-the-ambassador-option-and-then-switch-to-a-paid-option-later)
-  - [Can I try Slint using the GPL version and then switch to the commercial license later?](#can-i-try-slint-under-the-gpl-and-then-switch-to-the-commercial-license-later)
-  - [Is there a discount or reduction for independent developers or small businesses?](#is-there-a-discount-or-reduction-for-independent-developers-or-small-businesses)
-  - [I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.](#i-want-to-develop-a-free-software-product-using-slint-but-i-dont-like-the-gpl-and-prefer-to-use-a-non-copyleft-license)
+  - [What are the different support options?](#what-are-the-different-support-options)
+  - [Ambassador License](#ambassador-license)
+    - [Why is the Ambassador license free-of-charge?](#why-is-the-ambassador-license-free-of-charge)
+    - [When does the Ambassador license run out](#when-does-the-ambassador-license-run-out)
+    - [For how long do you plan to offer the free-of-charge Ambasssador license?](#for-how-long-do-you-plan-to-offer-the-free-of-charge-ambasssador-license)
+    - [How can I get the Ambassador license?](#how-can-i-get-the-ambassador-license)
+    - [Do all contributors to my code have to sign up for the Ambassador license?](#do-all-contributors-to-my-code-have-to-sign-up-for-the-ambassador-license)
+  - [Distributions](#distributions)
+    - [Do I need to pay to distribute my application on desktop?](#do-i-need-to-pay-to-distribute-my-application-on-desktop)
+    - [Do I need to pay to distribute my application on embedded devices?](#do-i-need-to-pay-to-distribute-my-application-on-embedded-devices)
+    - [How much do I need to pay to distribute my application on embedded devices?](#how-much-do-i-need-to-pay-to-distribute-my-application-on-embedded-devices)
+    - [What is the minimum distribution quantity that I can purchase?](#what-is-the-minimum-distribution-quantity-that-i-can-purchase)
+  - [Miscelleneous](#miscelleneous)
+    - [Is there a discount for independent developers or small businesses?](#is-there-a-discount-for-independent-developers-or-small-businesses)
 
 ## General
 
@@ -51,97 +55,89 @@ types of programming languages.
 
 ## Licensing
 
-You are free to use Slint under either [GNU GPLv3](./LICENSES/GPL-3.0-only.txt) or 
-a [commercial license](./LICENSES/LicenseRef-Slint-commercial.md). We also offer a completely 
-free-of-charge commercial license under the [ambassador program](https://slint-ui.com/ambassador-program.html).
+Slint is available under either a [proprietary license](LICENSES/LicenseRef-Slint-commercial.md)
+or [GNU GPLv3](LICENSES/GPL-3.0-only.txt)
 
-### What are the commercial licensing options?
+### Can I license my code under an open-source license more permissive than GPL?
 
-We offer - Ambassador, Flex and Buyout commercial licensing options. All three 
-options include a perpetual right to use Slint to develop applications, unlimited 
-distribution of such applications on desktops and [standard support](https://slint-ui.com/support/slint_support_service_agreement).
+Yes. While the binary or the package containing Slint needs to be licensed under GPL,
+the code you write can be under any license compatible with the GPL, such as BSD, MIT, or Apache license. 
+For more info, you can check the following GPL FAQs:
 
-- The Ambassador option is a free license that can be provided in lieu of helping
-us promote Slint. Apart from the standard inclusiosn, unlimited User-Seats, updates and unlimited distribution 
-of Slint based applications on embedded devices are included.
+- [https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL](https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL)
+- [https://www.gnu.org/licenses/gpl-faq.en.html#IfLibraryIsGPL](https://www.gnu.org/licenses/gpl-faq.en.html#IfLibraryIsGPL)
 
-- With the Flex option, you can purchase the required number of User-Seats needed to
-develop your applications with Slint. In addition to the standard inclusions, updates are included as long 
-as the subscription is active.
+In other words, you can still allow others to fork your code for proprietary software.
+The person doing that have the choice to either use Slint according to one of our proprietary options, or remove the dependency.
 
-- The Buyout option includes unlimited User-Seats, updates and 30 hours of [premium support](https://slint-ui.com/support/slint_premium_support_service_agreement) in addition to the standard inclusions. 
-Slint based applications can be distributed on embedded devices as per purchased distribution license pack.
+### What are the different proprietary licensing options?
 
-### Is the Ambassador really for free? What is the catch?
+Our licensing options are available [here](https://slint-ui.com/#offering).
 
-The Ambassador is really for free! The only 'catch' is to help us promote Slint in the following ways:
-
-- Showcase: You grant us the right to use your name, logo and your Products in our marketing materials,
-
-- Spread the word: You will include reasonably visible notices in the documentation, marketing materials 
-and social media channels related to your Products that such were built with Slint,
-
-- Give feedback: You agree to provide relevant feedback that would help us improve Slint. 
-We may use any such feedback in testimonials.
+The terms and conditions of the proprietary license is available [here](LICENSES/LicenseRef-Slint-commercial.md).
 
 ### What does perpetual mean?
 
 The perpetual right allows you to use the version(s) of Slint, provided under the
-commercial license, for ever.
+proprietary license, for ever.
 
-### Are updates included?
+### What are the different support options?
 
-Yes, updates are included with Ambassador and Buyout. With Flex, updates are included as long as
-the subscription is active.
+Standard support and Premium support.
 
-### What are the different support options that you offer?
+The terms and conditions of standard support is available [here](https://slint-ui.com/support/slint_support_service_agreement) and premium support is available [here](https://slint-ui.com/support/slint_premium_support_service_agreement).
 
-We offer [standard support](https://slint-ui.com/support/slint_support_service_agreement) and [premium support](https://slint-ui.com/support/slint_premium_support_service_agreement). 
+### Ambassador license
 
-Standard support is included with the commercial license.
+#### Why is the Ambassador license free-of-charge?
 
-Premium support is offered to both open source users and commercial customers. Support can be purchased in blocks of 10 hours
-for EUR 1650. Please [contact us](https://slint-ui.com/staging/#contact_us) if you are interested in purchasing premium support.
+The license is provided free-of-charge to achieve the following goals:
 
-### Do I need to buy distribution licenses if I distribute my Slint based application on desktop?
+a. accelerate adoption of Slint,
+b. allow developers to use Slint under a non-GPL license,
+c. create a strong feedback loop to improve Slint.
 
-No. Our commercial license includes unlimited distribution of Slint based application on desktop.
+#### When does the Ambassador license run out?
 
-### Do I need to buy distribution licenses if I distribute my Slint based application on embedded devices?
+The license grant is [perpetual](#what-does-perpetual-mean), which means that you can use Slint free-of-charge forever. The perpetual nature of the license also implies that even if we need to modify the terms of the license in the future, the modified terms will not apply to already granted licenses.
 
-Depends on the license option. The Ambassador includes unlimited distribution of Slint based application 
-on embedded devices. The Buyout includes such distribution limited to the quantity of purchased distribution
-license pack. With Flex, you would need to buy the appropriate distribution license pack to cover the required 
-quantity of distributions.
+#### For how long do you plan to offer the free-of-charge Ambasssador license?
 
-### How much does the distribution license on embedded devices cost?
+Forever. However, we may modify the terms of the license in the future based on user feedback and business needs.
 
-Distribution licenses are sold in volume packs. The bigger the pack, the cheaper the cost of a single distribution license.
-For example, a pack of 1000 distributions cost EUR 3500 while a pack of 5000 distributions cost EUR 15400. Please [contact us](https://slint-ui.com/staging/#contact_us) if you are interested to know more.
+#### How can I get the Ambassador license?
 
-### What is the minimum distribution quantity that I can purchase?
+The license is automatically granted on signing the license agreement [here](https://slint-ui.com/ambassador-program.html#application). The authorized signatory could be the code owner, primary maintainer, or in case of an organisation, the relevant person authorized to sign contracts on behalf of the organisation.
 
-The minimum distribution quantity is 1.
+#### Do all contributors to my code have to sign up for the Ambassador license?
 
-Other distribution packs sizes are 10, 100, 500, 1000, 3000 and 5000. 
-Please [contact us](https://slint-ui.com/staging/#contact_us) if you are interested in a bigger distribution pack.
+No. All contributions to the code is covered under the Ambassador license. Hence, contributors can use Slint under the same license within this scope.
 
-### Can I try Slint using the Ambassador option and then switch to a paid option later?
+### Distributions
 
-Yes. You can start using Slint with the Ambassador option, and switch to a paid option later. 
-However we retain the marketing rights obtained under the Ambassador Program for existing materials.
+#### Do I need to pay to distribute my application on desktop?
 
-### Can I try Slint under the GPL and then switch to the commercial license later?
+No. Our proprietary license includes unlimited distribution on desktop.
 
-Yes. You can evaluate Slint using the GPL license, and obtain the commercial license after the evaluation, 
-with the option of transferring the code developed under the GPL to commercial in order to avoid any [copy-left obligations](https://www.gnu.org/licenses/copyleft.en.html).
+#### Do I need to pay to distribute my application on embedded devices?
 
-### Is there a discount or reduction for independent developers or small businesses?
+For Flex and Buyout licenses, additional fees are applicable for distribution on embedded devices.
+The Ambassador license includes unlimited distribution on embedded devices.
 
-Yes, check out our [ambassador program](https://slint-ui.com/ambassador-program.html)
+#### How much do I need to pay to distribute my application on embedded devices?
 
-### I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license
+The fee depends upon the quantity of distribution purchased. The higher the quantity, the lower the per device fee.
+As an example, 1000 distributions cost EUR 3500 (per device fee of EUR 3.50) while 5000 distributions cost EUR 15400 (per device fee of EUR 3.08).
+Please [contact us](https://slint-ui.com/staging/#contact_us) if you are interested to know more.
 
-You can publish your own source code under a permissive license compatible with
-the GPL, such as BSD, MIT, or Apache license. However, the binary or the package
-containing Slint needs to be licensed under GPL.
+#### What is the minimum distribution quantity that I can purchase?
+
+The minimum quantity is 1.
+You can purchase in quantities of 1, 10, 100, 500, 1000, 3000 and 5000.
+Please [contact us](https://slint-ui.com/staging/#contact_us) if you are interested in higher volumes.
+
+### Miscelleneous
+
+### Is there a discount for independent developers or small businesses?
+
+The [Ambassador license](#ambassador-license) is a free-of-charge license suitable for independent developers or small businesses.
