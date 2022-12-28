@@ -1075,15 +1075,17 @@ impl Expression {
                 },
             };
             Expression::Cast { from: Box::new(from), to: target_type }
-        } else if matches!((&ty, &target_type, &self), (Type::Array(left), Type::Array(right), Expression::Array{..})
-            if left.can_convert(right) || **left == Type::Invalid)
-        {
+        } else if matches!(
+            (&ty, &target_type, &self),
+            (Type::Array(_), Type::Array(_), Expression::Array { .. })
+        ) {
             // Special case for converting array literals
             match (self, target_type) {
                 (Expression::Array { values, .. }, Type::Array(target_type)) => Expression::Array {
                     values: values
                         .into_iter()
                         .map(|e| e.maybe_convert_to((*target_type).clone(), node, diag))
+                        .take_while(|e| !matches!(e, Expression::Invalid))
                         .collect(),
                     element_ty: *target_type,
                 },
