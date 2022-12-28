@@ -2,6 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 
+export struct Player := {
+    skill-profile: int,
+}
+export struct NewGameTeam := {
+    players: [Player],
+}
+export struct NewGameParameters := {
+    teams: [NewGameTeam],
+}
+
+
 struct StructWithArrayOfStruct := { prop: [{hello: string, world: int}], xxx: int }
 
 TestCase := Rectangle {
@@ -10,6 +21,8 @@ TestCase := Rectangle {
     property <[string]> p3 : [ ];
     property <[{a: int, b: int}]> p4 : [ { a: 1 }, { a: 42, b: 10 } ];
     property <StructWithArrayOfStruct> p5 : { prop: [{hello: "hello"}, {world: 42.0 }]};
+
+    property <NewGameParameters> p6 : { teams: [{ players: [ { skill-profile: 9 } ] }] } ;
 }
 
 
