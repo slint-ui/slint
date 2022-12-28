@@ -999,21 +999,22 @@ impl ComponentInstance {
             .description()
             .get_global(comp.borrow(), &normalize_identifier(global))
             .map_err(|()| InvokeError::NoSuchCallable)?; // FIXME: should there be a NoSuchGlobal error?
+        let callable_name = normalize_identifier(callable_name);
         if matches!(
             comp.description()
                 .original
                 .root_element
                 .borrow()
-                .lookup_property(callable_name)
+                .lookup_property(&callable_name)
                 .property_type,
             LangType::Function { .. }
         ) {
             g.as_ref()
-                .eval_function(callable_name, args.iter().cloned().collect())
+                .eval_function(&callable_name, args.iter().cloned().collect())
                 .map_err(|()| InvokeError::NoSuchCallable)
         } else {
             g.as_ref()
-                .invoke_callback(&normalize_identifier(callable_name), args)
+                .invoke_callback(&callable_name, args)
                 .map_err(|()| InvokeError::NoSuchCallable)
         }
     }
@@ -1428,7 +1429,7 @@ fn call_functions() {
     let instance = definition.unwrap().create();
 
     assert_eq!(
-        instance.invoke("foo-bar", &[Value::Number(3.), Value::Number(4.)]),
+        instance.invoke("foo_bar", &[Value::Number(3.), Value::Number(4.)]),
         Ok(Value::Number(7.))
     );
     assert_eq!(instance.invoke("p", &[]), Err(InvokeError::NoSuchCallable));
@@ -1437,7 +1438,7 @@ fn call_functions() {
     assert_eq!(
         instance.invoke_global(
             "Gl",
-            "foo-bar",
+            "foo_bar",
             &[Value::String("Hello".into()), Value::Number(10.)]
         ),
         Ok(Value::String("Hello10".into()))
