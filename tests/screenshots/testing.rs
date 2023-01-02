@@ -80,23 +80,35 @@ impl<'a> LineBufferProvider for TestingLineBuffer<'a> {
     }
 }
 
+fn color_difference(lhs: &Rgb8Pixel, rhs: &Rgb8Pixel) -> f32 {
+    ((rhs.r as f32 - lhs.r as f32).powf(2.)
+        + (rhs.g as f32 - lhs.g as f32).powf(2.)
+        + (rhs.b as f32 - lhs.b as f32).powf(2.))
+    .sqrt()
+}
+
 fn compare_images(
     reference: SharedPixelBuffer<Rgb8Pixel>,
     screenshot: SharedPixelBuffer<Rgb8Pixel>,
 ) {
     assert_eq!(reference.size(), screenshot.size());
     if reference.as_bytes() != screenshot.as_bytes() {
-        let failed_pixel_count = reference
-            .as_slice()
-            .iter()
-            .zip(screenshot.as_slice().iter())
-            .fold(0, |failure_count, (reference_pixel, screenshot_pixel)| {
-                failure_count + (reference_pixel != screenshot_pixel) as usize
-            });
+        let (failed_pixel_count, max_color_difference) =
+            reference.as_slice().iter().zip(screenshot.as_slice().iter()).fold(
+                (0, 0.0f32),
+                |(failure_count, max_color_difference), (reference_pixel, screenshot_pixel)| {
+                    (
+                        failure_count + (reference_pixel != screenshot_pixel) as usize,
+                        max_color_difference
+                            .max(color_difference(reference_pixel, screenshot_pixel)),
+                    )
+                },
+            );
         eprintln!(
             "Percentage of pixels that are different: {}",
             failed_pixel_count * 100 / reference.as_slice().len()
         );
+        eprintln!("Maximum color difference: {}", max_color_difference);
     }
     assert_eq!(reference.as_bytes(), screenshot.as_bytes());
 }
