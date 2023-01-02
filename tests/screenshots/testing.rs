@@ -80,12 +80,33 @@ impl<'a> LineBufferProvider for TestingLineBuffer<'a> {
     }
 }
 
+fn compare_images(
+    reference: SharedPixelBuffer<Rgb8Pixel>,
+    screenshot: SharedPixelBuffer<Rgb8Pixel>,
+) {
+    assert_eq!(reference.size(), screenshot.size());
+    if reference.as_bytes() != screenshot.as_bytes() {
+        let failed_pixel_count = reference
+            .as_slice()
+            .iter()
+            .zip(screenshot.as_slice().iter())
+            .fold(0, |failure_count, (reference_pixel, screenshot_pixel)| {
+                failure_count + (reference_pixel != screenshot_pixel) as usize
+            });
+        eprintln!(
+            "Percentage of pixels that are different: {}",
+            failed_pixel_count * 100 / reference.as_slice().len()
+        );
+    }
+    assert_eq!(reference.as_bytes(), screenshot.as_bytes());
+}
+
 pub fn assert_with_render(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
-    assert_eq!(image_buffer(path).as_bytes(), screenshot(window).as_bytes());
+    compare_images(image_buffer(path), screenshot(window));
 }
 
 pub fn assert_with_render_by_line(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
-    assert_eq!(image_buffer(path).as_bytes(), screenshot_render_by_line(window).as_bytes());
+    compare_images(image_buffer(path), screenshot_render_by_line(window));
 }
 
 pub fn screenshot_render_by_line(
