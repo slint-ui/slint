@@ -30,12 +30,21 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.CR_PAT }}
     - name: Build and push
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v3
       with:
         context: .
         file: ./docker/Dockerfile.${{ matrix.target }}
         push: true
         tags: ghcr.io/slint-ui/slint/${{matrix.target}}:latest
+    - name: Build and push C++ image
+      uses: docker/build-push-action@v3
+      with:
+        context: .
+        file: ./docker/Dockerfile.cpp-image
+        push: true
+        tags: ghcr.io/slint-ui/slint/${{matrix.target}}-cpp:latest
+        build-args:
+          - ARCH=${{matrix.target}}
 
   build:
     needs: [build_containers]
