@@ -44,7 +44,7 @@ jobs:
         push: true
         tags: ghcr.io/slint-ui/slint/${{matrix.target}}-cpp:latest
         build-args: |
-          ARCH=${{matrix.target}}
+          arch=${{matrix.target}}
 
   build:
     needs: [build_containers]
