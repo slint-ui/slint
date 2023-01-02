@@ -43,8 +43,8 @@ jobs:
         file: ./docker/Dockerfile.cpp-image
         push: true
         tags: ghcr.io/slint-ui/slint/${{matrix.target}}-cpp:latest
-        build-args:
-          - ARCH=${{matrix.target}}
+        build-args: |
+          ARCH=${{matrix.target}}
 
   build:
     needs: [build_containers]
