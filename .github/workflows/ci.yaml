@@ -210,6 +210,19 @@ jobs:
     - name: Check
       run: cargo check --target=thumbv6m-none-eabi -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789
 
+  ffi_32bit_build:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/setup-rust
+      with:
+        target: armv7-unknown-linux-gnueabihf
+    - uses: baptiste0928/cargo-install@v1
+      with:
+        crate: cross
+    - name: Check
+      run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter
+
   docs:
     uses: ./.github/workflows/build_docs.yaml
 
