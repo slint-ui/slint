@@ -24,9 +24,19 @@ jobs:
           - target: armhf
             image_arch: linux/arm/v7
             rust_toolchain_arch: armv7-unknown-linux-gnueabihf
+            base_image_suffix: ""
           - target: arm64
             image_arch: linux/arm64
             rust_toolchain_arch: aarch64-unknown-linux-gnu
+            base_image_suffix: ""
+          - target: armhf
+            image_arch: linux/arm/v7
+            rust_toolchain_arch: armv7-unknown-linux-gnueabihf
+            base_image_suffix: "-vivante"
+          - target: arm64
+            image_arch: linux/arm64
+            rust_toolchain_arch: aarch64-unknown-linux-gnu
+            base_image_suffix: "-vivante"
 
     steps:
     - uses: actions/checkout@v3
@@ -46,8 +56,9 @@ jobs:
         context: .
         file: ./docker/Dockerfile.torizon-demos
         push: ${{ github.event.inputs.push || inputs.push }}
-        tags: ghcr.io/slint-ui/slint/slint-torizon-demos-${{matrix.target}}:latest
+        tags: ghcr.io/slint-ui/slint/torizon-demos-${{matrix.target}}${{matrix.base_image_suffix}}:latest
         build-args: |
           TOOLCHAIN_ARCH=${{matrix.target}}
           IMAGE_ARCH=${{matrix.image_arch}}
           RUST_TOOLCHAIN_ARCH=${{matrix.rust_toolchain_arch}}
+          BASE_NAME=wayland-base${{matrix.base_image_suffix}}
