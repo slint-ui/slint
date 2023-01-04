@@ -1,0 +1,49 @@
+# This docker file builds the Rust binaries of our demos and packages them into a Torizon container
+
+ARG TOOLCHAIN_ARCH=arm64
+ARG IMAGE_ARCH=linux/arm64
+ARG BASE_NAME=wayland-base
+FROM torizon/debian-cross-toolchain-$TOOLCHAIN_ARCH:2-bullseye AS build
+ARG TOOLCHAIN_ARCH
+ARG RUST_TOOLCHAIN_ARCH=aarch64-unknown-linux-gnu
+
+# Install Rust
+ENV RUSTUP_HOME=/rust
+ENV CARGO_HOME=/cargo 
+ENV PATH=/cargo/bin:/rust/bin:$PATH
+
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+RUN rustup target add $RUST_TOOLCHAIN_ARCH
+
+ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+ENV CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc
+
+# Install Slint build dependencies (libxcb, etc.)
+RUN apt-get update && \
+    apt-get install --assume-yes libfontconfig1-dev:$TOOLCHAIN_ARCH libxcb1-dev:$TOOLCHAIN_ARCH libxcb-render0-dev:$TOOLCHAIN_ARCH libxcb-shape0-dev:$TOOLCHAIN_ARCH libxcb-xfixes0-dev:$TOOLCHAIN_ARCH libxkbcommon-dev:$TOOLCHAIN_ARCH python3 clang libstdc++-10-dev:$TOOLCHAIN_ARCH && \
+    rm -rf /var/lib/apt/lists/*
+
+# Don't require font-config when the compiler runs
+ENV RUST_FONTCONFIG_DLOPEN=on
+
+# Build Demos
+COPY . /slint
+WORKDIR /slint
+RUN mkdir demos \
+    && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo; do \
+        cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-winit-skia -p $demo; \
+        cp target/$RUST_TOOLCHAIN_ARCH/release/$demo ./demos/; \
+   done
+
+# Create container for target
+FROM --platform=$IMAGE_ARCH torizon/$BASE_NAME:2
+
+RUN apt-get update \
+    && apt-get install libfontconfig1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /slint/demos/* /usr/bin/
+
+ENV SLINT_FULLSCREEN=1
+ENV SLINT_BACKEND=winit-skia
+CMD /usr/bin/printerdemo
