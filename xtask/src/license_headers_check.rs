@@ -304,6 +304,7 @@ lazy_static! {
         ("\\.css$", LicenseLocation::NoLicense),
         ("\\.gitattributes$", LicenseLocation::NoLicense),
         ("\\.gitignore$", LicenseLocation::NoLicense),
+        ("\\.dockerignore$", LicenseLocation::NoLicense),
         ("\\.h$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.html$", LicenseLocation::NoLicense),
         ("\\.jpg$", LicenseLocation::NoLicense),
