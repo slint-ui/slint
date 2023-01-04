@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
 # This docker file builds the Rust binaries of our demos and packages them into a Torizon container
 
 ARG TOOLCHAIN_ARCH=arm64
