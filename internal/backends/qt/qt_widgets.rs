@@ -197,9 +197,6 @@ pub use listviewitem::*;
 mod combobox;
 pub use combobox::*;
 
-mod tableview;
-pub use tableview::*;
-
 mod tabwidget;
 pub use tabwidget::*;
 

@@ -21,12 +21,10 @@ pub fn main() {
 
     let app = App::new();
 
-    let row_data: Rc<VecModel<StandardTableRow>> = Rc::new(VecModel::default());
+    let row_data: Rc<VecModel<slint::ModelRc<StandardListViewItem>>> = Rc::new(VecModel::default());
 
     for r in 1..101 {
         let items = Rc::new(VecModel::default());
-        let row = StandardTableRow { items: items.clone().into() };
-        row_data.push(row);
 
         for c in 1..5 {
             items.push(StandardListViewItem {
@@ -34,6 +32,8 @@ pub fn main() {
                 editable: c == 1,
             });
         }
+
+        row_data.push(items.into());
     }
 
     app.global::<TableViewPageAdapter>().set_row_data(row_data.clone().into());
@@ -45,8 +45,8 @@ pub fn main() {
             let row_data = row_data.clone();
 
             let sort_model = Rc::new(row_data.sort_by(move |r_a, r_b| {
-                let c_a = r_a.items.row_data(index as usize).unwrap();
-                let c_b = r_b.items.row_data(index as usize).unwrap();
+                let c_a = r_a.row_data(index as usize).unwrap();
+                let c_b = r_b.row_data(index as usize).unwrap();
 
                 c_a.text.cmp(&c_b.text)
             }));
@@ -62,8 +62,8 @@ pub fn main() {
             let row_data = row_data.clone();
 
             let sort_model = Rc::new(row_data.sort_by(move |r_a, r_b| {
-                let c_a = r_a.items.row_data(index as usize).unwrap();
-                let c_b = r_b.items.row_data(index as usize).unwrap();
+                let c_a = r_a.row_data(index as usize).unwrap();
+                let c_b = r_b.row_data(index as usize).unwrap();
 
                 c_b.text.cmp(&c_a.text)
             }));

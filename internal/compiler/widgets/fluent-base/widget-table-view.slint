@@ -1,8 +1,10 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { LineEditInner } from "../common/common.slint";
 import { Palette, ScrollView } from "std-widgets-impl.slint";
 
-export TableViewColumn := Rectangle {
+TableViewColumn := Rectangle {
     callback clicked <=> touch-area.clicked;
 
     in property <bool> ascending;
@@ -49,7 +51,7 @@ export TableViewColumn := Rectangle {
     ]
 }
 
-export TableViewCell := Rectangle {
+TableViewCell := Rectangle {
     clip: true;
 
     HorizontalLayout {  
@@ -68,7 +70,7 @@ export TableViewCell := Rectangle {
     }
 }
 
-export TableViewRow := Rectangle {
+TableViewRow := Rectangle {
     min-height: 42px;
 
     touch-area := TouchArea {}
@@ -85,16 +87,37 @@ export TableViewRow := Rectangle {
 }
 
 export StandardTableView := Rectangle {
-    callback column-clicked(int);
+    callback sort-ascending(int);
+    callback sort-descending(int);
     
+    out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
-    in property <[StandardTableRow]> rows;
+    in property <[[StandardListViewItem]]> rows;
     in property <length> min-header-height: 42px;
    
     min-width: 400px;
     min-height: 200px;
     horizontal-stretch: 1;
     vertical-stretch: 1;
+
+    function sort(index: int) {
+        if (current-sort-column != index) {
+            columns[current-sort-column].sort-by-ascending = false;
+            columns[current-sort-column].sort-by-descending = false;
+        }
+
+        if(columns[index].sort-by-ascending) {
+            columns[index].sort-by-ascending = false;
+            columns[index].sort-by-descending = true;
+            sort-descending(index);
+        } else {
+            columns[index].sort-by-ascending = true;
+            columns[index].sort-by-descending = false;
+            sort-ascending(index);
+        }
+
+        current-sort-column = index;
+    }
 
     VerticalLayout {  
         HorizontalLayout {  
@@ -116,7 +139,7 @@ export StandardTableView := Rectangle {
                 }
                 
                 clicked => {  
-                    column_clicked(index);
+                    sort(index);
                 }
             }
         }
@@ -129,7 +152,7 @@ export StandardTableView := Rectangle {
                 alignment: start;
 
                 for row in rows : TableViewRow {
-                    for cell[index] in row.items : TableViewCell {
+                    for cell[index] in row : TableViewCell {
                         private property <bool> has_inner_focus;
                         horizontal-stretch: columns[index].horizontal-stretch;
                         min-width: columns[index].min-width;
@@ -158,63 +181,5 @@ export StandardTableView := Rectangle {
             }
            
         } 
-    }
-}
-
-TableViewTest := Window {
-
-    property <StandardTableRow> first-row: {
-        items: [
-           { editable: true, text: "Item 1" },
-           { text: "Item 2" },
-           { text: "Item 3" },
-           { text: "Item 4" },
-        ]
-    };
-
-    property <StandardTableRow> second-row: {
-        items: [
-            { editable: true, text: "Item 1" },
-           { text: "Item 2" },
-           { text: "Item 3" },
-           { text: "Item 4" },
-        ]
-    };
-
-    property <StandardTableRow> third-row: {
-        items: [
-            { editable: true, text: "Item 1" },
-           { text: "Item 2" },
-           { text: "Item 3" },
-           { text: "Item 4" },
-        ]
-    };
-
-    property <StandardTableRow> foured-row: {
-        items: [
-            { editable: true, text: "Item 1" },
-           { text: "Item 2" },
-           { text: "Item 3" },
-           { text: "Item 4" },
-        ]
-    };
-   
-    VerticalLayout {  
-        padding: 16px;
-
-        StandardTableView {  
-            columns: [
-                { title: "Header 1" },
-                { title: "Header 2" },
-                { title: "Header 3" },
-                { title: "Header 4" },
-            ];
-            rows: [
-                first-row,
-                second-row,
-                third-row,
-                foured-row
-            ];
-        }
     }
 }

@@ -16,7 +16,7 @@ use super::*;
 /// ## Example
 ///
 /// Here we have a [`VecModel`] holding rows of a custom type `Name`.
-/// It is then mapped into a `MapModel` of [`SharedString`]s
+/// It is then mapped into a `MapModel` of [`crate::SharedString`]s
 ///
 /// ```
 /// # use slint::{Model, VecModel, SharedString, MapModel};
@@ -270,7 +270,7 @@ where
 ///
 /// ## Example
 ///
-/// Here we have a [`VecModel`] holding [`SharedString`]s.
+/// Here we have a [`VecModel`] holding [`crate::SharedString`]s.
 /// It is then filtered into a `FilterModel`.
 ///
 /// ```
@@ -618,7 +618,7 @@ where
 ///
 /// ## Example
 ///
-/// Here we have a [`VecModel`] holding [`SharedString`]s.
+/// Here we have a [`VecModel`] holding [`crate::SharedString`]s.
 /// It is then sorted into a `SortModel`.
 ///
 /// ```

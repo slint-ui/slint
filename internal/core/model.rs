@@ -1128,12 +1128,10 @@ impl From<crate::SharedString> for StandardListViewItem {
     }
 }
 
-/// Represent an StandardTableRow
-#[repr(C)]
-#[derive(Clone, Default, Debug, PartialEq)]
-pub struct StandardTableRow {
-    /// Contains a list of list items.
-    pub items: ModelRc<StandardListViewItem>,
+impl From<&str> for StandardListViewItem {
+    fn from(value: &str) -> Self {
+        StandardListViewItem { text: value.into(), editable: false }
+    }
 }
 
 /// Represent an TableColumn header

@@ -262,21 +262,47 @@ export component GridBox inherits GridLayout {
 }
 
 export StandardTableView := Rectangle {
-    callback column-clicked(int);
+    callback sort-ascending(int);
+    callback sort-descending(int);
     
+    out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
-    in property <[StandardTableRow]> rows;
+    in property <[[StandardListViewItem]]> rows;
     in property <length> min-header-height: 42px;
    
-    min-width: 400px;
-    min-height: 200px;
     horizontal-stretch: 1;
     vertical-stretch: 1;
 
+    function sort(index: int) {
+        if (current-sort-column != index) {
+            columns[current-sort-column].sort-by-ascending = false;
+            columns[current-sort-column].sort-by-descending = false;
+        }
+
+        if(columns[index].sort-by-ascending) {
+            columns[index].sort-by-ascending = false;
+            columns[index].sort-by-descending = true;
+            sort-descending(index);
+        } else {
+            columns[index].sort-by-ascending = true;
+            columns[index].sort-by-descending = false;
+            sort-ascending(index);
+        }
+
+        current-sort-column = index;
+    }
+
     VerticalLayout {  
         HorizontalLayout {  
-            for column in columns : NativeTableColumn {
+            for column[index] in columns : NativeTableColumn {
                 item: column;
+                horizontal-stretch: column.horizontal-stretch;
+
+                TouchArea {  
+                    clicked => {  
+                        sort(index);
+                    }
+                }
             }
         }
 
@@ -286,15 +312,30 @@ export StandardTableView := Rectangle {
             VerticalLayout {  
                 alignment: start;
                 
-                for row[i] in rows : HorizontalLayout {
-               
-                    for cell in row.items : NativeStandardListViewItem {
-                        item: cell;
-                        index: i;
-                       
-                        has-hover: ta.has-hover;
-                        ta := TouchArea {
-                           
+                for row[i] in rows : HorizontalLayout {   
+                    for cell[index] in row : HorizontalBox {
+                        horizontal-stretch: columns[index].horizontal-stretch;
+                        min-width: columns[index].min-width;
+                        min-height: root.min-header-height;
+                      
+                        Rectangle {
+                            line-edit := LineEditInner {
+                                opacity: has-focus ? 1.0 : 0.0;
+                                visible: cell.editable;
+                                text: cell.text;
+                                edited => {  
+                                    cell.text = text;
+                                }
+                            }
+    
+                            if(!cell.editable || !line-edit.has-focus) : Text {
+                                font-size: line-edit.font-size;
+                                width: 100%;
+                                height: 100%;
+                                overflow: elide;
+                                vertical-alignment: center;
+                                text: cell.text;
+                            }
                         }
                     }
                 }

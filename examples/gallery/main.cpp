@@ -7,7 +7,8 @@ int main()
 {
     auto demo = App::create();
 
-    auto row_data = std::make_shared<slint::VectorModel<StandardTableRow>>();
+    auto row_data = std::make_shared<slint::VectorModel<
+            std::shared_ptr<slint::Model<slint::private_api::StandardListViewItem>>>>();
 
     for (int r = 1; r < 101; r++) {
 
@@ -21,7 +22,7 @@ int main()
             items->push_back(slint::private_api::StandardListViewItem { text, c == 1 });
         }
 
-        row_data->push_back(StandardTableRow { items });
+        row_data->push_back(items);
     }
 
     demo->global<TableViewPageAdapter>().set_row_data(row_data);
@@ -33,14 +34,16 @@ int main()
 
                 (*demo_lock)
                         ->global<TableViewPageAdapter>()
-                        .set_row_data(std::make_shared<slint::SortModel<StandardTableRow>>(
-                                (*demo_lock)->global<TableViewPageAdapter>().get_row_data(),
-                                [index](auto lhs, auto rhs) {
-                                    auto c_lhs = lhs.items->row_data(index);
-                                    auto c_rhs = rhs.items->row_data(index);
+                        .set_row_data(
+                                std::make_shared<slint::SortModel<std::shared_ptr<
+                                        slint::Model<slint::private_api::StandardListViewItem>>>>(
+                                        (*demo_lock)->global<TableViewPageAdapter>().get_row_data(),
+                                        [index](auto lhs, auto rhs) {
+                                            auto c_lhs = lhs->row_data(index);
+                                            auto c_rhs = rhs->row_data(index);
 
-                                    return c_lhs->text < c_rhs->text;
-                                }));
+                                            return c_lhs->text < c_rhs->text;
+                                        }));
             });
 
     demo->global<TableViewPageAdapter>().on_sort_ascending(
@@ -50,14 +53,16 @@ int main()
 
                 (*demo_lock)
                         ->global<TableViewPageAdapter>()
-                        .set_row_data(std::make_shared<slint::SortModel<StandardTableRow>>(
-                                (*demo_lock)->global<TableViewPageAdapter>().get_row_data(),
-                                [index](auto lhs, auto rhs) {
-                                    auto c_lhs = lhs.items->row_data(index);
-                                    auto c_rhs = rhs.items->row_data(index);
+                        .set_row_data(
+                                std::make_shared<slint::SortModel<std::shared_ptr<
+                                        slint::Model<slint::private_api::StandardListViewItem>>>>(
+                                        (*demo_lock)->global<TableViewPageAdapter>().get_row_data(),
+                                        [index](auto lhs, auto rhs) {
+                                            auto c_lhs = lhs->row_data(index);
+                                            auto c_rhs = rhs->row_data(index);
 
-                                    return c_rhs->text < c_lhs->text;
-                                }));
+                                            return c_rhs->text < c_lhs->text;
+                                        }));
             });
 
     demo->run();

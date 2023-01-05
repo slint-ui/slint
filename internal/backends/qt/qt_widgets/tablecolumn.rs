@@ -44,17 +44,14 @@ impl Item for NativeTableColumn {
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
 
-            QStyleOptionViewItem option;
-            option.decorationPosition = QStyleOptionViewItem::Left;
-            option.decorationAlignment = Qt::AlignCenter;
-            option.displayAlignment = Qt::AlignLeft|Qt::AlignVCenter;
-            option.showDecorationSelected = qApp->style()->styleHint(QStyle::SH_ItemView_ShowDecorationSelected, nullptr, nullptr);
-            if (index % 2) {
-                option.features |= QStyleOptionViewItem::Alternate;
-            }
-            option.features |= QStyleOptionViewItem::HasDisplay;
+            QStyleOptionHeader option;
+            option.state |= QStyle::State_Horizontal;
+            option.section = index;
+
             option.text = text;
-            return qApp->style()->sizeFromContents(QStyle::CT_ItemViewItem, &option, QSize{}, nullptr);
+
+            option.textAlignment = Qt::AlignCenter | Qt::AlignVCenter;
+            return qApp->style()->sizeFromContents(QStyle::CT_HeaderSection, &option, QSize{}, nullptr);
         });
         let min = match orientation {
             Orientation::Horizontal => s.width,
@@ -104,6 +101,9 @@ impl Item for NativeTableColumn {
         let has_hover: bool = this.has_hover();
         let item = this.item();
         let text: qttypes::QString = item.title.as_str().into();
+        let ascending: bool = item.sort_by_ascending;
+        let descending: bool = item.sort_by_descending;
+
         cpp!(unsafe [
             painter as "QPainterPtr*",
             widget as "QWidget*",
@@ -112,35 +112,47 @@ impl Item for NativeTableColumn {
             index as "int",
             has_hover as "bool",
             text as "QString",
-            initial_state as "int"
+            initial_state as "int",
+            ascending as "bool",
+            descending as "bool"
         ] {
-            QStyleOptionViewItem option;
+            QPainter *painter_ = painter->get();
+
+            #if defined(Q_OS_MAC)
+                QImage header_image(size, QImage::Format_ARGB32_Premultiplied);
+                header_image.fill(Qt::transparent);
+                {QPainter p(&header_image); QPainter *painter_ = &p;
+            #endif
+
+            QStyleOptionHeader option;
             option.state |= QStyle::State(initial_state);
+            option.state |= QStyle::State_Horizontal;
             option.rect = QRect(QPoint(), size / dpr);
-            option.state = QStyle::State_Enabled;
+
+            option.section = index;
+
+            option.textAlignment = Qt::AlignLeft | Qt::AlignVCenter;
+
+            if (ascending) {
+                option.sortIndicator = QStyleOptionHeader::SortDown;
+            } else if (descending) {
+                option.sortIndicator = QStyleOptionHeader::SortUp;
+            } else {
+                option.sortIndicator = QStyleOptionHeader::None;
+            }
 
             if (has_hover) {
                 option.state |= QStyle::State_MouseOver;
             }
-            option.decorationPosition = QStyleOptionViewItem::Left;
-            option.decorationAlignment = Qt::AlignCenter;
-            option.displayAlignment = Qt::AlignLeft|Qt::AlignVCenter;
-            option.showDecorationSelected = qApp->style()->styleHint(QStyle::SH_ItemView_ShowDecorationSelected, nullptr, nullptr);
-            if (index % 2) {
-                option.features |= QStyleOptionViewItem::Alternate;
-            }
-            option.features |= QStyleOptionViewItem::HasDisplay;
-            option.text = text;
-            // CE_ItemViewItem in QCommonStyle calls setClipRect on the painter and replace the clips. So we need to cheat.
-            auto engine = (*painter)->paintEngine();
-            auto old_clip = engine->systemClip();
-            auto new_clip = old_clip & ((*painter)->clipRegion() * (*painter)->transform());
-            if (new_clip.isEmpty()) return;
-            engine->setSystemClip(new_clip);
 
-            qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, painter->get(), widget);
-            qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, painter->get(), widget);
-            engine->setSystemClip(old_clip);
+            option.text = text;
+
+            qApp->style()->drawControl(QStyle::CE_Header, &option, painter_, widget);
+
+    #if defined(Q_OS_MAC)
+        }
+        (painter_)->drawImage(QPoint(), header_image);
+    #endif
         });
     }
 }

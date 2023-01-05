@@ -6,7 +6,7 @@ import { ScrollView } from "std-widgets-impl.slint";
 import { StateLayer } from "comp-state-layer.slint";
 import { md } from "md.slint";
 
-export TableViewColumn := Rectangle {
+TableViewColumn := Rectangle {
     callback clicked <=> state-layer.clicked;
 
     in property <bool> ascending;
@@ -49,7 +49,7 @@ export TableViewColumn := Rectangle {
     }
 }
 
-export TableViewCell := Rectangle {
+TableViewCell := Rectangle {
     clip: true;
 
     HorizontalLayout {  
@@ -68,7 +68,7 @@ export TableViewCell := Rectangle {
     }
 }
 
-export TableViewRow := Rectangle {
+TableViewRow := Rectangle {
     min-height: 42px;
 
     state-layer := StateLayer {
@@ -84,16 +84,37 @@ export TableViewRow := Rectangle {
 }
 
 export StandardTableView := Rectangle {
-    callback column-clicked(int);
+    callback sort-ascending(int);
+    callback sort-descending(int);
 
+    out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
-    in property <[StandardTableRow]> rows;
+    in property <[[StandardListViewItem]]> rows;
     in property <length> min-header-height: 42px;
 
     min-width: 400px;
     min-height: 200px;
     horizontal-stretch: 1;
     vertical-stretch: 1;
+
+    function sort(index: int) {
+        if (current-sort-column != index) {
+            columns[current-sort-column].sort-by-ascending = false;
+            columns[current-sort-column].sort-by-descending = false;
+        }
+
+        if(columns[index].sort-by-ascending) {
+            columns[index].sort-by-ascending = false;
+            columns[index].sort-by-descending = true;
+            sort-descending(index);
+        } else {
+            columns[index].sort-by-ascending = true;
+            columns[index].sort-by-descending = false;
+            sort-ascending(index);
+        }
+
+        current-sort-column = index;
+    }
 
     VerticalLayout {  
         HorizontalLayout {  
@@ -115,7 +136,7 @@ export StandardTableView := Rectangle {
                 }
 
                 clicked => {  
-                    column-clicked(index);
+                    sort(index);
                 }
             }
         }
@@ -128,13 +149,12 @@ export StandardTableView := Rectangle {
                 alignment: start;
 
                 for row in rows : TableViewRow {
-                    for cell[index] in row.items : TableViewCell {
+                    for cell[index] in row : TableViewCell {
                         private property <bool> has_inner_focus;
                         horizontal-stretch: columns[index].horizontal-stretch;
                         min-width: columns[index].min-width;
 
                         Rectangle {  
-                            // height: 100%;
                             line-edit := LineEditInner {
                                 opacity: has-focus ? 1.0 : 0.0;
                                 visible: cell.editable;
