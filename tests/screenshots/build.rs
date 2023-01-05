@@ -84,9 +84,6 @@ fn main() -> std::io::Result<()> {
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
         )?;
 
-        let screen_shot = "\"SLINT_CREATE_SCREENSHOTS\"".to_string();
-        let screen_shot_value = "\"1\"".to_string();
-
         generate_source(source.as_str(), &mut output, testcase).unwrap();
 
         write!(
@@ -94,20 +91,7 @@ fn main() -> std::io::Result<()> {
             r"
     #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
     use crate::testing;
-
-    let create_screenshots = std::env::var({screen_shot}).ok();
-    if create_screenshots.is_some() && create_screenshots.unwrap().eq({screen_shot_value}) {{
-        let window = testing::init_swr();
-        window.set_size(slint::PhysicalSize::new(64, 64));
-
-        let instance = TestCase::new();
-        instance.show();
-
-        testing::save_screenshot({reference_path}, window.clone());
-
-        return Ok(());
-    }}
-
+   
     let window = testing::init_swr();
     window.set_size(slint::PhysicalSize::new(64, 64));
     let screenshot = {reference_path};

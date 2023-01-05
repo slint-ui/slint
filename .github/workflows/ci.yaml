@@ -60,21 +60,15 @@ jobs:
         toolchain: ${{ matrix.rust_version }}
         key: x-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
     - name: Build
-      run: cargo build --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-screenshots --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel  # mcu backend requires nightly
+      run: cargo build --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel  # mcu backend requires nightly
     - name: Run tests
       uses: actions-rs/cargo@v1
-      with:
-        command: test
-        args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-screenshots --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel   # mcu backend requires nightly
-    - name: Run screenshot tests
-      run: cargo test -p test-driver-screenshots
-    
-    - name: "Create screenshots"
-      if: ${{ failure() }}
       env:
           SLINT_CREATE_SCREENSHOTS: 1
-      run: cargo test -p test-driver-screenshots
-    - name: Archive screenshots
+      with:
+        command: test
+        args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel   # mcu backend requires nightly
+    - name: Archive screenshots after failed tests
       if: ${{ failure() }}
       uses: actions/upload-artifact@v3
       with:
