@@ -50,7 +50,8 @@ fn main() -> std::io::Result<()> {
     .iter()
     .collect();
 
-    std::env::set_var("SLINT_DEFAULT_FONT", default_font_path);
+    std::env::set_var("SLINT_DEFAULT_FONT", default_font_path.clone());
+    println!("cargo:rustc-env=SLINT_DEFAULT_FONT={}", default_font_path.display());
 
     let mut generated_file = std::fs::File::create(
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),

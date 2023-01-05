@@ -11,7 +11,8 @@ use crate::lengths::{LogicalLength, ScaleFactor};
 use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
 
-fn init_fontdb(db: &mut fontdb::Database) {
+fn init_fontdb() -> FontDatabase {
+    let mut db = fontdb::Database::new();
     db.load_system_fonts();
 
     if db
@@ -32,14 +33,48 @@ fn init_fontdb(db: &mut fontdb::Database) {
             db.set_sans_serif_family(db.face(fallback_id).unwrap().family.clone());
         }
     }
+
+    let fallback_font_id = std::env::var_os("SLINT_DEFAULT_FONT").and_then(|maybe_font_path| {
+        let path = std::path::Path::new(&maybe_font_path);
+        if path.extension().is_some() {
+            let face_count = db.len();
+            match db.load_font_file(path) {
+                Ok(()) => {
+                    db.faces().get(face_count).map(|face_info| face_info.id)
+                },
+                Err(err) => {
+                    eprintln!(
+                        "Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}", path.display(), err,                        
+                    );
+                    None
+                },
+            }
+        } else {
+            eprintln!(
+                "The environment variable `SLINT_DEFAULT_FONT` is set, but its value is not referring to a file",
+
+            );
+            None
+        }
+    }).unwrap_or_else(|| {
+        let query = fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() };
+
+        db.query(&query).expect("fatal: fontdb could not locate a sans-serif font on the system")
+    });
+
+    FontDatabase { db, fallback_font_id }
+}
+
+#[derive(derive_more::Deref, derive_more::DerefMut)]
+pub struct FontDatabase {
+    #[deref]
+    #[deref_mut]
+    db: fontdb::Database,
+    fallback_font_id: fontdb::ID,
 }
 
 thread_local! {
-    static VECTOR_FONTS: Rc<RefCell<fontdb::Database>> = Rc::new(RefCell::new({
-        let mut db = fontdb::Database::new();
-        init_fontdb(&mut db);
-        db
-    }))
+    static VECTOR_FONTS: Rc<RefCell<FontDatabase>> = Rc::new(RefCell::new(init_fontdb()))
 }
 
 thread_local! {
@@ -71,41 +106,40 @@ pub fn match_font(
     request: &super::FontRequest,
     scale_factor: super::ScaleFactor,
 ) -> Option<VectorFont> {
-    let family = request
-        .family
-        .as_ref()
-        .map_or(fontdb::Family::SansSerif, |family| fontdb::Family::Name(family));
+    request.family.as_ref().and_then(|family_str| {
+        let family = fontdb::Family::Name(family_str);
 
-    let query = fontdb::Query { families: &[family], ..Default::default() };
+        let query = fontdb::Query { families: &[family], ..Default::default() };
 
-    let requested_pixel_size: PhysicalLength =
-        (request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
+        let requested_pixel_size: PhysicalLength =
+            (request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
-    VECTOR_FONTS.with(|fonts| {
-        let borrowed_fontdb = fonts.borrow();
-        borrowed_fontdb.query(&query).map(|font_id| {
-            let fontdue_font = get_or_create_fontdue_font(&*borrowed_fontdb, font_id);
-            VectorFont::new(fonts.clone(), font_id, fontdue_font.clone(), requested_pixel_size)
+        VECTOR_FONTS.with(|fonts| {
+            let borrowed_fontdb = fonts.borrow();
+            borrowed_fontdb.query(&query).map(|font_id| {
+                let fontdue_font = get_or_create_fontdue_font(&*borrowed_fontdb, font_id);
+                VectorFont::new(fonts.clone(), font_id, fontdue_font.clone(), requested_pixel_size)
+            })
         })
     })
 }
 
 pub fn fallbackfont(pixel_size: Option<LogicalLength>, scale_factor: ScaleFactor) -> VectorFont {
-    let query = fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() };
-
     let requested_pixel_size: PhysicalLength =
         (pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
     VECTOR_FONTS
         .with(|fonts| {
-            fonts
-                .borrow()
-                .query(&query)
-                .map(|font_id| {
-                    let fontdue_font = get_or_create_fontdue_font(&*fonts.borrow(), font_id);
-                    VectorFont::new(fonts.clone(), font_id, fontdue_font, requested_pixel_size)
-                })
-                .expect("fatal: fontdb could not locate a sans-serif font on the system")
+            let fonts_borrowed = fonts.borrow();
+
+            let fontdue_font =
+                get_or_create_fontdue_font(&*fonts_borrowed, fonts_borrowed.fallback_font_id);
+            VectorFont::new(
+                fonts.clone(),
+                fonts_borrowed.fallback_font_id,
+                fontdue_font,
+                requested_pixel_size,
+            )
         })
         .into()
 }
