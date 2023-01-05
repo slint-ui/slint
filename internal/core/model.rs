@@ -1122,6 +1122,12 @@ pub struct StandardListViewItem {
     pub editable: bool,
 }
 
+impl From<crate::SharedString> for StandardListViewItem {
+    fn from(value: crate::SharedString) -> Self {
+        StandardListViewItem { text: value, editable: false }
+    }
+}
+
 /// Represent an StandardTableRow
 #[repr(C)]
 #[derive(Clone, Default, Debug, PartialEq)]
