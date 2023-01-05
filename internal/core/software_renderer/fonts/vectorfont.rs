@@ -5,6 +5,7 @@ use core::cell::RefCell;
 
 use alloc::rc::Rc;
 
+use super::systemfonts::FontDatabase;
 use crate::lengths::PhysicalPx;
 use crate::software_renderer::PhysicalLength;
 use crate::textlayout::{Glyph, TextShaper};
@@ -46,7 +47,7 @@ thread_local!(static GLYPH_CACHE: core::cell::RefCell<GlyphCache>  =
 );
 
 pub struct VectorFont {
-    db: Rc<RefCell<fontdb::Database>>,
+    db: Rc<RefCell<FontDatabase>>,
     id: fontdb::ID,
     fontdue_font: Rc<fontdue::Font>,
     ascender: PhysicalLength,
@@ -58,7 +59,7 @@ pub struct VectorFont {
 
 impl VectorFont {
     pub fn new(
-        db: Rc<RefCell<fontdb::Database>>,
+        db: Rc<RefCell<FontDatabase>>,
         id: fontdb::ID,
         fontdue_font: Rc<fontdue::Font>,
         pixel_size: PhysicalLength,
