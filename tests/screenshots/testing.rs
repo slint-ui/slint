@@ -35,10 +35,15 @@ pub fn init_swr() -> std::rc::Rc<MinimalSoftwareWindow<0>> {
     window
 }
 
-pub fn image_buffer(path: &str) -> SharedPixelBuffer<Rgb8Pixel> {
-    let image = image::open(path).expect("Cannot open image.").into_rgb8();
-
-    SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(image.as_raw(), image.width(), image.height())
+pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgb8Pixel>, image::ImageError> {
+    image::open(path).map(|image| {
+        let image = image.into_rgb8();
+        SharedPixelBuffer::<Rgb8Pixel>::clone_from_slice(
+            image.as_raw(),
+            image.width(),
+            image.height(),
+        )
+    })
 }
 
 pub fn screenshot(window: std::rc::Rc<MinimalSoftwareWindow<0>>) -> SharedPixelBuffer<Rgb8Pixel> {
@@ -88,37 +93,71 @@ fn color_difference(lhs: &Rgb8Pixel, rhs: &Rgb8Pixel) -> f32 {
 }
 
 fn compare_images(
-    reference: SharedPixelBuffer<Rgb8Pixel>,
-    screenshot: SharedPixelBuffer<Rgb8Pixel>,
-) {
-    assert_eq!(reference.size(), screenshot.size());
-    if reference.as_bytes() != screenshot.as_bytes() {
-        let (failed_pixel_count, max_color_difference) =
-            reference.as_slice().iter().zip(screenshot.as_slice().iter()).fold(
-                (0, 0.0f32),
-                |(failure_count, max_color_difference), (reference_pixel, screenshot_pixel)| {
-                    (
-                        failure_count + (reference_pixel != screenshot_pixel) as usize,
-                        max_color_difference
-                            .max(color_difference(reference_pixel, screenshot_pixel)),
-                    )
-                },
-            );
-        eprintln!(
-            "Percentage of pixels that are different: {}",
-            failed_pixel_count * 100 / reference.as_slice().len()
-        );
-        eprintln!("Maximum color difference: {}", max_color_difference);
+    reference_path: &str,
+    screenshot: &SharedPixelBuffer<Rgb8Pixel>,
+) -> Result<(), String> {
+    let compare = || {
+        let reference = image_buffer(reference_path)
+            .map_err(|image_err| format!("error loading reference image: {:#}", image_err))?;
+
+        if reference.size() != screenshot.size() {
+            return Err(format!(
+                "image sizes don't match. reference size {:#?} rendered size {:#?}",
+                reference.size(),
+                screenshot.size()
+            ));
+        }
+        if reference.as_bytes() != screenshot.as_bytes() {
+            let (failed_pixel_count, max_color_difference) =
+                reference.as_slice().iter().zip(screenshot.as_slice().iter()).fold(
+                    (0, 0.0f32),
+                    |(failure_count, max_color_difference), (reference_pixel, screenshot_pixel)| {
+                        (
+                            failure_count + (reference_pixel != screenshot_pixel) as usize,
+                            max_color_difference
+                                .max(color_difference(reference_pixel, screenshot_pixel)),
+                        )
+                    },
+                );
+            return Err(format!("images are not equal. Percentage of pixels that are different: {}. Maximum color difference: {}", failed_pixel_count * 100 / reference.as_slice().len(), max_color_difference));
+        }
+        Ok(())
+    };
+
+    let result = compare();
+
+    if result.is_err() && std::env::var("SLINT_CREATE_SCREENSHOTS").map_or(false, |var| var == "1")
+    {
+        eprintln!("saving rendered image as comparison to reference failed");
+        image::save_buffer(
+            reference_path,
+            screenshot.as_bytes(),
+            screenshot.width(),
+            screenshot.height(),
+            image::ColorType::Rgb8,
+        )
+        .unwrap();
     }
-    assert_eq!(reference.as_bytes(), screenshot.as_bytes());
+
+    result
 }
 
 pub fn assert_with_render(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
-    compare_images(image_buffer(path), screenshot(window));
+    let rendering = screenshot(window);
+    if let Err(reason) = compare_images(path, &rendering) {
+        assert!(false, "Image comparison failure for {}: {}", path, reason);
+    }
 }
 
 pub fn assert_with_render_by_line(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
-    compare_images(image_buffer(path), screenshot_render_by_line(window));
+    let rendering = screenshot_render_by_line(window);
+    if let Err(reason) = compare_images(path, &rendering) {
+        assert!(
+            false,
+            "Image comparison failure for line-by-line rendering for {}: {}",
+            path, reason
+        );
+    }
 }
 
 pub fn screenshot_render_by_line(
