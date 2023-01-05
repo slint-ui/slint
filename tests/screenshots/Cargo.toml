@@ -18,6 +18,7 @@ slint = { path = "../../api/rs/slint", default-features = false, features = ["st
 i-slint-core = { version = "=0.3.4", path = "../../internal/core" }
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
 image = { version = "0.24.0", default-features = false, features = ["png", "jpeg"] }
+crossterm = "0.25"
 
 [build-dependencies]
 i-slint-compiler = { path = "../../internal/compiler", features = ["rust", "display-diagnostics", "software-renderer"] }

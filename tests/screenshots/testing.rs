@@ -3,6 +3,8 @@
 
 use std::rc::Rc;
 
+use crossterm::style::Stylize;
+
 use i_slint_core::{
     graphics::{
         euclid::{Box2D, Point2D},
@@ -108,6 +110,25 @@ fn compare_images(
             ));
         }
         if reference.as_bytes() != screenshot.as_bytes() {
+            for y in 0..screenshot.height() {
+                for x in 0..screenshot.width() {
+                    let pa = reference.as_slice()[(y * reference.stride() + x) as usize];
+                    let pb = screenshot.as_slice()[(y * screenshot.stride() + x) as usize];
+                    let ca = crossterm::style::Color::Rgb { r: pa.r, g: pa.g, b: pa.b };
+                    let cb = crossterm::style::Color::Rgb { r: pb.r, g: pb.g, b: pb.b };
+                    if pa == pb {
+                        eprint!("{}", crossterm::style::style("██").on(ca).with(cb));
+                    } else {
+                        eprint!(
+                            "{}{}",
+                            crossterm::style::style("•").on(ca).slow_blink().red(),
+                            crossterm::style::style("•").on(cb).slow_blink().green()
+                        );
+                    }
+                }
+                eprintln!("");
+            }
+
             let (failed_pixel_count, max_color_difference) =
                 reference.as_slice().iter().zip(screenshot.as_slice().iter()).fold(
                     (0, 0.0f32),
