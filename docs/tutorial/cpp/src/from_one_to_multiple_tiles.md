@@ -4,8 +4,8 @@ After modeling a single tile, let's create a grid of them. For the grid to be ou
 
 1. A data model: This shall be an array where each element describes the tile data structure, such as the
    url of the image, whether the image shall be visible and if this tile has been solved. We modify the model
-   from Rust code.
-1. A way of creating many instances of the tiles, with the above `.slint` markup code.
+   from C++ code.
+2. A way of creating many instances of the tiles, with the above `.slint` markup code.
 
 In Slint we can declare an array of structures using brackets, to create a model. We can use the <span class="hljs-keyword">for</span> loop
 to create many instances of the same element. In `.slint` the for loop is declarative and automatically updates when
