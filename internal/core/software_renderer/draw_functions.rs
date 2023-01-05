@@ -429,11 +429,11 @@ impl TargetPixel for Rgb565Pixel {
         let expanded = (self.0 & (Self::R_MASK | Self::B_MASK)) as u32
             | (((self.0 & Self::G_MASK) as u32) << 16);
 
-        // gggggggg_000rrrrr_rrr000bbb_bbbbb00
+        // gggggggg_000rrrrr_rrr000bb_bbbbbb00
         let c =
             ((color.red as u32) << 13) | ((color.green as u32) << 24) | ((color.blue as u32) << 2);
-        // gggggg00_000rrrrr_00000bbb_bb00000
-        let c = c & 0b11111100_00011111_00000111_11000000;
+        // gggggg00_000rrrrr_000000bb_bbb00000
+        let c = c & 0b11111100_00011111_00000011_11100000;
 
         let res = expanded * a + c;
 
