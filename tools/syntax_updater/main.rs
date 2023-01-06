@@ -111,10 +111,12 @@ fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::i
 
 fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> std::io::Result<()> {
     let mut source_slice = &source[..];
-    const CODE_FENCE_START: &str = "```slint\n";
+    const CODE_FENCE_START: &str = "```slint";
     const CODE_FENCE_END: &str = "```\n";
-    'l: while let Some(code_start) =
-        source_slice.find(CODE_FENCE_START).map(|idx| idx + CODE_FENCE_START.len())
+    'l: while let Some(code_start) = source_slice
+        .find(CODE_FENCE_START)
+        .map(|idx| idx + CODE_FENCE_START.len())
+        .and_then(|x| source_slice[x..].find('\n').map(|idx| idx + x))
     {
         let code_end = if let Some(code_end) = source_slice[code_start..].find(CODE_FENCE_END) {
             code_end

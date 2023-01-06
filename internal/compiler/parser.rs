@@ -934,15 +934,15 @@ pub fn parse(
     build_diagnostics: &mut BuildDiagnostics,
 ) -> SyntaxNode {
     let mut p = DefaultParser::new(&source, build_diagnostics);
-    let source_file = if let Some(path) = path {
-        p.source_file =
-            std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(path.to_path_buf(), source));
-        p.source_file.clone()
-    } else {
-        Default::default()
-    };
+    p.source_file = std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(
+        path.map(|p| p.to_path_buf()).unwrap_or_default(),
+        source,
+    ));
     document::parse_document(&mut p);
-    SyntaxNode { node: rowan::SyntaxNode::new_root(p.builder.finish()), source_file }
+    SyntaxNode {
+        node: rowan::SyntaxNode::new_root(p.builder.finish()),
+        source_file: p.source_file.clone(),
+    }
 }
 
 pub fn parse_file<P: AsRef<std::path::Path>>(
