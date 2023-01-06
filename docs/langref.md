@@ -25,23 +25,26 @@ Below is an example of components and elements:
 
 ```slint
 
-MyButton := Text {
+component MyButton inherits Text {
     color: black;
     // ...
 }
 
-export MyApp := Window {
+export component MyApp inherits Window {
     preferred-width: 200px;
     preferred-height: 100px;
     Rectangle {
+        x:0;y:0;
         width: 200px;
         height: 100px;
         background: green;
     }
     MyButton {
+        x:0;y:0;
         text: "hello";
     }
     MyButton {
+        y:0;
         x: 50px;
         text: "world";
     }
@@ -55,18 +58,20 @@ used by `MyApp`. `MyApp` also re-uses the `MyButton` component.
 You can assign a name to the elements using the `:=`  syntax in front an element:
 
 ```slint
-MyButton := Text {
+component MyButton inherits Text {
     // ...
 }
 
-MyApp := Window {
+component MyApp inherits Window {
     preferred-width: 200px;
     preferred-height: 100px;
 
     hello := MyButton {
+        x:0;y:0;
         text: "hello";
     }
     world := MyButton {
+        y:0;
         text: "world";
         x: 50px;
     }
@@ -85,10 +90,11 @@ are placed when they are used. For example, imagine a component that draws a lab
 whatever element the user places inside:
 
 ```slint,ignore
-MyApp := Window {
+component MyApp inherits Window {
 
     BoxWithLabel {
         Text {
+            x:0;y:0;
             // ...
         }
     }
@@ -103,7 +109,7 @@ else, inside the layout. For this purpose, you can change the default child plac
 the `@children` expression inside the element hierarchy of a component:
 
 ```slint
-BoxWithLabel := GridLayout {
+component BoxWithLabel inherits GridLayout {
     Row {
         Text { text: "label text here"; }
     }
@@ -112,7 +118,7 @@ BoxWithLabel := GridLayout {
     }
 }
 
-MyApp := Window {
+component MyApp inherits Window {
     preferred-height: 100px;
     BoxWithLabel {
         Rectangle { background: blue; }
@@ -140,7 +146,7 @@ The elements can have properties. Built-in elements come with common properties 
 as color or dimensional properties. You can assign values or entire [expressions](#expressions) to them:
 
 ```slint,no-preview
-Example := Window {
+component Example inherits Window {
     // Simple expression: ends with a semi colon
     width: 42px;
     // or a code block (no semicolon needed)
@@ -153,12 +159,12 @@ component are public and can be accessed by the component using it as an element
 language bindings:
 
 ```slint,no-preview
-Example := Rectangle {
+component Example inherits Rectangle {
     // declare a property of type int with the name `my-property`
-    property<int> my-property;
+    in-out property<int> my-property;
 
     // declare a property with a default value
-    property<int> my-second-property: 42;
+    in-out property<int> my-second-property: 42;
 }
 ```
 
@@ -174,7 +180,7 @@ You can annotate the properties with a qualifier that specifies how the property
  * **`in-out`** (the default): The property can be read and modified by everyone.
 
 ```slint,no-preview
-Button := Rectangle {
+component Button inherits Rectangle {
     // This is meant to be set by the user of the component.
     in property <string> text;
     // This property is meant to be read by the user of the component.
@@ -196,13 +202,13 @@ changing the `counter`  property automatically changes the text.
 
 ```slint
 import { Button } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     preferred-width: 50px;
     preferred-height: 50px;
     Button {
         property <int> counter: 3;
-        clicked => { counter += 3 }
-        text: counter * 2;
+        clicked => { self.counter += 3 }
+        text: self.counter * 2;
     }
 }
 ```
@@ -220,10 +226,10 @@ The right hand side of the `<=>` must be a reference to a property of the same t
 The type can be omitted in a property declaration to have the type automatically inferred.
 
 ```slint,no-preview
-Example := Window {
-    property<brush> rect-color <=> r.background;
+component Example inherits Window {
+    in-out property<brush> rect-color <=> r.background;
     // it is allowed to omit the type to have it automatically inferred
-    property rect-color2 <=> r.background;
+    in-out property rect-color2 <=> r.background;
     r:= Rectangle {
         width: parent.width;
         height: parent.height;
@@ -262,9 +268,9 @@ The trailing semicolon is optional.
 They can be initialized with a struct literal: `{ identifier1: expression1, identifier2: expression2  }`
 
 ```slint,no-preview
-Example := Window {
-    property<{name: string, score: int}> player: { name: "Foo", score: 100 };
-    property<{a: int, }> foo: { a: 3 };
+component Example inherits Window {
+    in-out property<{name: string, score: int}> player: { name: "Foo", score: 100 };
+    in-out property<{a: int, }> foo: { a: 3 };
 }
 ```
 
@@ -273,13 +279,13 @@ Example := Window {
 It is possible to define a named struct using the `struct` keyword,
 
 ```slint,no-preview
-export struct Player := {
+export struct Player  {
     name: string,
     score: int,
 }
 
-Example := Window {
-    property<Player> player: { name: "Foo", score: 100 };
+component Example inherits Window {
+    in-out property<Player> player: { name: "Foo", score: 100 };
 }
 ```
 
@@ -289,9 +295,9 @@ The type array is using square brackets for example  `[int]` is an array of `int
 basically used as models for the `for` expression.
 
 ```slint,no-preview
-Example := Window {
-    property<[int]> list-of-int: [1,2,3];
-    property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
+component Example inherits Window {
+    in-out property<[int]> list-of-int: [1,2,3];
+    in-out property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
 }
 ```
 
@@ -315,19 +321,19 @@ Example := Window {
    a valid number. you can check with `is-float` if the string contains a valid number
 
 ```slint,no-preview
-Example := Window {
+component Example inherits Window {
     // ok: int converts to string
-    property<{a: string, b: int}> prop1: {a: 12, b: 12 };
+    in-out property<{a: string, b: int}> prop1: {a: 12, b: 12 };
     // ok even if a is missing, it will just have the default value
-    property<{a: string, b: int}> prop2: { b: 12 };
+    in-out property<{a: string, b: int}> prop2: { b: 12 };
     // ok even if c is too many, it will be discarded
-    property<{a: string, b: int}> prop3: { a: "x", b: 12, c: 42 };
+    in-out property<{a: string, b: int}> prop3: { a: "x", b: 12, c: 42 };
     // ERROR: b is missing and c is extra, this does not compile, because it could be a typo.
     // property<{a: string, b: int}> prop4: { a: "x", c: 42 };
 
-    property<string> xxx: "42.1";
-    property<float> xxx1: xxx.to-float(); // 42.1
-    property<bool> xxx2: xxx.is-float(); // true
+    in-out property<string> xxx: "42.1";
+    in-out property<float> xxx1: root.xxx.to-float(); // 42.1
+    in-out property<bool> xxx2: root.xxx.is-float(); // true
 }
 ```
 
@@ -337,12 +343,13 @@ Sometimes it is convenient to express the relationships of length properties in 
 For example the following inner blue rectangle has half the size of the outer green window:
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
     background: green;
     Rectangle {
+        x:0;y:0;
         background: blue;
         width: parent.width * 50%;
         height: parent.height * 50%;
@@ -360,12 +367,13 @@ If these conditions are met, then it is not necessary to specify the parent prop
 use the percentage. The earlier example then looks like this:
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
     background: green;
     Rectangle {
+        x:0;y:0;
         background: blue;
         width: 50%;
         height: 50%;
@@ -382,7 +390,7 @@ it with the mouse. In the example below, the emission of that callback is forwar
 handler and emitting our custom callback:
 
 ```slint,no-preview
-Example := Rectangle {
+component Example inherits Rectangle {
     // declare a callback
     callback hello;
 
@@ -399,7 +407,7 @@ Example := Rectangle {
 It is also possible to add parameters to the callback.
 
 ```slint,no-preview
-Example := Rectangle {
+component Example inherits Rectangle {
     // declares a callback
     callback hello(int, string);
     hello(aa, bb) => { /* ... */ }
@@ -409,9 +417,9 @@ Example := Rectangle {
 And return value.
 
 ```slint,no-preview
-Example := Rectangle {
+component Example inherits Rectangle {
     // declares a callback with a return value
-    callback hello(int, int) -> int;
+    pure callback hello(int, int) -> int;
     hello(aa, bb) => { aa + bb }
 }
 ```
@@ -421,7 +429,7 @@ Example := Rectangle {
 It is possible to declare callback aliases in a similar way to two-way bindings:
 
 ```slint,no-preview
-Example := Rectangle {
+component Example inherits Rectangle {
     callback clicked <=> area.clicked;
     area := TouchArea {}
 }
@@ -433,11 +441,11 @@ You can declare helper functions with the function keyword.
 Functions are private by default, but can be made public with the `public` annotation.
 
 ```slint,no-preview
-Example := Rectangle {
-    property <int> min;
-    property <int> max;
-    public function inbound(x: int) -> int {
-        return Math.min(root.max, Math.max(root.min, x));
+component Example inherits Rectangle {
+    in-out property <int> min;
+    in-out property <int> max;
+    pure public function inbound(x: int) -> int {
+        return Math.min(root.max, Math.max(root.min, root.x));
     }
 }
 ```
@@ -460,10 +468,10 @@ Callbacks and public functions can be annotated with the `pure` keyword.
 Private functions can also be annotated with `pure`, otherwise their purity is automatically inferred.
 
 ```slint,no-preview
-Example := Rectangle {
+component Example inherits Rectangle {
     pure callback foo() -> int;
     public pure function bar(x: int) -> int
-    { return x + foo(); }
+    { return root.x + root.foo(); }
 }
 ```
 
@@ -475,9 +483,9 @@ these properties change, the expression is automatically re-evaluated and a new 
 to the property the expression is associated with:
 
 ```slint,no-preview
-Example := Rectangle {
+component Example inherits Rectangle {
     // declare a property of type int
-    property<int> my-property;
+    in-out property<int> my-property;
 
     // This accesses the property
     width: root.my-property * 20px;
@@ -490,8 +498,8 @@ If something changes `my-property`, the width will be updated automatically.
 Arithmetic in expression with numbers works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
 ```slint,no-preview
-Example := Rectangle {
-    property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
+component Example inherits Rectangle {
+    in-out property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
 }
 ```
 
@@ -503,7 +511,7 @@ There are also the operators `&&` and `||` for logical *and* and *or* between bo
 You can access properties by addressing the associated element, followed by a `.` and the property name:
 
 ```slint,no-preview
-Example := Rectangle {
+component Example inherits Rectangle {
     foo := Rectangle {
         x: 42px;
     }
@@ -514,7 +522,7 @@ Example := Rectangle {
 The ternary operator `... ? ... : ...`  is also supported, like in C or JavaScript:
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
@@ -549,7 +557,7 @@ Anything else after a `\` is an error.
 (TODO: translations: `tr!"Hello"`)
 
 ```slint,no-preview
-Example := Text {
+component Example inherits Text {
     text: "hello";
 }
 ```
@@ -559,10 +567,10 @@ Example := Text {
 Color literals follow the syntax of CSS:
 
 ```slint,no-preview
-Example := Window {
+component Example inherits Window {
     background: blue;
-    property<color> c1: #ffaaff;
-    property<brush> b2: Colors.red;
+    in-out property<color> c1: #ffaaff;
+    in-out property<brush> b2: Colors.red;
 }
 ```
 
@@ -609,7 +617,7 @@ The following example shows a rectangle that's filled with a linear gradient tha
 color, interpolates to a very light shade in the center and finishes with an orange tone:
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
@@ -632,7 +640,7 @@ The syntax is otherwise based on the CSS `radial-gradient` function.
 Example:
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
     Rectangle {
@@ -651,14 +659,15 @@ relative to the file. In addition, it will also be looked in the include path sp
 It is possible to access the `width` and `height` of an image.
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 150px;
     preferred-height: 50px;
 
-    property <image> some_image: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
+    in-out property <image> some_image: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
 
     Text {
-        text: "The image is " + some_image.width + "x" + some_image.height;
+        x:0;y:0;
+        text: "The image is " + root.some_image.width + "x" + root.some_image.height;
     }
 }
 ```
@@ -731,23 +740,24 @@ The *id* is also optional.
 ### Examples
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 300px;
     preferred-height: 100px;
     for my-color[index] in [ #e11, #1a2, #23d ]: Rectangle {
+        y:0;
         height: 100px;
         width: 60px;
-        x: width * index;
+        x: self.width * index;
         background: my-color;
     }
 }
 ```
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 50px;
     preferred-height: 50px;
-    property <[{foo: string, col: color}]> model: [
+    in-out property <[{foo: string, col: color}]> model: [
         {foo: "abc", col: #f00 },
         {foo: "def", col: #00f },
     ];
@@ -766,7 +776,7 @@ Similar to `for`, the `if` construct can instantiate element only if a given con
 The syntax is `if condition : id := Element { ... }`
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 50px;
     preferred-height: 50px;
     if area.pressed : foo := Rectangle { background: blue; }
@@ -780,7 +790,7 @@ Example := Window {
 Simple animation that animates a property can be declared with `animate` like this:
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
@@ -821,20 +831,20 @@ animate y { duration: 100ms; }
 The `states` statement allow to declare states like this:
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
-    text := Text { text: "hello"; }
-    property<bool> pressed;
-    property<bool> is-enabled;
+    text := Text { x:0;y:0; text: "hello"; }
+    in-out property<bool> pressed;
+    in-out property<bool> is-enabled;
 
     states [
-        disabled when !is-enabled : {
+        disabled when !root.is-enabled : {
             background: gray; // same as root.background: gray;
             text.color: white;
         }
-        down when pressed : {
+        down when root.pressed : {
             background: blue;
         }
     ]
@@ -849,25 +859,31 @@ This will change the color of the Rectangle and of the Text.
 Complex animations can be declared on state transitions:
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
-    text := Text { text: "hello"; }
-    property<bool> pressed;
-    property<bool> is-enabled;
+    text := Text { x:0;y:0; text: "hello"; }
+    in-out property<bool> pressed;
+    in-out property<bool> is-enabled;
 
     states [
-        disabled when !is-enabled : {
+        disabled when !root.is-enabled : {
             background: gray; // same as root.background: gray;
             text.color: white;
             out {
                 animate * { duration: 800ms; }
             }
+        out {
+                animate * { duration: 800ms; }
+            }
         }
-        down when pressed : {
+        down when root.pressed : {
             background: blue;
             in {
+                animate background { duration: 300ms; }
+            }
+        in {
                 animate background { duration: 300ms; }
             }
         }
@@ -883,12 +899,12 @@ make properties and callbacks available throughout the entire project. Access th
 For example, this can be useful for a common color palette:
 
 ```slint,no-preview
-global Palette := {
-    property<color> primary: blue;
-    property<color> secondary: green;
+global Palette  {
+    in-out property<color> primary: blue;
+    in-out property<color> secondary: green;
 }
 
-Example := Rectangle {
+component Example inherits Rectangle {
     background: Palette.primary;
     border-color: Palette.secondary;
     border-width: 2px;
@@ -902,9 +918,9 @@ in the file that exports your main application component. In the above example i
 sufficient to directly export the `Logic` global:
 
 ```slint,ignore
-export global Logic := {
-    property <int> the-value;
-    callback magic-operation(int) -> int;
+export global Logic  {
+    in-out property <int> the-value;
+    pure callback magic-operation(int) -> int;
 }
 // ...
 ```
@@ -963,23 +979,23 @@ fn main() {
 It is possible to re-expose a callback or properties from a global using the two way binding syntax.
 
 ```slint,no-preview
-global Logic := {
-    property <int> the-value;
+global Logic  {
+    in-out property <int> the-value;
     pure callback magic-operation(int) -> int;
 }
 
-SomeComponent := Text {
+component SomeComponent inherits Text {
     // use the global in any component
     text: "The magic value is:" + Logic.magic-operation(42);
 }
 
-export MainWindow := Window {
+export component MainWindow inherits Window {
     // re-expose the global properties such that the native code
     // can access or modify them
-    property the-value <=> Logic.the-value;
+    in-out property the-value <=> Logic.the-value;
     pure callback magic-operation <=> Logic.magic-operation;
 
-    SomeComponent {}
+    SomeComponent {x:0;y:0;}
 }
 ```
 
@@ -991,11 +1007,11 @@ By default, everything declared in a .slint file is private, but it can be made 
 keyword:
 
 ```slint,no-preview
-ButtonHelper := Rectangle {
+component ButtonHelper inherits Rectangle {
     // ...
 }
 
-Button := Rectangle {
+component Button inherits Rectangle {
     // ...
     ButtonHelper {
         // ...
@@ -1010,7 +1026,7 @@ In the above example, `Button` is usable from other .slint files, but `ButtonHel
 It's also possible to change the name just for the purpose of exporting, without affecting its internal use:
 
 ```slint,no-preview
-Button := Rectangle {
+component Button inherits Rectangle {
     // ...
 }
 
@@ -1022,7 +1038,7 @@ In the above example, ```Button``` is not accessible from the outside, but inste
 For convenience, a third way of exporting a component is to declare it exported right away:
 
 ```slint,no-preview
-export Button := Rectangle {
+export component Button inherits Rectangle {
     // ...
 }
 ```
@@ -1032,7 +1048,7 @@ Similarly, components exported from other files can be accessed by importing the
 ```slint,ignore
 import { Button } from "./button.slint";
 
-App := Rectangle {
+component App inherits Rectangle {
     // ...
     Button {
         // ...
@@ -1047,7 +1063,7 @@ of assigning a different name at import time:
 import { Button } from "./button.slint";
 import { Button as CoolButton } from "../other_theme/button.slint";
 
-App := Rectangle {
+component App inherits Rectangle {
     // ...
     CoolButton {} // from other_theme/button.slint
     Button {} // from button.slint
@@ -1071,10 +1087,10 @@ The following syntax is supported for exporting types:
 
 ```slint,ignore
 // Export declarations
-export MyButton := Rectangle { /* ... */ }
+export component MyButton inherits Rectangle { /* ... */ }
 
 // Export lists
-MySwitch := Rectangle { /* ... */ }
+component MySwitch inherits Rectangle { /* ... */ }
 export { MySwitch };
 export { MySwitch as Alias1, MyButton as Alias2 };
 
@@ -1093,7 +1109,7 @@ You can manually activate the focus on an element by calling `focus()`:
 ```slint
 import { Button } from "std-widgets.slint";
 
-App := Window {
+component App inherits Window {
     VerticalLayout {
         alignment: start;
         Button {
@@ -1113,7 +1129,7 @@ using the `forward-focus` property to refer to the element that should receive i
 ```slint
 import { Button } from "std-widgets.slint";
 
-LabeledInput := GridLayout {
+component LabeledInput inherits GridLayout {
     forward-focus: input;
     Row {
         Text {
@@ -1123,7 +1139,7 @@ LabeledInput := GridLayout {
     }
 }
 
-App := Window {
+component App inherits Window {
     GridLayout {
         Button {
             text: "press me";
@@ -1149,17 +1165,19 @@ The debug function take a string as an argument and prints it
     It can be used like so: `x: 1000px + sin(animation-tick() / 1s * 360deg) * 100px;` or `y: 20px * mod(animation-tick(), 2s) / 2s `
 
 ```slint
-Example := Window {
+component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
     Rectangle {
+        x:0;y:0;
         background: red;
         height: 50px;
         width: parent.width * mod(animation-tick(), 2s) / 2s;
     }
 
     Rectangle {
+        x:0;
         background: blue;
         height: 50px;
         y: 50px;
@@ -1175,19 +1193,19 @@ element is instantiated and after all properties are initialized with the value 
 invocation is from inside to outside. The following example will print "first", then "second", and then "third":
 
 ```slint,no-preview
-MyButton := Rectangle {
-    property <string> text: "Initial";
+component MyButton inherits Rectangle {
+    in-out property <string> text: "Initial";
     init => {
         // If `text` is queried here, it will have the value "Hello".
         debug("first");
     }
 }
 
-MyCheckBox := Rectangle {
+component MyCheckBox inherits Rectangle {
     init => { debug("second"); }
 }
 
-MyWindow := Window {
+component MyWindow inherits Window {
     MyButton {
         text: "Hello";
         init => { debug("third"); }
@@ -1201,12 +1219,12 @@ Do not use this callback to initialize properties, because this violates the the
 Avoid using this callback, unless you need it, for example, in order to notify some native code:
 
 ```slint,no-preview
-global SystemService := {
+global SystemService  {
     // This callback can be implemented in native code using the Slint API
     callback ensure_service_running();
 }
 
-MySystemButton := Rectangle {
+component MySystemButton inherits Rectangle {
     init => {
         SystemService.ensure_service_running();
     }
@@ -1287,10 +1305,11 @@ For example:
 ```slint,ignore
 import "./NotoSans-Regular.ttf";
 
-Example := Window {
+component Example inherits Window {
     default-font-family: "Noto Sans";
 
     Text {
+        x:0;y:0;
         text: "Hello World";
     }
 }
