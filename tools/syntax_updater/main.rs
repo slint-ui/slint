@@ -100,7 +100,8 @@ fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::i
         let mut diag = BuildDiagnostics::default();
         let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
-        visit_node(syntax_node, &mut file, &mut State::default(), args)?;
+        let mut state = init_state(&syntax_node, &mut diag);
+        visit_node(syntax_node, &mut file, &mut state, args)?;
         if diag.has_error() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
@@ -131,7 +132,8 @@ fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> st
         let mut diag = BuildDiagnostics::default();
         let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
-        visit_node(syntax_node, &mut file, &mut State::default(), args)?;
+        let mut state = init_state(&syntax_node, &mut diag);
+        visit_node(syntax_node, &mut file, &mut state, args)?;
         if diag.has_error() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
@@ -155,8 +157,17 @@ fn process_file(
     let mut diag = BuildDiagnostics::default();
     let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
-    let mut state = State::default();
+    let mut state = init_state(&syntax_node, &mut diag);
+    visit_node(syntax_node, &mut file, &mut state, args)?;
+    if diag.has_error() {
+        file.write_all(&source.as_bytes()[len..])?;
+        diag.print();
+    }
+    Ok(())
+}
 
+fn init_state(syntax_node: &SyntaxNode, diag: &mut BuildDiagnostics) -> State {
+    let mut state = State::default();
     let doc = syntax_node.clone().into();
     let mut type_loader = TypeLoader::new(
         i_slint_compiler::typeregister::TypeRegister::builtin(),
@@ -170,25 +181,19 @@ fn process_file(
     ));
     let (foreign_imports, reexports) = spin_on::spin_on(type_loader.load_dependencies_recursively(
         &doc,
-        &mut diag,
+        diag,
         &dependency_registry,
     ));
     let current_doc = crate::object_tree::Document::from_node(
         doc,
         foreign_imports,
         reexports,
-        &mut diag,
+        diag,
         &dependency_registry,
     );
-    i_slint_compiler::passes::infer_aliases_types::resolve_aliases(&current_doc, &mut diag);
+    i_slint_compiler::passes::infer_aliases_types::resolve_aliases(&current_doc, diag);
     state.current_doc = Rc::new(current_doc).into();
-
-    visit_node(syntax_node, &mut file, &mut state, args)?;
-    if diag.has_error() {
-        file.write_all(&source.as_bytes()[len..])?;
-        diag.print();
-    }
-    Ok(())
+    state
 }
 
 #[derive(Default, Clone)]
