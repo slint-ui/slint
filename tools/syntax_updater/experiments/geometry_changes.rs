@@ -90,6 +90,9 @@ fn is_layout_base(elem: &ElementRc) -> bool {
             );
         }
         i_slint_compiler::langtype::ElementType::Component(c) => {
+            if c.id == "ListView" {
+                return true;
+            }
             if let Some(ins) = &*c.child_insertion_point.borrow() {
                 return is_layout_base(&ins.0);
             } else {
