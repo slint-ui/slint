@@ -21,7 +21,14 @@ pub(crate) fn fold_node(
         for n in node.children_with_tokens() {
             if n.kind() == SyntaxKind::ColonEqual {
                 if !is_global {
-                    write!(file, " inherits ")?;
+                    let t = n.as_token().unwrap();
+                    if t.prev_token().map_or(false, |t| t.kind() != SyntaxKind::Whitespace) {
+                        write!(file, " ")?;
+                    }
+                    write!(file, "inherits")?;
+                    if t.next_token().map_or(false, |t| t.kind() != SyntaxKind::Whitespace) {
+                        write!(file, " ")?;
+                    }
                 }
             } else {
                 crate::visit_node_or_token(n, file, state, args)?;
