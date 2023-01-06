@@ -7,12 +7,12 @@ use super::r#type::parse_struct_declaration;
 
 #[cfg_attr(test, parser_test)]
 /// ```test,Document
-/// Type := Base { }
+/// component Type { }
 /// Type := Base { SubElement { } }
 /// Comp := Base {}  Type := Base {}
-/// Type := Base {} export { Type }
+/// component Q {} Type := Base {} export { Type }
 /// import { Base } from "somewhere"; Type := Base {}
-/// struct Foo := { foo: foo }
+/// struct Foo { foo: foo }
 /// /* empty */
 /// ```
 pub fn parse_document(p: &mut impl Parser) -> bool {
@@ -53,16 +53,16 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// Type := Base { }
 /// Type := Base { prop: value; }
 /// Type := Base { SubElement { } }
-/// global Struct := { property<int> xx; }
+/// global Struct := { }
+/// global Struct { property<int> xx; }
+/// component C { property<int> xx; }
+/// component C inherits D { }
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Component);
     let simple_component = p.nth(1).kind() == SyntaxKind::ColonEqual;
     let is_global = !simple_component && p.peek().as_str() == "global";
     let is_new_component = !simple_component && p.peek().as_str() == "component";
-    if is_new_component && !p.enable_experimental() {
-        p.error("the 'component' keyword is experimental, set `SLINT_EXPERIMENTAL_SYNTAX` env variable to enable experimental syntax. See https://github.com/slint-ui/slint/issues/1750");
-    }
     if is_global || is_new_component {
         p.consume();
     }
@@ -72,9 +72,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     }
     if is_global {
         // ignore the `:=` (compatibility)
-        if !p.test(SyntaxKind::ColonEqual) && !p.enable_experimental() {
-            p.expect(SyntaxKind::ColonEqual);
-        }
+        p.test(SyntaxKind::ColonEqual);
     } else if !is_new_component {
         if !p.expect(SyntaxKind::ColonEqual) {
             drop(p.start_node(SyntaxKind::Element));

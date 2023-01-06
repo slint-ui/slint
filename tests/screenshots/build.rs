@@ -92,7 +92,7 @@ fn main() -> std::io::Result<()> {
 
         return Ok(());
     }}
-   
+
     let window = testing::init_swr();
     window.set_size(slint::PhysicalSize::new(64, 64));
     let screenshot = {reference_path};
@@ -113,8 +113,6 @@ fn main() -> std::io::Result<()> {
     //Make sure to use a consistent style
     println!("cargo:rustc-env=SLINT_STYLE=fluent");
 
-    println!("cargo:rustc-env=SLINT_EXPERIMENTAL_SYNTAX=true");
-
     Ok(())
 }
 
@@ -130,7 +128,6 @@ fn generate_source(
         .collect::<Vec<_>>();
 
     let mut diag = BuildDiagnostics::default();
-    diag.enable_experimental = true;
     let syntax_node = parser::parse(source.to_owned(), Some(&testcase.absolute_path), &mut diag);
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.include_paths = include_paths;

@@ -65,6 +65,8 @@ pub fn parse_type_array(p: &mut impl Parser) {
 /// ```test,StructDeclaration
 /// struct Foo := { foo: bar, xxx: { aaa: bbb, } }
 /// struct Bar := {}
+/// struct Foo { foo: bar, xxx: { aaa: bbb, } }
+/// struct Bar {}
 /// ```
 pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
     debug_assert_eq!(p.peek().as_str(), "struct");
@@ -74,9 +76,7 @@ pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
     }
-    if !p.test(SyntaxKind::ColonEqual) && !p.enable_experimental() {
-        p.expect(SyntaxKind::ColonEqual);
-    }
+    p.test(SyntaxKind::ColonEqual);
 
     parse_type_object(&mut *p);
     true

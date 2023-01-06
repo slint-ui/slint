@@ -247,12 +247,6 @@ pub struct BuildDiagnostics {
     /// FIXME: this doesn't really belong in the diagnostics, it should be somehow returned in another way
     /// (maybe in a compilation state that include the diagnostics?)
     pub all_loaded_files: Vec<PathBuf>,
-
-    /// Whether to allow the experimental syntax.
-    ///
-    /// FIXME! this is only there temporarily while we still have experimental syntax
-    /// and will be removed when it becomes stable
-    pub enable_experimental: bool,
 }
 
 impl IntoIterator for BuildDiagnostics {

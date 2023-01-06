@@ -6,7 +6,6 @@ component declaration and following the new rules tracked in [issue #1750](https
 ### Usage:
 
 ```
-export SLINT_EXPERIMENTAL_SYNTAX=true
 cargo run -p syntax_updater -- -i /path/to/my/app/ui/**/*.slint
 ```
 
