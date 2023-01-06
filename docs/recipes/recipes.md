@@ -637,7 +637,6 @@ export component ToggleSwitch inherits Rectangle {
     }
 
     touch-area := TouchArea {
-        x:0;y:0;
         width: root.width;
         height: root.height;
         clicked => {
@@ -918,30 +917,30 @@ export component SideBar inherits Rectangle {
     in-out property <string> expand-button-text;
 
     width: 160px;
-   
-    container := Rectangle {   
+
+    container := Rectangle {
         private property <bool> expaned;
-        
+
         width: parent.width;
         background: StyleMetrics.window-background.darker(0.2);
 
-        VerticalLayout { 
+        VerticalLayout {
             padding: 2px;
             alignment: start;
 
-            HorizontalLayout {  
+            HorizontalLayout {
                 alignment: start;
 
                 if (root.collapsed) : Button {
                     checked: container.expaned;
                     text: root.expand-button-text;
-    
-                    clicked => {  
+
+                    clicked => {
                         container.expaned = !container.expaned;
                     }
                 }
             }
-         
+
             @children
         }
 
@@ -976,23 +975,23 @@ export component SideBar inherits Rectangle {
 component SideBarTest inherits Window {
     preferred-width: 700px;
     min-height: 400px;
-   
-    GridLayout {  
-        Rectangle {  
+
+    GridLayout {
+        Rectangle {
             height: 100%;
             col: 1;
             background: white;
 
-            HorizontalLayout {  
+            HorizontalLayout {
                 padding: 8px;
 
-                Text {  
+                Text {
                     color: black;
                     text: "Content";
                 }
             }
         }
-        SideBar {  
+        SideBar {
             col: 0;
             reference-width: parent.width;
             expand-button-text: "E";

@@ -271,7 +271,6 @@ component Example inherits Window {
     width: 200px;
     height: 200px;
     ScrollView {
-        x:0;y:0;
         width: 200px;
         height: 200px;
         viewport-width: 300px;
@@ -302,7 +301,6 @@ component Example inherits Window {
     width: 150px;
     height: 150px;
     ListView {
-        x:0;y:0;
         width: 150px;
         height: 150px;
         for data in [
@@ -319,7 +317,7 @@ component Example inherits Window {
             background: data.bg;
             width: parent.width;
             Text {
-                x:0;y:0;
+                x: 0;
                 text: data.text;
                 color: data.color;
             }
@@ -350,7 +348,6 @@ component Example inherits Window {
     width: 150px;
     height: 150px;
     StandardListView {
-        x:0;y:0;
         width: 150px;
         height: 150px;
         model: [ { text: "Blue"}, { text: "Red" }, { text: "Green" },
@@ -384,7 +381,6 @@ component Example inherits Window {
     width: 200px;
     height: 130px;
     ComboBox {
-        x:0;y:0;
         width: self.preferred-width;
         height: self.preferred-height;
         model: ["first", "second", "third"];
