@@ -536,9 +536,6 @@ mod parser_trait {
             }
             self.expect(kind);
         }
-
-        /// return true if experimental parser feature should be activated
-        fn enable_experimental(&self) -> bool;
     }
 
     /// A token to proof that start_node_impl and finish_node_impl are only
@@ -663,11 +660,6 @@ impl Parser for DefaultParser<'_> {
     type Checkpoint = rowan::Checkpoint;
     fn checkpoint(&mut self) -> Self::Checkpoint {
         self.builder.checkpoint()
-    }
-
-    fn enable_experimental(&self) -> bool {
-        self.diags.enable_experimental
-            || std::env::var_os("SLINT_EXPERIMENTAL_SYNTAX").map_or(false, |x| !x.is_empty())
     }
 }
 
