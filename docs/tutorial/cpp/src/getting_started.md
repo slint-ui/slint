@@ -3,7 +3,7 @@
 In this tutorial, we use C++ as the host programming language. We also support other programming languages like
 [Rust](https://slint-ui.com/docs/rust/slint/) or [JavaScript](https://slint-ui.com/docs/node/).
 
-You will need a development environment that can compile C++20 with CMake 3.19.
+You will need a development environment that can compile C++20 with CMake 3.21.
 We do not provide binaries of Slint yet, so we will use the CMake integration that will automatically build
 the tools and library from source. Since it is implemented in the Rust programming language, this means that
 you also need to install a Rust compiler (1.64). You can easily install a Rust compiler
@@ -14,7 +14,7 @@ In a new directory, we create a new `CMakeLists.txt` file.
 
 ```cmake
 # CMakeLists.txt
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.21)
 project(memory LANGUAGES CXX)
 
 include(FetchContent)
@@ -29,6 +29,10 @@ FetchContent_MakeAvailable(Slint)
 add_executable(memory_game main.cpp)
 target_link_libraries(memory_game PRIVATE Slint::Slint)
 slint_target_sources(memory_game memory.slint)
+# On Windows, copy the Slint DLL next to the application binary so that it's found.
+if (WIN32)
+    add_custom_command(TARGET memory_game POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:memory_game> $<TARGET_FILE_DIR:memory_game> COMMAND_EXPAND_LISTS)
+endif()
 ```
 
 This should look familiar to people familiar with CMake. We see that this CMakeLists.txt
@@ -64,13 +68,7 @@ If you are on Linux or macOS, you can run the program:
 
 and a window will appear with the green "Hello World" greeting.
 
-If you are stepping through this tutorial on a Windows machine, you need to add the `bin` sub-directory into your `%PATH%`:
-
-```sh
-set PATH=%CD%\bin;%PATH%
-```
-
-so that Windows to can find the Slint run-time library. Then you can run it with
+If you are stepping through this tutorial on a Windows machine, you can run it with
 
 ```sh
 memory_game
