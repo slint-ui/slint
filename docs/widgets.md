@@ -31,7 +31,7 @@ See [Selecting a Widget Style](#selecting-a-widget-style) for details how to sel
 
 ```slint
 import { Button, VerticalBox } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     VerticalBox {
         Button {
             text: "Click Me";
@@ -60,7 +60,7 @@ it can used one of the pre-defined `kind` and the text and icon will depend on t
 
 ```slint
 import { StandardButton, VerticalBox } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
   VerticalBox {
     StandardButton { kind: ok; }
     StandardButton { kind: apply; }
@@ -84,7 +84,7 @@ Example := Window {
 
 ```slint
 import { CheckBox } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 200px;
     height: 25px;
     CheckBox {
@@ -107,7 +107,7 @@ Example := Window {
 
 ```slint
 import { SpinBox } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 200px;
     height: 25px;
     SpinBox {
@@ -134,7 +134,7 @@ Example := Window {
 
 ```slint
 import { Slider } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 200px;
     height: 25px;
     Slider {
@@ -155,7 +155,7 @@ Example := Window {
 
 ```slint
 import { GroupBox } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 200px;
     height: 100px;
     GroupBox {
@@ -193,7 +193,7 @@ A widget used to enter a single line of text
 
 ```slint
 import { LineEdit } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 200px;
     height: 25px;
     LineEdit {
@@ -231,7 +231,7 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 
 ```slint
 import { TextEdit } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 200px;
     height: 200px;
     TextEdit {
@@ -267,10 +267,11 @@ using for loops may be added in the future and is tracked in issue #407.
 
 ```slint
 import { ScrollView } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 200px;
     height: 200px;
     ScrollView {
+        x:0;y:0;
         width: 200px;
         height: 200px;
         viewport-width: 300px;
@@ -297,10 +298,11 @@ Same as ScrollView
 
 ```slint
 import { ListView } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 150px;
     height: 150px;
     ListView {
+        x:0;y:0;
         width: 150px;
         height: 150px;
         for data in [
@@ -317,6 +319,7 @@ Example := Window {
             background: data.bg;
             width: parent.width;
             Text {
+                x:0;y:0;
                 text: data.text;
                 color: data.color;
             }
@@ -343,10 +346,11 @@ Same as ListView, and in addition:
 
 ```slint
 import { StandardListView } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 150px;
     height: 150px;
     StandardListView {
+        x:0;y:0;
         width: 150px;
         height: 150px;
         model: [ { text: "Blue"}, { text: "Red" }, { text: "Green" },
@@ -376,12 +380,13 @@ A button that, when clicked, opens a popup to select a value.
 
 ```slint
 import { ComboBox } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 200px;
     height: 130px;
     ComboBox {
-        width: preferred-width;
-        height: preferred-height;
+        x:0;y:0;
+        width: self.preferred-width;
+        height: self.preferred-height;
         model: ["first", "second", "third"];
         current-value: "first";
     }
@@ -405,7 +410,7 @@ a time.
 
 ```slint
 import { TabWidget } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 200px;
     height: 200px;
     TabWidget {
@@ -434,7 +439,7 @@ This element displays the a "Made with Slint" badge.
 
 ```slint
 import { AboutSlint } from "std-widgets.slint";
-Example := Window {
+component Example inherits Window {
     width: 128px;
     height: 128px;
     AboutSlint {

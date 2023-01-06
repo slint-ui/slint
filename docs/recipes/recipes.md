@@ -8,13 +8,13 @@ This page provides a collection of common use-cases and how to implement them us
 
 ```slint,no-auto-preview
 import { VerticalBox, Button } from "std-widgets.slint";
-export Recipe := Window {
-    property <int> counter: 0;
+export component Recipe inherits Window {
+    in-out property <int> counter: 0;
     VerticalBox {
         button := Button {
-            text: "Button, pressed " + counter + " times";
+            text: "Button, pressed " + root.counter + " times";
             clicked => {
-                counter += 1;
+                root.counter += 1;
             }
         }
     }
@@ -48,12 +48,12 @@ This example increments the counter using native code, instead with the slint la
 
 ```slint,no-preview
 import { VerticalBox, Button } from "std-widgets.slint";
-export Recipe := Window {
-    property <int> counter: 0;
+export component Recipe inherits Window {
+    in-out property <int> counter: 0;
     callback button-pressed <=> button.clicked;
     VerticalBox {
         button := Button {
-            text: "Button, pressed " + counter + " times";
+            text: "Button, pressed " + root.counter + " times";
         }
     }
 }
@@ -129,7 +129,7 @@ is generated. For the callback, a function to set the callback is generated (`on
 
 ```slint,no-auto-preview
 import { VerticalBox, Slider } from "std-widgets.slint";
-export Recipe := Window {
+export component Recipe inherits Window {
     VerticalBox {
         slider := Slider {
             maximum: 100;
@@ -152,11 +152,12 @@ code between the curly braces to a string.
 
 ```slint,no-auto-preview
 import { CheckBox } from "std-widgets.slint";
-export Recipe := Window {
+export component Recipe inherits Window {
     width: 200px;
     height: 100px;
 
     rect := Rectangle {
+        x:0;
         y: 5px;
         width: 40px;
         height: 40px;
@@ -192,11 +193,12 @@ changes: Either because the property is set in a callback, or if its binding val
 
 ```slint,no-auto-preview
 import { CheckBox } from "std-widgets.slint";
-export Recipe := Window {
+export component Recipe inherits Window {
     width: 200px;
     height: 100px;
 
     rect := Rectangle {
+        x:0;
         y: 5px;
         width: 40px;
         height: 40px;
@@ -238,16 +240,16 @@ This example uses the `delay` property to make one animation run after another.
 ```slint,no-auto-preview
 import { HorizontalBox, VerticalBox, Button } from "std-widgets.slint";
 
-Circle := Rectangle {
+component Circle inherits Rectangle {
     width: 30px;
     height: 30px;
-    border-radius: width / 2;
+    border-radius: root.width / 2;
     animate x { duration: 250ms; easing: ease-in; }
     animate y { duration: 250ms; easing: ease-in-out; }
     animate background { duration: 250ms; }
 }
 
-export Recipe := Window {
+export component Recipe inherits Window {
     states [
         left-aligned when b1.pressed: {
             circle1.x: 0px; circle1.y: 40px; circle1.background: green;
@@ -261,7 +263,7 @@ export Recipe := Window {
 
     VerticalBox {
         HorizontalBox {
-            max-height: min-height;
+            max-height: self.min-height;
             b1 := Button {
                 text: "State 1";
             }
@@ -274,7 +276,7 @@ export Recipe := Window {
             width: 200px;
             height: 100px;
 
-            circle1 := Circle { background: green; x: 85px; }
+            circle1 := Circle { y:0; background: green; x: 85px; }
             circle2 := Circle { background: green; x: 85px; y: 40px; }
         }
     }
@@ -286,13 +288,13 @@ export Recipe := Window {
 ```slint,no-auto-preview
 import { HorizontalBox, VerticalBox, Button } from "std-widgets.slint";
 
-Circle := Rectangle {
+component Circle inherits Rectangle {
     width: 30px;
     height: 30px;
-    border-radius: width / 2;
+    border-radius: root.width / 2;
 }
 
-export Recipe := Window {
+export component Recipe inherits Window {
     states [
         left-aligned when b1.pressed: {
             circle1.x: 0px; circle1.y: 40px;
@@ -301,6 +303,12 @@ export Recipe := Window {
                 animate circle1.x, circle2.x { duration: 250ms; }
             }
             out {
+                animate circle1.x, circle2.x { duration: 500ms; }
+            }
+        in {
+                animate circle1.x, circle2.x { duration: 250ms; }
+            }
+        out {
                 animate circle1.x, circle2.x { duration: 500ms; }
             }
         }
@@ -312,7 +320,7 @@ export Recipe := Window {
 
     VerticalBox {
         HorizontalBox {
-            max-height: min-height;
+            max-height: self.min-height;
             b1 := Button {
                 text: "Press and hold to change state";
             }
@@ -322,7 +330,7 @@ export Recipe := Window {
             width: 250px;
             height: 100px;
 
-            circle1 := Circle { background: green; x: 85px; }
+            circle1 := Circle { y:0; background: green; x: 85px; }
             circle2 := Circle { background: blue; x: 85px; y: 40px; }
         }
     }
@@ -335,7 +343,7 @@ export Recipe := Window {
 
 ```slint,no-auto-preview
 import { VerticalBox, Button } from "std-widgets.slint";
-export Recipe := Window {
+export component Recipe inherits Window {
     VerticalBox {
         Button { text: "First"; }
         Button { text: "Second"; }
@@ -348,7 +356,7 @@ export Recipe := Window {
 
 ```slint,no-auto-preview
 import { HorizontalBox, Button } from "std-widgets.slint";
-export Recipe := Window {
+export component Recipe inherits Window {
     HorizontalBox {
         Button { text: "First"; }
         Button { text: "Second"; }
@@ -361,7 +369,7 @@ export Recipe := Window {
 
 ```slint,no-auto-preview
 import { GridBox, Button, Slider } from "std-widgets.slint";
-export Recipe := Window {
+export component Recipe inherits Window {
     GridBox {
         Row {
             Button { text: "First"; }
@@ -392,12 +400,12 @@ connected to the native code.
 ```slint,no-preview
 import { HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint";
 
-export global Logic := {
+export global Logic  {
     pure callback to-upper-case(string) -> string;
     // You can collect other global properties here
 }
 
-export Recipe := Window {
+export component Recipe inherits Window {
     VerticalBox {
         input := LineEdit {
             text: "Text to be transformed";
@@ -484,7 +492,7 @@ Example using gettext:
 ```slint,no-preview
 import { HorizontalBox, Button } from "std-widgets.slint";
 
-export global Tr := {
+export global Tr  {
     // Do the translation of the first argument, with an array of string as supstitution
     pure callback gettext(string, [string]) -> string;
 
@@ -492,11 +500,11 @@ export global Tr := {
     gettext(text, _) => { return text; }
 }
 
-Example := Window {
-    property <int> count;
+component Example inherits Window {
+    in-out property <int> count;
     HorizontalBox {
         Button {
-            text: Tr.gettext("Button pressed {0} times", [count]);
+            text: Tr.gettext("Button pressed {0} times", [root.count]);
         }
     }
 }
@@ -560,24 +568,24 @@ fn main() {
 ### Custom Button
 
 ```slint,no-auto-preview
-Button := Rectangle {
-    property text <=> txt.text;
+component Button inherits Rectangle {
+    in-out property text <=> txt.text;
     callback clicked <=> touch.clicked;
-    border-radius: height / 2;
+    border-radius: root.height / 2;
     border-width: 1px;
-    border-color: background.darker(25%);
+    border-color: root.background.darker(25%);
     background: touch.pressed ? #6b8282 : touch.has-hover ? #6c616c :  #456;
     height: txt.preferred-height * 1.33;
     min-width: txt.preferred-width + 20px;
     txt := Text {
-        x: (parent.width - width)/2 + (touch.pressed ? 2px : 0);
-        y: (parent.height - height)/2 + (touch.pressed ? 1px : 0);
+        x: (parent.width - self.width)/2 + (touch.pressed ? 2px : 0);
+        y: (parent.height - self.height)/2 + (touch.pressed ? 1px : 0);
         color: touch.pressed ? #fff : #eee;
     }
     touch := TouchArea { }
 }
 
-export Recipe := Window {
+export component Recipe inherits Window {
     VerticalLayout {
         alignment: start;
         Button { text: "Button"; }
@@ -588,11 +596,11 @@ export Recipe := Window {
 ### ToggleSwitch
 
 ```slint,no-auto-preview
-export ToggleSwitch := Rectangle {
+export component ToggleSwitch inherits Rectangle {
     callback toggled;
-    property <string> text;
-    property <bool> checked;
-    property<bool> enabled <=> touch-area.enabled;
+    in-out property <string> text;
+    in-out property <bool> checked;
+    in-out property<bool> enabled <=> touch-area.enabled;
     height: 20px;
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -603,7 +611,7 @@ export ToggleSwitch := Rectangle {
             width: 40px;
             border-width: 1px;
             border-radius: root.height / 2;
-            border-color: background.darker(25%);
+            border-color: self.background.darker(25%);
             background: root.enabled ? (root.checked ? blue: white)  : white;
             animate background { duration: 100ms; }
 
@@ -612,7 +620,7 @@ export ToggleSwitch := Rectangle {
                 height: bubble.width;
                 border-radius: bubble.height / 2;
                 y: 4px;
-                x: 4px + a * (indicator.width - bubble.width - 8px);
+                x: 4px + self.a * (indicator.width - bubble.width - 8px);
                 property <float> a: root.checked ? 1 : 0;
                 background: root.checked ? white : (root.enabled ? blue : gray);
                 animate a, background { duration: 200ms; easing: ease;}
@@ -620,7 +628,7 @@ export ToggleSwitch := Rectangle {
         }
 
         Text {
-            min-width: max(100px, preferred-width);
+            min-width: max(100px, self.preferred-width);
             text: root.text;
             vertical-alignment: center;
             color: root.enabled ? black : gray;
@@ -629,6 +637,7 @@ export ToggleSwitch := Rectangle {
     }
 
     touch-area := TouchArea {
+        x:0;y:0;
         width: root.width;
         height: root.height;
         clicked => {
@@ -640,7 +649,7 @@ export ToggleSwitch := Rectangle {
     }
 }
 
-export Recipe := Window {
+export component Recipe inherits Window {
     VerticalLayout {
         alignment: start;
         ToggleSwitch { text: "Toggle me"; }
@@ -657,48 +666,48 @@ the whole widget.
 ```slint,no-auto-preview
 import { VerticalBox } from "std-widgets.slint";
 
-export MySlider := Rectangle {
-    property<float> maximum: 100;
-    property<float> minimum: 0;
-    property<float> value;
+export component MySlider inherits Rectangle {
+    in-out property<float> maximum: 100;
+    in-out property<float> minimum: 0;
+    in-out property<float> value;
 
     min-height: 24px;
     min-width: 100px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
-    border-radius: height/2;
+    border-radius: root.height/2;
     background: touch.pressed ? #eee: #ddd;
     border-width: 1px;
-    border-color: background.darker(25%);
+    border-color: root.background.darker(25%);
 
     handle := Rectangle {
-        width: height;
+        width: self.height;
         height: parent.height;
         border-width: 3px;
-        border-radius: height / 2;
+        border-radius: self.height / 2;
         background: touch.pressed ? #f8f: touch.has-hover ? #66f : #0000ff;
-        border-color: background.darker(15%);
-        x: (root.width - handle.width) * (value - minimum)/(maximum - minimum);
+        border-color: self.background.darker(15%);
+        x: (root.width - handle.width) * (root.value - root.minimum)/(root.maximum - root.minimum);
     }
     touch := TouchArea {
         property <float> pressed-value;
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                pressed-value = root.value;
+                self.pressed-value = root.value;
             }
         }
         moved => {
-            if (enabled && pressed) {
-                value = max(root.minimum, min(root.maximum,
-                    pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
+            if (self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (touch.mouse-x - touch.pressed-x) * (root.maximum - root.minimum) / (root.width - handle.width)));
 
             }
         }
     }
 }
 
-export Recipe := Window {
+export component Recipe inherits Window {
     VerticalBox {
         alignment: start;
         slider := MySlider {
@@ -718,42 +727,42 @@ The TouchArea is within the handle and moves with the handle.
 ```slint,no-auto-preview
 import { VerticalBox } from "std-widgets.slint";
 
-export MySlider := Rectangle {
-    property<float> maximum: 100;
-    property<float> minimum: 0;
-    property<float> value;
+export component MySlider inherits Rectangle {
+    in-out property<float> maximum: 100;
+    in-out property<float> minimum: 0;
+    in-out property<float> value;
 
     min-height: 24px;
     min-width: 100px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
-    border-radius: height/2;
+    border-radius: root.height/2;
     background: touch.pressed ? #eee: #ddd;
     border-width: 1px;
-    border-color: background.darker(25%);
+    border-color: root.background.darker(25%);
 
     handle := Rectangle {
-        width: height;
+        width: self.height;
         height: parent.height;
         border-width: 3px;
-        border-radius: height / 2;
+        border-radius: self.height / 2;
         background: touch.pressed ? #f8f: touch.has-hover ? #66f : #0000ff;
-        border-color: background.darker(15%);
-        x: (root.width - handle.width) * (value - minimum)/(maximum - minimum);
+        border-color: self.background.darker(15%);
+        x: (root.width - handle.width) * (root.value - root.minimum)/(root.maximum - root.minimum);
 
         touch := TouchArea {
             moved => {
-                if (enabled && pressed) {
-                    value = max(root.minimum, min(root.maximum,
-                        value + (mouse-x - pressed-x) * (maximum - minimum) / root.width));
+                if (self.enabled && self.pressed) {
+                    root.value = max(root.minimum, min(root.maximum,
+                        root.value + (self.mouse-x - self.pressed-x) * (root.maximum - root.minimum) / root.width));
                 }
             }
         }
     }
 }
 
-export Recipe := Window {
+export component Recipe inherits Window {
     VerticalBox {
         alignment: start;
         slider := MySlider {
@@ -772,40 +781,40 @@ Use this recipe as a basis to when you want to create your own custom tab widget
 ```slint,no-auto-preview
 import { Button } from "std-widgets.slint";
 
-export Recipe := Window {
+export component Recipe inherits Window {
     preferred-height: 200px;
-    property <int> active-tab;
+    in-out property <int> active-tab;
     VerticalLayout {
         tab_bar := HorizontalLayout {
             spacing: 3px;
             Button {
                 text: "Red";
-                clicked => { active-tab = 0; }
+                clicked => { root.active-tab = 0; }
             }
             Button {
                 text: "Blue";
-                clicked => { active-tab = 1; }
+                clicked => { root.active-tab = 1; }
             }
             Button {
                 text: "Green";
-                clicked => { active-tab = 2; }
+                clicked => { root.active-tab = 2; }
             }
         }
         Rectangle {
             clip: true;
             Rectangle {
                 background: red;
-                x: active-tab == 0 ? 0 : active-tab < 0 ? - width - 1px : parent.width + 1px;
+                x: root.active-tab == 0 ? 0 : root.active-tab < 0 ? - self.width - 1px : parent.width + 1px;
                 animate x { duration: 125ms; easing: ease; }
             }
             Rectangle {
                 background: blue;
-                x: active-tab == 1 ? 0 : active-tab < 1 ? - width - 1px : parent.width + 1px;
+                x: root.active-tab == 1 ? 0 : root.active-tab < 1 ? - self.width - 1px : parent.width + 1px;
                 animate x { duration: 125ms; easing: ease; }
             }
             Rectangle {
                 background: green;
-                x: active-tab == 2 ? 0 : active-tab < 2 ? - width - 1px : parent.width + 1px;
+                x: root.active-tab == 2 ? 0 : root.active-tab < 2 ? - self.width - 1px : parent.width + 1px;
                 animate x { duration: 125ms; easing: ease; }
             }
         }
@@ -820,15 +829,15 @@ Slint doesn't currently provide a table widget. It's possible to emulate it with
 ```slint,no-auto-preview
 import { VerticalBox, ListView } from "std-widgets.slint";
 
-TableView := Rectangle {
+component TableView inherits Rectangle {
     in property <[string]> columns;
     in property <[[string]]> values;
 
-    private property <length> e: self.width / columns.length;
+    private property <length> e: self.width / root.columns.length;
     private property <[length]> column_sizes: [
-        e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e,
-        e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e,
-        e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e, e,
+        root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e,
+        root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e,
+        root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e, root.e,
     ];
 
     VerticalBox {
@@ -836,26 +845,26 @@ TableView := Rectangle {
         HorizontalLayout {
             padding: 5px; spacing: 5px;
             vertical-stretch: 0;
-            for title[idx] in columns : HorizontalLayout {
-                width: column_sizes[idx];
+            for title[idx] in root.columns : HorizontalLayout {
+                width: root.column_sizes[idx];
                 Text { overflow: elide; text: title; }
                 Rectangle {
                     width: 1px;
                     background: gray;
                     TouchArea {
                         width: 10px;
-                        x: (parent.width - width) / 2;
+                        x: (parent.width - self.width) / 2;
                         property <length> cached;
                         pointer-event(event) => {
                             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                                cached = column_sizes[idx];
+                                self.cached = root.column_sizes[idx];
                             }
                         }
                         moved => {
-                            if (pressed) {
-                                column_sizes[idx] += (self.mouse-x - self.pressed-x);
-                                if (column_sizes[idx] < 0) {
-                                    column_sizes[idx] = 0;
+                            if (self.pressed) {
+                                root.column_sizes[idx] += (self.mouse-x - self.pressed-x);
+                                if (root.column_sizes[idx] < 0) {
+                                    root.column_sizes[idx] = 0;
                                 }
                             }
                         }
@@ -865,11 +874,11 @@ TableView := Rectangle {
             }
         }
         ListView {
-            for r in values : HorizontalLayout {
+            for r in root.values : HorizontalLayout {
                 padding: 5px;
                 spacing: 5px;
                 for t[idx] in r : HorizontalLayout {
-                    width: column_sizes[idx];
+                    width: root.column_sizes[idx];
                     Text { overflow: elide; text: t; }
                 }
             }
@@ -877,7 +886,7 @@ TableView := Rectangle {
     }
 }
 
-Example := Window {
+component Example inherits Window {
    TableView {
        columns: ["Device", "Mount Point", "Total", "Free"];
        values: [
@@ -896,17 +905,17 @@ Use this recipe to implement a responsive SideBar that collapses when the parent
 ```slint,no-auto-preview
 import { Button, StyleMetrics } from "std-widgets.slint";
 
-export SideBar := Rectangle {
-    private property <bool> collapsed: reference-width < break-point;
+export component SideBar inherits Rectangle {
+    private property <bool> collapsed: root.reference-width < root.break-point;
 
     /// Defines the reference width to check `break-point`.
-    property <length> reference-width;
+    in-out property <length> reference-width;
 
     /// If `reference-width` is less `break-point` the `SideBar` collapses.
-    property <length> break-point: 600px;
+    in-out property <length> break-point: 600px;
 
     /// Set the text of the expand button.
-    property <string> expand-button-text;
+    in-out property <string> expand-button-text;
 
     width: 160px;
    
@@ -923,9 +932,9 @@ export SideBar := Rectangle {
             HorizontalLayout {  
                 alignment: start;
 
-                if (collapsed) : Button {
+                if (root.collapsed) : Button {
                     checked: container.expaned;
-                    text: expand-button-text;
+                    text: root.expand-button-text;
     
                     clicked => {  
                         container.expaned = !container.expaned;
@@ -947,18 +956,24 @@ export SideBar := Rectangle {
                 out {
                     animate width { duration: 200ms; }
                 }
+            in {
+                    animate width { duration: 200ms; }
+                }
+            out {
+                    animate width { duration: 200ms; }
+                }
             }
         ]
     }
 
     states [
-        collapsed when collapsed : {
+        collapsed when root.collapsed : {
             width: 62px;
         }
     ]
 }
 
-SideBarTest := Window {
+component SideBarTest inherits Window {
     preferred-width: 700px;
     min-height: 400px;
    
