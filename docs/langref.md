@@ -34,7 +34,6 @@ export component MyApp inherits Window {
     preferred-width: 200px;
     preferred-height: 100px;
     Rectangle {
-        x:0;y:0;
         width: 200px;
         height: 100px;
         background: green;
@@ -83,6 +82,20 @@ The current element can be referred as `self`.
 The parent element can be referred as `parent`.
 These names are reserved and cannot be used as element names.
 
+### Legacy syntax
+
+To keep compatibility with previous version of Slint, the old syntax that declared component with `:=` is still valid
+
+```slint,no-preview
+MyApp := Window {
+    //...
+}
+```
+
+Element position and property lookup is different in the new syntax.
+In the new syntax, only property declared within the component are in scope.
+In the previous syntax, all properties of bases of `self` and `root` were also in scope.
+
 ### Container Components
 
 When creating components, it may sometimes be useful to influence where child elements
@@ -94,7 +107,6 @@ component MyApp inherits Window {
 
     BoxWithLabel {
         Text {
-            x:0;y:0;
             // ...
         }
     }
@@ -159,28 +171,28 @@ component are public and can be accessed by the component using it as an element
 language bindings:
 
 ```slint,no-preview
-component Example inherits Rectangle {
+component Example {
     // declare a property of type int with the name `my-property`
-    in-out property<int> my-property;
+    property<int> my-property;
 
     // declare a property with a default value
-    in-out property<int> my-second-property: 42;
+    property<int> my-second-property: 42;
 }
 ```
 
 You can annotate the properties with a qualifier that specifies how the property can be read and written:
 
- * **`private`**: The property can only be accessed from within the component.
+ * **`private`** (the default): The property can only be accessed from within the component.
  * **`in`**: The property is an input. It can be set and modified by the user of this component,
    for example through bindings or by assignment in callbacks.
    The component can provide a default binding, but it cannot overwrite it by
    assignment
  * **`out`**: An output property that can only be set by the component. It is read-only for the
    users of the components.
- * **`in-out`** (the default): The property can be read and modified by everyone.
+ * **`in-out`**: The property can be read and modified by everyone.
 
 ```slint,no-preview
-component Button inherits Rectangle {
+component Button {
     // This is meant to be set by the user of the component.
     in property <string> text;
     // This property is meant to be read by the user of the component.
@@ -192,6 +204,8 @@ component Button inherits Rectangle {
     private property <bool> has-mouse;
 }
 ```
+
+Note: In the legacy syntax, the default was `in-out`, but this has been changed in the new syntax
 
 ### Bindings
 
@@ -226,10 +240,10 @@ The right hand side of the `<=>` must be a reference to a property of the same t
 The type can be omitted in a property declaration to have the type automatically inferred.
 
 ```slint,no-preview
-component Example inherits Window {
-    in-out property<brush> rect-color <=> r.background;
+component Example  {
+    in property<brush> rect-color <=> r.background;
     // it is allowed to omit the type to have it automatically inferred
-    in-out property rect-color2 <=> r.background;
+    in property rect-color2 <=> r.background;
     r:= Rectangle {
         width: parent.width;
         height: parent.height;
@@ -268,7 +282,7 @@ The trailing semicolon is optional.
 They can be initialized with a struct literal: `{ identifier1: expression1, identifier2: expression2  }`
 
 ```slint,no-preview
-component Example inherits Window {
+component Example {
     in-out property<{name: string, score: int}> player: { name: "Foo", score: 100 };
     in-out property<{a: int, }> foo: { a: 3 };
 }
@@ -284,7 +298,7 @@ export struct Player  {
     score: int,
 }
 
-component Example inherits Window {
+component Example {
     in-out property<Player> player: { name: "Foo", score: 100 };
 }
 ```
@@ -295,7 +309,7 @@ The type array is using square brackets for example  `[int]` is an array of `int
 basically used as models for the `for` expression.
 
 ```slint,no-preview
-component Example inherits Window {
+component Example {
     in-out property<[int]> list-of-int: [1,2,3];
     in-out property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
 }
@@ -321,19 +335,19 @@ component Example inherits Window {
    a valid number. you can check with `is-float` if the string contains a valid number
 
 ```slint,no-preview
-component Example inherits Window {
+component Example {
     // ok: int converts to string
-    in-out property<{a: string, b: int}> prop1: {a: 12, b: 12 };
+    property<{a: string, b: int}> prop1: {a: 12, b: 12 };
     // ok even if a is missing, it will just have the default value
-    in-out property<{a: string, b: int}> prop2: { b: 12 };
+    property<{a: string, b: int}> prop2: { b: 12 };
     // ok even if c is too many, it will be discarded
-    in-out property<{a: string, b: int}> prop3: { a: "x", b: 12, c: 42 };
+    property<{a: string, b: int}> prop3: { a: "x", b: 12, c: 42 };
     // ERROR: b is missing and c is extra, this does not compile, because it could be a typo.
     // property<{a: string, b: int}> prop4: { a: "x", c: 42 };
 
-    in-out property<string> xxx: "42.1";
-    in-out property<float> xxx1: root.xxx.to-float(); // 42.1
-    in-out property<bool> xxx2: root.xxx.is-float(); // true
+    property<string> xxx: "42.1";
+    property<float> xxx1: xxx.to-float(); // 42.1
+    property<bool> xxx2: xxx.is-float(); // true
 }
 ```
 
@@ -349,7 +363,6 @@ component Example inherits Window {
 
     background: green;
     Rectangle {
-        x:0;y:0;
         background: blue;
         width: parent.width * 50%;
         height: parent.height * 50%;
@@ -373,7 +386,6 @@ component Example inherits Window {
 
     background: green;
     Rectangle {
-        x:0;y:0;
         background: blue;
         width: 50%;
         height: 50%;
@@ -419,7 +431,7 @@ And return value.
 ```slint,no-preview
 component Example inherits Rectangle {
     // declares a callback with a return value
-    pure callback hello(int, int) -> int;
+    callback hello(int, int) -> int;
     hello(aa, bb) => { aa + bb }
 }
 ```
@@ -441,11 +453,11 @@ You can declare helper functions with the function keyword.
 Functions are private by default, but can be made public with the `public` annotation.
 
 ```slint,no-preview
-component Example inherits Rectangle {
-    in-out property <int> min;
-    in-out property <int> max;
-    pure public function inbound(x: int) -> int {
-        return Math.min(root.max, Math.max(root.min, root.x));
+component Example {
+    in property <int> min;
+    in property <int> max;
+    public function inbound(x: int) -> int {
+        return Math.min(root.max, Math.max(root.min, x));
     }
 }
 ```
@@ -468,10 +480,10 @@ Callbacks and public functions can be annotated with the `pure` keyword.
 Private functions can also be annotated with `pure`, otherwise their purity is automatically inferred.
 
 ```slint,no-preview
-component Example inherits Rectangle {
+component Example {
     pure callback foo() -> int;
     public pure function bar(x: int) -> int
-    { return root.x + root.foo(); }
+    { return x + foo(); }
 }
 ```
 
@@ -483,7 +495,7 @@ these properties change, the expression is automatically re-evaluated and a new 
 to the property the expression is associated with:
 
 ```slint,no-preview
-component Example inherits Rectangle {
+component Example {
     // declare a property of type int
     in-out property<int> my-property;
 
@@ -498,7 +510,7 @@ If something changes `my-property`, the width will be updated automatically.
 Arithmetic in expression with numbers works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
 ```slint,no-preview
-component Example inherits Rectangle {
+component Example {
     in-out property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
 }
 ```
@@ -511,7 +523,7 @@ There are also the operators `&&` and `||` for logical *and* and *or* between bo
 You can access properties by addressing the associated element, followed by a `.` and the property name:
 
 ```slint,no-preview
-component Example inherits Rectangle {
+component Example {
     foo := Rectangle {
         x: 42px;
     }
@@ -569,8 +581,8 @@ Color literals follow the syntax of CSS:
 ```slint,no-preview
 component Example inherits Window {
     background: blue;
-    in-out property<color> c1: #ffaaff;
-    in-out property<brush> b2: Colors.red;
+    property<color> c1: #ffaaff;
+    property<brush> b2: Colors.red;
 }
 ```
 
@@ -663,11 +675,10 @@ component Example inherits Window {
     preferred-width: 150px;
     preferred-height: 50px;
 
-    in-out property <image> some_image: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
+    in property <image> some_image: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
 
     Text {
-        x:0;y:0;
-        text: "The image is " + root.some_image.width + "x" + root.some_image.height;
+        text: "The image is " + some_image.width + "x" + some_image.height;
     }
 }
 ```
@@ -744,7 +755,6 @@ component Example inherits Window {
     preferred-width: 300px;
     preferred-height: 100px;
     for my-color[index] in [ #e11, #1a2, #23d ]: Rectangle {
-        y:0;
         height: 100px;
         width: 60px;
         x: self.width * index;
@@ -757,7 +767,7 @@ component Example inherits Window {
 component Example inherits Window {
     preferred-width: 50px;
     preferred-height: 50px;
-    in-out property <[{foo: string, col: color}]> model: [
+    in property <[{foo: string, col: color}]> model: [
         {foo: "abc", col: #f00 },
         {foo: "def", col: #00f },
     ];
@@ -835,7 +845,7 @@ component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
-    text := Text { x:0;y:0; text: "hello"; }
+    text := Text { text: "hello"; }
     in-out property<bool> pressed;
     in-out property<bool> is-enabled;
 
@@ -863,7 +873,7 @@ component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
-    text := Text { x:0;y:0; text: "hello"; }
+    text := Text { text: "hello"; }
     in-out property<bool> pressed;
     in-out property<bool> is-enabled;
 
@@ -874,16 +884,10 @@ component Example inherits Window {
             out {
                 animate * { duration: 800ms; }
             }
-        out {
-                animate * { duration: 800ms; }
-            }
         }
-        down when root.pressed : {
+        down when pressed : {
             background: blue;
             in {
-                animate background { duration: 300ms; }
-            }
-        in {
                 animate background { duration: 300ms; }
             }
         }
@@ -995,7 +999,7 @@ export component MainWindow inherits Window {
     in-out property the-value <=> Logic.the-value;
     pure callback magic-operation <=> Logic.magic-operation;
 
-    SomeComponent {x:0;y:0;}
+    SomeComponent {}
 }
 ```
 
@@ -1170,14 +1174,13 @@ component Example inherits Window {
     preferred-height: 100px;
 
     Rectangle {
-        x:0;y:0;
+        y:0;
         background: red;
         height: 50px;
         width: parent.width * mod(animation-tick(), 2s) / 2s;
     }
 
     Rectangle {
-        x:0;
         background: blue;
         height: 50px;
         y: 50px;
@@ -1309,7 +1312,6 @@ component Example inherits Window {
     default-font-family: "Noto Sans";
 
     Text {
-        x:0;y:0;
         text: "Hello World";
     }
 }

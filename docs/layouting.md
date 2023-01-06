@@ -67,8 +67,9 @@ Additionally, the `width` and `height` properties can also be specified as a `%`
 unit, which applies relative to the parent element. For example a `width: 50%` means half
 of the parent's `width`.
 
-The default values for `x` and `y` properties are 0, which means they align with their parent
-on the screen.
+The default values for `x` and `y` properties are set such that elements are centered within their
+parent.
+(Unless using the legacy syntax, in which case the default is `0, 0`)
 
 The default values for `width` and `height` depend on the type of element. Some elements are sized
 automatically based on their content, such as `Image`, `Text`, and most widgets. The following elements
@@ -366,6 +367,3 @@ component Foo inherits Window {
 }
 ```
 
-## `PathLayout`
-
-FIXME: write docs
