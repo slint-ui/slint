@@ -8,10 +8,10 @@ slint::slint!(import { Booker } from "booker.slint";);
 
 pub fn main() {
     let booker = Booker::new();
-    booker.on_validate_date(|date: SharedString| {
+    booker.on_validate_date(|_, date: SharedString| {
         NaiveDate::parse_from_str(date.as_str(), "%d.%m.%Y").is_ok()
     });
-    booker.on_compare_date(|date1: SharedString, date2: SharedString| {
+    booker.on_compare_date(|_, date1: SharedString, date2: SharedString| {
         let date1 = match NaiveDate::parse_from_str(date1.as_str(), "%d.%m.%Y") {
             Err(_) => return false,
             Ok(x) => x,

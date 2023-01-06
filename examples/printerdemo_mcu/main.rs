@@ -51,18 +51,18 @@ fn main() -> ! {
     });
     main_window.global::<PrinterQueue>().set_printer_queue(printer_queue.data.clone().into());
 
-    main_window.on_quit(move || {
+    main_window.on_quit(move |_| {
         #[cfg(not(target_arch = "wasm32"))]
         slint::quit_event_loop().unwrap();
     });
 
     let printer_queue_copy = printer_queue.clone();
-    main_window.global::<PrinterQueue>().on_start_job(move |title| {
+    main_window.global::<PrinterQueue>().on_start_job(move |_, title| {
         printer_queue_copy.push_job(title);
     });
 
     let printer_queue_copy = printer_queue.clone();
-    main_window.global::<PrinterQueue>().on_cancel_job(move |idx| {
+    main_window.global::<PrinterQueue>().on_cancel_job(move |_, idx| {
         printer_queue_copy.data.remove(idx as usize);
     });
 

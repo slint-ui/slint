@@ -530,6 +530,8 @@ fn public_api(
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
+    let public_component_id = public_component_id(&ctx.public_component.item_tree.root);
+
     for p in public_properties {
         let prop_ident = ident(&p.name);
         let prop = access_member(&p.prop, ctx);
@@ -552,12 +554,13 @@ fn public_api(
             let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
-                pub fn #on_ident(&self, mut f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
+                pub fn #on_ident(&self, mut f: impl FnMut(&#public_component_id, #(#callback_args),*) -> #return_type + 'static) {
                     let _self = #self_init;
+                    let root_weak = _self.root.get().unwrap().clone();
                     #[allow(unused)]
                     #prop.set_handler(
                         // FIXME: why do i need to clone here?
-                        move |args| f(#(args.#args_index.clone()),*)
+                        move |args| f(&#public_component_id(root_weak.upgrade().unwrap()), #(args.#args_index.clone()),*)
                     )
                 }
             ));

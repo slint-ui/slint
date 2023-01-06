@@ -92,10 +92,8 @@ pub fn main() {
     {
         let model = model.clone();
         let undo_stack = undo_stack.clone();
-        let window_weak = main_window.as_weak();
-        main_window.on_background_clicked(move |x, y| {
+        main_window.on_background_clicked(move |main_window, x, y| {
             let mut undo_stack = undo_stack.borrow_mut();
-            let main_window = window_weak.unwrap();
 
             model.push(Circle { x: x as f32, y: y as f32, d: 30.0 });
             undo_stack.push(Change::CircleAdded { row: model.row_count() - 1 });
@@ -107,10 +105,8 @@ pub fn main() {
 
     {
         let undo_stack = undo_stack.clone();
-        let window_weak = main_window.as_weak();
-        main_window.on_undo_clicked(move || {
+        main_window.on_undo_clicked(move |main_window| {
             let mut undo_stack = undo_stack.borrow_mut();
-            let main_window = window_weak.unwrap();
             undo_stack.undo();
             main_window.set_undoable(undo_stack.undoable());
             main_window.set_redoable(undo_stack.redoable());
@@ -119,10 +115,8 @@ pub fn main() {
 
     {
         let undo_stack = undo_stack.clone();
-        let window_weak = main_window.as_weak();
-        main_window.on_redo_clicked(move || {
+        main_window.on_redo_clicked(move |main_window| {
             let mut undo_stack = undo_stack.borrow_mut();
-            let main_window = window_weak.unwrap();
             undo_stack.redo();
             main_window.set_undoable(undo_stack.undoable());
             main_window.set_redoable(undo_stack.redoable());
@@ -132,11 +126,9 @@ pub fn main() {
     {
         let model = model.clone();
         let undo_stack = undo_stack.clone();
-        let window_weak = main_window.as_weak();
-        main_window.on_circle_resized(move |row, diameter| {
+        main_window.on_circle_resized(move |main_window, row, diameter| {
             let row = row as usize;
             let mut undo_stack = undo_stack.borrow_mut();
-            let main_window = window_weak.unwrap();
 
             let mut circle = model.row_data(row).unwrap();
             let old_d = circle.d;

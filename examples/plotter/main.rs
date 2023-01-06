@@ -78,7 +78,7 @@ pub fn main() {
 
     let main_window = MainWindow::new();
 
-    main_window.on_render_plot(render_plot);
+    main_window.on_render_plot(|_, p, y, a| render_plot(p, y, a));
 
     main_window.run();
 }

@@ -32,9 +32,7 @@ pub fn main() {
 
     main_window.set_memory_tiles(tiles_model.clone().into());
 
-    let main_window_weak = main_window.as_weak();
-
-    main_window.on_check_if_pair_solved(move || {
+    main_window.on_check_if_pair_solved(move |main_window| {
         let mut flipped_tiles =
             tiles_model.iter().enumerate().filter(|(_, tile)| tile.image_visible && !tile.solved);
 
@@ -48,11 +46,11 @@ pub fn main() {
                 t2.solved = true;
                 tiles_model.set_row_data(t2_idx, t2);
             } else {
-                main_window_weak.unwrap().set_disable_tiles(true);
-                let main_window_weak = main_window_weak.clone();
+                main_window.set_disable_tiles(true);
+                let main_window = main_window.clone_strong();
                 let tiles_model = tiles_model.clone();
                 Timer::single_shot(Duration::from_secs(1), move || {
-                    main_window_weak.unwrap().set_disable_tiles(false);
+                    main_window.set_disable_tiles(false);
                     t1.image_visible = false;
                     tiles_model.set_row_data(t1_idx, t1);
                     t2.image_visible = false;

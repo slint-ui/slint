@@ -33,10 +33,8 @@ pub fn main() {
     main_window.set_names_list(filtered_model.clone().into());
 
     {
-        let main_window_weak = main_window.as_weak();
         let model = model.clone();
-        main_window.on_createClicked(move || {
-            let main_window = main_window_weak.unwrap();
+        main_window.on_createClicked(move |main_window| {
             let new_entry = Name {
                 first: main_window.get_name().to_string(),
                 last: main_window.get_surname().to_string(),
@@ -46,12 +44,9 @@ pub fn main() {
     }
 
     {
-        let main_window_weak = main_window.as_weak();
         let model = model.clone();
         let filtered_model = filtered_model.clone();
-        main_window.on_updateClicked(move || {
-            let main_window = main_window_weak.unwrap();
-
+        main_window.on_updateClicked(move |main_window| {
             let updated_entry = Name {
                 first: main_window.get_name().to_string(),
                 last: main_window.get_surname().to_string(),
@@ -63,22 +58,17 @@ pub fn main() {
     }
 
     {
-        let main_window_weak = main_window.as_weak();
         let model = model.clone();
         let filtered_model = filtered_model.clone();
-        main_window.on_deleteClicked(move || {
-            let main_window = main_window_weak.unwrap();
-
+        main_window.on_deleteClicked(move |main_window| {
             let index = filtered_model.unfiltered_row(main_window.get_current_item() as usize);
             model.remove(index);
         });
     }
 
     {
-        let main_window_weak = main_window.as_weak();
         let filtered_model = filtered_model.clone();
-        main_window.on_prefixEdited(move || {
-            let main_window = main_window_weak.unwrap();
+        main_window.on_prefixEdited(move |main_window| {
             *prefix.borrow_mut() = main_window.get_prefix();
             filtered_model.reset();
         });
