@@ -1352,7 +1352,7 @@ public:
         viewport_height->set(h);
     }
 
-    uintptr_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
+    uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             int index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
