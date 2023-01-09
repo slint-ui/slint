@@ -90,7 +90,3 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
-
-[patch.crates-io]
-# Pull in fix for https://github.com/john01dav/softbuffer/issues/22
-softbuffer = { git = "https://github.com/slint-ui/softbuffer", branch = "simon/macos-scale-fix" }

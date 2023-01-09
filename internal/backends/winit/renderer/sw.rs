@@ -12,7 +12,7 @@ use std::rc::{Rc, Weak};
 
 pub struct WinitSoftwareRenderer<const MAX_BUFFER_AGE: usize> {
     renderer: SoftwareRenderer<MAX_BUFFER_AGE>,
-    canvas: RefCell<Option<softbuffer::GraphicsContext<Rc<winit::window::Window>>>>,
+    canvas: RefCell<Option<softbuffer::GraphicsContext>>,
 }
 
 impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
@@ -28,8 +28,9 @@ impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
     }
 
     fn show(&self, window: &Rc<winit::window::Window>) {
-        *self.canvas.borrow_mut() =
-            Some(unsafe { softbuffer::GraphicsContext::new(window.clone()).unwrap() });
+        *self.canvas.borrow_mut() = Some(unsafe {
+            softbuffer::GraphicsContext::new(window.as_ref(), window.as_ref()).unwrap()
+        });
     }
 
     fn hide(&self) {
