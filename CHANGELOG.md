@@ -20,6 +20,7 @@ All notable changes to this project are documented in this file.
 
  - Compiler panic for files containing no component (#2005)
  - Calling public function from native code
+ - Fixed crash when using repeaters in C++ on 32-bit architectures
 
 ## [0.3.3] - 2022-12-16
 
