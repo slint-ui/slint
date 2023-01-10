@@ -24,7 +24,11 @@ pub(crate) fn fold_node(
                             .and_then(|t| t.prev_token())
                             .filter(|t| t.kind() == SyntaxKind::Whitespace);
                         for t in element.borrow().transitions.clone() {
-                            if t.state_id == state_id {
+                            if t.state_id == state_id
+                                && t.node
+                                    .parent()
+                                    .map_or(false, |p| p.kind() == SyntaxKind::Transitions)
+                            {
                                 for c in t.node.children_with_tokens() {
                                     if !matches!(
                                         c.kind(),
