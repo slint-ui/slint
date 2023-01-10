@@ -134,165 +134,69 @@ fn add_element_properties(
 }
 
 /// Move left from the start of a `token` to include white-space and comments that go with it.
-fn left_extend(token: rowan::SyntaxToken<Language>) -> rowan::TextSize {
-    let expression_position = token.text_range().start();
-    let start_token = {
-        let mut current_token = token.prev_token();
-        let mut start_token = token.clone();
+fn left_extend(token: rowan::SyntaxToken<Language>) -> rowan::SyntaxToken<Language> {
+    let mut current_token = token.prev_token();
+    let mut start_token = token.clone();
+    let mut last_comment = token.clone();
 
-        // Walk backwards:
-        while let Some(t) = current_token {
-            if t.kind() != SyntaxKind::Whitespace && t.kind() != SyntaxKind::Comment {
+    // Walk backwards:
+    while let Some(t) = current_token {
+        if t.kind() == SyntaxKind::Whitespace {
+            let lbs = t.text().matches('\n').count();
+            if lbs >= 1 {
+                start_token = last_comment.clone();
+            }
+            if lbs >= 2 {
                 break;
             }
-            start_token = t.clone();
             current_token = t.prev_token();
+            continue;
         }
-        start_token
-    };
-
-    let start_position = start_token.text_range().start();
-    let len = expression_position
-        .checked_sub(start_position)
-        .expect("start_position >= start of start_token");
-    if len == 0.into() {
-        return start_position;
+        if t.kind() == SyntaxKind::Comment {
+            last_comment = t.clone();
+            current_token = t.prev_token();
+            continue;
+        }
+        break;
     }
 
-    // Collect white-space/comments into a string:
-    let possible_preamble = {
-        let mut tmp = String::with_capacity(len.into());
-        let mut current_token = start_token.clone();
-        while current_token.text_range().start() != expression_position {
-            if current_token.kind() == SyntaxKind::Whitespace {
-                tmp.push_str(current_token.text());
-            } else {
-                // Handle multiline comments by replacing forcing to single line:-)
-                tmp.push_str(&current_token.text().replace('\n', " "));
-            }
-            current_token = current_token
-                .next_token()
-                .expect("We move between the start_token and the expression token");
-        }
-        tmp
-    };
-    let lines: Vec<&str> = possible_preamble.split('\n').rev().collect();
-    if lines.len() == 0 || (lines.len() == 1 && lines[0].trim().is_empty()) {
-        // just a bit of WS between expressions. Leave that alone:
-        return expression_position;
-    }
-
-    let mut result_position = expression_position;
-
-    let indent = {
-        let last_line = lines.first().expect("len was != 0");
-        let last_line_len = last_line.len();
-        let trimmed_line_len = last_line.trim_start().len();
-        if trimmed_line_len == 0 {
-            last_line.to_string()
-        } else {
-            result_position = result_position
-                .checked_sub(trimmed_line_len.try_into().expect("This is > 0"))
-                .expect("This is safe");
-            last_line[0..last_line_len - trimmed_line_len].to_string()
-        }
-    };
-
-    for l in lines.into_iter().skip(1) {
-        let trimmed = l.trim();
-        if trimmed.is_empty() {
-            // Empty lines separate comment sections from each other:
-            return result_position;
-        } else if l.starts_with(&indent) {
-            // We have a comment, that is at least as widely indented as we are:
-            // This line is a comment about us:
-            // Move indent to the front, then one more for the `\n` and then `l.len() -
-            // indent.len()`, which turns into:
-            result_position = result_position
-                .checked_sub((l.len() + 1).try_into().expect("This is fine!"))
-                .expect("This, too");
-        } else {
-            // We had a comment less indented than ourselves, consider that unrelated:
-            return result_position;
-        }
-    }
-    result_position
+    start_token
 }
 
 /// Move right from the end of the `token` to include white-space and comments that go with it.
-fn right_extend(token: rowan::SyntaxToken<Language>) -> rowan::TextSize {
-    let expression_position = token.text_range().end();
-    let (end_token, be_greedy) = {
-        let mut current_token = token.next_token();
-        let mut end_token = token.clone();
-        let mut be_greedy = false;
+fn right_extend(token: rowan::SyntaxToken<Language>) -> rowan::SyntaxToken<Language> {
+    let mut current_token = token.next_token();
+    let mut end_token = token.clone();
+    let mut last_comment = token.clone();
 
-        // Walk forward:
-        while let Some(t) = current_token {
-            if t.kind() == SyntaxKind::RBrace {
-                be_greedy = true;
-            }
-            if t.kind() != SyntaxKind::Whitespace && t.kind() != SyntaxKind::Comment {
-                break;
-            }
-            end_token = t.clone();
-            current_token = t.next_token();
-        }
-        (end_token, be_greedy)
-    };
-
-    let end_position = end_token.text_range().end();
-    let len = end_position.checked_sub(expression_position).expect("end_position >= end of token");
-    if len == 0.into() {
-        return end_position;
-    }
-
-    // Collect white-space/comments into a string:
-    let possible_epilog = {
-        let mut tmp = String::with_capacity(len.into());
-        let mut current_token = token.next_token();
-        while let Some(t) = current_token {
-            if t.kind() == SyntaxKind::Whitespace {
-                tmp.push_str(t.text());
-            } else {
-                // Handle multi-line comments by replacing forcing to single line:-)
-                tmp.push_str(&t.text().replace('\n', " "));
-            }
-            if t.text_range().end() == end_position {
-                break;
-            }
-            current_token = t.next_token();
-        }
-        tmp
-    };
-    let lines: Vec<&str> = possible_epilog.split('\n').collect();
-    if lines.len() <= 1 {
-        // Lines is either
-        // 1. empty (nothing to do)
-        // 2. Just WS (eat if greedy!)
-        // 3. A comment (eat if greedy!)
-        if be_greedy && !lines.is_empty() {
-            return expression_position
-                .checked_add(lines[0].len().try_into().expect("safe!"))
-                .expect("Safe!");
-        } else {
-            return expression_position;
-        }
-    }
-
-    let mut result_position = expression_position;
-    for l in lines.into_iter() {
-        let trimmed = l.trim();
-        if trimmed.is_empty() {
-            // Empty lines separate comment sections from each other:
+    // Walk forwards:
+    while let Some(t) = current_token {
+        if t.kind() == SyntaxKind::RBrace {
+            // All comments between us and a `}` belong to us!
+            end_token = last_comment;
             break;
-        } else {
-            result_position = result_position
-                .checked_add((l.len() + 1).try_into().expect("This is fine!"))
-                .expect("This, too");
         }
+        if t.kind() == SyntaxKind::Whitespace {
+            let lbs = t.text().matches('\n').count();
+            if lbs > 0 {
+                // comments in the current line belong to us, *if* there is a linebreak
+                end_token = last_comment;
+                break;
+            }
+            current_token = t.next_token();
+            continue;
+        }
+        if t.kind() == SyntaxKind::Comment {
+            last_comment = t.clone();
+            current_token = t.next_token();
+            continue;
+        }
+
+        // in all other cases: Leave the comment to the following token!
+        break;
     }
-    result_position
+
+    end_token
 }
 
 fn find_expression_range(
@@ -319,8 +223,8 @@ fn find_expression_range(
             {
                 property_definition_range = Some(ancestor.text_range());
                 selection_range = Some(rowan::TextRange::new(
-                    left_extend(ancestor.first_token()?),
-                    right_extend(ancestor.last_token()?),
+                    left_extend(ancestor.first_token()?).text_range().start(),
+                    right_extend(ancestor.last_token()?).text_range().end(),
                 ))
                 .or_else(|| property_definition_range.clone());
                 break;
@@ -1035,7 +939,7 @@ MainWindow := Window {
             4,
             15,
             4,
-            29, // This is greedy!
+            28,
         );
     }
 
@@ -1057,7 +961,7 @@ MainWindow := Window {
             4,
             12,
             5,
-            12,
+            14,
             6,
             25,
         );
@@ -1114,7 +1018,7 @@ MainWindow := Window {
     }
 
     #[test]
-    fn test_get_property_delete_range_extend_left_many_lines_to_de_indent() {
+    fn test_get_property_delete_range_extend_left_many_lines() {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
@@ -1123,7 +1027,7 @@ MainWindow := Window {
         Text {
             font-size: 12px;
              // Keep
-          // Keep
+
             // Cut
               // Cut
             // Cut
@@ -1160,6 +1064,7 @@ MainWindow := Window {
         Text {
             font-size: 12px;
           // Keep
+
             /* Cut
        Cut
             /* Cut
@@ -1175,9 +1080,9 @@ MainWindow := Window {
             .to_string(),
             4,
             12,
-            7,
+            8,
             12,
-            14,
+            15,
             25,
         );
     }
@@ -1192,7 +1097,7 @@ MainWindow := Window {
         Text {
             font-size: 12px;
 
-            /* Cut
+        /* Cut
        Cut
 
             /* Cut
@@ -1209,7 +1114,7 @@ text: "text";
             4,
             12,
             7,
-            0,
+            8,
             15,
             13,
         );
@@ -1224,7 +1129,7 @@ MainWindow := Window {
     VerticalBox {
         Text {
             font-size: 12px;
-          // Keep
+          // Cut
             /* Cut
        Cut
 
@@ -1241,8 +1146,8 @@ MainWindow := Window {
             .to_string(),
             4,
             12,
-            7,
-            12,
+            6,
+            10,
             15,
             35,
         );
@@ -1257,7 +1162,7 @@ MainWindow := Window {
     VerticalBox {
         Text {
             text: "text"; // Cut
-                // Cut
+                // Keep
         }
     }
 }
@@ -1267,22 +1172,22 @@ MainWindow := Window {
             12,
             5,
             12,
-            7,
-            0,
+            5,
+            32,
         );
     }
 
     #[test]
-    fn test_get_property_delete_range_right_extend_to_empty_line() {
+    fn test_get_property_delete_range_right_extend_to_line_break() {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
 MainWindow := Window {
     VerticalBox {
         Text {
-            text: "text"; // Cut
+            text: "text"; /* Cut
                 // Cut
-                /*   Cut
+                   Cut
                  *   Cut */
 
             // Keep
@@ -1296,8 +1201,8 @@ MainWindow := Window {
             12,
             5,
             12,
-            9,
-            0,
+            8,
+            27,
         );
     }
 
@@ -1387,7 +1292,7 @@ MainWindow := Window {
             4,
             15,
             4,
-            54,
+            53,
         );
     }
 
