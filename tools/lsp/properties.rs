@@ -339,29 +339,34 @@ fn find_expression_range(
     })
 }
 
+fn find_property_binding_offset(element: &Element, property_name: &str) -> Option<u32> {
+    let element_range = element.node.as_ref()?.text_range();
+
+    if let Some(v) = element.bindings.get(property_name) {
+        if let Some(span) = &v.borrow().span {
+            let offset = span.span().offset as u32;
+            if element.source_file().map(|sf| sf.path())
+                == span.source_file.as_ref().map(|sf| sf.path())
+                && element_range.contains(offset.into())
+            {
+                return Some(offset);
+            }
+        }
+    }
+
+    None
+}
+
 fn insert_property_definitions(
     element: &Element,
     properties: &mut Vec<PropertyInformation>,
     offset_to_position: &OffsetToPositionMapper,
 ) {
     if let Some(element_node) = element.node.as_ref() {
-        let element_range = element_node.text_range();
-
         for prop_info in properties {
-            if let Some(v) = element.bindings.get(prop_info.name.as_str()) {
-                if let Some(span) = &v.borrow().span {
-                    let offset = span.span().offset as u32;
-                    if element.source_file().map(|sf| sf.path())
-                        == span.source_file.as_ref().map(|sf| sf.path())
-                        && element_range.contains(offset.into())
-                    {
-                        if let Some(definition) =
-                            find_expression_range(element_node, offset, offset_to_position)
-                        {
-                            prop_info.defined_at = Some(definition);
-                        }
-                    }
-                }
+            if let Some(offset) = find_property_binding_offset(element, prop_info.name.as_str()) {
+                prop_info.defined_at =
+                    find_expression_range(element_node, offset, offset_to_position);
             }
         }
     }
