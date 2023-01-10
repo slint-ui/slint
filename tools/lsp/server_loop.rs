@@ -35,6 +35,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub type Error = Box<dyn std::error::Error>;
 
+/// Trim leading and trailing whitespace tokens from the `range`
+/// `token` must be the first token in that `range`.
+/// This should actually not be necessary (the parser should not
+/// add stray whitespace tokens), but it makes working with the LSP so
+/// much nicer that I want this here till we fix the parser.
 fn range_from_token(token: Option<SyntaxToken>, range: &rowan::TextRange) -> rowan::TextRange {
     let mut current_token = token;
     let mut start_pos = None;
@@ -272,6 +277,7 @@ impl OffsetToPositionMapper {
         lsp_types::Range::new(self.map(r.start()), self.map(r.end()))
     }
 
+    /// This strips leading/trailing whitespace tokens from the node
     pub fn map_node(&self, n: &SyntaxNode) -> lsp_types::Range {
         self.map_range(range_from_token(n.first_token(), &n.text_range()))
     }
