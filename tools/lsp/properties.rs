@@ -18,8 +18,8 @@ use crate::wasm_prelude::*;
 #[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) struct DefinitionInformation {
     property_definition_range: lsp_types::Range,
+    selection_range: lsp_types::Range,
     expression_range: lsp_types::Range,
-    delete_range: lsp_types::Range,
     expression_value: String,
 }
 
@@ -125,7 +125,7 @@ fn add_element_properties(
         });
         Some(PropertyInformation {
             name: name.clone(),
-            type_name: format!("{}", value.property_type),
+            type_name: value.property_type.to_string(),
             declared_at,
             defined_at: None,
             group: group.to_string(),
@@ -300,7 +300,7 @@ fn find_expression_range(
     offset: u32,
     offset_to_position: &OffsetToPositionMapper,
 ) -> Option<DefinitionInformation> {
-    let mut delete_range = None;
+    let mut selection_range = None;
     let mut expression_range = None;
     let mut expression_value = None;
     let mut property_definition_range = None;
@@ -318,7 +318,7 @@ fn find_expression_range(
                 || (ancestor.kind() == SyntaxKind::PropertyDeclaration)
             {
                 property_definition_range = Some(ancestor.text_range());
-                delete_range = Some(rowan::TextRange::new(
+                selection_range = Some(rowan::TextRange::new(
                     left_extend(ancestor.first_token()?),
                     right_extend(ancestor.last_token()?),
                 ))
@@ -333,7 +333,7 @@ fn find_expression_range(
     }
     Some(DefinitionInformation {
         property_definition_range: offset_to_position.map_range(property_definition_range?),
-        delete_range: offset_to_position.map_range(delete_range?),
+        selection_range: offset_to_position.map_range(selection_range?),
         expression_range: offset_to_position.map_range(expression_range?),
         expression_value: expression_value?,
     })
@@ -640,7 +640,7 @@ fn find_insert_position_relative_to_defined_properties(
         } else {
             if let Some(defined_at) = &p.defined_at {
                 if property_index == usize::MAX {
-                    previous_property = Some((i, defined_at.delete_range.end.clone()));
+                    previous_property = Some((i, defined_at.selection_range.end.clone()));
                 } else {
                     if let Some((pi, pp)) = previous_property {
                         if (i - property_index) >= (property_index - pi) {
@@ -650,7 +650,7 @@ fn find_insert_position_relative_to_defined_properties(
                             ));
                         }
                     }
-                    let p = defined_at.delete_range.start.clone();
+                    let p = defined_at.selection_range.start.clone();
                     return Some((lsp_types::Range::new(p.clone(), p), InsertPosition::Before));
                 }
             }
@@ -853,7 +853,7 @@ fn create_workspace_edit_for_remove_binding<'a>(
     property: &PropertyInformation,
 ) -> Option<lsp_types::WorkspaceEdit> {
     property.defined_at.as_ref().map(|defined_at| {
-        let delete_range = defined_at.delete_range;
+        let delete_range = defined_at.selection_range;
         let edit = lsp_types::TextEdit { range: delete_range, new_text: String::new() };
         let edits = vec![lsp_types::OneOf::Left(edit)];
         let text_document_edits = vec![lsp_types::TextDocumentEdit {
@@ -1001,16 +1001,16 @@ mod tests {
         assert_eq!(&definition.expression_value, "\"text\"");
 
         println!("Actual: (l: {}, c: {}) - (l: {}, c: {}) --- Expected: (l: {sl}, c: {sc}) - (l: {el}, c: {ec})",
-            definition.delete_range.start.line,
-            definition.delete_range.start.character,
-            definition.delete_range.end.line,
-            definition.delete_range.end.character,
+            definition.selection_range.start.line,
+            definition.selection_range.start.character,
+            definition.selection_range.end.line,
+            definition.selection_range.end.character,
         );
 
-        assert_eq!(definition.delete_range.start.line, sl);
-        assert_eq!(definition.delete_range.start.character, sc);
-        assert_eq!(definition.delete_range.end.line, el);
-        assert_eq!(definition.delete_range.end.character, ec);
+        assert_eq!(definition.selection_range.start.line, sl);
+        assert_eq!(definition.selection_range.start.character, sc);
+        assert_eq!(definition.selection_range.end.line, el);
+        assert_eq!(definition.selection_range.end.character, ec);
     }
 
     #[test]
