@@ -3,7 +3,7 @@
 
 import { md } from "md.slint";
 
-export Ripple := Rectangle { 
+export component Ripple inherits Rectangle { 
     in property<length> ripple-x;
     in property<length> ripple-y;
     in property<bool> active;
@@ -11,27 +11,26 @@ export Ripple := Rectangle {
     in property<brush> ripple-color <=> circle.background;
     
     circle := Rectangle {
-        x: root.ripple-x  - width / 2;
-        y: root.ripple-y  - width / 2;
-        height: width;
-        border-radius: width  / 2;
+        x: root.ripple-x  - self.width / 2;
+        y: root.ripple-y  - self.width / 2;
+        height: self.width;
+        border-radius: self.width  / 2;
     }
 
     states [
         active when root.active && root.has-effect: {
             circle.width: root.width * 2 * 1.4142;
+        in  {
+            animate circle.width { duration: 2s; easing: ease-out; }
+        }
         }
     ]
 
-    transitions [
-        in active : {
-            animate circle.width { duration: 2s; easing: ease-out; }
-        }
-    ]
+    
 }
 
 // A touch area that also represents a visual state.
-export StateLayer := TouchArea {
+export component StateLayer inherits TouchArea {
     in property<bool> focusable;
     in property<brush> selection-background;
     in property<brush> ripple-color;
@@ -63,6 +62,7 @@ export StateLayer := TouchArea {
     }
     
     fs := FocusScope {
+        x:0;
         width: 0px; // Do not react on clicks
         enabled: root.enabled && root.focusable;
 
@@ -81,7 +81,7 @@ export StateLayer := TouchArea {
         }
         checked when root.checked: {
             ripple.opacity: 1.0;
-            ripple.background: selection-background;
+            ripple.background: root.selection-background;
         }
         hover when root.has-hover: {
             ripple.opacity: 0.08;

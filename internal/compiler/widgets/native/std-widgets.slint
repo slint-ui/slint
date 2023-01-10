@@ -8,55 +8,56 @@ import { StyleMetrics, ScrollView  } from "std-widgets-impl.slint";
 export { StyleMetrics, ScrollView, TextEdit, AboutSlint, AboutSlint as AboutSixtyFPS }
 
 // FIXME: the font-size should be removed but is required right now to compile the printer-demo
-export Button := NativeButton {
+export component Button inherits NativeButton {
     // FIXME: remove
-    property<length> font-size;
-    accessible-checkable <=> checkable;
-    accessible-checked <=> checked;
-    accessible-label <=> text;
+    in-out property<length> font-size;
+    accessible-checkable <=> root.checkable;
+    accessible-checked <=> root.checked;
+    accessible-label <=> root.text;
     accessible-role: button;
     checkable: false;
     enabled: true;
 }
 
-export StandardButton := NativeButton {
+export component StandardButton inherits NativeButton {
     in property<StandardButtonKind> kind <=> self.standard-button-kind;
-    accessible-checkable <=> checkable;
-    accessible-checked <=> checked;
-    accessible-label <=> text;
+    accessible-checkable <=> root.checkable;
+    accessible-checked <=> root.checked;
+    accessible-label <=> root.text;
     accessible-role: button;
     is-standard-button: true;
     checkable: false;
 }
 
-export CheckBox := NativeCheckBox {
+export component CheckBox inherits NativeCheckBox {
     accessible-checkable: true;
-    accessible-checked <=> checked;
-    accessible-label <=> text;
+    accessible-checked <=> root.checked;
+    accessible-label <=> root.text;
     accessible-role: checkbox;
 }
-export SpinBox := NativeSpinBox {
+export component SpinBox inherits NativeSpinBox {
     // FIXME: remove
-    property<length> font-size;
+    in-out property<length> font-size;
 
     accessible-role: spinbox;
-    accessible-value: value;
-    accessible-value-minimum: minimum;
-    accessible-value-maximum: maximum;
-    accessible-value-step: (maximum - minimum) / 100;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: (root.maximum - root.minimum) / 100;
 
 }
 
-export Slider := NativeSlider {
+export component Slider inherits NativeSlider {
     accessible-role: slider;
-    accessible-value: value;
-    accessible-value-minimum: minimum;
-    accessible-value-maximum: maximum;
-    accessible-value-step: (maximum - minimum) / 100;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: (root.maximum - root.minimum) / 100;
 
     out property <bool> has-focus: fs.has-focus;
 
     fs := FocusScope {
+        x:0;
         width: 0px;
 
         key-pressed(event) => {
@@ -74,7 +75,7 @@ export Slider := NativeSlider {
 
 }
 
-export GroupBox := NativeGroupBox {
+export component GroupBox inherits NativeGroupBox {
     GridLayout {
         padding-left: root.native-padding-left;
         padding-right: root.native-padding-right;
@@ -84,7 +85,7 @@ export GroupBox := NativeGroupBox {
     }
 }
 
-export LineEdit := NativeLineEdit {
+export component LineEdit inherits NativeLineEdit {
     in property <length> font-size <=> inner.font-size;
     in-out property <string> text <=> inner.text;
     in property <string> placeholder-text <=> inner.placeholder-text;
@@ -105,38 +106,38 @@ export LineEdit := NativeLineEdit {
         padding-top: root.native-padding-top;
         padding-bottom: root.native-padding-bottom;
         inner := LineEditInner {
-            placeholder-color: enabled ? StyleMetrics.placeholder-color : StyleMetrics.placeholder-color-disabled;
+            placeholder-color: self.enabled ? StyleMetrics.placeholder-color : StyleMetrics.placeholder-color-disabled;
             enabled <=> root.enabled;
         }
     }
 }
 
-export ListView := ScrollView {
+export component ListView inherits ScrollView {
     @children
 }
 
-StandardListViewBase := ListView {
+component StandardListViewBase inherits ListView {
     in property<[StandardListViewItem]> model;
     in-out property<int> current-item: -1;
-    for item[i] in model : NativeStandardListViewItem {
+    for item[i] in root.model : NativeStandardListViewItem {
         item: item;
         index: i;
-        is-selected: current-item == i;
+        is-selected: root.current-item == i;
         has-hover: ta.has-hover;
         ta := TouchArea {
-            clicked => { current-item = i; }
+            clicked => { root.current-item = i; }
         }
     }
 }
 
-export StandardListView := StandardListViewBase {
+export component StandardListView inherits StandardListViewBase {
     FocusScope {
         key-pressed(event) => {
-            if (event.text == Key.UpArrow && current-item > 0) {
-                current-item -= 1;
+            if (event.text == Key.UpArrow && root.current-item > 0) {
+                root.current-item -= 1;
                 accept
-            } else if (event.text == Key.DownArrow && current-item + 1 < model.length) {
-                current-item += 1;
+            } else if (event.text == Key.DownArrow && root.current-item + 1 < root.model.length) {
+                root.current-item += 1;
                 accept
             } else {
                 reject
@@ -145,7 +146,7 @@ export StandardListView := StandardListViewBase {
     }
 }
 
-export ComboBox := NativeComboBox {
+export component ComboBox inherits NativeComboBox {
     in property <[string]> model;
     in-out property <int> current-index : -1;
     enabled: true;
@@ -153,9 +154,10 @@ export ComboBox := NativeComboBox {
     callback selected(string);
 
     accessible-role: combobox;
-    accessible-value <=> current-value;
+    accessible-value <=> root.current-value;
 
     popup := PopupWindow {
+        x:0;
         Rectangle { background: NativeStyleMetrics.window-background; }
         NativeComboBoxPopup {
             width: 100%;
@@ -167,14 +169,14 @@ export ComboBox := NativeComboBox {
             spacing: 0px;
             for value[i] in root.model: NativeStandardListViewItem {
                 item: { text: value };
-                is-selected: current-index == i;
+                is-selected: root.current-index == i;
                 has-hover: ta.has-hover;
                 ta := TouchArea {
                     clicked => {
                         if (root.enabled) {
-                            current-index = i;
-                            current-value = value;
-                            selected(current-value);
+                            root.current-index = i;
+                            root.current-value = value;
+                            root.selected(root.current-value);
                         }
                         //is-open = false;
                     }
@@ -187,11 +189,11 @@ export ComboBox := NativeComboBox {
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
                 root.current-index = Math.max(root.current-index - 1, 0);
-                root.current-value = model[root.current-index];
+                root.current-value = root.model[root.current-index];
                 return accept;
             } else if (event.text == Key.DownArrow) {
                 root.current-index = Math.min(root.current-index + 1, root.model.length - 1);
-                root.current-value = model[root.current-index];
+                root.current-value = root.model[root.current-index];
                 return accept;
             // PopupWindow can not get hidden again at this time, so do not allow to pop that up.
             // } else if (event.text == Key.Return) {
@@ -203,21 +205,21 @@ export ComboBox := NativeComboBox {
     }
 }
 
-export TabWidgetImpl := NativeTabWidget { }
+export component TabWidgetImpl inherits NativeTabWidget { }
 
-export TabImpl := NativeTab {
+export component TabImpl inherits NativeTab {
     accessible-role: tab;
-    accessible-label <=> title;
+    accessible-label <=> root.title;
 }
 
-export TabBarImpl := Rectangle {
+export component TabBarImpl inherits Rectangle {
     // injected properties:
-    property<int> current; // The currently selected tab
-    property<int> current-focused: fs.has-focus ? current : -1; // The currently focused tab
-    property<int> num-tabs; // The total number of tabs
+    in-out property<int> current; // The currently selected tab
+    in-out property<int> current-focused: fs.has-focus ? root.current : -1; // The currently focused tab
+    in-out property<int> num-tabs; // The total number of tabs
 
     accessible-role: tab;
-    accessible-delegate-focus: current;
+    accessible-delegate-focus: root.current;
 
     HorizontalLayout {
         spacing: 0px; // Qt renders Tabs next to each other and renders "spacing" as part of the tab itself
@@ -226,6 +228,7 @@ export TabBarImpl := Rectangle {
     }
 
     fs := FocusScope {
+        x:0;
         width: 0px; // Do not react on clicks
         key-pressed(event) => {
             if (event.text == Key.LeftArrow) {
@@ -233,7 +236,7 @@ export TabBarImpl := Rectangle {
                  return accept;
             }
             if (event.text == Key.RightArrow) {
-                 root.current = Math.min(root.current + 1, num-tabs - 1);
+                 root.current = Math.min(root.current + 1, root.num-tabs - 1);
                  return accept;
             }
             return reject;
@@ -241,19 +244,19 @@ export TabBarImpl := Rectangle {
     }
 }
 
-export TabWidget := TabWidget {}
+export component TabWidget inherits TabWidget {}
 
-export VerticalBox := VerticalLayout {
+export component VerticalBox inherits VerticalLayout {
     spacing: NativeStyleMetrics.layout-spacing;
     padding: NativeStyleMetrics.layout-spacing;
 }
 
-export HorizontalBox := HorizontalLayout {
+export component HorizontalBox inherits HorizontalLayout {
     spacing: NativeStyleMetrics.layout-spacing;
     padding: NativeStyleMetrics.layout-spacing;
 }
 
-export GridBox := GridLayout {
+export component GridBox inherits GridLayout {
     spacing: NativeStyleMetrics.layout-spacing;
     padding: NativeStyleMetrics.layout-spacing;
 }

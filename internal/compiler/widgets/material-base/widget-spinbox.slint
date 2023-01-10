@@ -3,24 +3,25 @@
 
 import { md } from "md.slint";
 
-SpinBoxButton := Rectangle {
+component SpinBoxButton inherits Rectangle {
     callback clicked <=> touch.clicked;
 
-    property<bool> pressed: self.enabled && touch.pressed;
-    property<bool> enabled <=> touch.enabled;
-    property<float> icon-opacity: 1;
-    property<brush> icon-fill: md.sys.color.on-primary;
+    in-out property<bool> pressed: self.enabled && touch.pressed;
+    in-out property<bool> enabled <=> touch.enabled;
+    in-out property<float> icon-opacity: 1;
+    in-out property<brush> icon-fill: md.sys.color.on-primary;
 
-    width: height;
+    width: root.height;
 
     container := Rectangle {
         width: 100%;
         height: 100%;
-        border-radius: max(width, height) / 2;
+        border-radius: max(self.width, self.height) / 2;
         background: md.sys.color.primary;
     }
 
     state-layer := Rectangle {
+        x:0;y:0;
         opacity: 0;
         width: container.width;
         height: container.height;
@@ -54,8 +55,8 @@ SpinBoxButton := Rectangle {
 }
 
 // Increment and decrement a value in the given range.
-export SpinBox := FocusScope {
-    property <bool> checked;
+export component SpinBox inherits FocusScope {
+    in-out property <bool> checked;
     in-out property <int> value;
     in property <int> minimum;
     in property <int> maximum: 100;
@@ -68,10 +69,10 @@ export SpinBox := FocusScope {
     height: 56px;
 
     accessible-role: spinbox;
-    accessible-value: value;
-    accessible-value-minimum: minimum;
-    accessible-value-maximum: maximum;
-    accessible-value-step: (maximum - minimum) / 100;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: (root.maximum - root.minimum) / 100;
 
     container := Rectangle {
         width: 100%;
@@ -89,7 +90,7 @@ export SpinBox := FocusScope {
         spacing: 16px;
 
         label := Text {
-            text: value;
+            text: root.value;
             height: 100%;
             color: md.sys.color.on-surface;
             vertical-alignment: center;
@@ -105,8 +106,8 @@ export SpinBox := FocusScope {
                 enabled: root.enabled;
 
                 Path {
-                    x: (parent.width - width) / 2;
-                    y: (parent.height - height) / 2;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
                     width: 44%;
                     height: 44%;
                     commands: "M14.15 30.75 12 28.6l12-12 12 11.95-2.15 2.15L24 20.85Z";
@@ -127,8 +128,8 @@ export SpinBox := FocusScope {
                 enabled: root.enabled;
 
                 Path {
-                    x: (parent.width - width) / 2;
-                    y: (parent.height - height) / 2;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
                     width: 44%;
                     height: 44%;
                     commands: "m24 30.75-12-12 2.15-2.15L24 26.5l9.85-9.85L36 18.8Z";
@@ -149,11 +150,11 @@ export SpinBox := FocusScope {
     }
 
     key-pressed(event) => {
-        if (enabled && event.text == Key.UpArrow && value < maximum) {
-            value += 1;
+        if (root.enabled && event.text == Key.UpArrow && root.value < root.maximum) {
+            root.value += 1;
             accept
-        } else if (enabled && event.text == Key.DownArrow && value > minimum) {
-            value -= 1;
+        } else if (root.enabled && event.text == Key.DownArrow && root.value > root.minimum) {
+            root.value -= 1;
             accept
         } else {
             reject
@@ -161,12 +162,12 @@ export SpinBox := FocusScope {
     }
 
     states [
-        disabled when !enabled : {
+        disabled when !root.enabled : {
             container.border-color: md.sys.color.on-surface;
             container.opacity: 0.38;
             label.opacity: 0.38;
         }
-        focused when has-focus : {
+        focused when root.has-focus : {
             container.border-width: 2px;
             container.border-color: md.sys.color.primary;
             label.color: md.sys.color.primary;

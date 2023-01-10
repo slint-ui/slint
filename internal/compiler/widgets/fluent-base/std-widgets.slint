@@ -8,7 +8,7 @@ import { StandardButton } from "../common/standardbutton.slint";
 import { StyleMetrics, ScrollView, Button, Palette  } from "std-widgets-impl.slint";
 export { StyleMetrics, ScrollView, Button, StandardButton, TextEdit, AboutSlint, AboutSlint as AboutSixtyFPS }
 
-export CheckBox := Rectangle {
+export component CheckBox inherits Rectangle {
     callback toggled;
     in property <string> text <=> text.text;
     in-out property <bool> checked;
@@ -20,7 +20,7 @@ export CheckBox := Rectangle {
 
     accessible-label <=> text.text;
     accessible-checkable: true;
-    accessible-checked <=> checked;
+    accessible-checked <=> root.checked;
     accessible-role: checkbox;
 
     HorizontalLayout {
@@ -37,9 +37,9 @@ export CheckBox := Rectangle {
                     : touch.has-hover ? Palette.neutralLighter
                     : Palette.themePrimary;*/
 
-                border-color: checked ? background : !enabled ? Palette.neutralTertiaryAlt : Palette.neutralSecondaryAlt;
-                background: !checked ? Palette.white
-                            : !enabled ? Palette.neutralTertiaryAlt
+                border-color: root.checked ? self.background : !root.enabled ? Palette.neutralTertiaryAlt : Palette.neutralSecondaryAlt;
+                background: !root.checked ? Palette.white
+                            : !root.enabled ? Palette.neutralTertiaryAlt
                             : touch.has-hover || touch.pressed ? Palette.themeDark
                             : Palette.themePrimary;
                 animate background { duration: 250ms; easing: ease; }
@@ -49,19 +49,19 @@ export CheckBox := Rectangle {
                 width: 20px;
                 height: 20px;
 
-                if (checked || touch.has-hover || touch.pressed) : Path {
+                if (root.checked || touch.has-hover || touch.pressed) : Path {
                     width: 66%;
                     height: 66%;
-                    x: (parent.width - width) / 2;
-                    y: (parent.height - height) / 2;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
                     commands: "M.22.5.42.7.78.34.74.3.42.62.26.54z";
-                    fill: checked ? Palette.white : Palette.neutralSecondaryAlt;
+                    fill: root.checked ? Palette.white : Palette.neutralSecondaryAlt;
                 }
             }
         }
 
         text := Text {
-            color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+            color: !root.enabled ? Palette.neutralTertiary : Palette.neutralDark;
             horizontal-alignment: left;
             vertical-alignment: center;
             vertical-stretch: 1;
@@ -80,6 +80,7 @@ export CheckBox := Rectangle {
     }
 
     fs := FocusScope {
+        x:0;
         width: 0px; // Do not react on clicks
         enabled <=> root.enabled;
 
@@ -94,33 +95,33 @@ export CheckBox := Rectangle {
 
     Rectangle { // Focus rectangle
         x: -3px;
-        y: x;
-        width: parent.width - 2*x;
-        height: parent.height - 2*y;
-        border-width: enabled && has-focus ? 1px : 0px;
+        y: self.x;
+        width: parent.width - 2*self.x;
+        height: parent.height - 2*self.y;
+        border-width: root.enabled && root.has-focus ? 1px : 0px;
         border-color: Palette.black;
     }
 }
 
-SpinBoxButton := Rectangle {
+component SpinBoxButton inherits Rectangle {
     callback clicked <=> touch.clicked;
-    property<string> text; // text and font-size are not used, but present in the other styles
-    property <length> font-size;
-    property<bool> enabled <=> touch.enabled;
-    background: !enabled ? transparent
+    in-out property<string> text; // text and font-size are not used, but present in the other styles
+    in-out property <length> font-size;
+    in-out property<bool> enabled <=> touch.enabled;
+    background: !root.enabled ? transparent
         : touch.pressed ? Palette.neutralLight
         : touch.has-hover ? Palette.neutralLighter
         : Palette.white;
 
-    property <color> symbol-color: !enabled ? Palette.neutralTertiary
+    in-out property <color> symbol-color: !root.enabled ? Palette.neutralTertiary
         : touch.pressed || touch.has-hover ? Palette.neutralPrimary
         : Palette.neutralSecondary;
     touch := TouchArea { }
 }
 
-export SpinBox := FocusScope {
+export component SpinBox inherits FocusScope {
     // FIXME: remove?
-    property <bool> checked;
+    in-out property <bool> checked;
     in-out property <int> value;
     in property <int> minimum;
     in property <int> maximum: 100;
@@ -133,13 +134,13 @@ export SpinBox := FocusScope {
     vertical-stretch: 0;
 
     accessible-role: spinbox;
-    accessible-value: value;
-    accessible-value-minimum: minimum;
-    accessible-value-maximum: maximum;
-    accessible-value-step: (maximum - minimum) / 100;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: (root.maximum - root.minimum) / 100;
 
     Rectangle {
-        background: !enabled ? Palette.neutralLighter : Palette.white;
+        background: !root.enabled ? Palette.neutralLighter : Palette.white;
     }
 
     l := GridLayout {
@@ -148,8 +149,8 @@ export SpinBox := FocusScope {
         padding-bottom: 3px;
         text := Text {
             rowspan: 2;
-            text: value;
-            color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+            text: root.value;
+            color: !root.enabled ? Palette.neutralTertiary : Palette.neutralDark;
             horizontal-alignment: left;
             vertical-alignment: center;
         }
@@ -161,8 +162,8 @@ export SpinBox := FocusScope {
                 commands: "M978.2,688.9l-84.2,82.1c-15.7,15.3-41.1,15.3-56.7,0l-341-304.2L162.6,764.5c-15.5,15.1-41,15.1-56.6,0l-84.3-82.1c-15.6-15.2-15.6-39.9,0-55.2l446.6-398.2c15.7-15.3,41-15.3,56.7,0l6.9,6.7l446.3,398.1C993.9,649,993.9,673.7,978.2,688.9z";
                 fill: parent.symbol-color;
                 height: 33%;
-                x: (parent.width - width) / 2;
-                y: (parent.height - height) / 2;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
             }
             clicked => {
                 if (root.value < root.maximum) {
@@ -178,8 +179,8 @@ export SpinBox := FocusScope {
                 commands: "M21.8,311.1l84.2-82.1c15.7-15.2,41-15.2,56.7,0l341.1,304.1l333.7-297.5c15.5-15.2,41-15.2,56.6,0l84.3,82.1c15.6,15.2,15.6,40,0,55.2L531.7,771c-15.7,15.3-41,15.3-56.7,0l-6.9-6.7L21.8,366.3C6.1,351,6.1,326.3,21.8,311.1z";
                 fill: parent.symbol-color;
                 height: 33%;
-                x: (parent.width - width) / 2;
-                y: (parent.height - height) / 2;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
             }
             clicked => {
                 if (root.value > root.minimum) {
@@ -192,23 +193,23 @@ export SpinBox := FocusScope {
     }
 
     Rectangle {
-        x: enabled && has-focus ? -2px : 0px;
-        y: x;
-        width: parent.width - 2*x;
-        height: parent.height - 2*y;
+        x: root.enabled && root.has-focus ? -2px : 0px;
+        y: self.x;
+        width: parent.width - 2*self.x;
+        height: parent.height - 2*self.y;
         border-radius: 2px;
-        border-width: !enabled ? 0px : has-focus ? 3px : 1px;
-        border-color: !enabled ? Palette.neutralLighter
-            : has-focus ? Palette.themeSecondary
+        border-width: !root.enabled ? 0px : root.has-focus ? 3px : 1px;
+        border-color: !root.enabled ? Palette.neutralLighter
+            : root.has-focus ? Palette.themeSecondary
             : Palette.neutralDark;
     }
 
     key-pressed(event) => {
-        if (enabled && event.text == Key.UpArrow && value < maximum) {
-            value += 1;
+        if (root.enabled && event.text == Key.UpArrow && root.value < root.maximum) {
+            root.value += 1;
             accept
-        } else if (enabled && event.text == Key.DownArrow && value > minimum) {
-            value -= 1;
+        } else if (root.enabled && event.text == Key.DownArrow && root.value > root.minimum) {
+            root.value -= 1;
             accept
         } else {
             reject
@@ -216,7 +217,7 @@ export SpinBox := FocusScope {
     }
 }
 
-export Slider := Rectangle {
+export component Slider inherits Rectangle {
     in property<float> maximum: 100;
     in property<float> minimum: 0;
     in-out property<float> value;
@@ -230,29 +231,29 @@ export Slider := Rectangle {
     vertical-stretch: 0;
 
     accessible-role: slider;
-    accessible-value: value;
-    accessible-value-minimum: minimum;
-    accessible-value-maximum: maximum;
-    accessible-value-step: (maximum - minimum) / 100;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: (root.maximum - root.minimum) / 100;
 
 
     Rectangle {
         width: parent.width - parent.min-height;
         x: parent.height / 2;
         height: parent.min-height / 4;
-        y: (parent.height - height) / 2;
-        border-radius: height/2;
+        y: (parent.height - self.height) / 2;
+        border-radius: self.height/2;
         background: !root.enabled ? Palette.neutralLighter
             : touch.has-hover ? Palette.themeLight
             : Palette.neutralTertiaryAlt;
     }
 
     Rectangle {
-        width: (parent.width - parent.min-height) * ((value - minimum) / (maximum - minimum));
+        width: (parent.width - parent.min-height) * ((root.value - root.minimum) / (root.maximum - root.minimum));
         x: parent.height / 2;
         height: parent.min-height / 4;
-        y: (parent.height - height) / 2;
-        border-radius: height/2;
+        y: (parent.height - self.height) / 2;
+        border-radius: self.height/2;
         background: !root.enabled ? Palette.neutralTertiary
             : touch.has-hover ? Palette.themeSecondary
             : Palette.neutralSecondary;
@@ -260,16 +261,16 @@ export Slider := Rectangle {
 
     handle := Rectangle {
         property<length> border: 3px;
-        width: height;
-        height: parent.height - 2 * border;
+        width: self.height;
+        height: parent.height - 2 * self.border;
         border-width: 3px;
-        border-radius: height / 2;
+        border-radius: self.height / 2;
         border-color: !root.enabled ? Palette.neutralTertiaryAlt
             : touch.has-hover ? Palette.themePrimary
             : Palette.neutralSecondary;
         background: Palette.white;
-        x: (root.width - handle.width) * (value - minimum)/(maximum - minimum);
-        y: border;
+        x: (root.width - handle.width) * (root.value - root.minimum)/(root.maximum - root.minimum);
+        y: self.border;
     }
     touch := TouchArea {
         width: parent.width;
@@ -277,27 +278,28 @@ export Slider := Rectangle {
         property <float> pressed-value;
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                pressed-value = root.value;
+                self.pressed-value = root.value;
             }
         }
         moved => {
-            if (enabled && pressed) {
-                value = max(root.minimum, min(root.maximum,
-                    pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
-                root.changed(value);
+            if (self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (touch.mouse-x - touch.pressed-x) * (root.maximum - root.minimum) / (root.width - handle.width)));
+                root.changed(root.value);
             }
         }
     }
 
     fs := FocusScope {
+        x:0;
         width: 0px;
 
         key-pressed(event) => {
-            if (enabled && event.text == Key.RightArrow) {
-                value = Math.min(value + 1, maximum);
+            if (self.enabled && event.text == Key.RightArrow) {
+                root.value = Math.min(root.value + 1, root.maximum);
                 accept
-            } else if (enabled && event.text == Key.LeftArrow) {
-                value = Math.max(value - 1, minimum);
+            } else if (self.enabled && event.text == Key.LeftArrow) {
+                root.value = Math.max(root.value - 1, root.minimum);
                 accept
             } else {
                 reject
@@ -306,14 +308,14 @@ export Slider := Rectangle {
     }
 
     Rectangle { // Focus rectangle
-        border-width: enabled && has-focus ? 1px : 0px;
+        border-width: root.enabled && root.has-focus ? 1px : 0px;
         border-color: Palette.black;
     }
 }
 
 
 
-export GroupBox := VerticalLayout {
+export component GroupBox inherits VerticalLayout {
     in property <string> title <=> label.text;
     in property<bool> enabled: true;
     spacing: 8px;
@@ -321,7 +323,7 @@ export GroupBox := VerticalLayout {
     padding-bottom: 8px;
     label := Text {
         vertical-stretch: 0;
-        color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+        color: !root.enabled ? Palette.neutralTertiary : Palette.neutralDark;
         font-weight: 600;
     }
     Rectangle {
@@ -332,44 +334,44 @@ export GroupBox := VerticalLayout {
     }
 }
 
-export TabWidgetImpl := Rectangle {
-    property <length> content-x: 0;
-    property <length> content-y: tabbar-preferred-height;
-    property <length> content-height: height - tabbar-preferred-height;
-    property <length> content-width: width;
-    property <length> tabbar-x: 0;
-    property <length> tabbar-y: 0;
-    property <length> tabbar-height: tabbar-preferred-height;
-    property <length> tabbar-width: width;
+export component TabWidgetImpl inherits Rectangle {
+    in-out property <length> content-x: 0;
+    in-out property <length> content-y: root.tabbar-preferred-height;
+    in-out property <length> content-height: root.height - root.tabbar-preferred-height;
+    in-out property <length> content-width: root.width;
+    in-out property <length> tabbar-x: 0;
+    in-out property <length> tabbar-y: 0;
+    in-out property <length> tabbar-height: root.tabbar-preferred-height;
+    in-out property <length> tabbar-width: root.width;
 
-    property <length> tabbar-preferred-height;
-    property <length> tabbar-preferred-width;
-    property <length> content-min-height;
-    property <length> content-min-width;
-    property <int> current-index;
-    property <int> current-focused;
+    in-out property <length> tabbar-preferred-height;
+    in-out property <length> tabbar-preferred-width;
+    in-out property <length> content-min-height;
+    in-out property <length> content-min-width;
+    in-out property <int> current-index;
+    in-out property <int> current-focused;
 
-    preferred-width: content-min-width;
-    min-width: max(content-min-width, tabbar-preferred-width);
-    preferred-height: content-min-height + tabbar-preferred-height;
-    min-height: content-min-height + tabbar-preferred-height;
+    preferred-width: root.content-min-width;
+    min-width: max(root.content-min-width, root.tabbar-preferred-width);
+    preferred-height: root.content-min-height + root.tabbar-preferred-height;
+    min-height: root.content-min-height + root.tabbar-preferred-height;
 }
 
-export TabImpl := Rectangle {
-    property<string> title <=> t.text;
+export component TabImpl inherits Rectangle {
+    in-out property<string> title <=> t.text;
     //property<image> icon;
-    property<bool> enabled: true;
-    property<bool> has-focus: current-focused == tab-index;
-    property<bool> pressed;
-    property<int> current; // The currently selected tab
-    property<int> current-focused; // The currently focused tab
-    property<int> tab-index; // The index of this tab
-    property<int> num-tabs; // The total number of tabs
+    in-out property<bool> enabled: true;
+    in-out property<bool> has-focus: root.current-focused == root.tab-index;
+    in-out property<bool> pressed;
+    in-out property<int> current; // The currently selected tab
+    in-out property<int> current-focused; // The currently focused tab
+    in-out property<int> tab-index; // The index of this tab
+    in-out property<int> num-tabs; // The total number of tabs
 
     min-height: t.preferred-height + 16px;
     preferred-width: t.preferred-width + 16px;
 
-    background: !enabled ? Palette.neutralLighter
+    background: !root.enabled ? Palette.neutralLighter
         : touch.pressed ? Palette.neutralLight
         : touch.has-hover ? Palette.neutralLighter
         : Palette.white;
@@ -377,12 +379,12 @@ export TabImpl := Rectangle {
     vertical-stretch: 0;
 
     accessible-role: tab;
-    accessible-label <=> title;
+    accessible-label <=> root.title;
 
     touch := TouchArea {
         enabled <=> root.enabled;
         clicked => {
-            current = tab-index;
+            root.current = root.tab-index;
         }
     }
     t := Text {
@@ -390,7 +392,7 @@ export TabImpl := Rectangle {
         height: parent.height;
         vertical-alignment: center;
         horizontal-alignment: center;
-        color: !enabled ? Palette.neutralTertiary : Palette.neutralPrimary;
+        color: !root.enabled ? Palette.neutralTertiary : Palette.neutralPrimary;
         font-weight: root.current == root.tab-index ? 600 : 500;
     }
 
@@ -399,21 +401,21 @@ export TabImpl := Rectangle {
         width: touch.has-hover && root.current == root.tab-index ? parent.width : parent.width - 16px;
         animate width { duration: 250ms; easing: ease-out; }
         background: root.current == root.tab-index ? Palette.themeSecondary : transparent;
-        y: parent.height - height;
-        x: (parent.width - width) / 2;
+        y: parent.height - self.height;
+        x: (parent.width - self.width) / 2;
     }
 
     Rectangle { // Focus Rectangle
-        border-width: enabled && has-focus ? 1px : 0px;
+        border-width: root.enabled && root.has-focus ? 1px : 0px;
         border-color: Palette.black;
     }
 }
 
-export TabBarImpl := Rectangle {
+export component TabBarImpl inherits Rectangle {
     // injected properties:
-    property<int> current; // The currently selected tab
-    property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
-    property<int> num-tabs; // The total number of tabs
+    in-out property<int> current; // The currently selected tab
+    in-out property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
+    in-out property<int> num-tabs; // The total number of tabs
 
     HorizontalLayout {
         spacing: 8px;
@@ -422,23 +424,24 @@ export TabBarImpl := Rectangle {
     }
 
     accessible-role: tab;
-    accessible-delegate-focus: current-focused >= 0 ? current-focused : current;
+    accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
 
     fs := FocusScope {
+        x:0;
         width: 0px; // Do not react on clicks
         property<int> focused-tab: 0;
 
         key-pressed(event) => {
             if (event.text == "\n") {
-                 current = current-focused;
+                 root.current = root.current-focused;
                  return accept;
             }
             if (event.text == Key.LeftArrow) {
-                 focused-tab = Math.max(focused-tab - 1,  0);
+                 self.focused-tab = Math.max(self.focused-tab - 1,  0);
                  return accept;
             }
             if (event.text == Key.RightArrow) {
-                 focused-tab = Math.min(focused-tab + 1, num-tabs - 1);
+                 self.focused-tab = Math.min(self.focused-tab + 1, root.num-tabs - 1);
                  return accept;
             }
             return reject;
@@ -446,7 +449,7 @@ export TabBarImpl := Rectangle {
 
         key-released(event) => {
             if (event.text == " ") {
-                 current = current-focused;
+                 root.current = root.current-focused;
                  return accept;
             }
             return reject;
@@ -454,9 +457,9 @@ export TabBarImpl := Rectangle {
     }
 }
 
-export TabWidget := TabWidget {}
+export component TabWidget inherits TabWidget {}
 
-export LineEdit := Rectangle {
+export component LineEdit inherits Rectangle {
     in property <length> font-size <=> inner.font-size;
     in-out property <string> text <=> inner.text;
     in property <string> placeholder-text <=> inner.placeholder-text;
@@ -474,11 +477,11 @@ export LineEdit := Rectangle {
     vertical-stretch: 0;
     min-height: max(32px, l.min-height);
 
-    background: !enabled ? Palette.neutralLighter : Palette.white;
+    background: !root.enabled ? Palette.neutralLighter : Palette.white;
     border-radius: 2px;
-    border-width: !enabled ? 0px : has-focus ? 2px : 1px;
-    border-color: !enabled ? Palette.neutralLighter
-        : has-focus ? Palette.themeSecondary
+    border-width: !root.enabled ? 0px : root.has-focus ? 2px : 1px;
+    border-color: !root.enabled ? Palette.neutralLighter
+        : root.has-focus ? Palette.themeSecondary
         : Palette.neutralPrimary;
 
     l := HorizontalLayout {
@@ -487,19 +490,19 @@ export LineEdit := Rectangle {
         padding-top: 3px;
         padding-bottom: 3px;
         inner := LineEditInner {
-            placeholder-color: !enabled ? Palette.neutralTertiary : Palette.neutralSecondary;
+            placeholder-color: !self.enabled ? Palette.neutralTertiary : Palette.neutralSecondary;
         }
     }
 }
 
-export ListView := ScrollView {
+export component ListView inherits ScrollView {
     @children
 }
 
-StandardListViewBase := ListView {
-    property<[StandardListViewItem]> model;
-    property<int> current-item: -1;
-    for item[idx] in model : Rectangle {
+component StandardListViewBase inherits ListView {
+    in-out property<[StandardListViewItem]> model;
+    in-out property<int> current-item: -1;
+    for item[idx] in root.model : Rectangle {
         l := HorizontalLayout {
             padding: 8px;
             spacing: 0px;
@@ -513,19 +516,19 @@ StandardListViewBase := ListView {
         touch := TouchArea {
             width: parent.width;
             height: parent.height;
-            clicked => { current-item = idx; }
+            clicked => { root.current-item = idx; }
         }
     }
 }
 
-export StandardListView := StandardListViewBase {
+export component StandardListView inherits StandardListViewBase {
     FocusScope {
         key-pressed(event) => {
-            if (event.text == Key.UpArrow && current-item > 0) {
-                current-item -= 1;
+            if (event.text == Key.UpArrow && root.current-item > 0) {
+                root.current-item -= 1;
                 return accept;
-            } else if (event.text == Key.DownArrow && current-item + 1 < model.length) {
-                current-item += 1;
+            } else if (event.text == Key.DownArrow && root.current-item + 1 < root.model.length) {
+                root.current-item += 1;
                 return accept;
             }
             reject
@@ -533,24 +536,24 @@ export StandardListView := StandardListViewBase {
     }
 }
 
-export ComboBox := FocusScope {
+export component ComboBox inherits FocusScope {
     in property <[string]> model;
     in-out property <int> current-index : 0;
-    in-out property <string> current-value: model[current-index];
+    in-out property <string> current-value: root.model[root.current-index];
     //property <bool> is-open: false;
     callback selected(string);
 
     accessible-role: combobox;
-    accessible-value <=> current-value;
+    accessible-value <=> root.current-value;
 
     key-pressed(event) => {
         if (event.text == Key.UpArrow) {
-            current-index = Math.max(current-index - 1, 0);
-            current-value = model[current-index];
+            root.current-index = Math.max(root.current-index - 1, 0);
+            root.current-value = root.model[root.current-index];
             return accept;
         } else if (event.text == Key.DownArrow) {
-            current-index = Math.min(current-index + 1, model.length - 1);
-            current-value = model[current-index];
+            root.current-index = Math.min(root.current-index + 1, root.model.length - 1);
+            root.current-value = root.model[root.current-index];
             return accept;
         // PopupWindow can not get hidden again at this time, so do not allow to pop that up.
         // } else if (event.text == Key.Return) {
@@ -561,11 +564,11 @@ export ComboBox := FocusScope {
     }
 
     Rectangle {
-        background: !enabled ? Palette.neutralLighter : Palette.white;
+        background: !root.enabled ? Palette.neutralLighter : Palette.white;
         border-radius: 2px;
-        border-width: !enabled ? 0px : has-focus ? 3px : 1px;
-        border-color: !enabled ? Palette.neutralLighter
-            : has-focus ? Palette.themeSecondary
+        border-width: !root.enabled ? 0px : root.has-focus ? 3px : 1px;
+        border-color: !root.enabled ? Palette.neutralLighter
+            : root.has-focus ? Palette.themeSecondary
             : Palette.neutralPrimary;
     }
 
@@ -586,7 +589,7 @@ export ComboBox := FocusScope {
             horizontal-alignment: left;
             vertical-alignment: center;
             horizontal-stretch: 1;
-            color: !enabled ? Palette.neutralTertiary
+            color: !root.enabled ? Palette.neutralTertiary
                 : root.has-focus || touch.has-hover ? Palette.neutralPrimary
                 : Palette.neutralSecondary;
             min-width: 0;
@@ -594,8 +597,8 @@ export ComboBox := FocusScope {
         Rectangle {
             width: 25px;
             Path {
-                x: (parent.width - width) / 2;
-                y: (parent.height - height) / 2;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
                 height: 8px;
                 width: 25px;
                 commands: "M.22.4.5.64.78.4.74.36.5.6.26.36z";
@@ -614,6 +617,7 @@ export ComboBox := FocusScope {
     }
 
     popup := PopupWindow {
+        x:0;
         y: root.height;
         width: root.width;
         Rectangle {
@@ -649,15 +653,15 @@ export ComboBox := FocusScope {
     }
 }
 
-export VerticalBox := VerticalLayout {
+export component VerticalBox inherits VerticalLayout {
     spacing: StyleMetrics.layout-spacing;
     padding: StyleMetrics.layout-padding;
 }
-export HorizontalBox := HorizontalLayout {
+export component HorizontalBox inherits HorizontalLayout {
     spacing: StyleMetrics.layout-spacing;
     padding: StyleMetrics.layout-padding;
 }
-export GridBox := GridLayout {
+export component GridBox inherits GridLayout {
     spacing: StyleMetrics.layout-spacing;
     padding: StyleMetrics.layout-padding;
 }

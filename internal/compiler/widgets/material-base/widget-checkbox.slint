@@ -5,7 +5,7 @@
 import { md } from "md.slint";
 
 // Selection control that can be toggled between checked und unchecked by click.
-export CheckBox := Rectangle {
+export component CheckBox inherits Rectangle {
     callback toggled;
 
     in property <string> text <=> label.text;
@@ -16,7 +16,7 @@ export CheckBox := Rectangle {
 
     accessible-label <=> label.text;
     accessible-checkable: true;
-    accessible-checked <=> checked;
+    accessible-checked <=> root.checked;
     accessible-role: checkbox;
 
     layout := HorizontalLayout {
@@ -37,19 +37,19 @@ export CheckBox := Rectangle {
             state-layer := Rectangle {
                 width: 40px;
                 height: 40px;
-                x: (parent.width - width) / 2;
-                y: (parent.height - height) / 2;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
                 opacity: 0;
                 background: md.sys.color.primary;
                 border-radius: 20px;
                 animate opacity { duration: 300ms; easing: ease; }
             }
 
-            if (checked) : Path {
+            if (root.checked) : Path {
                 width: 66%;
                 height: 66%;
-                x: (parent.width - width) / 2;
-                y: (parent.height - height) / 2;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
                 commands: "M18.9 35.7 7.7 24.5l2.15-2.15 9.05 9.05 19.2-19.2 2.15 2.15Z";
                 fill: md.sys.color.on-primary;
 
@@ -88,6 +88,7 @@ export CheckBox := Rectangle {
     }
 
     fs := FocusScope {
+        x:0;
         width: 0px; // Do not react on clicks
         enabled <=> root.enabled;
 
@@ -101,7 +102,7 @@ export CheckBox := Rectangle {
     }
 
     states [
-        disabled-selected when !enabled && checked  : {
+        disabled-selected when !root.enabled && root.checked  : {
             container.border-width: 0px;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
@@ -109,7 +110,7 @@ export CheckBox := Rectangle {
             label.opacity: 0.38;
             label.color: md.sys.color.primary;
         }
-        disabled when !enabled : {
+        disabled when !root.enabled : {
             container.opacity: 0.38;
             label.opacity: 0.38;
             label.color: md.sys.color.primary;
@@ -117,32 +118,32 @@ export CheckBox := Rectangle {
         pressed when touch.pressed && !root.checked : {
             state-layer.opacity: 0.12;
         }
-        pressed-selected when touch.pressed && checked : {
+        pressed-selected when touch.pressed && root.checked : {
             state-layer.opacity: 0.12;
             state-layer.background: md.sys.color.on-surface;
             container.border-width: 0px;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
         }
-        hover-selected when touch.has-hover && checked : {
+        hover-selected when touch.has-hover && root.checked : {
             state-layer.opacity: 0.08;
             container.border-width: 0px;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
         }
-        hover when touch.has-hover && !checked : {
+        hover when touch.has-hover && !root.checked : {
             state-layer.background: md.sys.color.on-surface;
             state-layer.opacity: 0.08;
         }
-        selected when !touch.has-hover && checked : {
+        selected when !touch.has-hover && root.checked : {
             container.border-width: 0px;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
         }
-        focused-selected when fs.has-focus && checked : {
+        focused-selected when fs.has-focus && root.checked : {
             state-layer.opacity: 0.12;
         }
-        focused when fs.has-focus && !checked : {
+        focused when fs.has-focus && !root.checked : {
             state-layer.background: md.sys.color.on-surface;
             state-layer.opacity: 0.12;
         }

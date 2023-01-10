@@ -4,13 +4,13 @@
 
 import { md } from "md.slint";
 
-ScrollBar := Rectangle {
-    property <bool> horizontal;
-    property<length> maximum;
-    property<length> page-size;
+component ScrollBar inherits Rectangle {
+    in-out property <bool> horizontal;
+    in-out property<length> maximum;
+    in-out property<length> page-size;
     // this is always negative and bigger than  -maximum
-    property<length> value;
-    property<bool> enabled <=> touch.enabled;
+    in-out property<length> value;
+    in-out property<bool> enabled <=> touch.enabled;
 
     state_layer := Rectangle {
         width: 100%;
@@ -23,10 +23,10 @@ ScrollBar := Rectangle {
     }
 
     handle := Rectangle {
-        x: !horizontal ? 0phx : (root.width - handle.width) * (-value / maximum);
-        y: horizontal ? 0phx : (root.height - handle.height) * (-value / maximum);
-        width: !horizontal ? parent.width : maximum <= 0phx ? 0phx : parent.width * (page-size / (maximum + page-size));
-        height: horizontal ? parent.height : maximum <= 0phx ? 0phx : parent.height * (page-size / (maximum + page-size));
+        x: !root.horizontal ? 0phx : (root.width - handle.width) * (-root.value / root.maximum);
+        y: root.horizontal ? 0phx : (root.height - handle.height) * (-root.value / root.maximum);
+        width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : parent.width * (root.page-size / (root.maximum + root.page-size));
+        height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : parent.height * (root.page-size / (root.maximum + root.page-size));
 
         container := Rectangle {
             width: 100%;
@@ -45,14 +45,14 @@ ScrollBar := Rectangle {
 
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                pressed-value = -root.value;
+                self.pressed-value = -root.value;
             }
         }
         moved => {
-            if (enabled && pressed) {
-                value = -max(0px, min(root.maximum, pressed-value + (
-                    horizontal ? (touch.mouse-x - touch.pressed-x) * (maximum / (root.width - handle.width))
-                               : (touch.mouse-y - touch.pressed-y) * (maximum / (root.height - handle.height))
+            if (self.enabled && self.pressed) {
+                root.value = -max(0px, min(root.maximum, self.pressed-value + (
+                    root.horizontal ? (touch.mouse-x - touch.pressed-x) * (root.maximum / (root.width - handle.width))
+                               : (touch.mouse-y - touch.pressed-y) * (root.maximum / (root.height - handle.height))
                 )));
             }
         }
@@ -73,7 +73,7 @@ ScrollBar := Rectangle {
 }
 
 // Scrollview contains a viewport that is bigger than the view and can be scrolled.
-export ScrollView := Rectangle {
+export component ScrollView inherits Rectangle {
     in-out property <length> viewport-width <=> fli.viewport-width;
     in-out property <length> viewport-height <=> fli.viewport-height;
     in-out property <length> viewport-x <=> fli.viewport-x;
@@ -81,7 +81,7 @@ export ScrollView := Rectangle {
     out property <length> visible-width <=> fli.width;
     out property <length> visible-height <=> fli.height;
     in property <bool> enabled: true;
-    property <bool> has-focus;
+    in-out property <bool> has-focus;
 
     background: md.sys.color.surface;
     min-height: 50px;
@@ -90,6 +90,7 @@ export ScrollView := Rectangle {
     vertical-stretch: 1;
 
     fli := Flickable {
+        x:0;y:0;
         interactive: false;
         viewport-y <=> vbar.value;
         viewport-x <=> hbar.value;

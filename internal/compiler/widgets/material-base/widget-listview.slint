@@ -6,30 +6,30 @@ import { ScrollView } from "widget-scrollview.slint";
 import { Item } from "widget-item.slint";
 
 // `ListView` is like a `Scrollview` but it should have a for element, and the content are automatically layed out in a list.
-export ListView := ScrollView {
+export component ListView inherits ScrollView {
     @children
 }
 
-StandardListViewBase := ListView {
+component StandardListViewBase inherits ListView {
     in property<[StandardListViewItem]> model;
     in-out property<int> current-item: -1;
 
-    for item[idx] in model : Item {
+    for item[idx] in root.model : Item {
         selected: idx == root.current-item;
         text: item.text;
-        clicked => { current-item = idx; }
+        clicked => { root.current-item = idx; }
     }
 }
 
 // Like `ListView`, but with a default delegate, and a `model` property which is a model of type `StandardListViewItem`.
-export StandardListView := StandardListViewBase {
+export component StandardListView inherits StandardListViewBase {
     FocusScope {
         key-pressed(event) => {
-            if (event.text == Key.UpArrow && current-item > 0) {
-                current-item -= 1;
+            if (event.text == Key.UpArrow && root.current-item > 0) {
+                root.current-item -= 1;
                 return accept;
-            } else if (event.text == Key.DownArrow && current-item + 1 < model.length) {
-                current-item += 1;
+            } else if (event.text == Key.DownArrow && root.current-item + 1 < root.model.length) {
+                root.current-item += 1;
                 return accept;
             }
             reject

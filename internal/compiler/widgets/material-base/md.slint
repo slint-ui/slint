@@ -5,7 +5,7 @@
 import { ColorSchemeSelector } from "color-scheme.slint";
 
 // helper to create material design token like path md.sys.colors.
-struct Color := {
+struct Color  {
     background: color,
     surface: color,
     surface-variant: color,
@@ -23,20 +23,20 @@ struct Color := {
 }
 
 // typo settings
-struct Label := {
+struct Label  {
     size: relative-font-size,
     weight: int
 }
 
 // helper to create material design token like path md.sys.elevation.
-struct Elevation := {
+struct Elevation  {
     level0: length,
     level1: length,
     level2: length
 }
 
 // helper to create material design token like path md.sys.typescale.
-struct Typescale := {
+struct Typescale  {
     label-large: Label,
     label-medium: Label,
     body-large: Label,
@@ -45,33 +45,33 @@ struct Typescale := {
 }
 
 // helper to create material design token like path md.sys.
-struct Sys := {
+struct Sys  {
     color: Color,
     elevation: Elevation,
     typescale: Typescale
 }
 
 // Material Desigin v3 style defintions.
-export global md := {
-    property<bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
+export global md  {
+    in-out property<bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
 
-    property<Sys> sys: {
+    in-out property<Sys> sys: {
         color: {
-            background: !dark-color-scheme ? #FFFBFE : #1C1B1F,
-            surface: !dark-color-scheme ? #FFFBFE : #1C1B1F,
-            surface-variant: !dark-color-scheme ? #E7E0EC.darker(0.2) : #49454F,
-            on-surface: !dark-color-scheme ? #1C1B1F : #E6E1E5,
-            on-surface-variant: !dark-color-scheme ? #49454E : #CAC4D0,
-            surface-tint: !dark-color-scheme ? #6750A4 : #D0BCFF,
-            primary: !dark-color-scheme ? #6750A4 : #D0BCFF,
-            primary-ripple: !dark-color-scheme ? #D0BCFF : #6750A4,
-            on-primary: !dark-color-scheme ? #FFFFFF : #371E73,
+            background: !root.dark-color-scheme ? #FFFBFE : #1C1B1F,
+            surface: !root.dark-color-scheme ? #FFFBFE : #1C1B1F,
+            surface-variant: !root.dark-color-scheme ? #E7E0EC.darker(0.2) : #49454F,
+            on-surface: !root.dark-color-scheme ? #1C1B1F : #E6E1E5,
+            on-surface-variant: !root.dark-color-scheme ? #49454E : #CAC4D0,
+            surface-tint: !root.dark-color-scheme ? #6750A4 : #D0BCFF,
+            primary: !root.dark-color-scheme ? #6750A4 : #D0BCFF,
+            primary-ripple: !root.dark-color-scheme ? #D0BCFF : #6750A4,
+            on-primary: !root.dark-color-scheme ? #FFFFFF : #371E73,
             shadow: #000000,
-            outline: !dark-color-scheme ? #79747E : #938F99,
-            outline-variant: !dark-color-scheme ? #C4C7C5 : #444746,
-            secondary-container:  !dark-color-scheme ? #E8DEF8 : #4A4458,
-            on-secondary-container:  !dark-color-scheme ? #1E192B : #E8DEF8,
-            secondary-ripple: !dark-color-scheme ? #fffc : #000000,
+            outline: !root.dark-color-scheme ? #79747E : #938F99,
+            outline-variant: !root.dark-color-scheme ? #C4C7C5 : #444746,
+            secondary-container:  !root.dark-color-scheme ? #E8DEF8 : #4A4458,
+            on-secondary-container:  !root.dark-color-scheme ? #1E192B : #E8DEF8,
+            secondary-ripple: !root.dark-color-scheme ? #fffc : #000000,
         },
 
         elevation: {

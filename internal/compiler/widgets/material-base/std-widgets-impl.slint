@@ -9,19 +9,19 @@ import { md } from "md.slint";
 
 export { Button, CheckBox, ScrollView }
 
-export global StyleMetrics := {
-    property<length> layout-spacing: 8px;
-    property<length> layout-padding: 8px;
-    property<length> text-cursor-width: 2px;
+export global StyleMetrics  {
+    in-out property<length> layout-spacing: 8px;
+    in-out property<length> layout-padding: 8px;
+    in-out property<length> text-cursor-width: 2px;
   
-    property<color> default-text-color: md.sys.color.on-surface;
-    property<brush> textedit-background: transparent;
-    property<color> textedit-text-color: md.sys.color.on-surface;
-    property<brush> textedit-background-disabled: transparent;
-    property<color> textedit-text-color-disabled: md.sys.color.on-surface;
-    property<bool> dark-color-scheme: md.dark-color-scheme;
+    in-out property<color> default-text-color: md.sys.color.on-surface;
+    in-out property<brush> textedit-background: transparent;
+    in-out property<color> textedit-text-color: md.sys.color.on-surface;
+    in-out property<brush> textedit-background-disabled: transparent;
+    in-out property<color> textedit-text-color-disabled: md.sys.color.on-surface;
+    in-out property<bool> dark-color-scheme: md.dark-color-scheme;
 
-    property <string> default-font-family: "Roboto";
+    in-out property <string> default-font-family: "Roboto";
 
-    property<brush> window-background: md.sys.color.background;
+    in-out property<brush> window-background: md.sys.color.background;
 }

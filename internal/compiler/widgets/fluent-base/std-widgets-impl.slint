@@ -3,8 +3,8 @@
 
 import { ColorSchemeSelector } from "color-scheme.slint";
 
-export global Palette := {
-    property<bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
+export global Palette  {
+    in-out property<bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
 
     // The colors in light mode are default palette. In the
     // Fluent UI Theme Designer they match the colors produced
@@ -14,73 +14,73 @@ export global Palette := {
     // and darkening the "white" and brightening the "neutralLight" variants for improved
     // contrast (esp. on buttons).
 
-    property<color> themeDarker: #004578;
-    property<color> themeDark: #005a9e;
-    property<color> themeDarkAlt: #106ebe;
-    property<color> themePrimary: #0078d4;
-    property<color> themeSecondary: #2b88d8;
-    property<color> themeTertiary: #71afe5;
-    property<color> themeLight: #c7e0f4;
-    property<color> themeLighter: #deecf9;
-    property<color> themeLighterAlt: #eff6fc;
-    property<color> black: !dark-color-scheme ? #000000 : #f8f8f8;
-    property<color> blackTranslucent40: rgba(0,0,0,0.4);
-    property<color> neutralDark: !dark-color-scheme ? #201f1e : #f4f4f4;
-    property<color> neutralPrimary: !dark-color-scheme ? #323130 : #ffffff;
-    property<color> neutralPrimaryAlt: !dark-color-scheme ? #3b3a39 : #dadada;
-    property<color> neutralSecondary: !dark-color-scheme ? #605e5c : #d0d0d0;
-    property<color> neutralSecondaryAlt: #8a8886;
-    property<color> neutralTertiary: !dark-color-scheme ? #a19f9d : #c8c8c8;
-    property<color> neutralTertiaryAlt: !dark-color-scheme ? #c8c6c4 : #6d6d6d;
-    property<color> neutralQuaternary: #d2d0ce;
-    property<color> neutralQuaternaryAlt: !dark-color-scheme ? #e1dfdd : #484848;
-    property<color> neutralLight: !dark-color-scheme ? #edebe9 : #3f3f3f;
-    property<color> neutralLighter: !dark-color-scheme ? #f3f2f1 : #313131;
-    property<color> neutralLighterAlt: !dark-color-scheme ? #faf9f8 : #282828;
-    property<color> accent: #0078d4;
-    property<color> white: !dark-color-scheme ? #ffffff : #1f1f1f;
-    property<color> whiteTranslucent40: rgba(255,255,255,0.4);
-    property<color> yellowDark: #d29200;
-    property<color> yellow: #ffb900;
-    property<color> yellowLight: #fff100;
-    property<color> orange: #d83b01;
-    property<color> orangeLight: #ea4300;
-    property<color> orangeLighter: #ff8c00;
-    property<color> redDark: #a4262c;
-    property<color> red: #e81123;
-    property<color> magentaDark: #5c005c;
-    property<color> magenta: #b4009e;
-    property<color> magentaLight: #e3008c;
-    property<color> purpleDark: #32145a;
-    property<color> purple: #5c2d91;
-    property<color> purpleLight: #b4a0ff;
-    property<color> blueDark: #002050;
-    property<color> blueMid: #00188f;
-    property<color> blue: #0078d4;
-    property<color> blueLight: #00bcf2;
-    property<color> tealDark: #004b50;
-    property<color> teal: #008272;
-    property<color> tealLight: #00b294;
-    property<color> greenDark: #004b1c;
-    property<color> green: #107c10;
-    property<color> greenLight: #bad80a;
+    in-out property<color> themeDarker: #004578;
+    in-out property<color> themeDark: #005a9e;
+    in-out property<color> themeDarkAlt: #106ebe;
+    in-out property<color> themePrimary: #0078d4;
+    in-out property<color> themeSecondary: #2b88d8;
+    in-out property<color> themeTertiary: #71afe5;
+    in-out property<color> themeLight: #c7e0f4;
+    in-out property<color> themeLighter: #deecf9;
+    in-out property<color> themeLighterAlt: #eff6fc;
+    in-out property<color> black: !root.dark-color-scheme ? #000000 : #f8f8f8;
+    in-out property<color> blackTranslucent40: rgba(0,0,0,0.4);
+    in-out property<color> neutralDark: !root.dark-color-scheme ? #201f1e : #f4f4f4;
+    in-out property<color> neutralPrimary: !root.dark-color-scheme ? #323130 : #ffffff;
+    in-out property<color> neutralPrimaryAlt: !root.dark-color-scheme ? #3b3a39 : #dadada;
+    in-out property<color> neutralSecondary: !root.dark-color-scheme ? #605e5c : #d0d0d0;
+    in-out property<color> neutralSecondaryAlt: #8a8886;
+    in-out property<color> neutralTertiary: !root.dark-color-scheme ? #a19f9d : #c8c8c8;
+    in-out property<color> neutralTertiaryAlt: !root.dark-color-scheme ? #c8c6c4 : #6d6d6d;
+    in-out property<color> neutralQuaternary: #d2d0ce;
+    in-out property<color> neutralQuaternaryAlt: !root.dark-color-scheme ? #e1dfdd : #484848;
+    in-out property<color> neutralLight: !root.dark-color-scheme ? #edebe9 : #3f3f3f;
+    in-out property<color> neutralLighter: !root.dark-color-scheme ? #f3f2f1 : #313131;
+    in-out property<color> neutralLighterAlt: !root.dark-color-scheme ? #faf9f8 : #282828;
+    in-out property<color> accent: #0078d4;
+    in-out property<color> white: !root.dark-color-scheme ? #ffffff : #1f1f1f;
+    in-out property<color> whiteTranslucent40: rgba(255,255,255,0.4);
+    in-out property<color> yellowDark: #d29200;
+    in-out property<color> yellow: #ffb900;
+    in-out property<color> yellowLight: #fff100;
+    in-out property<color> orange: #d83b01;
+    in-out property<color> orangeLight: #ea4300;
+    in-out property<color> orangeLighter: #ff8c00;
+    in-out property<color> redDark: #a4262c;
+    in-out property<color> red: #e81123;
+    in-out property<color> magentaDark: #5c005c;
+    in-out property<color> magenta: #b4009e;
+    in-out property<color> magentaLight: #e3008c;
+    in-out property<color> purpleDark: #32145a;
+    in-out property<color> purple: #5c2d91;
+    in-out property<color> purpleLight: #b4a0ff;
+    in-out property<color> blueDark: #002050;
+    in-out property<color> blueMid: #00188f;
+    in-out property<color> blue: #0078d4;
+    in-out property<color> blueLight: #00bcf2;
+    in-out property<color> tealDark: #004b50;
+    in-out property<color> teal: #008272;
+    in-out property<color> tealLight: #00b294;
+    in-out property<color> greenDark: #004b1c;
+    in-out property<color> green: #107c10;
+    in-out property<color> greenLight: #bad80a;
 }
 
 
-export global StyleMetrics := {
-    property<length> layout-spacing: 8px;
-    property<length> layout-padding: 8px;
-    property<length> text-cursor-width: 2px;
-    property<brush> window-background: Palette.white;
-    property<color> default-text-color: Palette.neutralDark;
-    property<brush> textedit-background: Palette.white;
-    property<color> textedit-text-color: Palette.neutralPrimary;
-    property<brush> textedit-background-disabled: Palette.neutralLighter;
-    property<color> textedit-text-color-disabled: Palette.neutralTertiary;
-    property<bool> dark-color-scheme: Palette.dark-color-scheme;
+export global StyleMetrics  {
+    in-out property<length> layout-spacing: 8px;
+    in-out property<length> layout-padding: 8px;
+    in-out property<length> text-cursor-width: 2px;
+    in-out property<brush> window-background: Palette.white;
+    in-out property<color> default-text-color: Palette.neutralDark;
+    in-out property<brush> textedit-background: Palette.white;
+    in-out property<color> textedit-text-color: Palette.neutralPrimary;
+    in-out property<brush> textedit-background-disabled: Palette.neutralLighter;
+    in-out property<color> textedit-text-color-disabled: Palette.neutralTertiary;
+    in-out property<bool> dark-color-scheme: Palette.dark-color-scheme;
 }
 
-export Button := Rectangle {
+export component Button inherits Rectangle {
     callback clicked;
     in property<string> text <=> text.text;
     out property<bool> has-focus: fs.has-focus;
@@ -97,9 +97,9 @@ export Button := Rectangle {
 
     border-width: 1px;
     border-radius: 2px;
-    border-color: !enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
-    background: !enabled ? Palette.neutralLighter
-        : (touch.pressed || checked) ? Palette.neutralLight
+    border-color: !root.enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
+    background: !root.enabled ? Palette.neutralLighter
+        : (touch.pressed || root.checked) ? Palette.neutralLight
         : touch.has-hover ? Palette.neutralLighter
         : Palette.white;
     horizontal-stretch: 0;
@@ -112,13 +112,13 @@ export Button := Rectangle {
         padding-top: 3px;
         padding-bottom: 3px;
 
-        if (icon.width > 0 && icon.height > 0): Image {
-            source <=> icon;
+        if (root.icon.width > 0 && root.icon.height > 0): Image {
+            source <=> root.icon;
             width: 24px;
         }
 
         text := Text {
-            color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+            color: !root.enabled ? Palette.neutralTertiary : Palette.neutralDark;
             horizontal-alignment: center;
             vertical-alignment: center;
             font-weight: 600;
@@ -135,6 +135,7 @@ export Button := Rectangle {
     }
 
     fs := FocusScope {
+        x:0;
         width: 0px; // Do not react on clicks
         enabled <=> root.enabled;
         key-pressed(event) => {
@@ -148,33 +149,33 @@ export Button := Rectangle {
 
     Rectangle { // Focus rectangle
         x: 3px;
-        y: x;
-        width: parent.width - 2*x;
-        height: parent.height - 2*y;
-        border-width: enabled && has-focus? 1px : 0px;
+        y: self.x;
+        width: parent.width - 2*self.x;
+        height: parent.height - 2*self.y;
+        border-width: root.enabled && root.has-focus? 1px : 0px;
         border-color: Palette.black;
     }
 }
 
-ScrollBar := Rectangle {
+component ScrollBar inherits Rectangle {
     background: Palette.white;
    // border-color: Palette.button-background;
     border-width: 1px;
-    property <bool> horizontal;
-    property<length> maximum;
-    property<length> page-size;
+    in-out property <bool> horizontal;
+    in-out property<length> maximum;
+    in-out property<length> page-size;
     // this is always negative and bigger than  -maximum
-    property<length> value;
+    in-out property<length> value;
 
     handle := Rectangle {
-        width: !horizontal ? parent.width : maximum <= 0phx ? 0phx : parent.width * (page-size / (maximum + page-size));
-        height: horizontal ? parent.height : maximum <= 0phx ? 0phx : parent.height * (page-size / (maximum + page-size));
+        width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : parent.width * (root.page-size / (root.maximum + root.page-size));
+        height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : parent.height * (root.page-size / (root.maximum + root.page-size));
 
-        border-radius: (horizontal ? self.height : self.width) / 2;
+        border-radius: (root.horizontal ? self.height : self.width) / 2;
         background: touch-area.pressed ? Palette.themePrimary :
             touch-area.has-hover ? Palette.themeSecondary : Palette.neutralTertiary;
-        x: !horizontal ? 0phx : (root.width - handle.width) * (-value / maximum);
-        y: horizontal ? 0phx : (root.height - handle.height) * (-value / maximum);
+        x: !root.horizontal ? 0phx : (root.width - handle.width) * (-root.value / root.maximum);
+        y: root.horizontal ? 0phx : (root.height - handle.height) * (-root.value / root.maximum);
     }
     touch-area := TouchArea {
         width: parent.width;
@@ -182,21 +183,21 @@ ScrollBar := Rectangle {
         property <length> pressed-value;
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                pressed-value = -root.value;
+                self.pressed-value = -root.value;
             }
         }
         moved => {
-            if (enabled && pressed) {
-                value = -max(0px, min(root.maximum, pressed-value + (
-                    horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (maximum / (root.width - handle.width))
-                               : (touch-area.mouse-y - touch-area.pressed-y) * (maximum / (root.height - handle.height))
+            if (self.enabled && self.pressed) {
+                root.value = -max(0px, min(root.maximum, self.pressed-value + (
+                    root.horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (root.maximum / (root.width - handle.width))
+                               : (touch-area.mouse-y - touch-area.pressed-y) * (root.maximum / (root.height - handle.height))
                 )));
             }
         }
     }
 }
 
-export ScrollView := Rectangle {
+export component ScrollView inherits Rectangle {
     in-out property <length> viewport-width <=> fli.viewport-width;
     in-out property <length> viewport-height <=> fli.viewport-height;
     in-out property <length> viewport-x <=> fli.viewport-x;
@@ -205,16 +206,16 @@ export ScrollView := Rectangle {
     out property <length> visible-height <=> fli.height;
     in property <bool> enabled: true;
     // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
-    property <bool> has-focus;
+    in-out property <bool> has-focus;
     min-height: 50px;
     min-width: 50px;
     horizontal-stretch: 1;
     vertical-stretch: 1;
 
     border-radius: 2px;
-    border-width: !enabled ? 0px : has-focus ? 2px : 1px;
-    border-color: !enabled ? Palette.neutralLighter
-        : has-focus ? Palette.themeSecondary
+    border-width: !root.enabled ? 0px : root.has-focus ? 2px : 1px;
+    border-color: !root.enabled ? Palette.neutralLighter
+        : root.has-focus ? Palette.themeSecondary
         : Palette.neutralPrimary;
 
     fli := Flickable {
