@@ -4,15 +4,15 @@
 
 import { StyleMetrics } from "std-widgets-impl.slint";
 
-export VerticalBox := VerticalLayout {
+export component VerticalBox inherits VerticalLayout {
     spacing: StyleMetrics.layout-spacing;
     padding: StyleMetrics.layout-padding;
 }
-export HorizontalBox := HorizontalLayout {
+export component HorizontalBox inherits HorizontalLayout {
     spacing: StyleMetrics.layout-spacing;
     padding: StyleMetrics.layout-padding;
 }
-export GridBox := GridLayout {
+export component GridBox inherits GridLayout {
     spacing: StyleMetrics.layout-spacing;
     padding: StyleMetrics.layout-padding;
 }

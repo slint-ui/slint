@@ -3,7 +3,7 @@
 
 export { NativeStyleMetrics as StyleMetrics }
 
-export ScrollView := NativeScrollView {
+export component ScrollView inherits NativeScrollView {
     in-out property <length> viewport-width <=> fli.viewport-width;
     in-out property <length> viewport-height <=> fli.viewport-height;
     in-out property <length> viewport-x <=> fli.viewport-x;

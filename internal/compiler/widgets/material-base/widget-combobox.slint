@@ -5,14 +5,14 @@
 import { md } from "md.slint";
 import { Item } from "widget-item.slint";
 
-export ComboBox := FocusScope {
+export component ComboBox inherits FocusScope {
     in property <[string]> model;
     in-out property <int> current-index : 0;
-    in-out property <string> current-value: model[current-index];
+    in-out property <string> current-value: root.model[root.current-index];
     callback selected(string);
 
     accessible-role: combobox;
-    accessible-value <=> current-value;
+    accessible-value <=> root.current-value;
 
     horizontal-stretch: 1;
     vertical-stretch: 0;
@@ -46,7 +46,7 @@ export ComboBox := FocusScope {
         icon := Path {
             width: 16px;
             height: 16px;
-            y: (parent.height - height) / 2;
+            y: (parent.height - self.height) / 2;
             commands: "m24 30.75-12-12 2.15-2.15L24 26.5l9.85-9.85L36 18.8Z";
             fill: md.sys.color.on-surface;
         }
@@ -61,6 +61,7 @@ export ComboBox := FocusScope {
     }
 
     popup := PopupWindow {
+        x:0;
         y: root.height;
         width: root.width;
 
@@ -89,25 +90,25 @@ export ComboBox := FocusScope {
 
     key-pressed(event) => {
         if (event.text == Key.UpArrow) {
-            current-index = Math.max(current-index - 1, 0);
-            current-value = model[current-index];
+            root.current-index = Math.max(root.current-index - 1, 0);
+            root.current-value = root.model[root.current-index];
             return accept;
         } else if (event.text == Key.DownArrow) {
-            current-index = Math.min(current-index + 1, model.length - 1);
-            current-value = model[current-index];
+            root.current-index = Math.min(root.current-index + 1, root.model.length - 1);
+            root.current-value = root.model[root.current-index];
             return accept;
         }
         return reject;
     }
 
     states [
-        disabled when !enabled : {
+        disabled when !root.enabled : {
             container.border-color: md.sys.color.on-surface;
             container.opacity: 0.38;
             label.opacity: 0.38;
             icon.opacity: 0.38;
         }
-        focused when has-focus : {
+        focused when root.has-focus : {
             container.border-width: 2px;
             container.border-color: md.sys.color.primary;
             label.color: md.sys.color.primary;

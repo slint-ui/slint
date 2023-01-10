@@ -3,18 +3,18 @@
 
 import { StyleMetrics, Button } from "std-widgets-impl.slint";
 
-export StandardButton := Button {
+export component StandardButton inherits Button {
     in property <StandardButtonKind> kind;
     text:
-        kind == StandardButtonKind.ok ? "OK" :
-        kind == StandardButtonKind.cancel ? "Cancel" :
-        kind == StandardButtonKind.apply ? "Apply" :
-        kind == StandardButtonKind.close ? "Close" :
-        kind == StandardButtonKind.reset ? "Reset" :
-        kind == StandardButtonKind.help ? "Help" :
-        kind == StandardButtonKind.yes ? "Yes" :
-        kind == StandardButtonKind.no ? "No" :
-        kind == StandardButtonKind.abort ? "Abort" :
-        kind == StandardButtonKind.retry ? "Retry" :
-        kind == StandardButtonKind.ignore ? "Ignore" : "";
+        root.kind == StandardButtonKind.ok ? "OK" :
+        root.kind == StandardButtonKind.cancel ? "Cancel" :
+        root.kind == StandardButtonKind.apply ? "Apply" :
+        root.kind == StandardButtonKind.close ? "Close" :
+        root.kind == StandardButtonKind.reset ? "Reset" :
+        root.kind == StandardButtonKind.help ? "Help" :
+        root.kind == StandardButtonKind.yes ? "Yes" :
+        root.kind == StandardButtonKind.no ? "No" :
+        root.kind == StandardButtonKind.abort ? "Abort" :
+        root.kind == StandardButtonKind.retry ? "Retry" :
+        root.kind == StandardButtonKind.ignore ? "Ignore" : "";
 }

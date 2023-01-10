@@ -3,18 +3,18 @@
 
 import { StyleMetrics, ScrollView } from "std-widgets-impl.slint";
 
-export LineEditInner := Rectangle {
+export component LineEditInner inherits Rectangle {
     callback accepted(string);
     callback edited(string);
-    property <string> placeholder-text;
-    property font-size <=> input.font-size;
-    property text <=> input.text;
-    property placeholder-color <=> placeholder.color;
-    property enabled <=> input.enabled;
-    property <bool> has-focus: input.has-focus;
-    property input-type <=> input.input-type;
-    property horizontal-alignment <=> input.horizontal-alignment;
-    property read-only <=> input.read-only;
+    in-out property <string> placeholder-text;
+    in-out property font-size <=> input.font-size;
+    in-out property text <=> input.text;
+    in-out property placeholder-color <=> placeholder.color;
+    in-out property enabled <=> input.enabled;
+    in-out property <bool> has-focus: input.has-focus;
+    in-out property input-type <=> input.input-type;
+    in-out property horizontal-alignment <=> input.horizontal-alignment;
+    in-out property read-only <=> input.read-only;
     min-height: input.preferred-height;
     min-width: max(50px, placeholder.min-width);
     clip: true;
@@ -26,15 +26,15 @@ export LineEditInner := Rectangle {
     }
     input := TextInput {
         property <length> computed_x;
-        x: min(0px, max(parent.width - width, computed_x));
-        width: max(parent.width, preferred-width);
+        x: min(0px, max(parent.width - self.width, self.computed_x));
+        width: max(parent.width, self.preferred-width);
         height: 100%;
-        color: enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
+        color: self.enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
         cursor-position-changed(cpos) => {
-            if (cpos.x + computed_x < StyleMetrics.layout-padding) {
-                computed_x = - cpos.x + StyleMetrics.layout-padding;
-            } else if (cpos.x + computed_x > parent.width - StyleMetrics.layout-padding) {
-                computed_x = parent.width - cpos.x - StyleMetrics.layout-padding;
+            if (cpos.x + self.computed_x < StyleMetrics.layout-padding) {
+                self.computed_x = - cpos.x + StyleMetrics.layout-padding;
+            } else if (cpos.x + self.computed_x > parent.width - StyleMetrics.layout-padding) {
+                self.computed_x = parent.width - cpos.x - StyleMetrics.layout-padding;
             }
         }
         accepted => { root.accepted(self.text); }
@@ -44,7 +44,7 @@ export LineEditInner := Rectangle {
     }
 }
 
-export TextEdit := ScrollView {
+export component TextEdit inherits ScrollView {
     in property <length> font-size <=> input.font-size;
     in-out property <string> text <=> input.text;
     has-focus: input.has-focus;
@@ -58,36 +58,36 @@ export TextEdit := ScrollView {
     horizontal-stretch: 1;
     vertical-stretch: 1;
 
-    viewport-width: wrap == TextWrap.word-wrap ? root.visible-width : max(root.visible-width, input.preferred-width);
+    viewport-width: root.wrap == TextWrap.word-wrap ? root.visible-width : max(root.visible-width, input.preferred-width);
     viewport-height: max(self.visible-height, input.preferred-height);
 
     Rectangle {
-        background: enabled ? StyleMetrics.textedit-background : StyleMetrics.textedit-background-disabled;
+        background: root.enabled ? StyleMetrics.textedit-background : StyleMetrics.textedit-background-disabled;
     }
 
     input := TextInput {
         enabled: true;
         edited => { root.edited(self.text); }
-        color: enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
+        color: self.enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
         single-line: false;
         wrap: word-wrap;
         cursor-position-changed(cpos) => {
-            if (cpos.x + viewport-x < StyleMetrics.layout-padding) {
-                viewport-x = min(0px, max(parent.visible-width - width,  - cpos.x + StyleMetrics.layout-padding ));
-            } else if (cpos.x + viewport-x > parent.visible-width - StyleMetrics.layout-padding) {
-                viewport-x = min(0px, max(parent.visible-width - width,  parent.visible-width - cpos.x - StyleMetrics.layout-padding ));
+            if (cpos.x + root.viewport-x < StyleMetrics.layout-padding) {
+                root.viewport-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + StyleMetrics.layout-padding ));
+            } else if (cpos.x + root.viewport-x > parent.visible-width - StyleMetrics.layout-padding) {
+                root.viewport-x = min(0px, max(parent.visible-width - self.width,  parent.visible-width - cpos.x - StyleMetrics.layout-padding ));
             }
-            if (cpos.y + viewport-y < StyleMetrics.layout-padding) {
-                viewport-y = min(0px, max(parent.visible-height - height,  - cpos.y + StyleMetrics.layout-padding ));
-            } else if (cpos.y + viewport-y > parent.visible-height - StyleMetrics.layout-padding - 20px) {
+            if (cpos.y + root.viewport-y < StyleMetrics.layout-padding) {
+                root.viewport-y = min(0px, max(parent.visible-height - self.height,  - cpos.y + StyleMetrics.layout-padding ));
+            } else if (cpos.y + root.viewport-y > parent.visible-height - StyleMetrics.layout-padding - 20px) {
                 // FIXME: font-height hardcoded to 20px
-                viewport-y = min(0px, max(parent.visible-height - height,  parent.visible-height - cpos.y - StyleMetrics.layout-padding - 20px));
+                root.viewport-y = min(0px, max(parent.visible-height - self.height,  parent.visible-height - cpos.y - StyleMetrics.layout-padding - 20px));
             }
         }
     }
 }
 
-export AboutSlint := Rectangle {
+export component AboutSlint inherits Rectangle {
     VerticalLayout {
         padding: 12px;
         spacing: 8px;

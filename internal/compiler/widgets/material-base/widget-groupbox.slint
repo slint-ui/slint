@@ -4,7 +4,7 @@
 import { md } from "md.slint";
 
 // A container widget with a title.
-export GroupBox := Rectangle {
+export component GroupBox inherits Rectangle {
     in property <string> title <=> label.text;
     in property<bool> enabled: true;
 
@@ -32,6 +32,7 @@ export GroupBox := Rectangle {
     }
 
     label-container := Rectangle {
+        y:0;
         x: 8px;
         width: label.width + 8px;
         height: label.height + 8px;
@@ -50,7 +51,7 @@ export GroupBox := Rectangle {
     }
 
     states [
-        disabled when !enabled : {
+        disabled when !root.enabled : {
             container.border-color: md.sys.color.on-surface;
             container.opacity: 0.38;
             label.opacity: 0.38;

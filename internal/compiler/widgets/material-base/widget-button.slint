@@ -5,7 +5,7 @@ import { StateLayer } from "comp-state-layer.slint";
 import { md } from "md.slint";
 
 // Default button widget with Material Design Filled Button look and feel.
-export Button := Rectangle {
+export component Button inherits Rectangle {
     callback clicked;
 
     in-out property<string> text <=> label.text;
@@ -54,8 +54,8 @@ export Button := Rectangle {
         padding-right: 24px;
         spacing: 8px;
 
-        if (icon.width > 0 && icon.height > 0): Image {
-            source <=> icon;
+        if (root.icon.width > 0 && root.icon.height > 0): Image {
+            source <=> root.icon;
             width: 24px;
             opacity: label.opacity;
         }

@@ -5,7 +5,7 @@
 import { md } from "md.slint";
 
 // Allows to select a value from a range of values.
-export Slider := Rectangle {
+export component Slider inherits Rectangle {
     in property<float> maximum: 100;
     in property<float> minimum: 0;
     in-out property<float> value;
@@ -16,15 +16,15 @@ export Slider := Rectangle {
     height: 20px;
 
     accessible-role: slider;
-    accessible-value: value;
-    accessible-value-minimum: minimum;
-    accessible-value-maximum: maximum;
-    accessible-value-step: (maximum - minimum) / 100;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: (root.maximum - root.minimum) / 100;
 
     container := Rectangle {
         background: md.sys.color.surface-variant;
         opacity: 0.38;
-        y: (parent.height - height) / 2;
+        y: (parent.height - self.height) / 2;
         width: 100%;
         height: 4px;
         border-radius: 2px;
@@ -33,7 +33,7 @@ export Slider := Rectangle {
     track := Rectangle {
         background: md.sys.color.primary;
         x: container.x;
-        y: (parent.height - height) / 2;
+        y: (parent.height - self.height) / 2;
         width: handle.x + (handle.width / 2);
         height: container.height;
         border-radius: container.border-radius;
@@ -42,21 +42,21 @@ export Slider := Rectangle {
     state-layer := Rectangle {
         opacity: 0;
         background: md.sys.color.primary;
-        x: handle.x - (width - handle.width) / 2;
-        y: (parent.height - height) / 2;
+        x: handle.x - (self.width - handle.width) / 2;
+        y: (parent.height - self.height) / 2;
         width: 40px;
         height: 40px;
-        border-radius: max(width, height) / 2;
+        border-radius: max(self.width, self.height) / 2;
         animate opacity { duration: 250ms; easing: ease; }
     }
 
     handle := Rectangle {
         background: md.sys.color.primary;
-        x: (parent.width - handle.width) * (value - minimum) / (maximum - minimum);
-        y: (parent.height - height) / 2;
+        x: (parent.width - handle.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
+        y: (parent.height - self.height) / 2;
         width: root.height;
         height: root.height;
-        border-radius: max(width, height) / 2;
+        border-radius: max(self.width, self.height) / 2;
         drop-shadow-color: md.sys.color.shadow;
         drop-shadow-blur: md.sys.elevation.level1;
         drop-shadow-offset-y: 1px;
@@ -66,31 +66,32 @@ export Slider := Rectangle {
 
     touch := TouchArea {
         property <float> pressed-value;
-        property <bool> handle-hover: has-hover && mouse-x >= handle.x && mouse-x <= handle.x + handle.width
-            && mouse-y >= handle.y && mouse-y <= handle.y + handle.height;
+        property <bool> handle-hover: self.has-hover && self.mouse-x >= handle.x && self.mouse-x <= handle.x + handle.width
+            && self.mouse-y >= handle.y && self.mouse-y <= handle.y + handle.height;
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                pressed-value = root.value;
+                self.pressed-value = root.value;
             }
         }
         moved => {
-            if (enabled && pressed) {
-                value = max(root.minimum, min(root.maximum,
-                    pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
-                root.changed(value);
+            if (self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (touch.mouse-x - touch.pressed-x) * (root.maximum - root.minimum) / (root.width - handle.width)));
+                root.changed(root.value);
             }
         }
     }
 
     fs := FocusScope {
+        x:0;
         width: 0px;
 
         key-pressed(event) => {
-            if (enabled && event.text == Key.RightArrow) {
-                value = Math.min(value + 1, maximum);
+            if (self.enabled && event.text == Key.RightArrow) {
+                root.value = Math.min(root.value + 1, root.maximum);
                 accept
-            } else if (enabled && event.text == Key.LeftArrow) {
-                value = Math.max(value - 1, minimum);
+            } else if (self.enabled && event.text == Key.LeftArrow) {
+                root.value = Math.max(root.value - 1, root.minimum);
                 accept
             } else {
                 reject
@@ -99,7 +100,7 @@ export Slider := Rectangle {
     }
 
     states [
-        disabled when !enabled : {
+        disabled when !root.enabled : {
             handle.background: md.sys.color.on-surface;
             handle.drop-shadow-blur: md.sys.elevation.level0;
             track.background: md.sys.color.on-surface;

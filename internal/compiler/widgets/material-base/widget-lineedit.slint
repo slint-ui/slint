@@ -5,7 +5,7 @@
 import { md } from "md.slint";
 
 // Single line text input field with Material Design Outline TextField look and feel.
-export LineEdit := Rectangle {
+export component LineEdit inherits Rectangle {
     in property <length> font-size <=> input.font-size;
     in-out property <string> text <=> input.text;
     in property <string> placeholder-text <=> placeholder.text;
@@ -56,8 +56,8 @@ export LineEdit := Rectangle {
                 property <length> computed_x;
                 property <length> padding-outer: layout.padding-left + layout.padding-right;
 
-                x: min(0px, max(parent.width - width, computed_x));
-                width: max(parent.width, preferred-width);
+                x: min(0px, max(parent.width - self.width, self.computed_x));
+                width: max(parent.width, self.preferred-width);
                 height: 100%;
                 color: md.sys.color.on-surface;
                 vertical-alignment: center;
@@ -67,10 +67,10 @@ export LineEdit := Rectangle {
                 accepted => { root.accepted(self.text); }
                 edited => { root.edited(self.text); }
                 cursor-position-changed(cpos) => {
-                    if (cpos.x + computed_x < padding-outer) {
-                        computed_x = - cpos.x + padding-outer;
-                    } else if (cpos.x + computed_x > parent.width - padding-outer) {
-                        computed_x = parent.width - cpos.x - padding-outer;
+                    if (cpos.x + self.computed_x < self.padding-outer) {
+                        self.computed_x = - cpos.x + self.padding-outer;
+                    } else if (cpos.x + self.computed_x > parent.width - self.padding-outer) {
+                        self.computed_x = parent.width - cpos.x - self.padding-outer;
                     }
                 }
             }
@@ -78,13 +78,13 @@ export LineEdit := Rectangle {
     }
 
     states [
-        disabled when !enabled : {
+        disabled when !root.enabled : {
             container.border-color: md.sys.color.on-surface;
             container.opacity: 0.38;
             input.opacity: 0.38;
             placeholder.opacity: 0.38;
         }
-        focused when has-focus : {
+        focused when root.has-focus : {
             container.border-width: 2px;
             container.border-color: md.sys.color.primary;
             input.color: md.sys.color.primary;
