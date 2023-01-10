@@ -73,10 +73,7 @@ fn lower_element_layout(
     {
         let mut elem = elem.borrow_mut();
         let elem = &mut *elem;
-        let prev_base = std::mem::replace(
-            &mut elem.base_type,
-            type_register.lookup_element("Rectangle").unwrap(),
-        );
+        let prev_base = std::mem::replace(&mut elem.base_type, type_register.empty_type());
         // Create fake properties for the layout properties
         for p in elem.bindings.keys() {
             if !elem.base_type.lookup_property(p).is_valid()

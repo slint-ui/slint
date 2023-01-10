@@ -34,8 +34,7 @@ pub async fn lower_tabwidget(
         .import_component("std-widgets.slint", "TabBarImpl", &mut build_diags_to_ignore)
         .await
         .expect("can't load TabBarImpl from std-widgets.slint");
-    let rectangle_type =
-        type_loader.global_type_registry.borrow().lookup_element("Rectangle").unwrap();
+    let empty_type = type_loader.global_type_registry.borrow().empty_type();
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget") {
@@ -44,7 +43,7 @@ pub async fn lower_tabwidget(
                 ElementType::Component(tabwidget_impl.clone()),
                 ElementType::Component(tab_impl.clone()),
                 ElementType::Component(tabbar_impl.clone()),
-                &rectangle_type,
+                &empty_type,
                 diag,
             );
         }
@@ -56,7 +55,7 @@ fn process_tabwidget(
     tabwidget_impl: ElementType,
     tab_impl: ElementType,
     tabbar_impl: ElementType,
-    rectangle_type: &ElementType,
+    empty_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
     if matches!(&elem.borrow_mut().base_type, ElementType::Builtin(_)) {
@@ -81,7 +80,7 @@ fn process_tabwidget(
             continue;
         }
         let index = tabs.len();
-        child.borrow_mut().base_type = rectangle_type.clone();
+        child.borrow_mut().base_type = empty_type.clone();
         child.borrow_mut().property_declarations.insert("title".to_owned(), Type::String.into());
         set_geometry_prop(elem, child, "x", diag);
         set_geometry_prop(elem, child, "y", diag);
