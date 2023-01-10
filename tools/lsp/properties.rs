@@ -6,7 +6,7 @@ use crate::Error;
 
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
-use i_slint_compiler::object_tree::{Element, ElementRc, PropertyVisibility};
+use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
 use rowan::TextRange;
 
@@ -82,6 +82,24 @@ fn source_file(element: &Element) -> Option<String> {
     element.source_file().map(|sf| sf.path().to_string_lossy().to_string())
 }
 
+fn property_is_editable(property: &PropertyDeclaration, is_local_element: bool) -> bool {
+    if !property.property_type.is_property_type() {
+        // Filter away the callbacks
+        return false;
+    }
+    if matches!(property.visibility, PropertyVisibility::Output | PropertyVisibility::Private)
+        && !is_local_element
+    {
+        // Skip properties that cannot be set because of visibility rules
+        return false;
+    }
+    if property.type_node().is_none() {
+        return false;
+    }
+
+    return true;
+}
+
 fn add_element_properties(
     element: &Element,
     offset_to_position: &OffsetToPositionMapper,
@@ -92,16 +110,10 @@ fn add_element_properties(
     let file = source_file(element);
 
     result.extend(element.property_declarations.iter().filter_map(move |(name, value)| {
-        if !value.property_type.is_property_type() {
-            // Filter away the callbacks
+        if !property_is_editable(value, is_local_element) {
             return None;
         }
-        if matches!(value.visibility, PropertyVisibility::Output | PropertyVisibility::Private)
-            && !is_local_element
-        {
-            // Skip properties that cannot be set because of visibility rules
-            return None;
-        }
+
         let type_node = value.type_node()?; // skip fake and materialized properties
         let declared_at = file.as_ref().map(|file| {
             let start_position = offset_to_position.map_node(&type_node).start;
