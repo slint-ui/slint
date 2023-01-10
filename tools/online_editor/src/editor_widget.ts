@@ -47,7 +47,7 @@ import { commands } from "vscode";
 import { StandaloneServices, ICodeEditorService } from "vscode/services";
 
 const hello_world = `import { Button, VerticalBox } from "std-widgets.slint";
-export Demo := Window {
+component Demo {
     VerticalBox {
         alignment: start;
         Text {
