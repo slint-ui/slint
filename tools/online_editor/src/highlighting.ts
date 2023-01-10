@@ -8,7 +8,7 @@ import * as monaco from "monaco-editor";
 export const slint_language = <monaco.languages.IMonarchLanguage>{
     defaultToken: "invalid",
 
-    root_keywords: ["import", "from", "export"],
+    root_keywords: ["import", "from", "export", "global", "component", "struct", "inherits"],
     inner_keywords: [
         "property",
         "callback",
@@ -17,6 +17,13 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
         "transitions",
         "if",
         "for",
+        "in",
+        "out",
+        "in-out",
+        "private",
+        "function",
+        "pure",
+        "public",
     ],
     lang_keywords: ["root", "parent", "this", "if"],
     type_keywords: [
@@ -26,6 +33,8 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
         "length",
         "physical_length",
         "duration",
+        "color",
+        "brush",
     ],
     escapes:
         /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
