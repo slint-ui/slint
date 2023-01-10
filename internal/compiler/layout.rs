@@ -503,7 +503,9 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                     }
                 }
             }
-            ElementType::Builtin(base_type) if base_type.name == "Rectangle" => {
+            ElementType::Builtin(base_type)
+                if matches!(base_type.name.as_str(), "Rectangle" | "Empty") =>
+            {
                 // hard-code the value for rectangle because many rectangle end up optimized away and we
                 // don't want to depend on the element.
                 Expression::Struct {
