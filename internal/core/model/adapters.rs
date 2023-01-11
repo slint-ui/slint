@@ -16,7 +16,7 @@ use super::*;
 /// ## Example
 ///
 /// Here we have a [`VecModel`] holding rows of a custom type `Name`.
-/// It is then mapped into a `MapModel` of [`crate::SharedString`]s
+/// It is then mapped into a `MapModel` of [`SharedString`]s
 ///
 /// ```
 /// # use slint::{Model, VecModel, SharedString, MapModel};

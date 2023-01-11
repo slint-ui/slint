@@ -153,6 +153,7 @@ fn gen_corelib(
         "PointerEventButton",
         "PointerEvent",
         "Rect",
+        "SortOrder",
     ]
     .iter()
     .chain(items.iter())

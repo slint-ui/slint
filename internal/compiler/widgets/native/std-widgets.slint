@@ -261,7 +261,7 @@ export component GridBox inherits GridLayout {
     padding: NativeStyleMetrics.layout-spacing;
 }
 
-export StandardTableView := Rectangle {
+export component StandardTableView inherits Rectangle {
     callback sort-ascending(int);
     callback sort-descending(int);
     
@@ -275,17 +275,14 @@ export StandardTableView := Rectangle {
 
     function sort(index: int) {
         if (current-sort-column != index) {
-            columns[current-sort-column].sort-by-ascending = false;
-            columns[current-sort-column].sort-by-descending = false;
+            columns[current-sort-column].sort-order = SortOrder.unsorted;
         }
 
-        if(columns[index].sort-by-ascending) {
-            columns[index].sort-by-ascending = false;
-            columns[index].sort-by-descending = true;
+        if(columns[index].sort-order == SortOrder.ascending) {
+            columns[index].sort-order = SortOrder.descending;
             sort-descending(index);
         } else {
-            columns[index].sort-by-ascending = true;
-            columns[index].sort-by-descending = false;
+            columns[index].sort-order = SortOrder.ascending;
             sort-ascending(index);
         }
 
@@ -320,11 +317,11 @@ export StandardTableView := Rectangle {
                       
                         Rectangle {
                             line-edit := LineEditInner {
-                                opacity: has-focus ? 1.0 : 0.0;
+                                opacity: self.has-focus ? 1.0 : 0.0;
                                 visible: cell.editable;
                                 text: cell.text;
                                 edited => {  
-                                    cell.text = text;
+                                    cell.text = self.text;
                                 }
                             }
     

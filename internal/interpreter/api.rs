@@ -251,7 +251,7 @@ macro_rules! declare_value_struct_conversion {
 }
 
 declare_value_struct_conversion!(struct i_slint_core::model::StandardListViewItem { text, editable });
-declare_value_struct_conversion!(struct i_slint_core::model::TableColumn { title, min_width, horizontal_stretch, sort_by_ascending, sort_by_descending });
+declare_value_struct_conversion!(struct i_slint_core::model::TableColumn { title, min_width, horizontal_stretch, sort_order });
 declare_value_struct_conversion!(struct i_slint_core::properties::StateInfo { current_state, previous_state, change_time });
 declare_value_struct_conversion!(struct i_slint_core::input::KeyboardModifiers { control, alt, shift, meta });
 declare_value_struct_conversion!(struct i_slint_core::input::KeyEvent { text, modifiers, ..Default::default() });

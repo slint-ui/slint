@@ -194,3 +194,12 @@ The default value of each enum type is always the first value.
 * **`tab`**: The element is a Tab or behaves like one.
 * **`text`**: The role for a Text element. It is automatically applied.
 
+## `SortOrder`
+
+ This enum represents the different values of the `sort-order` property.
+ It is used to sort a `StandardTableView` by a column.
+
+* **`unsorted`**: The column is unsorted.
+* **`ascending`**: The column is sorted in ascending order.
+* **`descending`**: The column is sorted in descending order.
+

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use i_slint_core::input::FocusEventResult;
+use i_slint_core::{input::FocusEventResult, items::SortOrder};
 
 use super::*;
 
@@ -101,8 +101,8 @@ impl Item for NativeTableColumn {
         let has_hover: bool = this.has_hover();
         let item = this.item();
         let text: qttypes::QString = item.title.as_str().into();
-        let ascending: bool = item.sort_by_ascending;
-        let descending: bool = item.sort_by_descending;
+        let ascending: bool = item.sort_order == SortOrder::Ascending;
+        let descending: bool = item.sort_order == SortOrder::Descending;
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
