@@ -151,7 +151,7 @@ export class PreviewWidget extends Widget {
             return;
         }
 
-        const padding = 50;
+        const padding = 25;
         const canvas_style = document.defaultView?.getComputedStyle(
             this.#canvas,
         );
@@ -174,10 +174,10 @@ export class PreviewWidget extends Widget {
         );
         const height = Math.max(
             parseInt(parent_style.height, 10),
-            canvas_height + 2 * padding,
+            canvas_height + 3 * padding,
         );
         const left = Math.ceil((width - raw_canvas_width) / 2) + "px";
-        const top = Math.ceil((height - raw_canvas_height) / 2) + "px";
+        const top = Math.ceil((height - raw_canvas_height) / 2) + "px"; // have twice the padding on top
 
         const zl = this.#zoom_level;
         this.#zoom_level = -1;
