@@ -756,49 +756,95 @@ pub(crate) fn set_binding<'a>(
     }
 }
 
-fn create_workspace_edit_for_remove_binding<'a>(
+fn create_workspace_edit_for_remove_binding(
     uri: &lsp_types::Url,
     version: i32,
-    property: &PropertyInformation,
-) -> Option<lsp_types::WorkspaceEdit> {
-    property.defined_at.as_ref().map(|defined_at| {
-        let delete_range = defined_at.selection_range;
-        let edit = lsp_types::TextEdit { range: delete_range, new_text: String::new() };
-        let edits = vec![lsp_types::OneOf::Left(edit)];
-        let text_document_edits = vec![lsp_types::TextDocumentEdit {
-            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
-                uri.clone(),
-                version,
-            ),
-            edits,
-        }];
-        lsp_types::WorkspaceEdit {
-            document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
-            ..Default::default()
-        }
-    })
+    range: lsp_types::Range,
+) -> lsp_types::WorkspaceEdit {
+    let edit = lsp_types::TextEdit { range, new_text: String::new() };
+    let edits = vec![lsp_types::OneOf::Left(edit)];
+    let text_document_edits = vec![lsp_types::TextDocumentEdit {
+        text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
+            uri.clone(),
+            version,
+        ),
+        edits,
+    }];
+    lsp_types::WorkspaceEdit {
+        document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
+        ..Default::default()
+    }
 }
 
-pub(crate) fn remove_binding<'a>(
+pub(crate) fn remove_binding(
     document_cache: &mut DocumentCache,
     uri: &lsp_types::Url,
     element: &ElementRc,
     property_name: &str,
 ) -> Result<lsp_types::WorkspaceEdit, Error> {
     let offset_mapper = document_cache.offset_to_position_mapper(uri)?;
-    let properties = get_properties(element, &offset_mapper);
-    let property = get_property_information(&properties, property_name)?;
+    let element = element.borrow();
 
-    let workspace_edit = create_workspace_edit_for_remove_binding(
+    let range = find_property_binding_offset(&element, property_name)
+        .and_then(|offset| element.node.as_ref()?.token_at_offset(offset.into()).right_biased())
+        .and_then(|token| {
+            for ancestor in token.parent_ancestors() {
+                if (ancestor.kind() == SyntaxKind::Binding)
+                    || (ancestor.kind() == SyntaxKind::PropertyDeclaration)
+                {
+                    let start = {
+                        let token = left_extend(ancestor.first_token()?);
+                        let start = token.text_range().start();
+                        token
+                            .prev_token()
+                            .and_then(|t| {
+                                if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
+                                    let to_sub =
+                                        t.text().split('\n').last().unwrap_or_default().len()
+                                            as u32;
+                                    start.checked_sub(to_sub.into())
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or_else(|| start)
+                    };
+                    let end = {
+                        let token = right_extend(ancestor.last_token()?);
+                        let end = token.text_range().end();
+                        token
+                            .next_token()
+                            .and_then(|t| {
+                                if t.kind() == SyntaxKind::Whitespace && t.text().contains('\n') {
+                                    let to_add =
+                                        t.text().split('\n').next().unwrap_or_default().len()
+                                            as u32;
+                                    end.checked_add((to_add + 1/* <cr> */).into())
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or_else(|| end)
+                    };
+
+                    return Some(offset_mapper.map_range(rowan::TextRange::new(start, end)));
+                }
+                if ancestor.kind() == SyntaxKind::Element {
+                    // There should have been a binding before the element!
+                    break;
+                }
+            }
+            None
+        })
+        .ok_or_else(|| Into::<Error>::into("Could not find range to delete."))?;
+
+    Ok(create_workspace_edit_for_remove_binding(
         uri,
         document_cache
             .document_version(uri)
             .ok_or_else(|| Into::<Error>::into("Document not found in cache"))?,
-        &property,
-    )
-    .ok_or_else(|| Into::<Error>::into("Failed to create workspace edit to remove property"))?;
-
-    Ok(workspace_edit)
+        range,
+    ))
 }
 
 #[cfg(test)]
