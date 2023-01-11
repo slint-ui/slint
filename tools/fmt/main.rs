@@ -8,7 +8,7 @@
         cargo run --bin slint-fmt -- -i some_file.slint
     ```
 
-    Some code in this main.rs file is duplicated with the syntax_updater, i guess it could
+    Some code in this main.rs file is duplicated with the slint-updater, i guess it could
     be refactored in a separate utility crate or module or something.
 
     The [`writer::TokenWriter`] trait is meant to be able to support the LSP later as the

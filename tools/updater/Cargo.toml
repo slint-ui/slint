@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 [package]
-name = "syntax_updater"
+name = "slint-updater"
 version = "0.3.4"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
@@ -23,5 +23,5 @@ spin_on = "0.1"
 by_address = "1.0.4"
 
 [[bin]]
-name = "syntax_updater"
+name = "slint-updater"
 path = "main.rs"
