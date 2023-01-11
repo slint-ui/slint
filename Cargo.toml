@@ -47,7 +47,7 @@ members = [
     'tools/compiler',
     'tools/fmt',
     'tools/lsp',
-    'tools/syntax_updater',
+    'tools/updater',
     'tools/viewer',
     'xtask',
 ]
@@ -75,7 +75,6 @@ default-members = [
     'tools/compiler',
     'tools/fmt',
     'tools/lsp',
-    'tools/syntax_updater',
     'tools/viewer',
 ]
 

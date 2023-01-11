@@ -171,7 +171,7 @@ We have a few tools to help with the development of .slint files:
   working on it (when using the LSP preview is not possible).
 - An [**online editor**](https://slint-ui.com/editor) to try out .slint syntax
   without installing anything ([sources](./tools/online_editor)).
-- An [**updater**](./tools/syntax_updater) to convert the .slint files from
+- An [**updater**](./tools/updater) to convert the .slint files from
   previous versions to newer versions.
 - An experimental [**Figma importer**](./tools/figma_import).
 
@@ -222,7 +222,7 @@ Please see our separate [FAQ](FAQ.md).
 
 ## About us (SixtyFPS GmbH)
 
-We are passionate about software - API design, cross-platform software 
+We are passionate about software - API design, cross-platform software
 development and user interface components. Our aim is to make developing user
 interfaces fun for everyone: from JavaScript, C++, or Rust developers all the
 way to UI/UX designers. We believe that software grows organically and keeping
