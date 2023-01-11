@@ -32,6 +32,11 @@
     flex-grow: 1000;
 }
 
+.preview input {
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
 .preview .preview-container {
     background-image: linear-gradient(
             45deg,
@@ -51,7 +56,7 @@
 .preview .menu-area {
     position: absolute;
     border: none;
-    padding: 10px;
+    padding: 8px;
     z-index: 2;
 }
 
