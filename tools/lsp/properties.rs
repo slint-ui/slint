@@ -8,7 +8,7 @@ use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, Language, SyntaxKind};
-use lsp_types::{Position, WorkspaceEdit};
+use rowan::TextRange;
 
 use std::collections::HashSet;
 
@@ -43,7 +43,6 @@ pub(crate) struct ElementInformation {
     id: String,
     type_name: String,
     range: Option<lsp_types::Range>,
-    block_range: Option<lsp_types::Range>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -105,7 +104,7 @@ fn add_element_properties(
         }
         let type_node = value.type_node()?; // skip fake and materialized properties
         let declared_at = file.as_ref().map(|file| {
-            let start_position = offset_to_position.map(type_node.text_range().start());
+            let start_position = offset_to_position.map_node(&type_node).start;
             let uri = lsp_types::Url::from_file_path(file).unwrap_or_else(|_| {
                 lsp_types::Url::parse("file:///)").expect("That should have been valid as URL!")
             });
@@ -289,10 +288,10 @@ fn find_expression_range(
     offset: u32,
     offset_to_position: &OffsetToPositionMapper,
 ) -> Option<DefinitionInformation> {
-    let mut property_definition_range = None;
-    let mut expression_range = None;
     let mut delete_range = None;
+    let mut expression_range = None;
     let mut expression_value = None;
+    let mut property_definition_range = None;
 
     if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
         for ancestor in token.parent_ancestors() {
@@ -487,33 +486,14 @@ fn get_properties(
     result
 }
 
-fn find_block(token: Option<i_slint_compiler::parser::SyntaxToken>) -> Option<(u32, u32)> {
-    let mut current_token = token;
-    let mut brace_level = 0_u32;
-    let mut start_offset = u32::MAX;
-    let mut end_offset = u32::MAX;
+fn find_block_range(element: &ElementRc) -> Option<TextRange> {
+    let element = element.borrow();
+    let node = element.node.as_ref();
 
-    while let Some(t) = current_token {
-        if t.kind() == SyntaxKind::LBrace {
-            brace_level += 1;
-            if brace_level == 1 {
-                start_offset = t.text_range().end().into();
-            }
-        } else if t.kind() == SyntaxKind::RBrace {
-            brace_level -= 1;
-            if brace_level == 0 {
-                end_offset = Into::<u32>::into(t.text_range().start());
-                break;
-            }
-        }
-        current_token = t.next_token();
-    }
+    let open_brace = node?.child_token(SyntaxKind::LBrace)?;
+    let close_brace = node?.child_token(SyntaxKind::RBrace)?;
 
-    if start_offset != u32::MAX && start_offset <= end_offset {
-        return Some((start_offset, end_offset));
-    }
-
-    None
+    Some(TextRange::new(open_brace.text_range().start(), close_brace.text_range().end()))
 }
 
 fn get_element_information(
@@ -521,30 +501,11 @@ fn get_element_information(
     offset_to_position: &OffsetToPositionMapper,
 ) -> ElementInformation {
     let e = element.borrow();
-    let node = e.node.as_ref();
-    let range: Option<(u32, u32)> =
-        node.map(|n| n.text_range()).map(|r| (r.start().into(), r.end().into()));
-    let block_range = range.and_then(|r| {
-        find_block(node.expect("range was Some, so node must have been Some, too.").first_token())
-            .and_then(|br| {
-                if br.0 > r.0 && br.1 < r.1 {
-                    Some(lsp_types::Range::new(
-                        offset_to_position.map_u32(br.0),
-                        offset_to_position.map_u32(br.1),
-                    ))
-                } else {
-                    None
-                }
-            })
-    });
 
     ElementInformation {
         id: e.id.clone(),
-        type_name: format!("{}", e.base_type),
-        range: range.map(|r| {
-            lsp_types::Range::new(offset_to_position.map_u32(r.0), offset_to_position.map_u32(r.1))
-        }),
-        block_range,
+        type_name: e.base_type.to_string(),
+        range: e.node.as_ref().map(|n| offset_to_position.map_node(&n)),
     }
 }
 
@@ -629,7 +590,7 @@ fn set_binding_on_existing_property(
     property: &PropertyInformation,
     new_expression: String,
     diag: &mut BuildDiagnostics,
-) -> Result<(SetBindingResponse, Option<WorkspaceEdit>), Error> {
+) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>), Error> {
     let workspace_edit = (!diag.has_error())
         .then(|| {
             create_workspace_edit_for_set_binding_on_existing_property(
@@ -649,112 +610,121 @@ fn set_binding_on_existing_property(
     ))
 }
 
-fn find_insert_position_for_property(
-    element_range: &Option<lsp_types::Range>,
+enum InsertPosition {
+    Before,
+    After,
+}
+
+fn find_insert_position_relative_to_defined_properties(
     properties: &[PropertyInformation],
     property_name: &str,
-) -> Option<Position> {
-    let mut previous_index = usize::MAX;
+) -> Option<(lsp_types::Range, InsertPosition)> {
+    let mut previous_property = None;
     let mut property_index = usize::MAX;
-    let mut next_index = usize::MAX;
 
     for (i, p) in properties.iter().enumerate() {
         if p.name == property_name {
             property_index = i;
         } else {
-            if p.defined_at.is_some() {
+            if let Some(defined_at) = &p.defined_at {
                 if property_index == usize::MAX {
-                    previous_index = i;
+                    previous_property = Some((i, defined_at.delete_range.end.clone()));
                 } else {
-                    next_index = i;
-                    break;
+                    if let Some((pi, pp)) = previous_property {
+                        if (i - property_index) >= (property_index - pi) {
+                            return Some((
+                                lsp_types::Range::new(pp.clone(), pp),
+                                InsertPosition::After,
+                            ));
+                        }
+                    }
+                    let p = defined_at.delete_range.start.clone();
+                    return Some((lsp_types::Range::new(p.clone(), p), InsertPosition::Before));
                 }
             }
         }
     }
 
-    assert!((previous_index < property_index) ^ (previous_index == usize::MAX));
-    assert!(property_index != usize::MAX);
-    assert!(property_index < next_index);
+    None
+}
 
-    if previous_index != usize::MAX
-        && (property_index - previous_index <= next_index - property_index)
-    {
-        // There is a previous index and it is closer than the next one
-        Some(
-            properties
-                .get(previous_index)
-                .expect("Index was checked to exist")
-                .defined_at
-                .as_ref()
-                .expect("This index had a defined_at")
-                .delete_range
-                .end
-                .clone(),
-        )
-    } else if next_index != usize::MAX {
-        // There is a property following us
-        Some(
-            properties
-                .get(next_index)
-                .expect("Index was checked to exist")
-                .defined_at
-                .as_ref()
-                .expect("This index had a defined_at")
-                .delete_range
-                .start
-                .clone(),
-        )
-    } else if let Some(r) = element_range {
-        Some(r.start)
-    } else {
-        None
-    }
+fn find_insert_range_for_property(
+    block_range: &Option<lsp_types::Range>,
+    properties: &[PropertyInformation],
+    property_name: &str,
+) -> Option<(lsp_types::Range, InsertPosition)> {
+    find_insert_position_relative_to_defined_properties(properties, property_name).or_else(|| {
+        // No properties defined yet:
+        block_range.map(|r| {
+            // Right after the leading `{`...
+            let r = lsp_types::Range::new(
+                lsp_types::Position::new(r.start.line, r.start.character.saturating_add(1)),
+                lsp_types::Position::new(r.start.line, r.start.character.saturating_add(1)),
+            );
+            (r, InsertPosition::After)
+        })
+    })
 }
 
 fn create_workspace_edit_for_set_binding_on_known_property<'a>(
     uri: &lsp_types::Url,
     version: i32,
-    element_range: &Option<lsp_types::Range>,
+    element: &ElementRc,
+    offset_mapper: &OffsetToPositionMapper,
     properties: &[PropertyInformation],
     property_name: &str,
     new_expression: &str,
 ) -> Option<lsp_types::WorkspaceEdit> {
-    find_insert_position_for_property(element_range, properties, property_name).and_then(|p| {
-        let edit = lsp_types::TextEdit {
-            range: lsp_types::Range::new(p.clone(), p),
-            new_text: format!("{}: {};", property_name, new_expression),
-        };
-        let edits = vec![lsp_types::OneOf::Left(edit)];
-        let text_document_edits = vec![lsp_types::TextDocumentEdit {
-            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
-                uri.clone(),
-                version,
-            ),
-            edits,
-        }];
-        Some(lsp_types::WorkspaceEdit {
-            document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
-            ..Default::default()
-        })
-    })
+    let block_range = find_block_range(element).map(|r| offset_mapper.map_range(r));
+
+    find_insert_range_for_property(&block_range, properties, property_name).and_then(
+        |(range, insert_type)| {
+            let indent = find_element_indent(element).unwrap_or_default();
+            let edit = lsp_types::TextEdit {
+                range,
+                new_text: match insert_type {
+                    InsertPosition::Before => {
+                        format!("{property_name}: {new_expression};\n{indent}    ")
+                    }
+                    InsertPosition::After => {
+                        format!("\n{indent}    {property_name}: {new_expression};")
+                    }
+                },
+            };
+            let edits = vec![lsp_types::OneOf::Left(edit)];
+            let text_document_edits = vec![lsp_types::TextDocumentEdit {
+                text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
+                    uri.clone(),
+                    version,
+                ),
+                edits,
+            }];
+            Some(lsp_types::WorkspaceEdit {
+                document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
+                ..Default::default()
+            })
+        },
+    )
 }
 
 fn set_binding_on_known_property(
     document_cache: &mut DocumentCache,
     uri: &lsp_types::Url,
-    element_range: &Option<lsp_types::Range>,
+    element: &ElementRc,
     properties: &[PropertyInformation],
     property_name: &str,
     new_expression: &str,
     diag: &mut BuildDiagnostics,
-) -> Result<(SetBindingResponse, Option<WorkspaceEdit>), Error> {
+) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>), Error> {
     let workspace_edit = (!diag.has_error())
         .then(|| {
             create_workspace_edit_for_set_binding_on_known_property(
                 uri,
                 document_cache.document_version(uri)?,
-                element_range,
+                element,
+                &document_cache
+                    .offset_to_position_mapper(uri)
+                    .expect("This URI is known at this point!"),
                 &properties,
                 &property_name,
                 new_expression,
@@ -770,13 +740,31 @@ fn set_binding_on_known_property(
     ))
 }
 
+// Find the indentation of the element itself as well as the indentation of properties inside the
+// element. Returns the element indent followed by the block indent
+fn find_element_indent(element: &ElementRc) -> Option<String> {
+    element
+        .borrow()
+        .node
+        .as_ref()
+        .and_then(|n| n.first_token())
+        .and_then(|t| t.prev_token())
+        .and_then(|t| {
+            if t.kind() != SyntaxKind::Whitespace {
+                None
+            } else {
+                t.text().split('\n').last().map(|s| s.to_owned())
+            }
+        })
+}
+
 pub(crate) fn set_binding<'a>(
     document_cache: &mut DocumentCache,
     uri: &lsp_types::Url,
     element: &ElementRc,
     property_name: &str,
     new_expression: String,
-) -> Result<(SetBindingResponse, Option<WorkspaceEdit>), Error> {
+) -> Result<(SetBindingResponse, Option<lsp_types::WorkspaceEdit>), Error> {
     let (mut diag, expression_node) = {
         let mut diagnostics = BuildDiagnostics::default();
 
@@ -834,12 +822,11 @@ pub(crate) fn set_binding<'a>(
         // Change an already defined property:
         set_binding_on_existing_property(document_cache, uri, &property, new_expression, &mut diag)
     } else {
-        let element_info = get_element_information(&element, &offset_mapper);
         // Add a new definition to a known property:
         set_binding_on_known_property(
             document_cache,
             uri,
-            &element_info.block_range,
+            &element,
             &properties,
             &property.name,
             &new_expression,
@@ -854,7 +841,8 @@ fn create_workspace_edit_for_remove_binding<'a>(
     property: &PropertyInformation,
 ) -> Option<lsp_types::WorkspaceEdit> {
     property.defined_at.as_ref().map(|defined_at| {
-        let edit = lsp_types::TextEdit { range: defined_at.delete_range, new_text: String::new() };
+        let delete_range = defined_at.delete_range;
+        let edit = lsp_types::TextEdit { range: delete_range, new_text: String::new() };
         let edits = vec![lsp_types::OneOf::Left(edit)];
         let text_document_edits = vec![lsp_types::TextDocumentEdit {
             text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
@@ -875,7 +863,7 @@ pub(crate) fn remove_binding<'a>(
     uri: &lsp_types::Url,
     element: &ElementRc,
     property_name: &str,
-) -> Result<WorkspaceEdit, Error> {
+) -> Result<lsp_types::WorkspaceEdit, Error> {
     let offset_mapper = document_cache.offset_to_position_mapper(uri)?;
     let properties = get_properties(element, &offset_mapper);
     let property = get_property_information(&properties, property_name)?;
@@ -973,12 +961,6 @@ mod tests {
         assert_eq!(r.start.character, 12);
         assert_eq!(r.end.line, 35);
         assert_eq!(r.end.character, 13);
-
-        let br = result.block_range.unwrap();
-        assert_eq!(br.start.line, 32);
-        assert_eq!(br.start.character, 18);
-        assert_eq!(br.end.line, 35);
-        assert_eq!(br.end.character, 12);
     }
 
     fn delete_range_test(
@@ -1682,7 +1664,7 @@ component MyComp {
     fn set_binding_helper(
         property_name: &str,
         new_value: &str,
-    ) -> (SetBindingResponse, Option<WorkspaceEdit>) {
+    ) -> (SetBindingResponse, Option<lsp_types::WorkspaceEdit>) {
         let (element, _, mut dc, url) = properties_at_position(18, 15).unwrap();
         set_binding(&mut dc, &url, &element, property_name, new_value.to_string()).unwrap()
     }
@@ -1717,7 +1699,7 @@ component MyComp {
         } else {
             unreachable!();
         };
-        assert_eq!(&tc.new_text, "x: 30px;");
+        assert_eq!(&tc.new_text, "x: 30px;\n                ");
         assert_eq!(tc.range.start, lsp_types::Position { line: 17, character: 16 });
         assert_eq!(tc.range.end, lsp_types::Position { line: 17, character: 16 });
 
