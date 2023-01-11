@@ -360,7 +360,7 @@ component Example inherits Window {
 
 ## `StandardTableView`
 
-The `StandardTableView` represents a table of data with columns and rows. As cell model items it uses the `StandardListViewItem`.
+The `StandardTableView` represents a table of data with columns and rows. Cells are organised in a model where each row is a model of `StandardListViewItem`.
 
 ### Properties
 
