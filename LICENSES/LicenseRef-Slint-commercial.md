@@ -128,8 +128,8 @@ The Licensed Software includes
 
 13. The Fees and any other charges payable under this Agreement are gross
     amounts but exclusive of any value added tax, use tax, sales tax,
-    withholding tax, and other taxes, duties or tariffs levied directly for the
-    sale, delivery or use of the Licensed Software pursuant to any applicable
+    withholding tax and other taxes, duties or tariffs levied directly for the
+    sale, delivery, or use of the Licensed Software pursuant to any applicable
     law.
 
 14. The Parties also agree to all the following conditions:
@@ -142,7 +142,7 @@ The Licensed Software includes
 
     3. You will indemnify and hold us, our affiliated companies, and our
         suppliers, harmless from and against any claims or liabilities
-        arising out of the use, reproduction or distribution of your
+        arising out of the use, reproduction, or distribution of your
         Products, except as set out in clause 14.4. immediately below,
 
     4. We shall indemnify and hold you harmless from and against any
@@ -172,7 +172,7 @@ The Licensed Software includes
     permitted by applicable law, we on behalf of us and our suppliers,
     disclaim all warranties and conditions, either express or implied,
     including, but not limited to, any implied warranties of merchantability or
-    fitness for a particular purpose, title and non-infringement with regard to
+    fitness for a particular purpose, title, and non-infringement with regard to
     the Licensed Software. The warranty disclaimer in the foregoing
     notwithstanding, you may have specific legal rights which may vary from
     state/jurisdiction to state/jurisdiction; as far as legally permissible, you
@@ -225,7 +225,7 @@ The Licensed Software includes
     of the Licensed Software. Any such audit shall be conducted during regular
     business hours at your facilities and shall not unreasonably interfere with
     your business activities. Our auditor shall not remove, copy, or
-    redistribute any electronic material during audit. If an audit reveals that
+    redistribute any electronic material during an audit. If an audit reveals that
     you are using the Licensed Software in a way that is in material violation
     of the terms of this Agreement, then you shall pay us reasonable costs of
     conducting the audit. Our auditor shall only be allowed to report violations
