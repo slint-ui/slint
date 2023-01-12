@@ -74,48 +74,51 @@ component MemoryTile inherits Rectangle {
 }
 
 export component MainWindow inherits Window {
+    in property <image> image <=> i-image.source;
     title: "Memory Game - Slint Demo";
 
-    callback check-if-pair-solved();
-    in property <bool> disable-tiles;
+    i-image := Image {}
 
-    private property<length> tile-size: 80px;
-    private property<length> tile-spacing: 10px;
+    // callback check-if-pair-solved();
+    // in property <bool> disable-tiles;
 
-    private property <int> row-count: 4;
-    private property <int> column-count: 4;
+    // private property<length> tile-size: 80px;
+    // private property<length> tile-spacing: 10px;
 
-    // "column_count + 1" and "row_count + 1" are the number of gaps between the tiles.
-    width: (root.column-count * root.tile-size) + ((root.column-count + 1) * root.tile-spacing);
-    height: (root.row-count * root.tile-size) + ((root.row-count + 1) * root.tile-spacing);
+    // private property <int> row-count: 4;
+    // private property <int> column-count: 4;
 
-    in property<[TileData]> memory-tiles : [
-        { image: @image-url("icons/at.png") },
-        { image: @image-url("icons/balance-scale.png") },
-        { image: @image-url("icons/bicycle.png") },
-        { image: @image-url("icons/bus.png") },
-        { image: @image-url("icons/cloud.png") },
-        { image: @image-url("icons/cogs.png") },
-        { image: @image-url("icons/motorcycle.png") },
-        { image: @image-url("icons/video.png") },
-    ];
+    // // "column_count + 1" and "row_count + 1" are the number of gaps between the tiles.
+    // width: (root.column-count * root.tile-size) + ((root.column-count + 1) * root.tile-spacing);
+    // height: (root.row-count * root.tile-size) + ((root.row-count + 1) * root.tile-spacing);
 
-    for tile[i] in root.memory-tiles: MemoryTile {
-        x: root.tile-spacing + mod(i, root.column-count) * (root.tile-size + root.tile-spacing);
-        y: root.tile-spacing + floor(i / root.row-count) * (root.tile-size + root.tile-spacing);
-        width: root.tile-size;
-        height: root.tile-size;
+    // in property<[TileData]> memory-tiles : [
+    //     { image: @image-url("icons/at.png") },
+    //     { image: @image-url("icons/balance-scale.png") },
+    //     { image: @image-url("icons/bicycle.png") },
+    //     { image: @image-url("icons/bus.png") },
+    //     { image: @image-url("icons/cloud.png") },
+    //     { image: @image-url("icons/cogs.png") },
+    //     { image: @image-url("icons/motorcycle.png") },
+    //     { image: @image-url("icons/video.png") },
+    // ];
 
-        icon: tile.image;
+    // for tile[i] in root.memory-tiles: MemoryTile {
+    //     x: root.tile-spacing + mod(i, root.column-count) * (root.tile-size + root.tile-spacing);
+    //     y: root.tile-spacing + floor(i / root.row-count) * (root.tile-size + root.tile-spacing);
+    //     width: root.tile-size;
+    //     height: root.tile-size;
 
-        open-curtain: tile.image-visible || tile.solved;
-        solved: tile.solved;
+    //     icon: tile.image;
 
-        clicked => {
-            if (!root.disable-tiles) {
-                tile.image-visible = !tile.image-visible;
-                root.check-if-pair-solved();
-            }
-        }
-    }
+    //     open-curtain: tile.image-visible || tile.solved;
+    //     solved: tile.solved;
+
+    //     clicked => {
+    //         if (!root.disable-tiles) {
+    //             tile.image-visible = !tile.image-visible;
+    //             root.check-if-pair-solved();
+    //         }
+    //     }
+    // }
 }

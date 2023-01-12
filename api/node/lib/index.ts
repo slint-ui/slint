@@ -297,10 +297,69 @@ class ArrayModel<T> implements Model<T> {
     }
 }
 
+class SlintImageData {
+    _data: Uint8ClampedArray
+    _width: number;
+    _height: number;
+
+    constructor(data: Uint8ClampedArray, width: number, height?: number) {
+        this._data = data;
+
+        this._width = width;
+
+        if (height === undefined) {
+            this._height = data.length / width / 4;
+        } else {
+            this._height = height;
+        }
+    }
+
+    get width(): number {
+        return this._width;
+    }
+
+    get height(): number {
+        return this._height;
+    }
+
+    get data(): Array<number> {
+        return Array.from(this._data);
+    }
+}
+
+class SlintImage {
+    _path: string | undefined;
+    _data: SlintImageData | undefined;
+
+    constructor(path?: string, data?: SlintImageData) {
+        if (path !== undefined) {
+            this._path = path;
+        }
+
+        if (data !== undefined) {
+            this._data = data;
+        }
+    }
+
+    public get value(): string | SlintImageData | undefined {
+        if (this._path !== undefined) {
+            return this._path;
+        }
+
+        if (this._data !== undefined) {
+            return this._data;
+        }
+
+        return undefined;
+    }
+}
+
 module.exports = {
     private_api: native,
     ArrayModel: ArrayModel,
     Timer: {
         singleShot: native.singleshot_timer,
     },
+    Image: SlintImage,
+    ImageData: SlintImageData
 };

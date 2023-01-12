@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { LineEdit } from "std-widgets.slint";
+
+import { VirtualKeyboardHandler, VirtualKeyboard, KeyModel } from "virtual_keyboard.slint";
+
+export { VirtualKeyboardHandler, KeyModel }
+
+export component MainWindow inherits Window {
+    title: "Virtual Keyboard example";
+    width: 600px;
+    height: 400px;
+
+    Rectangle {
+        VerticalLayout {
+            alignment: start;
+            padding: 8px;
+
+            LineEdit {
+
+            }
+        }
+
+        keyboard := VirtualKeyboard {
+            y: parent.height - self.height;
+        }
+    }
+}

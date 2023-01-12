@@ -8,7 +8,7 @@
 
 use crate::api::{
     CloseRequestResponse, PhysicalPosition, PhysicalSize, PlatformError, Window, WindowPosition,
-    WindowSize,
+    WindowSize, VirtualKeyboardEvent
 };
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::Point;
@@ -17,7 +17,7 @@ use crate::input::{
     KeyboardModifiers, MouseEvent, MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
-use crate::items::{ItemRef, MouseCursor};
+use crate::items::{InputType, ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -227,8 +227,8 @@ pub struct WindowInner {
     active: Pin<Box<Property<bool>>>,
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
-
     click_state: ClickState,
+    virtual_keyboard_event: Callback<VirtualKeyboardEvent, bool>,
     /// This is a cache of the size set by the set_inner_size setter.
     /// It should be mapping with the WindowItem::width and height (only in physical)
     pub(crate) inner_size: Cell<PhysicalSize>,
@@ -278,6 +278,7 @@ impl WindowInner {
             close_requested: Default::default(),
             inner_size: Default::default(),
             click_state: ClickState::default(),
+            virtual_keyboard_event: Default::default(),
         }
     }
 
@@ -760,6 +761,24 @@ impl WindowInner {
             CloseRequestResponse::HideWindow => true,
             CloseRequestResponse::KeepWindowShown => false,
         }
+    }
+
+    /// Sets the virtual_keyboard_event callback. The callback will be run when the user tries to open or close a virtual keyboard.
+    pub fn on_virtual_keyboard_event(
+        &self,
+        mut callback: impl FnMut(VirtualKeyboardEvent) -> bool + 'static,
+    ) {
+        self.virtual_keyboard_event.set_handler(move |event| callback(*event));
+    }
+
+    /// Runs the virtual_keyboard_event callback as open event.
+    pub fn request_open_virtual_keyboard(&self, input_type: InputType) -> bool {
+        self.virtual_keyboard_event.call(&(&VirtualKeyboardEvent::Show { input_type }))
+    }
+
+    /// Runs the virtual_keyboard_event callback as close event.
+    pub fn request_close_virtual_keyboard(&self) -> bool {
+        self.virtual_keyboard_event.call(&(VirtualKeyboardEvent::Hide))
     }
 
     /// Returns the upgraded window adapter

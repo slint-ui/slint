@@ -198,6 +198,48 @@ fn to_eval_value<'cx>(
             }
         },
         Type::Image => {
+            if let Ok(obj) = val.downcast::<JsObject>() {
+                if let Ok(path) = obj.get(cx, "value")?.downcast_or_throw::<JsString, _>(cx) {
+                    return Ok(Value::Image(
+                        i_slint_core::graphics::Image::load_from_path(std::path::Path::new(
+                            &path.value(),
+                        ))
+                        .or_else(|_| {
+                            cx.throw_error(format!("cannot load image {:?}", path.value()))
+                        })?,
+                    ));
+                }
+
+                if let Ok(data) = obj.get(cx, "value")?.downcast_or_throw::<JsObject, _>(cx) {
+                    let image_width =
+                        data.get(cx, "width")?.downcast_or_throw::<JsNumber, _>(cx)?;
+                    let image_height =
+                        data.get(cx, "height")?.downcast_or_throw::<JsNumber, _>(cx)?;
+                    let data = data.get(cx, "data")?.downcast_or_throw::<JsArray, _>(cx)?;
+
+                    println!("width: {}", image_width.value());
+                    println!("height: {}", image_height.value());
+
+                    let data_vec: Vec<u8> = data
+                        .to_vec(cx)?
+                        .into_iter()
+                        .map(|i| i.downcast_or_throw::<JsNumber, _>(cx).unwrap().value() as u8)
+                        .into_iter()
+                        .collect();
+
+                        println!("count {}", data_vec.len());
+
+                    let buffer = i_slint_core::graphics::SharedPixelBuffer::clone_from_slice(
+                        data_vec.as_slice(),
+                        image_width.value() as u32,
+                        image_height.value() as u32,
+                    );
+
+                    println!("works");
+
+                    return Ok(Value::Image(i_slint_core::graphics::Image::from_rgba8(buffer)));
+                }
+            }
             let path = val.to_string(cx)?.value();
             Ok(Value::Image(
                 i_slint_core::graphics::Image::load_from_path(std::path::Path::new(&path))

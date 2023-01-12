@@ -12,6 +12,7 @@ use alloc::string::String;
 
 use crate::component::ComponentVTable;
 use crate::input::{KeyEventType, KeyInputEvent, MouseEvent};
+use crate::items::InputType;
 use crate::window::{WindowAdapter, WindowInner};
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
@@ -301,6 +302,21 @@ pub enum CloseRequestResponse {
     KeepWindowShown,
 }
 
+/// This enum describes whether a virtual should be shown or closed.
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[repr(C)]
+pub enum VirtualKeyboardEvent {
+    /// The virtual keyboard should be shown.
+    Show {
+        /// Defines the input type of the input element the virtual keyboard should interact with.
+        input_type: InputType,
+    },
+
+    /// The virtual keyboard should be closed.
+    #[default]
+    Hide,
+}
+
 impl Window {
     /// Create a new window from a window adapter
     ///
@@ -365,6 +381,15 @@ impl Window {
     /// The callback has to return a [CloseRequestResponse].
     pub fn on_close_requested(&self, callback: impl FnMut() -> CloseRequestResponse + 'static) {
         self.0.on_close_requested(callback);
+    }
+
+    /// This function allows registering a callback that's invoked when the user tries to open or close a virtual keyboard.
+    /// The callback has to return a bool.
+    pub fn on_virtual_keyboard_event(
+        &self,
+        callback: impl FnMut(VirtualKeyboardEvent) -> bool + 'static,
+    ) {
+        self.0.on_virtual_keyboard_event(callback);
     }
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
