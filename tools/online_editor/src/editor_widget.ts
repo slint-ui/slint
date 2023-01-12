@@ -10,7 +10,7 @@ import {
     editor_position_to_lsp_position,
     lsp_range_to_editor_range,
 } from "./lsp_integration";
-import { FilterProxyReader } from "./proxy";
+import { Lsp } from "./lsp";
 import { PositionChangeCallback, VersionedDocumentAndPosition } from "./text";
 
 import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
@@ -27,21 +27,7 @@ import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneHel
 import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standaloneReferenceSearch.js";
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
-import {
-    CloseAction,
-    ErrorAction,
-    Message,
-    MessageTransports,
-    MonacoLanguageClient,
-    MonacoServices,
-    RequestMessage,
-    ResponseMessage,
-} from "monaco-languageclient";
-
-import {
-    BrowserMessageReader,
-    BrowserMessageWriter,
-} from "vscode-languageserver-protocol/browser";
+import { MonacoLanguageClient, MonacoServices } from "monaco-languageclient";
 
 import { commands } from "vscode";
 import { StandaloneServices, ICodeEditorService } from "vscode/services";
@@ -119,8 +105,6 @@ class EditorPaneWidget extends Widget {
         return;
     };
 
-    readonly editor_ready: Promise<void>;
-
     #onRenderRequest?: (
         _style: string,
         _source: string,
@@ -141,7 +125,7 @@ class EditorPaneWidget extends Widget {
         return node;
     }
 
-    constructor() {
+    constructor(lsp: Lsp) {
         const node = EditorPaneWidget.createNode();
 
         super({ node: node });
@@ -156,7 +140,7 @@ class EditorPaneWidget extends Widget {
 
         this.#edit_era = 0;
 
-        this.editor_ready = this.setup_editor(this.contentNode);
+        this.#client = this.setup_editor(this.contentNode, lsp);
 
         monaco.editor.onDidCreateModel((model) =>
             this.add_model_listener(model),
@@ -370,7 +354,10 @@ class EditorPaneWidget extends Widget {
         }
     }
 
-    private async setup_editor(container: HTMLDivElement): Promise<void> {
+    private setup_editor(
+        container: HTMLDivElement,
+        lsp: Lsp,
+    ): MonacoLanguageClient {
         container.classList.add("edit-area");
 
         monaco.languages.register({
@@ -436,86 +423,7 @@ class EditorPaneWidget extends Widget {
             ),
         );
 
-        function createLanguageClient(
-            transports: MessageTransports,
-        ): MonacoLanguageClient {
-            const client = new MonacoLanguageClient({
-                name: "Slint Language Client",
-                clientOptions: {
-                    // use a language id as a document selector
-                    documentSelector: [{ language: "slint" }],
-                    // disable the default error handler
-                    errorHandler: {
-                        error: () => ({ action: ErrorAction.Continue }),
-                        closed: () => ({ action: CloseAction.DoNotRestart }),
-                    },
-                },
-                // create a language client connection to the server running in the web worker
-                connectionProvider: {
-                    get: (_encoding: string) => {
-                        return Promise.resolve(transports);
-                    },
-                },
-            });
-            client.registerProgressFeatures();
-            return client;
-        }
-
-        const lsp_worker = new Worker(
-            new URL("worker/lsp_worker.ts", import.meta.url),
-            { type: "module" },
-        );
-
-        const ensure_lsp_running = new Promise<void>(
-            (resolve_lsp_worker_promise) => {
-                lsp_worker.onmessage = (m) => {
-                    // We cannot start sending messages to the client before we start listening which
-                    // the server only does in a future after the wasm is loaded.
-                    if (m.data === "OK") {
-                        const reader = new FilterProxyReader(
-                            new BrowserMessageReader(lsp_worker),
-                            (data: Message) => {
-                                if (
-                                    (data as RequestMessage).method ==
-                                    "slint/load_file"
-                                ) {
-                                    const request = data as RequestMessage;
-                                    const url = (request.params as string[])[0];
-
-                                    this.read_from_url(url).then(
-                                        (text_contents) => {
-                                            writer.write({
-                                                jsonrpc: request.jsonrpc,
-                                                id: request.id,
-                                                result: text_contents,
-                                                error: undefined,
-                                            } as ResponseMessage);
-                                        },
-                                    );
-
-                                    return true;
-                                }
-                                return false;
-                            },
-                        );
-                        const writer = new BrowserMessageWriter(lsp_worker);
-
-                        this.#client = createLanguageClient({ reader, writer });
-
-                        this.#client.start();
-
-                        reader.onClose(() => {
-                            this.#client?.stop();
-                            this.#client = null;
-                        });
-
-                        resolve_lsp_worker_promise();
-                    }
-                };
-            },
-        );
-
-        await ensure_lsp_running;
+        return lsp.language_client;
     }
 
     set onRenderRequest(
@@ -541,10 +449,6 @@ class EditorPaneWidget extends Widget {
     }
     set onModelSelected(f: (_url: monaco.Uri) => void) {
         this.#onModelSelected = f;
-    }
-
-    send_position_change_event() {
-        this.onPositionChangeCallback(this.position);
     }
 
     protected async fetch_url_content(
@@ -592,7 +496,7 @@ export class EditorWidget extends Widget {
         return node;
     }
 
-    constructor() {
+    constructor(lsp: Lsp) {
         super({ node: EditorWidget.createNode() });
         this.title.label = "Editor";
         this.title.closable = false;
@@ -604,7 +508,7 @@ export class EditorWidget extends Widget {
         this.#tab_bar = new TabBar<Widget>({ name: "Open Documents Tab Bar" });
         layout.addWidget(this.#tab_bar);
 
-        this.#editor = new EditorPaneWidget();
+        this.#editor = new EditorPaneWidget(lsp);
         layout.addWidget(this.#editor);
 
         this.layout = layout;
@@ -660,12 +564,6 @@ export class EditorWidget extends Widget {
         }
     }
 
-    send_position_change_event() {
-        if (this.#editor != null) {
-            this.#editor.send_position_change_event();
-        }
-    }
-
     get current_editor_content(): string {
         return this.#editor.current_editor_content;
     }
@@ -700,10 +598,6 @@ export class EditorWidget extends Widget {
 
     get style() {
         return this.#editor.style;
-    }
-
-    get editor_ready() {
-        return this.#editor.editor_ready;
     }
 
     get supported_actions(): string[] | undefined {
