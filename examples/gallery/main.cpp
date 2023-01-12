@@ -30,14 +30,12 @@ int main()
     demo->global<TableViewPageAdapter>().on_sort_ascending(
             [row_data, demo = slint::ComponentWeakHandle(demo)](int index) {
                 auto demo_lock = demo.lock();
-                (*demo_lock)->global<TableViewPageAdapter>().set_row_data(row_data);
-
                 (*demo_lock)
                         ->global<TableViewPageAdapter>()
                         .set_row_data(
                                 std::make_shared<slint::SortModel<std::shared_ptr<
                                         slint::Model<slint::private_api::StandardListViewItem>>>>(
-                                        (*demo_lock)->global<TableViewPageAdapter>().get_row_data(),
+                                        row_data,
                                         [index](auto lhs, auto rhs) {
                                             auto c_lhs = lhs->row_data(index);
                                             auto c_rhs = rhs->row_data(index);
