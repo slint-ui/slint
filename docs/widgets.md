@@ -12,6 +12,28 @@ The widget appearance depends on the selected style. The following styles are av
 
 See [Selecting a Widget Style](#selecting-a-widget-style) for details how to select the style. If no style is selected, `native` is the default. If `native` is not available, `fluent` is the default.
 
+## structs
+
+### `TableColumn`
+
+`TableColumn` is used to define the column and the column header of a TableView.
+
+### Properties
+
+* **`title`** (*string*): Describes the column header title.
+* **`min-width`** (*length*): Defines the minimum with of the column.
+* **`horizontal-stretch`** (*float*): Defines the horizontal stretch of the column.
+* **`sort-order`** (*`SortOrder`*): Describes the sort order of the column.
+
+### `StandardListViewItem`
+
+The `StandardListViewItem` is used to display items in the `StandardListView` and the `StandardTableView`.
+
+### Properties
+
+* **`text`** (*string*): Describes the text of the item.
+* **`editable`** (*bool*): If set to `true` the text of the item can be changed by text editing.
+
 ## `Button`
 
 ### Properties
@@ -369,7 +391,6 @@ Same as ListView, and in addition:
 * **`current-sort-column`** (*int*): Indicates the sorted column. -1 mean no column is sorted.
 * **`columns`** (*`[TableColumn]`*): Defines the model of the table columns.
 * **`rows`** (*`[StandardListViewItem]`*): Defines the model of table rows.
-* **`min-header-height`** (*length*): Defines the minimum height of the column header.
 
 ### Callbacks
 

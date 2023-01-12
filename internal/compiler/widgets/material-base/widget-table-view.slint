@@ -28,7 +28,7 @@ component TableViewColumn inherits Rectangle {
         }
 
         Path {
-            opacity: root.sort-order != SortOrder.unsorted ? 1.0 : 0.0;
+            visible: root.sort-order != SortOrder.unsorted;
             width: 12px;
             height: 12px;
             y: (parent.height - self.height) / 2;
@@ -86,10 +86,11 @@ export component StandardTableView inherits Rectangle {
     callback sort-ascending(int);
     callback sort-descending(int);
 
+    private property <length> min-header-height: 42px;
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
     in property <[[StandardListViewItem]]> rows;
-    in property <length> min-header-height: 42px;
+   
 
     min-width: 400px;
     min-height: 200px;

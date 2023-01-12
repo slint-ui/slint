@@ -512,7 +512,7 @@ fn gen_backend_qt(
         "NativeLineEdit",
         "NativeScrollView",
         "NativeStandardListViewItem",
-        "NativeTableColumn",
+        "NativeTableHeaderSection",
         "NativeComboBox",
         "NativeComboBoxPopup",
         "NativeTabWidget",

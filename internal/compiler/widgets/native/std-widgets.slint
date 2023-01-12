@@ -265,10 +265,10 @@ export component StandardTableView inherits Rectangle {
     callback sort-ascending(int);
     callback sort-descending(int);
     
+    private property <length> min-header-height: 42px;
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
-    in property <[[StandardListViewItem]]> rows;
-    in property <length> min-header-height: 42px;
+    in property <[[StandardListViewItem]]> rows;  
    
     horizontal-stretch: 1;
     vertical-stretch: 1;
@@ -291,7 +291,7 @@ export component StandardTableView inherits Rectangle {
 
     VerticalLayout {  
         HorizontalLayout {  
-            for column[index] in columns : NativeTableColumn {
+            for column[index] in columns : NativeTableHeaderSection {
                 item: column;
                 horizontal-stretch: column.horizontal-stretch;
 

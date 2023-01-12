@@ -8,7 +8,14 @@ import { Page } from "page.slint";
 export global TableViewPageAdapter := {
     callback sort_ascending(int);
     callback sort_descending(int);
-    property <[[StandardListViewItem]]> row_data;
+    property <[[StandardListViewItem]]> row_data: [[
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+    ]];
 }
  
 export TableViewPage := Page {

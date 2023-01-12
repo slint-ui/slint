@@ -203,5 +203,5 @@ pub use tabwidget::*;
 mod stylemetrics;
 pub use stylemetrics::*;
 
-mod tablecolumn;
-pub use tablecolumn::*;
+mod tableheadersection;
+pub use tableheadersection::*;

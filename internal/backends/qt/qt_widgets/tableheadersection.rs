@@ -8,7 +8,7 @@ use super::*;
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
-pub struct NativeTableColumn {
+pub struct NativeTableHeaderSection {
     pub x: Property<LogicalLength>,
     pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
@@ -19,7 +19,7 @@ pub struct NativeTableColumn {
     pub has_hover: Property<bool>,
 }
 
-impl Item for NativeTableColumn {
+impl Item for NativeTableHeaderSection {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
@@ -157,11 +157,11 @@ impl Item for NativeTableColumn {
     }
 }
 
-impl ItemConsts for NativeTableColumn {
+impl ItemConsts for NativeTableHeaderSection {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {
-fn slint_get_NativeTableColumnVTable() -> NativeTableColumnVTable for NativeTableColumn
+fn slint_get_NativeTableHeaderSectionVTable() -> NativeTableHeaderSectionVTable for NativeTableHeaderSection
 }

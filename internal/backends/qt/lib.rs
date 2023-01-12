@@ -77,7 +77,7 @@ pub type NativeWidgets =
     (qt_widgets::NativeLineEdit,
     (qt_widgets::NativeScrollView,
     (qt_widgets::NativeStandardListViewItem,
-    (qt_widgets::NativeTableColumn,
+    (qt_widgets::NativeTableHeaderSection,
     (qt_widgets::NativeComboBox,
     (qt_widgets::NativeComboBoxPopup,
     (qt_widgets::NativeTabWidget,
