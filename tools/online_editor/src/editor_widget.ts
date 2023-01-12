@@ -109,7 +109,7 @@ class EditorPaneWidget extends Widget {
     #editor: monaco.editor.IStandaloneCodeEditor | null = null;
     #client: MonacoLanguageClient | null = null;
     #keystroke_timeout_handle?: number;
-    #base_url?: string;
+    #base_url?: monaco.Uri;
     #edit_era: number;
     #disposables: monaco.IDisposable[] = [];
 
@@ -284,7 +284,7 @@ class EditorPaneWidget extends Widget {
         this.#editor_view_states.set(uri, null);
         this.#onModelAdded?.(uri);
         if (monaco.editor.getModels().length === 1) {
-            this.#base_url = uri.toString();
+            this.#base_url = uri;
             this.set_model(uri);
             this.update_preview();
         }
@@ -325,7 +325,9 @@ class EditorPaneWidget extends Widget {
     }
 
     protected update_preview() {
-        const model = this.#editor?.getModel();
+        const model = monaco.editor.getModel(
+            this.#base_url ?? new monaco.Uri(),
+        );
         if (model != null) {
             const source = model.getValue();
             const era = this.#edit_era;
@@ -335,7 +337,7 @@ class EditorPaneWidget extends Widget {
                     this.#onRenderRequest(
                         this.#style,
                         source,
-                        this.#base_url ?? "",
+                        this.#base_url?.toString() ?? "",
                         (url: string) => {
                             const uri = monaco.Uri.parse(url);
                             return this.fetch_url_content(era, uri);
