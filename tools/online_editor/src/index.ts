@@ -4,6 +4,7 @@
 // cSpell: ignore lumino permalink
 
 import { EditorWidget } from "./editor_widget";
+import { LspWaiter, Lsp } from "./lsp";
 import { LspRange, LspPosition } from "./lsp_integration";
 import { OutlineWidget } from "./outline_widget";
 import { PreviewWidget } from "./preview_widget";
@@ -20,7 +21,8 @@ import {
     SplitPanel,
     Widget,
 } from "@lumino/widgets";
-import { BaseLanguageClient } from "vscode-languageclient";
+
+const lsp_waiter = new LspWaiter();
 
 const commands = new CommandRegistry();
 
@@ -290,7 +292,7 @@ class DockWidgets {
     }
 }
 
-function main() {
+function setup(lsp: Lsp) {
     commands.addCommand("slint:compile", {
         label: "Compile",
         iconClass: "fa fa-magic",
@@ -317,7 +319,7 @@ function main() {
         command: "slint:compile",
     });
 
-    const editor = new EditorWidget();
+    const editor = new EditorWidget(lsp);
     const dock = new DockPanel();
 
     const dock_widgets = new DockWidgets(
@@ -325,7 +327,12 @@ function main() {
         [
             () => {
                 const preview = new PreviewWidget();
-                editor.onRenderRequest = (style, source, url, fetcher) => {
+                editor.onRenderRequest = (
+                    style: string,
+                    source: string,
+                    url: string,
+                    fetcher: (_url: string) => Promise<string>,
+                ) => {
                     return preview.render(style, source, url, fetcher);
                 };
 
@@ -362,7 +369,7 @@ function main() {
             () => {
                 const properties = new PropertiesWidget();
 
-                properties.set_language_client(editor.language_client);
+                properties.set_language_client(lsp.language_client);
 
                 properties.on_goto_position = (uri, pos) => {
                     editor.goto_position(uri, pos);
@@ -381,12 +388,6 @@ function main() {
         (
             dock_widgets.widget("Properties") as PropertiesWidget
         )?.position_changed(pos.uri, pos.version, pos.position);
-    };
-
-    const set_language_client = (client: BaseLanguageClient | null) => {
-        (
-            dock_widgets.widget("Properties") as PropertiesWidget
-        )?.set_language_client(client);
     };
 
     const menu_bar = new MenuBar();
@@ -412,14 +413,15 @@ function main() {
         commands.processKeydownEvent(event);
     });
 
-    editor.editor_ready.then(() => {
-        editor.send_position_change_event();
-        set_language_client(editor.language_client);
-        document.body.getElementsByClassName("loader")[0].remove();
-    });
-
     Widget.attach(menu_bar, document.body);
     Widget.attach(main, document.body);
+}
+
+function main() {
+    lsp_waiter.wait_for_lsp().then((lsp: Lsp) => {
+        setup(lsp);
+        document.body.getElementsByClassName("loader")[0].remove();
+    });
 }
 
 window.onload = main;
