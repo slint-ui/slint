@@ -1199,14 +1199,24 @@ fn get_document_symbols(
 
     let inner_components = doc.inner_components.clone();
     let inner_structs = doc.inner_structs.clone();
+    let doc_node = doc.node.as_ref();
 
     let mut r = inner_components
         .iter()
         .filter_map(|c| {
+            let root_element = c.root_element.borrow();
+            let node = root_element.node.as_ref();
+            let id = &c.id;
+
+            let selection_range = doc_node?
+                .Component()
+                .map(|cc| cc.DeclaredIdentifier())
+                .find(|di| &di.text().to_string().trim() == id)
+                .map(|di| offset_mapper.map_node(&di));
+
             Some(DocumentSymbol {
-                range: offset_mapper.map_node(c.root_element.borrow().node.as_ref()?),
-                selection_range: offset_mapper
-                    .map_node(c.root_element.borrow().node.as_ref()?.QualifiedName().as_ref()?),
+                range: offset_mapper.map_node(node?),
+                selection_range: selection_range?,
                 name: c.id.clone(),
                 kind: if c.is_global() {
                     lsp_types::SymbolKind::OBJECT
@@ -1594,6 +1604,42 @@ mod tests {
 
             let first = result.get(0).unwrap();
             assert_eq!(&first.name, "MainWindow");
+        } else {
+            unreachable!();
+        }
+    }
+
+    #[test]
+    fn test_document_symbols_hello_world() {
+        let (mut dc, uri, _) = loaded_document_cache(
+            "fluent",
+            r#"import { Button, VerticalBox } from "std-widgets.slint";
+component Demo {
+    VerticalBox {
+        alignment: start;
+        Text {
+            text: "Hello World!";
+            font-size: 24px;
+            horizontal-alignment: center;
+        }
+        Image {
+            source: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
+            height: 100px;
+        }
+        HorizontalLayout { alignment: center; Button { text: "OK!"; } }
+    }
+}
+            "#
+            .into(),
+        );
+        let result =
+            get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri }).unwrap();
+
+        if let DocumentSymbolResponse::Nested(result) = result {
+            assert_eq!(result.len(), 1);
+
+            let first = result.get(0).unwrap();
+            assert_eq!(&first.name, "Demo");
         } else {
             unreachable!();
         }
