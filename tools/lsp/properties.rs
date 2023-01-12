@@ -973,7 +973,7 @@ mod tests {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     VerticalBox {
         Text { text: "text"; }
     }
@@ -994,7 +994,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     VerticalBox {
         Text {
               // Cut
@@ -1018,7 +1018,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     VerticalBox {
         Text {
             /* Cut */text: "text";
@@ -1041,7 +1041,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     VerticalBox {
         Text {
             font-size: 12px;
@@ -1068,7 +1068,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     VerticalBox {
         Text {
             font-size: 12px;
@@ -1105,7 +1105,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     VerticalBox {
         Text {
             font-size: 12px;
@@ -1138,7 +1138,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     VerticalBox {
         Text {
             font-size: 12px;
@@ -1171,7 +1171,7 @@ text: "text";
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     VerticalBox {
         Text {
             font-size: 12px;
@@ -1204,7 +1204,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     VerticalBox {
         Text {
             text: "text"; // Cut
@@ -1228,7 +1228,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     VerticalBox {
         Text {
             text: "text"; /* Cut
@@ -1257,7 +1257,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow {
     VerticalBox {
         Text {
             text: "text";/*Keep*/ font_size: 12px;
@@ -1280,7 +1280,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow {
     VerticalBox {
         Text {
             text: "text";  /*Keep*/ font_size: 12px;
@@ -1303,7 +1303,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow {
     VerticalBox {
         Text { text: "text";/* Cut */}
         }
@@ -1325,7 +1325,7 @@ MainWindow := Window {
         delete_range_test(
             r#"import { VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     VerticalBox {
         Text { text: "text";   /* Cut */    /* Cut */ }
         }
@@ -1347,15 +1347,15 @@ MainWindow := Window {
         let (mut dc, url, _) = loaded_document_cache("fluent",
             r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
-Base1 := Rectangle {
-    property<int> foo = 42;
+component Base1 {
+    in-out property<int> foo = 42;
 }
 
-Base2 := Base1 {
+component Base2 inherits Base1 {
     foo: 23;
 }
 
-MainWindow := Window {
+component MainWindow inherits Window {
     property <duration> total-time: slider.value * 1s;
     property <duration> elapsed-time;
 
@@ -1418,7 +1418,7 @@ MainWindow := Window {
         let declaration = foo_property.declared_at.as_ref().unwrap();
         assert_eq!(declaration.uri, file_url);
         assert_eq!(declaration.start_position.line, 3);
-        assert_eq!(declaration.start_position.character, 13); // This should probably point to the start of
+        assert_eq!(declaration.start_position.character, 20); // This should probably point to the start of
                                                               // `property<int> foo = 42`, not to the `<`
         assert_eq!(foo_property.group, "Base1");
     }
@@ -1432,8 +1432,8 @@ global SomeGlobal := {
     property <int> glob: 77;
 }
 
-SomeRect := Rectangle {
-    foo := InvalidType {
+component SomeRect inherits Rectangle {
+    component foo inherits InvalidType {
         property <int> abcd: 41;
         width: 45px;
     }
@@ -1476,7 +1476,7 @@ SomeRect := Rectangle {
     fn test_invalid_property_panic() {
         let (mut dc, url, _) = loaded_document_cache(
             "fluent",
-            r#"export Demo := Rectangle { Text { text: } }"#.to_string(),
+            r#"export component Demo { Text { text: } }"#.to_string(),
         );
 
         let (_, result) = properties_at_position_in_cache(0, 35, &mut dc, &url).unwrap();

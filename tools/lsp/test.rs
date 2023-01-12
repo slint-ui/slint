@@ -40,7 +40,7 @@ pub fn complex_document_cache(style: &str) -> (DocumentCache, Url, HashMap<Url, 
     loaded_document_cache(style,
             r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
     property <duration> total-time: slider.value * 1s;
     property <duration> elapsed-time;
 

@@ -1451,7 +1451,8 @@ mod tests {
 
     #[test]
     fn test_reload_document_valid_contents() {
-        let (_, url, diag) = loaded_document_cache("fluent", r#"Main := Rectangle { }"#.into());
+        let (_, url, diag) =
+            loaded_document_cache("fluent", r#"component Main inherits Rectangle { }"#.into());
 
         assert!(diag.len() == 1); // Only one URL is known
         let diagnostics = diag.get(&url).expect("URL not found in result");
@@ -1463,7 +1464,7 @@ mod tests {
         let (mut dc, url, _) = loaded_document_cache(
             "fluent",
             r#"
-            Main := Rectangle { }
+            component Main inherits Rectangle { }
             "#
             .into(),
         );
@@ -1479,7 +1480,7 @@ mod tests {
         let (mut dc, url, _) = loaded_document_cache(
             "fluent",
             r#"
-            Main := Rectangle {
+            component Main inherits Rectangle {
                 background: #1200FF80;
             }
             "#
@@ -1553,9 +1554,9 @@ mod tests {
     fn test_element_at_position_root() {
         let (mut dc, url, _) = complex_document_cache("fluent");
 
-        assert_eq!(id_at_position(&mut dc, &url, 2, 13), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 2, 14), Some("root".to_string()));
-        assert_eq!(id_at_position(&mut dc, &url, 2, 22), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 2, 29), Some("root".to_string())); // TODO: Seems one char too early..
+        assert_eq!(id_at_position(&mut dc, &url, 2, 32), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 2, 42), Some("root".to_string()));
         assert_eq!(id_at_position(&mut dc, &url, 3, 0), Some("root".to_string()));
         assert_eq!(id_at_position(&mut dc, &url, 3, 53), Some("root".to_string()));
         assert_eq!(id_at_position(&mut dc, &url, 4, 19), Some("root".to_string()));
