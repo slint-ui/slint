@@ -153,6 +153,7 @@ fn gen_corelib(
         "PointerEventButton",
         "PointerEvent",
         "Rect",
+        "SortOrder",
     ]
     .iter()
     .chain(items.iter())
@@ -442,12 +443,17 @@ fn gen_corelib(
         "StandardListViewItem".to_owned(),
         "friend bool operator==(const StandardListViewItem&, const StandardListViewItem&) = default;".into(),
     );
+    config.export.body.insert(
+        "TableColumn".to_owned(),
+        "friend bool operator==(const TableColumn&, const TableColumn&) = default;".into(),
+    );
     config
         .export
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
     config.export.include.push("StandardListViewItem".into());
+    config.export.include.push("TableColumn".into());
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))
@@ -506,6 +512,7 @@ fn gen_backend_qt(
         "NativeLineEdit",
         "NativeScrollView",
         "NativeStandardListViewItem",
+        "NativeTableHeaderSection",
         "NativeComboBox",
         "NativeComboBoxPopup",
         "NativeTabWidget",

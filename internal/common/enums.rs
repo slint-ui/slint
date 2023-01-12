@@ -265,6 +265,19 @@ macro_rules! for_each_enums {
                 /// The role for a Text element. It is automatically applied.
                 Text,
             }
+
+            /// This enum represents the different values of the `sort-order` property.
+            /// It is used to sort a `StandardTableView` by a column.
+            enum SortOrder {
+                /// The column is unsorted.
+                Unsorted,
+
+                /// The column is sorted in ascending order.
+                Ascending,
+
+                /// The column is sorted in descending order.
+                Descending,
+            }
         ];
     };
 }

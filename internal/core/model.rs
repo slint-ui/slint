@@ -7,7 +7,7 @@
 
 use crate::component::ComponentVTable;
 use crate::item_tree::TraversalOrder;
-use crate::items::ItemRef;
+use crate::items::{ItemRef, SortOrder};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::{Coord, Property, SharedString, SharedVector};
@@ -1116,19 +1116,39 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct StandardListViewItem {
     /// The text content of the item
-    pub text: crate::SharedString,
-}
+    pub text: SharedString,
 
-impl From<&str> for StandardListViewItem {
-    fn from(other: &str) -> Self {
-        return Self { text: other.into() };
-    }
+    /// If set to `true` the text can be edited.
+    pub editable: bool,
 }
 
 impl From<SharedString> for StandardListViewItem {
-    fn from(other: SharedString) -> Self {
-        return Self { text: other };
+    fn from(value: SharedString) -> Self {
+        StandardListViewItem { text: value, editable: false }
     }
+}
+
+impl From<&str> for StandardListViewItem {
+    fn from(value: &str) -> Self {
+        StandardListViewItem { text: value.into(), editable: false }
+    }
+}
+
+/// Represent an TableColumn header
+#[repr(C)]
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct TableColumn {
+    /// The title of the column header
+    pub title: SharedString,
+
+    /// The minimum column width
+    pub min_width: f64,
+
+    /// The horizontal column stretch
+    pub horizontal_stretch: f32,
+
+    /// Sorts the column
+    pub sort_order: SortOrder,
 }
 
 #[test]

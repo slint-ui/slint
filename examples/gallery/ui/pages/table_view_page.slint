@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { HorizontalBox, VerticalBox, StandardTableView, GroupBox} from "std-widgets.slint";
+import { GallerySettings } from "../gallery_settings.slint";
+import { Page } from "page.slint";
+
+export global TableViewPageAdapter := {
+    callback sort_ascending(int);
+    callback sort_descending(int);
+    property <[[StandardListViewItem]]> row_data: [[
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
+    ]];
+}
+ 
+export TableViewPage := Page {
+    title: "TableView";
+    description: "StandardTableView can be used to display a list of text elements in columns and rows. It can be imported from \"std-widgets.slint\"";
+
+    HorizontalBox {   
+        vertical-stretch: 1;
+
+        GroupBox {  
+            title: "StandardTableView";
+            vertical-stretch: 0;
+
+            StandardTableView {
+                sort-ascending(index) => {
+                    TableViewPageAdapter.sort_ascending(index);
+                }
+
+                sort-descending(index) => {
+                    TableViewPageAdapter.sort-descending(index);
+                }
+
+                columns: [
+                    { title: "Header 1" },
+                    { title: "Header 2" },
+                    { title: "Header 3" },
+                    { title: "Header 4" },
+                ];
+                rows: TableViewPageAdapter.row_data;
+            }
+        }
+    }
+}

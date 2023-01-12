@@ -270,7 +270,7 @@ where
 ///
 /// ## Example
 ///
-/// Here we have a [`VecModel`] holding [`SharedString`]s.
+/// Here we have a [`VecModel`] holding [`crate::SharedString`]s.
 /// It is then filtered into a `FilterModel`.
 ///
 /// ```
@@ -618,7 +618,7 @@ where
 ///
 /// ## Example
 ///
-/// Here we have a [`VecModel`] holding [`SharedString`]s.
+/// Here we have a [`VecModel`] holding [`crate::SharedString`]s.
 /// It is then sorted into a `SortModel`.
 ///
 /// ```

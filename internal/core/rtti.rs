@@ -35,6 +35,7 @@ macro_rules! declare_ValueType_2 {
             crate::PathData,
             crate::animations::EasingCurve,
             crate::model::StandardListViewItem,
+            crate::model::TableColumn,
             crate::input::KeyEvent,
             crate::Brush,
             crate::graphics::Point,

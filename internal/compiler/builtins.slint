@@ -415,7 +415,16 @@ PropertyAnimation := _ {
 
 export struct StandardListViewItem := {
     //-name:slint::private_api::StandardListViewItem
-    text: string
+    text: string,
+    editable: bool,
+}
+
+export struct TableColumn := {
+    //-name:slint::private_api::TableColumn
+    title: string,
+    min-width: length,
+    horizontal-stretch: float,
+    sort-order: SortOrder,
 }
 
 export struct StateInfo := {
@@ -541,6 +550,17 @@ export NativeStandardListViewItem := _ {
     in property <int> index;
     in property <StandardListViewItem> item;
     in-out property <bool> is_selected;
+    in property <bool> has_hover;
+    //-is_internal
+}
+
+export NativeTableHeaderSection := _ {
+    in property <length> x;
+    in property <length> y;
+    in property <length> width;
+    in property <length> height;
+    in property <int> index;
+    in property <TableColumn> item;
     in property <bool> has_hover;
     //-is_internal
 }

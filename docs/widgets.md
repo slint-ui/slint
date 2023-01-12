@@ -358,6 +358,54 @@ component Example inherits Window {
 }
 ```
 
+## `StandardTableView`
+
+The `StandardTableView` represents a table of data with columns and rows. Cells are organised in a model where each row is a model of `StandardListViewItem`.
+
+### Properties
+
+Same as ListView, and in addition:
+
+* **`current-sort-column`** (*int*): Indicates the sorted column. -1 mean no column is sorted.
+* **`columns`** (*`[TableColumn]`*): Defines the model of the table columns.
+* **`rows`** (*`[StandardListViewItem]`*): Defines the model of table rows.
+
+### Callbacks
+
+* **`sort-ascending(int)`**: Emitted if the model should be sorted by the given column in ascending order.
+* **`sort-descending(int)`**:  Emitted if the model should be sorted by the given column in descending order.
+
+### Example
+
+```slint
+import { StandardTableView } from "std-widgets.slint";
+component Example inherits Window {
+    width: 150px;
+    height: 150px;
+    StandardTableView {
+        width: 150px;
+        height: 150px;
+         columns: [
+            { title: "Header 1" },
+            { title: "Header 2" },
+            { title: "Header 3" },
+            { title: "Header 4" },
+        ];
+        rows: [
+            [
+                { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" }
+            ],
+            [
+                { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" }
+            ],
+            [
+                { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" }
+            ]
+        ];
+    }
+}
+```
+
 ## `ComboBox`
 
 A button that, when clicked, opens a popup to select a value.
@@ -497,3 +545,25 @@ Then enter the style name under Extensions > Slint > Preview:Style
 
 Select the style by setting the `SLINT_STYLE` environment variable before launching the process.
 Alternatively, if your IDE integration allows passing command line parameters, you can specify the style via `--style`.
+
+## structs
+
+### `TableColumn`
+
+`TableColumn` is used to define the column and the column header of a TableView.
+
+### Properties
+
+* **`title`** (*string*): Describes the column header title.
+* **`min-width`** (*length*): Defines the minimum with of the column.
+* **`horizontal-stretch`** (*float*): Defines the horizontal stretch of the column.
+* **`sort-order`** (*`SortOrder`*): Describes the sort order of the column.
+
+### `StandardListViewItem`
+
+The `StandardListViewItem` is used to display items in the `StandardListView` and the `StandardTableView`.
+
+### Properties
+
+* **`text`** (*string*): Describes the text of the item.
+* **`editable`** (*bool*): If set to `true` the text of the item can be changed by text editing.
