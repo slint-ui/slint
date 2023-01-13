@@ -8,19 +8,11 @@ import { Widget } from "@lumino/widgets";
 
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
-import * as slint from "@preview/slint_wasm_interpreter.js";
-
 import { Previewer } from "./lsp";
 
-let is_event_loop_running = false;
-
 export class PreviewWidget extends Widget {
-    #instance: slint.WrappedInstance | null;
-    #canvas_id: string;
     #canvas: HTMLCanvasElement | null = null;
     #canvas_observer: MutationObserver | null = null;
-    #ensure_attached_to_dom: Promise<void>;
-    #resolve_attached_to_dom: () => void;
     #zoom_level = 100;
     #previewer: Previewer;
 
@@ -58,19 +50,30 @@ export class PreviewWidget extends Widget {
         this.title.caption = `Slint Viewer`;
         this.title.closable = true;
 
-        this.#canvas_id = "";
-        this.#instance = null;
-        this.#resolve_attached_to_dom = () => {
-            // dummy, to be replaced with resolution function provided to promise
-            // executor.
-        };
-        this.#ensure_attached_to_dom = new Promise((resolve) => {
-            this.#resolve_attached_to_dom = resolve;
-        });
-
+        console.assert(previewer.canvas_id === null);
         this.#previewer = previewer;
 
+        this.setup_canvas();
+
         this.populate_menu();
+
+        this.#previewer.on_error = (error_string: string) => {
+            const error_area = this.errorNode;
+
+            error_area.innerHTML = "";
+
+            if (error_string != "") {
+                const text = document.createTextNode(error_string);
+                const p = document.createElement("p");
+                p.className = "error-message";
+                p.appendChild(text);
+                error_area.appendChild(p);
+
+                error_area.style.display = "block";
+            } else {
+                error_area.style.display = "none";
+            }
+        };
     }
 
     private populate_menu() {
@@ -131,6 +134,7 @@ export class PreviewWidget extends Widget {
     }
 
     protected onCloseRequest(msg: Message): void {
+        this.#previewer.canvas_id = null;
         super.onCloseRequest(msg);
         this.dispose();
     }
@@ -191,47 +195,43 @@ export class PreviewWidget extends Widget {
         this.#zoom_level = zl;
     }
 
-    protected get canvas_id(): string {
-        if (this.#canvas_id === "") {
-            this.#canvas_id =
-                "canvas_" + Math.random().toString(36).slice(2, 11);
+    protected setup_canvas() {
+        const canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
 
-            this.#canvas = document.createElement("canvas");
-            this.#canvas.width = 800;
-            this.#canvas.height = 600;
-            this.#canvas.id = this.#canvas_id;
-            this.#canvas.className = "slint-preview";
-            this.#canvas.style.scale = (this.#zoom_level / 100).toString();
-            this.#canvas.style.padding = "0px";
-            this.#canvas.style.margin = "0px";
-            this.#canvas.style.position = "absolute";
-            this.#canvas.style.imageRendering = "pixelated";
+        this.#canvas = document.createElement("canvas");
 
-            this.scrollNode.appendChild(this.#canvas);
+        this.#canvas.width = 800;
+        this.#canvas.height = 600;
+        this.#canvas.id = canvas_id;
+        this.#canvas.className = "slint-preview";
+        this.#canvas.style.scale = (this.#zoom_level / 100).toString();
+        this.#canvas.style.padding = "0px";
+        this.#canvas.style.margin = "0px";
+        this.#canvas.style.position = "absolute";
+        this.#canvas.style.imageRendering = "pixelated";
 
-            const config = { attributes: true };
+        this.scrollNode.appendChild(this.#canvas);
 
-            const update_scroll_size = () => {
-                this.update_scroll_size();
-            };
+        const update_scroll_size = () => {
+            this.update_scroll_size();
+        };
 
-            update_scroll_size();
+        update_scroll_size();
 
-            // Callback function to execute when mutations are observed
-            this.#canvas_observer = new MutationObserver((mutationList) => {
-                for (const mutation of mutationList) {
-                    if (
-                        mutation.type === "attributes" &&
-                        mutation.attributeName === "style"
-                    ) {
-                        update_scroll_size();
-                    }
+        // Callback function to execute when mutations are observed
+        this.#canvas_observer = new MutationObserver((mutationList) => {
+            for (const mutation of mutationList) {
+                if (
+                    mutation.type === "attributes" &&
+                    mutation.attributeName === "style"
+                ) {
+                    update_scroll_size();
                 }
-            });
-            this.#canvas_observer.observe(this.#canvas, config);
-        }
+            }
+        });
+        this.#canvas_observer.observe(this.#canvas, { attributes: true });
 
-        return this.#canvas_id;
+        this.#previewer.canvas_id = canvas_id;
     }
 
     protected get contentNode(): HTMLDivElement {
@@ -246,7 +246,7 @@ export class PreviewWidget extends Widget {
         )[0] as HTMLDivElement;
     }
 
-    protected get canvasNode(): HTMLCanvasElement | null {
+    protected get canvasNode(): HTMLCanvasElement {
         return this.contentNode.getElementsByClassName(
             "slint-preview",
         )[0] as HTMLCanvasElement;
@@ -270,7 +270,7 @@ export class PreviewWidget extends Widget {
 
     protected onAfterAttach(msg: Message): void {
         super.onAfterAttach(msg);
-        this.#resolve_attached_to_dom();
+        this.#previewer.canvas_id = this.canvasNode.id;
     }
 
     protected onResize(_msg: Message): void {
@@ -285,68 +285,6 @@ export class PreviewWidget extends Widget {
         base_url: string,
         load_callback: (_url: string) => Promise<string>,
     ): Promise<monaco.editor.IMarkerData[]> {
-        const { component, diagnostics, error_string } =
-            await slint.compile_from_string_with_style(
-                source,
-                base_url,
-                style,
-                load_callback,
-            );
-
-        const error_area = this.errorNode;
-
-        error_area.innerHTML = "";
-
-        if (error_string != "") {
-            const text = document.createTextNode(error_string);
-            const p = document.createElement("p");
-            p.className = "error-message";
-            p.appendChild(text);
-            error_area.appendChild(p);
-
-            error_area.style.display = "block";
-        } else {
-            error_area.style.display = "none";
-        }
-
-        const markers = diagnostics.map(function (x) {
-            return {
-                severity: 3 - x.level,
-                message: x.message,
-                source: x.fileName,
-                startLineNumber: x.lineNumber,
-                startColumn: x.columnNumber,
-                endLineNumber: x.lineNumber,
-                endColumn: -1,
-            };
-        });
-
-        if (component != null) {
-            // It's not enough for the canvas element to exist, in order to extract a webgl rendering
-            // context, the element needs to be attached to the window's dom.
-            await this.#ensure_attached_to_dom;
-            if (this.#instance == null) {
-                this.#instance = component.create(this.canvas_id);
-                this.#instance.show();
-                try {
-                    if (!is_event_loop_running) {
-                        slint.run_event_loop();
-                        // this will trigger a JS exception, so this line will never be reached!
-                    }
-                } catch (e) {
-                    // The winit event loop, when targeting wasm, throws a JavaScript exception to break out of
-                    // Rust without running any destructors. Don't rethrow the exception but swallow it, as
-                    // this is no error and we truly want to resolve the promise of this function by returning
-                    // the model markers.
-                    is_event_loop_running = true; // Assume the winit caused the exception and that the event loop is up now
-                }
-            } else {
-                this.#instance = component.create_with_existing_window(
-                    this.#instance,
-                );
-            }
-        }
-
-        return markers;
+        return this.#previewer.render(style, source, base_url, load_callback);
     }
 }

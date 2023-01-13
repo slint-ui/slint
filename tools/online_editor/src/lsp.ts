@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore lumino inmemory mimetypes printerdemo
+// cSpell: ignore winit
 
 import { FilterProxyReader } from "./proxy";
 import {
@@ -21,7 +21,11 @@ import {
     MessageWriter,
 } from "vscode-languageserver-protocol/browser";
 
+import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
+
 import slint_init, * as slint_preview from "@preview/slint_wasm_interpreter.js";
+
+let is_event_loop_running = false;
 
 function createLanguageClient(
     transports: MessageTransports,
@@ -58,6 +62,8 @@ export class LspWaiter {
             new URL("worker/lsp_worker.ts", import.meta.url),
             { type: "module" },
         );
+
+        slint_init(); // Initialize Previewer!
     }
 
     async wait_for_lsp(): Promise<Lsp> {
@@ -66,8 +72,6 @@ export class LspWaiter {
         this.#lsp_worker = null;
 
         return new Promise<Lsp>((resolve) => {
-            slint_init(); // Initialize Previewer!
-
             worker.onmessage = (m) => {
                 // We cannot start sending messages to the client before we start listening which
                 // the server only does in a future after the wasm is loaded.
@@ -81,7 +85,85 @@ export class LspWaiter {
 
 // TODO: Remove this again and hide this behind the LSP.
 export class Previewer {
+    #canvas_id: string | null = null;
+    #instance: slint_preview.WrappedInstance | null = null;
+    #onError: (error: string) => void = () => {
+        return;
+    };
+
     constructor() {}
+
+    set canvas_id(id: string | null) {
+        this.#canvas_id = id;
+    }
+
+    set on_error(callback: (error: string) => void) {
+        this.#onError = callback;
+    }
+
+    get canvas_id() {
+        return this.#canvas_id;
+    }
+
+    public async render(
+        style: string,
+        source: string,
+        base_url: string,
+        load_callback: (_url: string) => Promise<string>,
+    ): Promise<monaco.editor.IMarkerData[]> {
+        if (this.#canvas_id === null) {
+            return Promise.resolve([]);
+        }
+
+        const { component, diagnostics, error_string } =
+            await slint_preview.compile_from_string_with_style(
+                source,
+                base_url,
+                style,
+                load_callback,
+            );
+
+        this.#onError(error_string);
+
+        const markers = diagnostics.map(function (x) {
+            return {
+                severity: 3 - x.level,
+                message: x.message,
+                source: x.fileName,
+                startLineNumber: x.lineNumber,
+                startColumn: x.columnNumber,
+                endLineNumber: x.lineNumber,
+                endColumn: -1,
+            };
+        });
+
+        if (component != null) {
+            // It's not enough for the canvas element to exist, in order to extract a webgl rendering
+            // context, the element needs to be attached to the window's dom.
+            if (this.#instance == null) {
+                this.#instance = component.create(this.canvas_id!); // eslint-disable-line
+                this.#instance.show();
+                try {
+                    if (!is_event_loop_running) {
+                        slint_preview.run_event_loop();
+                        // this will trigger a JS exception, so this line will never be reached!
+                    }
+                } catch (e) {
+                    // The winit event loop, when targeting wasm, throws a JavaScript exception to break out of
+                    // Rust without running any destructors. Don't rethrow the exception but swallow it, as
+                    // this is no error and we truly want to resolve the promise of this function by returning
+                    // the model markers.
+                    is_event_loop_running = true; // Assume the winit caused the exception and that the event loop is up now
+                }
+            } else {
+                this.#instance = component.create_with_existing_window(
+                    this.#instance,
+                );
+            }
+        }
+
+        return Promise.resolve(markers);
+    }
 }
 
 export class Lsp {
