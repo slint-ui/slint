@@ -768,14 +768,14 @@ public:
 };
 
 /// Model to be used when we just want to repeat without data.
-struct IntModel : Model<int>
+struct UIntModel : Model<int>
 {
     /// Constructs a new IntModel with \a d rows.
-    IntModel(int d) : data(d) { }
+    UIntModel(uint d) : data(d) { }
     /// \private
-    int data;
+    uint data;
     /// \copydoc Model::row_count
-    int row_count() const override { return std::max(0, data); }
+    int row_count() const override { return data; }
     std::optional<int> row_data(int value) const override
     {
         if (value >= row_count())
