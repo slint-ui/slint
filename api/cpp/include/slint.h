@@ -775,7 +775,7 @@ struct IntModel : Model<int>
     /// \private
     int data;
     /// \copydoc Model::row_count
-    int row_count() const override { return data; }
+    int row_count() const override { return std::max(0, data); }
     std::optional<int> row_data(int value) const override
     {
         if (value >= row_count())
