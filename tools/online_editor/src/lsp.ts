@@ -21,6 +21,8 @@ import {
     MessageWriter,
 } from "vscode-languageserver-protocol/browser";
 
+import slint_init, * as slint_preview from "@preview/slint_wasm_interpreter.js";
+
 function createLanguageClient(
     transports: MessageTransports,
 ): MonacoLanguageClient {
@@ -64,6 +66,8 @@ export class LspWaiter {
         this.#lsp_worker = null;
 
         return new Promise<Lsp>((resolve) => {
+            slint_init(); // Initialize Previewer!
+
             worker.onmessage = (m) => {
                 // We cannot start sending messages to the client before we start listening which
                 // the server only does in a future after the wasm is loaded.
@@ -75,6 +79,11 @@ export class LspWaiter {
     }
 }
 
+// TODO: Remove this again and hide this behind the LSP.
+export class Previewer {
+    constructor() {}
+}
+
 export class Lsp {
     #lsp_client: MonacoLanguageClient | null = null;
     #file_reader: FileReader | null = null;
@@ -82,6 +91,8 @@ export class Lsp {
     readonly #lsp_worker: Worker;
     readonly #lsp_reader: MessageReader;
     readonly #lsp_writer: MessageWriter;
+
+    readonly #previewer: Previewer;
 
     constructor(worker: Worker) {
         this.#lsp_worker = worker;
@@ -110,6 +121,8 @@ export class Lsp {
 
         this.#lsp_reader = reader;
         this.#lsp_writer = writer;
+
+        this.#previewer = new Previewer();
     }
 
     get lsp_worker(): Worker {
@@ -150,5 +163,10 @@ export class Lsp {
             lsp_client = client;
         }
         return lsp_client;
+    }
+
+    // TODO: This should not be necessary to expose!
+    get previewer(): Previewer {
+        return this.#previewer;
     }
 }
