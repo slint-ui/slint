@@ -8,10 +8,9 @@ import { Widget } from "@lumino/widgets";
 
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
-import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
+import * as slint from "@preview/slint_wasm_interpreter.js";
 
-const ensure_slint_wasm_bindgen_glue_initialized: Promise<slint.InitOutput> =
-    slint_init();
+import { Previewer } from "./lsp";
 
 let is_event_loop_running = false;
 
@@ -23,6 +22,7 @@ export class PreviewWidget extends Widget {
     #ensure_attached_to_dom: Promise<void>;
     #resolve_attached_to_dom: () => void;
     #zoom_level = 100;
+    #previewer: Previewer;
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
@@ -49,7 +49,7 @@ export class PreviewWidget extends Widget {
         return node;
     }
 
-    constructor() {
+    constructor(previewer: Previewer) {
         super({ node: PreviewWidget.createNode() });
         this.setFlag(Widget.Flag.DisallowLayout);
         this.addClass("content");
@@ -67,6 +67,8 @@ export class PreviewWidget extends Widget {
         this.#ensure_attached_to_dom = new Promise((resolve) => {
             this.#resolve_attached_to_dom = resolve;
         });
+
+        this.#previewer = previewer;
 
         this.populate_menu();
     }
@@ -163,7 +165,8 @@ export class PreviewWidget extends Widget {
             return;
         }
 
-        const raw_canvas_scale = canvas_style.scale === "none" ? 1 : parseFloat(canvas_style.scale);
+        const raw_canvas_scale =
+            canvas_style.scale === "none" ? 1 : parseFloat(canvas_style.scale);
         const raw_canvas_width = parseInt(canvas_style.width, 10);
         const raw_canvas_height = parseInt(canvas_style.height, 10);
         const canvas_width = Math.ceil(raw_canvas_width * raw_canvas_scale);
@@ -282,8 +285,6 @@ export class PreviewWidget extends Widget {
         base_url: string,
         load_callback: (_url: string) => Promise<string>,
     ): Promise<monaco.editor.IMarkerData[]> {
-        await ensure_slint_wasm_bindgen_glue_initialized;
-
         const { component, diagnostics, error_string } =
             await slint.compile_from_string_with_style(
                 source,
