@@ -43,7 +43,7 @@ int main()
                                         }));
             });
 
-    demo->global<TableViewPageAdapter>().on_sort_ascending(
+    demo->global<TableViewPageAdapter>().on_sort_descending(
             [row_data, demo = slint::ComponentWeakHandle(demo)](int index) {
                 auto demo_lock = demo.lock();
                 (*demo_lock)->global<TableViewPageAdapter>().set_row_data(row_data);
