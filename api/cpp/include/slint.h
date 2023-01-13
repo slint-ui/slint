@@ -40,6 +40,8 @@ struct ItemVTable;
 /// \endrst
 namespace slint {
 
+using cbindgen_private::StandardListViewItem;
+
 // Bring opaque structure in scope
 namespace private_api {
 using cbindgen_private::ComponentVTable;
