@@ -83,29 +83,92 @@ export class LspWaiter {
     }
 }
 
-// TODO: Remove this again and hide this behind the LSP.
-export class Previewer {
+type LoadUrlReply =
+    | { type: "Content"; data: string }
+    | { type: "Error"; data: string };
+type RenderReply =
+    | { type: "LoadUrl"; data: string }
+    | { type: "Error"; data: string }
+    | { type: "Result"; data: monaco.editor.IMarkerData[] };
+type BackendChatter = { type: "ErrorReport"; data: string };
+
+class PreviewerBackend {
+    #port: MessagePort;
     #canvas_id: string | null = null;
     #instance: slint_preview.WrappedInstance | null = null;
-    #onError: (error: string) => void = () => {
-        return;
-    };
+    #is_rendering = false;
 
-    constructor() {}
+    constructor(port: MessagePort) {
+        this.#port = port;
+        port.onmessage = (m) => {
+            try {
+                if (m.data.command === "set_canvas_id") {
+                    this.canvas_id = m.data.canvas_id;
+                }
+                if (m.data.command === "render") {
+                    const port = m.ports[0];
+                    if (this.#is_rendering) {
+                        port.postMessage({
+                            type: "Error",
+                            data: "Already rendering",
+                        });
+                        port.close();
+                        return;
+                    }
+                    this.#is_rendering = true;
+
+                    this.render(
+                        m.data.style,
+                        m.data.source,
+                        m.data.base_url,
+                        (url: string) => {
+                            return new Promise((resolve, reject) => {
+                                const channel = new MessageChannel();
+                                channel.port1.onmessage = (m) => {
+                                    const reply = m.data as LoadUrlReply;
+                                    if (reply.type == "Error") {
+                                        channel.port1.close();
+                                        reject(reply.data);
+                                    } else if (reply.type == "Content") {
+                                        channel.port1.close();
+                                        resolve(reply.data);
+                                    }
+                                };
+                                port.postMessage(
+                                    { type: "LoadUrl", data: url },
+                                    [channel.port2],
+                                );
+                            });
+                        },
+                    )
+                        .then((diagnostics) => {
+                            port.postMessage({
+                                type: "Result",
+                                data: diagnostics,
+                            });
+                            port.close();
+                        })
+                        .catch((e) => {
+                            port.postMessage({ type: "Error", data: e });
+                            port.close();
+                        });
+                    this.#is_rendering = false;
+                }
+            } catch (e) {
+                port.postMessage({ type: "Error", data: e });
+            }
+        };
+    }
 
     set canvas_id(id: string | null) {
         this.#canvas_id = id;
-    }
-
-    set on_error(callback: (error: string) => void) {
-        this.#onError = callback;
     }
 
     get canvas_id() {
         return this.#canvas_id;
     }
 
-    public async render(
+    private async render(
         style: string,
         source: string,
         base_url: string,
@@ -123,7 +186,7 @@ export class Previewer {
                 load_callback,
             );
 
-        this.#onError(error_string);
+        this.#port.postMessage({ type: "ErrorReport", data: error_string });
 
         const markers = diagnostics.map(function (x) {
             return {
@@ -166,6 +229,92 @@ export class Previewer {
     }
 }
 
+// TODO: Remove this again and hide this behind the LSP.
+export class Previewer {
+    #channel: MessagePort;
+    #canvas_id: string | null = null;
+    #on_error: (error: string) => void = () => {
+        return;
+    };
+
+    constructor(channel: MessagePort) {
+        this.#channel = channel;
+        channel.onmessage = (m) => {
+            const data = m.data as BackendChatter;
+            if (data.type == "ErrorReport") {
+                this.#on_error(data.data);
+            }
+        };
+    }
+
+    set canvas_id(id: string | null) {
+        this.#canvas_id = id;
+        this.#channel.postMessage({ command: "set_canvas_id", canvas_id: id });
+    }
+
+    set on_error(callback: (error: string) => void) {
+        this.#on_error = callback;
+    }
+
+    get canvas_id() {
+        return this.#canvas_id;
+    }
+
+    public async render(
+        style: string,
+        source: string,
+        base_url: string,
+        load_callback: (_url: string) => Promise<string>,
+    ): Promise<monaco.editor.IMarkerData[]> {
+        return new Promise((resolve, reject) => {
+            const channel = new MessageChannel();
+
+            channel.port1.onmessage = (m) => {
+                try {
+                    const data = m.data as RenderReply;
+                    switch (data.type) {
+                        case "LoadUrl":
+                            const reply_port = m.ports[0];
+                            load_callback(data.data)
+                                .then((content) => {
+                                    reply_port.postMessage({
+                                        type: "Content",
+                                        data: content,
+                                    });
+                                })
+                                .catch((e) => {
+                                    reply_port.postMessage({
+                                        type: "Error",
+                                        data: e,
+                                    });
+                                });
+                            break;
+                        case "Error":
+                            channel.port1.close();
+                            reject(data.data);
+                            break;
+                        case "Result":
+                            channel.port1.close();
+                            resolve(data.data as monaco.editor.IMarkerData[]);
+                            break;
+                    }
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            this.#channel.postMessage(
+                {
+                    command: "render",
+                    style: style,
+                    source: source,
+                    base_url: base_url,
+                },
+                [channel.port2],
+            );
+        });
+    }
+}
+
 export class Lsp {
     #lsp_client: MonacoLanguageClient | null = null;
     #file_reader: FileReader | null = null;
@@ -174,6 +323,7 @@ export class Lsp {
     readonly #lsp_reader: MessageReader;
     readonly #lsp_writer: MessageWriter;
 
+    readonly #previewer_backend: PreviewerBackend;
     readonly #previewer: Previewer;
 
     constructor(worker: Worker) {
@@ -204,7 +354,10 @@ export class Lsp {
         this.#lsp_reader = reader;
         this.#lsp_writer = writer;
 
-        this.#previewer = new Previewer();
+        const channel = new MessageChannel();
+
+        this.#previewer_backend = new PreviewerBackend(channel.port1);
+        this.#previewer = new Previewer(channel.port2);
     }
 
     get lsp_worker(): Worker {
