@@ -11,10 +11,10 @@ TestCase := Rectangle {
 
     property <length> test-height: preferred-height;
 
-    property <int> neg-count: -10;
+    property <int> repeater-count: -10;
 
     VerticalLayout {
-        for _ in neg-count: Rectangle {
+        for _ in repeater-count: Rectangle {
             preferred-height: 10px;
             init => {
                 creation-count += 1;
@@ -33,6 +33,9 @@ const TestCase &instance = *handle;
 assert_eq(instance.get_creation_count(), 0);
 assert_eq(instance.get_test_height(), 0.);
 assert_eq(instance.get_creation_count(), 0);
+instance.set_repeater_count(2);
+assert_eq(instance.get_test_height(), 20.);
+assert_eq(instance.get_creation_count(), 2);
 ```
 
 
@@ -42,6 +45,9 @@ let instance = TestCase::new();
 assert_eq!(instance.get_creation_count(), 0);
 assert_eq!(instance.get_test_height(), 0.);
 assert_eq!(instance.get_creation_count(), 0);
+instance.set_repeater_count(2);
+assert_eq!(instance.get_test_height(), 20.);
+assert_eq!(instance.get_creation_count(), 2);
 ```
 
 ```js
@@ -50,5 +56,8 @@ var instance = new slint.TestCase();
 assert.equal(instance.creation_count, 0);
 assert.equal(instance.test_height, 0.);
 assert.equal(instance.creation_count, 0);
+instance.repeater_count = 2;
+assert.equal(instance.test_height, 20.);
+assert.equal(instance.creation_count, 2);
 ```
 */
