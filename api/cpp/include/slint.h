@@ -40,6 +40,8 @@ struct ItemVTable;
 /// \endrst
 namespace slint {
 
+using cbindgen_private::StandardListViewItem;
+
 // Bring opaque structure in scope
 namespace private_api {
 using cbindgen_private::ComponentVTable;
@@ -62,7 +64,6 @@ using ItemArray = slint::cbindgen_private::Slice<ItemArrayEntry>;
 using cbindgen_private::KeyboardModifiers;
 using cbindgen_private::KeyEvent;
 using cbindgen_private::PointerEvent;
-using cbindgen_private::StandardListViewItem;
 using cbindgen_private::TableColumn;
 
 /// Internal function that checks that the API that must be called from the main
