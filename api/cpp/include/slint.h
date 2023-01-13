@@ -771,9 +771,9 @@ public:
 struct UIntModel : Model<int>
 {
     /// Constructs a new IntModel with \a d rows.
-    UIntModel(uint d) : data(d) { }
+    UIntModel(uint32_t d) : data(d) { }
     /// \private
-    uint data;
+    uint32_t data;
     /// \copydoc Model::row_count
     int row_count() const override { return data; }
     std::optional<int> row_data(int value) const override
