@@ -47,7 +47,7 @@ impl Model for ValueModel {
                     0
                 }
             }
-            Value::Number(x) => *x as usize,
+            Value::Number(x) => x.max(Default::default()) as usize,
             Value::Void => 0,
             Value::Model(model_ptr) => model_ptr.row_count(),
             x => panic!("Invalid model {:?}", x),

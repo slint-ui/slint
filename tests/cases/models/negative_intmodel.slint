@@ -1,0 +1,63 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+
+TestCase := Rectangle {
+    width: 100phx;
+    height: 100phx;
+
+    property <int> creation-count: 0;
+
+    property <length> test-height: preferred-height;
+
+    property <int> repeater-count: -10;
+
+    VerticalLayout {
+        for _ in repeater-count: Rectangle {
+            preferred-height: 10px;
+            init => {
+                creation-count += 1;
+            }
+        }
+    }
+
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_creation_count(), 0);
+assert_eq(instance.get_test_height(), 0.);
+assert_eq(instance.get_creation_count(), 0);
+instance.set_repeater_count(2);
+assert_eq(instance.get_test_height(), 20.);
+assert_eq(instance.get_creation_count(), 2);
+```
+
+
+```rust
+let instance = TestCase::new();
+
+assert_eq!(instance.get_creation_count(), 0);
+assert_eq!(instance.get_test_height(), 0.);
+assert_eq!(instance.get_creation_count(), 0);
+instance.set_repeater_count(2);
+assert_eq!(instance.get_test_height(), 20.);
+assert_eq!(instance.get_creation_count(), 2);
+```
+
+```js
+var instance = new slint.TestCase();
+
+assert.equal(instance.creation_count, 0);
+assert.equal(instance.test_height, 0.);
+assert.equal(instance.creation_count, 0);
+instance.repeater_count = 2;
+assert.equal(instance.test_height, 20.);
+assert.equal(instance.creation_count, 2);
+```
+*/

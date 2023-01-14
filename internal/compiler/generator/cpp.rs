@@ -1466,7 +1466,7 @@ fn generate_sub_component(
         if repeated.model.ty(&ctx) == Type::Bool {
             // bool converts to int
             // FIXME: don't do a heap allocation here
-            model = format!("std::make_shared<slint::private_api::IntModel>({})", model)
+            model = format!("std::make_shared<slint::private_api::UIntModel>({})", model)
         }
 
         // FIXME: optimize  if repeated.model.is_constant()
@@ -2247,7 +2247,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     format!("slint::SharedString::from_number({})", f)
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    format!("std::make_shared<slint::private_api::IntModel>({})", f)
+                    format!("std::make_shared<slint::private_api::UIntModel>(std::max(0, {}))", f)
                 }
                 (Type::Array(_), Type::Model) => f,
                 (Type::Float32, Type::Color) => {

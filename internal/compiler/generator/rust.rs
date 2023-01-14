@@ -1785,7 +1785,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     ))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    quote!(slint::private_unstable_api::re_exports::ModelRc::new(#f as usize))
+                    quote!(slint::private_unstable_api::re_exports::ModelRc::new(#f.max(Default::default()) as usize))
                 }
                 (Type::Float32, Type::Color) => {
                     quote!(slint::private_unstable_api::re_exports::Color::from_argb_encoded(#f as u32))
