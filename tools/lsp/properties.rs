@@ -468,10 +468,8 @@ fn validate_property_expression_type(
     {
         diag.push_error_with_span(
             format!(
-                "return type mismatch in \"{}\" (was: {}, expected: {})",
-                property.name,
-                new_expression_type.to_string(),
-                property.type_name
+                "return type mismatch in \"{}\" (was: {new_expression_type}, expected: {})",
+                property.name, property.type_name
             ),
             i_slint_compiler::diagnostics::SourceLocation {
                 source_file: None,
