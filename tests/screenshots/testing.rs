@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore powf
+
 use std::rc::Rc;
 
 use crossterm::style::Stylize;
@@ -100,7 +102,7 @@ fn compare_images(
 ) -> Result<(), String> {
     let compare = || {
         let reference = image_buffer(reference_path)
-            .map_err(|image_err| format!("error loading reference image: {:#}", image_err))?;
+            .map_err(|image_err| format!("error loading reference image: {image_err:#}"))?;
 
         if reference.size() != screenshot.size() {
             return Err(format!(
@@ -126,7 +128,7 @@ fn compare_images(
                         );
                     }
                 }
-                eprintln!("");
+                eprintln!();
             }
 
             let (failed_pixel_count, max_color_difference) =
@@ -166,18 +168,14 @@ fn compare_images(
 pub fn assert_with_render(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
     let rendering = screenshot(window);
     if let Err(reason) = compare_images(path, &rendering) {
-        assert!(false, "Image comparison failure for {}: {}", path, reason);
+        panic!("Image comparison failure for {path}: {reason}");
     }
 }
 
 pub fn assert_with_render_by_line(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
     let rendering = screenshot_render_by_line(window);
     if let Err(reason) = compare_images(path, &rendering) {
-        assert!(
-            false,
-            "Image comparison failure for line-by-line rendering for {}: {}",
-            path, reason
-        );
+        panic!("Image comparison failure for line-by-line rendering for {path}: {reason}");
     }
 }
 
@@ -188,7 +186,7 @@ pub fn screenshot_render_by_line(
     let width = size.width;
     let height = size.height;
 
-    let mut buffer = SharedPixelBuffer::<Rgb8Pixel>::new(width as u32, height as u32);
+    let mut buffer = SharedPixelBuffer::<Rgb8Pixel>::new(width, height);
 
     // render to buffer
     window.request_redraw();
