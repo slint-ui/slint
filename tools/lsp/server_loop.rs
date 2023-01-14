@@ -683,9 +683,7 @@ pub async fn set_binding_command(
                     );
                 }
             } else {
-                return Err(
-                    format!("Document with uri {} not found in cache", uri.to_string()).into()
-                );
+                return Err(format!("Document with uri {uri} not found in cache").into());
             }
         }
 
@@ -776,9 +774,7 @@ pub async fn remove_binding_command(
                     );
                 }
             } else {
-                return Err(
-                    format!("Document with uri {} not found in cache", uri.to_string()).into()
-                );
+                return Err(format!("Document with uri {uri} not found in cache").into());
             }
         }
 
