@@ -28,6 +28,11 @@ The following sections assume that your setup is complete and you have a non-gra
 Start by adding a dependency to the `slint` and the `slint-build` crates to your `Cargo.toml`:
 
 ```toml
+[package]
+## ...
+## Edition 2021 or later enables the feature resolver version 2.
+edition = "2021"
+
 [dependencies]
 ## ... your other dependencies
 
@@ -51,6 +56,10 @@ In the snippet above, three features are selected:
    feature changes Slint to use unsafe static for storage. This way, you guarantee to use Slint API only from a single thread, and not from interrupt handlers.
  * `libm`: We select this feature to enable the use of the [libm](https://crates.io/crates/libm) crate to provide traits and functions for floating point arithmetic.
    They are typically provided by the Rust Standard Library (std), but that is not available in bare metal environments.
+
+It might be necessary to enable the [Feature resolver version 2](https://doc.rust-lang.org/cargo/reference/features.html#feature-resolver-version-2)
+in your Cargo.toml if you notice that your dependencies are attempting to build with `std` support even if it was disabled.
+This is the default when using the Rust 2021 Edition or later.
 
 ## Changes to `build.rs`
 
