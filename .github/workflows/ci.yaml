@@ -153,7 +153,7 @@ jobs:
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DBUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug'
+        cmakeAppendedArgs: '-DBUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_EXPERIMENTAL=ON'
         buildDirectory: ${{ runner.workspace }}/cppbuild
         buildWithCMakeArgs: '--config Debug'
     - name: ctest
