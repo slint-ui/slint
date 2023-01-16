@@ -97,7 +97,7 @@ SCENARIO("Value API")
     {
         REQUIRE(!value.to_image().has_value());
         slint::Image image = slint::Image::load_from_path(
-                SOURCE_DIR "/../../logo/slint-logo-square-light-128x128.png");
+                SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
         REQUIRE(image.size().width == 128);
         value = Value(image);
         REQUIRE(value.type() == Value::Type::Image);
@@ -308,7 +308,7 @@ SCENARIO("Component Compiler")
 
     SECTION("Compile from path")
     {
-        auto result = compiler.build_from_path(SOURCE_DIR "/tests/test.slint");
+        auto result = compiler.build_from_path(SOURCE_DIR "/test.slint");
         REQUIRE(result.has_value());
     }
 }
