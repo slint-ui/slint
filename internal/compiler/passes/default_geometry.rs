@@ -18,6 +18,7 @@ use crate::expression_tree::Unit;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, NamedReference};
 use crate::langtype::BuiltinElement;
 use crate::langtype::{DefaultSizeBinding, PropertyLookupResult, Type};
+use crate::layout::implicit_layout_info_call;
 use crate::layout::Orientation;
 use crate::object_tree::{Component, ElementRc};
 
@@ -138,7 +139,27 @@ fn gen_layout_info_prop(elem: &ElementRc) {
         })
         .filter_map(|c| {
             gen_layout_info_prop(c);
-            c.borrow().layout_info_prop.clone()
+            c.borrow()
+                .layout_info_prop
+                .clone()
+                .map(|(h, v)| (Expression::PropertyReference(h), Expression::PropertyReference(v)))
+                .or_else(|| {
+                    if c.borrow().repeated.is_some() {
+                        // FIXME: we should ideally add runtime code to merge layout info of all elements that are repeated (same as #407)
+                        return None;
+                    }
+                    c.borrow()
+                        .builtin_type()
+                        .map_or(false, |b| {
+                            b.default_size_binding == DefaultSizeBinding::ImplicitSize
+                        })
+                        .then(|| {
+                            (
+                                implicit_layout_info_call(c, Orientation::Horizontal),
+                                implicit_layout_info_call(c, Orientation::Vertical),
+                            )
+                        })
+                })
         })
         .collect::<Vec<_>>();
 
@@ -157,18 +178,18 @@ fn gen_layout_info_prop(elem: &ElementRc) {
         crate::layout::layout_info_type(),
     );
     elem.borrow_mut().layout_info_prop = Some((li_h.clone(), li_v.clone()));
-    let mut expr_h = crate::layout::implicit_layout_info_call(elem, Orientation::Horizontal);
-    let mut expr_v = crate::layout::implicit_layout_info_call(elem, Orientation::Vertical);
+    let mut expr_h = implicit_layout_info_call(elem, Orientation::Horizontal);
+    let mut expr_v = implicit_layout_info_call(elem, Orientation::Vertical);
 
     for child_info in child_infos {
         expr_h = Expression::BinaryExpression {
             lhs: Box::new(std::mem::take(&mut expr_h)),
-            rhs: Box::new(Expression::PropertyReference(child_info.0)),
+            rhs: Box::new(child_info.0),
             op: '+',
         };
         expr_v = Expression::BinaryExpression {
             lhs: Box::new(std::mem::take(&mut expr_v)),
-            rhs: Box::new(Expression::PropertyReference(child_info.1)),
+            rhs: Box::new(child_info.1),
             op: '+',
         };
     }
@@ -235,7 +256,7 @@ fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str
 }
 
 fn make_default_implicit(elem: &ElementRc, property: &str, orientation: Orientation) {
-    let base = crate::layout::implicit_layout_info_call(elem, orientation).into();
+    let base = implicit_layout_info_call(elem, orientation).into();
     elem.borrow_mut().set_binding_if_not_set(property.into(), || Expression::StructFieldAccess {
         base,
         name: "preferred".into(),
