@@ -111,6 +111,7 @@ pub struct NativeButton {
     pub text: Property<SharedString>,
     pub icon: Property<i_slint_core::graphics::Image>,
     pub pressed: Property<bool>,
+    pub has_hover: Property<bool>,
     pub checkable: Property<bool>,
     pub checked: Property<bool>,
     pub has_focus: Property<bool>,
@@ -235,10 +236,11 @@ impl Item for NativeButton {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        event: MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
+        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(!matches!(event, MouseEvent::Exit));
         InputEventFilterResult::ForwardEvent
     }
 
@@ -248,6 +250,9 @@ impl Item for NativeButton {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
+        if matches!(event, MouseEvent::Exit) {
+            Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
+        }
         let enabled = self.enabled();
         if !enabled {
             return InputEventResult::EventIgnored;
@@ -260,7 +265,7 @@ impl Item for NativeButton {
                 return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
-                    InputEventResult::EventIgnored
+                    InputEventResult::EventAccepted
                 }
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
@@ -328,6 +333,7 @@ impl Item for NativeButton {
         let icon: qttypes::QPixmap = this.actual_icon(standard_button_kind);
         let enabled = this.enabled();
         let has_focus = this.has_focus();
+        let has_hover = this.has_hover();
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
@@ -339,6 +345,7 @@ impl Item for NativeButton {
             down as "bool",
             checked as "bool",
             has_focus as "bool",
+            has_hover as "bool",
             dpr as "float",
             initial_state as "int"
         ] {
@@ -364,6 +371,9 @@ impl Item for NativeButton {
             }
             if (has_focus) {
                 option.state |= QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange | QStyle::State_Item;
+            }
+            if (has_hover) {
+                option.state |= QStyle::State_MouseOver;
             }
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, painter->get(), widget);
         });
