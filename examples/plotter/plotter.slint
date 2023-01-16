@@ -3,15 +3,15 @@
 
 import { Slider, GroupBox, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
-export MainWindow := Window {
+export component MainWindow inherits Window {
     title: "Slint Plotter Integration Example";
     preferred-width: 800px;
     preferred-height: 600px;
 
     pure callback render_plot(float /* pitch */, float /* yaw */, float /* amplitude */) -> image;
 
-    property <float> pitch: 0.15;
-    property <float> yaw: 0.5;
+    in-out property <float> pitch: 0.15;
+    in-out property <float> yaw: 0.5;
 
     VerticalBox {
         Text {
@@ -20,23 +20,23 @@ export MainWindow := Window {
             horizontal-alignment: center;
         }
         Image {
-            source: root.render_plot(pitch, yaw, amplitude-slider.value / 10);
+            source: root.render_plot(root.pitch, root.yaw, amplitude-slider.value / 10);
             touch := TouchArea {
                 property <float> pressed-pitch;
                 property <float> pressed-yaw;
                 pointer-event(event) => {
                     if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                        pressed-pitch = root.pitch;
-                        pressed-yaw = root.yaw;
+                        self.pressed-pitch = root.pitch;
+                        self.pressed-yaw = root.yaw;
                     }
                 }
                 moved => {
-                    if (enabled && pressed) {
-                        pitch = pressed-pitch + (touch.mouse-y - touch.pressed-y) / height * 3.14;
-                        yaw = pressed-yaw - (touch.mouse-x - touch.pressed-x) / width * 3.14;
+                    if (self.enabled && self.pressed) {
+                        root.pitch = self.pressed-pitch + (touch.mouse-y - touch.pressed-y) / self.height * 3.14;
+                        root.yaw = self.pressed-yaw - (touch.mouse-x - touch.pressed-x) / self.width * 3.14;
                     }
                 }
-                mouse-cursor: pressed ? MouseCursor.grabbing : MouseCursor.grab;
+                mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
             }
         }
         HorizontalBox {

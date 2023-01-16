@@ -5,7 +5,7 @@ import { HorizontalBox, VerticalBox, ListView, StandardListView, GroupBox } from
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
-export ListViewPage := Page {
+export component ListViewPage inherits Page {
     title: "ListView";
     description: "ListViews can be used to display a list of elements. The StandardListBox is like the default ListView just with a default text based definition of the visual items. Both can be imported from \"std-widgets.slint\"";
 

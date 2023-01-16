@@ -3,17 +3,17 @@
 
 import { Theme } from "theme.slint";
 
-export Carousel := FocusScope {
+export component Carousel inherits FocusScope {
     callback move-right();
     callback move-left();
     callback move-focus-up();
 
-    property <int> selected-index;
-    property <length> spacing;
-    property <length> itemWidth;
-    property <int> count: 0;
-    property <length> center-x: (width - Theme.size-big) / 2;
-    property <duration> duation: Theme.duration-regular;
+    in-out property <int> selected-index;
+    in-out property <length> spacing;
+    in-out property <length> itemWidth;
+    in-out property <int> count: 0;
+    in-out property <length> center-x: (root.width - Theme.size-big) / 2;
+    in-out property <duration> duation: Theme.duration-regular;
 
     forward-focus: focus-scope;
     height: Theme.size-big;
@@ -63,8 +63,8 @@ export Carousel := FocusScope {
        
         Flickable {
             interactive: false;
-            animate viewport-x { duration: duation; easing: ease-in; }
-            viewport-x: center-x - root.selected-index * (root.itemWidth + root.spacing);
+            animate viewport-x { duration: root.duation; easing: ease-in; }
+            viewport-x: root.center-x - root.selected-index * (root.itemWidth + root.spacing);
     
             HorizontalLayout { 
                 spacing <=> root.spacing;

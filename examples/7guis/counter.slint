@@ -3,17 +3,17 @@
 
 import { Button, LineEdit, HorizontalBox } from "std-widgets.slint";
 
-Counter := Window {
-    property <int> value: 0;
+component Counter inherits Window {
+    in-out property <int> value: 0;
     preferred-height: 30px;
     layout := HorizontalBox {
         LineEdit {
             enabled: false;
-            text: value;
+            text: root.value;
         }
         Button {
             text: "Count";
-            clicked => { value += 1; }
+            clicked => { root.value += 1; }
         }
     }
 }

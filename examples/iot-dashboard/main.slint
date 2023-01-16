@@ -43,7 +43,7 @@ import { MenuBar, TopBar, Usage, IndoorTemperature, Humidity, MyDevices,
 } from "iot-dashboard.slint";
 
 
-MainContent := VerticalLayout {
+component MainContent inherits VerticalLayout {
     spacing: 24px;
     TopBar {
         Clock {
@@ -80,7 +80,7 @@ MainContent := VerticalLayout {
     }
 }
 
-MainWindow := Window {
+component MainWindow inherits Window {
     title: "IOT dashboard";
     HorizontalLayout {
         padding: 0; spacing: 0;

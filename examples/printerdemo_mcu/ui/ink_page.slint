@@ -3,27 +3,27 @@
 
 import { DemoPalette, Page } from "common.slint";
 
-export struct InkLevel := {
+export struct InkLevel  {
     color: color,
     level: float,
 }
 
-export InkPage := Page {
+export component InkPage inherits Page {
     header: "Ink Level";
 
-    property <[InkLevel]> ink-levels;
-    property <bool> page-visible;
+    in-out property <[InkLevel]> ink-levels;
+    in-out property <bool> page-visible;
 
 
     Rectangle {
-        x: (parent.width - width) / 2;
-        y: (parent.height - height);
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height);
         height: 82%;
         width: 60%;
 
         HorizontalLayout {
             spacing: root.width * 5%;
-            for color-info in ink-levels : Rectangle {
+            for color-info in root.ink-levels : Rectangle {
                 ink := Rectangle {
                     width: parent.width;
                     height: parent.height * color-info.level;
@@ -31,7 +31,7 @@ export InkPage := Page {
                     clip: true;
                     Rectangle {
                         background: color-info.color;
-                        border-radius: width / 2;
+                        border-radius: self.width / 2;
                         border-width: 2px;
                         height: parent.height + parent.y;
                         y: -parent.y;
@@ -54,18 +54,18 @@ export InkPage := Page {
                 }
 
                 Rectangle {
-                    y: max(ink.y - height, 0phx);
+                    y: max(ink.y - self.height, 0phx);
                     height: 2px;
                     // w = 2*sqrt(r² - (max(0, min(r-y , y-h+r)))²)
-                    property <length> r: (parent.width - height) / 2;
-                    property <length> y2: max(0phx, max(r - y, y - parent.height + r));
-                    width: 2*sqrt((r*r - y2*y2)/(1phx * 1phx))*1phx;  // FIXME: it would be nice if sqrt could do proper unit handling
-                    x: (parent.width - width) / 2;
+                    property <length> r: (parent.width - self.height) / 2;
+                    property <length> y2: max(0phx, max(self.r - self.y, self.y - parent.height + self.r));
+                    width: 2*sqrt((self.r*self.r - self.y2*self.y2)/(1phx * 1phx))*1phx;  // FIXME: it would be nice if sqrt could do proper unit handling
+                    x: (parent.width - self.width) / 2;
                     background: DemoPalette.neutral-box;
                 }
 
                 Rectangle {
-                    border-radius: width / 2;
+                    border-radius: self.width / 2;
                     border-color: DemoPalette.neutral-box;
                     border-width: 2px;
                 }

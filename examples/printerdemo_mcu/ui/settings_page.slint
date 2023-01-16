@@ -3,7 +3,7 @@
 
 import { DemoPalette, Page, SpinBox, ComboBox, CheckBox, Label } from "common.slint";
 
-export SettingsPage := Page {
+export component SettingsPage inherits Page {
     header: "Settings";
 
     GridLayout {
@@ -73,7 +73,7 @@ export SettingsPage := Page {
         source: DemoPalette.night-mode ? @image-url("slint-logo-square-dark-80x80.png") : @image-url("slint-logo-square-light-80x80.png");
         width: 80px;
         height: 80px;
-        x: parent.width - width;
-        y: parent.height - height;
+        x: parent.width - self.width;
+        y: parent.height - self.height;
     }
 }

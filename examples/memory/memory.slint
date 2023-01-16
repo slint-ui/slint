@@ -1,24 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-struct TileData := {
+struct TileData  {
     image: image,
     image-visible: bool,
     solved: bool,
 }
 
-MemoryTile := Rectangle {
+component MemoryTile inherits Rectangle {
     border-radius: 8px;
     callback clicked;
-    property <bool> open-curtain;
-    property <bool> solved;
-    property <image> icon;
+    in-out property <bool> open-curtain;
+    in-out property <bool> solved;
+    in-out property <image> icon;
 
-    background: solved ? #70ff00 : #858585;
+    background: root.solved ? #70ff00 : #858585;
     animate background { duration: 800ms; }
 
     Image {
-        source: icon;
+        source: root.icon;
         width: parent.width - 16px;
         height: parent.height - 16px;
         x: 8px;
@@ -27,9 +27,10 @@ MemoryTile := Rectangle {
 
     // Left curtain
     Rectangle {
+        x:0;
         background: #0025ff;
         border-radius: 4px;
-        width: open-curtain ? 0px : parent.width / 2 + 4px;
+        width: root.open-curtain ? 0px : parent.width / 2 + 4px;
         height: parent.height;
         animate width { duration: 250ms; easing: ease-in; }
         clip: true;
@@ -47,8 +48,8 @@ MemoryTile := Rectangle {
     right-curtain := Rectangle {
         background: #0025ff;
         border-radius: 4px;
-        x: open-curtain ? parent.width : parent.width / 2 - 4px;
-        width: open-curtain ? 0px : parent.width / 2 + 4px;
+        x: root.open-curtain ? parent.width : parent.width / 2 - 4px;
+        width: root.open-curtain ? 0px : parent.width / 2 + 4px;
         height: parent.height;
         animate width { duration: 250ms; easing: ease-in; }
         animate x { duration: 250ms; easing: ease-in; }
@@ -57,7 +58,7 @@ MemoryTile := Rectangle {
         Image {
             width: root.width - 32px;
             height: root.height - 32px;
-            x: right-curtain.width - width - 16px;
+            x: right-curtain.width - self.width - 16px;
             y: 16px;
             source: @image-url("icons/tile_logo.png");
         }
@@ -72,23 +73,23 @@ MemoryTile := Rectangle {
     }
 }
 
-export MainWindow := Window {
+export component MainWindow inherits Window {
     title: "Memory Game - Slint Demo";
 
     callback check-if-pair-solved();
-    property <bool> disable-tiles;
+    in-out property <bool> disable-tiles;
 
-    property<length> tile-size: 80px;
-    property<length> tile-spacing: 10px;
+    in-out property<length> tile-size: 80px;
+    in-out property<length> tile-spacing: 10px;
 
-    property <int> row-count: 4;
-    property <int> column-count: 4;
+    in-out property <int> row-count: 4;
+    in-out property <int> column-count: 4;
 
     // "column_count + 1" and "row_count + 1" are the number of gaps between the tiles.
-    width: (column-count * tile-size) + ((column-count + 1) * tile-spacing);
-    height: (row-count * tile-size) + ((row-count + 1) * tile-spacing);
+    width: (root.column-count * root.tile-size) + ((root.column-count + 1) * root.tile-spacing);
+    height: (root.row-count * root.tile-size) + ((root.row-count + 1) * root.tile-spacing);
 
-    property<[TileData]> memory-tiles : [
+    in-out property<[TileData]> memory-tiles : [
         { image: @image-url("icons/at.png") },
         { image: @image-url("icons/balance-scale.png") },
         { image: @image-url("icons/bicycle.png") },
@@ -99,11 +100,11 @@ export MainWindow := Window {
         { image: @image-url("icons/video.png") },
     ];
 
-    for tile[i] in memory-tiles: MemoryTile {
-        x: tile-spacing + mod(i, column-count) * (tile-size + tile-spacing);
-        y: tile-spacing + floor(i / row-count) * (tile-size + tile-spacing);
-        width: tile-size;
-        height: tile-size;
+    for tile[i] in root.memory-tiles: MemoryTile {
+        x: root.tile-spacing + mod(i, root.column-count) * (root.tile-size + root.tile-spacing);
+        y: root.tile-spacing + floor(i / root.row-count) * (root.tile-size + root.tile-spacing);
+        width: root.tile-size;
+        height: root.tile-size;
 
         icon: tile.image;
 

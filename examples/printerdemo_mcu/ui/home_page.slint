@@ -6,10 +6,10 @@ import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
 import { PrinterQueueView } from "./printer_queue.slint";
 
-ActionButton := Rectangle {
+component ActionButton inherits Rectangle {
 
-    property <image> icon <=> img.source;
-    property <string> text <=> label.text;
+    in-out property <image> icon <=> img.source;
+    in-out property <string> text <=> label.text;
     callback clicked;
 
     VerticalLayout {
@@ -41,16 +41,16 @@ ActionButton := Rectangle {
     TouchArea { clicked => { root.clicked() } }
 }
 
-export HomePage := Page {
-    property <length> header-row-height: 40px / 2;
+export component HomePage inherits Page {
+    in-out property <length> header-row-height: 40px / 2;
 
-    property <length> button-spacing: 8px;
-    property <length> button-width: 127px / 2;
-    property <length> button-height: button-width + 20px;
+    in-out property <length> button-spacing: 8px;
+    in-out property <length> button-width: 127px / 2;
+    in-out property <length> button-height: root.button-width + 20px;
 
     header: "Printer";
 
-    property <int> current-subpage: 0;
+    in-out property <int> current-subpage: 0;
 
 
     for action[idx] in [
@@ -58,31 +58,31 @@ export HomePage := Page {
         { name: "Scan", icon: @image-url("images/scan.svg") },
 
     ]: ActionButton {
-        x: mod(idx, 1) * (button-width + button-spacing) + button-spacing;
-        y: floor(idx / 1) * (button-height + button-spacing)
-           + header-row-height
+        x: mod(idx, 1) * (root.button-width + root.button-spacing) + root.button-spacing;
+        y: floor(idx / 1) * (root.button-height + root.button-spacing)
+           + root.header-row-height
            + /* top-padding of printer queue */ 18px; // align with the first item of the printer queue
-        width: button-width;
-        height: button-height;
+        width: root.button-width;
+        height: root.button-height;
         icon: action.icon;
         text: action.name;
-        clicked => { current-subpage = idx + 1; }
+        clicked => { root.current-subpage = idx + 1; }
     }
 
     queue-view := PrinterQueueView {
 
-        x: button-width + button-spacing * 2;
-        width: parent.width - x;
+        x: root.button-width + root.button-spacing * 2;
+        width: parent.width - self.x;
     }
 
     ScanPage {
-        x: current-subpage == 2 ? 0 : parent.width + parent.x + 2px;
+        x: root.current-subpage == 2 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
-        back => { current-subpage = 0 }
+        back => { root.current-subpage = 0 }
     }
     CopyPage {
-        x: current-subpage == 1 ? 0 : parent.width + parent.x + 2px;
+        x: root.current-subpage == 1 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
-        back => { current-subpage = 0 }
+        back => { root.current-subpage = 0 }
     }
 }

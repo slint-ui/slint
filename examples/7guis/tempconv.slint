@@ -3,14 +3,14 @@
 
 import { LineEdit, HorizontalBox } from "std-widgets.slint";
 
-TempConv := Window {
+component TempConv inherits Window {
     preferred-height: 64px;
     layout := HorizontalBox {
         c := LineEdit {
             text: "0";
             edited(text) => {
-                if (text.is-float()) {
-                    f.text = (text.to-float() * 9 / 5) + 32;
+                if (self.text.is-float()) {
+                    f.text = (self.text.to-float() * 9 / 5) + 32;
                 }
             }
         }
@@ -21,8 +21,8 @@ TempConv := Window {
         f := LineEdit {
             text: "32";
             edited(text) => {
-                if (text.is-float()) {
-                    c.text = (text.to-float() - 32) * (5 / 9);
+                if (self.text.is-float()) {
+                    c.text = (self.text.to-float() - 32) * (5 / 9);
                 }
             }
         }

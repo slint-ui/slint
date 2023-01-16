@@ -4,12 +4,12 @@
 import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView,
     HorizontalBox, VerticalBox, GridBox, StandardButton } from "std-widgets.slint";
 
-export struct TodoItem := {
+export struct TodoItem  {
     title: string,
     checked: bool,
 }
 
-MainWindow := Window {
+component MainWindow inherits Window {
     preferred-width: 400px;
     preferred-height: 600px;
     callback todo-added(string);
@@ -37,12 +37,12 @@ MainWindow := Window {
                 text: "Some items are not done, are you sure you wish to quit?";
                 wrap: word-wrap;
             }
-            StandardButton { kind: yes; clicked => { popup_confirmed(); } }
+            StandardButton { kind: yes; clicked => { root.popup_confirmed(); } }
             StandardButton { kind: no; }
         }
     }
 
-    property <[TodoItem]> todo-model: [
+    in-out property <[TodoItem]> todo-model: [
         { title: "Implement the .slint file", checked: true },
         { title: "Do the Rust part", checked: false },
         { title: "Make the C++ code", checked: false },
@@ -53,16 +53,16 @@ MainWindow := Window {
         { title: "Profit", checked: false },
     ];
 
-    property <bool> show-header: false;
-    property <bool> is-sort-by-name: false;
-    property <bool> hide-done-items: false;
+    in-out property <bool> show-header: false;
+    in-out property <bool> is-sort-by-name: false;
+    in-out property <bool> hide-done-items: false;
 
     VerticalBox {
         HorizontalBox {
             text-edit := LineEdit {
                 placeholder-text: "What needs to be done?";
                 accepted(text) => {
-                    todo-added(text);
+                    root.todo-added(self.text);
                     self.text = "";
                 }
             }
@@ -70,41 +70,41 @@ MainWindow := Window {
                 text: "Add New Entry";
                 enabled: text-edit.text != "";
                 clicked => {
-                    todo-added(text-edit.text);
+                    root.todo-added(text-edit.text);
                     text-edit.text = "";
                 }
             }
         }
 
-        if (show-header) : HorizontalBox { 
+        if (root.show-header) : HorizontalBox { 
             alignment: start; 
 
             CheckBox {  
                 text: "Sort by name";
-                checked <=> is-sort-by-name;
+                checked <=> root.is-sort-by-name;
 
                 toggled => {
-                    apply_sorting_and_filtering();
+                    root.apply_sorting_and_filtering();
                 }
             }
 
             CheckBox {  
                 text: "Hide done items";
-                checked <=> hide-done-items;
+                checked <=> root.hide-done-items;
 
                 toggled => {
-                    apply_sorting_and_filtering();
+                    root.apply_sorting_and_filtering();
                 }
             }
         }
 
         list-view := ListView {
-            for todo in todo-model:  HorizontalLayout {
+            for todo in root.todo-model:  HorizontalLayout {
                 CheckBox {
                     text: todo.title;
                     checked: todo.checked;
                     toggled => {
-                        todo.checked = checked;
+                        todo.checked = self.checked;
                     }
                 }
             }

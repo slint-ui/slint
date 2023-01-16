@@ -8,8 +8,8 @@ import { FaxPage } from "fax_page.slint";
 import { PrintPage } from "print_page.slint";
 import { SettingsPage } from "settings_page.slint";
 
-TopPanel := Rectangle {
-   property<int> active-page: 0;
+component TopPanel inherits Rectangle {
+   in-out property<int> active-page: 0;
    callback quit();
 
    background: white;
@@ -18,7 +18,7 @@ TopPanel := Rectangle {
         alignment: center;
         Text {
             text: "PrintMachine";
-            color: active-page == 0 ? black : #0000;
+            color: root.active-page == 0 ? black : #0000;
             animate color { duration: 200ms; }
             font-size: root.width * 5%;
             horizontal-alignment: center;
@@ -26,7 +26,7 @@ TopPanel := Rectangle {
         }
         Text {
             text: "2000";
-            color: active-page == 0 ? #918e8c : #0000;
+            color: root.active-page == 0 ? #918e8c : #0000;
             animate color { duration: 200ms; }
             font-size: root.width * 5%;
             horizontal-alignment: center;
@@ -36,7 +36,7 @@ TopPanel := Rectangle {
     }
     power-button := Image {
         x: parent.width - self.width - 20px;
-        y: (parent.height - height) / 2;
+        y: (parent.height - self.height) / 2;
         source: @image-url("images/power.svg");
         width: 5%;
         height: self.width;
@@ -49,12 +49,12 @@ TopPanel := Rectangle {
     }
 }
 
-struct InkLevel := {
+struct InkLevel  {
     color: color,
     level: float,
 }
 
-MainWindow := Window {
+component MainWindow inherits Window {
     callback quit();
 
     width: 800px;
@@ -64,23 +64,24 @@ MainWindow := Window {
 
     /// Note that this property is overwriten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
-    property <[InkLevel]> ink-levels: [
+    in-out property <[InkLevel]> ink-levels: [
                 {color: #0ff, level: 60%},
                 {color: #ff0, level: 80%},
                 {color: #f0f, level: 70%},
                 {color: #000, level: 30%},
             ];
     /// Aliased to the fax number in the fax page
-    property <string> fax-number;
+    in-out property <string> fax-number;
     callback fax-number-erase;
     /// That's just a default implementation for the viewer, but the .cpp and .rs code
     /// overwrite that to erase only the last character
-    fax-number-erase => { fax-number = ""; }
+    fax-number-erase => { root.fax-number = ""; }
     callback fax-send;
 
-    property<int> active-page: 0;
+    in-out property<int> active-page: 0;
 
     panel := TopPanel {
+        y:0;
         active-page: root.active-page;
         width: 100%;
         height: 12.5%;
@@ -94,10 +95,10 @@ MainWindow := Window {
         { color: #009dc8, text: "Settings", img-small: @image-url("images/list.svg") },
     ] : Rectangle {
         property <length> w: root.width / 5;
-        width: w;
+        width: self.w;
         height: root.height / 3;
         y: root.height / 4;
-        x: idx * (w + (root.width - w*4) / 5) + (root.width - w*4)/5;
+        x: idx * (self.w + (root.width - self.w*4) / 5) + (root.width - self.w*4)/5;
         border-radius: 25px;
         background: page-info.color;
         img := Image {
@@ -165,7 +166,8 @@ MainWindow := Window {
     }
 
     if (root.active-page != 0) : Rectangle {
-        width: height;
+        x:0;y:0;
+        width: self.height;
         height: 12.5%;
         Text {
             width: 100%;
@@ -192,7 +194,7 @@ MainWindow := Window {
         HorizontalLayout {
             spacing: 10px;
             padding: 10px;
-            for color-info[idx] in ink-levels : Rectangle {
+            for color-info[idx] in root.ink-levels : Rectangle {
                 background: white;
                 Rectangle {
                     width: parent.width;
@@ -202,20 +204,19 @@ MainWindow := Window {
                     states [
                         inactive when root.active-page != 0 : {
                             height: 0phx;
-                        }
-                    ]
-                    transitions [
-                        out inactive : {
+                        out  {
                             animate height { duration: 750ms; easing: ease-in-out; }
                         }
+                        }
                     ]
+                    
                 }
             }
         }
 
         property <bool> full-screen;
         states [
-            full-screen when full-screen : {
+            full-screen when self.full-screen : {
                 width: root.width - 35px;
                 height: 7/8 * root.height - 40px ;
             }
@@ -223,7 +224,7 @@ MainWindow := Window {
         animate width, height { duration: 200ms; easing: ease;  }
         TouchArea {
             clicked => {
-                if (active-page == 0) {
+                if (root.active-page == 0) {
                     parent.full-screen = !parent.full-screen;
                 }
             }

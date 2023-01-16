@@ -4,13 +4,13 @@
 import { ScrollView, Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView,
     ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget, TextEdit, AboutSixtyFPS } from "std-widgets.slint";
 
-App := Window {
+component App inherits Window {
     preferred-width: 500px;
     preferred-height: 600px;
     title: "Slint OpenGL Underlay Example";
     icon: @image-url("../../logo/slint-logo-small-light-128x128.png");
 
-    property <bool> rotation-enabled <=> apply-rotation.checked;
+    in-out property <bool> rotation-enabled <=> apply-rotation.checked;
 
     VerticalBox {
         Rectangle {

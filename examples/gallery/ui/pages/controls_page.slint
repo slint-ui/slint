@@ -6,7 +6,7 @@ import { Button, GroupBox, SpinBox, ComboBox, CheckBox, LineEdit, TabWidget, Ver
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
-export ControlsPage := Page {
+export component ControlsPage inherits Page {
     title: "Controls";
     description: "This page gives an overview of the default widget set provided by Slint. The widgets are available in different styles native, fluent-(dark/light) and material-(dark/light). The widgets can be imported from \"std-widgets.slint\".";
 
@@ -31,7 +31,7 @@ export ControlsPage := Page {
 
             Button {
                 checkable: true;
-                text: checked ? "ON" : "OFF";
+                text: self.checked ? "ON" : "OFF";
                 enabled: !GallerySettings.widgets-disabled;
             }
         }

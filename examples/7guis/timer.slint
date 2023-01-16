@@ -3,14 +3,14 @@
 
 import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
-MainWindow := Window {
-    property <duration> total-time: slider.value * 1s;
-    property <duration> elapsed-time;
+component MainWindow inherits Window {
+    in-out property <duration> total-time: slider.value * 1s;
+    in-out property <duration> elapsed-time;
     
     callback tick(duration);
     tick(passed-time) => {
-        elapsed-time += passed-time;
-        elapsed-time = min(elapsed-time, total-time);
+        root.elapsed-time += passed-time;
+        root.elapsed-time = min(root.elapsed-time, root.total-time);
     }
 
     VerticalBox {
@@ -22,14 +22,15 @@ MainWindow := Window {
                 max-height: 30px;
                 background: gray;
                 Rectangle {
+                    x:0;
                     height: 100%;
-                    width: parent.width * (elapsed-time/total-time);
+                    width: parent.width * (root.elapsed-time/root.total-time);
                     background: lightblue;
                 }
             }
         }
         Text{
-            text: (total-time / 1s) + "s";
+            text: (root.total-time / 1s) + "s";
         }
         HorizontalBox {
             padding-left: 0;
@@ -49,7 +50,7 @@ MainWindow := Window {
         Button {
             text: "Reset";
             clicked => {
-                elapsed-time = 0
+                root.elapsed-time = 0
             }
         }
     }
