@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+TestCase := Window {
+    r1 := Rectangle {}
+    r2 := Rectangle {
+        HorizontalLayout {
+            Text { text: "foo"; }
+        }
+        Rectangle {}
+    }
+    r3 := Rectangle {
+        Rectangle {}
+        Text { text: "foo"; }
+    }
+    r4 := Rectangle {
+        Rectangle {
+            Text { text: "foo"; }
+        }
+        Rectangle {}
+    }
+    r5 := Rectangle {
+        HorizontalLayout {
+            Rectangle {
+                Text { text: "foo"; }
+            }
+        }
+    }
+    r6 := Rectangle {
+        Text { text: "foo"; }
+        Text { text: "foo"; }
+    }
+    broken := Rectangle { // #407
+        for ax in 5 : HorizontalLayout { Text { text: "foo"; } }
+        for ay in 5 : Text { text: "foo"; }
+    }
+    foo := Text { text: "foo"; }
+    property <bool> test: foo.min-height > 1px && t2 && t3 && t4 && t5 && t6;
+    property <bool> t2: r2.min-height == foo.min-height && r2.preferred-width == foo.preferred-width;
+    property <bool> t3: r3.min-height == foo.min-height && r3.preferred-width == foo.preferred-width;
+    property <bool> t4: r4.min-height == foo.min-height && r4.preferred-width == foo.preferred-width;
+    property <bool> t5: r5.min-height == foo.min-height && r5.preferred-width == foo.preferred-width;
+    property <bool> t6: r6.min-height == foo.min-height && r6.preferred-width == foo.preferred-width;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

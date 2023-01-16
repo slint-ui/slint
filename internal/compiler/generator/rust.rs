@@ -946,6 +946,8 @@ fn generate_sub_component(
                     root : &slint::private_unstable_api::re_exports::VRc<slint::private_unstable_api::re_exports::ComponentVTable, #root_component_id>,
                     tree_index: u32, tree_index_of_first_child: u32) {
                 #![allow(unused)]
+                #![allow(unused)]
+                use slint::private_unstable_api::re_exports::*;
                 let _self = self_rc.as_pin_ref();
                 _self.self_weak.set(VRcMapped::downgrade(&self_rc));
                 _self.root.set(VRc::downgrade(root));
