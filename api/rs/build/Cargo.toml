@@ -23,4 +23,4 @@ i-slint-compiler = { version = "=0.3.4", path = "../../../internal/compiler", fe
 
 spin_on = "0.1"
 thiserror = "1"
-toml_edit = "0.15"
+toml_edit = "0.17.1"
