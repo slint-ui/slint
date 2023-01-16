@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import {Button, AboutSlint} from "std-widgets.slint";
+
+export component App inherits Window {
+    preferred-width: 800px;
+    preferred-height: 600px;
+    property <int> count;
+
+    VerticalLayout {
+        AboutSlint {  }
+        Button {
+            text: "Hello";
+            clicked => { count += 1; }
+        }
+        Text { text: count; }
+        Rectangle {  }
+    }
+}
