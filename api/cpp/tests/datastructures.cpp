@@ -161,7 +161,7 @@ TEST_CASE("Image")
         REQUIRE(!img.path().has_value());
     }
 
-    img = Image::load_from_path(SOURCE_DIR "/../../logo/slint-logo-square-light-128x128.png");
+    img = Image::load_from_path(SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
     {
         auto size = img.size();
         REQUIRE(size.width == 128.);
@@ -170,7 +170,7 @@ TEST_CASE("Image")
     {
         auto actual_path = img.path();
         REQUIRE(actual_path.has_value());
-        REQUIRE(*actual_path == SOURCE_DIR "/../../logo/slint-logo-square-light-128x128.png");
+        REQUIRE(*actual_path == SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
     }
 }
 
