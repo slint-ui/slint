@@ -10,7 +10,7 @@ component App inherits Window {
     title: "Slint OpenGL Underlay Example";
     icon: @image-url("../../logo/slint-logo-small-light-128x128.png");
 
-    in-out property <bool> rotation-enabled <=> apply-rotation.checked;
+    in property <bool> rotation-enabled <=> apply-rotation.checked;
 
     VerticalBox {
         Rectangle {

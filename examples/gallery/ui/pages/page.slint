@@ -6,8 +6,8 @@ import { CheckBox, GridBox, ListView, ScrollView, VerticalBox } from "std-widget
 import { GallerySettings } from "../gallery_settings.slint";
 
 export component Page inherits VerticalBox {
-    in-out property<string> title: "title";
-    in-out property<string> description: "description";
+    in property<string> title: "title";
+    in property<string> description: "description";
 
     HorizontalLayout {  
         height: 24px;

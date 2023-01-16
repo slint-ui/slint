@@ -11,7 +11,7 @@ export component UsbPage inherits Page {
     has-back-button: true;
     header: "USB";
 
-    in-out property <[File]> files: [
+    in property <[File]> files: [
         { name: ".." },
         { name: "cat.jpg", preview: @image-url("images/cat.jpg") },
         { name: "dog.jpg", preview: @image-url("images/dog.jpg") },

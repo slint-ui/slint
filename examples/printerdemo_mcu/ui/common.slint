@@ -9,55 +9,55 @@ struct ButtonColors  {
 
 export global DemoPalette  {
     // Color of the home/settings/ink buttons on the left side bar
-    in-out property <color> active-page-icon-color: root.night-mode ? #6284FF : #122F7B;
-    in-out property <color> inactive-page-icon-color: #BDC0D1;
+    out property <color> active-page-icon-color: root.night-mode ? #6284FF : #122F7B;
+    out property <color> inactive-page-icon-color: #BDC0D1;
 
-    in-out property <color> main-background: #0E133F;
-    in-out property <color> neutral-box: #BDC0D1;
+    out property <color> main-background: #0E133F;
+    out property <color> neutral-box: #BDC0D1;
 
-    in-out property <color> page-background-color: root.night-mode ? #122F7B : white;
+    out property <color> page-background-color: root.night-mode ? #122F7B : white;
 
-    in-out property <color> text-foreground-color: root.night-mode ? #F4F6FF : black;
-    in-out property <color> secondary-foreground-color: #6C6E7A; // FIXME: night mode
+    out property <color> text-foreground-color: root.night-mode ? #F4F6FF : black;
+    out property <color> secondary-foreground-color: #6C6E7A; // FIXME: night mode
 
-    in-out property <color> printer-action-background-color: root.night-mode ? root.main-background : white;
-    in-out property <color> printer-queue-item-background-color: root.page-background-color;
+    out property <color> printer-action-background-color: root.night-mode ? root.main-background : white;
+    out property <color> printer-queue-item-background-color: root.page-background-color;
 
-    in-out property <color> status-label-text-color: root.night-mode ? #F1FF98 : #6284FF;
+    out property <color> status-label-text-color: root.night-mode ? #F1FF98 : #6284FF;
 
     // Color used for the border / outline of items that can be clicked on, such as the
     // "Print"/"Scan" buttons, the printer queue items (for expansion) or controls such
     // as the combo box or spin box.
-    in-out property <color> control-outline-color: #FFBF63;
-    in-out property <color> control-secondary: #6284FF;
-    in-out property <color> control-foreground: root.night-mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
+    out property <color> control-outline-color: #FFBF63;
+    out property <color> control-secondary: #6284FF;
+    out property <color> control-foreground: root.night-mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
 
-    in-out property <color> primary-push-button-base: #6284FF;
-    in-out property <ButtonColors> primary-push-button-colors: {
+    out property <color> primary-push-button-base: #6284FF;
+    out property <ButtonColors> primary-push-button-colors: {
         base: root.primary-push-button-base,
         pressed: root.primary-push-button-base.darker(40%),
         hovered: root.primary-push-button-base.darker(20%),
     };
 
-    in-out property <color> secondary-push-button-base: #FFBF63;
-    in-out property <ButtonColors> secondary-push-button-colors: {
+    out property <color> secondary-push-button-base: #FFBF63;
+    out property <ButtonColors> secondary-push-button-colors: {
         base: root.secondary-push-button-base,
         pressed: root.secondary-push-button-base.darker(40%),
         hovered: root.secondary-push-button-base.darker(20%),
     };
 
 
-    in-out property <color> push-button-text-color: white;
+    out property <color> push-button-text-color: white;
 
-    in-out property <length> base-font-size: 12px;
+    out property <length> base-font-size: 12px;
 
     in-out property <bool> night-mode: false;
 }
 
 export component Page inherits Rectangle {
-    in-out property<string> header <=> h.text;
+    in property<string> header <=> h.text;
     background: DemoPalette.page-background-color;
-    in-out property <bool> has-back-button: false;
+    in property <bool> has-back-button: false;
     callback back;
 
     TouchArea {} // protect underneath controls
@@ -101,7 +101,7 @@ export component Label inherits Text {
 
 component SquareButton inherits Rectangle {
     callback clicked;
-    in-out property<image> img;
+    in property<image> img;
     border-radius: 3px;
     border-width: 2px;
     border-color: DemoPalette.control-outline-color;
@@ -127,8 +127,8 @@ component SquareButton inherits Rectangle {
 
 export component SpinBox inherits Rectangle {
     in-out property <int> value;
-    in-out property <int> minimum;
-    in-out property <int> maximum: 100;
+    in property <int> minimum;
+    in property <int> maximum: 100;
     height: 32px;
 
     HorizontalLayout {
@@ -172,7 +172,7 @@ export component SpinBox inherits Rectangle {
 
 export component ComboBox inherits Rectangle {
     in-out property<string> value;
-    in-out property<[string]> choices;
+    in property<[string]> choices;
     border-radius: 3px;
     border-width: 2px;
     border-color: DemoPalette.control-outline-color;
@@ -237,7 +237,7 @@ export component ComboBox inherits Rectangle {
 
 export component CheckBox inherits Rectangle {
     in-out property <bool> checked;
-    in-out property <string> text;
+    in property <string> text;
 
     height: 32px;
 
@@ -268,12 +268,12 @@ export component CheckBox inherits Rectangle {
 
 export component PushButton inherits Rectangle {
     callback clicked;
-    in-out property <string> text <=> label.text;
-    in-out property <image> icon <=> img.source;
-    in-out property <bool> primary: true;
-    in-out property <bool> pressed: touch-area.pressed;
+    in property <string> text <=> label.text;
+    in property <image> icon <=> img.source;
+    in property <bool> primary: true;
+    out property <bool> pressed: touch-area.pressed;
 
-    in-out property <ButtonColors> colors: root.primary ? DemoPalette.primary-push-button-colors : DemoPalette.secondary-push-button-colors;
+    out property <ButtonColors> colors: root.primary ? DemoPalette.primary-push-button-colors : DemoPalette.secondary-push-button-colors;
 
     border-radius: 13.5px;
 

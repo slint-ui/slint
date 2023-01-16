@@ -6,41 +6,41 @@ import "fonts/Roboto-Bold.ttf";
 
 export global Theme  {
     // brushes
-    in-out property <brush> window-background: #2C2F36;
-    in-out property <brush> background-regular: #0025FF;
-    in-out property <brush> background-hover: root.background-regular.darker(0.2);
-    in-out property <brush> background-pressed: root.background-regular.darker(0.4);
-    in-out property <brush> background-selected: root.foreground;
-    in-out property <brush> background-selected-hover: root.background-selected.darker(0.2);
-    in-out property <brush> background-selected-pressed: root.background-selected.darker(0.4);
-    in-out property <brush> foreground: #FFFFFF;
-    in-out property <brush> foreground-hover: root.foreground.darker(0.2);
-    in-out property <brush> foreground-pressed: root.foreground.darker(0.4);
-    in-out property <brush> foreground-selected: root.background-regular;
-    in-out property <brush> foreground-selected-hover: root.foreground-selected.darker(0.2);
-    in-out property <brush> foreground-selected-pressed: root.foreground-selected.darker(0.4);
+    out property <brush> window-background: #2C2F36;
+    out property <brush> background-regular: #0025FF;
+    out property <brush> background-hover: root.background-regular.darker(0.2);
+    out property <brush> background-pressed: root.background-regular.darker(0.4);
+    out property <brush> background-selected: root.foreground;
+    out property <brush> background-selected-hover: root.background-selected.darker(0.2);
+    out property <brush> background-selected-pressed: root.background-selected.darker(0.4);
+    out property <brush> foreground: #FFFFFF;
+    out property <brush> foreground-hover: root.foreground.darker(0.2);
+    out property <brush> foreground-pressed: root.foreground.darker(0.4);
+    out property <brush> foreground-selected: root.background-regular;
+    out property <brush> foreground-selected-hover: root.foreground-selected.darker(0.2);
+    out property <brush> foreground-selected-pressed: root.foreground-selected.darker(0.4);
 
     // durations
-    in-out property <duration> duration-fast: 100ms;
-    in-out property <duration> duration-regular: 250ms;
+    out property <duration> duration-fast: 100ms;
+    out property <duration> duration-regular: 250ms;
 
     // radius
-    in-out property <length> radius-regular: 16px;
+    out property <length> radius-regular: 16px;
 
     // sizes
-    in-out property <length> size-small: 24px;
-    in-out property <length> size-regular: 32px;
-    in-out property <length> size-medium: 128px;
-    in-out property <length> size-big: 170px;
+    out property <length> size-small: 24px;
+    out property <length> size-regular: 32px;
+    out property <length> size-medium: 128px;
+    out property <length> size-big: 170px;
 
     // spacings
-    in-out property <length> spacing-regular: 4px;
-    in-out property <length> spacing-medium: 8px;
+    out property <length> spacing-regular: 4px;
+    out property <length> spacing-medium: 8px;
 
     // typo
-    in-out property <string> font-family: "Roboto";
-    in-out property <length> font-size-regular: 12px;
-    in-out property <length> font-size-medium: 28px;
-    in-out property <int> font-weight-regular: 400;
-    in-out property <int> font-weight-bold: 900;
+    out property <string> font-family: "Roboto";
+    out property <length> font-size-regular: 12px;
+    out property <length> font-size-medium: 28px;
+    out property <int> font-weight-regular: 400;
+    out property <int> font-weight-bold: 900;
 }

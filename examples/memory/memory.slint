@@ -10,9 +10,9 @@ struct TileData  {
 component MemoryTile inherits Rectangle {
     border-radius: 8px;
     callback clicked;
-    in-out property <bool> open-curtain;
-    in-out property <bool> solved;
-    in-out property <image> icon;
+    in property <bool> open-curtain;
+    in property <bool> solved;
+    in property <image> icon;
 
     background: root.solved ? #70ff00 : #858585;
     animate background { duration: 800ms; }
@@ -77,19 +77,19 @@ export component MainWindow inherits Window {
     title: "Memory Game - Slint Demo";
 
     callback check-if-pair-solved();
-    in-out property <bool> disable-tiles;
+    in property <bool> disable-tiles;
 
-    in-out property<length> tile-size: 80px;
-    in-out property<length> tile-spacing: 10px;
+    private property<length> tile-size: 80px;
+    private property<length> tile-spacing: 10px;
 
-    in-out property <int> row-count: 4;
-    in-out property <int> column-count: 4;
+    private property <int> row-count: 4;
+    private property <int> column-count: 4;
 
     // "column_count + 1" and "row_count + 1" are the number of gaps between the tiles.
     width: (root.column-count * root.tile-size) + ((root.column-count + 1) * root.tile-spacing);
     height: (root.row-count * root.tile-size) + ((root.row-count + 1) * root.tile-spacing);
 
-    in-out property<[TileData]> memory-tiles : [
+    in property<[TileData]> memory-tiles : [
         { image: @image-url("icons/at.png") },
         { image: @image-url("icons/balance-scale.png") },
         { image: @image-url("icons/bicycle.png") },

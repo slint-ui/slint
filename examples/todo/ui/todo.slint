@@ -42,7 +42,7 @@ component MainWindow inherits Window {
         }
     }
 
-    in-out property <[TodoItem]> todo-model: [
+    in property <[TodoItem]> todo-model: [
         { title: "Implement the .slint file", checked: true },
         { title: "Do the Rust part", checked: false },
         { title: "Make the C++ code", checked: false },
@@ -53,7 +53,7 @@ component MainWindow inherits Window {
         { title: "Profit", checked: false },
     ];
 
-    in-out property <bool> show-header: false;
+    in property <bool> show-header: false;
     in-out property <bool> is-sort-by-name: false;
     in-out property <bool> hide-done-items: false;
 

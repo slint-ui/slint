@@ -9,11 +9,11 @@ export component Carousel inherits FocusScope {
     callback move-focus-up();
 
     in-out property <int> selected-index;
-    in-out property <length> spacing;
-    in-out property <length> itemWidth;
-    in-out property <int> count: 0;
-    in-out property <length> center-x: (root.width - Theme.size-big) / 2;
-    in-out property <duration> duation: Theme.duration-regular;
+    in property <length> spacing;
+    in property <length> itemWidth;
+    in property <int> count: 0;
+    private property <length> center-x: (root.width - Theme.size-big) / 2;
+    private property <duration> duation: Theme.duration-regular;
 
     forward-focus: focus-scope;
     height: Theme.size-big;

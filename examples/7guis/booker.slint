@@ -10,7 +10,7 @@ component Booker inherits Window {
     // returns true if the first date is before the second date and they are both valid
     pure callback compare-date(string, string) -> bool;
     compare-date(a, b) => { a <= b }
-    in-out property <bool> message-visible;
+    private property <bool> message-visible;
     VerticalBox {
         combo := ComboBox {
             model: ["one-way flight", "return flight"];

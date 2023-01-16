@@ -10,7 +10,7 @@ import { PrinterQueue } from "./printer_queue.slint";
 // re-export for the native code
 export { PrinterQueue }
 
-import "./fonts/NotoSans-Regular.ttf";
+import "./fonts/NotoSans-Regular.ttf"; 
 import "./fonts/NotoSans-Bold.ttf";
 
 component SideBarIcon inherits Rectangle {
@@ -39,14 +39,14 @@ component MainWindow inherits Window {
 
     /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
-    in-out property <[InkLevel]> ink-levels: [
+    in property <[InkLevel]> ink-levels: [
                 {color: #0ff, level: 60%},
                 {color: #ff0, level: 80%},
                 {color: #f0f, level: 70%},
                 {color: #000, level: 30%},
             ];
 
-    in-out property<int> active-page: 0;
+    out property<int> active-page: 0;
 
     HorizontalLayout {
         padding: 10px;

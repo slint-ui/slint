@@ -18,7 +18,7 @@ export global PrinterQueue  {
     callback cancel-job(int);
     callback pause-job(int);
 
-    in-out property <[PrinterQueueItem]> printer-queue: [
+    in property <[PrinterQueueItem]> printer-queue: [
         { status: "PRINTING", progress: 63, title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
         { status: "WAITING...", title: "Adressliste.docx", owner: "simon.hausmann@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
         { status: "WAITING...", title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
@@ -41,7 +41,7 @@ component PrintQueueSeparator inherits Rectangle {
 }
 
 component PrintDetails inherits GridLayout {
-    in-out property <PrinterQueueItem> queue-item;
+    in property <PrinterQueueItem> queue-item;
     spacing: 3px;
 
     Row {
@@ -110,7 +110,7 @@ component PrintDetails inherits GridLayout {
 }
 
 component NarrowPrintQueueElement inherits Rectangle {
-    in-out property <PrinterQueueItem> queue-item;
+    in property <PrinterQueueItem> queue-item;
     callback show-job-details();
 
     border-color: DemoPalette.control-outline-color;
@@ -120,7 +120,7 @@ component NarrowPrintQueueElement inherits Rectangle {
     clip: true;
 
     in-out property <bool> expanded;
-    in-out property <float> expanded-opacity: 0;
+    private property <float> expanded-opacity: 0;
 
     height: always-visible.min-height + layout.padding * 2;
     states [
@@ -226,7 +226,7 @@ component NarrowPrinterQueueList inherits Flickable {
 }
 
 component ProgressBar inherits Rectangle {
-    in-out property <int> progress;
+    in property <int> progress;
 
     // FIXME: The intermediate rectangle is needed to allow the surrounding
     // layout to freely resize the progress bar without affecting the design-intended
@@ -252,7 +252,7 @@ component WidePrintQueueElement inherits Rectangle {
     callback cancel-job();
     callback pause-job();
 
-    in-out property <PrinterQueueItem> queue-item;
+    in property <PrinterQueueItem> queue-item;
 
     border-color: DemoPalette.neutral-box;
     border-radius: 14px;

@@ -8,8 +8,8 @@ import { PrinterQueueView } from "./printer_queue.slint";
 
 component ActionButton inherits Rectangle {
 
-    in-out property <image> icon <=> img.source;
-    in-out property <string> text <=> label.text;
+    in property <image> icon <=> img.source;
+    in property <string> text <=> label.text;
     callback clicked;
 
     VerticalLayout {

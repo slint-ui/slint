@@ -9,14 +9,14 @@ component MainWindow inherits Window {
     preferred-width: 500px;
     preferred-height: 400px;
 
-    in-out property <[Circle]> model;
+    in property <[Circle]> model;
 
-    in-out property<int> clicked-idx: -1;
-    in-out property<Circle> selected-circle;
+    private property<int> clicked-idx: -1;
+    private property<Circle> selected-circle;
     callback background_clicked(length,length);
 
-    in-out property<bool> undoable: false;
-    in-out property<bool> redoable: false;
+    in property<bool> undoable: false;
+    in property<bool> redoable: false;
     callback undo_clicked();
     callback redo_clicked();
 

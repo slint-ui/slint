@@ -39,8 +39,8 @@ struct Theme  {
 component Checkbox inherits Rectangle {
     in-out property <bool> checked;
     callback toggled(bool);
-    in-out property<color> checked-color;
-    in-out property<color> unchecked-color;
+    in property<color> checked-color;
+    in property<color> unchecked-color;
 
     hover-rect := Rectangle {
         background: #f5f5f5;
@@ -117,7 +117,7 @@ export component MainWindow inherits Window {
     in-out property <bool> auto-play;
     in-out property <int> moves;
     in-out property <int> tiles-left;
-    in-out property <[Piece]> pieces: [
+    in property <[Piece]> pieces: [
         { pos-x: 0, pos-y: 0 },
         { pos-x: 0, pos-y: 1 },
         { pos-x: 0, pos-y: 2 },
@@ -135,7 +135,7 @@ export component MainWindow inherits Window {
         { pos-x: 3, pos-y: 2 },
     ];
 
-    in-out property <[Theme]> themes: [
+    private property <[Theme]> themes: [
         {
             name: "SIMPLE",
             window-background-color: #ffffff,
@@ -205,11 +205,11 @@ export component MainWindow inherits Window {
         },
     ];
 
-    in-out property<int> current-theme-index;
-    in-out property <Theme> current-theme: root.themes[root.current-theme-index];
+    out property<int> current-theme-index;
+    private property <Theme> current-theme: root.themes[root.current-theme-index];
 
-    in-out property<length> pieces-size: min(root.width, root.height) / 6;
-    in-out property<length> pieces-spacing: root.current-theme.game-use-background-image && root.tiles-left == 0 ?
+    private property<length> pieces-size: min(root.width, root.height) / 6;
+    private property<length> pieces-spacing: root.current-theme.game-use-background-image && root.tiles-left == 0 ?
         2px : (root.pieces-size * root.current-theme.piece-spacing);
 
     animate pieces-spacing { duration: 500ms; easing: ease-out; }

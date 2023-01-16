@@ -7,12 +7,12 @@ import { TitleLabel } from "title_label.slint";
 export component Card inherits Rectangle {
     callback clicked <=> touch-area.clicked;  
 
-    in-out property <string> title: "title";
-    in-out property <bool> is-selected: false;
-    in-out property <image> image-source <=> image.source;
-    in-out property <length> spacing: Theme.spacing-medium;
-    in-out property <length> title-spacing: Theme.spacing-medium;
-    in-out property <length> title-area-height: Theme.size-small;
+    in property <string> title: "title";
+    in property <bool> is-selected: false;
+    in property <image> image-source <=> image.source;
+    private property <length> spacing: Theme.spacing-medium;
+    private property <length> title-spacing: Theme.spacing-medium;
+    private property <length> title-area-height: Theme.size-small;
 
     border-radius: Theme.radius-regular;
     background: Theme.background-regular;

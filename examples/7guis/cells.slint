@@ -8,12 +8,12 @@ struct CellContent  { value: float, formula: string }
 
 export component MainWindow inherits Window {
 
-    in-out property<length> cell-height: 32px;
-    in-out property<length> cell-width: 100px;
+    private property<length> cell-height: 32px;
+    private property<length> cell-width: 100px;
 
-    in-out property <[[CellContent]]> cells;
+    in property <[[CellContent]]> cells;
 
-    in-out property <{r: int, c: int}> active-cell: { r: -1, c: -1 };
+    private property <{r: int, c: int}> active-cell: { r: -1, c: -1 };
 
     ScrollView {
         width: 100%;

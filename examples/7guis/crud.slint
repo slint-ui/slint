@@ -63,13 +63,13 @@ component MainWindow inherits Window {
         }
 
     }
-    in-out property <[StandardListViewItem]> names-list;
-    in-out property <int> current-item: list.current-item;
+    in property <[StandardListViewItem]> names-list;
+    out property <int> current-item: list.current-item;
 
-    in-out property <string> name;
-    in-out property <string> surname;
+    out property <string> name;
+    out property <string> surname;
 
-    in-out property <string> prefix;
+    out property <string> prefix;
 
     callback prefixEdited();
     callback createClicked();

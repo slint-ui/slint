@@ -2,19 +2,19 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 global Palette  {
-    in-out property <color> window-background: #eee;
-    in-out property <color> widget-background: #ddd;
-    in-out property <color> widget-stroke: #888;
-    in-out property <color> window-border: #ccc;
-    in-out property <color> text-color: #666;
-    in-out property <color> hyper-blue: #90d1ff;
+    out property <color> window-background: #eee;
+    out property <color> widget-background: #ddd;
+    out property <color> widget-stroke: #888;
+    out property <color> window-border: #ccc;
+    out property <color> text-color: #666;
+    out property <color> hyper-blue: #90d1ff;
 
 }
 
 //------ MdiWindow ----
 
 component MdiWindow inherits Rectangle {
-    in-out property <string> title;
+    in property <string> title;
     in-out property <length> window-x <=> window.x;
     in-out property <length> window-y <=> window.y;
     in-out property <bool> is-open: true;
@@ -151,7 +151,7 @@ component Label inherits Text {
 component Button inherits TouchArea {
     min-height: t.min-height;
     min-width: t.min-width + 10px;
-    in-out property text <=> t.text;
+    in property text <=> t.text;
     Rectangle {
         border-width: 1.5px;
         border-color: root.has-hover ? Palette.widget-stroke : transparent;
@@ -167,7 +167,7 @@ component Button inherits TouchArea {
 
 component CheckBox inherits TouchArea {
     in-out property <bool> checked;
-    in-out property text <=> t.text;
+    in property text <=> t.text;
     clicked => { root.checked = !root.checked; }
     HorizontalLayout {
         spacing: 5px;
@@ -198,7 +198,7 @@ component CheckBox inherits TouchArea {
 
 component RadioButton inherits TouchArea {
     in-out property <bool> checked;
-    in-out property text <=> t.text;
+    in property text <=> t.text;
     HorizontalLayout {
         spacing: 5px;
         VerticalLayout {
@@ -248,10 +248,10 @@ component SelectableLabel inherits TouchArea {
 }
 
 component Slider inherits Rectangle {
-    in-out property<float> maximum: 100;
-    in-out property<float> minimum: 0;
+    in property<float> maximum: 100;
+    in property<float> minimum: 0;
     in-out property<float> value;
-    in-out property<bool> enabled <=> touch.enabled;
+    in property<bool> enabled <=> touch.enabled;
     callback changed(float);
 
     min-height: 24px;

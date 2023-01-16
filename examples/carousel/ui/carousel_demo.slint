@@ -6,12 +6,12 @@ import { Card } from "card.slint";
 import { Theme } from "theme.slint";
 
 component MainWindow inherits Window {
-    in-out property<[{ title: string, image: image}]> navigation-items: [
+    private property<[{ title: string, image: image}]> navigation-items: [
        { title: "Settings", image: @image-url("svg/settings_black.svg") },
        { title: "Home", image: @image-url("svg/home_black.svg") },
        { title: "About", image: @image-url("svg/info_black.svg") },
     ];
-    in-out property <int> selected-index: 1;
+    private property <int> selected-index: 1;
 
     title: "Carousel example";
     width: 320px;

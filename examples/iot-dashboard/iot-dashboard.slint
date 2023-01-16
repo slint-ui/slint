@@ -53,8 +53,8 @@ struct Palette  {
 }
 
 global Skin  {
-    in-out property<bool> day: !StyleMetrics.dark-color-scheme;
-    in-out property<Palette> palette : root.day ? {
+    in property<bool> day: !StyleMetrics.dark-color-scheme;
+    out property<Palette> palette : root.day ? {
        menuBar : #6D7BFB,
        mainContent :  #fbfbfb,
        box :   #ffffff,
@@ -77,17 +77,17 @@ global Skin  {
     };
 
     // From Skin::initHints in Skin.cpp
-    in-out property <length> DefaultFont: 12px;
-    in-out property <length> TinyFont: 9px;
-    in-out property <length> SmallFont: 10px;
-    in-out property <length> MediumFont: 13px;
-    in-out property <length> LargeFont: 20px;
-    in-out property <length> HugeFont: 27px; // (also, bold)
-    in-out property <length> TitleFont: 10px; // (also, bold)
+    out property <length> DefaultFont: 12px;
+    out property <length> TinyFont: 9px;
+    out property <length> SmallFont: 10px;
+    out property <length> MediumFont: 13px;
+    out property <length> LargeFont: 20px;
+    out property <length> HugeFont: 27px; // (also, bold)
+    out property <length> TitleFont: 10px; // (also, bold)
 }
 
 export component Clock inherits  VerticalLayout {
-    in-out property <string> time <=> time-label.text;
+    in property <string> time <=> time-label.text;
     Text {
         text: "Current time";
         font-size: Skin.TitleFont;
@@ -103,8 +103,8 @@ export component Clock inherits  VerticalLayout {
 }
 
 component PieChartBackground inherits Path {
-    in-out property <float> thickness;
-    in-out property <float> inner-radius;
+    in property <float> thickness;
+    in property <float> inner-radius;
 
     fill: #aaaaaa40;
 
@@ -148,10 +148,10 @@ component PieChartBackground inherits Path {
 }
 
 component PieChartFill inherits Path {
-    in-out property <float> thickness;
-    in-out property <float> inner-radius;
-    in-out property <float> progress;
-    in-out property <float> start : 0;
+    in property <float> thickness;
+    in property <float> inner-radius;
+    in property <float> progress;
+    in property <float> start : 0;
 
     viewbox-width: 100;
     viewbox-height: 100;
@@ -191,11 +191,11 @@ component PieChartFill inherits Path {
 }
 
 component PieChartPainted inherits Rectangle {
-    in-out property <brush> brush <=> p.fill;
-    in-out property <float> progress;
+    in property <brush> brush <=> p.fill;
+    in property <float> progress;
 
-    in-out property <float> thickness: 15;
-    in-out property <float> inner-radius: 50 - root.thickness;
+    in property <float> thickness: 15;
+    in property <float> inner-radius: 50 - root.thickness;
 
     back := PieChartBackground {
         width: 100%;
@@ -276,7 +276,7 @@ component BoxBase inherits Rectangle {
 }
 
 component Box inherits BoxBase {
-    in-out property <string> title;
+    in property <string> title;
     VerticalLayout {
         if (root.title != "") : Text {
             text <=> root.title;
@@ -291,10 +291,10 @@ component Box inherits BoxBase {
 
 // From RoundedIcon.cpp
 component RoundedIcon inherits Rectangle {
-    in-out property <bool> isBright;
-    in-out property <bool> isSmall;
-    in-out property <image> iconName <=> m-graphicLabel.source;
-    in-out property <float> background-opacity <=> background-fill.opacity;
+    in property <bool> isBright;
+    in property <bool> isSmall;
+    in property <image> iconName <=> m-graphicLabel.source;
+    in property <float> background-opacity <=> background-fill.opacity;
     height: root.isSmall ? 60px : 68px;
     width: root.isSmall ? 60px : 68px;
     background-fill := Rectangle {
@@ -344,9 +344,9 @@ export component Usage inherits Box {
 
 // From UpAndDownButton.cpp
 component RoundButton inherits Image { //### QskPushButton
-    in-out property <bool> is-up; // ### QskAspect
+    in property <bool> is-up; // ### QskAspect
     callback clicked <=> ta.clicked;
-    in-out property <color> color: #929CB2; // Taken from the fill in the svg itself.
+    in property <color> color: #929CB2; // Taken from the fill in the svg itself.
     width: 30px;
     Image {
         source: root.is-up ? @image-url("images/up.svg") : @image-url("images/down.svg");
@@ -370,7 +370,7 @@ component UpAndDownButton inherits Rectangle {
 
 // From BoxWithButtons.cpp
 component ButtonValueLabel inherits Text {
-    in-out property <string> value <=> root.text;
+    in property <string> value <=> root.text;
     font-size: Skin.HugeFont;
     font-weight: 700;
     color: #929cb2;
@@ -384,10 +384,10 @@ component TitleAndValueBox inherits VerticalLayout {
 
 component BoxWithButtons inherits Box {
     callback changed <=> btns.changed;
-    in-out property <image> iconFile <=> ri.iconName; //### in original, this is derived from title
+    in property <image> iconFile <=> ri.iconName; //### in original, this is derived from title
     in-out property <string> value <=> val.value;
-    in-out property <bool> isBright <=> ri.isBright;
-    in-out property <string> title- <=> titleLabel.text;
+    in property <bool> isBright <=> ri.isBright;
+    in property <string> title- <=> titleLabel.text;
     HorizontalLayout {
         spacing: 20px;
         ri := RoundedIcon { }
@@ -403,7 +403,7 @@ component BoxWithButtons inherits Box {
 }
 
 export component IndoorTemperature inherits BoxWithButtons {
-    in-out property <int> temperature: 24;
+    out property <int> temperature: 24;
     title-: "Indoor Temperature";
     iconFile: @image-url("images/indoor-temperature.png");
     value: (root.temperature < 0 ? "" : "+") + root.temperature;
@@ -411,7 +411,7 @@ export component IndoorTemperature inherits BoxWithButtons {
     changed(delta) => { root.temperature += delta; }
 }
 export component Humidity inherits BoxWithButtons {
-    in-out property <int> humidity-percent : 30;
+    out property <int> humidity-percent : 30;
     title-: "Humidity";
     iconFile: @image-url("images/humidity.png");
     value: root.humidity-percent + "%";
@@ -422,9 +422,9 @@ export component Humidity inherits BoxWithButtons {
 // from MyDevices.cpp
 component Device inherits VerticalLayout {
     spacing: 5px;
-    in-out property <string> name <=> t.text;
-    in-out property <image> iconName <=> ri.iconName; // ### based on the name in the original
-    in-out property <bool> isBright <=> ri.isBright;
+    in property <string> name <=> t.text;
+    in property <image> iconName <=> ri.iconName; // ### based on the name in the original
+    in property <bool> isBright <=> ri.isBright;
     ri := RoundedIcon {
         background-opacity: 0.15;
         isSmall: true;
@@ -633,16 +633,16 @@ export component UsageDiagram inherits Box {
 
 // From LightIntensity.cpp
 component LightDimmer inherits Rectangle {
-    in-out property <brush> coldGradient <=> cold.fill;
-    in-out property <brush> warmGradient <=> warm.fill;
+    in property <brush> coldGradient <=> cold.fill;
+    in property <brush> warmGradient <=> warm.fill;
 
-    in-out property <float> thickness: 8;
-    in-out property <float> inner-radius: 50 - root.thickness;
+    in property <float> thickness: 8;
+    in property <float> inner-radius: 50 - root.thickness;
 
-    in-out property <float> value : 50%;
-    in-out property <float> display-value : touch.pressed ? touch.new-value : root.value;
+    out property <float> value : 50%;
+    out property <float> display-value : touch.pressed ? touch.new-value : root.value;
 
-    in-out property <angle> angle : -180deg + 180deg * root.display-value;
+    out property <angle> angle : -180deg + 180deg * root.display-value;
 
 
     back := PieChartBackground {
@@ -752,8 +752,8 @@ export component LightIntensity inherits Box {
 
 // From MenuBar.cpp
 component MenuItem inherits Rectangle {
-    in-out property <image> icon <=> i.source;
-    in-out property<string> name <=> t.text;
+    in property <image> icon <=> i.source;
+    in property<string> name <=> t.text;
     in-out property<bool> active;
     background: root.active ? rgba(100%, 100%, 100%, 14%) : ma.has-hover ? rgba(100%, 100%, 100%, 9%) : transparent;
     ma := TouchArea {}
@@ -777,7 +777,7 @@ component MenuItem inherits Rectangle {
 // From MenuBar.cpp
 export component MenuBar inherits Rectangle {
     background: Skin.palette.menuBar;
-    in-out property<int> active: 0;
+    out property<int> active: 0;
     min-width: 140px;
     VerticalLayout {
         padding-left: 0px;
