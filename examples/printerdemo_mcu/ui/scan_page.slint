@@ -4,7 +4,7 @@
 import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton } from "./common.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 
-export ScanPage := Page {
+export component ScanPage inherits Page {
     has-back-button: true;
     header: "Scan";
 

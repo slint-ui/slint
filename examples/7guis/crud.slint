@@ -3,7 +3,7 @@
 
 import { LineEdit, Button, Slider, StandardListView, GridBox, HorizontalBox } from "std-widgets.slint";
 
-MainWindow := Window {
+component MainWindow inherits Window {
 
     GridBox {
         Text {
@@ -52,24 +52,24 @@ MainWindow := Window {
             }
             Button {
                 text: "Update";
-                enabled: list.current-item != -1 && list.current-item < names-list.length;
+                enabled: list.current-item != -1 && list.current-item < root.names-list.length;
                 clicked => { root.updateClicked() }
             }
             Button {
                 text: "Delete";
-                enabled: list.current-item != -1 && list.current-item < names-list.length;
+                enabled: list.current-item != -1 && list.current-item < root.names-list.length;
                 clicked => { root.deleteClicked() }
             }
         }
 
     }
-    property <[StandardListViewItem]> names-list;
-    property <int> current-item: list.current-item;
+    in property <[StandardListViewItem]> names-list;
+    out property <int> current-item: list.current-item;
 
-    property <string> name;
-    property <string> surname;
+    out property <string> name;
+    out property <string> surname;
 
-    property <string> prefix;
+    out property <string> prefix;
 
     callback prefixEdited();
     callback createClicked();

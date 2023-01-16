@@ -3,40 +3,42 @@
 
 import { LineEdit, ScrollView} from "std-widgets.slint";
 
-struct CellContent := { value: float, formula: string }
+struct CellContent  { value: float, formula: string }
 
 
-export MainWindow := Window {
+export component MainWindow inherits Window {
 
-    property<length> cell-height: 32px;
-    property<length> cell-width: 100px;
+    private property<length> cell-height: 32px;
+    private property<length> cell-width: 100px;
 
-    property <[[CellContent]]> cells;
+    in property <[[CellContent]]> cells;
 
-    property <{r: int, c: int}> active-cell: { r: -1, c: -1 };
+    private property <{r: int, c: int}> active-cell: { r: -1, c: -1 };
 
     ScrollView {
         width: 100%;
         height: 100%;
-        viewport-width: 20px + 26 * cell-width;
-        viewport-height: 100 * cell-height;
+        viewport-width: 20px + 26 * root.cell-width;
+        viewport-height: 100 * root.cell-height;
 
         for letter[idx] in ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" ] : Rectangle {
-            x: 20px + idx * cell-width;
-            height: cell-height;
-            width: cell-width;
-            Text { text: letter; }
+            y:0;
+            x: 20px + idx * root.cell-width;
+            height: root.cell-height;
+            width: root.cell-width;
+            Text { x:0;y:0; text: letter; }
         }
-        for row[row-idx] in cells : Rectangle {
-            y: cell-height + row-idx * cell-height;
-            height: cell-height;
-            Text { text: row_idx; }
+        for row[row-idx] in root.cells : Rectangle {
+            y: root.cell-height + row-idx * root.cell-height;
+            height: root.cell-height;
+            Text { x:0;y:0; text: row_idx; }
             for cell[col-idx] in row: Rectangle {
-                height: cell-height;
-                width: cell-width;
+                y:0;
+                height: root.cell-height;
+                width: root.cell-width;
                 border-color: gray;
                 border-width: 1px;
-                x: 20px + col-idx * cell-width;
+                x: 20px + col-idx * root.cell-width;
                 property <bool> is-active: root.active-cell.r == row-idx && root.active-cell.c == col-idx;
 
                 Text {
@@ -50,7 +52,7 @@ export MainWindow := Window {
                 TouchArea {
                     clicked => {
                         l.text = cell.formula;
-                        active-cell = {r: row-idx, c: col-idx};
+                        root.active-cell = {r: row-idx, c: col-idx};
                         l.focus();
                     }
                 }
@@ -71,14 +73,14 @@ export MainWindow := Window {
     }
 }
 
-Cell := MainWindow {
+component Cell inherits MainWindow {
     // initialize the cells with demy value to be viewed in the preview
-    property <[CellContent]> _row: [{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}];
+    in-out property <[CellContent]> _row: [{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}];
     cells: [
-        _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row,
-        _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row,
-        _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row,
-        _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row,
-        _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row,
+        root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row,
+        root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row,
+        root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row,
+        root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row,
+        root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row, root._row,
     ];
 }

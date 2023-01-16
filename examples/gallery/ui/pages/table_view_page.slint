@@ -5,10 +5,10 @@ import { HorizontalBox, VerticalBox, StandardTableView, GroupBox} from "std-widg
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
-export global TableViewPageAdapter := {
+export global TableViewPageAdapter  {
     callback sort_ascending(int);
     callback sort_descending(int);
-    property <[[StandardListViewItem]]> row_data: [[
+    in property <[[StandardListViewItem]]> row_data: [[
         { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
         { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
         { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
@@ -18,7 +18,7 @@ export global TableViewPageAdapter := {
     ]];
 }
  
-export TableViewPage := Page {
+export component TableViewPage inherits Page {
     title: "TableView";
     description: "StandardTableView can be used to display a list of text elements in columns and rows. It can be imported from \"std-widgets.slint\"";
 

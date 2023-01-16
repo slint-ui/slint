@@ -4,15 +4,15 @@
 import { Theme } from "theme.slint";
 import { TitleLabel } from "title_label.slint";
 
-export Card := Rectangle {
+export component Card inherits Rectangle {
     callback clicked <=> touch-area.clicked;  
 
-    property <string> title: "title";
-    property <bool> is-selected: false;
-    property <image> image-source <=> image.source;
-    property <length> spacing: Theme.spacing-medium;
-    property <length> title-spacing: Theme.spacing-medium;
-    property <length> title-area-height: Theme.size-small;
+    in property <string> title: "title";
+    in property <bool> is-selected: false;
+    in property <image> image-source <=> image.source;
+    private property <length> spacing: Theme.spacing-medium;
+    private property <length> title-spacing: Theme.spacing-medium;
+    private property <length> title-area-height: Theme.size-small;
 
     border-radius: Theme.radius-regular;
     background: Theme.background-regular;
@@ -23,8 +23,8 @@ export Card := Rectangle {
     touch-area := TouchArea {}
 
     image := Image {
-        x: (parent.width - width) / 2;
-        y: (parent.height - height) / 2;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
         width: 80%;
         height: 80%;
         colorize: Theme.foreground;
@@ -34,22 +34,22 @@ export Card := Rectangle {
     
     // Selection text
     title-label := TitleLabel {
-        x: (parent.width - width) / 2;
+        x: (parent.width - self.width) / 2;
         y: parent.height;
-        text <=> title;
+        text <=> root.title;
         visible: false;
         color: Theme.foreground;
     }
 
     states [
-        pressed-selected when touch-area.pressed && is-selected  : {
+        pressed-selected when touch-area.pressed && root.is-selected  : {
             background: Theme.background-selected-pressed;
             image.colorize: Theme.foreground-selected-pressed;
             width: Theme.size-big;
             height: Theme.size-big;
             title-label.visible: true;
         }
-        hover-selected when touch-area.has-hover && is-selected  : {
+        hover-selected when touch-area.has-hover && root.is-selected  : {
             background: Theme.background-selected-hover;
             image.colorize: Theme.foreground-selected-hover;
             width: Theme.size-big;
@@ -65,7 +65,7 @@ export Card := Rectangle {
             background: Theme.background-hover;
             image.colorize: Theme.foreground-hover;
         }
-        selected when is-selected : {
+        selected when root.is-selected : {
             background: Theme.background-selected;
             image.colorize: Theme.foreground-selected;
             width: Theme.size-big;

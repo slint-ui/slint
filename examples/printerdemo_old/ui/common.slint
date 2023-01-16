@@ -1,16 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-export Label := Text {
+export component Label inherits Text {
     font-size: 28px;
     horizontal-stretch: 1;
 }
 
-export Page := Rectangle {
+export component Page inherits Rectangle {
     background: white;
     animate y { duration: 300ms; easing: ease-out; }
 }
 
-export Preview := Image {
+export component Preview inherits Image {
     source: @image-url("images/cat.jpg");
 }

@@ -55,7 +55,7 @@ struct Sys  {
 export global md  {
     in-out property<bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
 
-    in-out property<Sys> sys: {
+    out property<Sys> sys: {
         color: {
             background: !root.dark-color-scheme ? #FFFBFE : #1C1B1F,
             surface: !root.dark-color-scheme ? #FFFBFE : #1C1B1F,

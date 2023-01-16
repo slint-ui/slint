@@ -8,10 +8,10 @@ import { PrintPage } from "./print_page.slint";
 import { PrinterQueueView } from "./printer_queue.slint";
 import { UsbPage } from "./usb_page.slint";
 
-ActionButton := Rectangle {
+component ActionButton inherits Rectangle {
 
-    property <image> icon <=> img.source;
-    property <string> text <=> label.text;
+    in property <image> icon <=> img.source;
+    in property <string> text <=> label.text;
     callback clicked;
 
     VerticalLayout {
@@ -41,16 +41,16 @@ ActionButton := Rectangle {
     TouchArea { clicked => { root.clicked() } }
 }
 
-export HomePage := Page {
-    property <length> header-row-height: 40px;
+export component HomePage inherits Page {
+    in-out property <length> header-row-height: 40px;
 
-    property <length> button-spacing: 35px;
-    property <length> button-width: 127px;
-    property <length> button-height: button-width + 37px;
+    in-out property <length> button-spacing: 35px;
+    in-out property <length> button-width: 127px;
+    in-out property <length> button-height: root.button-width + 37px;
 
     header: "Xerol 1347 hdp";
 
-    property <int> current-subpage: 0;
+    in-out property <int> current-subpage: 0;
 
 
     for action[idx] in [
@@ -59,43 +59,43 @@ export HomePage := Page {
         { name: "Copy", icon: @image-url("images/copy.svg") },
         { name: "USB", icon: @image-url("images/usb.svg") },
     ]: ActionButton {
-        x: mod(idx, 2) * (button-width + button-spacing);
-        y: floor(idx / 2) * (button-height + button-spacing)
+        x: mod(idx, 2) * (root.button-width + root.button-spacing);
+        y: floor(idx / 2) * (root.button-height + root.button-spacing)
            + /* header row height */ 46px
            + /* top-padding of printer queue */ 27px; // align with the first item of the printer queue
-        width: button-width;
-        height: button-height;
+        width: root.button-width;
+        height: root.button-height;
         icon: action.icon;
         text: action.name;
-        clicked => { current-subpage = idx + 1; }
+        clicked => { root.current-subpage = idx + 1; }
     }
 
     queue-view := PrinterQueueView {
-        x: parent.width - width;
+        x: parent.width - self.width;
         width: 313px;
         show-job-details(idx) => {
-            current-subpage = 1; // Not nice to hard-code the index here...
+            root.current-subpage = 1; // Not nice to hard-code the index here...
         }
     }
 
     PrintPage {
-        x: current-subpage == 1 ? 0 : parent.width + parent.x + 2px;
+        x: root.current-subpage == 1 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
-        back => { current-subpage = 0 }
+        back => { root.current-subpage = 0 }
     }
     ScanPage {
-        x: current-subpage == 2 ? 0 : parent.width + parent.x + 2px;
+        x: root.current-subpage == 2 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
-        back => { current-subpage = 0 }
+        back => { root.current-subpage = 0 }
     }
     CopyPage {
-        x: current-subpage == 3 ? 0 : parent.width + parent.x + 2px;
+        x: root.current-subpage == 3 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
-        back => { current-subpage = 0 }
+        back => { root.current-subpage = 0 }
     }
     UsbPage {
-        x: current-subpage == 4 ? 0 : parent.width + parent.x + 2px;
+        x: root.current-subpage == 4 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
-        back => { current-subpage = 0 }
+        back => { root.current-subpage = 0 }
     }
 }

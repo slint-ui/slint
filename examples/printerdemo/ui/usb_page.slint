@@ -5,13 +5,13 @@ import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } fro
 import { StandardListView } from "std-widgets.slint";
 import { PrinterQueue } from "./printer_queue.slint";
 
-struct File := { name: string, preview: image }
+struct File  { name: string, preview: image }
 
-export UsbPage := Page {
+export component UsbPage inherits Page {
     has-back-button: true;
     header: "USB";
 
-    property <[File]> files: [
+    in property <[File]> files: [
         { name: ".." },
         { name: "cat.jpg", preview: @image-url("images/cat.jpg") },
         { name: "dog.jpg", preview: @image-url("images/dog.jpg") },
@@ -32,7 +32,7 @@ export UsbPage := Page {
             Image {
                 height: 100%;
                 width: 100%;
-                source: files[list-view.current-item].preview;
+                source: root.files[list-view.current-item].preview;
                 image-fit: cover;
             }
 
@@ -90,7 +90,7 @@ export UsbPage := Page {
                 icon: @image-url("images/print.svg");
                 text: "Start printing";
                 clicked => {
-                    PrinterQueue.start-job(files[list-view.current-item].name);
+                    PrinterQueue.start-job(root.files[list-view.current-item].name);
                 }
             }
             Rectangle {

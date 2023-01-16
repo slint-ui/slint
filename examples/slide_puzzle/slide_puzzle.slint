@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-struct Piece := {
+struct Piece  {
     // col/row position of the tile in the puzzle
     pos-x: int,
     pos-y: int,
@@ -10,7 +10,7 @@ struct Piece := {
     offset-y: length,
 }
 
-struct Theme := {
+struct Theme  {
     name: string,
     window-background-color: brush,
     game-background-color: brush,
@@ -36,11 +36,11 @@ struct Theme := {
 
 
 
-Checkbox := Rectangle {
-    property <bool> checked;
+component Checkbox inherits Rectangle {
+    in-out property <bool> checked;
     callback toggled(bool);
-    property<color> checked-color;
-    property<color> unchecked-color;
+    in property<color> checked-color;
+    in property<color> unchecked-color;
 
     hover-rect := Rectangle {
         background: #f5f5f5;
@@ -48,24 +48,26 @@ Checkbox := Rectangle {
         y: - parent.height / 4;
         width: ta.has-hover ? root.width * 1.5 : 0px;
         height: self.width;
-        border-radius: width;
+        border-radius: self.width;
     }
 
     checkbox-rect := Rectangle {
-        border-width: height * 10%;
-        border-color: unchecked-color;
+        border-width: self.height * 10%;
+        border-color: root.unchecked-color;
         border-radius: 2px;
 
         clip := Rectangle {
+            x:0;
             width: 0px;
             clip: true;
 
             Text {
+                x:0;y:0;
                 width: root.width;
                 height: root.height;
 
                 text: "✓";
-                font-size: height * 80%;
+                font-size: self.height * 80%;
                 color: white;
                 animate color { duration: 200ms; }
                 vertical-alignment: center;
@@ -74,8 +76,8 @@ Checkbox := Rectangle {
         }
         ta := TouchArea {
             clicked => {
-                checked = !checked;
-                root.toggled(checked);
+                root.checked = !root.checked;
+                root.toggled(root.checked);
             }
         }
 
@@ -89,7 +91,7 @@ Checkbox := Rectangle {
         }*/
         checked when root.checked : {
             clip.width: root.width;
-            checkbox-rect.border-color: checked-color;
+            checkbox-rect.border-color: root.checked-color;
             checkbox-rect.border-width: root.width;
             in {
                 animate clip.width { duration: 200ms; easing: ease-in; }
@@ -106,16 +108,16 @@ Checkbox := Rectangle {
 
 import "./plaster-font/Plaster-Regular.ttf";
 
-export MainWindow := Window {
+export component MainWindow inherits Window {
     title: "Slide Puzzle - Slint Demo";
 
     callback piece-clicked(int);
     callback reset();
     callback enable-auto-mode(bool);
-    property <bool> auto-play;
-    property <int> moves;
-    property <int> tiles-left;
-    property <[Piece]> pieces: [
+    in-out property <bool> auto-play;
+    in-out property <int> moves;
+    in-out property <int> tiles-left;
+    in property <[Piece]> pieces: [
         { pos-x: 0, pos-y: 0 },
         { pos-x: 0, pos-y: 1 },
         { pos-x: 0, pos-y: 2 },
@@ -133,7 +135,7 @@ export MainWindow := Window {
         { pos-x: 3, pos-y: 2 },
     ];
 
-    property <[Theme]> themes: [
+    private property <[Theme]> themes: [
         {
             name: "SIMPLE",
             window-background-color: #ffffff,
@@ -203,12 +205,12 @@ export MainWindow := Window {
         },
     ];
 
-    property<int> current-theme-index;
-    property <Theme> current-theme: themes[current-theme-index];
+    out property<int> current-theme-index;
+    private property <Theme> current-theme: root.themes[root.current-theme-index];
 
-    property<length> pieces-size: min(width, height) / 6;
-    property<length> pieces-spacing: current-theme.game-use-background-image && tiles-left == 0 ?
-        2px : (pieces-size * current-theme.piece-spacing);
+    private property<length> pieces-size: min(root.width, root.height) / 6;
+    private property<length> pieces-spacing: root.current-theme.game-use-background-image && root.tiles-left == 0 ?
+        2px : (root.pieces-size * root.current-theme.piece-spacing);
 
     animate pieces-spacing { duration: 500ms; easing: ease-out; }
 
@@ -220,39 +222,40 @@ export MainWindow := Window {
     }
 
     Rectangle {
-        background: current-theme.window-background-color;
+        background: root.current-theme.window-background-color;
         animate background { duration: 500ms; easing: ease-out; }
     }
 
     Rectangle {
-        background: current-theme.game-background-color;
-        border-color: current-theme.game-text-color;
-        border-width: current-theme.game-border;
-        border-radius: current-theme.game-radius;
-        width: pieces-size * 4.6;
-        height: pieces-size * 5.4;
-        x: (parent.width - width)/2;
-        y: (parent.height - height)/2;
+        background: root.current-theme.game-background-color;
+        border-color: root.current-theme.game-text-color;
+        border-width: root.current-theme.game-border;
+        border-radius: root.current-theme.game-radius;
+        width: root.pieces-size * 4.6;
+        height: root.pieces-size * 5.4;
+        x: (parent.width - self.width)/2;
+        y: (parent.height - self.height)/2;
         animate background, border-color, border-width, border-radius { duration: 500ms; easing: ease-out; }
 
         Rectangle {
+            y:0;
             width: parent.width * 90%;
-            height: pieces-size/2;
-            x: (parent.width - width) / 2;
+            height: root.pieces-size/2;
+            x: (parent.width - self.width) / 2;
             HorizontalLayout {
                 spacing: 0px;
-                for theme[idx] in themes: TouchArea {
+                for theme[idx] in root.themes: TouchArea {
                     t := Text {
                         width: 100%; height: 100%;
                         text: theme.name;
-                        color: idx == current-theme-index ? current-theme.game-highlight-color : current-theme.game-text-color;
+                        color: idx == root.current-theme-index ? root.current-theme.game-highlight-color : root.current-theme.game-text-color;
                         vertical-alignment: center;
                         horizontal-alignment: center;
                     }
                     Rectangle {
                         background: t.color;
-                        height: idx == current-theme-index ? 2px: 1px;
-                        y: parent.height - height;
+                        height: idx == root.current-theme-index ? 2px: 1px;
+                        y: parent.height - self.height;
                     }
                     clicked => {
                         root.current-theme = theme;
@@ -263,59 +266,59 @@ export MainWindow := Window {
         }
 
 
-        for p[i] in pieces : Rectangle {
-            x: py * (pieces-size + pieces-spacing) + p.offset-x
-                + (parent.width - (4*pieces-size + 3*pieces-spacing))/2;
-            y: px * (pieces-size + pieces-spacing) + p.offset-y
-                + (parent.height - (4*pieces-size + 3*pieces-spacing))/2;
-            width: pieces-size;
-            height: pieces-size;
+        for p[i] in root.pieces : Rectangle {
+            x: self.py * (root.pieces-size + root.pieces-spacing) + p.offset-x
+                + (parent.width - (4*root.pieces-size + 3*root.pieces-spacing))/2;
+            y: self.px * (root.pieces-size + root.pieces-spacing) + p.offset-y
+                + (parent.height - (4*root.pieces-size + 3*root.pieces-spacing))/2;
+            width: root.pieces-size;
+            height: root.pieces-size;
             property <bool> is-correct: i == p.pos-x * 4 + p.pos-y;
 
             drop-shadow-offset-x: 1px;
             drop-shadow-offset-y: 1px;
             drop-shadow-blur: 3px;
             drop-shadow-color: #00000040;
-            border-radius: current-theme.piece-radius;
+            border-radius: root.current-theme.piece-radius;
             clip: true;
 
             property<float> px: p.pos-x;
             property<float> py: p.pos-y;
             animate px , py { duration: 170ms; easing: cubic-bezier(0.17,0.76,0.4,1.75); }
 
-            if (current-theme.game-use-background-image) : Image {
+            if (root.current-theme.game-use-background-image) : Image {
                 height: 100%; width: 100%;
                 // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
                 source: @image-url("berlin.jpg");
-                source-clip-x: mod(i, 4) * source.width / 4;
-                source-clip-y: floor(i / 4) * source.height / 4;
-                source-clip-width: source.width / 4;
-                source-clip-height: source.height / 4;
+                source-clip-x: mod(i, 4) * self.source.width / 4;
+                source-clip-y: floor(i / 4) * self.source.height / 4;
+                source-clip-width: self.source.width / 4;
+                source-clip-height: self.source.height / 4;
 
                 if (root.tiles-left != 0) : Rectangle {
                     width: 60%;
                     height: 60%;
-                    x: (parent.width - width) / 2;
-                    y: (parent.height - height) / 2;
-                    border-radius: width;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: self.width;
                     background: is-correct ? #0008 : #fff8;
                 }
             }
 
-            if (!current-theme.game-use-background-image) : Rectangle {
-                background: i >= 8 ? current-theme.piece-background-2 : current-theme.piece-background-1;
-                border-color: i >= 8 ? current-theme.piece-border-color-2 : current-theme.piece-border-color-1;
-                border-width: current-theme.piece-border;
-                border-radius: current-theme.piece-radius;
+            if (!root.current-theme.game-use-background-image) : Rectangle {
+                background: i >= 8 ? root.current-theme.piece-background-2 : root.current-theme.piece-background-1;
+                border-color: i >= 8 ? root.current-theme.piece-border-color-2 : root.current-theme.piece-border-color-1;
+                border-width: root.current-theme.piece-border;
+                border-radius: root.current-theme.piece-radius;
                 animate border-width, border-radius { duration: 500ms; easing: ease-out; }
             }
 
-            if (!current-theme.game-use-background-image || tiles-left > 0) : Text {
+            if (!root.current-theme.game-use-background-image || root.tiles-left > 0) : Text {
                 text: i+1;
-                color: ((!current-theme.game-use-background-image && i >= 8) || (current-theme.game-use-background-image && is-correct)) ? current-theme.piece-text-color-2 : current-theme.piece-text-color-1;
-                font-size: pieces-size / 3;
-                font-weight: is-correct ? current-theme.piece-text-weight-correct-pos : current-theme.piece-text-weight-incorrect-pos;
-                font-family: current-theme.piece-text-font-family;
+                color: ((!root.current-theme.game-use-background-image && i >= 8) || (root.current-theme.game-use-background-image && is-correct)) ? root.current-theme.piece-text-color-2 : root.current-theme.piece-text-color-1;
+                font-size: root.pieces-size / 3;
+                font-weight: is-correct ? root.current-theme.piece-text-weight-correct-pos : root.current-theme.piece-text-weight-incorrect-pos;
+                font-family: root.current-theme.piece-text-font-family;
                 vertical-alignment: center;
                 horizontal-alignment: center;
                 width: 100%;
@@ -328,11 +331,11 @@ export MainWindow := Window {
 
             shadow := Rectangle {
                 circle := Rectangle {
-                    height: width;
-                    border-radius: width/2;
+                    height: self.width;
+                    border-radius: self.width/2;
                     background: #0002;
-                    x: touch.pressed-x - width/2;
-                    y: touch.pressed-y - width/2;
+                    x: touch.pressed-x - self.width/2;
+                    y: touch.pressed-y - self.width/2;
                 }
             }
 
@@ -340,64 +343,63 @@ export MainWindow := Window {
                 pressed when touch.pressed : {
                     shadow.color: #0002;
                     circle.width: shadow.width * 2 * 1.4142;
+                in  {
+                    animate shadow.color { duration: 50ms; }
+                    animate circle.width { duration: 2s; easing: ease-out; }
+                }
+                out  {
+                    animate shadow.color { duration: 50ms; }
+                }
                 }
                 hover when touch.has-hover: {
                     shadow.color: #0000000d;
                 }
 
             ]
-            transitions [
-                in pressed : {
-                    animate shadow.color { duration: 50ms; }
-                    animate circle.width { duration: 2s; easing: ease-out; }
-                }
-                out pressed : {
-                    animate shadow.color { duration: 50ms; }
-                }
-            ]
+            
         }
 
         if (root.tiles-left == 0) : Text {
-            width: pieces-size;
-            height: pieces-size;
-            x: 3 * (pieces-size + pieces-spacing)
-                + (parent.width - (4*pieces-size + 3*pieces-spacing))/2;
-            y: 3 * (pieces-size + pieces-spacing)
-                + (parent.height - (4*pieces-size + 3*pieces-spacing))/2;
+            width: root.pieces-size;
+            height: root.pieces-size;
+            x: 3 * (root.pieces-size + root.pieces-spacing)
+                + (parent.width - (4*root.pieces-size + 3*root.pieces-spacing))/2;
+            y: 3 * (root.pieces-size + root.pieces-spacing)
+                + (parent.height - (4*root.pieces-size + 3*root.pieces-spacing))/2;
 
-            color: current-theme.game-highlight-color;
-            font-size: pieces-size / 2;
+            color: root.current-theme.game-highlight-color;
+            font-size: root.pieces-size / 2;
             vertical-alignment: center;
             horizontal-alignment: center;
             text: "🖒";
 
-            if (current-theme.game-use-background-image) : Image {
+            if (root.current-theme.game-use-background-image) : Image {
                 height: 100%; width: 100%;
                 // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
                 source: @image-url("berlin.jpg");
-                source-clip-x: 3 * source.width / 4;
-                source-clip-y: 3 * source.height / 4;
-                source-clip-width: source.width / 4;
-                source-clip-height: source.height / 4;
+                source-clip-x: 3 * self.source.width / 4;
+                source-clip-y: 3 * self.source.height / 4;
+                source-clip-width: self.source.width / 4;
+                source-clip-height: self.source.height / 4;
             }
         }
 
         Rectangle {
             width: parent.width;
             height: 1px;
-            background: current-theme.game-text-color;
-            y: parent.height - pieces-size / 2;
+            background: root.current-theme.game-text-color;
+            y: parent.height - root.pieces-size / 2;
         }
 
         HorizontalLayout {
-            height: pieces-size / 2;
-            y: parent.height - pieces-size / 2;
+            height: root.pieces-size / 2;
+            y: parent.height - root.pieces-size / 2;
             width: parent.width;
-            padding: height * 25%;
+            padding: self.height * 25%;
             Text {
                 text: " ↻ ";
                 font-size: parent.height * 40%;
-                color: current-theme.game-highlight-color;
+                color: root.current-theme.game-highlight-color;
                 vertical-alignment: center;
                 TouchArea {
                     clicked => { root.reset(); }
@@ -405,30 +407,30 @@ export MainWindow := Window {
             }
             Checkbox {
                 width: parent.height - 2 * parent.padding;
-                checked <=> auto-play;
-                toggled(checked) => { root.enable-auto-mode(checked) }
-                checked-color: current-theme.game-highlight-color;
-                unchecked-color: current-theme.game-text-color;
+                checked <=> root.auto-play;
+                toggled(checked) => { root.enable-auto-mode(self.checked) }
+                checked-color: root.current-theme.game-highlight-color;
+                unchecked-color: root.current-theme.game-text-color;
             }
             Rectangle {} // stretch
             Text {
                 text: root.moves;
-                color: current-theme.game-highlight-color;
+                color: root.current-theme.game-highlight-color;
                 vertical-alignment: center;
             }
             Text {
                 text: "Moves ";
-                color: current-theme.game-text-color;
+                color: root.current-theme.game-text-color;
                 vertical-alignment: center;
             }
             Text {
                 text: root.tiles-left;
-                color: current-theme.game-highlight-color;
+                color: root.current-theme.game-highlight-color;
                 vertical-alignment: center;
             }
             Text {
                 text: "Tiles left";
-                color: current-theme.game-text-color;
+                color: root.current-theme.game-text-color;
                 vertical-alignment: center;
             }
         }

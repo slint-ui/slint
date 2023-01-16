@@ -3,20 +3,20 @@
 
 import { LineEdit, Button, Slider, StandardListView, VerticalBox } from "std-widgets.slint";
 
-struct Circle := { x: length, y: length, d: length }
+struct Circle  { x: length, y: length, d: length }
 
-MainWindow := Window {
+component MainWindow inherits Window {
     preferred-width: 500px;
     preferred-height: 400px;
 
-    property <[Circle]> model;
+    in property <[Circle]> model;
 
-    property<int> clicked-idx: -1;
-    property<Circle> selected-circle;
+    private property<int> clicked-idx: -1;
+    private property<Circle> selected-circle;
     callback background_clicked(length,length);
 
-    property<bool> undoable: false;
-    property<bool> redoable: false;
+    in property<bool> undoable: false;
+    in property<bool> redoable: false;
     callback undo_clicked();
     callback redo_clicked();
 
@@ -46,25 +46,25 @@ MainWindow := Window {
                 width: 100%;
                 height: 100%;
                 clicked => {
-                    root.background_clicked(pressed_x, pressed_y);
+                    root.background_clicked(self.pressed_x, self.pressed_y);
                 }
             }
 
-            for circle[idx] in model : Rectangle {
-                background: clicked-idx == idx ? gray : white;
+            for circle[idx] in root.model : Rectangle {
+                background: root.clicked-idx == idx ? gray : white;
                 border-color: black;
                 border-width: 2px;
-                border-radius: width / 2;
-                height: width;
+                border-radius: self.width / 2;
+                height: self.width;
                 width: circle.d;
-                x: circle.x - width/2;
-                y: circle.y - height/2;
+                x: circle.x - self.width/2;
+                y: circle.y - self.height/2;
                 TouchArea {
                     height: 100%;
                     width: 100%;
                     clicked => {
-                        selected-circle = circle;
-                        clicked-idx = idx;
+                        root.selected-circle = circle;
+                        root.clicked-idx = idx;
                     }
                 }
             }
@@ -72,17 +72,17 @@ MainWindow := Window {
         }
     }
 
-    if (clicked-idx != -1) : TouchArea {
+    if (root.clicked-idx != -1) : TouchArea {
         height: 100%;
         width: 100%;
-        clicked => { clicked-idx = -1; }
+        clicked => { root.clicked-idx = -1; }
     }
-    if (clicked-idx != -1) : Rectangle {
+    if (root.clicked-idx != -1) : Rectangle {
         background: lightgray;
         height: 30%;
         width: 70%;
-        x: (parent.width - width) / 2;
-        y: parent.height - height - parent.height * 5%;
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height - parent.height * 5%;
         TouchArea {
             height: 100%;
             width: 100%;
@@ -90,15 +90,15 @@ MainWindow := Window {
 
         VerticalBox {
             Text {
-                text: "Adjust diameter of circle at (" + selected-circle.x / 1px + ", " +  selected-circle.y / 1px + ").";
+                text: "Adjust diameter of circle at (" + root.selected-circle.x / 1px + ", " +  root.selected-circle.y / 1px + ").";
                 wrap: word-wrap;
             }
             Slider {
                 minimum: 4;
                 maximum: 100;
-                value: selected-circle.d / 1px;
+                value: root.selected-circle.d / 1px;
                 changed(diameter) => {
-                    root.circle_resized(clicked-idx, diameter *1px);
+                    root.circle_resized(root.clicked-idx, diameter *1px);
                 }
             }
         }

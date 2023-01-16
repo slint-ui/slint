@@ -1,81 +1,81 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-struct ButtonColors := {
+struct ButtonColors  {
     base: color,
     pressed: color,
     hovered: color,
 }
 
-export global DemoPalette := {
+export global DemoPalette  {
     // Color of the home/settings/ink buttons on the left side bar
-    property <color> active-page-icon-color: night-mode ? #6284FF : #122F7B;
-    property <color> inactive-page-icon-color: #BDC0D1;
+    out property <color> active-page-icon-color: root.night-mode ? #6284FF : #122F7B;
+    out property <color> inactive-page-icon-color: #BDC0D1;
 
-    property <color> main-background: #0E133F;
-    property <color> neutral-box: #BDC0D1;
+    out property <color> main-background: #0E133F;
+    out property <color> neutral-box: #BDC0D1;
 
-    property <color> page-background-color: night-mode ? #122F7B : white;
+    out property <color> page-background-color: root.night-mode ? #122F7B : white;
 
-    property <color> text-foreground-color: night-mode ? #F4F6FF : black;
-    property <color> secondary-foreground-color: #6C6E7A; // FIXME: night mode
+    out property <color> text-foreground-color: root.night-mode ? #F4F6FF : black;
+    out property <color> secondary-foreground-color: #6C6E7A; // FIXME: night mode
 
-    property <color> printer-action-background-color: night-mode ? main-background : white;
-    property <color> printer-queue-item-background-color: page-background-color;
+    out property <color> printer-action-background-color: root.night-mode ? root.main-background : white;
+    out property <color> printer-queue-item-background-color: root.page-background-color;
 
-    property <color> status-label-text-color: night-mode ? #F1FF98 : #6284FF;
+    out property <color> status-label-text-color: root.night-mode ? #F1FF98 : #6284FF;
 
     // Color used for the border / outline of items that can be clicked on, such as the
     // "Print"/"Scan" buttons, the printer queue items (for expansion) or controls such
     // as the combo box or spin box.
-    property <color> control-outline-color: #FFBF63;
-    property <color> control-secondary: #6284FF;
-    property <color> control-foreground: night-mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
+    out property <color> control-outline-color: #FFBF63;
+    out property <color> control-secondary: #6284FF;
+    out property <color> control-foreground: root.night-mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
 
-    property <color> primary-push-button-base: #6284FF;
-    property <ButtonColors> primary-push-button-colors: {
-        base: primary-push-button-base,
-        pressed: primary-push-button-base.darker(40%),
-        hovered: primary-push-button-base.darker(20%),
+    out property <color> primary-push-button-base: #6284FF;
+    out property <ButtonColors> primary-push-button-colors: {
+        base: root.primary-push-button-base,
+        pressed: root.primary-push-button-base.darker(40%),
+        hovered: root.primary-push-button-base.darker(20%),
     };
 
-    property <color> secondary-push-button-base: #FFBF63;
-    property <ButtonColors> secondary-push-button-colors: {
-        base: secondary-push-button-base,
-        pressed: secondary-push-button-base.darker(40%),
-        hovered: secondary-push-button-base.darker(20%),
+    out property <color> secondary-push-button-base: #FFBF63;
+    out property <ButtonColors> secondary-push-button-colors: {
+        base: root.secondary-push-button-base,
+        pressed: root.secondary-push-button-base.darker(40%),
+        hovered: root.secondary-push-button-base.darker(20%),
     };
 
 
-    property <color> push-button-text-color: white;
+    out property <color> push-button-text-color: white;
 
-    property <length> base-font-size: 12px;
+    out property <length> base-font-size: 12px;
 
-    property <bool> night-mode: false;
+    in-out property <bool> night-mode: false;
 }
 
-export Page := Rectangle {
-    property<string> header <=> h.text;
+export component Page inherits Rectangle {
+    in property<string> header <=> h.text;
     background: DemoPalette.page-background-color;
-    property <bool> has-back-button: false;
+    in property <bool> has-back-button: false;
     callback back;
 
     TouchArea {} // protect underneath controls
 
-    if (has-back-button) : Image {
+    if (root.has-back-button) : Image {
         source: @image-url("images/back.svg");
         image-fit: contain;
         colorize: DemoPalette.control-secondary;
-        y: h.y + (h.height - height) / 2;
+        y: h.y + (h.height - self.height) / 2;
         x: 5px;
         width: 14px;
         height: 24px;
         TouchArea {
-            clicked => { back() }
+            clicked => { root.back() }
             width: 200%;
             height: 200%;
-            x: (parent.width - width) / 2;
-            y: (parent.height - height) / 2;
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
         }
     }
 
@@ -83,25 +83,25 @@ export Page := Rectangle {
         font-weight: 900;
         font-size: DemoPalette.base-font-size * 1.75;
         color: DemoPalette.text-foreground-color;
-        y: 23px - font-size;
-        x: has-back-button ? 30px + 16px : 0px;
+        y: 23px - self.font-size;
+        x: root.has-back-button ? 30px + 16px : 0px;
         // Allow clicking on the title as well to get back easier when just
         // using fingers on a small screen.
-        if (has-back-button) : TouchArea {
-            clicked => { back() }
+        if (root.has-back-button) : TouchArea {
+            clicked => { root.back() }
         }
     }
 }
-export Label := Text {
+export component Label inherits Text {
     color: DemoPalette.text-foreground-color;
     vertical-alignment: center;
     font-weight: 700;
     vertical-stretch: 0;
 }
 
-SquareButton := Rectangle {
+component SquareButton inherits Rectangle {
     callback clicked;
-    property<image> img;
+    in property<image> img;
     border-radius: 3px;
     border-width: 2px;
     border-color: DemoPalette.control-outline-color;
@@ -117,18 +117,18 @@ SquareButton := Rectangle {
     Image {
         height: 12px;
         width: 12px;
-        x: (parent.width - width)/2;
-        y: (parent.height - height)/2;
+        x: (parent.width - self.width)/2;
+        y: (parent.height - self.height)/2;
         source <=> root.img;
         image-fit: contain;
         colorize: DemoPalette.control-secondary;
     }
 }
 
-export SpinBox := Rectangle {
-    property <int> value;
-    property <int> minimum;
-    property <int> maximum: 100;
+export component SpinBox inherits Rectangle {
+    in-out property <int> value;
+    in property <int> minimum;
+    in property <int> maximum: 100;
     height: 32px;
 
     HorizontalLayout {
@@ -153,7 +153,7 @@ export SpinBox := Rectangle {
                 height: 100%;
                 vertical-alignment: center;
                 horizontal-alignment: center;
-                text: value;
+                text: root.value;
                 color: DemoPalette.control-foreground;
             }
         }
@@ -170,9 +170,9 @@ export SpinBox := Rectangle {
     }
 }
 
-export ComboBox := Rectangle {
-    property<string> value;
-    property<[string]> choices;
+export component ComboBox inherits Rectangle {
+    in-out property<string> value;
+    in property<[string]> choices;
     border-radius: 3px;
     border-width: 2px;
     border-color: DemoPalette.control-outline-color;
@@ -190,10 +190,10 @@ export ComboBox := Rectangle {
         source: @image-url("images/down.svg");
         colorize: DemoPalette.control-secondary;
         height: 40%;
-        width: height;
+        width: self.height;
         image-fit: contain;
-        x: parent.width - width - y;
-        y: (parent.height - height)/2;
+        x: parent.width - self.width - self.y;
+        y: (parent.height - self.height)/2;
     }
 
     TouchArea {
@@ -203,6 +203,7 @@ export ComboBox := Rectangle {
     }
 
     popup := PopupWindow {
+        x:0;
         y: root.height;
         width: root.width;
         Rectangle {
@@ -234,9 +235,9 @@ export ComboBox := Rectangle {
     }
 }
 
-export CheckBox := Rectangle {
-    property <bool> checked;
-    property <string> text;
+export component CheckBox inherits Rectangle {
+    in-out property <bool> checked;
+    in property <string> text;
 
     height: 32px;
 
@@ -245,11 +246,11 @@ export CheckBox := Rectangle {
         padding: 0;
         SquareButton {
             width: root.height - parent.padding * 2;
-            img: checked ? @image-url("images/check.svg") : @image-url("");
-            clicked => { checked = !checked; }
+            img: root.checked ? @image-url("images/check.svg") : @image-url("");
+            clicked => { root.checked = !root.checked; }
         }
 
-        if text != "" : Text {
+        if root.text != "" : Text {
             text <=> root.text;
             vertical-alignment: center;
             horizontal-alignment: center;
@@ -260,23 +261,23 @@ export CheckBox := Rectangle {
 
     TouchArea {
         clicked => {
-            checked = !checked;
+            root.checked = !root.checked;
         }
     }
 }
 
-export PushButton := Rectangle {
+export component PushButton inherits Rectangle {
     callback clicked;
-    property <string> text <=> label.text;
-    property <image> icon <=> img.source;
-    property <bool> primary: true;
-    property <bool> pressed: touch-area.pressed;
+    in property <string> text <=> label.text;
+    in property <image> icon <=> img.source;
+    in property <bool> primary: true;
+    out property <bool> pressed: touch-area.pressed;
 
-    property <ButtonColors> colors: primary ? DemoPalette.primary-push-button-colors : DemoPalette.secondary-push-button-colors;
+    out property <ButtonColors> colors: root.primary ? DemoPalette.primary-push-button-colors : DemoPalette.secondary-push-button-colors;
 
     border-radius: 13.5px;
 
-    background: pressed ? colors.pressed : (touch-area.has-hover ? colors.hovered : colors.base);
+    background: root.pressed ? root.colors.pressed : (touch-area.has-hover ? root.colors.hovered : root.colors.base);
 
     horizontal-stretch: 1;
 

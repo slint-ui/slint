@@ -1,28 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-global Palette := {
-    property <color> window-background: #eee;
-    property <color> widget-background: #ddd;
-    property <color> widget-stroke: #888;
-    property <color> window-border: #ccc;
-    property <color> text-color: #666;
-    property <color> hyper-blue: #90d1ff;
+global Palette  {
+    out property <color> window-background: #eee;
+    out property <color> widget-background: #ddd;
+    out property <color> widget-stroke: #888;
+    out property <color> window-border: #ccc;
+    out property <color> text-color: #666;
+    out property <color> hyper-blue: #90d1ff;
 
 }
 
 //------ MdiWindow ----
 
-MdiWindow := Rectangle {
-    property <string> title;
-    property <length> window-x <=> window.x;
-    property <length> window-y <=> window.y;
-    property <bool> is-open: true;
+component MdiWindow inherits Rectangle {
+    in property <string> title;
+    in-out property <length> window-x <=> window.x;
+    in-out property <length> window-y <=> window.y;
+    in-out property <bool> is-open: true;
     width: 100%;
     height: 100%;
 
 
     window := Rectangle {
+        x:0;y:0;
         background: Palette.window-background;
         border-width: 2px;
         border-color: Palette.window-border;
@@ -35,9 +36,9 @@ MdiWindow := Rectangle {
         height: l.preferred-height - hidden.preferred-height;
 
         states [
-            open when is-open : {
-                width: open-width;
-                height: open-height;
+            open when root.is-open : {
+                width: self.open-width;
+                height: self.open-height;
                 expand.angle: 0deg;
                 in { animate width, height, expand.angle { duration: 150ms; easing: ease; } }
                 out { animate width, height, expand.angle { duration: 150ms; easing: ease; } }
@@ -50,12 +51,12 @@ MdiWindow := Rectangle {
 
         l := VerticalLayout {
             padding: window.border-width;
-            alignment: is-open ? stretch : start;
+            alignment: root.is-open ? stretch : start;
             title_bar := TouchArea {
                 moved => {
-                    if (pressed) {
-                        window-x += mouse-x - pressed-x;
-                        window-y += mouse-y - pressed-y;
+                    if (self.pressed) {
+                        root.window-x += self.mouse-x - self.pressed-x;
+                        root.window-y += self.mouse-y - self.pressed-y;
                     }
                 }
 
@@ -65,7 +66,7 @@ MdiWindow := Rectangle {
                     expand := TouchArea {
                         width: 30px;
                         property <angle> angle: -90deg;
-                        clicked => { is-open = !is-open; }
+                        clicked => { root.is-open = !root.is-open; }
                         Path {
                             MoveTo { x: cos(expand.angle) * -1 - sin(expand.angle) * -1; y: sin(expand.angle) * -1 + cos(expand.angle) * -1; }
                             LineTo { x: cos(expand.angle) * 1 - sin(expand.angle) * -1; y: sin(expand.angle) * 1 + cos(expand.angle) * -1; }
@@ -80,7 +81,7 @@ MdiWindow := Rectangle {
                         }
                     }
                     Text {
-                        text: title;
+                        text: root.title;
                         horizontal-alignment: center;
                         color: Palette.text-color;
                     }
@@ -103,7 +104,7 @@ MdiWindow := Rectangle {
                 }
             }
             hidden := VerticalLayout {
-                visible: is-open;
+                visible: root.is-open;
                 Rectangle {
                     height: window.border-width;
                     background: window.border-color;
@@ -112,11 +113,11 @@ MdiWindow := Rectangle {
             }
         }
 
-        if is-open : resize-handle := TouchArea {
+        if root.is-open : resize-handle := TouchArea {
             width: 20px;
-            height: width;
-            x: parent.width - width;
-            y: parent.height - height;
+            height: self.width;
+            x: parent.width - self.width;
+            y: parent.height - self.height;
             mouse-cursor: MouseCursor.nwse-resize;
             Path {
                 MoveTo { x: 0; y: 1; }
@@ -130,9 +131,9 @@ MdiWindow := Rectangle {
                 viewbox-height: 1.2; viewbox-width: 1.2;
             }
             moved => {
-                if (pressed) {
-                    window.open-width = max(l.min-width, min(l.max-width, window.open-width + mouse-x - pressed-x));
-                    window.open-height = max(l.min-height, min(l.max-height, window.open-height + mouse-y - pressed-y));
+                if (self.pressed) {
+                    window.open-width = max(l.min-width, min(l.max-width, window.open-width + self.mouse-x - self.pressed-x));
+                    window.open-height = max(l.min-height, min(l.max-height, window.open-height + self.mouse-y - self.pressed-y));
                 }
             }
         }
@@ -143,30 +144,31 @@ MdiWindow := Rectangle {
 
 import {LineEdit, TextEdit, ComboBox, GridBox, VerticalBox, HorizontalBox, StyleMetrics} from "std-widgets.slint";
 
-Label := Text {
+component Label inherits Text {
     color: Palette.text-color;
 }
 
-Button := TouchArea {
+component Button inherits TouchArea {
     min-height: t.min-height;
     min-width: t.min-width + 10px;
-    property text <=> t.text;
+    in property text <=> t.text;
     Rectangle {
         border-width: 1.5px;
         border-color: root.has-hover ? Palette.widget-stroke : transparent;
         border-radius: 3px;
         background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
         t := Label {
+            y:0;
             width: 100%;
             horizontal-alignment: center;
         }
     }
 }
 
-CheckBox := TouchArea {
-    property <bool> checked;
-    property text <=> t.text;
-    clicked => { checked = !checked; }
+component CheckBox inherits TouchArea {
+    in-out property <bool> checked;
+    in property text <=> t.text;
+    clicked => { root.checked = !root.checked; }
     HorizontalLayout {
         spacing: 5px;
         VerticalLayout {
@@ -178,7 +180,7 @@ CheckBox := TouchArea {
                 border-color: root.has-hover ? Palette.widget-stroke : transparent;
                 border-radius: 3px;
                 background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
-                if checked : Path {
+                if root.checked : Path {
                     stroke: root.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
                     stroke-width: root.pressed ? 2.5px : 2px;
                     viewbox-height: 1; viewbox-width: 1;
@@ -194,9 +196,9 @@ CheckBox := TouchArea {
     }
 }
 
-RadioButton := TouchArea {
-    property <bool> checked;
-    property text <=> t.text;
+component RadioButton inherits TouchArea {
+    in-out property <bool> checked;
+    in property text <=> t.text;
     HorizontalLayout {
         spacing: 5px;
         VerticalLayout {
@@ -206,11 +208,11 @@ RadioButton := TouchArea {
                 height: 20px;
                 border-width: 1.5px;
                 border-color: root.has-hover ? Palette.widget-stroke : transparent;
-                border-radius: width / 2;
+                border-radius: self.width / 2;
                 background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
-                if checked : Rectangle {
+                if root.checked : Rectangle {
                     background: root.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
-                    border-radius: width / 2;
+                    border-radius: self.width / 2;
                     width: parent.width / 2;
                     height: parent.width / 2;
                     x: parent.width / 4;
@@ -224,11 +226,11 @@ RadioButton := TouchArea {
     }
 }
 
-SelectableLabel := TouchArea {
+component SelectableLabel inherits TouchArea {
     min-height: t.min-height;
     min-width: t.min-width + 10px;
-    property <bool> checked;
-    property text <=> t.text;
+    in-out property <bool> checked;
+    in-out property text <=> t.text;
     Rectangle {
         border-width: 1.5px;
         border-color: root.has-hover ? Palette.widget-stroke : transparent;
@@ -238,17 +240,18 @@ SelectableLabel := TouchArea {
             root.pressed ? Palette.widget-background.darker(30%) :
             root.has-hover ? Palette.widget-background : transparent;
         t := Label {
+            y:0;
             width: 100%;
             horizontal-alignment: center;
         }
     }
 }
 
-Slider := Rectangle {
-    property<float> maximum: 100;
-    property<float> minimum: 0;
-    property<float> value;
-    property<bool> enabled <=> touch.enabled;
+component Slider inherits Rectangle {
+    in property<float> maximum: 100;
+    in property<float> minimum: 0;
+    in-out property<float> value;
+    in property<bool> enabled <=> touch.enabled;
     callback changed(float);
 
     min-height: 24px;
@@ -259,20 +262,20 @@ Slider := Rectangle {
     Rectangle {
         width: parent.width;
         height: parent.height / 2;
-        y: (parent.height - height) / 2;
+        y: (parent.height - self.height) / 2;
         border-radius: 2px;
         background: Palette.widget-background;
     }
 
 
     handle := Rectangle {
-        width: height;
+        width: self.height;
         height: parent.height;
-        border-radius: height / 2;
+        border-radius: self.height / 2;
         border-color: touch.has-hover ? Palette.widget-stroke.darker(100%) :  Palette.widget-stroke;
         border-width: touch.pressed ? 4px : touch.has-hover ? 3px : 2px;
         background: touch.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
-        x: (root.width - handle.width) * max(0, min(1, (value - minimum)/(maximum - minimum)));
+        x: (root.width - handle.width) * max(0, min(1, (root.value - root.minimum)/(root.maximum - root.minimum)));
     }
     touch := TouchArea {
         width: parent.width;
@@ -280,27 +283,27 @@ Slider := Rectangle {
         property <float> pressed-value;
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                pressed-value = root.value;
+                self.pressed-value = root.value;
             }
         }
         moved => {
-            if (enabled && pressed) {
-                value = max(root.minimum, min(root.maximum,
-                    pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
-                root.changed(value);
+            if (self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (touch.mouse-x - touch.pressed-x) * (root.maximum - root.minimum) / (root.width - handle.width)));
+                root.changed(root.value);
             }
         }
     }
 }
 
-Hyperlink := Text {
+component Hyperlink inherits Text {
     color: Palette.hyper-blue;
     TouchArea { mouse-cursor: pointer; }
-    property<string> link;
+    in-out property<string> link;
 }
 
-DragValue := TouchArea {
-    property <float> value;
+component DragValue inherits TouchArea {
+    in-out property <float> value;
     min-height: t.min-height;
     min-width: Math.max(t.min-width + 10px, 50px);
     Rectangle {
@@ -309,51 +312,53 @@ DragValue := TouchArea {
         border-radius: 3px;
         background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
         t := Label {
+            y:0;
             width: 100%;
             horizontal-alignment: center;
-            text: round(value);
+            text: round(root.value);
         }
     }
     moved => {
-        if (pressed) {
-            value = _pressed-value +(mouse-x - pressed-x) / 2px;
+        if (root.pressed) {
+            root.value = root._pressed-value +(root.mouse-x - root.pressed-x) / 2px;
         }
     }
     pointer-event(e) => {
         if (e.kind == PointerEventKind.down) {
-            _pressed-value = value;
+            root._pressed-value = root.value;
         }
     }
 
-    property <float> _pressed-value;
+    in-out property <float> _pressed-value;
     mouse-cursor: MouseCursor.ew-resize;
 }
 
-ProgressBar := Rectangle {
-    property <float> value;
+component ProgressBar inherits Rectangle {
+    in-out property <float> value;
     min-height: 24px;
     min-width: 100px;
     background: StyleMetrics.textedit-background;
-    border-radius: height / 2;
+    border-radius: root.height / 2;
 
     Rectangle {
+        x:0;
         height: 100%;
-        width: height + (parent.width - height) * max(0, min(1, value / 100));
-        border-radius: height / 2;
+        width: self.height + (parent.width - self.height) * max(0, min(1, root.value / 100));
+        border-radius: self.height / 2;
         background: Palette.hyper-blue;
     }
     Label {
         height: 100%;
         vertical-alignment: center;
-        x: height/2;
-        text: round(value) + "%";
+        x: self.height/2;
+        text: round(root.value) + "%";
     }
 }
 
 
 //------ Demo apps -------
 
-Gallery := GridBox {
+component Gallery inherits GridBox {
 
     function unsel() { r1.checked = false; r2.checked = false; r3.checked = false; }
 
@@ -384,18 +389,18 @@ Gallery := GridBox {
         Text { text: "RadioButton:"; }
         HorizontalBox {
             alignment: start;
-            r1 := RadioButton { text: "First"; clicked => { unsel(); r1.checked = true; } }
-            r2 := RadioButton { text: "Second"; clicked => { unsel(); r2.checked = true; } }
-            r3 := RadioButton { text: "Third"; clicked => { unsel(); r3.checked = true; } }
+            r1 := RadioButton { text: "First"; clicked => { root.unsel(); r1.checked = true; } }
+            r2 := RadioButton { text: "Second"; clicked => { root.unsel(); r2.checked = true; } }
+            r3 := RadioButton { text: "Third"; clicked => { root.unsel(); r3.checked = true; } }
         }
     }
     Row {
         Text { text: "SelectableLabel:"; }
         HorizontalBox {
             alignment: start;
-            SelectableLabel { text: "First"; checked <=> r1.checked; clicked => { unsel(); r1.checked = true; } }
-            SelectableLabel { text: "Second"; checked <=> r2.checked; clicked => { unsel(); r2.checked = true; } }
-            SelectableLabel { text: "Third"; checked <=> r3.checked; clicked => { unsel(); r3.checked = true; } }
+            SelectableLabel { text: "First"; checked <=> r1.checked; clicked => { root.unsel(); r1.checked = true; } }
+            SelectableLabel { text: "Second"; checked <=> r2.checked; clicked => { root.unsel(); r2.checked = true; } }
+            SelectableLabel { text: "Third"; checked <=> r3.checked; clicked => { root.unsel(); r3.checked = true; } }
         }
     }
     Row {
@@ -405,9 +410,9 @@ Gallery := GridBox {
             ComboBox {
                 model: ["First", "Second", "Third"];
                 selected => {
-                    r1.checked = current-index == 0;
-                    r2.checked = current-index == 1;
-                    r3.checked = current-index == 2;
+                    r1.checked = self.current-index == 0;
+                    r2.checked = self.current-index == 1;
+                    r3.checked = self.current-index == 2;
                 }
             }
             Label { text: "Take your pick"; }
@@ -431,7 +436,7 @@ Gallery := GridBox {
     Rectangle {}
 }
 
-TextEditDemo := VerticalLayout {
+component TextEditDemo inherits VerticalLayout {
     preferred-height: 150px;
     preferred-width: 300px;
     TextEdit {
@@ -439,18 +444,20 @@ TextEditDemo := VerticalLayout {
     }
 }
 
-Demo := Window {
+component Demo inherits Window {
     preferred-width: 1024px;
     preferred-height: 800px;
     background: white;
 
     w1 := MdiWindow {
+        x:0;y:0;
         title: "🗄 Widget Gallery";
         window-x: 30px;
         window-y: 20px;
         Gallery {  }
     }
     w2 := MdiWindow {
+        x:0;y:0;
         visible: false;
         title: "🗉 TextEdit";
         window-x: 230px;
@@ -462,7 +469,7 @@ Demo := Window {
         border-color: resize-side-panel.has-hover ? Palette.window-border.darker(100%) :  Palette.window-border;
         border-width: 2px;
         background: Palette.window-background;
-        x: parent.width - width;
+        x: parent.width - self.width;
         width: side-panel-l.preferred-width;
         height: 100%;
 
@@ -486,12 +493,13 @@ Demo := Window {
 
         }
         resize-side-panel := TouchArea {
+            x:0;
             height: 100%;
             width: 4px;
             mouse-cursor: ew-resize;
             moved => {
-                if (pressed) {
-                    side-panel.width = max(side-panel-l.min-width, min(root.width, side-panel.width - (mouse-x - pressed-x)));
+                if (self.pressed) {
+                    side-panel.width = max(side-panel-l.min-width, min(root.width, side-panel.width - (self.mouse-x - self.pressed-x)));
                 }
             }
         }
