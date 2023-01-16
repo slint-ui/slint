@@ -11,7 +11,7 @@ use i_slint_core::api::{
     GraphicsAPI, PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
     SetRenderingNotifierError,
 };
-use i_slint_core::graphics::euclid;
+use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::item_rendering::ItemCache;
 use i_slint_core::items::Item;
@@ -84,6 +84,7 @@ impl<
 
         let canvas = SkiaCanvas {
             image_cache: Default::default(),
+            path_cache: Default::default(),
             surface,
             rendering_metrics_collector,
             native_window,
@@ -150,6 +151,7 @@ impl<
                     skia_canvas,
                     window_adapter.window(),
                     &canvas.image_cache,
+                    &canvas.path_cache,
                     &mut box_shadow_cache,
                 );
 
@@ -377,7 +379,8 @@ impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<Nati
             return;
         };
 
-        canvas.image_cache.component_destroyed(component)
+        canvas.image_cache.component_destroyed(component);
+        canvas.path_cache.component_destroyed(component);
     }
 }
 
@@ -404,6 +407,7 @@ trait Surface {
 
 struct SkiaCanvas<SurfaceType: Surface, NativeWindowWrapper> {
     image_cache: ItemCache<Option<skia_safe::Image>>,
+    path_cache: ItemCache<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     surface: SurfaceType,
     // Kept here to make sure that the raw window handles used by the surface are kept alive

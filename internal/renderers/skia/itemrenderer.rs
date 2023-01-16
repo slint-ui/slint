@@ -5,8 +5,8 @@ use std::pin::Pin;
 
 use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
-use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::euclid::num::Zero;
+use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::Item;
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
@@ -31,6 +31,7 @@ pub struct SkiaRenderer<'a> {
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
+    path_cache: &'a ItemCache<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>,
     box_shadow_cache: &'a mut SkiaBoxShadowCache,
 }
 
@@ -39,6 +40,7 @@ impl<'a> SkiaRenderer<'a> {
         canvas: &'a mut skia_safe::Canvas,
         window: &'a i_slint_core::api::Window,
         image_cache: &'a ItemCache<Option<skia_safe::Image>>,
+        path_cache: &'a ItemCache<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>,
         box_shadow_cache: &'a mut SkiaBoxShadowCache,
     ) -> Self {
         Self {
@@ -48,6 +50,7 @@ impl<'a> SkiaRenderer<'a> {
             state_stack: vec![],
             current_state: RenderState { alpha: 1.0 },
             image_cache,
+            path_cache,
             box_shadow_cache,
         }
     }
@@ -241,8 +244,13 @@ impl<'a> SkiaRenderer<'a> {
             let canvas = surface.canvas();
             canvas.clear(skia_safe::Color::TRANSPARENT);
 
-            let mut sub_renderer =
-                SkiaRenderer::new(canvas, &self.window, self.image_cache, self.box_shadow_cache);
+            let mut sub_renderer = SkiaRenderer::new(
+                canvas,
+                &self.window,
+                self.image_cache,
+                self.path_cache,
+                self.box_shadow_cache,
+            );
 
             i_slint_core::item_rendering::render_item_children(
                 &mut sub_renderer,
@@ -500,49 +508,57 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
     fn draw_path(
         &mut self,
         path: std::pin::Pin<&i_slint_core::items::Path>,
-        _self_rc: &i_slint_core::items::ItemRc,
+        item_rc: &i_slint_core::items::ItemRc,
     ) {
         let geometry = item_rect(path, self.scale_factor);
 
-        let (logical_offset, path_events): (crate::euclid::Vector2D<f32, LogicalPx>, _) =
-            path.fitted_path_events();
+        let (physical_offset, skpath): (crate::euclid::Vector2D<f32, PhysicalPx>, _) =
+            self.path_cache.get_or_update_cache_entry(item_rc, || {
+                let (logical_offset, path_events): (crate::euclid::Vector2D<f32, LogicalPx>, _) =
+                    path.fitted_path_events();
 
-        let mut skpath = skia_safe::Path::new();
+                let mut skpath = skia_safe::Path::new();
 
-        for x in path_events.iter() {
-            match x {
-                lyon_path::Event::Begin { at } => {
-                    skpath
-                        .move_to(to_skia_point(LogicalPoint::from_untyped(at) * self.scale_factor));
-                }
-                lyon_path::Event::Line { from: _, to } => {
-                    skpath
-                        .line_to(to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor));
-                }
-                lyon_path::Event::Quadratic { from: _, ctrl, to } => {
-                    skpath.quad_to(
-                        to_skia_point(LogicalPoint::from_untyped(ctrl) * self.scale_factor),
-                        to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor),
-                    );
-                }
+                for x in path_events.iter() {
+                    match x {
+                        lyon_path::Event::Begin { at } => {
+                            skpath.move_to(to_skia_point(
+                                LogicalPoint::from_untyped(at) * self.scale_factor,
+                            ));
+                        }
+                        lyon_path::Event::Line { from: _, to } => {
+                            skpath.line_to(to_skia_point(
+                                LogicalPoint::from_untyped(to) * self.scale_factor,
+                            ));
+                        }
+                        lyon_path::Event::Quadratic { from: _, ctrl, to } => {
+                            skpath.quad_to(
+                                to_skia_point(LogicalPoint::from_untyped(ctrl) * self.scale_factor),
+                                to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor),
+                            );
+                        }
 
-                lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
-                    skpath.cubic_to(
-                        to_skia_point(LogicalPoint::from_untyped(ctrl1) * self.scale_factor),
-                        to_skia_point(LogicalPoint::from_untyped(ctrl2) * self.scale_factor),
-                        to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor),
-                    );
-                }
-                lyon_path::Event::End { last: _, first: _, close } => {
-                    if close {
-                        skpath.close();
+                        lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
+                            skpath.cubic_to(
+                                to_skia_point(
+                                    LogicalPoint::from_untyped(ctrl1) * self.scale_factor,
+                                ),
+                                to_skia_point(
+                                    LogicalPoint::from_untyped(ctrl2) * self.scale_factor,
+                                ),
+                                to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor),
+                            );
+                        }
+                        lyon_path::Event::End { last: _, first: _, close } => {
+                            if close {
+                                skpath.close();
+                            }
+                        }
                     }
                 }
-            }
-        }
 
-        let physical_offset: crate::euclid::Vector2D<f32, PhysicalPx> =
-            logical_offset * self.scale_factor;
+                (logical_offset * self.scale_factor, skpath)
+            });
 
         self.canvas.translate((physical_offset.x, physical_offset.y));
 
