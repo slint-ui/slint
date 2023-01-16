@@ -1111,14 +1111,15 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     }
 }
 
-/// Represent an item in a StandardListView
+/// Represents an item in a StandardListView and a StandardTableView. This is the Rust/C++ type for
+/// the StandardListViewItem type in Slint files, when declaring for example a `property <[StandardListViewItem]> my-list-view-model;`.
 #[repr(C)]
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct StandardListViewItem {
-    /// The text content of the item
+    /// The text content of the item.
     pub text: SharedString,
 
-    /// If set to `true` the text can be edited.
+    /// If set to `true` the text can be edited by the user.
     pub editable: bool,
 }
 

@@ -170,6 +170,7 @@ fn gen_corelib(
         "SetRenderingNotifierError",
         "GraphicsAPI",
         "CloseRequestResponse",
+        "StandardListViewItem",
     ];
 
     config.export.exclude = [
@@ -392,12 +393,18 @@ fn gen_corelib(
     public_config.export.exclude.push("Point".into());
     public_config.export.include = public_exported_types.into_iter().map(str::to_string).collect();
 
+    public_config.export.body.insert(
+        "StandardListViewItem".to_owned(),
+        "/// \\private\nfriend bool operator==(const StandardListViewItem&, const StandardListViewItem&) = default;".into(),
+    );
+
     cbindgen::Builder::new()
         .with_config(public_config)
         .with_src(crate_dir.join("timers.rs"))
         .with_src(crate_dir.join("graphics.rs"))
         .with_src(crate_dir.join("window.rs"))
         .with_src(crate_dir.join("api.rs"))
+        .with_src(crate_dir.join("model.rs"))
         .with_after_include(format!(
             r"
 /// This macro expands to the to the numeric value of the major version of Slint you're
@@ -440,10 +447,6 @@ fn gen_corelib(
     friend bool operator==(const LayoutInfo&, const LayoutInfo&) = default;".into(),
     );
     config.export.body.insert(
-        "StandardListViewItem".to_owned(),
-        "friend bool operator==(const StandardListViewItem&, const StandardListViewItem&) = default;".into(),
-    );
-    config.export.body.insert(
         "TableColumn".to_owned(),
         "friend bool operator==(const TableColumn&, const TableColumn&) = default;".into(),
     );
@@ -452,7 +455,6 @@ fn gen_corelib(
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
-    config.export.include.push("StandardListViewItem".into());
     config.export.include.push("TableColumn".into());
     cbindgen::Builder::new()
         .with_config(config)

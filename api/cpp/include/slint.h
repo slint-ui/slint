@@ -62,7 +62,6 @@ using ItemArray = slint::cbindgen_private::Slice<ItemArrayEntry>;
 using cbindgen_private::KeyboardModifiers;
 using cbindgen_private::KeyEvent;
 using cbindgen_private::PointerEvent;
-using cbindgen_private::StandardListViewItem;
 using cbindgen_private::TableColumn;
 
 /// Internal function that checks that the API that must be called from the main
