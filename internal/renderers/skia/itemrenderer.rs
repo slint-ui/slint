@@ -11,7 +11,8 @@ use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::Item;
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
-    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, RectLengths, ScaleFactor,
+    LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize, LogicalVector, PhysicalPx,
+    RectLengths, ScaleFactor,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{items, Brush, Color, Property};
@@ -503,7 +504,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
     ) {
         let geometry = item_rect(path, self.scale_factor);
 
-        let (offset, path_events) = path.fitted_path_events();
+        let (logical_offset, path_events): (crate::euclid::Vector2D<f32, LogicalPx>, _) =
+            path.fitted_path_events();
 
         let mut skpath = skia_safe::Path::new();
 
@@ -539,7 +541,10 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             }
         }
 
-        self.canvas.translate((offset.x, offset.y));
+        let physical_offset: crate::euclid::Vector2D<f32, PhysicalPx> =
+            logical_offset * self.scale_factor;
+
+        self.canvas.translate((physical_offset.x, physical_offset.y));
 
         if let Some(mut fill_paint) =
             self.brush_to_paint(path.fill(), geometry.width_length(), geometry.height_length())
