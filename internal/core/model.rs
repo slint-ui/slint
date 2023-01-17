@@ -984,6 +984,9 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             let mut idx = new_offset;
             let components_begin = new_offset - inner.offset;
             for c in &mut inner.components[components_begin..] {
+                if idx >= row_count {
+                    break;
+                }
                 if c.0 == RepeatedComponentState::Dirty {
                     if c.1.is_none() {
                         c.1 = Some(init());

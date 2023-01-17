@@ -12,11 +12,11 @@
 import { ListView } from "std-widgets.slint";
 
 TestCase := Window {
-    width: 100px;
-    height: 100px;
+    width: 300px;
+    height: 300px;
 
     property<length> viewport-height: lv.viewport-height;
-    property<[length]> fixed-height-model: [100px];
+    property<[length]> fixed-height-model: [100px, 0px];
 
     lv := ListView {
         for fixed-height in fixed-height-model: Rectangle {
