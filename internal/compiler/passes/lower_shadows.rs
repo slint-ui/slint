@@ -157,7 +157,10 @@ pub fn lower_shadow_properties(
                     diag,
                 ) {
                     Some(element) => element,
-                    None => continue,
+                    None => {
+                        elem.borrow_mut().children.push(child);
+                        continue;
+                    }
                 };
 
                 // Install bindings from the remaining properties of the shadow element to the
