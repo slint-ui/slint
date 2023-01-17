@@ -5,14 +5,19 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+ - In addition to the previous syntax, a new syntax is available that declares the components with
+   `component Xxx { ... }`  instead of `Xxx := ...`
  - Warning when calling non-pure function or callback from pure context (eg: a property binding).
    callbacks and function can be annotated with `pure`
  - On an `Image`, the default value of `source-clip-width` and `source-clip-height` is now set to
    the size of the image minus the `source-clip-{x,y}`. The source clip size is now used to compute
    the default aspect ratio of the image.
+ - deprecated `invoke_callback` functions in the slint interpreter in favor of `invoke`, they can also 
+   invoke functions in addition to callback
 
 ### Added
 
+ - `StandardTableView` widget
  - LSP: support of Slint features (auto-complete, preview, ...) in `slint!{}` macro in rust files
  - Support for software renderer without pre-rendered font at compile time
 
@@ -21,6 +26,7 @@ All notable changes to this project are documented in this file.
  - Compiler panic for files containing no component (#2005)
  - Calling public function from native code
  - Fixed crash when using repeaters in C++ on 32-bit architectures
+ - conversion of array literal containing struct with array litteral (#2023)
 
 ## [0.3.3] - 2022-12-16
 
