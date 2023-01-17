@@ -194,7 +194,10 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
 
             if !background.is_transparent() {
                 // FIXME: gradient
-                renderer.actual_renderer.processor.process_rectangle(to_draw, background.color());
+                renderer
+                    .actual_renderer
+                    .processor
+                    .process_rectangle(to_draw, background.color().into());
             }
             for (component, origin) in components {
                 crate::item_rendering::render_component_items(component, &mut renderer, *origin);
@@ -744,7 +747,7 @@ fn prepare_scene<const MAX_BUFFER_AGE: usize>(
 
 trait ProcessScene {
     fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>);
-    fn process_rectangle(&mut self, geometry: PhysicalRect, color: Color);
+    fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor);
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
     fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand);
 }
@@ -778,8 +781,7 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
         }
     }
 
-    fn process_rectangle(&mut self, geometry: PhysicalRect, color: Color) {
-        let color = PremultipliedRgbaColor::from(color);
+    fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
         for line in geometry.min_y()..geometry.max_y() {
             let begin = line as usize * self.stride + geometry.origin.x as usize;
             TargetPixel::blend_slice(
@@ -838,12 +840,11 @@ impl ProcessScene for PrepareScene {
         }
     }
 
-    fn process_rectangle(&mut self, geometry: PhysicalRect, color: Color) {
+    fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {
         let size = geometry.size;
         if !size.is_empty() {
             let z = self.items.len() as u16;
             let pos = geometry.origin;
-            let color = PremultipliedRgbaColor::from(color);
             self.items.push(SceneItem { pos, size, z, command: SceneCommand::Rectangle { color } });
         }
     }
@@ -1164,7 +1165,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 (geom.translate(self.current_state.offset.to_vector()).cast() * self.scale_factor)
                     .round()
                     .cast(),
-                color,
+                color.into(),
             );
         }
     }
@@ -1172,7 +1173,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     fn draw_border_rectangle(&mut self, rect: Pin<&crate::items::BorderRectangle>, _: &ItemRc) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.geometry().size_length());
         if self.should_draw(&geom) {
-            let border = rect.border_width();
+            let mut border = rect.border_width();
             let radius = rect.border_radius();
             // FIXME: gradients
             let color = self.alpha_color(&rect.background());
@@ -1181,6 +1182,30 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             } else {
                 Color::default()
             };
+
+            let mut border_color = PremultipliedRgbaColor::from(border_color);
+            let color = PremultipliedRgbaColor::from(color);
+            if border_color.alpha == 0 {
+                border = LogicalLength::new(0 as _);
+            } else if border_color.alpha < 255 {
+                // Find a color for the border which is an equivalent to blend the background and then the border.
+                // In the end, the resulting of blending the background and the color is
+                // (A + B) + C, where A is the buffer color, B is the background, and C is the border.
+                // which expands to (A*(1-Bα) + B*Bα)*(1-Cα) + C*Cα = A*(1-(Bα+Cα-Bα*Cα)) + B*Bα*(1-Cα) + C*Cα
+                // so let the new alpha be: Nα = Bα+Cα-Bα*Cα, then this is A*(1-Nα) + N*Nα
+                // with N = (B*Bα*(1-Cα) + C*Cα)/Nα
+                // N being the equivalent color of the border that mixes the background and the border
+                // In pre-multiplied space, the formula simplifies further N' = B'*(1-Cα) + C'
+                let b = border_color;
+                let b_alpha_16 = b.alpha as u16;
+                border_color = PremultipliedRgbaColor {
+                    red: ((color.red as u16 * (255 - b_alpha_16)) / 255) as u8 + b.red as u8,
+                    green: ((color.green as u16 * (255 - b_alpha_16)) / 255) as u8 + b.green as u8,
+                    blue: ((color.blue as u16 * (255 - b_alpha_16)) / 255) as u8 + b.blue as u8,
+                    alpha: (color.alpha as u16 + b_alpha_16
+                        - (color.alpha as u16 * b_alpha_16) / 255) as u8,
+                }
+            }
 
             if radius.get() > 0 as _ {
                 let radius = radius
@@ -1199,8 +1224,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                         RoundedRectangle {
                             radius: (radius.cast() * self.scale_factor).cast(),
                             width: (border.cast() * self.scale_factor).cast(),
-                            border_color: border_color.into(),
-                            inner_color: color.into(),
+                            border_color: border_color,
+                            inner_color: color,
                             top_clip: PhysicalLength::new(
                                 (clipped2.min_y() - geom2.min_y() + E) as _,
                             ),
@@ -1219,7 +1244,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 return;
             }
 
-            if color.alpha() > 0 {
+            if color.alpha > 0 {
                 if let Some(r) = geom
                     .inflate(-border.get(), -border.get())
                     .intersection(&self.current_state.clip)
@@ -1235,7 +1260,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             }
 
             // FIXME: gradients
-            if border_color.alpha() > 0 {
+            if border_color.alpha > 0 {
                 let mut add_border = |r: LogicalRect| {
                     if let Some(r) = r.intersection(&self.current_state.clip) {
                         self.processor.process_rectangle(
