@@ -1240,8 +1240,8 @@ impl QtItemRenderer<'_> {
                 }
                 // Qt's border radius is in the middle of the border. But we want it to be the radius of the rectangle itself.
                 // This is incorrect if border_radius < border_width/2,  but this can't be fixed. Better to have a radius a bit too big than no radius at all
-                float r = qMax(0.01f, border_radius - border_width/2);
-                rect.adjust(border_width/2, border_width/2, -border_width/2, -border_width/2);
+                float r = qMax(0.01f, border_radius - border_width / 2);
+                rect.adjust(border_width / 2, border_width / 2, -border_width / 2, -border_width / 2);
                 (*painter)->setPen(pen);
                 (*painter)->drawRoundedRect(rect, r, r);
             } else {
@@ -1251,7 +1251,7 @@ impl QtItemRenderer<'_> {
                     (*painter)->drawRect(rect);
                     (*painter)->setBrush(QBrush());
                 }
-                rect.adjust(border_width/2, border_width/2, -border_width/2, -border_width/2);
+                rect.adjust(border_width / 2, border_width / 2, -border_width / 2, -border_width / 2);
                 (*painter)->setPen(pen);
                 (*painter)->drawRect(rect);
             }
