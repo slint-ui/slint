@@ -457,6 +457,7 @@ pub struct TouchArea {
     pub mouse_y: Property<LogicalLength>,
     pub mouse_cursor: Property<MouseCursor>,
     pub clicked: Callback<VoidArg>,
+    pub double_clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
     pub pointer_event: Callback<PointerEventArg>,
     /// FIXME: remove this
@@ -577,6 +578,17 @@ impl Item for TouchArea {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventAccepted
+                }
+            }
+            MouseEvent::DoubleClicked { position } => {
+                if LogicalRect::new(
+                    LogicalPoint::default(),
+                    LogicalSize::from_lengths(self.width(), self.height()),
+                )
+                .contains(position)
+                {
+                    Self::FIELD_OFFSETS.double_clicked.apply_pin(self).call(&());
+                    return InputEventResult::EventAccepted;
                 }
             }
         };

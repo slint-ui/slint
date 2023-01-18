@@ -190,6 +190,7 @@ impl Item for NativeSlider {
                 debug_assert_ne!(button, PointerEventButton::Left);
                 InputEventResult::EventIgnored
             }
+            MouseEvent::DoubleClicked { .. } => InputEventResult::EventIgnored,
         };
         data.active_controls = new_control;
 

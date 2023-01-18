@@ -30,6 +30,8 @@ pub enum MouseEvent {
     Pressed { position: LogicalPoint, button: PointerEventButton },
     /// The mouse or finger was released
     Released { position: LogicalPoint, button: PointerEventButton },
+    /// The mouse or finger was pressed twice in the double click time frame
+    DoubleClicked { position: LogicalPoint },
     /// The position of the pointer has changed
     Moved { position: LogicalPoint },
     /// Wheel was operated.
@@ -47,6 +49,7 @@ impl MouseEvent {
         match self {
             MouseEvent::Pressed { position, .. } => Some(*position),
             MouseEvent::Released { position, .. } => Some(*position),
+            MouseEvent::DoubleClicked { position, .. } => Some(*position),
             MouseEvent::Moved { position } => Some(*position),
             MouseEvent::Wheel { position, .. } => Some(*position),
             MouseEvent::Exit => None,
@@ -58,6 +61,7 @@ impl MouseEvent {
         let pos = match self {
             MouseEvent::Pressed { position, .. } => Some(position),
             MouseEvent::Released { position, .. } => Some(position),
+            MouseEvent::DoubleClicked { position, .. } => Some(position),
             MouseEvent::Moved { position } => Some(position),
             MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::Exit => None,

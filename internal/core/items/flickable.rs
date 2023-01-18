@@ -281,6 +281,7 @@ impl FlickableData {
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
+            MouseEvent::DoubleClicked { .. } => InputEventFilterResult::ForwardAndIgnore,
         }
     }
 
@@ -347,6 +348,7 @@ impl FlickableData {
                     .set(new_pos.y_length());
                 InputEventResult::EventAccepted
             }
+            MouseEvent::DoubleClicked { .. } => InputEventResult::EventAccepted,
         }
     }
 

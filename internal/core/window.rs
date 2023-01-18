@@ -222,6 +222,8 @@ pub struct WindowInner {
     active: Pin<Box<Property<bool>>>,
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
+
+    pressed_time_stamp: Cell<Option<crate::animations::Instant>>,
     /// This is a cache of the size set by the set_inner_size setter.
     /// It should be mapping with the WindowItem::width and height (only in physical)
     pub(crate) inner_size: Cell<PhysicalSize>,
@@ -270,6 +272,7 @@ impl WindowInner {
             active_popup: Default::default(),
             close_requested: Default::default(),
             inner_size: Default::default(),
+            pressed_time_stamp: Default::default(),
         };
 
         window
@@ -320,6 +323,23 @@ impl WindowInner {
     /// * `component`: The Slint compiled component that provides the tree of items.
     pub fn process_mouse_input(&self, mut event: MouseEvent) {
         crate::animations::update_animations();
+
+        // handle double click
+        if let MouseEvent::Pressed { position, .. } = event {
+            if let Some(pressed_time_stamp) = self.pressed_time_stamp.get() {
+                if crate::animations::Instant::now() - pressed_time_stamp
+                    < crate::platform::PLATFORM_INSTANCE
+                        .with(|p| p.get().map(|p| p.double_click_interval()))
+                        .unwrap_or_default()
+                {
+                    self.process_mouse_input(MouseEvent::DoubleClicked { position });
+                }
+
+                self.pressed_time_stamp.set(None);
+            } else {
+                self.pressed_time_stamp.set(Some(crate::animations::Instant::now()));
+            }
+        }
 
         let embedded_popup_component =
             self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
