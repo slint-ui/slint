@@ -69,6 +69,22 @@ impl Brush {
         }
     }
 
+    /// Returns true if this brush is fully opaque
+    ///
+    /// ```
+    /// # use i_slint_core::graphics::*;
+    /// assert!(!Brush::default().is_opaque());
+    /// assert!(!Brush::SolidColor(Color::from_argb_u8(25, 255, 128, 140)).is_opaque());
+    /// assert!(Brush::SolidColor(Color::from_rgb_u8(128, 140, 210)).is_opaque());
+    /// ```
+    pub fn is_opaque(&self) -> bool {
+        match self {
+            Brush::SolidColor(c) => c.alpha() == 255,
+            Brush::LinearGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
+            Brush::RadialGradient(g) => g.stops().all(|s| s.color.alpha() == 255),
+        }
+    }
+
     /// Returns a new version of this brush that has the brightness increased
     /// by the specified factor. This is done by calling [`Color::brighter`] on
     /// all the colors of this brush.

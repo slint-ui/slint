@@ -191,28 +191,71 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             return;
         }
 
-        let mut border_width = rect.border_width() * self.scale_factor;
-        // In CSS the border is entirely towards the inside of the boundary
-        // geometry, while in femtovg the line with for a stroke is 50% in-
-        // and 50% outwards. We choose the CSS model, so the inner rectangle
-        // is adjusted accordingly.
-        adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+        let border_color = rect.border_color();
+        let opaque_border = border_color.is_opaque();
+        let mut border_width = if border_color.is_transparent() {
+            PhysicalLength::new(0.)
+        } else {
+            rect.border_width() * self.scale_factor
+        };
 
-        let mut path = rect_with_radius_to_path(geometry, rect.border_radius() * self.scale_factor);
+        // Radius of rounded rect if we were to just fill the rectangle, without a border.
+        let fill_radius = rect.border_radius() * self.scale_factor;
 
-        let fill_paint = self.brush_to_paint(rect.background(), &mut path);
+        // FemtoVG's border radius on stroke is in the middle of the border. But we want it to be the radius of the rectangle itself.
+        // This is incorrect if fill_radius < border_width/2, but this can't be fixed. Better to have a radius a bit too big than no radius at all
+        let stroke_border_radius = if fill_radius.get() > 0. {
+            (fill_radius - border_width / 2.).max(PhysicalLength::new(0.1f32))
+        } else {
+            fill_radius
+        };
 
-        let border_paint = self.brush_to_paint(rect.border_color(), &mut path).map(|mut paint| {
-            paint.set_line_width(border_width.get());
-            paint
-        });
+        // In case of a transparent border, we want the background to cover the whole rectangle, which is
+        // not how femtovg's stroke works. So fill the background separately in the else branch if the
+        // border is not opaque.
+        let (mut background_path, mut maybe_border_path) = if opaque_border {
+            // In CSS the border is entirely towards the inside of the boundary
+            // geometry, while in femtovg the line with for a stroke is 50% in-
+            // and 50% outwards. We choose the CSS model, so the inner rectangle
+            // is adjusted accordingly.
+            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+
+            (rect_with_radius_to_path(geometry, stroke_border_radius), None)
+        } else {
+            let background_path = rect_with_radius_to_path(geometry, fill_radius);
+
+            // In CSS the border is entirely towards the inside of the boundary
+            // geometry, while in femtovg the line with for a stroke is 50% in-
+            // and 50% outwards. We choose the CSS model, so the inner rectangle
+            // is adjusted accordingly.
+            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+
+            let border_path = rect_with_radius_to_path(geometry, stroke_border_radius);
+
+            (background_path, Some(border_path))
+        };
+
+        let fill_paint = self.brush_to_paint(rect.background(), &mut background_path);
+
+        let border_paint = self
+            .brush_to_paint(
+                rect.border_color(),
+                maybe_border_path.as_mut().unwrap_or(&mut background_path),
+            )
+            .map(|mut paint| {
+                paint.set_line_width(border_width.get());
+                paint
+            });
 
         let mut canvas = self.canvas.borrow_mut();
         if let Some(paint) = fill_paint {
-            canvas.fill_path(&mut path, paint);
+            canvas.fill_path(&mut background_path, paint);
         }
         if let Some(border_paint) = border_paint {
-            canvas.stroke_path(&mut path, border_paint);
+            canvas.stroke_path(
+                maybe_border_path.as_mut().unwrap_or(&mut background_path),
+                border_paint,
+            );
         }
     }
 
