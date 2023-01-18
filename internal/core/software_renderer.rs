@@ -365,7 +365,7 @@ fn render_window_frame_by_line<const MAX_BUFFER_AGE: usize>(
                             );
                         }
                         SceneCommand::Texture { texture_index } => {
-                            let texture = &scene.textures[texture_index as usize];
+                            let texture = &scene.vectors.textures[texture_index as usize];
                             draw_functions::draw_texture_line(
                                 &PhysicalRect {
                                     origin: span.pos - euclid::vec2(offset as i16, 0),
@@ -377,8 +377,9 @@ fn render_window_frame_by_line<const MAX_BUFFER_AGE: usize>(
                             );
                         }
                         SceneCommand::SharedBuffer { shared_buffer_index } => {
-                            let texture =
-                                scene.shared_buffers[shared_buffer_index as usize].as_texture();
+                            let texture = scene.vectors.shared_buffers
+                                [shared_buffer_index as usize]
+                                .as_texture();
                             draw_functions::draw_texture_line(
                                 &PhysicalRect {
                                     origin: span.pos - euclid::vec2(offset as i16, 0),
@@ -390,7 +391,7 @@ fn render_window_frame_by_line<const MAX_BUFFER_AGE: usize>(
                             );
                         }
                         SceneCommand::RoundedRectangle { rectangle_index } => {
-                            let rr = &scene.rounded_rectangles[rectangle_index as usize];
+                            let rr = &scene.vectors.rounded_rectangles[rectangle_index as usize];
                             draw_functions::draw_rounded_rectangle_line(
                                 &PhysicalRect {
                                     origin: span.pos - euclid::vec2(offset as i16, 0),
@@ -412,6 +413,13 @@ fn render_window_frame_by_line<const MAX_BUFFER_AGE: usize>(
     }
 }
 
+#[derive(Default)]
+struct SceneVectors {
+    textures: Vec<SceneTexture<'static>>,
+    rounded_rectangles: Vec<RoundedRectangle>,
+    shared_buffers: Vec<SharedBufferCommand>,
+}
+
 struct Scene {
     /// the next line to be processed
     current_line: PhysicalLength,
@@ -423,21 +431,18 @@ struct Scene {
     ///   sorted by z (front to back)
     items: Vec<SceneItem>,
 
+    vectors: SceneVectors,
+
     future_items_index: usize,
     current_items_index: usize,
 
-    textures: Vec<SceneTexture<'static>>,
-    rounded_rectangles: Vec<RoundedRectangle>,
-    shared_buffers: Vec<SharedBufferCommand>,
     dirty_region: DirtyRegion,
 }
 
 impl Scene {
     pub fn new(
         mut items: Vec<SceneItem>,
-        textures: Vec<SceneTexture<'static>>,
-        rounded_rectangles: Vec<RoundedRectangle>,
-        shared_buffers: Vec<SharedBufferCommand>,
+        vectors: SceneVectors,
         dirty_region: DirtyRegion,
     ) -> Self {
         let current_line = dirty_region.origin.y_length();
@@ -450,9 +455,7 @@ impl Scene {
             current_line,
             current_items_index,
             future_items_index: current_items_index,
-            textures,
-            rounded_rectangles,
-            shared_buffers,
+            vectors,
             dirty_region,
         }
     }
@@ -595,15 +598,15 @@ enum SceneCommand {
     Rectangle {
         color: PremultipliedRgbaColor,
     },
-    /// texture_index is an index in the Scene::textures array
+    /// texture_index is an index in the [`SceneVectors::textures`] array
     Texture {
         texture_index: u16,
     },
-    /// shared_buffer_index is an index in Scene::shared_buffers
+    /// shared_buffer_index is an index in [`SceneVectors::shared_buffers`]
     SharedBuffer {
         shared_buffer_index: u16,
     },
-    /// rectangle_index is an index in the Scene::rounded_rectangle array
+    /// rectangle_index is an index in the [`SceneVectors::rounded_rectangle`] array
     RoundedRectangle {
         rectangle_index: u16,
     },
@@ -736,13 +739,7 @@ fn prepare_scene<const MAX_BUFFER_AGE: usize>(
     });
 
     let prepare_scene = renderer.into_inner();
-    Scene::new(
-        prepare_scene.processor.items,
-        prepare_scene.processor.textures,
-        prepare_scene.processor.rounded_rectangles,
-        prepare_scene.processor.shared_buffers,
-        dirty_region,
-    )
+    Scene::new(prepare_scene.processor.items, prepare_scene.processor.vectors, dirty_region)
 }
 
 trait ProcessScene {
@@ -806,17 +803,15 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
 #[derive(Default)]
 struct PrepareScene {
     items: Vec<SceneItem>,
-    textures: Vec<SceneTexture<'static>>,
-    rounded_rectangles: Vec<RoundedRectangle>,
-    shared_buffers: Vec<SharedBufferCommand>,
+    vectors: SceneVectors,
 }
 
 impl ProcessScene for PrepareScene {
     fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
         let size = geometry.size;
         if !size.is_empty() {
-            let texture_index = self.textures.len() as u16;
-            self.textures.push(texture);
+            let texture_index = self.vectors.textures.len() as u16;
+            self.vectors.textures.push(texture);
             self.items.push(SceneItem {
                 pos: geometry.origin,
                 size,
@@ -829,8 +824,8 @@ impl ProcessScene for PrepareScene {
     fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand) {
         let size = geometry.size;
         if !size.is_empty() {
-            let shared_buffer_index = self.shared_buffers.len() as u16;
-            self.shared_buffers.push(buffer);
+            let shared_buffer_index = self.vectors.shared_buffers.len() as u16;
+            self.vectors.shared_buffers.push(buffer);
             self.items.push(SceneItem {
                 pos: geometry.origin,
                 size,
@@ -852,8 +847,8 @@ impl ProcessScene for PrepareScene {
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle) {
         let size = geometry.size;
         if !size.is_empty() {
-            let rectangle_index = self.rounded_rectangles.len() as u16;
-            self.rounded_rectangles.push(data);
+            let rectangle_index = self.vectors.rounded_rectangles.len() as u16;
+            self.vectors.rounded_rectangles.push(data);
             self.items.push(SceneItem {
                 pos: geometry.origin,
                 size,
