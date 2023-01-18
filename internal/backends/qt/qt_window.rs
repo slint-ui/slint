@@ -1221,15 +1221,38 @@ impl QtItemRenderer<'_> {
         mut border_width: f32,
         border_radius: f32,
     ) {
+        if border_color.is_transparent() {
+            border_width = 0.;
+        };
         let brush: qttypes::QBrush = into_qbrush(brush, rect.width, rect.height);
         let border_color: qttypes::QBrush = into_qbrush(border_color, rect.width, rect.height);
-        adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
-        cpp! { unsafe [painter as "QPainterPtr*", brush as "QBrush",  border_color as "QBrush", border_width as "float", border_radius as "float", rect as "QRectF"] {
-            (*painter)->setPen(border_width > 0 ? QPen(border_color, border_width) : Qt::NoPen);
+        cpp! { unsafe [painter as "QPainterPtr*", brush as "QBrush",  border_color as "QBrush", border_width as "float", border_radius as "float", mut rect as "QRectF"] {
             (*painter)->setBrush(brush);
+            QPen pen = border_width > 0 ? QPen(border_color, border_width, Qt::SolidLine, Qt::FlatCap, Qt::MiterJoin) : Qt::NoPen;
             if (border_radius > 0) {
-                (*painter)->drawRoundedRect(rect, border_radius, border_radius);
+                if (!border_color.isOpaque() && border_width > 1) {
+                    // See adjustment bellow
+                    float r = qMax(border_width/2, border_radius);
+                    // In case of transparent pen, we want the background to cover the whole rectangle, which Qt doesn't do.
+                    // So first draw the background, then draw the pen over it
+                    (*painter)->drawRoundedRect(rect, r, r);
+                    (*painter)->setBrush(QBrush());
+                }
+                // Qt's border radius is in the middle of the border. But we want it to be the radius of the rectangle itself.
+                // This is incorrect if border_radius < border_width/2,  but this can't be fixed. Better to have a radius a bit too big than no radius at all
+                float r = qMax(0.01f, border_radius - border_width / 2);
+                rect.adjust(border_width / 2, border_width / 2, -border_width / 2, -border_width / 2);
+                (*painter)->setPen(pen);
+                (*painter)->drawRoundedRect(rect, r, r);
             } else {
+                if (!border_color.isOpaque() && border_width > 1) {
+                    // In case of transparent pen, we want the background to cover the whole rectangle, which Qt doesn't do.
+                    // So first draw the background, then draw the pen over it
+                    (*painter)->drawRect(rect);
+                    (*painter)->setBrush(QBrush());
+                }
+                rect.adjust(border_width / 2, border_width / 2, -border_width / 2, -border_width / 2);
+                (*painter)->setPen(pen);
                 (*painter)->drawRect(rect);
             }
         }}
