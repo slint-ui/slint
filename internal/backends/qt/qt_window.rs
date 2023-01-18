@@ -1235,6 +1235,7 @@ impl QtItemRenderer<'_> {
                     float r = qMax(border_width/2, border_radius);
                     // In case of transparent pen, we want the background to cover the whole rectangle, which Qt doesn't do.
                     // So first draw the background, then draw the pen over it
+                    (*painter)->setPen(Qt::NoPen);
                     (*painter)->drawRoundedRect(rect, r, r);
                     (*painter)->setBrush(QBrush());
                 }
@@ -1248,6 +1249,7 @@ impl QtItemRenderer<'_> {
                 if (!border_color.isOpaque() && border_width > 1) {
                     // In case of transparent pen, we want the background to cover the whole rectangle, which Qt doesn't do.
                     // So first draw the background, then draw the pen over it
+                    (*painter)->setPen(Qt::NoPen);
                     (*painter)->drawRect(rect);
                     (*painter)->setBrush(QBrush());
                 }
