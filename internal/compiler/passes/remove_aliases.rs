@@ -137,11 +137,16 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
         });
 
         remove_from_binding_expression(&mut old_binding, &to);
+
+        let same_component = std::rc::Weak::ptr_eq(
+            &elem.borrow().enclosing_component,
+            &to_elem.borrow().enclosing_component,
+        );
         match to_elem.borrow_mut().bindings.entry(to.name().to_owned()) {
             Entry::Occupied(mut e) => {
                 let b = e.get_mut().get_mut();
                 remove_from_binding_expression(b, &to);
-                if b.priority < old_binding.priority || !b.has_binding() {
+                if !same_component || b.priority < old_binding.priority || !b.has_binding() {
                     b.merge_with(&old_binding);
                 } else {
                     old_binding.merge_with(b);
@@ -149,7 +154,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 }
             }
             Entry::Vacant(e) => {
-                if old_binding.has_binding() {
+                if same_component && old_binding.has_binding() {
                     e.insert(old_binding.into());
                 }
             }

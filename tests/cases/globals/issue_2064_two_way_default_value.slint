@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export global MyGlobal {
+    in-out property <bool> foo: false;
+    in-out property <bool> foo2;
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 400px;
+
+    in-out property <bool> test: MyGlobal.foo == false && MyGlobal.foo2 == false;
+
+    r := Rectangle {
+         // This two-way binding causes MyGlobal.foo to be true
+        visible <=> MyGlobal.foo;
+    }
+
+    r2 := Rectangle {
+        // This two-way binding causes MyGlobal.foo to be true
+       visible <=> MyGlobal.foo2;
+    }
+
+}
+
+/*
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_test(), true);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_test(), true);
+```
+
+*/
