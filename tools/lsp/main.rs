@@ -228,6 +228,19 @@ fn main_loop(connection: &Connection, init_param: InitializeParams) -> Result<()
         document_cache: RefCell::new(DocumentCache::new(compiler_config)),
         server_notifier: server_notifier.clone(),
         init_param,
+        #[cfg(feature = "preview-api")]
+        preview: server_loop::PreviewApi {
+            highlight: Box::new(
+                |ctx: &Rc<Context>,
+                 path: Option<std::path::PathBuf>,
+                 offset: u32|
+                 -> Result<(), Box<dyn std::error::Error>> {
+                    #[cfg(feature = "preview")]
+                    preview::highlight(path, offset);
+                    Ok(())
+                },
+            ),
+        },
     });
 
     let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<(), Error>>>>>::new();

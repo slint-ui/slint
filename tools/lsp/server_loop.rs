@@ -283,10 +283,23 @@ impl OffsetToPositionMapper {
     }
 }
 
+#[cfg(feature = "preview-api")]
+pub struct PreviewApi {
+    pub highlight: Box<
+        dyn Fn(
+            &Rc<Context>,
+            Option<std::path::PathBuf>,
+            u32,
+        ) -> Result<(), Box<dyn std::error::Error>>,
+    >,
+}
+
 pub struct Context {
     pub document_cache: RefCell<DocumentCache>,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
+    #[cfg(feature = "preview-api")]
+    pub preview: PreviewApi,
 }
 
 #[derive(Default)]
@@ -507,23 +520,23 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         let document_cache = &mut ctx.document_cache.borrow_mut();
         Ok(semantic_tokens::get_semantic_tokens(document_cache, &params.text_document))
     });
-    rh.register::<DocumentHighlightRequest, _>(|_params, _ctx| async move {
-        let document_cache = &mut _ctx.document_cache.borrow_mut();
+    rh.register::<DocumentHighlightRequest, _>(|_params, ctx| async move {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
         let uri = _params.text_document_position_params.text_document.uri;
         if let Some((tk, _off)) =
             token_descr(document_cache, &uri, &_params.text_document_position_params.position)
         {
             let offset_mapper = document_cache.offset_to_position_mapper(&uri)?;
             let p = tk.parent();
-            #[cfg(feature = "preview")]
+            #[cfg(feature = "preview-api")]
             if p.kind() == SyntaxKind::QualifiedName
                 && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
-                crate::preview::highlight(uri.to_file_path().ok(), _off);
+                (ctx.preview.highlight)(&ctx, uri.to_file_path().ok(), _off)?;
                 let range = offset_mapper.map_range(p.text_range());
                 return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
             } else {
-                crate::preview::highlight(None, 0);
+                (ctx.preview.highlight)(&ctx, None, 0)?;
             }
 
             if let Some(value) = find_element_id_for_highlight(&tk, &p) {
@@ -538,8 +551,8 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 ));
             }
         }
-        #[cfg(feature = "preview")]
-        crate::preview::highlight(None, 0);
+        #[cfg(feature = "preview-api")]
+        (ctx.preview.highlight)(&ctx, None, 0)?;
         Ok(None)
     });
     rh.register::<Rename, _>(|params, ctx| async move {
