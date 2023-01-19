@@ -1,14 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+import slint_init, * as slint_lsp from "@lsp/slint_lsp_wasm.js";
+import { InitializeParams, InitializeResult } from "vscode-languageserver";
 import {
     createConnection,
     BrowserMessageReader,
     BrowserMessageWriter,
 } from "vscode-languageserver/browser";
-import { InitializeParams, InitializeResult } from "vscode-languageserver";
-
-import slint_init, * as slint_lsp from "@lsp/slint_lsp_wasm.js";
 
 const port_promise = new Promise<MessagePort>((resolve) => {
     self.onmessage = (event) => {
