@@ -28,6 +28,7 @@ All notable changes to this project are documented in this file.
  - Calling public function from native code
  - Fixed crash when using repeaters in C++ on 32-bit architectures
  - conversion of array literal containing struct with array litteral (#2023)
+ - struct exported by the main file are always generated in native code (#594)
 
 ## [0.3.3] - 2022-12-16
 

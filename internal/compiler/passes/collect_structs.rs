@@ -13,6 +13,12 @@ use std::rc::Rc;
 pub fn collect_structs(doc: &Document) {
     let mut hash = BTreeMap::new();
 
+    for (name, exp) in doc.exports.iter() {
+        if let Some(ty) = exp.as_ref().right() {
+            hash.insert(String::clone(name), ty.clone());
+        }
+    }
+
     for component in (doc.root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(&doc.root_component))
     {
