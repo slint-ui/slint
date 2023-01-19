@@ -328,7 +328,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
             let rounded_rect = skia_safe::RRect::new_rect_xy(
                 to_skia_rect(&geometry),
-                radius.get(),
+                stroke_border_radius.get(),
                 stroke_border_radius.get(),
             );
 
@@ -336,7 +336,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         } else {
             let background_rect = skia_safe::RRect::new_rect_xy(
                 to_skia_rect(&geometry),
-                radius.get(),
+                fill_radius.get(),
                 fill_radius.get(),
             );
 
@@ -348,7 +348,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
             let border_rect = skia_safe::RRect::new_rect_xy(
                 to_skia_rect(&geometry),
-                radius.get(),
+                stroke_border_radius.get(),
                 stroke_border_radius.get(),
             );
 
