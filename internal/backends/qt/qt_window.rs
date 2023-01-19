@@ -23,7 +23,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::platform::WindowEvent;
 use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
-use i_slint_core::{ImageInner, PathData, Property, SharedString};
+use i_slint_core::{ImageInner, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 
 use std::cell::RefCell;
@@ -774,15 +774,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc) {
-        let elements = path.elements();
-        if matches!(elements, PathData::None) {
-            return;
-        }
+        let (offset, path_events) = match path.fitted_path_events() {
+            Some(offset_and_events) => offset_and_events,
+            None => return,
+        };
         let rect: qttypes::QRectF = get_geometry!(items::Path, path);
         let fill_brush: qttypes::QBrush = into_qbrush(path.fill(), rect.width, rect.height);
         let stroke_brush: qttypes::QBrush = into_qbrush(path.stroke(), rect.width, rect.height);
         let stroke_width: f32 = path.stroke_width().get();
-        let (offset, path_events) = path.fitted_path_events();
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
         let mut painter_path = QPainterPath::default();
 

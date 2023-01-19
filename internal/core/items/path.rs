@@ -138,7 +138,9 @@ impl Path {
     /// Returns an iterator of the events of the path and an offset, so that the
     /// shape fits into the width/height of the path while respecting the stroke
     /// width.
-    pub fn fitted_path_events(self: Pin<&Self>) -> (LogicalVector, PathDataIterator) {
+    pub fn fitted_path_events(self: Pin<&Self>) -> Option<(LogicalVector, PathDataIterator)> {
+        let mut elements_iter = self.elements().iter()?;
+
         let stroke_width = self.stroke_width();
         let bounds_width = (self.width() - stroke_width).max(LogicalLength::zero());
         let bounds_height = (self.height() - stroke_width).max(LogicalLength::zero());
@@ -147,8 +149,6 @@ impl Path {
 
         let viewbox_width = self.viewbox_width();
         let viewbox_height = self.viewbox_height();
-
-        let mut elements_iter = self.elements().iter();
 
         let maybe_viewbox = if viewbox_width > 0. && viewbox_height > 0. {
             Some(
@@ -160,7 +160,7 @@ impl Path {
         };
 
         elements_iter.fit(bounds_width.get() as _, bounds_height.get() as _, maybe_viewbox);
-        (offset, elements_iter)
+        (offset, elements_iter).into()
     }
 }
 
