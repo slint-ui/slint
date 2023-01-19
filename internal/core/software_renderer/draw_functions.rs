@@ -6,7 +6,7 @@
 
 use super::{PhysicalLength, PhysicalRect};
 use crate::graphics::{PixelFormat, Rgb8Pixel};
-use crate::lengths::{PointLengths, SizeLengths};
+use crate::lengths::{PointLengths, RectLengths, SizeLengths};
 use crate::Color;
 use derive_more::{Add, Mul, Sub};
 #[cfg(feature = "embedded-graphics")]
@@ -286,6 +286,119 @@ fn interpolate_color(
         red: ((b * color1.red as u32 + a * color2.red as u32) / 255) as u8,
         green: ((b * color1.green as u32 + a * color2.green as u32) / 255) as u8,
         blue: ((b * color1.blue as u32 + a * color2.blue as u32) / 255) as u8,
+    }
+}
+
+pub(super) fn draw_gradient_line(
+    rect: &PhysicalRect,
+    line: PhysicalLength,
+    g: &super::GradientCommand,
+    line_buffer: &mut [impl TargetPixel],
+) {
+    let mut buffer = &mut line_buffer
+        [rect.origin.x as usize..(rect.origin.x_length() + rect.width_length()).get() as usize];
+
+    let fill_col1 = g.flags & 0b010 != 0;
+    let fill_col2 = g.flags & 0b100 != 0;
+    let invert_slope = g.flags & 0b1 != 0;
+
+    let y = (line.get() - rect.min_y() + g.top_clip.get()) as i32;
+    let size_y = (rect.height() + g.top_clip.get() + g.bottom_clip.get()) as i32;
+    let start = g.start as i32;
+
+    let (mut color1, mut color2) = (g.color1, g.color2);
+
+    if g.start == 0 {
+        let p = if invert_slope {
+            (255 - start) * y / size_y
+        } else {
+            start + (255 - start) * y / size_y
+        };
+        if (fill_col1 || p >= 0) && (fill_col2 || p < 255) {
+            let col = interpolate_color(p.clamp(0, 255) as u32, color1, color2);
+            TargetPixel::blend_slice(buffer, col);
+        }
+        return;
+    }
+
+    let size_x = (rect.width() + g.left_clip.get() + g.right_clip.get()) as i32;
+
+    let mut x = if invert_slope {
+        (y * size_x * (255 - start)) / (size_y * start)
+    } else {
+        (size_y - y) * size_x * (255 - start) / (size_y * start)
+    } + g.left_clip.get() as i32;
+
+    let len = ((255 * size_x) / start) as usize;
+
+    if x < 0 {
+        let l = (-x as usize).min(buffer.len());
+        if invert_slope {
+            if fill_col1 {
+                TargetPixel::blend_slice(&mut buffer[..l], g.color1);
+            }
+        } else {
+            if fill_col2 {
+                TargetPixel::blend_slice(&mut buffer[..l], g.color2);
+            }
+        }
+        buffer = &mut buffer[l..];
+        x = 0;
+    }
+
+    if buffer.len() + x as usize > len {
+        let l = len.saturating_sub(x as usize);
+        if invert_slope {
+            if fill_col2 {
+                TargetPixel::blend_slice(&mut buffer[l..], g.color2);
+            }
+        } else {
+            if fill_col1 {
+                TargetPixel::blend_slice(&mut buffer[l..], g.color1);
+            }
+        }
+        buffer = &mut buffer[..l];
+    }
+
+    if buffer.is_empty() {
+        return;
+    }
+
+    if !invert_slope {
+        core::mem::swap(&mut color1, &mut color2);
+    }
+
+    let dr = (((color2.red as i32 - color1.red as i32) * start) << 15) / (255 * size_x);
+    let dg = (((color2.green as i32 - color1.green as i32) * start) << 15) / (255 * size_x);
+    let db = (((color2.blue as i32 - color1.blue as i32) * start) << 15) / (255 * size_x);
+    let da = (((color2.alpha as i32 - color1.alpha as i32) * start) << 15) / (255 * size_x);
+
+    let mut r = ((color1.red as u32) << 15).wrapping_add_signed(x * dr as i32);
+    let mut g = ((color1.green as u32) << 15).wrapping_add_signed(x * dg as i32);
+    let mut b = ((color1.blue as u32) << 15).wrapping_add_signed(x * db as i32);
+    let mut a = ((color1.alpha as u32) << 15).wrapping_add_signed(x * da as i32);
+
+    if color1.alpha == 255 && color2.alpha == 255 {
+        buffer.fill_with(|| {
+            let pix = TargetPixel::from_rgb((r >> 15) as u8, (g >> 15) as u8, (b >> 15) as u8);
+            r = r.wrapping_add_signed(dr);
+            g = g.wrapping_add_signed(dg);
+            b = b.wrapping_add_signed(db);
+            pix
+        })
+    } else {
+        for pix in buffer {
+            pix.blend(PremultipliedRgbaColor {
+                red: (r >> 15) as u8,
+                green: (g >> 15) as u8,
+                blue: (b >> 15) as u8,
+                alpha: (a >> 15) as u8,
+            });
+            r = r.wrapping_add_signed(dr);
+            g = g.wrapping_add_signed(dg);
+            b = b.wrapping_add_signed(db);
+            a = a.wrapping_add_signed(da);
+        }
     }
 }
 
