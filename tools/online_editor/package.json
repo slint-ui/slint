@@ -5,8 +5,8 @@
     "main": "index.js",
     "scripts": {
         "build": "rimraf dist pkg && npx vite build",
-        "build:wasm_lsp": "wasm-pack build --dev --target web ../lsp -- --no-default-features",
-        "build:wasm_lsp-release": "wasm-pack build --release --target web ../lsp -- --no-default-features",
+        "build:wasm_lsp": "wasm-pack build --dev --target web ../lsp -- --no-default-features --features preview-api",
+        "build:wasm_lsp-release": "wasm-pack build --release --target web ../lsp -- --no-default-features --features preview-api",
         "build:wasm_preview": "wasm-pack build --dev --target web ../../api/wasm-interpreter -- --features console_error_panic_hook",
         "build:wasm_preview-release": "wasm-pack build --release --target web ../../api/wasm-interpreter -- --features console_error_panic_hook",
         "lint": "eslint src",

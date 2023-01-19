@@ -112,7 +112,7 @@ class PreviewerBackend {
         this.#lsp_port = lsp_port;
         this.#lsp_port.onmessage = (m) => {
             if (m.data.command === "highlight") {
-                this.highlight(m.data.data.file, m.data.data.offset);
+                this.highlight(m.data.data.path, m.data.data.offset);
             }
         };
 

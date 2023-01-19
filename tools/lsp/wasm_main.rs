@@ -158,6 +158,7 @@ impl Drop for ReentryGuardLock {
 const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
 type ImportCallbackFunction = (url: string) => Promise<string>;
 type SendRequestFunction = (method: string, r: any) => Promise<any>;
+type HighlightInPreviewFunction = (file: string, offset: number) => void;
 "#;
 
 #[wasm_bindgen]
@@ -167,6 +168,9 @@ extern "C" {
 
     #[wasm_bindgen(typescript_type = "SendRequestFunction")]
     pub type SendRequestFunction;
+
+    #[wasm_bindgen(typescript_type = "HighlightInPreviewFunction")]
+    pub type HighlightInPreviewFunction;
 }
 
 #[wasm_bindgen]
@@ -182,6 +186,7 @@ pub fn create(
     send_notification: Function,
     send_request: SendRequestFunction,
     load_file: ImportCallbackFunction,
+    highlight_in_preview: HighlightInPreviewFunction,
 ) -> Result<SlintServer, JsError> {
     console_error_panic_hook::set_once();
 
@@ -196,6 +201,7 @@ pub fn create(
 
     let document_cache = RefCell::new(DocumentCache::new(compiler_config));
     let send_request = Function::from(send_request.clone());
+    let highlight_in_preview = Function::from(highlight_in_preview.clone());
     let reentry_guard = Rc::new(RefCell::new(ReentryGuard::default()));
 
     let mut rh = RequestHandler::default();
@@ -206,6 +212,22 @@ pub fn create(
             document_cache,
             init_param,
             server_notifier: ServerNotifier { send_notification, send_request },
+            #[cfg(feature = "preview-api")]
+            preview: server_loop::PreviewApi {
+                highlight: Box::new(
+                    #[allow(unused_variables)]
+                    move |ctx: &Rc<Context>, path: Option<std::path::PathBuf>, offset: u32| {
+                        highlight_in_preview
+                            .call2(
+                                &JsValue::UNDEFINED,
+                                &to_value(&path.unwrap_or_default())?,
+                                &offset.into(),
+                            )
+                            .map_err(|x| std::io::Error::new(ErrorKind::Other, format!("{x:?}")))?;
+                        Ok(())
+                    },
+                ),
+            },
         }),
         reentry_guard,
         rh: Rc::new(rh),

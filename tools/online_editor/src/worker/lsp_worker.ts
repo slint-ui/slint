@@ -59,6 +59,7 @@ slint_init()
                     send_notification,
                     send_request,
                     load_file,
+                    highlight,
                 );
                 const response = the_lsp.server_initialize_result(
                     params.capabilities,
