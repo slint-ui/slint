@@ -80,13 +80,7 @@ fn is_layout_base(elem: &ElementRc) -> bool {
         i_slint_compiler::langtype::ElementType::Builtin(b) => {
             return matches!(
                 b.name.as_str(),
-                "GridLayout"
-                    | "HorizontalLayout"
-                    | "VerticalLayout"
-                    | "PathLayout"
-                    | "Row"
-                    | "Path"
-                    | "Dialog"
+                "GridLayout" | "HorizontalLayout" | "VerticalLayout" | "Row" | "Path" | "Dialog"
             );
         }
         i_slint_compiler::langtype::ElementType::Component(c) => {

@@ -24,8 +24,6 @@ pub fn compile_paths(
 ) {
     let path_type = tr.lookup_element("Path").unwrap();
     let path_type = path_type.as_builtin();
-    let pathlayout_type = tr.lookup_element("PathLayout").unwrap();
-    let pathlayout_type = pathlayout_type.as_builtin();
 
     recurse_elem(&component.root_element, &(), &mut |elem_, _| {
         let accepted_type = match &elem_.borrow().base_type {
@@ -33,11 +31,6 @@ pub fn compile_paths(
                 if be.native_class.class_name == path_type.native_class.class_name =>
             {
                 path_type
-            }
-            ElementType::Builtin(be)
-                if be.native_class.class_name == pathlayout_type.native_class.class_name =>
-            {
-                pathlayout_type
             }
             _ => return,
         };

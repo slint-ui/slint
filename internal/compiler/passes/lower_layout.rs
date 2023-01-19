@@ -62,7 +62,6 @@ fn lower_element_layout(
         "GridLayout" => lower_grid_layout(component, elem, diag),
         "HorizontalLayout" => lower_box_layout(elem, diag, Orientation::Horizontal),
         "VerticalLayout" => lower_box_layout(elem, diag, Orientation::Vertical),
-        "PathLayout" => lower_path_layout(elem, diag),
         "Dialog" => {
             lower_dialog_layout(elem, style_metrics, diag);
             return; // the Dialog stays in the tree as a Dialog
@@ -89,7 +88,7 @@ fn lower_element_layout(
 }
 
 pub fn is_layout_element(element: &ElementRc) -> bool {
-    matches!(&element.borrow().base_type, ElementType::Builtin(n) if n.name == "GridLayout" || n.name == "HorizontalLayout" || n.name == "VerticalLayout" || n.name == "PathLayout")
+    matches!(&element.borrow().base_type, ElementType::Builtin(n) if n.name == "GridLayout" || n.name == "HorizontalLayout" || n.name == "VerticalLayout")
 }
 
 fn lower_grid_layout(
@@ -586,73 +585,6 @@ fn lower_dialog_layout(
         .into(),
     );
     dialog_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
-}
-
-fn lower_path_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
-    let layout_cache_prop = create_new_prop(layout_element, "layout-cache", Type::LayoutCache);
-
-    let path_elements_expr =
-        match layout_element.borrow_mut().bindings.remove("elements").map(RefCell::into_inner) {
-            Some(BindingExpression { expression: Expression::PathData(data), .. }) => data,
-            _ => {
-                assert!(diag.has_error());
-                return;
-            }
-        };
-
-    let elements = layout_element.borrow().children.clone();
-    if elements.is_empty() {
-        return;
-    }
-    for (index, e) in elements.iter().enumerate() {
-        let (repeater_index, actual_elem) = if e.borrow().repeated.is_some() {
-            (
-                Some(Expression::RepeaterIndexReference { element: Rc::downgrade(e) }),
-                e.borrow().base_type.as_component().root_element.clone(),
-            )
-        } else {
-            (None, e.clone())
-        };
-        let set_prop_from_cache = |prop: &str, offset: usize, size_prop: &str| {
-            let size = NamedReference::new(&actual_elem, size_prop);
-            let expression = Expression::BinaryExpression {
-                lhs: Box::new(Expression::LayoutCacheAccess {
-                    layout_cache_prop: layout_cache_prop.clone(),
-                    index: index * 2 + offset,
-                    repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
-                }),
-                op: '-',
-                rhs: Box::new(Expression::BinaryExpression {
-                    lhs: Box::new(Expression::PropertyReference(size)),
-                    op: '/',
-                    rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
-                }),
-            };
-            actual_elem.borrow_mut().bindings.insert(prop.into(), RefCell::new(expression.into()));
-        };
-        set_prop_from_cache("x", 0, "width");
-        set_prop_from_cache("y", 1, "height");
-    }
-    let rect = LayoutRect::install_on_element(layout_element);
-    let path_layout = Layout::PathLayout(PathLayout {
-        elements,
-        path: path_elements_expr,
-        rect,
-        offset_reference: layout_element
-            .borrow()
-            .bindings
-            .contains_key("spacing")
-            .then(|| NamedReference::new(layout_element, "spacing")),
-    });
-    let binding = BindingExpression::new_with_span(
-        Expression::SolveLayout(path_layout, Orientation::Horizontal),
-        layout_element.borrow().to_source_location(),
-    );
-    layout_cache_prop
-        .element()
-        .borrow_mut()
-        .bindings
-        .insert(layout_cache_prop.name().into(), binding.into());
 }
 
 struct CreateLayoutItemResult {

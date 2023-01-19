@@ -284,6 +284,7 @@ jobs:
       # Skip the tests which makes two way binding to output property (these are warning in previous version)
       # Skip the test that use impure functions in property bindings (this is also warning in previous version)
       # Skip the example that did not exist or that are broken
+      # Skip the path layout related tests as the element has been removed
       run: |
         cargo test --bin test-driver-interpreter -- \
                   --skip test_interpreter_text_cursor_move \
@@ -298,4 +299,6 @@ jobs:
                   --skip test_interpreter_crashes_issue1271_set_in_if \
                   --skip test_interpreter_models_assign_equal_model \
                   --skip example_carousel \
-                  --skip example_fancy_demo
+                  --skip example_fancy_demo \
+                  --skip test_interpreter_elements_path_fit \
+                  --skip test_interpreter_layout_path

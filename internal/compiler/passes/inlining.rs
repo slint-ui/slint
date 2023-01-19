@@ -427,11 +427,6 @@ fn fixup_element_references(
                     fxe(&mut e.item.element);
                 }
             }
-            crate::layout::Layout::PathLayout(l) => {
-                for e in &mut l.elements {
-                    fxe(e);
-                }
-            }
             crate::layout::Layout::BoxLayout(l) => {
                 for e in &mut l.elems {
                     fxe(&mut e.element);

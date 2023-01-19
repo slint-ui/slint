@@ -20,7 +20,6 @@ pub enum Orientation {
 #[derive(Clone, Debug, derive_more::From)]
 pub enum Layout {
     GridLayout(GridLayout),
-    PathLayout(PathLayout),
     BoxLayout(BoxLayout),
 }
 
@@ -29,21 +28,18 @@ impl Layout {
         match self {
             Layout::GridLayout(g) => &g.geometry.rect,
             Layout::BoxLayout(g) => &g.geometry.rect,
-            Layout::PathLayout(p) => &p.rect,
         }
     }
     pub fn rect_mut(&mut self) -> &mut LayoutRect {
         match self {
             Layout::GridLayout(g) => &mut g.geometry.rect,
             Layout::BoxLayout(g) => &mut g.geometry.rect,
-            Layout::PathLayout(p) => &mut p.rect,
         }
     }
-    pub fn geometry(&self) -> Option<&LayoutGeometry> {
+    pub fn geometry(&self) -> &LayoutGeometry {
         match self {
-            Layout::GridLayout(l) => Some(&l.geometry),
-            Layout::BoxLayout(l) => Some(&l.geometry),
-            Layout::PathLayout(_) => None,
+            Layout::GridLayout(l) => &l.geometry,
+            Layout::BoxLayout(l) => &l.geometry,
         }
     }
 }
@@ -54,7 +50,6 @@ impl Layout {
         match self {
             Layout::GridLayout(grid) => grid.visit_named_references(visitor),
             Layout::BoxLayout(l) => l.visit_named_references(visitor),
-            Layout::PathLayout(path) => path.visit_named_references(visitor),
         }
     }
 }
@@ -448,22 +443,6 @@ impl BoxLayout {
             cell.constraints.visit_named_references(visitor);
         }
         self.geometry.visit_named_references(visitor);
-    }
-}
-
-/// Internal representation of a path layout
-#[derive(Debug, Clone)]
-pub struct PathLayout {
-    pub path: Path,
-    pub elements: Vec<ElementRc>,
-    pub rect: LayoutRect,
-    pub offset_reference: Option<NamedReference>,
-}
-
-impl PathLayout {
-    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
-        self.rect.visit_named_references(visitor);
-        self.offset_reference.as_mut().map(visitor);
     }
 }
 

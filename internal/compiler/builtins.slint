@@ -354,22 +354,6 @@ export Path := _ {
     //-default_size_binding:expands_to_parent_geometry
 }
 
-export PathLayout := _ {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
-    in property <string> commands;
-    in property <float> offset;
-
-    MoveTo {}
-    LineTo {}
-    ArcTo {}
-    CubicTo {}
-    QuadraticTo {}
-    Close {}
-}
-
 Tab := _ {
     in property <string> title;
 }
