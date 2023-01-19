@@ -106,7 +106,7 @@ function startClient(context: vscode.ExtensionContext) {
 }
 
 function uri_loaded(_uri: string) {
-    if (properties_provider != null) {
+    if (properties_provider !== null) {
         properties_provider.refresh_view();
     }
 }
@@ -190,14 +190,13 @@ export function activate(context: vscode.ExtensionContext) {
             let content_str;
             if (uri === previewUrl) {
                 content_str = event.document.getText();
-                if (event.document.languageId == "rust") {
-                    content_str = extract_rust_macro(content_str)
+                if (event.document.languageId === "rust") {
+                    content_str = extract_rust_macro(content_str);
                 }
             } else {
                 content_str = await getDocumentSource(previewUrl);
             }
             reload_preview(previewUrl, content_str, previewComponent);
-
         }
     });
 
@@ -248,7 +247,7 @@ async function getDocumentSource(url: string): Promise<string> {
     let source;
     if (x) {
         source = x.getText();
-        if (x.languageId == "rust") {
+        if (x.languageId === "rust") {
             source = extract_rust_macro(source);
         }
     } else {
@@ -269,21 +268,27 @@ function extract_rust_macro(source: string): string {
     let last = 0;
     let result = "";
 
-    while ((match = re.exec(source)) != null) {
+    while ((match = re.exec(source)) !== null) {
         let start = match.index + match[0].length;
         let end = source.length;
         let level = 0;
         let open = match[1];
         let close;
         switch (open) {
-            case '(': close = ')'; break;
-            case '{': close = '}'; break;
-            case '[': close = ']'; break;
+            case "(":
+                close = ")";
+                break;
+            case "{":
+                close = "}";
+                break;
+            case "[":
+                close = "]";
+                break;
         }
         for (let i = start; i < source.length; i++) {
-            if (source.charAt(i) == open) {
+            if (source.charAt(i) === open) {
                 level++;
-            } else if (source.charAt(i) == close) {
+            } else if (source.charAt(i) === close) {
                 level--;
                 if (level < 0) {
                     end = i;
@@ -292,11 +297,11 @@ function extract_rust_macro(source: string): string {
             }
         }
 
-        result += source.slice(last, start).replace(/[^\n]/g, ' ');
+        result += source.slice(last, start).replace(/[^\n]/g, " ");
         result += source.slice(start, end);
         last = end;
     }
-    result += source.slice(last).replace(/[^\n]/g, ' ');
+    result += source.slice(last).replace(/[^\n]/g, " ");
     return result;
 }
 

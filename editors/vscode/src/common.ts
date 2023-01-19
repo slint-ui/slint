@@ -180,7 +180,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
     refresh_view() {
         const editor = vscode.window.activeTextEditor;
-        if (editor == null) {
+        if (editor === null) {
             this.update_view(
                 "NO EDITOR",
                 this.#current_uri,
@@ -231,7 +231,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
         if (this._view === null) {
             return;
         }
-        if (language !== "slint" && language != "rust") {
+        if (language !== "slint" && language !== "rust") {
             this._view?.webview.postMessage({
                 command: "show_welcome",
                 message: "The active editor does not contain a Slint file.",

@@ -201,7 +201,7 @@ pub fn create(
 
     let document_cache = RefCell::new(DocumentCache::new(compiler_config));
     let send_request = Function::from(send_request.clone());
-    let highlight_in_preview = Function::from(highlight_in_preview.clone());
+    let _highlight_in_preview = Function::from(highlight_in_preview.clone());
     let reentry_guard = Rc::new(RefCell::new(ReentryGuard::default()));
 
     let mut rh = RequestHandler::default();
@@ -217,7 +217,7 @@ pub fn create(
                 highlight: Box::new(
                     #[allow(unused_variables)]
                     move |ctx: &Rc<Context>, path: Option<std::path::PathBuf>, offset: u32| {
-                        highlight_in_preview
+                        _highlight_in_preview
                             .call2(
                                 &JsValue::UNDEFINED,
                                 &to_value(&path.unwrap_or_default())?,
