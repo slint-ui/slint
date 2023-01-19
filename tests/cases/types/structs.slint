@@ -7,6 +7,10 @@ export struct Player := {
     energy_level: float,
 }
 
+export struct Unused {
+    foo: int,
+}
+
 TestCase := Rectangle {
     property<Player> player_1: {name : "Player1", score: 12, energy_level: 80% };
     property<Player> player_2: {name : "Player2", score: 24, energy_level: 40% };
@@ -36,6 +40,9 @@ instance.set_player_2(super_player.clone());
 assert_eq!(instance.get_player_2(), super_player);
 
 assert_eq!(instance.get_player_2_score(), 99);
+
+
+let _ = Unused { foo: 42 };
 ```
 
 ```cpp
@@ -51,6 +58,9 @@ instance.set_player_2(super_player);
 assert_eq(instance.get_player_2().name, "Super Player");
 
 assert_eq(instance.get_player_2_score(), 99);
+
+Unused _unused { .foo = 42 };
+(void)_unused;
 ```
 
 ```js
