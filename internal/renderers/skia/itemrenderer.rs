@@ -307,8 +307,6 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             rect.border_width() * self.scale_factor
         };
 
-        let radius = rect.border_radius() * self.scale_factor;
-
         // Radius of rounded rect if we were to just fill the rectangle, without a border.
         let fill_radius = rect.border_radius() * self.scale_factor;
         // Skia's border radius on stroke is in the middle of the border. But we want it to be the radius of the rectangle itself.
