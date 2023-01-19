@@ -194,6 +194,13 @@ impl WrappedInstance {
     pub fn hide(&self) {
         self.0.hide();
     }
+
+    /// THIS FUNCTION IS NOT PART THE PUBLIC API!
+    /// Highlights instances of the requested component
+    #[wasm_bindgen]
+    pub fn highlight(&self, path: &str, offset: u32) {
+        self.0.highlight(path.into(), offset);
+    }
 }
 
 /// Register DOM event handlers on all instance and set up the event loop for that.
