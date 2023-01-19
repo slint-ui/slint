@@ -188,7 +188,7 @@ function startClient(context: vscode.ExtensionContext) {
 }
 
 function uri_loaded(_uri: string) {
-    if (properties_provider != null) {
+    if (properties_provider !== null) {
         properties_provider.refresh_view();
     }
 }
