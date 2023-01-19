@@ -515,12 +515,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     }
 
     fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc) {
-        let elements = path.elements();
-        if matches!(elements, i_slint_core::PathData::None) {
-            return;
-        }
-
-        let (offset, path_events) = path.fitted_path_events();
+        let (offset, path_events) = match path.fitted_path_events() {
+            Some(offset_and_events) => offset_and_events,
+            None => return,
+        };
 
         let mut femtovg_path = femtovg::Path::new();
 

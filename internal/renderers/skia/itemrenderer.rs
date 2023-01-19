@@ -31,7 +31,7 @@ pub struct SkiaRenderer<'a> {
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
-    path_cache: &'a ItemCache<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>,
+    path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     box_shadow_cache: &'a mut SkiaBoxShadowCache,
 }
 
@@ -40,7 +40,7 @@ impl<'a> SkiaRenderer<'a> {
         canvas: &'a mut skia_safe::Canvas,
         window: &'a i_slint_core::api::Window,
         image_cache: &'a ItemCache<Option<skia_safe::Image>>,
-        path_cache: &'a ItemCache<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>,
+        path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
         box_shadow_cache: &'a mut SkiaBoxShadowCache,
     ) -> Self {
         Self {
@@ -555,9 +555,9 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let geometry = item_rect(path, self.scale_factor);
 
         let (physical_offset, skpath): (crate::euclid::Vector2D<f32, PhysicalPx>, _) =
-            self.path_cache.get_or_update_cache_entry(item_rc, || {
+            match self.path_cache.get_or_update_cache_entry(item_rc, || {
                 let (logical_offset, path_events): (crate::euclid::Vector2D<f32, LogicalPx>, _) =
-                    path.fitted_path_events();
+                    path.fitted_path_events()?;
 
                 let mut skpath = skia_safe::Path::new();
 
@@ -599,8 +599,11 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
                     }
                 }
 
-                (logical_offset * self.scale_factor, skpath)
-            });
+                (logical_offset * self.scale_factor, skpath).into()
+            }) {
+                Some(offset_and_path) => offset_and_path,
+                None => return,
+            };
 
         self.canvas.translate((physical_offset.x, physical_offset.y));
 

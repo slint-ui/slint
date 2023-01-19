@@ -407,7 +407,7 @@ trait Surface {
 
 struct SkiaCanvas<SurfaceType: Surface, NativeWindowWrapper> {
     image_cache: ItemCache<Option<skia_safe::Image>>,
-    path_cache: ItemCache<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>,
+    path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     surface: SurfaceType,
     // Kept here to make sure that the raw window handles used by the surface are kept alive

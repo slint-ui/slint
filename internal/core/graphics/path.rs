@@ -284,10 +284,10 @@ impl Default for PathData {
 
 impl PathData {
     /// This function returns an iterator that allows traversing the path by means of lyon events.
-    pub fn iter(self) -> PathDataIterator {
+    pub fn iter(self) -> Option<PathDataIterator> {
         PathDataIterator {
             it: match self {
-                PathData::None => LyonPathIteratorVariant::FromPath(lyon_path::Path::new()),
+                PathData::None => return None,
                 PathData::Elements(elements) => LyonPathIteratorVariant::FromPath(
                     PathData::build_path(elements.as_slice().iter()),
                 ),
@@ -312,6 +312,7 @@ impl PathData {
             },
             transform: Default::default(),
         }
+        .into()
     }
 
     fn build_path(element_it: core::slice::Iter<PathElement>) -> lyon_path::Path {
