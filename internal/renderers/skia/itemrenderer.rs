@@ -299,16 +299,61 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             return;
         }
 
-        let mut border_width = rect.border_width() * self.scale_factor;
-        // In CSS the border is entirely towards the inside of the boundary
-        // geometry, while in femtovg the line with for a stroke is 50% in-
-        // and 50% outwards. We choose the CSS model, so the inner rectangle
-        // is adjusted accordingly.
-        adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+        let border_color = rect.border_color();
+        let opaque_border = border_color.is_opaque();
+        let mut border_width = if border_color.is_transparent() {
+            PhysicalLength::new(0.)
+        } else {
+            rect.border_width() * self.scale_factor
+        };
 
         let radius = rect.border_radius() * self.scale_factor;
-        let rounded_rect =
-            skia_safe::RRect::new_rect_xy(to_skia_rect(&geometry), radius.get(), radius.get());
+
+        // Radius of rounded rect if we were to just fill the rectangle, without a border.
+        let fill_radius = rect.border_radius() * self.scale_factor;
+        // Skia's border radius on stroke is in the middle of the border. But we want it to be the radius of the rectangle itself.
+        // This is incorrect if fill_radius < border_width/2, but this can't be fixed. Better to have a radius a bit too big than no radius at all
+        let stroke_border_radius = if fill_radius.get() > 0. {
+            (fill_radius - border_width / 2.).max(PhysicalLength::new(0.01f32))
+        } else {
+            fill_radius
+        };
+
+        let (background_rect, border_rect) = if opaque_border {
+            // In CSS the border is entirely towards the inside of the boundary
+            // geometry, while in femtovg the line with for a stroke is 50% in-
+            // and 50% outwards. We choose the CSS model, so the inner rectangle
+            // is adjusted accordingly.
+            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+
+            let rounded_rect = skia_safe::RRect::new_rect_xy(
+                to_skia_rect(&geometry),
+                radius.get(),
+                stroke_border_radius.get(),
+            );
+
+            (rounded_rect.clone(), rounded_rect)
+        } else {
+            let background_rect = skia_safe::RRect::new_rect_xy(
+                to_skia_rect(&geometry),
+                radius.get(),
+                fill_radius.get(),
+            );
+
+            // In CSS the border is entirely towards the inside of the boundary
+            // geometry, while in femtovg the line with for a stroke is 50% in-
+            // and 50% outwards. We choose the CSS model, so the inner rectangle
+            // is adjusted accordingly.
+            adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+
+            let border_rect = skia_safe::RRect::new_rect_xy(
+                to_skia_rect(&geometry),
+                radius.get(),
+                stroke_border_radius.get(),
+            );
+
+            (background_rect, border_rect)
+        };
 
         if let Some(mut fill_paint) = self.brush_to_paint(
             rect.background(),
@@ -316,18 +361,16 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             geometry.height_length(),
         ) {
             fill_paint.set_style(skia_safe::PaintStyle::Fill);
-            self.canvas.draw_rrect(rounded_rect, &fill_paint);
+            self.canvas.draw_rrect(background_rect, &fill_paint);
         }
 
         if border_width.get() > 0.0 {
-            if let Some(mut border_paint) = self.brush_to_paint(
-                rect.border_color(),
-                geometry.width_length(),
-                geometry.height_length(),
-            ) {
+            if let Some(mut border_paint) =
+                self.brush_to_paint(border_color, geometry.width_length(), geometry.height_length())
+            {
                 border_paint.set_style(skia_safe::PaintStyle::Stroke);
                 border_paint.set_stroke_width(border_width.get());
-                self.canvas.draw_rrect(rounded_rect, &border_paint);
+                self.canvas.draw_rrect(border_rect, &border_paint);
             }
         }
     }
