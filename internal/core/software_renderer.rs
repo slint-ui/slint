@@ -25,6 +25,9 @@ use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::num::Zero;
+use euclid::Length;
+#[allow(unused)]
+use num_traits::Float;
 
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
 
@@ -402,6 +405,19 @@ fn render_window_frame_by_line<const MAX_BUFFER_AGE: usize>(
                                 line_buffer,
                             );
                         }
+                        SceneCommand::Gradient { gradient_index } => {
+                            let g = &scene.vectors.gradients[gradient_index as usize];
+
+                            draw_functions::draw_gradient_line(
+                                &PhysicalRect {
+                                    origin: span.pos - euclid::vec2(offset as i16, 0),
+                                    size: span.size,
+                                },
+                                scene.current_line,
+                                g,
+                                line_buffer,
+                            );
+                        }
                     }
                 }
             },
@@ -418,6 +434,7 @@ struct SceneVectors {
     textures: Vec<SceneTexture<'static>>,
     rounded_rectangles: Vec<RoundedRectangle>,
     shared_buffers: Vec<SharedBufferCommand>,
+    gradients: Vec<GradientCommand>,
 }
 
 struct Scene {
@@ -610,6 +627,10 @@ enum SceneCommand {
     RoundedRectangle {
         rectangle_index: u16,
     },
+    /// rectangle_index is an index in the [`SceneVectors::rounded_gradients`] array
+    Gradient {
+        gradient_index: u16,
+    },
 }
 
 struct SceneTexture<'a> {
@@ -706,6 +727,28 @@ struct RoundedRectangle {
     bottom_clip: PhysicalLength,
 }
 
+/// Goes from color 1 to color2
+///
+/// depending of `flags & 0b1`
+///  - if false: on the left side, goes from `start` to 1, on the right side, goes from 0 to `1-start`
+///  - if true: on the left side, goes from 0 to `1-start`, on the right side, goes from `start` to `1`
+#[derive(Debug)]
+struct GradientCommand {
+    color1: PremultipliedRgbaColor,
+    color2: PremultipliedRgbaColor,
+    start: u8,
+    /// bit 0: if the slope is positive or negative
+    /// bit 1: if we should fill with color1 on the left side when left_clip is negative (or transparent)
+    /// bit 2: if we should fill with color2 on the left side when right_clip is negative (or transparent)
+    flags: u8,
+    /// If positive, the clip has the same meaning as in RoundedRectangle.
+    /// If negative, that means the "stop" is only starting or stopping at that point
+    left_clip: PhysicalLength,
+    right_clip: PhysicalLength,
+    top_clip: PhysicalLength,
+    bottom_clip: PhysicalLength,
+}
+
 fn prepare_scene<const MAX_BUFFER_AGE: usize>(
     window: &WindowInner,
     size: PhysicalSize,
@@ -747,6 +790,7 @@ trait ProcessScene {
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor);
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
     fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand);
+    fn process_gradient(&mut self, geometry: PhysicalRect, gradient: GradientCommand);
 }
 
 struct RenderToBuffer<'a, TargetPixel> {
@@ -794,6 +838,17 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
                 &geometry,
                 PhysicalLength::new(line),
                 &rr,
+                &mut self.buffer[line as usize * self.stride..],
+            );
+        }
+    }
+
+    fn process_gradient(&mut self, geometry: PhysicalRect, g: GradientCommand) {
+        for line in geometry.min_y()..geometry.max_y() {
+            draw_functions::draw_gradient_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &g,
                 &mut self.buffer[line as usize * self.stride..],
             );
         }
@@ -854,6 +909,20 @@ impl ProcessScene for PrepareScene {
                 size,
                 z: self.items.len() as u16,
                 command: SceneCommand::RoundedRectangle { rectangle_index },
+            });
+        }
+    }
+
+    fn process_gradient(&mut self, geometry: PhysicalRect, gradient: GradientCommand) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let gradient_index = self.vectors.gradients.len() as u16;
+            self.vectors.gradients.push(gradient);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::Gradient { gradient_index },
             });
         }
     }
@@ -1145,19 +1214,117 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     fn draw_rectangle(&mut self, rect: Pin<&crate::items::Rectangle>, _: &ItemRc) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.geometry().size_length());
         if self.should_draw(&geom) {
-            let geom = match geom.intersection(&self.current_state.clip) {
+            let clipped = match geom.intersection(&self.current_state.clip) {
                 Some(geom) => geom,
                 None => return,
             };
 
+            let background = rect.background();
+            if let Brush::LinearGradient(g) = background {
+                let geom2 = geom.cast() * self.scale_factor;
+                let clipped2 = clipped.cast() * self.scale_factor;
+                let act_rect = (clipped.translate(self.current_state.offset.to_vector()).cast()
+                    * self.scale_factor)
+                    .round()
+                    .cast();
+
+                let angle = g.angle();
+
+                let tan = angle.to_radians().tan().abs();
+                let start = if !tan.is_finite() {
+                    255.
+                } else {
+                    let h = tan * geom.width() as f32;
+                    255. * h / (h + geom.height() as f32)
+                } as u8;
+                let mut angle = angle as i32 % 360;
+                if angle < 0 {
+                    angle += 360;
+                }
+                let mut stops = g.stops().copied().peekable();
+                let mut idx = 0;
+                let stop_count = g.stops().count();
+                while let (Some(mut s1), Some(mut s2)) = (stops.next(), stops.peek().copied()) {
+                    let mut flags = 0;
+                    if (angle % 180) > 90 {
+                        flags |= 0b1;
+                    }
+                    if angle <= 90 || angle > 270 {
+                        core::mem::swap(&mut s1, &mut s2);
+                        s1.position = 1. - s1.position;
+                        s2.position = 1. - s2.position;
+                        if idx == 0 {
+                            flags |= 0b100;
+                        }
+                        if idx == stop_count - 2 {
+                            flags |= 0b010;
+                        }
+                    } else {
+                        if idx == 0 {
+                            flags |= 0b010;
+                        }
+                        if idx == stop_count - 2 {
+                            flags |= 0b100;
+                        }
+                    }
+
+                    idx += 1;
+
+                    let (adjust_left, adjust_right) = if (angle % 180) > 90 {
+                        (
+                            (geom2.width() * s1.position).floor() as i16,
+                            (geom2.width() * (1. - s2.position)).ceil() as i16,
+                        )
+                    } else {
+                        (
+                            (geom2.width() * (1. - s2.position)).ceil() as i16,
+                            (geom2.width() * s1.position).floor() as i16,
+                        )
+                    };
+
+                    let gr = GradientCommand {
+                        color1: s1.color.into(),
+                        color2: s2.color.into(),
+                        start,
+                        flags,
+                        top_clip: Length::new(
+                            (clipped2.min_y() - geom2.min_y()) as i16
+                                - (geom2.height() * s1.position).floor() as i16,
+                        ),
+                        bottom_clip: Length::new(
+                            (geom2.max_y() - clipped2.max_y()) as i16
+                                - (geom2.height() * (1. - s2.position)).ceil() as i16,
+                        ),
+                        left_clip: Length::new(
+                            (clipped2.min_x() - geom2.min_x()) as i16 - adjust_left,
+                        ),
+                        right_clip: Length::new(
+                            (geom2.max_x() - clipped2.max_x()) as i16 - adjust_right,
+                        ),
+                    };
+
+                    let size_y = act_rect.height_length() + gr.top_clip + gr.bottom_clip;
+                    let size_x = act_rect.width_length() + gr.left_clip + gr.right_clip;
+                    if size_x.get() == 0 || size_y.get() == 0 {
+                        // the position are too close to each other
+                        // FIXME: For the first or the last, we should draw a plain color to the end
+                        continue;
+                    }
+
+                    self.processor.process_gradient(act_rect, gr);
+                }
+                return;
+            }
+
             // FIXME: gradients
-            let color = self.alpha_color(&rect.background());
+            let color = self.alpha_color(&background);
 
             if color.alpha() == 0 {
                 return;
             }
             self.processor.process_rectangle(
-                (geom.translate(self.current_state.offset.to_vector()).cast() * self.scale_factor)
+                (clipped.translate(self.current_state.offset.to_vector()).cast()
+                    * self.scale_factor)
                     .round()
                     .cast(),
                 color.into(),
