@@ -66,7 +66,7 @@ pub trait Platform {
 
     /// Returns the current interval to internal measure the duration to send a double click event.
     ///
-    /// A double click event is a serries of two pointer clicks.
+    /// A double click event is a series of two pointer clicks.
     fn double_click_interval(&self) -> core::time::Duration {
         core::time::Duration::from_millis(500)
     }
