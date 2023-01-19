@@ -231,7 +231,7 @@ fn main_loop(connection: &Connection, init_param: InitializeParams) -> Result<()
         #[cfg(feature = "preview-api")]
         preview: server_loop::PreviewApi {
             highlight: Box::new(
-                |ctx: &Rc<Context>,
+                |_ctx: &Rc<Context>,
                  path: Option<std::path::PathBuf>,
                  offset: u32|
                  -> Result<(), Box<dyn std::error::Error>> {
