@@ -56,12 +56,18 @@ export type FileReader = (_url: string) => Promise<string>;
 
 export class LspWaiter {
     #lsp_worker: Worker | null;
+    #previewer_port: MessagePort;
 
     constructor() {
+        const lsp_previewer_channel = new MessageChannel();
+        const lsp_side = lsp_previewer_channel.port1;
+        this.#previewer_port = lsp_previewer_channel.port2;
+
         this.#lsp_worker = new Worker(
             new URL("worker/lsp_worker.ts", import.meta.url),
             { type: "module" },
         );
+        this.#lsp_worker.postMessage(lsp_side, [lsp_side]);
 
         slint_init(); // Initialize Previewer!
     }
@@ -76,7 +82,7 @@ export class LspWaiter {
                 // We cannot start sending messages to the client before we start listening which
                 // the server only does in a future after the wasm is loaded.
                 if (m.data === "OK") {
-                    resolve(new Lsp(worker));
+                    resolve(new Lsp(worker, this.#previewer_port));
                 }
             };
         });
@@ -92,15 +98,26 @@ type RenderReply =
     | { type: "Result"; data: monaco.editor.IMarkerData[] };
 type BackendChatter = { type: "ErrorReport"; data: string };
 
+type HighlightInfo = { file: string; offset: number };
+
 class PreviewerBackend {
-    #port: MessagePort;
+    #client_port: MessagePort;
+    #lsp_port: MessagePort;
     #canvas_id: string | null = null;
     #instance: slint_preview.WrappedInstance | null = null;
+    #to_highlight: HighlightInfo = { file: "", offset: 0 };
     #is_rendering = false;
 
-    constructor(port: MessagePort) {
-        this.#port = port;
-        port.onmessage = (m) => {
+    constructor(client_port: MessagePort, lsp_port: MessagePort) {
+        this.#lsp_port = lsp_port;
+        this.#lsp_port.onmessage = (m) => {
+            if (m.data.command === "highlight") {
+                this.highlight(m.data.data.file, m.data.data.offset);
+            }
+        };
+
+        this.#client_port = client_port;
+        this.#client_port.onmessage = (m) => {
             try {
                 if (m.data.command === "set_canvas_id") {
                     this.canvas_id = m.data.canvas_id;
@@ -142,6 +159,12 @@ class PreviewerBackend {
                         },
                     )
                         .then((diagnostics) => {
+                            // Re-apply highlight:
+                            this.highlight(
+                                this.#to_highlight.file,
+                                this.#to_highlight.offset,
+                            );
+
                             port.postMessage({
                                 type: "Result",
                                 data: diagnostics,
@@ -155,7 +178,7 @@ class PreviewerBackend {
                     this.#is_rendering = false;
                 }
             } catch (e) {
-                port.postMessage({ type: "Error", data: e });
+                client_port.postMessage({ type: "Error", data: e });
             }
         };
     }
@@ -174,7 +197,7 @@ class PreviewerBackend {
         base_url: string,
         load_callback: (_url: string) => Promise<string>,
     ): Promise<monaco.editor.IMarkerData[]> {
-        if (this.#canvas_id === null) {
+        if (this.#canvas_id == null) {
             return Promise.resolve([]);
         }
 
@@ -186,7 +209,10 @@ class PreviewerBackend {
                 load_callback,
             );
 
-        this.#port.postMessage({ type: "ErrorReport", data: error_string });
+        this.#client_port.postMessage({
+            type: "ErrorReport",
+            data: error_string,
+        });
 
         const markers = diagnostics.map(function (x) {
             return {
@@ -227,13 +253,18 @@ class PreviewerBackend {
 
         return Promise.resolve(markers);
     }
+
+    private highlight(file_path: string, offset: number) {
+        this.#to_highlight = { file: file_path, offset: offset };
+        this.#instance?.highlight(file_path, offset);
+    }
 }
 
 // TODO: Remove this again and hide this behind the LSP.
 export class Previewer {
     #channel: MessagePort;
     #canvas_id: string | null = null;
-    #on_error: (error: string) => void = () => {
+    #on_error: (_error: string) => void = () => {
         return;
     };
 
@@ -247,17 +278,17 @@ export class Previewer {
         };
     }
 
+    get canvas_id() {
+        return this.#canvas_id;
+    }
+
     set canvas_id(id: string | null) {
         this.#canvas_id = id;
         this.#channel.postMessage({ command: "set_canvas_id", canvas_id: id });
     }
 
-    set on_error(callback: (error: string) => void) {
+    set on_error(callback: (_error: string) => void) {
         this.#on_error = callback;
-    }
-
-    get canvas_id() {
-        return this.#canvas_id;
     }
 
     public async render(
@@ -273,7 +304,7 @@ export class Previewer {
                 try {
                     const data = m.data as RenderReply;
                     switch (data.type) {
-                        case "LoadUrl":
+                        case "LoadUrl": {
                             const reply_port = m.ports[0];
                             load_callback(data.data)
                                 .then((content) => {
@@ -289,6 +320,7 @@ export class Previewer {
                                     });
                                 });
                             break;
+                        }
                         case "Error":
                             channel.port1.close();
                             reject(data.data);
@@ -326,7 +358,7 @@ export class Lsp {
     readonly #previewer_backend: PreviewerBackend;
     readonly #previewer: Previewer;
 
-    constructor(worker: Worker) {
+    constructor(worker: Worker, lsp_previewer_port: MessagePort) {
         this.#lsp_worker = worker;
         const reader = new FilterProxyReader(
             new BrowserMessageReader(this.#lsp_worker),
@@ -356,7 +388,10 @@ export class Lsp {
 
         const channel = new MessageChannel();
 
-        this.#previewer_backend = new PreviewerBackend(channel.port1);
+        this.#previewer_backend = new PreviewerBackend(
+            channel.port1,
+            lsp_previewer_port,
+        );
         this.#previewer = new Previewer(channel.port2);
     }
 
