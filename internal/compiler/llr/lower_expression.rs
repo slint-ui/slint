@@ -493,7 +493,6 @@ fn compute_layout_info(
                 None => sub_expression,
             }
         }
-        crate::layout::Layout::PathLayout(_) => unimplemented!(),
     }
 }
 
@@ -617,40 +616,6 @@ fn solve_layout(
                     ],
                     return_ty: Type::LayoutCache,
                 },
-            }
-        }
-        crate::layout::Layout::PathLayout(layout) => {
-            let width = layout_geometry_size(&layout.rect, Orientation::Horizontal, ctx);
-            let height = layout_geometry_size(&layout.rect, Orientation::Vertical, ctx);
-            let elements = compile_path(&layout.path, ctx);
-            let offset = if let Some(expr) = &layout.offset_reference {
-                llr_Expression::PropertyReference(ctx.map_property_reference(expr))
-            } else {
-                llr_Expression::NumberLiteral(0.)
-            };
-
-            // FIXME! repeater
-            let repeater_indices =
-                llr_Expression::Array { element_ty: Type::Int32, values: vec![], as_model: false };
-            let count = layout.elements.len();
-            llr_Expression::ExtraBuiltinFunctionCall {
-                function: "solve_path_layout".into(),
-                arguments: vec![
-                    make_struct(
-                        "PathLayoutData".into(),
-                        [
-                            ("width", Type::Float32, width),
-                            ("height", Type::Float32, height),
-                            ("x", Type::Float32, llr_Expression::NumberLiteral(0.)),
-                            ("y", Type::Float32, llr_Expression::NumberLiteral(0.)),
-                            ("elements", elements.ty(ctx), elements),
-                            ("offset", Type::Int32, offset),
-                            ("item_count", Type::Int32, llr_Expression::NumberLiteral(count as _)),
-                        ],
-                    ),
-                    repeater_indices,
-                ],
-                return_ty: Type::LayoutCache,
             }
         }
     }

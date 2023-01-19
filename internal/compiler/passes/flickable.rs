@@ -146,7 +146,6 @@ fn is_layout(base_type: &ElementType) -> bool {
     if let ElementType::Builtin(be) = base_type {
         match be.name.as_str() {
             "GridLayout" | "HorizontalLayout" | "VerticalLayout" => true,
-            "PathLayout" => false,
             _ => false,
         }
     } else {

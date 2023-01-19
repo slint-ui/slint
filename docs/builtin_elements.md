@@ -623,10 +623,6 @@ component Foo inherits Window {
 }
 ```
 
-## `PathLayout`
-
-FIXME: write docs
-
 ## `Flickable`
 
 The `Flickable` is a lower-level item that is the base for scrollable

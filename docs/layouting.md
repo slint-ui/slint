@@ -86,7 +86,6 @@ Slint comes with different layout elements that automatically calculate the posi
 
 * `VerticalLayout` / `HorizontalLayout`: The children are placed along the vertical or horizontal axis.
 * `GridLayout`: The children are placed in a grid of columns and rows.
-* `PathLayout`: The children are placed along a path.
 
 Layouts can also be nested, making it possible to create complex user interfaces.
 

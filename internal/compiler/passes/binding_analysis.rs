@@ -352,18 +352,11 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath)) {
                 crate::layout::Layout::BoxLayout(l) => {
                     visit_layout_items_dependencies(l.elems.iter(), *o, vis)
                 }
-                crate::layout::Layout::PathLayout(l) => {
-                    for it in &l.elements {
-                        vis(&NamedReference::new(it, "width").into());
-                        vis(&NamedReference::new(it, "height").into());
-                    }
-                }
             }
-            if let Some(g) = l.geometry() {
-                let mut g = g.clone();
-                g.rect = Default::default(); // already visited;
-                g.visit_named_references(&mut |nr| vis(&nr.clone().into()))
-            }
+
+            let mut g = l.geometry().clone();
+            g.rect = Default::default(); // already visited;
+            g.visit_named_references(&mut |nr| vis(&nr.clone().into()))
         }
         Expression::FunctionCall { function, arguments, .. } => {
             if let Expression::BuiltinFunctionReference(

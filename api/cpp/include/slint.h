@@ -580,16 +580,6 @@ box_layout_info_ortho(cbindgen_private::Slice<cbindgen_private::BoxLayoutCellDat
     return cbindgen_private::slint_box_layout_info_ortho(cells, &padding);
 }
 
-inline SharedVector<float> solve_path_layout(const cbindgen_private::PathLayoutData &data,
-                                             cbindgen_private::Slice<int> repeater_indexes)
-{
-    SharedVector<float> result;
-    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr),
-                                           repeater_indexes.len };
-    cbindgen_private::slint_solve_path_layout(&data, ri, &result);
-    return result;
-}
-
 /// Access the layout cache of an item within a repeater
 inline float layout_cache_access(const SharedVector<float> &cache, int offset, int repeater_index)
 {
