@@ -367,14 +367,24 @@ export class Lsp {
                     const request = data as RequestMessage;
                     const url = (request.params as string[])[0];
 
-                    this.read_url(url).then((text_contents) => {
-                        writer.write({
-                            jsonrpc: request.jsonrpc,
-                            id: request.id,
-                            result: text_contents,
-                            error: undefined,
-                        } as ResponseMessage);
-                    });
+                    this.read_url(url)
+                        .then((text_contents) => {
+                            writer.write({
+                                jsonrpc: request.jsonrpc,
+                                id: request.id,
+                                result: text_contents,
+                                error: undefined,
+                            } as ResponseMessage);
+                        })
+                        .catch((_) => {
+                            // Some files will fail to load, so fake them as empty files
+                            writer.write({
+                                jsonrpc: request.jsonrpc,
+                                id: request.id,
+                                result: "",
+                                error: undefined,
+                            } as ResponseMessage);
+                        });
 
                     return true;
                 }
@@ -412,7 +422,11 @@ export class Lsp {
     }
 
     private read_url(url: string): Promise<string> {
-        return this.#file_reader?.(url) ?? Promise.reject();
+        try {
+            return this.#file_reader?.(url) ?? Promise.reject();
+        } catch (e) {
+            return Promise.reject("Failed to read file");
+        }
     }
 
     get language_client(): MonacoLanguageClient {
