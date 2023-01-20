@@ -838,31 +838,41 @@ animate y { duration: 100ms; }
 
 ## States
 
-The `states` statement allow to declare states like this:
+The `states` statement allows to declare states and set properties of multiple elements in one go:
 
 ```slint
 component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
+    default-font-size: 24px;
 
-    text := Text { text: "hello"; }
-    in-out property<bool> pressed;
-    in-out property<bool> is-enabled;
-
-    states [
-        disabled when !root.is-enabled : {
-            background: gray; // same as root.background: gray;
-            text.color: white;
+    label := Text { }
+    ta := TouchArea {
+        clicked => {
+            active = !active;
         }
-        down when root.pressed : {
-            background: blue;
+    }
+    property <bool> active: true;
+    states [
+        active when active && !ta.has-hover: {
+            label.text: "Active";
+            root.background: blue;
+        }
+        active-hover when active && ta.has-hover: {
+            label.text: "Active\nHover";
+            root.background: green;
+        }
+        inactive when !active: {
+            label.text: "Inactive";
+            root.background: gray;
         }
     ]
 }
 ```
 
-In that example, when the `is-enabled` property is set to false, the `disabled` state will be entered
-This will change the color of the Rectangle and of the Text.
+In this example, the `active` and `active-hovered` states are defined depending on the value of the `active`
+boolean property and the `TouchArea`'s `has-hover`. So hovering will toggle between blue and green background,
+and adjust the text label accordingly. Clicking toggles the `active` property and thus enters the `inactive` state.
 
 ### Transitions
 
