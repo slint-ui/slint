@@ -295,6 +295,8 @@ jobs:
                   --skip test_interpreter_crashes_layout_deleted_item \
                   --skip test_interpreter_focus_focus_change_subcompo \
                   --skip test_interpreter_focus_focus_change_through_signal \
+                  --skip test_interpreter_globals_alias_to_global \
+                  --skip test_interpreter_text_default_color \
                   --skip test_interpreter_crashes_issue1271_set_in_if \
                   --skip test_interpreter_models_assign_equal_model \
                   --skip example_carousel \

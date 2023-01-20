@@ -264,12 +264,12 @@ export component GridBox inherits GridLayout {
 export component StandardTableView inherits Rectangle {
     callback sort-ascending(int);
     callback sort-descending(int);
-    
+
     private property <length> min-header-height: 42px;
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
-    in property <[[StandardListViewItem]]> rows;  
-   
+    in property <[[StandardListViewItem]]> rows;
+
     horizontal-stretch: 1;
     vertical-stretch: 1;
 
@@ -289,42 +289,42 @@ export component StandardTableView inherits Rectangle {
         current-sort-column = index;
     }
 
-    VerticalLayout {  
-        HorizontalLayout {  
+    VerticalLayout {
+        HorizontalLayout {
             for column[index] in columns : NativeTableHeaderSection {
                 item: column;
                 horizontal-stretch: column.horizontal-stretch;
 
-                TouchArea {  
-                    clicked => {  
+                TouchArea {
+                    clicked => {
                         sort(index);
                     }
                 }
             }
         }
 
-        scroll-view := ScrollView {  
+        scroll-view := ScrollView {
             vertical-stretch: 1;
 
-            VerticalLayout {  
+            VerticalLayout {
                 alignment: start;
-                
-                for row[i] in rows : HorizontalLayout {   
+
+                for row[i] in rows : HorizontalLayout {
                     for cell[index] in row : HorizontalBox {
                         horizontal-stretch: columns[index].horizontal-stretch;
                         min-width: columns[index].min-width;
                         min-height: root.min-header-height;
-                      
+
                         Rectangle {
                             line-edit := LineEditInner {
                                 opacity: self.has-focus ? 1.0 : 0.0;
                                 visible: cell.editable;
                                 text: cell.text;
-                                edited => {  
+                                edited => {
                                     cell.text = self.text;
                                 }
                             }
-    
+
                             if(!cell.editable || !line-edit.has-focus) : Text {
                                 font-size: line-edit.font-size;
                                 width: 100%;
@@ -336,7 +336,7 @@ export component StandardTableView inherits Rectangle {
                         }
                     }
                 }
-            }  
+            }
         }
     }
 }
