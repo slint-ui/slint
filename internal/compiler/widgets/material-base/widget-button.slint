@@ -8,7 +8,7 @@ import { md } from "md.slint";
 export component Button inherits Rectangle {
     callback clicked;
 
-    in-out property<string> text <=> label.text;
+    in property<string> text <=> label.text;
     out property<bool> has-focus:  state-layer.has-focus;
     out property<bool> pressed: self.enabled &&  state-layer.pressed;
     in property<bool> enabled <=> state-layer.enabled;
@@ -33,12 +33,12 @@ export component Button inherits Rectangle {
         drop-shadow-offset-y: 1px;
     }
 
-    state-layer := StateLayer {  
+    state-layer := StateLayer {
         has-ripple: true;
         border-radius: container.border-radius;
         background: md.sys.color.on-secondary-container;
         ripple-color: md.sys.color.secondary-ripple;
-        selection-background: md.sys.color.primary; 
+        selection-background: md.sys.color.primary;
         focusable: true;
 
         clicked => {
@@ -77,7 +77,7 @@ export component Button inherits Rectangle {
             label.opacity: 0.38;
             label.color: md.sys.color.on-surface;
         }
-        checked when root.checked: {      
+        checked when root.checked: {
             label.color: md.sys.color.on-primary;
         }
     ]

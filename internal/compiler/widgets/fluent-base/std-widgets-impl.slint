@@ -68,16 +68,16 @@ export global Palette  {
 
 
 export global StyleMetrics  {
-    in-out property<length> layout-spacing: 8px;
-    in-out property<length> layout-padding: 8px;
-    in-out property<length> text-cursor-width: 2px;
-    in-out property<brush> window-background: Palette.white;
-    in-out property<color> default-text-color: Palette.neutralDark;
-    in-out property<brush> textedit-background: Palette.white;
-    in-out property<color> textedit-text-color: Palette.neutralPrimary;
-    in-out property<brush> textedit-background-disabled: Palette.neutralLighter;
-    in-out property<color> textedit-text-color-disabled: Palette.neutralTertiary;
-    in-out property<bool> dark-color-scheme: Palette.dark-color-scheme;
+    out property<length> layout-spacing: 8px;
+    out property<length> layout-padding: 8px;
+    out property<length> text-cursor-width: 2px;
+    out property<brush> window-background: Palette.white;
+    out property<color> default-text-color: Palette.neutralDark;
+    out property<brush> textedit-background: Palette.white;
+    out property<color> textedit-text-color: Palette.neutralPrimary;
+    out property<brush> textedit-background-disabled: Palette.neutralLighter;
+    out property<color> textedit-text-color-disabled: Palette.neutralTertiary;
+    out property<bool> dark-color-scheme: Palette.dark-color-scheme;
 }
 
 export component Button inherits Rectangle {

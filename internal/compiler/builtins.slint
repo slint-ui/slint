@@ -570,7 +570,7 @@ export NativeComboBox := _ {
     in property <length> y;
     in property <length> width;
     in property <length> height;
-    in property <string> current_value;
+    in-out property <string> current_value;
     in-out property <bool> is_open;
     in property <bool> enabled: true;
     callback open_popup;
@@ -619,8 +619,7 @@ export NativeTab := _ {
     in property<string> title;
     in property<image> icon;
     in property<bool> enabled : true;
-    out property<bool> pressed;
-    out property<int> current; // supposed to be a binding to the tab
+    in-out property<int> current; // supposed to be a binding to the tab
     in property<int> tab-index;
     in property<int> current-focused;
     in property<int> num-tabs;

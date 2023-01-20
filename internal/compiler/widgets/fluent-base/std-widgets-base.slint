@@ -126,6 +126,7 @@ export component SpinBox inherits FocusScope {
     in-out property <int> value;
     in property <int> minimum;
     in property <int> maximum: 100;
+    // FIXME: remove
     in property <image> icon;
     // FIXME: remove?
     in property <length> font-size <=> button.font-size;
@@ -336,21 +337,21 @@ export component GroupBox inherits VerticalLayout {
 }
 
 export component TabWidgetImpl inherits Rectangle {
-    in-out property <length> content-x: 0;
-    in-out property <length> content-y: root.tabbar-preferred-height;
-    in-out property <length> content-height: root.height - root.tabbar-preferred-height;
-    in-out property <length> content-width: root.width;
-    in-out property <length> tabbar-x: 0;
-    in-out property <length> tabbar-y: 0;
-    in-out property <length> tabbar-height: root.tabbar-preferred-height;
-    in-out property <length> tabbar-width: root.width;
+    out property <length> content-x: 0;
+    out property <length> content-y: root.tabbar-preferred-height;
+    out property <length> content-height: root.height - root.tabbar-preferred-height;
+    out property <length> content-width: root.width;
+    out property <length> tabbar-x: 0;
+    out property <length> tabbar-y: 0;
+    out property <length> tabbar-height: root.tabbar-preferred-height;
+    out property <length> tabbar-width: root.width;
 
-    in-out property <length> tabbar-preferred-height;
-    in-out property <length> tabbar-preferred-width;
-    in-out property <length> content-min-height;
-    in-out property <length> content-min-width;
-    in-out property <int> current-index;
-    in-out property <int> current-focused;
+    in property <length> tabbar-preferred-height;
+    in property <length> tabbar-preferred-width;
+    in property <length> content-min-height;
+    in property <length> content-min-width;
+    in property <int> current-index;
+    in property <int> current-focused;
 
     preferred-width: root.content-min-width;
     min-width: max(root.content-min-width, root.tabbar-preferred-width);
@@ -359,15 +360,13 @@ export component TabWidgetImpl inherits Rectangle {
 }
 
 export component TabImpl inherits Rectangle {
-    in-out property<string> title <=> t.text;
-    //property<image> icon;
-    in-out property<bool> enabled: true;
-    in-out property<bool> has-focus: root.current-focused == root.tab-index;
-    in-out property<bool> pressed;
+    in property<string> title <=> t.text;
+    in property<bool> enabled: true;
+    property<bool> has-focus: root.current-focused == root.tab-index;
     in-out property<int> current; // The currently selected tab
-    in-out property<int> current-focused; // The currently focused tab
-    in-out property<int> tab-index; // The index of this tab
-    in-out property<int> num-tabs; // The total number of tabs
+    in property<int> current-focused; // The currently focused tab
+    in property<int> tab-index; // The index of this tab
+    in property<int> num-tabs; // The total number of tabs
 
     min-height: t.preferred-height + 16px;
     preferred-width: t.preferred-width + 16px;
@@ -380,7 +379,7 @@ export component TabImpl inherits Rectangle {
     vertical-stretch: 0;
 
     accessible-role: tab;
-    accessible-label <=> root.title;
+    accessible-label: root.title;
 
     touch := TouchArea {
         enabled <=> root.enabled;
@@ -501,7 +500,7 @@ export component ListView inherits ScrollView {
 }
 
 component StandardListViewBase inherits ListView {
-    in-out property<[StandardListViewItem]> model;
+    in property<[StandardListViewItem]> model;
     in-out property<int> current-item: -1;
     for item[idx] in root.model : Rectangle {
         l := HorizontalLayout {
