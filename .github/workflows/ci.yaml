@@ -162,7 +162,7 @@ jobs:
     - name: cpack
       working-directory: ${{ runner.workspace }}/cppbuild
       run: cmake --build . --config Debug --target package
-    - name: "Create C++ packages artefact"
+    - name: "Create C++ packages artifact"
       uses: actions/upload-artifact@v3
       with:
           name: cpp_bin-${{ matrix.os }}
