@@ -200,6 +200,7 @@ impl WrappedInstance {
     #[wasm_bindgen]
     pub fn highlight(&self, path: &str, offset: u32) {
         self.0.highlight(path.into(), offset);
+        let _ = slint_interpreter::invoke_from_event_loop(|| {}); // wake event loop
     }
 }
 
