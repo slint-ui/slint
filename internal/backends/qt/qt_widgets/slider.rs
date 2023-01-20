@@ -156,7 +156,11 @@ impl Item for NativeSlider {
                 data.pressed = 0;
                 InputEventResult::EventIgnored
             }
-            MouseEvent::Pressed { position: pos, button: PointerEventButton::Left } => {
+            MouseEvent::Pressed {
+                position: pos,
+                button: PointerEventButton::Left,
+                repeated: 0,
+            } => {
                 data.pressed_x = pos.x as f32;
                 data.pressed = 1;
                 data.pressed_val = value;
@@ -190,7 +194,6 @@ impl Item for NativeSlider {
                 debug_assert_ne!(button, PointerEventButton::Left);
                 InputEventResult::EventIgnored
             }
-            MouseEvent::DoubleClicked { .. } => InputEventResult::EventIgnored,
         };
         data.active_controls = new_control;
 

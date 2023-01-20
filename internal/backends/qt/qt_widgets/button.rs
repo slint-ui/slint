@@ -269,7 +269,6 @@ impl Item for NativeButton {
                 }
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
-            MouseEvent::DoubleClicked { .. } => return InputEventResult::EventIgnored,
         });
         if let MouseEvent::Released { position, .. } = event {
             if LogicalRect::new(

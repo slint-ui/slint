@@ -257,7 +257,7 @@ declare_value_struct_conversion!(struct i_slint_core::input::KeyboardModifiers {
 declare_value_struct_conversion!(struct i_slint_core::input::KeyEvent { text, modifiers, ..Default::default() });
 declare_value_struct_conversion!(struct i_slint_core::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
 declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..Default::default()});
-declare_value_struct_conversion!(struct i_slint_core::items::PointerEvent { kind, button });
+declare_value_struct_conversion!(struct i_slint_core::items::PointerEvent { kind, button, repeated });
 
 /// Implement From / TryFrom for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///

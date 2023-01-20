@@ -43,14 +43,22 @@ pub extern "C" fn slint_send_mouse_click(
     );
     state = crate::input::process_mouse_input(
         component.clone(),
-        MouseEvent::Pressed { position, button: crate::items::PointerEventButton::Left },
+        MouseEvent::Pressed {
+            position,
+            button: crate::items::PointerEventButton::Left,
+            repeated: 0,
+        },
         window_adapter,
         state,
     );
     slint_mock_elapsed_time(50);
     crate::input::process_mouse_input(
         component.clone(),
-        MouseEvent::Released { position, button: crate::items::PointerEventButton::Left },
+        MouseEvent::Released {
+            position,
+            button: crate::items::PointerEventButton::Left,
+            repeated: 0,
+        },
         window_adapter,
         state,
     );

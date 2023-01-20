@@ -457,7 +457,6 @@ pub struct TouchArea {
     pub mouse_y: Property<LogicalLength>,
     pub mouse_cursor: Property<MouseCursor>,
     pub clicked: Callback<VoidArg>,
-    pub double_clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
     pub pointer_event: Callback<PointerEventArg>,
     /// FIXME: remove this
@@ -518,7 +517,7 @@ impl Item for TouchArea {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        let result = if let MouseEvent::Released { position, button } = event {
+        let result = if let MouseEvent::Released { position, button, .. } = event {
             if button == PointerEventButton::Left
                 && LogicalRect::new(
                     LogicalPoint::default(),
@@ -534,17 +533,18 @@ impl Item for TouchArea {
         };
 
         match event {
-            MouseEvent::Pressed { position, button } => {
+            MouseEvent::Pressed { position, button, repeated } => {
                 self.grabbed.set(true);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(position.x_length());
                     Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(position.y_length());
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
                 }
-                Self::FIELD_OFFSETS
-                    .pointer_event
-                    .apply_pin(self)
-                    .call(&(PointerEvent { button, kind: PointerEventKind::Down },));
+                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                    button,
+                    kind: PointerEventKind::Down,
+                    repeated: repeated as i32,
+                },));
             }
             MouseEvent::Exit => {
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
@@ -552,18 +552,20 @@ impl Item for TouchArea {
                     Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                         button: PointerEventButton::None,
                         kind: PointerEventKind::Cancel,
+                        repeated: 0,
                     },));
                 }
             }
-            MouseEvent::Released { button, .. } => {
+            MouseEvent::Released { button, repeated, .. } => {
                 self.grabbed.set(false);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
                 }
-                Self::FIELD_OFFSETS
-                    .pointer_event
-                    .apply_pin(self)
-                    .call(&(PointerEvent { button, kind: PointerEventKind::Up },));
+                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                    button,
+                    kind: PointerEventKind::Up,
+                    repeated: repeated as i32,
+                },));
             }
             MouseEvent::Moved { .. } => {
                 return if self.grabbed.get() {
@@ -578,17 +580,6 @@ impl Item for TouchArea {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventAccepted
-                }
-            }
-            MouseEvent::DoubleClicked { position } => {
-                if LogicalRect::new(
-                    LogicalPoint::default(),
-                    LogicalSize::from_lengths(self.width(), self.height()),
-                )
-                .contains(position)
-                {
-                    Self::FIELD_OFFSETS.double_clicked.apply_pin(self).call(&());
-                    return InputEventResult::EventAccepted;
                 }
             }
         };
@@ -1434,4 +1425,5 @@ i_slint_common::for_each_enums!(declare_enums);
 pub struct PointerEvent {
     pub button: PointerEventButton,
     pub kind: PointerEventKind,
+    pub repeated: i32,
 }

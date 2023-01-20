@@ -182,8 +182,7 @@ impl Item for NativeSpinBox {
                     true
                 }
                 MouseEvent::Moved { .. } => false,
-                MouseEvent::Wheel { .. } => false,         // TODO
-                MouseEvent::DoubleClicked { .. } => false, // TODO
+                MouseEvent::Wheel { .. } => false, // TODO
             };
         data.active_controls = new_control;
         if changed {

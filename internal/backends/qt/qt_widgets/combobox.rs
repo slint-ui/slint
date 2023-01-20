@@ -85,7 +85,6 @@ impl Item for NativeComboBox {
                 }
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
-            MouseEvent::DoubleClicked { .. } => return InputEventResult::EventIgnored,
         });
         if matches!(event, MouseEvent::Released { .. }) {
             Self::FIELD_OFFSETS.is_open.apply_pin(self).set(true);

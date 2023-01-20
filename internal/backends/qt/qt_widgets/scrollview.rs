@@ -218,10 +218,6 @@ impl Item for NativeScrollView {
                     // TODO
                     InputEventResult::EventAccepted
                 }
-                MouseEvent::DoubleClicked { .. } => {
-                    // TODO
-                    InputEventResult::EventAccepted
-                }
             };
             self.data.set(data);
             result

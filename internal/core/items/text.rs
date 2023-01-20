@@ -326,7 +326,7 @@ impl Item for TextInput {
             return InputEventResult::EventIgnored;
         }
         match event {
-            MouseEvent::Pressed { position, button: PointerEventButton::Left } => {
+            MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
                 let clicked_offset =
                     window_adapter.renderer().text_input_byte_offset_for_position(self, position)
                         as i32;

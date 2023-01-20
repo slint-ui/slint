@@ -90,6 +90,7 @@ export struct PointerEvent := {
     //-name:slint::private_api::PointerEvent
     button: PointerEventButton,
     kind: PointerEventKind,
+    repeated: int,
 }
 
 export TouchArea := _ {
@@ -106,7 +107,6 @@ export TouchArea := _ {
     out property <length> pressed_y;
     in property <MouseCursor> mouse-cursor;
     callback clicked;
-    callback double-clicked();
     callback moved;
     callback pointer-event(PointerEvent);
     //-default_size_binding:expands_to_parent_geometry
