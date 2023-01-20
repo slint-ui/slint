@@ -13,6 +13,7 @@
         "start": "rimraf dist && npm run build:wasm_lsp && npm run build:wasm_preview && npm run start:vite",
         "start:vite": "vite --open",
         "start:vite_cypress": "vite --port=3001",
+        "start:vite_cypress-preview": "vite preview --port=3001",
         "syntax_check": "tsc --build --force",
         "test:cypress_run-chromium": "cypress run --browser=chromium --e2e",
         "test:cypress_open-chromium": "cypress open --browser=chromium --e2e",

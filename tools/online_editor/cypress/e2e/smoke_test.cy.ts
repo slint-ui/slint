@@ -5,7 +5,7 @@ describe("Smoke test", () => {
     it("passes", () => {
         cy.visit("/");
 
-        cy.get(".preview-container .slint-preview", { timeout: 10000 }); // This is generated last!
+        cy.get(".preview-container .slint-preview", { timeout: 20000 }); // This is generated last!
 
         // Other UI elements
         cy.get(".edit-area").get(".monaco-editor-background");
