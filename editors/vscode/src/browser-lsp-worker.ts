@@ -40,12 +40,17 @@ slint_init(slint_wasm_data).then((_) => {
         return await connection.sendRequest(method, params);
     }
 
+    function highlight(_path: string, _offset: number) {
+        // Implement this!
+    }
+
     connection.onInitialize((params: InitializeParams): InitializeResult => {
         the_lsp = slint_lsp.create(
             params,
             send_notification,
             send_request,
             load_file,
+            highlight,
         );
         return the_lsp.server_initialize_result(params.capabilities);
     });
