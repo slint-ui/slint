@@ -15,8 +15,11 @@ homepage = "https://slint-ui.com"
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+highlight = ["slint-interpreter/highlight"]
+
 [dependencies]
-slint-interpreter = { path = "../../internal/interpreter", default-features = false, features = ["std", "highlight", "backend-winit", "renderer-winit-femtovg", "compat-0-3-0"] }
+slint-interpreter = { path = "../../internal/interpreter", default-features = false, features = ["std", "backend-winit", "renderer-winit-femtovg", "compat-0-3-0"] }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 
