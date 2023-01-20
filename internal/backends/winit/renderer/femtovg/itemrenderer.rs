@@ -200,12 +200,13 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         };
 
         // Radius of rounded rect if we were to just fill the rectangle, without a border.
-        let fill_radius = rect.border_radius() * self.scale_factor;
+        let mut fill_radius = rect.border_radius() * self.scale_factor;
 
         // FemtoVG's border radius on stroke is in the middle of the border. But we want it to be the radius of the rectangle itself.
         // This is incorrect if fill_radius < border_width/2, but this can't be fixed. Better to have a radius a bit too big than no radius at all
         let stroke_border_radius = if fill_radius.get() > 0. {
-            (fill_radius - border_width / 2.).max(PhysicalLength::new(0.1f32))
+            fill_radius = fill_radius.max(border_width / 2. + PhysicalLength::new(1.));
+            fill_radius - border_width / 2.
         } else {
             fill_radius
         };
