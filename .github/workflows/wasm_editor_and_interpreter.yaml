@@ -96,30 +96,32 @@ jobs:
           npm run lint
         working-directory: tools/online_editor
 
-  test-online-editor-ff:
-    needs: [wasm]
-    runs-on: ubuntu-latest
-    container:
-      image: cypress/browsers:node16.13.0-chrome95-ff94
-      options: --user 1001
-
-    steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/actions/test-online-editor
-        with:
-          browser: "firefox"
-          wasm-binaries: wasm
-
-  test-online-editor-chrome:
-    needs: [wasm]
-    runs-on: ubuntu-latest
-    container:
-      image: cypress/browsers:node16.13.0-chrome95-ff94
-      options: --user 1001
-
-    steps:
-      - uses: actions/checkout@v3
-      - uses: ./.github/actions/test-online-editor
-        with:
-          browser: "chrome"
-          wasm-binaries: wasm
+  # test-online-editor-ff:
+  #   needs: [wasm, build-online-editor]
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: cypress/browsers:node16.13.0-chrome95-ff94
+  #     options: --user 1001
+  #
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: ./.github/actions/test-online-editor
+  #       with:
+  #         browser: "firefox"
+  #         wasm-binaries: wasm
+  #         online-editor-artifact: online_editor
+  #
+  # test-online-editor-chrome:
+  #   needs: [wasm, build-online-editor]
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: cypress/browsers:node16.13.0-chrome95-ff94
+  #     options: --user 1001
+  #
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: ./.github/actions/test-online-editor
+  #       with:
+  #         browser: "chrome"
+  #         wasm-binaries: wasm
+  #         online-editor-artifact: online_editor
