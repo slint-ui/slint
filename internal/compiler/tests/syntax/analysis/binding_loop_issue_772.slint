@@ -6,7 +6,7 @@ Alias := Rectangle {
     property <int> ps_width <=> viewport_width;
 }
 
-Foo := Rectangle {
+export Foo := Rectangle {
     property <int> base-prop: alias.viewport_width;
     //                       ^error{The binding for the property 'base-prop' is part of a binding loop}
 

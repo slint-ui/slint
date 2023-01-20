@@ -5,7 +5,7 @@ import { Carousel } from "carousel.slint";
 import { Card } from "card.slint";
 import { Theme } from "theme.slint";
 
-component MainWindow inherits Window {
+export component MainWindow inherits Window {
     private property<[{ title: string, image: image}]> navigation-items: [
        { title: "Settings", image: @image-url("svg/settings_black.svg") },
        { title: "Home", image: @image-url("svg/home_black.svg") },

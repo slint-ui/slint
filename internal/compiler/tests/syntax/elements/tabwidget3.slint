@@ -7,5 +7,5 @@ Test3 := Rectangle {
     }
 }
 
-Foo := TabWidget { }
-//    ^error{Unknown type TabWidget. \(The type exist as an internal type, but cannot be accessed in this scope\)}
+export Foo := TabWidget { }
+//           ^error{Unknown type TabWidget. \(The type exist as an internal type, but cannot be accessed in this scope\)}

@@ -8,7 +8,7 @@ global Singleton := {
 //  ^error{A global component cannot have an 'init' callback}
 }
 
-Test := Rectangle {
+export Test := Rectangle {
     callback init;
 //          ^error{Cannot override callback 'init'}
 }

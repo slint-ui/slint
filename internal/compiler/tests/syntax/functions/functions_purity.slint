@@ -138,7 +138,7 @@ Foo_Legacy := Rectangle {
 }
 
 
-Bar_Legacy := Rectangle {
+export Bar_Legacy := Rectangle {
     pure callback xc1 <=> f.c1;
 //  ^error{Purity of callbacks 'xc1' and 'f.c1' doesn't match}
     callback xc2 <=> f.c2;

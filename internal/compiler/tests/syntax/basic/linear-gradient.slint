@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-X := Rectangle {
+export X := Rectangle {
     property<brush> g1: @linear-gradient();
 //                      ^error{Expected angle expression}
     property<brush> g2: @linear-gradient(to left, blue, red);

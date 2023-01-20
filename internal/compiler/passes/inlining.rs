@@ -268,6 +268,7 @@ fn duplicate_sub_component(
 ) -> Rc<Component> {
     debug_assert!(component_to_duplicate.parent_element.upgrade().is_some());
     let new_component = Component {
+        node: component_to_duplicate.node.clone(),
         id: component_to_duplicate.id.clone(),
         root_element: duplicate_element_with_mapping(
             &component_to_duplicate.root_element,

@@ -26,7 +26,7 @@ Wrap := Rectangle {
     property <bool> test: square.width == square.height;
 }
 
-Test := Rectangle {
+export Test := Rectangle {
     property <image> source;
     GridLayout {
 //  ^error{The binding for the property 'layout-cache-h' is part of a binding loop}

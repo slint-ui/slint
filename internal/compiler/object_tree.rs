@@ -200,7 +200,7 @@ pub struct UsedSubTypes {
 /// Or is materialized for repeated expression.
 #[derive(Default, Debug)]
 pub struct Component {
-    //     node: SyntaxNode,
+    pub node: Option<SyntaxNode>,
     pub id: String,
     pub root_element: ElementRc,
 
@@ -254,6 +254,7 @@ impl Component {
         let mut child_insertion_point = None;
         let is_legacy_syntax = node.child_token(SyntaxKind::ColonEqual).is_some();
         let c = Component {
+            node: Some(node.clone().into()),
             id: parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default(),
             root_element: Element::from_node(
                 node.Element(),
@@ -2215,6 +2216,15 @@ impl Exports {
 
         if sorted_deduped_exports.is_empty() {
             if let Some(last_compo) = inner_components.last() {
+                if last_compo.is_global() {
+                    diag.push_warning(
+                        "Global singleton is implicitly marked for export. This is deprecated and it should be explicitly exported"
+                            .into(),
+                        &last_compo.node,
+                    );
+                } else {
+                    diag.push_warning("Component is implicitly marked for export. This is deprecated and it should be explicitly exported".into(), &last_compo.node)
+                }
                 let name = last_compo.id.clone();
                 sorted_deduped_exports.push((
                     ExportedName { name, name_ident: doc.clone().into() },

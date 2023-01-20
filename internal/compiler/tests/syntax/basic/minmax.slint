@@ -6,7 +6,7 @@ global Plop :=  {
 //                    ^error{Builtin function must be called}
 }
 
-SuperSimple := Rectangle {
+export SuperSimple := Rectangle {
     property <int> a: max + max() + max(45, "hello");
 //                    ^error{Builtin function must be called}
 //                          ^^error{Needs at least one argument}

@@ -18,7 +18,7 @@ Compo1 := Rectangle {
 //  ^error{The binding for the property 'bb' is part of a binding loop}
 }
 
-App := Rectangle {
+export App := Rectangle {
     cc := Compo1 {
         aa() => { return self.a; }
 //      ^error{The binding for the property 'aa' is part of a binding loop}

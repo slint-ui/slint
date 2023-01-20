@@ -14,7 +14,7 @@ WithStates := Rectangle {
     ]
 }
 
-Test := Rectangle {
+export Test := Rectangle {
 
     property <int> a: 45 + root.b;
     //               ^error{The binding for the property 'a' is part of a binding loop}

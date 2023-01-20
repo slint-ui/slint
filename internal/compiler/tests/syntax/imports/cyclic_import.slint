@@ -3,7 +3,7 @@
 
 import { Rec12 } from "../../typeloader/recursive_import1.slint";
 //                    ^error{No exported type called 'Rec12' found in ".*recursive_import1.slint"}
-Blah := Rec12 {
-//     ^error{Unknown type Rec12}
+export Blah := Rec12 {
+//            ^error{Unknown type Rec12}
     width: 100px;
 }

@@ -33,7 +33,7 @@ TestBox2 := Rectangle {
 //  ^error{The @children placeholder can only appear once in an element hierarchy}
 }
 
-Final := TestBox {
+export Final := TestBox {
     Rectangle {
         @children
 //      ^error{children placeholder not allowed in the final component}
