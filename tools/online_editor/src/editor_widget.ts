@@ -114,7 +114,7 @@ class EditorPaneWidget extends Widget {
 
     #onModelRemoved?: (_url: monaco.Uri) => void;
     #onModelAdded?: (_url: monaco.Uri) => void;
-    #onModelSelected?: (_url: monaco.Uri) => void;
+    #onModelSelected?: (_url: monaco.Uri | null) => void;
     #onModelsCleared?: () => void;
 
     static createNode(): HTMLElement {
@@ -296,7 +296,6 @@ class EditorPaneWidget extends Widget {
                 this.#editor.restoreViewState(state);
             }
             this.#editor.focus();
-            this.#onModelSelected?.(uri);
             return true;
         }
         return false;
@@ -405,6 +404,23 @@ class EditorPaneWidget extends Widget {
             },
         });
 
+        const original_set_model = editor.setModel;
+        editor.setModel = (model: monaco.editor.ITextModel) => {
+            const current_model = editor.getModel();
+            if (current_model != null) {
+                this.#editor_view_states.set(
+                    current_model.uri,
+                    editor.saveViewState(),
+                );
+            }
+
+            const state = this.#editor_view_states.get(model?.uri);
+            original_set_model.apply(editor, [model]);
+            if (state != null) {
+                editor.restoreViewState(state);
+            }
+        };
+
         this.#editor = editor;
 
         this.#disposables.push(
@@ -413,9 +429,10 @@ class EditorPaneWidget extends Widget {
             ),
         );
         this.#disposables.push(
-            editor.onDidChangeModel((_) =>
-                this.onPositionChangeCallback(this.position),
-            ),
+            editor.onDidChangeModel((event) => {
+                this.onPositionChangeCallback(this.position);
+                this.#onModelSelected?.(event.newModelUrl);
+            }),
         );
         this.#disposables.push(
             editor.onDidChangeModelContent((_) =>
@@ -447,7 +464,7 @@ class EditorPaneWidget extends Widget {
     set onModelRemoved(f: (_url: monaco.Uri) => void) {
         this.#onModelRemoved = f;
     }
-    set onModelSelected(f: (_url: monaco.Uri) => void) {
+    set onModelSelected(f: (_url: monaco.Uri | null) => void) {
         this.#onModelSelected = f;
     }
 
@@ -531,9 +548,12 @@ export class EditorWidget extends Widget {
                 this.#tab_map.delete(url);
             }
         };
-        this.#editor.onModelSelected = (url: monaco.Uri) => {
-            const title = this.#tab_map.get(url);
-            if (title != null && this.#tab_bar.currentTitle != title) {
+        this.#editor.onModelSelected = (url: monaco.Uri | null) => {
+            let title = null;
+            if (url !== null) {
+                title = this.#tab_map.get(url) ?? null;
+            }
+            if (this.#tab_bar.currentTitle != title) {
                 this.#tab_bar.currentTitle = title;
             }
         };
