@@ -197,9 +197,9 @@ impl WrappedInstance {
 
     /// THIS FUNCTION IS NOT PART THE PUBLIC API!
     /// Highlights instances of the requested component
+    #[cfg(feature = "highlight")]
     #[wasm_bindgen]
     pub fn highlight(&self, _path: &str, _offset: u32) {
-        #[cfg(feature = "highlight")]
         self.0.highlight(_path.into(), _offset);
         let _ = slint_interpreter::invoke_from_event_loop(|| {}); // wake event loop
     }

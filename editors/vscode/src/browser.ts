@@ -83,6 +83,16 @@ function startClient(context: vscode.ExtensionContext) {
                         return;
                     },
                 );
+                client.onRequest("slint/preview_message", async (msg: any) => {
+                    if (previewPanel) {
+                        // map urls to webview URL
+                        if (msg.command === "highlight") {
+                            msg.data.path = previewPanel.webview.asWebviewUri(Uri.parse(msg.data.path)).toString();
+                        }
+                        previewPanel.webview.postMessage(msg);
+                    }
+                    return;
+                });
                 //client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
 
                 vscode.workspace.onDidChangeConfiguration(async (ev) => {
@@ -362,6 +372,10 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
             if (resolve) {
                 delete promises[event.data.url];
                 resolve(event.data.content);
+            }
+        } else if (event.data.command === "highlight") {
+            if (current_instance) {
+                current_instance.highlight(event.data.data.path, event.data.data.offset);
             }
         }
     });
