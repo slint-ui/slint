@@ -40,8 +40,14 @@ slint_init(slint_wasm_data).then((_) => {
         return await connection.sendRequest(method, params);
     }
 
-    function highlight(_path: string, _offset: number) {
-        // Implement this!
+    function highlight(path: string, offset: number) {
+        connection.sendRequest(
+            "slint/preview_message",
+            {
+                command: "highlight",
+                data: { path: path, offset: offset },
+            },
+        );
     }
 
     connection.onInitialize((params: InitializeParams): InitializeResult => {
