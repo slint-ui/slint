@@ -18,7 +18,7 @@ int main()
             slint::SharedString text("item");
             text = text + slint::SharedString::from_number(c) + slint::SharedString(".")
                     + slint::SharedString::from_number(r);
-            items->push_back(slint::StandardListViewItem { text, c == 1 });
+            items->push_back(slint::StandardListViewItem { text });
         }
 
         row_data->push_back(items);

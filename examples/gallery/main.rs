@@ -27,10 +27,7 @@ pub fn main() {
         let items = Rc::new(VecModel::default());
 
         for c in 1..5 {
-            items.push(StandardListViewItem {
-                text: format!("Item {r}.{c}").into(),
-                editable: c == 1,
-            });
+            items.push(StandardListViewItem { text: format!("Item {r}.{c}").into() });
         }
 
         row_data.push(items.into());
