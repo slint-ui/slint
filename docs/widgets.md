@@ -556,6 +556,7 @@ Alternatively, if your IDE integration allows passing command line parameters, y
 
 * **`title`** (*string*): Describes the column header title.
 * **`min-width`** (*length*): Defines the minimum with of the column.
+* **`width`** (*length*): The current width of the column.
 * **`horizontal-stretch`** (*float*): Defines the horizontal stretch of the column.
 * **`sort-order`** (*`SortOrder`*): Describes the sort order of the column.
 
