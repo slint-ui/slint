@@ -172,5 +172,37 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), false);
 
+slint_testing::send_keyboard_char(&instance, 'a', true);
+slint_testing::send_keyboard_char(&instance, 'a', false);
+assert_eq!(instance.get_shift_modifier(), false);
+assert_eq!(instance.get_alt_modifier(), false);
+assert_eq!(instance.get_control_modifier(), false);
+assert_eq!(instance.get_meta_modifier(), false);
+
+// Check that loss of windows focus and regaining it, resets the internal modifier
+// state.
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), true);
+slint_testing::send_keyboard_char(&instance, 'a', true);
+slint_testing::send_keyboard_char(&instance, 'a', false);
+assert_eq!(instance.get_shift_modifier(), false);
+assert_eq!(instance.get_alt_modifier(), false);
+assert_eq!(instance.get_control_modifier(), true);
+assert_eq!(instance.get_meta_modifier(), false);
+
+// Pretend that Ctrl-something results in a loss of focus, so we never receive the "something" key,
+// but we observe a loss of focus.
+// TODO: create public API for window focus gain/loss
+let window_inner = slint::private_unstable_api::re_exports::WindowInner::from_pub(instance.window());
+window_inner.set_active(false);
+window_inner.set_focus(false);
+window_inner.set_active(true);
+window_inner.set_focus(true);
+
+slint_testing::send_keyboard_char(&instance, 'a', true);
+slint_testing::send_keyboard_char(&instance, 'a', false);
+assert_eq!(instance.get_shift_modifier(), false);
+assert_eq!(instance.get_alt_modifier(), false);
+assert_eq!(instance.get_control_modifier(), false);
+assert_eq!(instance.get_meta_modifier(), false);
 ```
 */

@@ -464,6 +464,12 @@ impl WindowInner {
         if let Some(focus_item) = self.focus_item.borrow().upgrade() {
             focus_item.borrow().as_ref().focus_event(&event, &self.window_adapter(), &focus_item);
         }
+
+        // If we lost focus due to for example a global shortcut, then when we regain focus
+        // should not assume that the modifiers are in the same state.
+        if !have_focus {
+            self.modifiers.take();
+        }
     }
 
     /// Take the focus_item out of this Window
