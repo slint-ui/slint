@@ -11,8 +11,6 @@ import * as vscode from "vscode";
 
 import { PropertiesViewProvider, set_client } from "./common";
 
-import { extract_uri_from_progress_message } from "../../../tools/online_editor/src/shared/utils";
-
 import {
     LanguageClient,
     LanguageClientOptions,
@@ -150,23 +148,6 @@ function startClient(context: vscode.ExtensionContext) {
 
     let clientOptions: LanguageClientOptions = {
         documentSelector: [{ language: "slint" }, { language: "rust" }],
-        middleware: {
-            handleWorkDoneProgress: (
-                token: ProgressToken,
-                params:
-                    | WorkDoneProgressBegin
-                    | WorkDoneProgressReport
-                    | WorkDoneProgressEnd,
-                next: HandleWorkDoneProgressSignature,
-            ) => {
-                if (params.kind === "end") {
-                    uri_loaded(
-                        extract_uri_from_progress_message(params.message || ""),
-                    );
-                }
-                next(token, params);
-            },
-        },
     };
 
     client = new LanguageClient(
@@ -185,12 +166,6 @@ function startClient(context: vscode.ExtensionContext) {
         );
     };
     client.onReady().then(initClient);
-}
-
-function uri_loaded(_uri: string) {
-    if (properties_provider !== null) {
-        properties_provider.refresh_view();
-    }
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -230,6 +205,7 @@ export function activate(context: vscode.ExtensionContext) {
             properties_provider,
         ),
     );
+    properties_provider.refresh_view();
 
     vscode.workspace.onDidChangeConfiguration(async (ev) => {
         if (ev.affectsConfiguration("slint")) {
@@ -237,6 +213,14 @@ export function activate(context: vscode.ExtensionContext) {
                 settings: "",
             });
         }
+    });
+
+    vscode.workspace.onDidChangeTextDocument(async (_) => {
+        // Send a request for properties information after passing through the
+        // event loop once to make sure the LSP got signaled to update.
+        setTimeout(() => {
+            properties_provider.refresh_view();
+        }, 1);
     });
 }
 

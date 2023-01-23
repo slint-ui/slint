@@ -6,7 +6,6 @@
 import { GotoPositionCallback } from "./text";
 import { LspPosition, LspURI } from "./lsp_integration";
 
-import { extract_uri_from_progress_message } from "./shared/utils";
 import { PropertyQuery, PropertiesView } from "./shared/properties";
 import {
     change_property,
@@ -17,14 +16,7 @@ import {
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
-import {
-    BaseLanguageClient,
-    HandleWorkDoneProgressSignature,
-    ProgressToken,
-    WorkDoneProgressBegin,
-    WorkDoneProgressEnd,
-    WorkDoneProgressReport,
-} from "vscode-languageclient";
+import { BaseLanguageClient } from "vscode-languageclient";
 
 export class PropertiesWidget extends Widget {
     #language_client: BaseLanguageClient | null = null;
@@ -33,7 +25,6 @@ export class PropertiesWidget extends Widget {
         return;
     };
     #propertiesView: PropertiesView;
-    #current_position: LspPosition | null = null;
 
     constructor() {
         const node = PropertiesView.createNode();
@@ -83,56 +74,10 @@ export class PropertiesWidget extends Widget {
     set_language_client(client: BaseLanguageClient | null) {
         if (client != null) {
             this.#language_client = client;
-            const work = client.middleware.handleWorkDoneProgress;
-            const new_work = (
-                token: ProgressToken,
-                params:
-                    | WorkDoneProgressBegin
-                    | WorkDoneProgressReport
-                    | WorkDoneProgressEnd,
-                next: HandleWorkDoneProgressSignature,
-            ) => {
-                if (params.kind === "begin") {
-                    this.data_stale(
-                        extract_uri_from_progress_message(params.message || ""),
-                    );
-                } else if (params.kind === "end") {
-                    this.data_valid(
-                        extract_uri_from_progress_message(params.message || ""),
-                    );
-                }
-                if (work != null) {
-                    work(token, params, next);
-                }
-            };
-            this.#language_client.middleware.handleWorkDoneProgress = new_work;
-        }
-    }
-
-    data_stale(uri: string) {
-        if (uri == this.#propertiesView.current_data_uri) {
-            this.#propertiesView.show_welcome("Refreshing data");
-        }
-    }
-
-    data_valid(uri: string) {
-        if (
-            uri == this.#propertiesView.current_data_uri &&
-            this.#current_position
-        ) {
-            query_properties(this.#language_client, uri, this.#current_position)
-                .then((r: PropertyQuery) => {
-                    this.#propertiesView.set_properties(r);
-                })
-                .catch(() => {
-                    this.#propertiesView.current_data_uri = uri.toString();
-                    this.#propertiesView.show_welcome("loading...");
-                });
         }
     }
 
     position_changed(uri: LspURI, _: number, position: LspPosition) {
-        this.#current_position = position;
         query_properties(this.#language_client, uri, position)
             .then((r: PropertyQuery) => {
                 this.#propertiesView.set_properties(r);

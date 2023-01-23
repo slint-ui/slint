@@ -370,6 +370,8 @@ function setup(lsp: Lsp) {
                 const properties = new PropertiesWidget();
 
                 properties.set_language_client(lsp.language_client);
+                const pos = editor.position;
+                properties.position_changed(pos.uri, pos.version, pos.position);
 
                 properties.on_goto_position = (uri, pos) => {
                     editor.goto_position(uri, pos);
