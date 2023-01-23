@@ -122,6 +122,13 @@ impl Item for NativeTableHeaderSection {
                 QImage header_image(size, QImage::Format_ARGB32_Premultiplied);
                 header_image.fill(Qt::transparent);
                 {QPainter p(&header_image); QPainter *painter_ = &p;
+            #else
+                // CE_Header in QCommonStyle calls setClipRect on the painter and replace the clips. So we need to cheat.
+                auto engine = (*painter)->paintEngine();
+                auto old_clip = engine->systemClip();
+                auto new_clip = old_clip & ((*painter)->clipRegion() * (*painter)->transform());
+                if (new_clip.isEmpty()) return;
+                engine->setSystemClip(new_clip);
             #endif
 
             QStyleOptionHeader option;
@@ -149,10 +156,19 @@ impl Item for NativeTableHeaderSection {
 
             qApp->style()->drawControl(QStyle::CE_Header, &option, painter_, widget);
 
-    #if defined(Q_OS_MAC)
-        }
-        (painter_)->drawImage(QPoint(), header_image);
-    #endif
+            #if defined(Q_OS_MAC)
+                }
+                (painter_)->drawImage(QPoint(), header_image);
+            #else
+                engine->setSystemClip(old_clip);
+                // Qt is seriously bugged, setSystemClip will be scaled by the scale factor
+                auto actual_clip = engine->systemClip();
+                if (actual_clip != old_clip) {
+                    QSizeF s2 = actual_clip.boundingRect().size();
+                    QSizeF s1 = old_clip.boundingRect().size();
+                    engine->setSystemClip(old_clip * QTransform::fromScale(s1.width() / s2.width(), s1.height() / s2.height()));
+                }
+            #endif
         });
     }
 }

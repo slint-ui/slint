@@ -1146,13 +1146,16 @@ pub struct TableColumn {
     pub title: SharedString,
 
     /// The minimum column width
-    pub min_width: f64,
+    pub min_width: Coord,
 
     /// The horizontal column stretch
     pub horizontal_stretch: f32,
 
     /// Sorts the column
     pub sort_order: SortOrder,
+
+    /// the actual width of the column
+    pub width: Coord,
 }
 
 #[test]
