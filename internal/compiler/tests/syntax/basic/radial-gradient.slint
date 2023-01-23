@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-X := Rectangle {
+export X := Rectangle {
     property<brush> g1: @radial-gradient();
 //                      ^error{Expected 'circle': currently, only @radial-gradient\(circle, ...\) are supported}
     property<brush> g2: @radial-gradient(circle at 100%, #333, #333 50%, #eee 75%, #333 75%);

@@ -232,22 +232,22 @@ fn self_test() -> std::io::Result<()> {
     // this should succeed
     assert!(process(
         r#"
-Foo := Rectangle { x: 0px; }
+export Foo := Rectangle { x: 0px; }
     "#
     )?);
 
     // unless we expected an error
     assert!(!process(
         r#"
-Foo := Rectangle { x: 0px; }
-//     ^error{i want an error}
+export Foo := Rectangle { x: 0px; }
+//            ^error{i want an error}
     "#
     )?);
 
     // An error should fail
     assert!(!process(
         r#"
-Foo := Rectangle foo { x:0px; }
+export Foo := Rectangle foo { x:0px; }
     "#
     )?);
 

@@ -1470,8 +1470,10 @@ mod tests {
 
     #[test]
     fn test_reload_document_valid_contents() {
-        let (_, url, diag) =
-            loaded_document_cache("fluent", r#"component Main inherits Rectangle { }"#.into());
+        let (_, url, diag) = loaded_document_cache(
+            "fluent",
+            r#"export component Main inherits Rectangle { }"#.into(),
+        );
 
         assert!(diag.len() == 1); // Only one URL is known
         let diagnostics = diag.get(&url).expect("URL not found in result");

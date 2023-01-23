@@ -16,7 +16,7 @@ global my_lowercase := {
 }
 
 
-X := Rectangle {
+export X := Rectangle {
     x: MyGlobal.custom_prop;
     background: MyGlobal.blue;
 //                       ^error{'MyGlobal' does not have a property 'blue'}

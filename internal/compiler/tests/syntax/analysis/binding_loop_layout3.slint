@@ -22,7 +22,7 @@ Compo := Rectangle {
 
 }
 
-Foo := Rectangle {
+export Foo := Rectangle {
     Compo {
 //  ^error{The binding for the property 'preferred-width' is part of a binding loop}
         the_text: self.preferred-width / 1px;

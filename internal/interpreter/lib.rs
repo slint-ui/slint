@@ -43,7 +43,7 @@ This example load a `.slint` from a string and set some properties:
 use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
 
 let code = r#"
-    MyWin := Window {
+    export MyWin := Window {
         property <string> my_name;
         Text {
             text: "Hello, " + my_name;

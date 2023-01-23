@@ -3,7 +3,7 @@
 
 // Cannot be put in the easing.slint test because it is in a different pass
 
-X := Rectangle {
+export X := Rectangle {
     property <int> g; animate g { easing: cubic-bezier; }
     //                                    ^error{must be called}
 }
