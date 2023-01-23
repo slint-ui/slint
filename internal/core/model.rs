@@ -1145,7 +1145,7 @@ pub struct TableColumn {
     /// The title of the column header
     pub title: SharedString,
 
-    /// The minimum column width
+    /// The minimum column width (logical length)
     pub min_width: Coord,
 
     /// The horizontal column stretch
@@ -1154,7 +1154,7 @@ pub struct TableColumn {
     /// Sorts the column
     pub sort_order: SortOrder,
 
-    /// the actual width of the column
+    /// the actual width of the column (logical length)
     pub width: Coord,
 }
 
