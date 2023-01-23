@@ -26,7 +26,7 @@ a green one that is a child of the blue:
 
 ```slint
 // Explicit positioning
-component Example inherits Window {
+export component Example inherits Window {
     width: 200px;
     height: 200px;
     Rectangle {
@@ -137,7 +137,7 @@ across the 200 logical pixels of `width`:
 
 ```slint
 // Stretch by default
-component Example inherits Window {
+export component Example inherits Window {
     width: 200px;
     height: 200px;
     HorizontalLayout {
@@ -153,7 +153,7 @@ the rectangles retain their specified minimum width:
 
 ```slint
 // Unless an alignment is specified
-component Example inherits Window {
+export component Example inherits Window {
     width: 200px;
     height: 200px;
     HorizontalLayout {
@@ -167,7 +167,7 @@ component Example inherits Window {
 The example below nests two layouts for a more complex scene:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 200px;
     height: 200px;
     HorizontalLayout {
@@ -209,7 +209,7 @@ The size of elements is bigger than the minimum size only if the alignment is st
 This example show the different alignment possibilities
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 300px;
     height: 200px;
     VerticalLayout {
@@ -272,7 +272,7 @@ factor of 0 or reached their maximum size.
 Examples:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 300px;
     height: 200px;
     VerticalLayout {
@@ -308,7 +308,7 @@ component Example inherits Window {
 The VerticalLayout and Horizontal layout may also contain `for` or `if` expressions, and it does what one expect
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 200px;
     height: 50px;
     HorizontalLayout {
@@ -332,7 +332,7 @@ As of now, the use of `for` or `if` is not allowed in a grid layout.
 This example use the `Row` element
 
 ```slint
-component Foo inherits Window {
+export component Foo inherits Window {
     width: 200px;
     height: 200px;
     GridLayout {
@@ -352,7 +352,7 @@ component Foo inherits Window {
 This example use the `col` and `row` property
 
 ```slint
-component Foo inherits Window {
+export component Foo inherits Window {
     width: 200px;
     height: 150px;
     GridLayout {

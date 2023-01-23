@@ -52,7 +52,7 @@ property equal to bool.
 example:
 
 ```slint
-component Foo inherits Rectangle {
+export component Foo inherits Rectangle {
    // test would fail if that property was false
    in-out property <bool> test: 1 + 1 == 2;
 }

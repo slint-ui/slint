@@ -500,7 +500,7 @@ export global Tr  {
     gettext(text, _) => { return text; }
 }
 
-component Example inherits Window {
+export component Example inherits Window {
     in-out property <int> count;
     HorizontalBox {
         Button {
@@ -885,7 +885,7 @@ component TableView inherits Rectangle {
     }
 }
 
-component Example inherits Window {
+export component Example inherits Window {
    TableView {
        columns: ["Device", "Mount Point", "Total", "Free"];
        values: [

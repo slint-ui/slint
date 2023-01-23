@@ -98,7 +98,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Example
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 270px;
     height: 100px;
 
@@ -187,7 +187,7 @@ An Image can be used to represent an image loaded from an image file.
 ### Example
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 100px;
     height: 100px;
     VerticalLayout {
@@ -206,7 +206,7 @@ component Example inherits Window {
 Scaled while preserving the aspect ratio:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 100px;
     height: 150px;
     VerticalLayout {
@@ -250,7 +250,7 @@ and the text itself.
 This example shows the text "Hello World" in red, using the default font:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 270px;
     height: 100px;
 
@@ -266,7 +266,7 @@ This example breaks a longer paragraph of text into multiple lines, by setting a
 policy and assigning a limited `width` and enough `height` for the text to flow down:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 270px;
     height: 300px;
 
@@ -324,7 +324,7 @@ property. The following example renders a shape consists of an arc and a rectang
 `move-to` and `arc` commands:
 
 ```slint
-component Example inherits Path {
+export component Example inherits Path {
     width: 100px;
     height: 100px;
     commands: "M 0 0 L 0 100 A 1 1 0 0 0 100 100 L 100 0 Z";
@@ -343,7 +343,7 @@ The shape of the path can also be described using elements that resemble the SVG
 `.slint` markup syntax. The earlier example using SVG commands can also be written like that:
 
 ```slint
-component Example inherits Path {
+export component Example inherits Path {
     width: 100px;
     height: 100px;
     stroke: blue;
@@ -473,7 +473,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 ### Example
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 200px;
     height: 100px;
     area := TouchArea {
@@ -521,7 +521,7 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 ### Example
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 100px;
     height: 100px;
     forward-focus: my-key-handler;
@@ -558,7 +558,7 @@ they will be computed by the layout respecting the minimum and maximum sizes and
 ## Example
 
 ```slint
-component Foo inherits Window {
+export component Foo inherits Window {
     width: 200px;
     height: 100px;
     HorizontalLayout {
@@ -590,7 +590,7 @@ Alternatively, the item can be put in a `Row` element.
 This example uses the `Row` element
 
 ```slint
-component Foo inherits Window {
+export component Foo inherits Window {
     width: 200px;
     height: 200px;
     GridLayout {
@@ -610,7 +610,7 @@ component Foo inherits Window {
 This example uses the `col` and `row` properties
 
 ```slint
-component Foo inherits Window {
+export component Foo inherits Window {
     width: 200px;
     height: 150px;
     GridLayout {
@@ -645,7 +645,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Example
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 270px;
     height: 100px;
 
@@ -697,7 +697,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Example
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 270px;
     height: 100px;
 
@@ -720,7 +720,7 @@ Note: It is not allowed to access properties of elements within the popup from o
 ### Example
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     width: 100px;
     height: 100px;
 
@@ -764,7 +764,7 @@ When viewed with the `slint-viewer` program, the `ok`, `cancel`, and `close` but
 
 ```slint
 import { StandardButton, Button } from "std-widgets.slint";
-component Example inherits Dialog {
+export component Example inherits Dialog {
     Text {
       text: "This is a dialog box";
     }

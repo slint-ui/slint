@@ -61,7 +61,7 @@ component MyButton inherits Text {
     // ...
 }
 
-component MyApp inherits Window {
+export component MyApp inherits Window {
     preferred-width: 200px;
     preferred-height: 100px;
 
@@ -87,7 +87,7 @@ These names are reserved and cannot be used as element names.
 To keep compatibility with previous version of Slint, the old syntax that declared component with `:=` is still valid
 
 ```slint,no-preview
-MyApp := Window {
+export MyApp := Window {
     //...
 }
 ```
@@ -103,7 +103,7 @@ are placed when they are used. For example, imagine a component that draws a lab
 whatever element the user places inside:
 
 ```slint,ignore
-component MyApp inherits Window {
+export component MyApp inherits Window {
 
     BoxWithLabel {
         Text {
@@ -130,7 +130,7 @@ component BoxWithLabel inherits GridLayout {
     }
 }
 
-component MyApp inherits Window {
+export component MyApp inherits Window {
     preferred-height: 100px;
     BoxWithLabel {
         Rectangle { background: blue; }
@@ -158,7 +158,7 @@ The elements can have properties. Built-in elements come with common properties 
 as color or dimensional properties. You can assign values or entire [expressions](#expressions) to them:
 
 ```slint,no-preview
-component Example inherits Window {
+export component Example inherits Window {
     // Simple expression: ends with a semi colon
     width: 42px;
     // or a code block (no semicolon needed)
@@ -171,7 +171,7 @@ component are public and can be accessed by the component using it as an element
 language bindings:
 
 ```slint,no-preview
-component Example {
+export component Example {
     // declare a property of type int with the name `my-property`
     property<int> my-property;
 
@@ -192,7 +192,7 @@ You can annotate the properties with a qualifier that specifies how the property
  * **`in-out`**: The property can be read and modified by everyone.
 
 ```slint,no-preview
-component Button {
+export component Button {
     // This is meant to be set by the user of the component.
     in property <string> text;
     // This property is meant to be read by the user of the component.
@@ -216,7 +216,7 @@ changing the `counter`  property automatically changes the text.
 
 ```slint
 import { Button } from "std-widgets.slint";
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 50px;
     preferred-height: 50px;
     Button {
@@ -240,7 +240,7 @@ The right hand side of the `<=>` must be a reference to a property of the same t
 The type can be omitted in a property declaration to have the type automatically inferred.
 
 ```slint,no-preview
-component Example  {
+export component Example  {
     in property<brush> rect-color <=> r.background;
     // it is allowed to omit the type to have it automatically inferred
     in property rect-color2 <=> r.background;
@@ -282,7 +282,7 @@ The trailing semicolon is optional.
 They can be initialized with a struct literal: `{ identifier1: expression1, identifier2: expression2  }`
 
 ```slint,no-preview
-component Example {
+export component Example {
     in-out property<{name: string, score: int}> player: { name: "Foo", score: 100 };
     in-out property<{a: int, }> foo: { a: 3 };
 }
@@ -298,7 +298,7 @@ export struct Player  {
     score: int,
 }
 
-component Example {
+export component Example {
     in-out property<Player> player: { name: "Foo", score: 100 };
 }
 ```
@@ -309,7 +309,7 @@ The type array is using square brackets for example  `[int]` is an array of `int
 basically used as models for the `for` expression.
 
 ```slint,no-preview
-component Example {
+export component Example {
     in-out property<[int]> list-of-int: [1,2,3];
     in-out property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
 }
@@ -335,7 +335,7 @@ component Example {
    a valid number. you can check with `is-float` if the string contains a valid number
 
 ```slint,no-preview
-component Example {
+export component Example {
     // ok: int converts to string
     property<{a: string, b: int}> prop1: {a: 12, b: 12 };
     // ok even if a is missing, it will just have the default value
@@ -357,7 +357,7 @@ Sometimes it is convenient to express the relationships of length properties in 
 For example the following inner blue rectangle has half the size of the outer green window:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
@@ -380,7 +380,7 @@ If these conditions are met, then it is not necessary to specify the parent prop
 use the percentage. The earlier example then looks like this:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
@@ -402,7 +402,7 @@ it with the mouse. In the example below, the emission of that callback is forwar
 handler and emitting our custom callback:
 
 ```slint,no-preview
-component Example inherits Rectangle {
+export component Example inherits Rectangle {
     // declare a callback
     callback hello;
 
@@ -419,7 +419,7 @@ component Example inherits Rectangle {
 It is also possible to add parameters to the callback.
 
 ```slint,no-preview
-component Example inherits Rectangle {
+export component Example inherits Rectangle {
     // declares a callback
     callback hello(int, string);
     hello(aa, bb) => { /* ... */ }
@@ -429,7 +429,7 @@ component Example inherits Rectangle {
 And return value.
 
 ```slint,no-preview
-component Example inherits Rectangle {
+export component Example inherits Rectangle {
     // declares a callback with a return value
     callback hello(int, int) -> int;
     hello(aa, bb) => { aa + bb }
@@ -441,7 +441,7 @@ component Example inherits Rectangle {
 It is possible to declare callback aliases in a similar way to two-way bindings:
 
 ```slint,no-preview
-component Example inherits Rectangle {
+export component Example inherits Rectangle {
     callback clicked <=> area.clicked;
     area := TouchArea {}
 }
@@ -453,7 +453,7 @@ You can declare helper functions with the function keyword.
 Functions are private by default, but can be made public with the `public` annotation.
 
 ```slint,no-preview
-component Example {
+export component Example {
     in property <int> min;
     in property <int> max;
     public function inbound(x: int) -> int {
@@ -480,7 +480,7 @@ Callbacks and public functions can be annotated with the `pure` keyword.
 Private functions can also be annotated with `pure`, otherwise their purity is automatically inferred.
 
 ```slint,no-preview
-component Example {
+export component Example {
     pure callback foo() -> int;
     public pure function bar(x: int) -> int
     { return x + foo(); }
@@ -495,7 +495,7 @@ these properties change, the expression is automatically re-evaluated and a new 
 to the property the expression is associated with:
 
 ```slint,no-preview
-component Example {
+export component Example {
     // declare a property of type int
     in-out property<int> my-property;
 
@@ -510,7 +510,7 @@ If something changes `my-property`, the width will be updated automatically.
 Arithmetic in expression with numbers works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
 ```slint,no-preview
-component Example {
+export component Example {
     in-out property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
 }
 ```
@@ -523,7 +523,7 @@ There are also the operators `&&` and `||` for logical *and* and *or* between bo
 You can access properties by addressing the associated element, followed by a `.` and the property name:
 
 ```slint,no-preview
-component Example {
+export component Example {
     foo := Rectangle {
         x: 42px;
     }
@@ -534,7 +534,7 @@ component Example {
 The ternary operator `... ? ... : ...`  is also supported, like in C or JavaScript:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
@@ -569,7 +569,7 @@ Anything else after a `\` is an error.
 (TODO: translations: `tr!"Hello"`)
 
 ```slint,no-preview
-component Example inherits Text {
+export component Example inherits Text {
     text: "hello";
 }
 ```
@@ -579,7 +579,7 @@ component Example inherits Text {
 Color literals follow the syntax of CSS:
 
 ```slint,no-preview
-component Example inherits Window {
+export component Example inherits Window {
     background: blue;
     property<color> c1: #ffaaff;
     property<brush> b2: Colors.red;
@@ -629,7 +629,7 @@ The following example shows a rectangle that's filled with a linear gradient tha
 color, interpolates to a very light shade in the center and finishes with an orange tone:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
@@ -652,7 +652,7 @@ The syntax is otherwise based on the CSS `radial-gradient` function.
 Example:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
     Rectangle {
@@ -671,7 +671,7 @@ relative to the file. In addition, it will also be looked in the include path sp
 It is possible to access the `width` and `height` of an image.
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 150px;
     preferred-height: 50px;
 
@@ -751,7 +751,7 @@ The *id* is also optional.
 ### Examples
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 300px;
     preferred-height: 100px;
     for my-color[index] in [ #e11, #1a2, #23d ]: Rectangle {
@@ -764,7 +764,7 @@ component Example inherits Window {
 ```
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 50px;
     preferred-height: 50px;
     in property <[{foo: string, col: color}]> model: [
@@ -786,7 +786,7 @@ Similar to `for`, the `if` construct can instantiate element only if a given con
 The syntax is `if condition : id := Element { ... }`
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 50px;
     preferred-height: 50px;
     if area.pressed : foo := Rectangle { background: blue; }
@@ -800,7 +800,7 @@ component Example inherits Window {
 Simple animation that animates a property can be declared with `animate` like this:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
@@ -841,7 +841,7 @@ animate y { duration: 100ms; }
 The `states` statement allows to declare states and set properties of multiple elements in one go:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
     default-font-size: 24px;
@@ -879,7 +879,7 @@ and adjust the text label accordingly. Clicking toggles the `active` property an
 Complex animations can be declared on state transitions:
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
@@ -918,7 +918,7 @@ global Palette  {
     in-out property<color> secondary: green;
 }
 
-component Example inherits Rectangle {
+export component Example inherits Rectangle {
     background: Palette.primary;
     border-color: Palette.secondary;
     border-width: 2px;
@@ -1062,7 +1062,7 @@ Similarly, components exported from other files can be accessed by importing the
 ```slint,ignore
 import { Button } from "./button.slint";
 
-component App inherits Rectangle {
+export component App inherits Rectangle {
     // ...
     Button {
         // ...
@@ -1077,7 +1077,7 @@ of assigning a different name at import time:
 import { Button } from "./button.slint";
 import { Button as CoolButton } from "../other_theme/button.slint";
 
-component App inherits Rectangle {
+export component App inherits Rectangle {
     // ...
     CoolButton {} // from other_theme/button.slint
     Button {} // from button.slint
@@ -1123,7 +1123,7 @@ You can manually activate the focus on an element by calling `focus()`:
 ```slint
 import { Button } from "std-widgets.slint";
 
-component App inherits Window {
+export component App inherits Window {
     VerticalLayout {
         alignment: start;
         Button {
@@ -1153,7 +1153,7 @@ component LabeledInput inherits GridLayout {
     }
 }
 
-component App inherits Window {
+export component App inherits Window {
     GridLayout {
         Button {
             text: "press me";
@@ -1179,7 +1179,7 @@ The debug function take a string as an argument and prints it
     It can be used like so: `x: 1000px + sin(animation-tick() / 1s * 360deg) * 100px;` or `y: 20px * mod(animation-tick(), 2s) / 2s `
 
 ```slint
-component Example inherits Window {
+export component Example inherits Window {
     preferred-width: 100px;
     preferred-height: 100px;
 
@@ -1218,7 +1218,7 @@ component MyCheckBox inherits Rectangle {
     init => { debug("second"); }
 }
 
-component MyWindow inherits Window {
+export component MyWindow inherits Window {
     MyButton {
         text: "Hello";
         init => { debug("third"); }
@@ -1237,7 +1237,7 @@ global SystemService  {
     callback ensure_service_running();
 }
 
-component MySystemButton inherits Rectangle {
+export component MySystemButton inherits Rectangle {
     init => {
         SystemService.ensure_service_running();
     }
@@ -1318,7 +1318,7 @@ For example:
 ```slint,ignore
 import "./NotoSans-Regular.ttf";
 
-component Example inherits Window {
+export component Example inherits Window {
     default-font-family: "Noto Sans";
 
     Text {
