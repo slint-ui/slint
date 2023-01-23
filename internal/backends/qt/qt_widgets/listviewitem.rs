@@ -146,6 +146,13 @@ impl Item for NativeStandardListViewItem {
             qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, painter->get(), widget);
             qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, painter->get(), widget);
             engine->setSystemClip(old_clip);
+            // Qt is seriously bugged, setSystemClip will be scaled by the scale factor
+            auto actual_clip = engine->systemClip();
+            if (actual_clip != old_clip) {
+                QSizeF s2 = actual_clip.boundingRect().size();
+                QSizeF s1 = old_clip.boundingRect().size();
+                engine->setSystemClip(old_clip * QTransform::fromScale(s1.width() / s2.width(), s1.height() / s2.height()));
+            }
         });
     }
 }
