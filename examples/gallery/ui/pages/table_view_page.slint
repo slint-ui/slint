@@ -8,24 +8,24 @@ import { Page } from "page.slint";
 export global TableViewPageAdapter  {
     callback sort_ascending(int);
     callback sort_descending(int);
-    in property <[[StandardListViewItem]]> row_data: [[
-        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
-        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
-        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
-        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
-        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
-        { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" },
-    ]];
+    in property <[[StandardListViewItem]]> row_data: [
+        [ { text: "Item 1.1" }, { text: "Item 1.2" }, { text: "Item 1.3" }, { text: "Item 1.4" }, ],
+        [ { text: "Item 2.1" }, { text: "Item 2.2" }, { text: "Item 2.3" }, { text: "Item 2.4" }, ],
+        [ { text: "Item 3.1" }, { text: "Item 3.2" }, { text: "Item 3.3" }, { text: "Item 3.4" }, ],
+        [ { text: "Item 4.1" }, { text: "Item 4.2" }, { text: "Item 4.3" }, { text: "Item 4.4" }, ],
+        [ { text: "Item 5.1" }, { text: "Item 5.2" }, { text: "Item 5.3" }, { text: "Item 5.4" }, ],
+        [ { text: "Item 6.1" }, { text: "Item 6.2" }, { text: "Item 6.3" }, { text: "Item 6.4" }, ],
+    ];
 }
- 
+
 export component TableViewPage inherits Page {
     title: "TableView";
     description: "StandardTableView can be used to display a list of text elements in columns and rows. It can be imported from \"std-widgets.slint\"";
 
-    HorizontalBox {   
+    HorizontalBox {
         vertical-stretch: 1;
 
-        GroupBox {  
+        GroupBox {
             title: "StandardTableView";
             vertical-stretch: 0;
 
