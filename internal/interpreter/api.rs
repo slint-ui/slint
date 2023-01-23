@@ -749,7 +749,7 @@ impl ComponentInstance {
     /// ```
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
-    ///     MyWin := Window {
+    ///     export MyWin := Window {
     ///         property <int> my_property: 42;
     ///     }
     /// "#;

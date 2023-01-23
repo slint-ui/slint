@@ -6,7 +6,7 @@ fn reuse_window() {
     i_slint_backend_testing::init();
     use crate::{ComponentCompiler, ComponentHandle, SharedString, Value};
     let code = r#"
-        MainWindow := Window {
+        export MainWindow := Window {
             property<string> text_text: "foo";
             property<string> text_alias: input.text;
             input := TextInput {
