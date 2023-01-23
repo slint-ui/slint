@@ -1208,24 +1208,18 @@ fn get_document_symbols(
 
     let inner_components = doc.inner_components.clone();
     let inner_structs = doc.inner_structs.clone();
-    let doc_node = doc.node.as_ref();
 
     let mut r = inner_components
         .iter()
         .filter_map(|c| {
             let root_element = c.root_element.borrow();
-            let node = root_element.node.as_ref();
-            let id = &c.id;
-
-            let selection_range = doc_node?
-                .Component()
-                .map(|cc| cc.DeclaredIdentifier())
-                .find(|di| &di.text().to_string().trim() == id)
-                .map(|di| offset_mapper.map_node(&di));
+            let element_node = root_element.node.as_ref()?;
+            let component_node = syntax_nodes::Component::new(element_node.parent()?)?;
+            let selection_range = offset_mapper.map_node(&component_node.DeclaredIdentifier());
 
             Some(DocumentSymbol {
-                range: offset_mapper.map_node(node?),
-                selection_range: selection_range?,
+                range: offset_mapper.map_node(&component_node),
+                selection_range,
                 name: c.id.clone(),
                 kind: if c.is_global() {
                     lsp_types::SymbolKind::OBJECT
