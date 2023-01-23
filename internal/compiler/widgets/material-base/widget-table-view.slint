@@ -10,20 +10,20 @@ component TableViewColumn inherits Rectangle {
     callback clicked <=> state-layer.clicked;
 
     in property <SortOrder> sort-order: SortOrder.unsorted;
-    
+
     state-layer := StateLayer {
         background: md.sys.color.primary;
-        selection-background: md.sys.color.secondary-container; 
+        selection-background: md.sys.color.secondary-container;
         ripple-color: md.sys.color.primary-ripple;
         has-ripple: true;
     }
 
-    HorizontalLayout {  
+    HorizontalLayout {
         padding-left: 16px;
         padding-right: 16px;
         spacing: 4px;
 
-        HorizontalLayout {  
+        HorizontalLayout {
             @children
         }
 
@@ -32,7 +32,7 @@ component TableViewColumn inherits Rectangle {
             width: 12px;
             height: 12px;
             y: (parent.height - self.height) / 2;
-            commands: root.sort-order == SortOrder.ascending ? 
+            commands: root.sort-order == SortOrder.ascending ?
                 "M24 44 10 30l2.1-2.1 10.4 10.4V4h3v34.3l10.4-10.4L38 30Z" :
                 "M22.5 44V9.7L12.1 20.1 10 18 24 4l14 14-2.1 2.1L25.5 9.7V44Z";
             fill: md.sys.color.on-surface;
@@ -40,7 +40,7 @@ component TableViewColumn inherits Rectangle {
     }
 
     // border
-    Rectangle {  
+    Rectangle {
         y: parent.height - self.height;
         width: 100%;
         height: 1px;
@@ -51,7 +51,7 @@ component TableViewColumn inherits Rectangle {
 component TableViewCell inherits Rectangle {
     clip: true;
 
-    HorizontalLayout {  
+    HorizontalLayout {
         padding-left: 16px;
         padding-right: 16px;
 
@@ -59,7 +59,7 @@ component TableViewCell inherits Rectangle {
     }
 
     // border
-    Rectangle {  
+    Rectangle {
         y: parent.height - self.height;
         width: 100%;
         height: 1px;
@@ -72,17 +72,17 @@ component TableViewRow inherits Rectangle {
 
     state-layer := StateLayer {
         background: md.sys.color.primary;
-        selection-background: md.sys.color.secondary-container; 
+        selection-background: md.sys.color.secondary-container;
         ripple-color: md.sys.color.primary-ripple;
         has-ripple: true;
     }
 
-    HorizontalLayout {  
+    HorizontalLayout {
        @children
     }
 }
 
-export component StandardTableView inherits Rectangle {
+export component StandardTableView {
     callback sort-ascending(int);
     callback sort-descending(int);
 
@@ -90,7 +90,7 @@ export component StandardTableView inherits Rectangle {
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
     in property <[[StandardListViewItem]]> rows;
-   
+
 
     min-width: 400px;
     min-height: 200px;
@@ -113,8 +113,8 @@ export component StandardTableView inherits Rectangle {
         root.current-sort-column = index;
     }
 
-    VerticalLayout {  
-        HorizontalLayout {  
+    VerticalLayout {
+        HorizontalLayout {
             padding-right: 20px;
             min-height: root.min-header-height;
             vertical-stretch: 0;
@@ -123,7 +123,7 @@ export component StandardTableView inherits Rectangle {
                 min-width: column.min-width;
                 horizontal-stretch: column.horizontal-stretch;
 
-                Text {  
+                Text {
                     vertical-alignment: center;
                     horizontal-stretch: column.horizontal-stretch;
                     min-width: column.min-width;
@@ -131,17 +131,17 @@ export component StandardTableView inherits Rectangle {
                     font-weight: 900;
                 }
 
-                clicked => {  
+                clicked => {
                     root.sort(index);
                 }
             }
         }
 
-        scroll-view := ScrollView {  
+        scroll-view := ScrollView {
             border-width: 0;
             vertical-stretch: 1;
 
-            VerticalLayout {  
+            VerticalLayout {
                 alignment: start;
 
                 for row in root.rows : TableViewRow {
@@ -150,16 +150,16 @@ export component StandardTableView inherits Rectangle {
                         horizontal-stretch: root.columns[index].horizontal-stretch;
                         min-width: root.columns[index].min-width;
 
-                        Rectangle {  
+                        Rectangle {
                             line-edit := LineEditInner {
                                 opacity: self.has-focus ? 1.0 : 0.0;
                                 visible: cell.editable;
                                 text: cell.text;
-                                edited => {  
+                                edited => {
                                     cell.text = self.text;
                                 }
                             }
-    
+
                             if(!cell.editable || !line-edit.has-focus) : Text {
                                 width: 100%;
                                 height: 100%;
@@ -170,7 +170,7 @@ export component StandardTableView inherits Rectangle {
                         }
                     }
                 }
-            } 
-        } 
+            }
+        }
     }
 }
