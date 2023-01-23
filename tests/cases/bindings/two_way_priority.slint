@@ -1,20 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-export OpacityTwoWay := Rectangle {
+OpacityTwoWay := Rectangle {
     property <float> sub_opacity <=> rect.opacity;
     rect := Rectangle {
         opacity: 0.75;
     }
 }
 
-export Compo := Rectangle {
+Compo := Rectangle {
     preferred-height: 10px;
     property<int> foo <=> self.bar;
     property<int> bar: 120;
 }
 
-TestCase := Window {
+export TestCase := Window {
     compo0 := Compo { foo: compo1.foo + 20; }
     compo1 := Compo {}
     compo2 := Compo { foo: compo1.foo + 10; }

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-export LineEdit := Rectangle {
+LineEdit := Rectangle {
     property <string> text <=> ti.text;
     ti := TextInput {  }
 }
@@ -14,7 +14,7 @@ LiTest := Rectangle {
     property <bool> test_li: li1.text == "li1" && li3.text == "li4";
 }
 
-TestCase := Window {
+export TestCase := Window {
 
     li := LiTest {  }
 

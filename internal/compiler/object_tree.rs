@@ -113,9 +113,9 @@ impl Document {
         let mut exports = Exports::from_node(&node, &inner_components, &local_registry, diag);
         exports.add_reexports(reexports, diag);
 
-        let root_component = inner_components
-            .last()
-            .cloned()
+        let root_component = exports
+            .last_exported_component
+            .clone()
             .or_else(|| {
                 node.ImportSpecifier()
                     .last()
@@ -2089,7 +2089,11 @@ impl ExportedName {
 }
 
 #[derive(Default, Debug, derive_more::Deref)]
-pub struct Exports(Vec<(ExportedName, Either<Rc<Component>, Type>)>);
+pub struct Exports {
+    #[deref]
+    components_or_types: Vec<(ExportedName, Either<Rc<Component>, Type>)>,
+    last_exported_component: Option<Rc<Component>>,
+}
 
 impl Exports {
     pub fn from_node(
@@ -2119,14 +2123,23 @@ impl Exports {
             };
 
         let mut sorted_exports_with_duplicates: Vec<(ExportedName, _)> = Vec::new();
+        let mut last_exported_component = None;
 
-        let mut extend_exports = |it: &mut dyn Iterator<Item = (ExportedName, _)>| {
-            for (name, compo_or_type) in it {
-                let pos = sorted_exports_with_duplicates
-                    .partition_point(|(existing_name, _)| existing_name.name <= name.name);
-                sorted_exports_with_duplicates.insert(pos, (name, compo_or_type));
-            }
-        };
+        let mut extend_exports =
+            |it: &mut dyn Iterator<Item = (ExportedName, Either<Rc<Component>, Type>)>| {
+                for (name, compo_or_type) in it {
+                    match compo_or_type.as_ref().left() {
+                        Some(compo) if !compo.is_global() => {
+                            last_exported_component = Some(compo.clone())
+                        }
+                        _ => {}
+                    }
+
+                    let pos = sorted_exports_with_duplicates
+                        .partition_point(|(existing_name, _)| existing_name.name <= name.name);
+                    sorted_exports_with_duplicates.insert(pos, (name, compo_or_type));
+                }
+            };
 
         extend_exports(
             &mut doc.ExportsList().flat_map(|exports| exports.ExportSpecifier()).filter_map(
@@ -2233,7 +2246,11 @@ impl Exports {
             }
         }
 
-        Self(sorted_deduped_exports)
+        if last_exported_component.is_none() {
+            last_exported_component = inner_components.last().cloned();
+        }
+
+        Self { components_or_types: sorted_deduped_exports, last_exported_component }
     }
 
     pub fn add_reexports(
@@ -2242,7 +2259,7 @@ impl Exports {
         diag: &mut BuildDiagnostics,
     ) {
         for export in other_exports {
-            match self.0.binary_search_by(|entry| entry.0.cmp(&export.0)) {
+            match self.components_or_types.binary_search_by(|entry| entry.0.cmp(&export.0)) {
                 Ok(_) => {
                     diag.push_warning(
                         format!(
@@ -2253,17 +2270,17 @@ impl Exports {
                     );
                 }
                 Err(insert_pos) => {
-                    self.0.insert(insert_pos, export);
+                    self.components_or_types.insert(insert_pos, export);
                 }
             }
         }
     }
 
     pub fn find(&self, name: &str) -> Option<Either<Rc<Component>, Type>> {
-        self.0
+        self.components_or_types
             .binary_search_by(|(exported_name, _)| exported_name.as_str().cmp(name))
             .ok()
-            .map(|index| self.0[index].1.clone())
+            .map(|index| self.components_or_types[index].1.clone())
     }
 }
 
@@ -2273,7 +2290,7 @@ impl std::iter::IntoIterator for Exports {
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        self.components_or_types.into_iter()
     }
 }
 

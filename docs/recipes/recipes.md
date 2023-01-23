@@ -966,7 +966,7 @@ export component SideBar inherits Rectangle {
     ]
 }
 
-component SideBarTest inherits Window {
+export component SideBarTest inherits Window {
     preferred-width: 700px;
     min-height: 400px;
 
