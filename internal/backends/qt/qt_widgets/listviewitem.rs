@@ -139,8 +139,9 @@ impl Item for NativeStandardListViewItem {
             // CE_ItemViewItem in QCommonStyle calls setClipRect on the painter and replace the clips. So we need to cheat.
             auto engine = (*painter)->paintEngine();
             auto old_clip = engine->systemClip();
-            auto new_clip = old_clip & ((*painter)->clipRegion() * (*painter)->transform());
-            if (new_clip.isEmpty()) return;
+            auto new_clip = ((*painter)->clipRegion() * (*painter)->transform());
+            if (!old_clip.isNull())
+                new_clip &= old_clip;
             engine->setSystemClip(new_clip);
 
             qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, painter->get(), widget);
