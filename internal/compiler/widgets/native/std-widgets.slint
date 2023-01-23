@@ -317,19 +317,7 @@ export component StandardTableView {
                             preferred-width: self.min-width;
                             max-width: (index < columns.length && columns[index].width >= 1px) ? max(columns[index].min-width, columns[index].width) : 100000px;
                             HorizontalLayout {
-                                if cell.editable : NativeStandardListViewItem {
-                                    index: i;
-                                    //is-selected: root.current-item == i;
-                                    has-hover: row-ta.has-hover;
-
-                                    LineEditInner {
-                                        text: cell.text;
-                                        edited => {
-                                            cell.text = self.text;
-                                        }
-                                    }
-                                }
-                                if !cell.editable : NativeStandardListViewItem {
+                                NativeStandardListViewItem {
                                     item: cell;
                                     index: i;
                                     //is-selected: root.current-item == i;

@@ -185,17 +185,7 @@ export component StandardTableView {
                         max-width: (index < columns.length && columns[index].width >= 1px) ? max(columns[index].min-width, columns[index].width) : 100000px;
 
                         Rectangle {
-                            // height: 100%;
-                            line-edit := LineEditInner {
-                                opacity: self.has-focus ? 1.0 : 0.0;
-                                visible: cell.editable;
-                                text: cell.text;
-                                edited => {
-                                    cell.text = self.text;
-                                }
-                            }
-
-                            if(!cell.editable || !line-edit.has-focus) : Text {
+                            Text {
                                 width: 100%;
                                 height: 100%;
                                 overflow: elide;

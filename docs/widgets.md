@@ -567,4 +567,4 @@ The `StandardListViewItem` is used to display items in the `StandardListView` an
 ### Properties
 
 * **`text`** (*string*): Describes the text of the item.
-* **`editable`** (*bool*): If set to `true` the text of the item can be changed by text editing.
+

@@ -1121,20 +1121,17 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 pub struct StandardListViewItem {
     /// The text content of the item.
     pub text: SharedString,
-
-    /// If set to `true` the text can be edited by the user.
-    pub editable: bool,
 }
 
 impl From<SharedString> for StandardListViewItem {
     fn from(value: SharedString) -> Self {
-        StandardListViewItem { text: value, editable: false }
+        StandardListViewItem { text: value }
     }
 }
 
 impl From<&str> for StandardListViewItem {
     fn from(value: &str) -> Self {
-        StandardListViewItem { text: value.into(), editable: false }
+        StandardListViewItem { text: value.into() }
     }
 }
 
