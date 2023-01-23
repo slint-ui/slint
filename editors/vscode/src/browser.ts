@@ -15,8 +15,6 @@ import {
     LanguageClient,
 } from "vscode-languageclient/browser";
 
-import { extract_uri_from_progress_message } from "../../../tools/online_editor/src/shared/utils";
-
 import { set_client, PropertiesViewProvider } from "./common";
 
 let client: LanguageClient;
@@ -33,23 +31,6 @@ function startClient(context: vscode.ExtensionContext) {
         documentSelector,
         synchronize: {},
         initializationOptions: {},
-        middleware: {
-            handleWorkDoneProgress: (
-                token: ProgressToken,
-                params:
-                    | WorkDoneProgressBegin
-                    | WorkDoneProgressReport
-                    | WorkDoneProgressEnd,
-                next: HandleWorkDoneProgressSignature,
-            ) => {
-                if (params.kind === "end") {
-                    uri_loaded(
-                        extract_uri_from_progress_message(params.message || ""),
-                    );
-                }
-                next(token, params);
-            },
-        },
     };
 
     const serverMain = Uri.joinPath(
@@ -87,7 +68,9 @@ function startClient(context: vscode.ExtensionContext) {
                     if (previewPanel) {
                         // map urls to webview URL
                         if (msg.command === "highlight") {
-                            msg.data.path = previewPanel.webview.asWebviewUri(Uri.parse(msg.data.path)).toString();
+                            msg.data.path = previewPanel.webview
+                                .asWebviewUri(Uri.parse(msg.data.path))
+                                .toString();
                         }
                         previewPanel.webview.postMessage(msg);
                     }
@@ -113,12 +96,6 @@ function startClient(context: vscode.ExtensionContext) {
             });
         }
     };
-}
-
-function uri_loaded(_uri: string) {
-    if (properties_provider !== null) {
-        properties_provider.refresh_view();
-    }
 }
 
 let previewPanel: vscode.WebviewPanel | undefined = undefined;
@@ -208,6 +185,12 @@ export function activate(context: vscode.ExtensionContext) {
             }
             reload_preview(previewUrl, content_str, previewComponent);
         }
+
+        // Send a request for properties information after passing through the
+        // event loop once to make sure the LSP got signaled to update.
+        setTimeout(() => {
+            properties_provider.refresh_view();
+        }, 1);
     });
 
     vscode.window.registerWebviewPanelSerializer(
@@ -222,6 +205,8 @@ export function activate(context: vscode.ExtensionContext) {
             properties_provider,
         ),
     );
+
+    properties_provider.refresh_view();
 }
 
 async function showPreview(

@@ -107,17 +107,12 @@ impl ServerNotifier {
 
     pub async fn progress_reporter(
         &self,
-        token: Option<lsp_types::ProgressToken>,
+        token: lsp_types::ProgressToken,
         title: String,
         message: Option<String>,
         percentage: Option<u32>,
         cancellable: Option<bool>,
     ) -> Result<server_loop::ProgressReporter, Error> {
-        let token = if let Some(t) = token {
-            t
-        } else {
-            server_loop::ProgressReporter::create_server_side_token(self).await?
-        };
         server_loop::ProgressReporter::new(
             self.clone(),
             token,
@@ -312,17 +307,6 @@ async fn handle_notification(
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
-            let uri = params.text_document.uri.to_string();
-            let progress = ctx
-                .server_notifier
-                .progress_reporter(
-                    None,
-                    "Opening document".into(),
-                    Some(format!("opening: {}@{}", uri, params.text_document.version)),
-                    None,
-                    None,
-                )
-                .await?;
             reload_document(
                 &ctx.server_notifier,
                 params.text_document.text,
@@ -331,21 +315,9 @@ async fn handle_notification(
                 &mut ctx.document_cache.borrow_mut(),
             )
             .await?;
-            progress.finish(Some(format!("Updated: {}@{}", uri, params.text_document.version)))?;
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
-            let uri = params.text_document.uri.to_string();
-            let progress = ctx
-                .server_notifier
-                .progress_reporter(
-                    None,
-                    "Changing document".into(),
-                    Some(format!("Changing: {}@{}", uri, params.text_document.version)),
-                    None,
-                    None,
-                )
-                .await?;
             reload_document(
                 &ctx.server_notifier,
                 params.content_changes.pop().unwrap().text,
@@ -354,7 +326,6 @@ async fn handle_notification(
                 &mut ctx.document_cache.borrow_mut(),
             )
             .await?;
-            progress.finish(Some(format!("Updated: {}@{}", uri, params.text_document.version)))?;
         }
         DidChangeConfiguration::METHOD => {
             load_configuration(ctx).await?;

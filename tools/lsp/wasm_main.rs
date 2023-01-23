@@ -70,17 +70,12 @@ impl ServerNotifier {
 
     pub async fn progress_reporter(
         &self,
-        token: Option<lsp_types::ProgressToken>,
+        token: lsp_types::ProgressToken,
         title: String,
         message: Option<String>,
         percentage: Option<u32>,
         cancellable: Option<bool>,
     ) -> Result<server_loop::ProgressReporter, Error> {
-        let token = if let Some(t) = token {
-            t
-        } else {
-            server_loop::ProgressReporter::create_server_side_token(self).await?
-        };
         server_loop::ProgressReporter::new(
             self.clone(),
             token,
@@ -248,17 +243,6 @@ impl SlintServer {
         wasm_bindgen_futures::future_to_promise(async move {
             let _lock = ReentryGuard::lock(guard).await;
             let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
-            let progress = ctx
-                .server_notifier
-                .progress_reporter(
-                    None,
-                    "Opening document".into(),
-                    Some(format!("Opening: {}@{}", uri.clone(), version)),
-                    None,
-                    None,
-                )
-                .await
-                .map_err(|e| JsError::new(&e.to_string()))?;
             server_loop::reload_document(
                 &ctx.server_notifier,
                 content,
@@ -268,9 +252,6 @@ impl SlintServer {
             )
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
-            progress
-                .finish(Some(format!("Updated: {}@{}", uri, version)))
-                .map_err(|e| JsError::new(&e.to_string()))?;
             Ok(JsValue::UNDEFINED)
         })
     }

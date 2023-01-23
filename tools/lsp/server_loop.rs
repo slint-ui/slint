@@ -31,7 +31,6 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub type Error = Box<dyn std::error::Error>;
 
@@ -107,21 +106,6 @@ impl ProgressReporter {
         )?;
 
         Ok(Self { notifier, token: Some(token) })
-    }
-
-    pub async fn create_server_side_token(
-        notifier: &crate::ServerNotifier,
-    ) -> Result<lsp_types::ProgressToken, Error> {
-        static SERVER_SIDE_WORK_DONE_TOKEN: AtomicUsize = AtomicUsize::new(0);
-
-        let token_number = SERVER_SIDE_WORK_DONE_TOKEN.fetch_add(1, Ordering::SeqCst);
-        let token = lsp_types::NumberOrString::String(format!("slint/progress/{token_number}"));
-        notifier
-            .send_request::<lsp_types::request::WorkDoneProgressCreate>(
-                lsp_types::WorkDoneProgressCreateParams { token: token.clone() },
-            )?
-            .await?;
-        Ok(token)
     }
 
     pub fn update(
