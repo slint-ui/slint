@@ -218,7 +218,9 @@ fn analyse_binding(
         return DependsOnExternal(true);
     }
 
-    binding.borrow_mut().analysis = Some(Default::default());
+    if let Ok(mut b) = binding.try_borrow_mut() {
+        b.analysis = Some(Default::default());
+    };
     context.currently_analyzing.insert(current.clone());
 
     let b = binding.borrow();
@@ -260,7 +262,11 @@ fn analyse_binding(
         }
     }
     drop(b);
-    binding.borrow_mut().analysis.as_mut().unwrap().is_const = is_const;
+
+    if let Ok(mut b) = binding.try_borrow_mut() {
+        // We have a loop (through different component so we're still borrowed)
+        b.analysis.as_mut().unwrap().is_const = is_const;
+    }
 
     match &binding.borrow().animation {
         Some(PropertyAnimation::Static(e)) => analyze_element(e, context, reverse_aliases, diag),
