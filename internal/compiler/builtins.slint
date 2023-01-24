@@ -365,8 +365,7 @@ export TabWidget := _ {
     in property <length> width;
     in property <length> height;
 
-    in property <int> current-index;
-    in property <int> current-focused;
+    in-out property <int> current-index;
 
     //-disallow_global_types_as_child_elements
     Tab {}

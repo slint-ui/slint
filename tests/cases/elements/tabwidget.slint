@@ -7,11 +7,12 @@ TestCase := Window {
     preferred_height: 500px;
     preferred_width: 500px;
 
-    property <int> current_tab;
+    property <int> current_tab: tw.current-index;
 
     VerticalLayout {
         padding: 20px;
         tw := TabWidget {
+            current-index: 1;
             Tab {
                 title: "Hello";
                 Rectangle {
@@ -33,5 +34,5 @@ TestCase := Window {
         }
     }
 
-    property <bool> test: tw.vertical_stretch == 1 && tw.horizontal_stretch == 1 && tw.min_height > 200px ;
+    property <bool> test: tw.vertical_stretch == 1 && tw.horizontal_stretch == 1 && tw.min_height > 200px && current-tab == 1;
 }
