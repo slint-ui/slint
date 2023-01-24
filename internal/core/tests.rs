@@ -46,7 +46,7 @@ pub extern "C" fn slint_send_mouse_click(
         MouseEvent::Pressed {
             position,
             button: crate::items::PointerEventButton::Left,
-            repeated: 0,
+            click_count: 0,
         },
         window_adapter,
         state,
@@ -57,7 +57,7 @@ pub extern "C" fn slint_send_mouse_click(
         MouseEvent::Released {
             position,
             button: crate::items::PointerEventButton::Left,
-            repeated: 0,
+            click_count: 0,
         },
         window_adapter,
         state,

@@ -27,9 +27,9 @@ use core::pin::Pin;
 #[allow(missing_docs)]
 pub enum MouseEvent {
     /// The mouse or finger was pressed
-    Pressed { position: LogicalPoint, button: PointerEventButton, repeated: u8 },
+    Pressed { position: LogicalPoint, button: PointerEventButton, click_count: u8 },
     /// The mouse or finger was released
-    Released { position: LogicalPoint, button: PointerEventButton, repeated: u8 },
+    Released { position: LogicalPoint, button: PointerEventButton, click_count: u8 },
     /// The position of the pointer has changed
     Moved { position: LogicalPoint },
     /// Wheel was operated.

@@ -13,7 +13,7 @@ use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak
 use crate::graphics::Point;
 use crate::input::{
     key_codes, InternalKeyboardModifierState, KeyEvent, KeyEventType, KeyInputEvent,
-    KeyboardModifiers, MouseEvent, MouseInputState, TextCursorBlinker,
+    KeyboardModifiers, MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
 use crate::items::{ItemRef, MouseCursor};
@@ -206,64 +206,50 @@ struct PopupWindow {
 }
 
 #[derive(Default)]
-struct MouseRepeatState {
-    released_time_stamp: Cell<Option<crate::animations::Instant>>,
-    release_count: Cell<u8>,
-    pressed_time_stamp: Cell<Option<crate::animations::Instant>>,
-    press_count: Cell<u8>,
-    press_button: Cell<Option<crate::items::PointerEventButton>>,
-    release_button: Cell<Option<crate::items::PointerEventButton>>,
+struct ClickState {
+    click_count_time_stamp: Cell<Option<crate::animations::Instant>>,
+    click_count: Cell<u8>,
 }
 
-impl MouseRepeatState {
+impl ClickState {
+    fn reset(&self) {
+        self.click_count.set(0);
+        self.click_count_time_stamp.set(Some(crate::animations::Instant::now()));
+    }
     fn check_repeat(&self, mut mouse_event: MouseEvent) -> MouseEvent {
         match mouse_event {
             MouseEvent::Pressed { position, button, .. } => {
-                if let Some(pressed_time_stamp) = self.pressed_time_stamp.get() {
-                    if crate::animations::Instant::now() - pressed_time_stamp
+                if let Some(click_count_time_stamp) = self.click_count_time_stamp.get() {
+                    if crate::animations::Instant::now() - click_count_time_stamp
                         < crate::platform::PLATFORM_INSTANCE
-                            .with(|p| p.get().map(|p| p.double_click_interval()))
+                            .with(|p| p.get().map(|p| p.click_interval()))
                             .unwrap_or_default()
-                        && self.press_button.get().eq(&Some(button))
+                        && button == PointerEventButton::Left
                     {
-                        self.press_count.set(self.press_count.get() + 1);
-                        self.pressed_time_stamp.set(Some(crate::animations::Instant::now()));
+                        self.click_count.set(self.click_count.get() + 1);
+                        self.click_count_time_stamp.set(Some(crate::animations::Instant::now()));
                         mouse_event = MouseEvent::Pressed {
                             position: position,
                             button: button,
-                            repeated: self.press_count.get(),
+                            click_count: self.click_count.get(),
                         }
                     } else {
-                        self.pressed_time_stamp.set(None);
+                        self.reset();
                     }
                 } else {
-                    self.press_count.set(0);
-                    self.press_button.set(Some(button));
-                    self.pressed_time_stamp.set(Some(crate::animations::Instant::now()));
+                    self.reset();
                 }
             }
             MouseEvent::Released { position, button, .. } => {
-                if let Some(released_time_stamp) = self.released_time_stamp.get() {
-                    if crate::animations::Instant::now() - released_time_stamp
-                        < crate::platform::PLATFORM_INSTANCE
-                            .with(|p| p.get().map(|p| p.double_click_interval()))
-                            .unwrap_or_default()
-                        && self.release_button.get().eq(&Some(button))
-                    {
-                        self.release_count.set(self.press_count.get() + 1);
-                        self.released_time_stamp.set(Some(crate::animations::Instant::now()));
-                        mouse_event = MouseEvent::Released {
-                            position: position,
-                            button: button,
-                            repeated: self.press_count.get(),
-                        }
-                    } else {
-                        self.released_time_stamp.set(None);
-                    }
-                } else {
-                    self.release_count.set(0);
-                    self.release_button.set(Some(button));
-                    self.released_time_stamp.set(Some(crate::animations::Instant::now()));
+                if self.click_count_time_stamp.get().is_none() {
+                    self.click_count_time_stamp.set(Some(crate::animations::Instant::now()));
+                    self.click_count.set(1);
+                }
+
+                mouse_event = MouseEvent::Released {
+                    position: position,
+                    button: button,
+                    click_count: self.click_count.get(),
                 }
             }
             _ => {}
@@ -291,7 +277,7 @@ pub struct WindowInner {
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
 
-    mouse_repeat_state: MouseRepeatState,
+    click_state: ClickState,
     /// This is a cache of the size set by the set_inner_size setter.
     /// It should be mapping with the WindowItem::width and height (only in physical)
     pub(crate) inner_size: Cell<PhysicalSize>,
@@ -340,7 +326,7 @@ impl WindowInner {
             active_popup: Default::default(),
             close_requested: Default::default(),
             inner_size: Default::default(),
-            mouse_repeat_state: MouseRepeatState::default(),
+            click_state: ClickState::default(),
         };
 
         window
@@ -393,7 +379,7 @@ impl WindowInner {
         crate::animations::update_animations();
 
         // handle multiple press release
-        event = self.mouse_repeat_state.check_repeat(event);
+        event = self.click_state.check_repeat(event);
 
         let embedded_popup_component =
             self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {

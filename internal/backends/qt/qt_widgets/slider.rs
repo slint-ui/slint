@@ -159,7 +159,7 @@ impl Item for NativeSlider {
             MouseEvent::Pressed {
                 position: pos,
                 button: PointerEventButton::Left,
-                repeated: 0,
+                click_count: 0,
             } => {
                 data.pressed_x = pos.x as f32;
                 data.pressed = 1;

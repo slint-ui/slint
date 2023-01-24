@@ -326,13 +326,19 @@ impl Item for TextInput {
             return InputEventResult::EventIgnored;
         }
         match event {
-            MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+            MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count } => {
                 let clicked_offset =
                     window_adapter.renderer().text_input_byte_offset_for_position(self, position)
                         as i32;
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position_byte_offset.set(clicked_offset);
-                self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
+
+                match click_count {
+                    1 => self.select_word(window_adapter, self_rc),
+                    2 => self.select_paragraph(window_adapter, self_rc),
+                    _ => self.set_cursor_position(clicked_offset, true, window_adapter, self_rc),
+                };
+
                 if !self.has_focus() {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
                 }
@@ -922,6 +928,40 @@ impl TextInput {
         );
         self.move_cursor(
             TextCursorDirection::EndOfText,
+            AnchorMode::KeepAnchor,
+            window_adapter,
+            self_rc,
+        );
+    }
+
+    fn select_word(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        self.move_cursor(
+            TextCursorDirection::ForwardByWord,
+            AnchorMode::MoveAnchor,
+            window_adapter,
+            self_rc,
+        );
+        self.move_cursor(
+            TextCursorDirection::BackwardByWord,
+            AnchorMode::KeepAnchor,
+            window_adapter,
+            self_rc,
+        );
+    }
+
+    fn select_paragraph(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        self.move_cursor(
+            TextCursorDirection::StartOfParagraph,
+            AnchorMode::MoveAnchor,
+            window_adapter,
+            self_rc,
+        );
+        self.move_cursor(
+            TextCursorDirection::EndOfParagraph,
             AnchorMode::KeepAnchor,
             window_adapter,
             self_rc,

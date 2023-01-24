@@ -533,7 +533,7 @@ impl Item for TouchArea {
         };
 
         match event {
-            MouseEvent::Pressed { position, button, repeated } => {
+            MouseEvent::Pressed { position, button, click_count } => {
                 self.grabbed.set(true);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(position.x_length());
@@ -543,7 +543,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                     button,
                     kind: PointerEventKind::Down,
-                    repeated: repeated as i32,
+                    click_count: click_count as i32,
                 },));
             }
             MouseEvent::Exit => {
@@ -552,11 +552,11 @@ impl Item for TouchArea {
                     Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                         button: PointerEventButton::None,
                         kind: PointerEventKind::Cancel,
-                        repeated: 0,
+                        click_count: 0,
                     },));
                 }
             }
-            MouseEvent::Released { button, repeated, .. } => {
+            MouseEvent::Released { button, click_count, .. } => {
                 self.grabbed.set(false);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
@@ -564,7 +564,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                     button,
                     kind: PointerEventKind::Up,
-                    repeated: repeated as i32,
+                    click_count: click_count as i32,
                 },));
             }
             MouseEvent::Moved { .. } => {
@@ -1425,5 +1425,5 @@ i_slint_common::for_each_enums!(declare_enums);
 pub struct PointerEvent {
     pub button: PointerEventButton,
     pub kind: PointerEventKind,
-    pub repeated: i32,
+    pub click_count: i32,
 }
