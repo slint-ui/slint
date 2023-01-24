@@ -215,6 +215,11 @@ export component MainWindow inherits Window {
     animate pieces-spacing { duration: 500ms; easing: ease-out; }
 
     Image {
+        // For the wasm build we want the puzzle to resize with the browser viewport, as per CSS in index.html.
+        // Our winit backend preserves the CSS set size if there's no preferred size set on the Slint window.
+        // This image propagates its preferred size and that means the window won't scale. By positioning it
+        // manually, the preferred size is ignored.
+        x: 0; y: 0;
         height: 100%; width: 100%;
         // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
         source: @image-url("berlin.jpg");
