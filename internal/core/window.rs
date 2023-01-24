@@ -12,8 +12,8 @@ use crate::api::{
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::Point;
 use crate::input::{
-    key_codes, InternalKeyboardModifierState, KeyEvent, KeyEventType, KeyInputEvent,
-    KeyboardModifiers, MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker,
+    key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, KeyInputEvent,
+    KeyboardModifiers, MouseEvent, MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
 use crate::items::{ItemRef, MouseCursor};
@@ -203,60 +203,6 @@ struct PopupWindow {
     location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
     component: ComponentRc,
-}
-
-#[derive(Default)]
-struct ClickState {
-    click_count_time_stamp: Cell<Option<crate::animations::Instant>>,
-    click_count: Cell<u8>,
-}
-
-impl ClickState {
-    fn reset(&self) {
-        self.click_count.set(0);
-        self.click_count_time_stamp.set(Some(crate::animations::Instant::now()));
-    }
-    fn check_repeat(&self, mut mouse_event: MouseEvent) -> MouseEvent {
-        match mouse_event {
-            MouseEvent::Pressed { position, button, .. } => {
-                if let Some(click_count_time_stamp) = self.click_count_time_stamp.get() {
-                    if crate::animations::Instant::now() - click_count_time_stamp
-                        < crate::platform::PLATFORM_INSTANCE
-                            .with(|p| p.get().map(|p| p.click_interval()))
-                            .unwrap_or_default()
-                        && button == PointerEventButton::Left
-                    {
-                        self.click_count.set(self.click_count.get() + 1);
-                        self.click_count_time_stamp.set(Some(crate::animations::Instant::now()));
-                        mouse_event = MouseEvent::Pressed {
-                            position: position,
-                            button: button,
-                            click_count: self.click_count.get(),
-                        }
-                    } else {
-                        self.reset();
-                    }
-                } else {
-                    self.reset();
-                }
-            }
-            MouseEvent::Released { position, button, .. } => {
-                if self.click_count_time_stamp.get().is_none() {
-                    self.click_count_time_stamp.set(Some(crate::animations::Instant::now()));
-                    self.click_count.set(1);
-                }
-
-                mouse_event = MouseEvent::Released {
-                    position: position,
-                    button: button,
-                    click_count: self.click_count.get(),
-                }
-            }
-            _ => {}
-        };
-
-        mouse_event
-    }
 }
 
 /// Inner datastructure for the [`crate::api::Window`]

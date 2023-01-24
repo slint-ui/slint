@@ -333,10 +333,12 @@ impl Item for TextInput {
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position_byte_offset.set(clicked_offset);
 
+                println!("click count {}", click_count);
                 match click_count {
-                    1 => self.select_word(window_adapter, self_rc),
-                    2 => self.select_paragraph(window_adapter, self_rc),
-                    _ => self.set_cursor_position(clicked_offset, true, window_adapter, self_rc),
+                    1 => self.set_cursor_position(clicked_offset, true, window_adapter, self_rc),
+                    2 => self.select_word(window_adapter, self_rc),
+                    3 => self.select_paragraph(window_adapter, self_rc),
+                    _ => {}
                 };
 
                 if !self.has_focus() {
@@ -936,13 +938,13 @@ impl TextInput {
 
     fn select_word(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         self.move_cursor(
-            TextCursorDirection::ForwardByWord,
+            TextCursorDirection::BackwardByWord,
             AnchorMode::MoveAnchor,
             window_adapter,
             self_rc,
         );
         self.move_cursor(
-            TextCursorDirection::BackwardByWord,
+            TextCursorDirection::ForwardByWord,
             AnchorMode::KeepAnchor,
             window_adapter,
             self_rc,
