@@ -30,13 +30,13 @@ pub struct Cli {
     #[arg(name = "path to .slint file(s)", action)]
     paths: Vec<std::path::PathBuf>,
 
-    /// modify the file inline instead of printing to stdout
+    /// Modify the file inline instead of printing to updated contents to stdout
     #[arg(short, long, action)]
     inline: bool,
 
-    /// Move all properties declaration to root
+    /// Move all properties declarations to root of each component
     #[arg(long, action)]
-    move_declaration: bool,
+    move_declarations: bool,
 }
 
 fn main() -> std::io::Result<()> {
@@ -237,13 +237,13 @@ fn visit_node(
 
                 state.current_component =
                     doc.inner_components.iter().find(|c| c.id == component_name).cloned();
-                if args.move_declaration {
+                if args.move_declarations {
                     experiments::lookup_changes::collect_movable_properties(&mut state);
                 }
             }
         }
         SyntaxKind::RepeatedElement | SyntaxKind::ConditionalElement => {
-            if args.move_declaration {
+            if args.move_declarations {
                 experiments::lookup_changes::collect_movable_properties(&mut state);
             }
         }

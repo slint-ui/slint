@@ -1,11 +1,21 @@
 # Slint Updater
 
-Use this tool to update Slint files from the current Syntax to the new experimental syntax, using the new
-component declaration and following the new rules tracked in [issue #1750](https://github.com/slint-ui/slint/issues/1750)
+This program is a tool to upgrade `.slint` files from the [Slint Project](https://slint-ui.com) to the latest syntax.
+
+The Slint Design Language evolves, with new features being added and old ones marked for deprecation. Use this tool to
+automatically upgrade your `.slint` files to the latest syntax.
+
+## Installation
+
+The updater can be installed from crates.io:
+
+```bash
+cargo install slint-updater
+```
 
 ### Usage:
 
 ```
-cargo run -p slint-updater -- -i /path/to/my/app/ui/**/*.slint
+slint-updater -i /path/to/my/app/ui/**/*.slint
 ```
 
