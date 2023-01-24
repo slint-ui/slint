@@ -42,7 +42,7 @@ instant = "0.1"
 raw-window-handle = { version = "0.5", features = ["alloc"] }
 
 skia-safe = { version = "0.58", features = ["textlayout"] }
-glow = { version = "0.11" }
+glow = { version = "0.12" }
 unicode-segmentation = { version = "1.8.0" }
 
 glutin = { version = "0.30", default-features = false, features = ["egl", "wgl"] }

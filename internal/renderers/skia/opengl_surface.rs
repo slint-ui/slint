@@ -35,11 +35,8 @@ impl super::Surface for OpenGLSurface {
             use glow::HasContext;
 
             let gl = unsafe {
-                glow::Context::from_loader_function(|name| {
-                    current_glutin_context
-                        .display()
-                        .get_proc_address(&std::ffi::CString::new(name).unwrap())
-                        as *const _
+                glow::Context::from_loader_function_cstr(|name| {
+                    current_glutin_context.display().get_proc_address(name) as *const _
                 })
             };
             let fboid = unsafe { gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) };
