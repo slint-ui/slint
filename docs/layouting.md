@@ -111,6 +111,10 @@ factor between the element and its siblings with these properties:
 A value of `0` means that the element will not be stretched at all; unless all siblings also have a stretch
 factor of `0`. Then all the elements will be equally stretched.
 
+The default value of these constraint properties may depends on the content of the element.
+If the element does not set a `x` or a `y` property, these constraints are also automatically applied to the parent element.
+When using the legacy syntax, only the layout elements apply their constraints to the parent.
+
 ## Common Properties on Layout Elements
 
 All layout elements have the following properties in common:
