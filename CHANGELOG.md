@@ -12,9 +12,8 @@ All notable changes to this project are documented in this file.
  - On an `Image`, the default value of `source-clip-width` and `source-clip-height` is now set to
    the size of the image minus the `source-clip-{x,y}`. The source clip size is now used to compute
    the default aspect ratio of the image.
- - deprecated `invoke_callback` functions in the slint interpreter in favor of `invoke`, they can also 
+ - deprecated `invoke_callback` functions in the slint interpreter in favor of `invoke`, they can also
    invoke functions in addition to callback
- - Propagate implicit constraints from child to parent, also when the child is not a layout (#783)
 
 ### Added
 

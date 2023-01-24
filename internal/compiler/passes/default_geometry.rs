@@ -144,6 +144,9 @@ fn gen_layout_info_prop(elem: &ElementRc) {
                 .clone()
                 .map(|(h, v)| (Expression::PropertyReference(h), Expression::PropertyReference(v)))
                 .or_else(|| {
+                    if c.borrow().is_legacy_syntax {
+                        return None;
+                    }
                     if c.borrow().repeated.is_some() {
                         // FIXME: we should ideally add runtime code to merge layout info of all elements that are repeated (same as #407)
                         return None;
