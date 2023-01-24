@@ -77,9 +77,15 @@ export class PropertiesWidget extends Widget {
         }
     }
 
-    position_changed(uri: LspURI, _: number, position: LspPosition) {
+    position_changed(uri: LspURI, version: number, position: LspPosition) {
         query_properties(this.#language_client, uri, position)
             .then((r: PropertyQuery) => {
+                if (r.source_version < version) {
+                    setTimeout(() => {
+                        this.position_changed(uri, version, position);
+                    }, 100);
+                    return;
+                }
                 this.#propertiesView.set_properties(r);
             })
             .catch(() => {
