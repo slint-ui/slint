@@ -779,14 +779,14 @@ pub async fn remove_binding_command(
             element_at_position(document_cache, &uri, &element_range.start).ok_or_else(|| {
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
-        let node_range = element
-            .borrow()
-            .node
-            .as_ref()
-            .ok_or_else(|| "The element was found, but had no range defined!")?
-            .text_range();
 
-        let node_range = offset_mapper.map_range(node_range);
+        let node_range = offset_mapper.map_node(
+            element
+                .borrow()
+                .node
+                .as_ref()
+                .ok_or_else(|| "The element was found, but had no range defined!")?,
+        );
 
         if node_range.start != element_range.start {
             return Err(format!(
