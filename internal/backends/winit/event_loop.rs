@@ -17,7 +17,6 @@ use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
 use corelib::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use corelib::window::*;
-use corelib::Coord;
 use std::cell::{Cell, RefCell, RefMut};
 use std::rc::{Rc, Weak};
 
@@ -349,8 +348,8 @@ fn process_window_event(
             };
             runtime_window.process_mouse_input(MouseEvent::Wheel {
                 position: *cursor_pos,
-                delta_x: delta_x as Coord,
-                delta_y: delta_y as Coord,
+                delta_x,
+                delta_y,
             });
         }
         WindowEvent::MouseInput { state, button, .. } => {

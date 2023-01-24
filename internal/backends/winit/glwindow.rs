@@ -423,7 +423,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     .filter(|f| *f > 0.)
             };
 
-            let into_size = |s: winit::dpi::LogicalSize<f32>| -> winit::dpi::Size {
+            let into_size = |s: winit::dpi::LogicalSize<Coord>| -> winit::dpi::Size {
                 if let Some(f) = scale_factor_override {
                     s.to_physical::<f32>(f).into()
                 } else {
@@ -475,12 +475,12 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             let window_builder = if std::env::var("SLINT_FULLSCREEN").is_ok() {
                 window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
             } else {
-                if layout_info_h.min >= 1. || layout_info_v.min >= 1. {
+                if layout_info_h.min >= 1. as Coord || layout_info_v.min >= 1. as Coord {
                     window_builder = window_builder.with_min_inner_size(into_size(
                         winit::dpi::LogicalSize::new(layout_info_h.min, layout_info_v.min),
                     ))
                 }
-                if layout_info_h.max < f32::MAX || layout_info_v.max < f32::MAX {
+                if layout_info_h.max < Coord::MAX || layout_info_v.max < Coord::MAX {
                     window_builder = window_builder.with_max_inner_size(into_size(
                         winit::dpi::LogicalSize::new(layout_info_h.max, layout_info_v.max),
                     ))
