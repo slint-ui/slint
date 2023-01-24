@@ -204,8 +204,24 @@ mod grid_internal {
             }
             .min(max_grow);
 
+            let mut distributed = 0 as Coord;
             for it in data.iter_mut().filter(|it| A::can_grow(it) > 0 as Coord) {
-                A::distribute(it, (grow * actual_stretch(it.stretch)) as Coord);
+                let val = (grow * actual_stretch(it.stretch)) as Coord;
+                A::distribute(it, val);
+                distributed += val;
+            }
+
+            if distributed <= 0 as Coord {
+                // This can happen when Coord is integer and there is less then a pixel to add to each elements
+                // just give the pixel to the one with the bigger stretch
+                if let Some(it) = data
+                    .iter_mut()
+                    .filter(|it| A::can_grow(it) > 0 as _)
+                    .max_by(|a, b| actual_stretch(a.stretch).total_cmp(&b.stretch))
+                {
+                    A::distribute(it, to_distribute as Coord);
+                }
+                return Some(());
             }
         }
     }
