@@ -142,6 +142,10 @@ class EditorPaneWidget extends Widget {
 
         this.#client = this.setup_editor(this.contentNode, lsp);
 
+        lsp.file_reader = (url) => {
+            return this.read_from_url(url);
+        };
+
         monaco.editor.onDidCreateModel((model) =>
             this.add_model_listener(model),
         );
