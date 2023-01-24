@@ -57,7 +57,7 @@ file. The Slint runtime expects the `<canvas>` element to have the id `id = "can
 <html>
   <body>
     <!-- canvas required by the Slint runtime -->
-    <canvas id="canvas">>/canvas>
+    <canvas id="canvas"></canvas>
     <script type="module">
       // import the generated file.
       import init from './pkg/memory.js';
