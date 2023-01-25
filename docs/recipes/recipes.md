@@ -305,12 +305,6 @@ export component Recipe inherits Window {
             out {
                 animate circle1.x, circle2.x { duration: 500ms; }
             }
-        in {
-                animate circle1.x, circle2.x { duration: 250ms; }
-            }
-        out {
-                animate circle1.x, circle2.x { duration: 500ms; }
-            }
         }
         right-aligned when !b1.pressed: {
             circle1.x: 170px; circle1.y: 70px;
