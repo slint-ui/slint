@@ -3,6 +3,12 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Changed
+
+### Added
+
+### Fixed
+
 ## [0.3.4] - 2023-01-25
 
 ### Changed
@@ -14,7 +20,7 @@ All notable changes to this project are documented in this file.
  - On an `Image`, the default value of `source-clip-width` and `source-clip-height` is now set to
    the size of the image minus the `source-clip-{x,y}`. The source clip size is now used to compute
    the default aspect ratio of the image.
- - Deprecated `invoke_callback` functions in the slint interpreter in favor of `invoke`, which can also 
+ - Deprecated `invoke_callback` functions in the slint interpreter in favor of `invoke`, which can also
    invoke functions in addition to callbacks.
  - Warn if the last component or singleton in a file is implicitly marked for exporting.
 
@@ -644,3 +650,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [0.3.1]: https://github.com/slint-ui/slint/releases/tag/v0.3.1
 [0.3.2]: https://github.com/slint-ui/slint/releases/tag/v0.3.2
 [0.3.3]: https://github.com/slint-ui/slint/releases/tag/v0.3.3
+[0.3.4]: https://github.com/slint-ui/slint/releases/tag/v0.3.4
