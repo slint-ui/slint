@@ -576,12 +576,15 @@ export class EditorWidget extends Widget {
         const params = new URLSearchParams(window.location.search);
         const code = params.get("snippet");
         const load_url = params.get("load_url");
+        const load_demo = params.get("load_demo");
 
         if (code) {
             this.#editor.clear_models();
             createModel(code);
         } else if (load_url) {
             this.load_from_url(load_url);
+        } else if (load_demo) {
+            this.set_demo(load_demo);
         } else {
             this.#editor.clear_models();
             createModel(hello_world);
