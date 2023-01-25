@@ -13,29 +13,23 @@ component Ko {
 
 (source_file
   (component_definition
-    (visibility_modifier)
-    (user_type_identifier)
-    (ERROR
-      (UNEXPECTED 'O'))
-    (field_declaration_list
-      (field_declaration_list_body
-        (var_identifier)
-        (property_definition
-          (builtin_type_identifier)
+    (export_modifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (property
+          (visibility_modifier)
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (value
-              (language_constant)))))))
+          (value
+            (bool_value))))))
   (component_definition
-    (user_type_identifier)
-    (ERROR
-      (UNEXPECTED 'K'))
-    (field_declaration_list
-      (field_declaration_list_body
-        (var_identifier)
-        (property_definition
-          (builtin_type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (property
+          (visibility_modifier)
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (value
-              (language_constant))))))))
+          (value
+            (bool_value)))))))

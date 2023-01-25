@@ -31,57 +31,54 @@ TestCase := Rectangle {
   (comment)
   (comment)
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body)))
+    (type_identifier)
+    (type_identifier)
+    (block))
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (ERROR
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (for_loop
           (var_identifier)
-          (int_number)
-          (UNEXPECTED 'R'))
-        (component_definition
-          (builtin_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body)
-            (ERROR
-              (var_identifier)
-              (int_number)
-              (UNEXPECTED 'L')
-              (var_identifier)
-              (int_number)
-              (UNEXPECTED 'L')))))))
-  (ERROR
-    (UNEXPECTED 'T')
-    (UNEXPECTED 'R'))
+          (for_range)
+          (component
+            (type_identifier)
+            (block
+              (block_statement
+                (for_loop
+                  (var_identifier)
+                  (for_range)
+                  (component
+                    (type_identifier)
+                    (block
+                      (block_statement
+                        (for_loop
+                          (var_identifier)
+                          (for_range)
+                          (component
+                            (type_identifier)
+                            (block))))))))))))))
   (component_definition
-    (builtin_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (component_definition
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body)))))))
+            (physical_length_value))))
+      (block_statement
+        (component
+          (type_identifier)
+          (block))))))
 
 ================================================================================
 repeaters
@@ -129,88 +126,87 @@ TestCase := Rectangle {
   (comment)
   (comment)
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (ERROR
-      (property_definition
-        (builtin_type_identifier)
-        (var_identifier)
-        (property_expr
-          (value
-            (language_constant))))
-      (var_identifier)
-      (int_number)
-      (UNEXPECTED 'T'))
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (assignment_prec_operator)
-          (string
-            (string_fragment)))
-        (component_definition
-          (user_type_identifier)
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body
-              (callback_event
-                (function_identifier)
-                (field_declaration_list
-                  (field_declaration_list_body
-                    (variable_set_equal
-                      (var_identifier
-                        (reference_identifier)
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (value
-                        (language_constant))))))))))))
-  (ERROR
-    (UNEXPECTED 'T')
-    (UNEXPECTED 'R'))
+          (value
+            (bool_value))))
+      (block_statement
+        (for_loop
+          (var_identifier)
+          (for_range)
+          (component
+            (type_identifier)
+            (block
+              (block_statement
+                (assignment
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (value
+                    (string_value
+                      (_string_fragment)))))
+              (block_statement
+                (component
+                  (var_identifier)
+                  (type_identifier)
+                  (block
+                    (block_statement
+                      (callback_event
+                        (function_identifier)
+                        (block
+                          (block_statement
+                            (assignment
+                              (var_identifier
+                                (reference_identifier)
+                                (post_identifier))
+                              (assignment_prec_operator)
+                              (value
+                                (bool_value))))))))))))))))
   (component_definition
-    (builtin_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (ERROR
-          (UNEXPECTED 'l')
-          (UNEXPECTED '.')
-          (UNEXPECTED 'l')
-          (UNEXPECTED 'T'))
-        (if_statement_definition
-          (expression_body_paren
-            (value
-              (language_constant)))
-          (component_definition
-            (user_type_identifier)
-            (field_declaration_list
-              (field_declaration_list_body)))))))
-  (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (property_alias
           (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (value_with_units
-              (number
-                (int_number))
-              (unit_type)))))))
-  (ERROR))
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (component
+          (type_identifier)
+          (block
+            (block_statement
+              (if_statement
+                (expression_body_paren
+                  (value
+                    (bool_value)))
+                (component
+                  (type_identifier)
+                  (block)))))))
+      (block_statement
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (length_value))))))))))

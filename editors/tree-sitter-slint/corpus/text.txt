@@ -21,37 +21,34 @@ TestCase := Window {
   (comment)
   (comment)
   (import_statement
-    (string
-      (string_fragment)))
+    (string_value
+      (_string_fragment)))
   (import_statement
-    (string
-      (string_fragment)))
+    (string_value
+      (_string_fragment)))
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
-          (string
-            (string_fragment)))))))
+          (value
+            (string_value
+              (_string_fragment))))))))
 
 ================================================================================
 default_color
@@ -91,142 +88,155 @@ TestCase := Rectangle {
 
 (source_file
   (import_statement
-    (user_type_identifier)
-    (string
-      (string_fragment)))
+    (type_identifier)
+    (string_value
+      (_string_fragment)))
   (component_definition
-    (user_type_identifier)
-    (ERROR
-      (user_type_identifier)
-      (UNEXPECTED 'u')
-      (UNEXPECTED 'u')
-      (UNEXPECTED 'o')
-      (UNEXPECTED 'u'))
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (property_alias
           (var_identifier)
-          (assignment_prec_operator)
-          (string
-            (string_fragment))))))
-  (ERROR
-    (UNEXPECTED 'T')
-    (UNEXPECTED 'R'))
-  (component_definition
-    (builtin_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (comment)
-        (property_definition
-          (user_type_identifier)
-          (ERROR)
           (var_identifier
-            (post_identifier)))
-        (component_definition
-          (user_type_identifier)
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body
-              (variable_set_equal
-                (var_identifier)
-                (assignment_prec_operator)
-                (string
-                  (string_fragment))))))
-        (component_definition
-          (user_type_identifier)
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body
-              (variable_set_equal
-                (var_identifier)
-                (assignment_prec_operator)
-                (string
-                  (string_fragment)))
-              (variable_set_equal
+            (post_identifier))))
+      (block_statement
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block
+            (block_statement
+              (assignment
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (color))
-                (ERROR)))))
-        (component_definition
-          (user_type_identifier)
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body
-              (variable_set_equal
+                  (string_value
+                    (_string_fragment))))))))))
+  (component_definition
+    (type_identifier)
+    (type_identifier)
+    (block
+      (comment)
+      (block_statement
+        (property_alias
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block
+            (block_statement
+              (assignment
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (color))))))
-        (component_definition
-          (user_type_identifier)
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body)))
-        (states_definition
-          (states_list_definition
-            (state_identifier)
-            (value
-              (language_constant))
-            (field_declaration_list
-              (field_declaration_list_body
-                (variable_set_equal
-                  (var_identifier
-                    (post_identifier))
-                  (assignment_prec_operator)
-                  (value
-                    (color)))))))
-        (property_definition
-          (user_type_identifier)
+                  (string_value
+                    (_string_fragment))))))))
+      (block_statement
+        (component
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (user_type_identifier)
+          (type_identifier)
+          (block
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (string_value
+                    (_string_fragment)))))
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (color_value)))))))
+      (block_statement
+        (component
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (user_type_identifier)
+          (type_identifier)
+          (block
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (color_value)))))))
+      (block_statement
+        (component
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (user_type_identifier)
-          (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
-          (var_identifier)
+          (type_identifier)
+          (block)))
+      (block_statement
+        (component
+          (type_identifier)
           (ERROR
-            (property_expr
-              (var_identifier))
-            (property_expr
-              (mult_binary_expression
+            (ERROR)
+            (value
+              (bool_value)))
+          (block
+            (block_statement
+              (assignment
                 (var_identifier
                   (post_identifier))
-                (mult_prec_operator)
-                (var_identifier)))
-            (property_expr
+                (assignment_prec_operator)
+                (value
+                  (color_value)))))))
+      (ERROR)
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (comparison_binary_expression
+            (comparison_binary_expression
+              (comparison_binary_expression
+                (comparison_binary_expression
+                  (type_identifier)
+                  (comparison_operator)
+                  (mult_binary_expression
+                    (var_identifier
+                      (post_identifier))
+                    (mult_prec_operator)
+                    (type_identifier)))
+                (comparison_operator)
+                (mult_binary_expression
+                  (value
+                    (color_value))
+                  (mult_prec_operator)
+                  (type_identifier)))
+              (comparison_operator)
               (mult_binary_expression
                 (value
-                  (color))
-                (ERROR)
+                  (color_value))
                 (mult_prec_operator)
-                (var_identifier)))
-            (property_expr
-              (mult_binary_expression
-                (value
-                  (color))
-                (mult_prec_operator)
-                (var_identifier))))
-          (property_expr
+                (type_identifier)))
+            (comparison_operator)
             (var_identifier
               (post_identifier))))))))
 
@@ -243,16 +253,18 @@ TestCase := TextInput {
 
 (source_file
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
-          (string
-            (string_fragment)))
-        (variable_set_equal
+          (value
+            (string_value
+              (_string_fragment)))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (var_identifier
@@ -276,40 +288,36 @@ TestCase := Window {
 
 (source_file
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (component_definition
-          (user_type_identifier)
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body)))
-        (property_definition
-          (builtin_type_identifier)
+            (physical_length_value))))
+      (block_statement
+        (component
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
-          (ERROR)
+          (type_identifier)
+          (block)))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property_alias
+          (type_identifier)
+          (var_identifier)
           (var_identifier
             (post_identifier)))))))
 
@@ -331,59 +339,61 @@ TestCase := TextInput {
 
 (source_file
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (property_definition
-          (builtin_type_identifier)
+            (physical_length_value))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
+          (comparison_binary_expression
             (var_identifier
-              (post_identifier)
-              (ERROR
-                (UNEXPECTED 'e'))
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+              (reference_identifier)
+              (post_identifier))
+            (comparison_operator)
+            (var_identifier
+              (reference_identifier)
+              (post_identifier)))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))))))
+          (var_identifier
+            (reference_identifier)
+            (post_identifier)))))))
 
 ================================================================================
 cursor_move_grapheme
@@ -403,59 +413,61 @@ TestCase := TextInput {
 
 (source_file
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (property_definition
-          (builtin_type_identifier)
+            (physical_length_value))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
+          (comparison_binary_expression
             (var_identifier
-              (post_identifier)
-              (ERROR
-                (UNEXPECTED 'e'))
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+              (reference_identifier)
+              (post_identifier))
+            (comparison_operator)
+            (var_identifier
+              (reference_identifier)
+              (post_identifier)))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))))))
+          (var_identifier
+            (reference_identifier)
+            (post_identifier)))))))
 
 ================================================================================
 cut
@@ -475,59 +487,61 @@ TestCase := TextInput {
 
 (source_file
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (property_definition
-          (builtin_type_identifier)
+            (physical_length_value))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
+          (comparison_binary_expression
             (var_identifier
-              (post_identifier)
-              (ERROR
-                (UNEXPECTED 'e'))
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+              (reference_identifier)
+              (post_identifier))
+            (comparison_operator)
+            (var_identifier
+              (reference_identifier)
+              (post_identifier)))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))))))
+          (var_identifier
+            (reference_identifier)
+            (post_identifier)))))))
 
 ================================================================================
 select_all
@@ -547,59 +561,61 @@ TestCase := TextInput {
 
 (source_file
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (property_definition
-          (builtin_type_identifier)
+            (physical_length_value))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
+          (comparison_binary_expression
             (var_identifier
-              (post_identifier)
-              (ERROR
-                (UNEXPECTED 'e'))
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+              (reference_identifier)
+              (post_identifier))
+            (comparison_operator)
+            (var_identifier
+              (reference_identifier)
+              (post_identifier)))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))))))
+          (var_identifier
+            (reference_identifier)
+            (post_identifier)))))))
 
 ================================================================================
 surrogate_cursor
@@ -619,59 +635,61 @@ TestCase := TextInput {
 
 (source_file
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (property_definition
-          (builtin_type_identifier)
+            (physical_length_value))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
+          (comparison_binary_expression
             (var_identifier
-              (post_identifier)
-              (ERROR
-                (UNEXPECTED 'e'))
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+              (reference_identifier)
+              (post_identifier))
+            (comparison_operator)
+            (var_identifier
+              (reference_identifier)
+              (post_identifier)))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))))))
+          (var_identifier
+            (reference_identifier)
+            (post_identifier)))))))
 
 ================================================================================
 text_change
@@ -696,68 +714,64 @@ TestCase := Window {
 
 (source_file
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (component_definition
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body
-              (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (component
+          (type_identifier)
+          (block
+            (block_statement
+              (assignment
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (number
-                    (int_number))))
-              (variable_set_equal
+                  (int_value))))
+            (block_statement
+              (assignment
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (number
-                    (int_number))))
-              (component_definition
-                (user_type_identifier)
-                (user_type_identifier)
-                (field_declaration_list
-                  (field_declaration_list_body)))
-              (component_definition
-                (user_type_identifier)
-                (field_declaration_list
-                  (field_declaration_list_body))))))
-        (property_definition
-          (builtin_type_identifier)
-          (ERROR)
+                  (int_value))))
+            (block_statement
+              (component
+                (var_identifier)
+                (type_identifier)
+                (block)))
+            (block_statement
+              (component
+                (type_identifier)
+                (block))))))
+      (block_statement
+        (property_alias
+          (type_identifier)
+          (var_identifier)
           (var_identifier
-            (post_identifier)))
-        (property_definition
-          (builtin_type_identifier)
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))))))
+          (var_identifier
+            (post_identifier)))))))
 
 ================================================================================
 text_property_change
@@ -798,101 +812,108 @@ TestCase := Window {
 (source_file
   (comment)
   (global_definition
-    (var_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (property_definition
-          (builtin_type_identifier)
-          (ERROR)
-          (var_identifier))
-        (property_definition
-          (builtin_type_identifier)
-          (var_identifier))
-        (property_definition
-          (builtin_type_identifier)
-          (var_identifier)
-          (property_expr
-            (var_identifier))))))
+    (type_identifier)
+    (ERROR
+      (property
+        (type_identifier)
+        (var_identifier)
+        (ERROR
+          (UNEXPECTED 'r')))
+      (property
+        (type_identifier)
+        (var_identifier)))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (type_identifier)))
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (component_definition
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body
-              (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (component
+          (type_identifier)
+          (block
+            (block_statement
+              (assignment
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (number
-                    (int_number))))
-              (variable_set_equal
+                  (int_value))))
+            (block_statement
+              (assignment
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (number
-                    (int_number))))
-              (component_definition
-                (user_type_identifier)
-                (user_type_identifier)
-                (field_declaration_list
-                  (field_declaration_list_body
-                    (property_definition
-                      (builtin_type_identifier)
-                      (ERROR)
-                      (var_identifier
-                        (post_identifier)))
-                    (callback_call
+                  (int_value))))
+            (block_statement
+              (component
+                (var_identifier)
+                (type_identifier)
+                (block
+                  (block_statement
+                    (property_alias
+                      (type_identifier)
                       (var_identifier)
-                      (ERROR
-                        (UNEXPECTED 'o')))
-                    (property_definition
-                      (builtin_type_identifier)
-                      (ERROR)
-                      (var_identifier)))))
-              (component_definition
-                (user_type_identifier)
-                (user_type_identifier)
-                (field_declaration_list
-                  (field_declaration_list_body
-                    (callback_call
                       (var_identifier
-                        (ERROR
-                          (UNEXPECTED 'S'))
-                        (post_identifier))))))
-              (component_definition
-                (user_type_identifier)
-                (field_declaration_list
-                  (field_declaration_list_body))))))
-        (property_definition
-          (builtin_type_identifier)
-          (ERROR)
-          (var_identifier
-            (post_identifier)))
-        (property_definition
-          (builtin_type_identifier)
+                        (post_identifier))))
+                  (ERROR
+                    (comparison_binary_expression
+                      (comparison_binary_expression
+                        (type_identifier)
+                        (comparison_operator)
+                        (var_identifier
+                          (MISSING "*")))
+                      (comparison_operator)
+                      (type_identifier)))
+                  (block_statement
+                    (property_alias
+                      (type_identifier)
+                      (var_identifier)
+                      (var_identifier))))))
+            (block_statement
+              (component
+                (var_identifier)
+                (type_identifier)
+                (block
+                  (comparison_binary_expression
+                    (comparison_binary_expression
+                      (type_identifier)
+                      (comparison_operator)
+                      (var_identifier
+                        (MISSING "*")))
+                    (comparison_operator)
+                    (var_identifier
+                      (post_identifier)))
+                  (ERROR))))
+            (block_statement
+              (component
+                (type_identifier)
+                (block))))))
+      (block_statement
+        (property_alias
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))))))
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier)))))))
 
 ================================================================================
 keyboard_modifiers
@@ -929,112 +950,117 @@ TestCase := Window {
 
 (source_file
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (variable_set_equal
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (assignment
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (number
-              (int_number)))
-          (ERROR
-            (UNEXPECTED 'x')))
-        (component_definition
-          (user_type_identifier)
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body
-              (var_identifier)
-              (ERROR
-                (assignment_prec_operator
-                  (MISSING ":"))
-                (expression_body_paren
-                  (var_identifier))
-                (UNEXPECTED 'h'))
-              (variable_set_equal
-                (var_identifier)
-                (assignment_prec_operator)
-                (var_identifier
-                  (post_identifier)
-                  (post_identifier)))
-              (variable_set_equal
-                (var_identifier)
-                (assignment_prec_operator)
-                (var_identifier
-                  (post_identifier)
-                  (post_identifier)))
-              (variable_set_equal
-                (var_identifier)
-                (assignment_prec_operator)
-                (var_identifier
-                  (post_identifier)
-                  (post_identifier)))
-              (variable_set_equal
-                (var_identifier)
-                (assignment_prec_operator)
-                (var_identifier
-                  (post_identifier)
-                  (post_identifier)))
-              (callback_call
-                (var_identifier)))))
-        (var_identifier)
-        (ERROR
-          (assignment_prec_operator
-            (MISSING ":"))
-          (expression_body_paren
-            (var_identifier))
-          (UNEXPECTED 'h'))
-        (variable_set_equal
+            (physical_length_value))))
+      (block_statement
+        (component
           (var_identifier)
-          (assignment_prec_operator)
-          (var_identifier
-            (post_identifier)
-            (post_identifier)))
-        (variable_set_equal
+          (type_identifier)
+          (block
+            (block_statement
+              (callback_event
+                (function_identifier)
+                (call_signature
+                  (type_identifier))
+                (block
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (var_identifier
+                        (post_identifier)
+                        (post_identifier))))
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (var_identifier
+                        (post_identifier)
+                        (post_identifier))))
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (var_identifier
+                        (post_identifier)
+                        (post_identifier))))
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (var_identifier
+                        (post_identifier)
+                        (post_identifier))))
+                  (type_identifier)
+                  (ERROR))))
+            (block_statement
+              (callback_event
+                (function_identifier)
+                (call_signature
+                  (type_identifier))
+                (block
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (var_identifier
+                        (post_identifier)
+                        (post_identifier))))
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (var_identifier
+                        (post_identifier)
+                        (post_identifier))))
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (var_identifier
+                        (post_identifier)
+                        (post_identifier))))
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (var_identifier
+                        (post_identifier)
+                        (post_identifier))))
+                  (type_identifier)
+                  (ERROR)))))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (assignment_prec_operator)
           (var_identifier
-            (post_identifier)
-            (post_identifier)))
-        (variable_set_equal
-          (var_identifier)
-          (assignment_prec_operator)
-          (var_identifier
-            (post_identifier)
-            (post_identifier)))
-        (variable_set_equal
-          (var_identifier)
-          (assignment_prec_operator)
-          (var_identifier
-            (post_identifier)
-            (post_identifier)))
-        (callback_call
-          (var_identifier)))))
-  (ERROR
-    (builtin_type_identifier)
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'i')
-    (UNEXPECTED 'h')
-    (builtin_type_identifier)
-    (UNEXPECTED 'h')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'e')
-    (builtin_type_identifier)
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'e')
-    (builtin_type_identifier)
-    (UNEXPECTED 'o')
-    (UNEXPECTED 'e')
-    (builtin_type_identifier)
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'e')))
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier))))))

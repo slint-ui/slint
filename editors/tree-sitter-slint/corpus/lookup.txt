@@ -32,117 +32,101 @@ TestCase := Rectangle {
 
 (source_file
   (global_definition
-    (var_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (property_definition
-          (builtin_type_identifier)
-          (var_identifier)
-          (property_expr
-            (value
-              (number
-                (int_number)))))
-        (property_definition
-          (builtin_type_identifier)
-          (var_identifier)
-          (property_expr
-            (value
-              (number
-                (int_number)))))
-        (callback_definition
-          (function_identifier)))))
+    (type_identifier)
+    (ERROR
+      (property
+        (type_identifier)
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type_identifier)
+        (var_identifier)
+        (value
+          (int_value))))
+    (callback
+      (function_identifier)))
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (property_definition
-          (builtin_type_identifier)
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (ERROR
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (for_loop
           (var_identifier)
-          (int_number)
-          (UNEXPECTED 'R'))
-        (component_definition
-          (builtin_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body
-              (variable_set_equal
-                (var_identifier)
-                (assignment_prec_operator)
-                (mult_binary_expression
-                  (expression_body_paren
+          (for_range)
+          (component
+            (type_identifier)
+            (block
+              (block_statement
+                (assignment
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (mult_binary_expression
                     (add_binary_expression
-                      (var_identifier)
+                      (type_identifier)
                       (add_prec_operator)
                       (var_identifier
-                        (post_identifier))))
-                  (mult_prec_operator)
-                  (value
-                    (value_with_units
-                      (number
-                        (int_number))
-                      (unit_type)))))))))))
+                        (post_identifier)))
+                    (mult_prec_operator)
+                    (value
+                      (length_value)))))))))))
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (callback_definition
-          (function_identifier))
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (callback
+          (function_identifier)))
+      (block_statement
         (callback_event
           (function_identifier)
-          (field_declaration_list
-            (field_declaration_list_body
-              (callback_call
-                (var_identifier
-                  (post_identifier
-                    (function_call
-                      (function_identifier)
-                      (call_signature
-                        (formal_parameters)))))))))
-        (component_definition
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body)))
-        (component_definition
-          (user_type_identifier)
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body)))
-        (component_definition
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body)))
-        (property_definition
-          (builtin_type_identifier)
+          (block
+            (block_statement
+              (var_identifier
+                (post_identifier
+                  (function_call
+                    (function_identifier)
+                    (call_signature)))))
+            (ERROR))))
+      (block_statement
+        (component
+          (type_identifier)
+          (block)))
+      (block_statement
+        (component
           (var_identifier)
-          (ERROR
-            (int_number))
-          (property_expr
-            (add_binary_expression
-              (mult_binary_expression
-                (value
-                  (number
-                    (int_number)))
-                (mult_prec_operator)
-                (var_identifier
-                  (post_identifier)))
-              (add_prec_operator)
+          (type_identifier)
+          (block)))
+      (block_statement
+        (component
+          (type_identifier)
+          (block)))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (add_binary_expression
+            (mult_binary_expression
               (value
-                (number
-                  (int_number))))))
-        (property_definition
-          (builtin_type_identifier)
+                (int_value))
+              (mult_prec_operator)
+              (var_identifier
+                (post_identifier)))
+            (add_prec_operator)
+            (value
+              (int_value)))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (ERROR
-            (int_number))
-          (property_expr
-            (var_identifier
-              (post_identifier))))))))
+          (var_identifier
+            (post_identifier)))))))
 
 ================================================================================
 id_lookup
@@ -165,63 +149,49 @@ id_lookup
 
 (source_file
   (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (property_definition
-          (builtin_type_identifier)
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (value
-              (number
-                (int_number)))))
-        (property_definition
-          (builtin_type_identifier)
+          (value
+            (int_value))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (property_expr
-            (value
-              (number
-                (int_number)))))
-        (component_definition
-          (user_type_identifier)
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body
-              (property_definition
-                (builtin_type_identifier)
+          (value
+            (int_value))))
+      (block_statement
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block
+            (block_statement
+              (property
+                (type_identifier)
                 (var_identifier)
-                (property_expr
-                  (value
-                    (number
-                      (int_number)))))
-              (property_definition
-                (builtin_type_identifier)
+                (value
+                  (int_value))))
+            (block_statement
+              (property
+                (type_identifier)
                 (var_identifier)
-                (property_expr
-                  (value
-                    (number
-                      (int_number)))))
-              (property_definition
-                (builtin_type_identifier)
+                (value
+                  (int_value))))
+            (block_statement
+              (property
+                (type_identifier)
                 (var_identifier)
-                (property_expr
+                (add_binary_expression
                   (add_binary_expression
-                    (add_binary_expression
-                      (mult_binary_expression
-                        (var_identifier)
-                        (mult_prec_operator)
-                        (value
-                          (number
-                            (int_number))))
-                      (add_prec_operator)
-                      (mult_binary_expression
-                        (var_identifier
-                          (post_identifier))
-                        (mult_prec_operator)
-                        (value
-                          (number
-                            (int_number)))))
+                    (mult_binary_expression
+                      (type_identifier)
+                      (mult_prec_operator)
+                      (value
+                        (int_value)))
                     (add_prec_operator)
                     (mult_binary_expression
                       (var_identifier
@@ -229,43 +199,44 @@ id_lookup
                         (post_identifier))
                       (mult_prec_operator)
                       (value
-                        (number
-                          (int_number))))))))))
-        (property_definition
-          (builtin_type_identifier)
+                        (int_value))))
+                  (add_prec_operator)
+                  (mult_binary_expression
+                    (var_identifier
+                      (reference_identifier)
+                      (post_identifier))
+                    (mult_prec_operator)
+                    (value
+                      (int_value)))))))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (ERROR
-            (int_number))
-          (property_expr
-            (var_identifier
-              (post_identifier))))
-        (property_definition
-          (builtin_type_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
           (var_identifier)
-          (ERROR
-            (int_number))
-          (property_expr
+          (add_binary_expression
             (add_binary_expression
-              (add_binary_expression
-                (mult_binary_expression
-                  (var_identifier
-                    (post_identifier))
-                  (mult_prec_operator)
-                  (value
-                    (number
-                      (int_number))))
-                (add_prec_operator)
-                (mult_binary_expression
-                  (var_identifier
-                    (post_identifier))
-                  (mult_prec_operator)
-                  (value
-                    (number
-                      (int_number)))))
-              (add_prec_operator)
               (mult_binary_expression
-                (var_identifier)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))
                 (mult_prec_operator)
                 (value
-                  (number
-                    (int_number)))))))))))
+                  (int_value)))
+              (add_prec_operator)
+              (mult_binary_expression
+                (var_identifier
+                  (post_identifier))
+                (mult_prec_operator)
+                (value
+                  (int_value))))
+            (add_prec_operator)
+            (mult_binary_expression
+              (type_identifier)
+              (mult_prec_operator)
+              (value
+                (int_value)))))))))

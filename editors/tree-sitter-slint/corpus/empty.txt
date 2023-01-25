@@ -23,7 +23,11 @@ Line comment with line continuation
 --------------------------------------------------------------------------------
 
 (source_file
-  (comment))
+  (comment)
+  (import_statement
+    (type_identifier)
+    (string_value
+      (_string_fragment))))
 
 ================================================================================
 Multiline comment
