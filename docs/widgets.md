@@ -427,6 +427,7 @@ export component Example inherits Window {
     width: 200px;
     height: 130px;
     ComboBox {
+        y: 0px;
         width: self.preferred-width;
         height: self.preferred-height;
         model: ["first", "second", "third"];
