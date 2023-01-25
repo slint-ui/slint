@@ -151,12 +151,12 @@ The runtime library consists of an engine that supports properties declared in
 the `.slint` language. Components with their elements, items, and properties are
 laid out in a single memory region, to reduce memory allocations.
 
-Rendering backends and styles are configurable at compile time. Current there
-are two back-ends:
+Rendering backends and styles are configurable at compile time:
 
-- The `gl` backend uses OpenGL ES 2.0 for rendering.
-- The `qt` backend uses Qt's QStyle to achieve native looking widgets. In the
-  future it could also use QPainter.
+- The `femtovg` renderer uses OpenGL ES 2.0 for rendering.
+- The `skia` renderer uses [Skia](https://skia.org) for rendering.
+- The `software` renderer uses the CPU with no additional dependencies.
+- When Qt is installed on the system, the `native` style uses Qt's QStyle to achieve native looking widgets.
 
 ### Tooling
 
