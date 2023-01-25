@@ -105,7 +105,7 @@ familiar syntax to describe the hierarchy of elements and property bindings.
 Here's the obligatory "Hello World":
 
 ```slint
-HelloWorld := Window {
+export component HelloWorld inherits Window {
     width: 400px;
     height: 400px;
 

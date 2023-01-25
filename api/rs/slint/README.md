@@ -29,7 +29,7 @@ And in your `main.rs`:
 
 ```rust
 slint::slint!{
-    HelloWorld := Window {
+    export component HelloWorld {
         Text {
             text: "hello world";
             color: green;
