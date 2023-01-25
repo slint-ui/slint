@@ -30,8 +30,8 @@ All notable changes to this project are documented in this file.
  - LSP: support of Slint features (auto-complete, preview, ...) in `slint!{}` macro in Rust files.
  - The software renderer can now load fonts at run-time, without the need to pre-render glyphs
    at compile time.
- - The preview in the online editor and VS Code extension will now highlight components while the
-   cursor is on the Component type name.
+ - The preview in the online editor, VS Code extension, and the VS Code web extension highlight
+   components while the cursor is on the component type name.
 
 ### Fixed
 
