@@ -37,12 +37,12 @@ edition = "2021"
 ## ... your other dependencies
 
 [dependencies.slint]
-version = "0.3.3"
+version = "0.3.4"
 default-features = false
 features = ["compat-0-3-0", "unsafe-single-threaded", "libm"]
 
 [build-dependencies]
-slint-build = "0.3.3"
+slint-build = "0.3.4"
 ```
 
 The default features of the `slint` crate are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
