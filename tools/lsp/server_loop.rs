@@ -688,32 +688,27 @@ pub async fn set_binding_command(
             element_at_position(document_cache, &uri, &element_range.start).ok_or_else(|| {
                 format!("No element found at the given start position {:?}", &element_range.start)
             })?;
-        let node_range = element
-            .borrow()
-            .node
-            .as_ref()
-            .ok_or_else(|| "The element was found, but had no range defined!")?
-            .text_range();
 
-        let (start, end) = {
-            let offset_to_position = document_cache.offset_to_position_mapper(&uri)?;
-            (
-                offset_to_position.map(node_range.start().into()),
-                offset_to_position.map(node_range.end().into()),
-            )
-        };
+        let offset_mapper = document_cache.offset_to_position_mapper(&uri)?;
+        let node_range = offset_mapper.map_node(
+            element
+                .borrow()
+                .node
+                .as_ref()
+                .ok_or_else(|| "The element was found, but had no range defined!")?,
+        );
 
-        if start != element_range.start {
+        if node_range.start != element_range.start {
             return Err(format!(
-                "Element found, but does not start at the expected place (){start:?} != {:?}).",
-                element_range.start
+                "Element found, but does not start at the expected place (){:?} != {:?}).",
+                node_range.start, element_range.start
             )
             .into());
         }
-        if end != element_range.end {
+        if node_range.end != element_range.end {
             return Err(format!(
-                "Element found, but does not end at the expected place (){end:?} != {:?}).",
-                element_range.end
+                "Element found, but does not end at the expected place (){:?} != {:?}).",
+                node_range.end, element_range.end
             )
             .into());
         }
