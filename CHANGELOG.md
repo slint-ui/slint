@@ -30,13 +30,15 @@ All notable changes to this project are documented in this file.
  - LSP: support of Slint features (auto-complete, preview, ...) in `slint!{}` macro in Rust files.
  - The software renderer can now load fonts at run-time, without the need to pre-render glyphs
    at compile time.
+ - The preview in the online editor and VS Code extension will now highlight components while the
+   cursor is on the Component type name.
 
 ### Fixed
 
  - Compiler panic for files containing no component (#2005).
  - Calling public functions from native code.
  - Fixed crash when using repeaters in C++ on 32-bit architectures.
- - Conversion of array literal containing struct with array litteral (#2023).
+ - Conversion of array literal containing struct with array literal (#2023).
  - Structs exported by the main file are always generated in native code (#594).
 
 ## [0.3.3] - 2022-12-16
