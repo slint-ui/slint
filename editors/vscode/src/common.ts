@@ -180,7 +180,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
     refresh_view() {
         const editor = vscode.window.activeTextEditor;
-        if (editor === null) {
+        if (editor == null) {
             this.update_view(
                 "NO EDITOR",
                 this.#current_uri,
@@ -191,7 +191,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
             return;
         }
         const doc = editor.document;
-        if (doc === null) {
+        if (doc == null) {
             this.update_view(
                 "NO DOCUMENT",
                 this.#current_uri,
@@ -228,7 +228,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
         this.#current_cursor_line = line;
         this.#current_cursor_character = character;
 
-        if (this._view === null) {
+        if (this._view == null) {
             return;
         }
         if (language !== "slint" && language !== "rust") {
