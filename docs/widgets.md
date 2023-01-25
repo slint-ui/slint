@@ -380,26 +380,24 @@ Same as ListView, and in addition:
 ```slint
 import { StandardTableView } from "std-widgets.slint";
 export component Example inherits Window {
-    width: 150px;
-    height: 150px;
+    width: 230px;
+    height: 200px;
     StandardTableView {
-        width: 150px;
-        height: 150px;
-         columns: [
+        width: 230px;
+        height: 200px;
+        columns: [
             { title: "Header 1" },
             { title: "Header 2" },
-            { title: "Header 3" },
-            { title: "Header 4" },
         ];
         rows: [
             [
-                { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" }
+                { text: "Item 1" }, { text: "Item 2" },
             ],
             [
-                { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" }
+                { text: "Item 1" }, { text: "Item 2" },
             ],
             [
-                { text: "Item 1" }, { text: "Item 2" }, { text: "Item 3" }, { text: "Item 4" }
+                { text: "Item 1" }, { text: "Item 2" },
             ]
         ];
     }
