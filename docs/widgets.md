@@ -238,7 +238,7 @@ export component Example inherits Window {
         font-size: 14px;
         width: parent.width;
         height: parent.height;
-        text: "Lorem ipsum dolor sit amet\n, consectetur adipisici elit";
+        text: "Lorem ipsum dolor sit amet,\n consectetur adipisici elit";
     }
 }
 ```
