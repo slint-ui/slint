@@ -37,7 +37,7 @@ endif()
 Suppose `my_application_ui.slint` was a "Hello World" like this:
 
 ```slint,ignore
-HelloWorld := Window {
+export component HelloWorld inherits Window {
     width: 400px;
     height: 400px;
 
