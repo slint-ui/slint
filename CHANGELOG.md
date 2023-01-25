@@ -3,31 +3,35 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [0.3.4] - 2023-01-25
+
 ### Changed
 
- - In addition to the previous syntax, a new syntax is available that declares the components with
-   `component Xxx { ... }`  instead of `Xxx := ...`
- - Warning when calling non-pure function or callback from pure context (eg: a property binding).
-   callbacks and function can be annotated with `pure`
+ - A new syntax is available that declares the components with `component Xxx { ... }`  instead of `Xxx := ...`.
+   The old syntax continues to work in this release.
+ - A warning is shown when calling non-pure function or callback from pure context (eg: a property binding).
+   Callbacks and functions can be annotated with `pure`.
  - On an `Image`, the default value of `source-clip-width` and `source-clip-height` is now set to
    the size of the image minus the `source-clip-{x,y}`. The source clip size is now used to compute
    the default aspect ratio of the image.
- - deprecated `invoke_callback` functions in the slint interpreter in favor of `invoke`, they can also
-   invoke functions in addition to callback
+ - Deprecated `invoke_callback` functions in the slint interpreter in favor of `invoke`, which can also 
+   invoke functions in addition to callbacks.
+ - Warn if the last component or singleton in a file is implicitly marked for exporting.
 
 ### Added
 
- - `StandardTableView` widget
- - LSP: support of Slint features (auto-complete, preview, ...) in `slint!{}` macro in rust files
- - Support for software renderer without pre-rendered font at compile time
+ - `StandardTableView` widget.
+ - LSP: support of Slint features (auto-complete, preview, ...) in `slint!{}` macro in Rust files.
+ - The software renderer can now load fonts at run-time, without the need to pre-render glyphs
+   at compile time.
 
 ### Fixed
 
- - Compiler panic for files containing no component (#2005)
- - Calling public function from native code
- - Fixed crash when using repeaters in C++ on 32-bit architectures
- - conversion of array literal containing struct with array litteral (#2023)
- - struct exported by the main file are always generated in native code (#594)
+ - Compiler panic for files containing no component (#2005).
+ - Calling public functions from native code.
+ - Fixed crash when using repeaters in C++ on 32-bit architectures.
+ - Conversion of array literal containing struct with array litteral (#2023).
+ - Structs exported by the main file are always generated in native code (#594).
 
 ## [0.3.3] - 2022-12-16
 
