@@ -138,12 +138,12 @@ Hopefully this should be self explanatory. Check out the documentation of the la
 // file: my_application_ui.slint
 import { CheckBox, Button, ListView, LineEdit } from "std-widgets.slint";
 
-export struct TodoItem := {
+export struct TodoItem {
     title: string,
     checked: bool,
 }
 
-export MainWindow := Window {
+export component MainWindow {
     callback todo_added(string);
     property <[TodoItem]> todo_model;
 
@@ -169,7 +169,7 @@ export MainWindow := Window {
                         text: todo.title;
                         checked: todo.checked;
                         toggled => {
-                            todo.checked = checked;
+                            todo.checked = self.checked;
                         }
                     }
                 }
