@@ -90,8 +90,7 @@ export class LspWaiter {
         const pp = this.#previewer_promise!;
         this.#previewer_promise = null;
 
-        await pp;
-        const worker = await lp;
+        const [_, worker] = await Promise.all([pp, lp]);
 
         return Promise.resolve(new Lsp(worker, this.#previewer_port));
     }
