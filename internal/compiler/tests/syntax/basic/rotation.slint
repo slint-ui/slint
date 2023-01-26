@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Ex1 := Rectangle {
+export Ex1 := Rectangle {
     Rectangle {
         rotation-origin-x: width / 2;
         rotation-angle: 45deg;
@@ -25,7 +25,7 @@ ImageWithChild := Image {
     Rectangle {}
 }
 
-Ex2 := Rectangle {
+export Ex2 := Rectangle {
     Image {
 //  ^error{Elements with rotation properties cannot have children elements}
         rotation-angle: 45deg;

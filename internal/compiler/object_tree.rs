@@ -162,6 +162,30 @@ impl Document {
             })
             .collect();
 
+        for local_compo in &inner_components {
+            if exports
+                .components_or_types
+                .iter()
+                .filter_map(|(_, exported_compo_or_type)| exported_compo_or_type.as_ref().left())
+                .any(|exported_compo| Rc::ptr_eq(exported_compo, local_compo))
+            {
+                continue;
+            }
+            // Don't warn about these for now - detecting their use can only be done after the resolve_expressions
+            // pass.
+            if local_compo.is_global() {
+                continue;
+            }
+            // First ref count is in the type registry, the second one in inner_components. Any use of the element
+            // would have resulted in another strong reference.
+            if Rc::strong_count(&local_compo) == 2 {
+                diag.push_warning(
+                    "Component is neither used nor exported".into(),
+                    &local_compo.node,
+                )
+            }
+        }
+
         Document {
             node: Some(node),
             root_component,

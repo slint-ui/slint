@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-component Button {
+export component Button {
     in property<bool> enabled : true;
     out property <bool> pressed;
     in-out property <bool> checked;
     callback clicked();
 }
 
-component C1 {
+export component C1 {
     out property <bool> out;
     in property <bool> in;
     in-out property <bool> inout;
@@ -45,7 +45,7 @@ component C1 {
 }
 
 
-  component C2 {
+  export component C2 {
     out property <bool> out;
     in property <bool> in;
     in-out property <bool> inout;
@@ -76,7 +76,7 @@ component C1 {
     }
 }
 
-component C3 {
+export component C3 {
     out property <bool> out;
     in property <bool> in;
     in-out property <bool> inout;
@@ -106,7 +106,7 @@ component C3 {
 }
 
 
-component C5 {
+export component C5 {
     out property <bool> out;
     in property <bool> in;
     in-out property <bool> inout;
@@ -122,7 +122,7 @@ component C5 {
     Button { enabled <=> priv; }
 }
 
-component C6 {
+export component C6 {
     out property <bool> out;
     in property <bool> in;
     in-out property <bool> inout;
@@ -147,7 +147,7 @@ component C6 {
     }
 }
 
-component C7 {
+export component C7 {
     b1 := Button {
         clicked => {
             self.enabled = !self.enabled;
@@ -190,7 +190,7 @@ component C7 {
     }
 }
 
-component C8 {
+export component C8 {
     out property <bool> out1;
     out property <bool> out2;
     out property <bool> out3;
@@ -212,7 +212,7 @@ component C8 {
     }
 }
 
-component C9 {
+export component C9 {
     in property <bool> in1;
     in property <bool> in2;
     in property <bool> in3;
@@ -239,7 +239,7 @@ component C9 {
 }
 
 
-component C10 {
+export component C10 {
     in-out property <bool> inout1;
     in-out property <bool> inout2;
     in-out property <bool> inout3;
@@ -266,7 +266,7 @@ component C10 {
     }
 }
 
-component C11 {
+export component C11 {
     property <bool> priv1;
     property <bool> priv2;
     property <bool> priv3;
