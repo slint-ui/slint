@@ -4,6 +4,8 @@
 // TODO: Do build and package wasm-lsp separately. Right now vite does not
 // support `exclude` in web workers!
 
+// cSpell: ignore lumino
+
 import { defineConfig } from "vite";
 
 export default defineConfig(({ command, _mode }) => {
@@ -24,6 +26,7 @@ export default defineConfig(({ command, _mode }) => {
     let global_aliases = {
         "@lsp/": "../../../lsp/pkg/",
         "~@lumino": "node_modules/@lumino/", // work around strange defaults in @lumino
+        path: "path-browserify", // To make path.sep available to monaco
     };
 
     if (command === "serve") {
