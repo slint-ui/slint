@@ -93,7 +93,7 @@ The default value of each enum type is always the first value.
  This enum describes the different types of buttons for a pointer event,
  typically on a mouse or a pencil.
 
-* **`none`**: A button that is none of left, right or middle. For example
+* **`other`**: A button that is none of left, right or middle. For example
     this is used for a fourth button on a mouse with many buttons.
 * **`left`**: The left button.
 * **`right`**: The right button.

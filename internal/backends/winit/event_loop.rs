@@ -357,7 +357,7 @@ fn process_window_event(
                 winit::event::MouseButton::Left => PointerEventButton::Left,
                 winit::event::MouseButton::Right => PointerEventButton::Right,
                 winit::event::MouseButton::Middle => PointerEventButton::Middle,
-                winit::event::MouseButton::Other(_) => PointerEventButton::None,
+                winit::event::MouseButton::Other(_) => PointerEventButton::Other,
             };
             let ev = match state {
                 winit::event::ElementState::Pressed => {

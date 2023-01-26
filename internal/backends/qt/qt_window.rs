@@ -480,7 +480,7 @@ fn from_qt_button(qt_button: u32) -> PointerEventButton {
         1 => PointerEventButton::Left,
         2 => PointerEventButton::Right,
         4 => PointerEventButton::Middle,
-        _ => PointerEventButton::None,
+        _ => PointerEventButton::Other,
     }
 }
 

@@ -24,6 +24,10 @@ mod experiments {
     pub(super) mod transitions;
 }
 
+mod transforms {
+    pub(super) mod renames;
+}
+
 #[derive(clap::Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
@@ -311,6 +315,9 @@ fn fold_node(
         return Ok(true);
     }
     if experiments::purity::fold_node(node, file, state, args)? {
+        return Ok(true);
+    }
+    if transforms::renames::fold_node(node, file, state, args)? {
         return Ok(true);
     }
     Ok(false)

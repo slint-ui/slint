@@ -15,7 +15,7 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     writeln!(enums, "// This file is auto-generated from {}", file!())?;
     writeln!(enums, "namespace slint::cbindgen_private {{")?;
     macro_rules! print_enums {
-         ($( $(#[doc = $enum_doc:literal])* enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
              $(
                 $(writeln!(enums, "///{}", $enum_doc)?;)*
                 writeln!(enums, "enum class {} {{", stringify!($Name))?;

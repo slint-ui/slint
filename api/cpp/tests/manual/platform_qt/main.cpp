@@ -21,7 +21,7 @@ slint::cbindgen_private::PointerEventButton convert_button(Qt::MouseButtons b)
     case Qt::MiddleButton:
         return slint::cbindgen_private::PointerEventButton::Middle;
     default:
-        return slint::cbindgen_private::PointerEventButton::None;
+        return slint::cbindgen_private::PointerEventButton::Other;
     }
 }
 
