@@ -329,7 +329,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
 
-    if std::env::var_os("SLINT_STYLE").is_none() && std::env::var_os("SIXTYFPS_STYLE").is_none() {
+    if std::env::var_os("SLINT_STYLE").is_none() {
         // This file is written by the i-slint-backend-selector's built script.
         // It is in the target/xxx/build directory
         let target_path = match std::env::var_os("OUT_DIR") {
@@ -383,7 +383,6 @@ pub fn slint(stream: TokenStream) -> TokenStream {
 
     result.extend(reload);
     result.extend(quote! {const _ : Option<&'static str> = ::core::option_env!("SLINT_STYLE");});
-    result.extend(quote! {const _ : Option<&'static str> = ::core::option_env!("SIXTYFPS_STYLE");});
 
     result.into()
 }

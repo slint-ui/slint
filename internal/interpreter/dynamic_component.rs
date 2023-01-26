@@ -729,10 +729,7 @@ pub async fn load(
     mut compiler_config: CompilerConfiguration,
     guard: generativity::Guard<'_>,
 ) -> (Result<Rc<ComponentDescription<'_>>, ()>, i_slint_compiler::diagnostics::BuildDiagnostics) {
-    if compiler_config.style.is_none()
-        && std::env::var("SLINT_STYLE").is_err()
-        && std::env::var("SIXTYFPS_STYLE").is_err()
-    {
+    if compiler_config.style.is_none() && std::env::var("SLINT_STYLE").is_err() {
         // Defaults to native if it exists:
         compiler_config.style = Some(if i_slint_backend_selector::HAS_NATIVE_STYLE {
             "native".to_owned()

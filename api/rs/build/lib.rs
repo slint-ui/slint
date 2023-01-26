@@ -300,10 +300,7 @@ pub fn compile_with_config(
     let mut compiler_config = config.config;
     let mut rerun_if_changed = String::new();
 
-    if std::env::var_os("SLINT_STYLE").is_none()
-        && std::env::var_os("SIXTYFPS_STYLE").is_none()
-        && compiler_config.style.is_none()
-    {
+    if std::env::var_os("SLINT_STYLE").is_none() && compiler_config.style.is_none() {
         compiler_config.style = std::env::var_os("OUT_DIR").and_then(|path| {
             // Same logic as in i-slint-backend-selector's build script to get the path
             let path = Path::new(&path).parent()?.parent()?.join("SLINT_DEFAULT_STYLE.txt");
@@ -362,7 +359,6 @@ pub fn compile_with_config(
         }
     }
     println!("cargo:rerun-if-env-changed=SLINT_STYLE");
-    println!("cargo:rerun-if-env-changed=SIXTYFPS_STYLE");
     println!("cargo:rerun-if-env-changed=SLINT_FONT_SIZES");
     println!("cargo:rerun-if-env-changed=SLINT_SCALE_FACTOR");
     println!("cargo:rerun-if-env-changed=SLINT_ASSET_SECTION");

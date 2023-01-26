@@ -34,13 +34,7 @@ cfg_if::cfg_if! {
         ))] {
         pub fn create_backend() -> Box<dyn Platform + 'static>  {
 
-            let backend_config = std::env::var("SLINT_BACKEND").or_else(|_| {
-                let legacy_fallback = std::env::var("SIXTYFPS_BACKEND");
-                if legacy_fallback.is_ok() {
-                    eprintln!("Using `SIXTYFPS_BACKEND` environment variable for dynamic backend selection. This is deprecated, use `SLINT_BACKEND` instead.")
-                }
-                legacy_fallback
-            }).unwrap_or_default();
+            let backend_config = std::env::var("SLINT_BACKEND").unwrap_or_default();
 
             let backend_config = backend_config.to_lowercase();
             let (event_loop, _renderer) = backend_config.split_once('-').unwrap_or_else(|| match backend_config.as_str() {
