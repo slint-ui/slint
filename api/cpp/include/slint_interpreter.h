@@ -649,13 +649,6 @@ public:
         }
     }
 
-    /// \deprecated  rename to invoke()
-    [[deprecated("renamed to invoke()")]] std::optional<Value>
-    invoke_callback(std::string_view name, std::span<const Value> args) const
-    {
-        return invoke(name, args);
-    }
-
     /// Set a handler for the callback with the given name.
     ///
     /// A callback with that name must be defined in the document otherwise the function
@@ -780,14 +773,6 @@ public:
         } else {
             return {};
         }
-    }
-
-    /// \deprecated renamed to invoke_global
-    [[deprecated("renamed to invoke_global()")]] std::optional<Value>
-    invoke_global_callback(std::string_view global, std::string_view callback_name,
-                           std::span<const Value> args) const
-    {
-        return invoke_global(global, callback_name, args);
     }
 };
 

@@ -226,7 +226,7 @@ pub enum WindowEvent {
         /// # Example
         /// A specific key can be mapped to a unicode by using the [`Key`] enum
         /// ```rust
-        /// let _ = slint::WindowEvent::KeyPressed { text: slint::platform::Key::Shift.into() };
+        /// let _ = slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Shift.into() };
         /// ```
         text: char,
     },
@@ -238,7 +238,7 @@ pub enum WindowEvent {
         /// # Example
         /// A specific key can be mapped to a unicode by using the [`Key`] enum
         /// ```rust
-        /// let _ = slint::WindowEvent::KeyReleased { text: slint::platform::Key::Shift.into() };
+        /// let _ = slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Shift.into() };
         /// ```
         text: char,
     },

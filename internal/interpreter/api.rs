@@ -848,14 +848,6 @@ impl ComponentInstance {
             .map_err(|()| SetCallbackError::NoSuchCallback)
     }
 
-    /// Call the given callback with the arguments
-    ///
-    /// This function was renamed to [`invoke()`](Self::invoke)
-    #[deprecated(note = "renamed to invoke()")]
-    pub fn invoke_callback(&self, name: &str, args: &[Value]) -> Result<Value, InvokeError> {
-        self.invoke(name, args)
-    }
-
     /// Call the given callback or function with the arguments
     ///
     /// ## Examples
@@ -972,18 +964,6 @@ impl ComponentInstance {
             .map_err(|()| SetCallbackError::NoSuchCallback)
     }
 
-    /// Call the given callback or function within a global singleton with the arguments
-    ///
-    /// Renamed to `invoke_global()`
-    #[deprecated(note = "renamed to invoke_global")]
-    pub fn invoke_global_callback(
-        &self,
-        global: &str,
-        callback_name: &str,
-        args: &[Value],
-    ) -> Result<Value, InvokeError> {
-        self.invoke_global(global, callback_name, args)
-    }
     /// Call the given callback or function within a global singleton with the arguments
     ///
     /// ## Examples
@@ -1127,15 +1107,6 @@ pub enum InvokeError {
     /// There is no callback or function with the given name
     #[error("no such callback or function")]
     NoSuchCallable,
-}
-/// deprecated alias to [`InvokeError`]
-#[deprecated(note = "Renamed to InvokeError")]
-pub type InvokeCallbackError = InvokeError;
-impl InvokeError {
-    /// deprecated alias to [`InvokeCallbackError::NoSuchCallback`]
-    #[deprecated(note = "Renamed NoSuchCallable")]
-    #[allow(non_upper_case_globals)]
-    pub const NoSuchCallback: Self = Self::NoSuchCallable;
 }
 
 /// Enters the main event loop. This is necessary in order to receive
