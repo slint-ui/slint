@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-SuperSimple := Rectangle {
+export SuperSimple := Rectangle {
     background: area.pressed ? green : blue;
     property<color> c2: area.pressed ? 123 : 456;
 //                     ^error{Cannot convert float to color}

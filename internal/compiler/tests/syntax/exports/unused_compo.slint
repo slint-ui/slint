@@ -1,0 +1,13 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+component Used {
+}
+
+export component Ok {
+    Used {}
+}
+
+  component Unused {
+//^warning{Component is neither used nor exported}
+}

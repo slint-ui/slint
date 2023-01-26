@@ -3,7 +3,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-component Foo {
+export component Foo {
     property <int> prop;
     callback c1;
     pure callback c2;
@@ -62,7 +62,7 @@ component Foo {
 }
 
 
-component Bar {
+export component Bar {
     pure callback xc1 <=> f.c1;
 //  ^error{Purity of callbacks 'xc1' and 'f.c1' doesn't match}
     callback xc2 <=> f.c2;
@@ -79,7 +79,7 @@ component Bar {
 
 
 
-Foo_Legacy := Rectangle {
+export Foo_Legacy := Rectangle {
     property <int> prop;
     callback c1;
     pure callback c2;
