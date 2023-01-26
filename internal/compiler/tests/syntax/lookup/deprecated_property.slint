@@ -24,14 +24,4 @@ export Xxx := Rectangle {
 //      ^warning{The property 'color' has been deprecated. Please use 'background' instead}
     }
 
-    Foo := FocusScope {
-        key-pressed(event) => {
-            if (event.text == Keys.Escape) {
-//                            ^warning{The property 'Keys' has been deprecated. Please use 'Key' instead}
-                debug("Esc key was pressed")
-            }
-            accept
-        }
-    }
-    
 }
