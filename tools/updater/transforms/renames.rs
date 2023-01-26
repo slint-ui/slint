@@ -15,11 +15,18 @@ pub(crate) fn fold_node(
     if kind == SyntaxKind::QualifiedName
         && node.parent().map_or(false, |n| n.kind() == SyntaxKind::Expression)
     {
-        let q = i_slint_compiler::object_tree::QualifiedTypeName::from_node(node.clone().into());
-        if q.to_string() == "PointerEventButton.none" {
+        let q = i_slint_compiler::object_tree::QualifiedTypeName::from_node(node.clone().into())
+            .to_string();
+        if q == "PointerEventButton.none" {
             for t in node.children_with_tokens() {
                 let text = t.into_token().unwrap().to_string();
                 write!(file, "{}", if text == "none" { "other" } else { &text })?;
+            }
+            return Ok(true);
+        } else if q.starts_with("Keys.") {
+            for t in node.children_with_tokens() {
+                let text = t.into_token().unwrap().to_string();
+                write!(file, "{}", if text == "Keys" { "Key" } else { &text })?;
             }
             return Ok(true);
         }
