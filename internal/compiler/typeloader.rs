@@ -79,17 +79,6 @@ impl TypeLoader {
         .style
         .clone()
         .or_else(|| std::env::var("SLINT_STYLE").ok())
-        .or_else(|| {
-            let legacy_fallback = std::env::var("SIXTYFPS_STYLE").ok();
-            if legacy_fallback.is_some() {
-                diag.push_diagnostic_with_span(
-                    "Using `SIXTYFPS_STYLE` environment variable for dynamic backend selection. This is deprecated, use `SLINT_STYLE` instead".to_owned(),
-                    Default::default(),
-                    crate::diagnostics::DiagnosticLevel::Warning
-                )
-            }
-            legacy_fallback
-        })
         .unwrap_or_else(|| {
             let is_wasm = cfg!(target_arch = "wasm32")
                 || std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"));
@@ -143,15 +132,7 @@ impl TypeLoader {
             let mut reexports = None;
             for mut import in dependencies {
                 if import.file.ends_with(".60") || import.file.ends_with(".slint") {
-                    let mut file = import.file.as_str();
-                    if file == "sixtyfps_widgets.60" {
-                        file = "std-widgets.slint";
-                        diagnostics.push_warning(
-                        "\"sixtyfps_widgets.60\" was renamed \"std-widgets.slint\". Use of the old file name is deprecated".into(),
-                        &import.import_uri_token,
-                    );
-                    }
-
+                    let file = import.file.as_str();
                     let doc_path = match self
                         .ensure_document_loaded(
                             file,

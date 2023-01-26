@@ -169,8 +169,8 @@ int main()
     if (auto error = app->window().set_rendering_notifier(OpenGLUnderlay(app))) {
         if (*error == slint::SetRenderingNotifierError::Unsupported) {
             fprintf(stderr,
-                    "This example requires the use of the GL backend. Please run with the "
-                    "environment variable SIXTYFPS_BACKEND=GL set.\n");
+                    "This example requires the use of a GL renderer. Please run with the "
+                    "environment variable SLINT_BACKEND=winit set.\n");
         } else {
             fprintf(stderr, "Unknown error calling set_rendering_notifier\n");
         }
