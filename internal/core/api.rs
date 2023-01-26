@@ -213,7 +213,7 @@ pub enum GraphicsAPI<'a> {
     /// The rendering is done using OpenGL.
     NativeOpenGL {
         /// Use this function pointer to obtain access to the OpenGL implementation - similar to `eglGetProcAddress`.
-        get_proc_address: &'a dyn Fn(&str) -> *const core::ffi::c_void,
+        get_proc_address: &'a dyn Fn(&core::ffi::CStr) -> *const core::ffi::c_void,
     },
     /// The rendering is done on a HTML Canvas element using WebGL.
     WebGL {

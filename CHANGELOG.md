@@ -83,6 +83,8 @@ All notable changes to this project are documented in this file.
  - Renamed the `Keys` namespace for use in `key-pressed`/`key-released` callbacks to `Key`. The
    old name continues to work.
  - The style or the backend now always set a value for the `Window`'s `default-font-size` property.
+ - In the Rust API, the `GraphicsAPI`'s `NativeOpenGL` variant uses a function signature for `get_proc_address` that
+   takes a `&std::ffi::CStr` instead of a `&str` to match the native APIs and avoid unnecessary conversions.
 
 ### Added
 

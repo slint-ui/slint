@@ -75,10 +75,7 @@ impl super::Surface for OpenGLSurface {
     fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>)) {
         let api = GraphicsAPI::NativeOpenGL {
             get_proc_address: &|name| {
-                self.glutin_context
-                    .display()
-                    .get_proc_address(&std::ffi::CString::new(name).unwrap())
-                    as *const _
+                self.glutin_context.display().get_proc_address(name) as *const _
             },
         };
         callback(api)
