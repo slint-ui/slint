@@ -549,7 +549,7 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
                 if self.grabbed.replace(false) {
                     Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
-                        button: PointerEventButton::None,
+                        button: PointerEventButton::Other,
                         kind: PointerEventKind::Cancel,
                     },));
                 }

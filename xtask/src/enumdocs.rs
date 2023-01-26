@@ -25,7 +25,7 @@ The default value of each enum type is always the first value.
     )?;
 
     macro_rules! gen_enums {
-        ($( $(#[doc = $enum_doc:literal])* enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
             $(
                 writeln!(file, "## `{}`\n", stringify!($Name))?;
                 $(writeln!(file, "{}", $enum_doc)?;)*

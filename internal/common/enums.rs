@@ -115,10 +115,11 @@ macro_rules! for_each_enums {
 
             /// This enum describes the different types of buttons for a pointer event,
             /// typically on a mouse or a pencil.
+            #[non_exhaustive]
             enum PointerEventButton {
                 /// A button that is none of left, right or middle. For example
                 /// this is used for a fourth button on a mouse with many buttons.
-                None,
+                Other,
                 /// The left button.
                 Left,
                 /// The right button.

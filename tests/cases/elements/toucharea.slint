@@ -50,10 +50,10 @@ TestCase := Rectangle {
                 pointer-event-test += "left";
             } else if (e.button == PointerEventButton.middle) {
                 pointer-event-test += "middle";
-            } else if (e.button == PointerEventButton.none) {
-                pointer-event-test += "none";
-            } else {
+            } else if (e.button == PointerEventButton.other) {
                 pointer-event-test += "other";
+            } else {
+                pointer-event-test += "???";
             }
         }
     }
