@@ -197,7 +197,7 @@ rendering and possibly putting the device into a low-power sleep state. Below is
 ```rust,no_run
 use slint::platform::{software_renderer::MinimalSoftwareWindow};
 let window = MinimalSoftwareWindow::<0>::new();
-# fn check_for_touch_event() -> Option<slint::WindowEvent> { todo!() }
+# fn check_for_touch_event() -> Option<slint::platform::WindowEvent> { todo!() }
 # mod hal { pub fn wfi() {} }
 //...
 loop {
@@ -206,7 +206,7 @@ loop {
 
     // Check the touch screen or input device using your driver.
     if let Some(event) = check_for_touch_event(/*...*/) {
-        // convert the event from the driver into a `slint::WindowEvent`
+        // convert the event from the driver into a `slint::platform::WindowEvent`
         // and pass it to the window.
         window.dispatch_event(event);
     }
