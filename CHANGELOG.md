@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+ - In the rust API, a lifetime parameter was added to `slint::ModelPeer`
+
 ### Added
 
 ### Fixed

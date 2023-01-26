@@ -13,6 +13,7 @@ use crate::lengths::{LogicalLength, RectLengths};
 use crate::{Coord, Property, SharedString, SharedVector};
 pub use adapters::{FilterModel, MapModel, SortModel};
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
@@ -22,7 +23,6 @@ use euclid::num::{Ceil, Floor};
 pub use model_peer::*;
 use once_cell::unsync::OnceCell;
 use pin_project::pin_project;
-use pin_weak::rc::{PinWeak, Rc};
 
 mod adapters;
 mod model_peer;
