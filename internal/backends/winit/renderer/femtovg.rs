@@ -70,8 +70,9 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
         #[cfg(not(target_arch = "wasm32"))]
         let gl_renderer = unsafe {
+            // TODO: use new_from_function_cstr with new FemtoVG release
             femtovg::renderer::OpenGl::new_from_function(|s| {
-                opengl_context.get_proc_address(s) as *const _
+                opengl_context.get_proc_address(&std::ffi::CString::new(s).unwrap()) as *const _
             })
             .unwrap()
         };

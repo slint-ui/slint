@@ -150,9 +150,8 @@ impl OpenGLContext {
         }
     }
 
-    // TODO: fix this interface to also take a ffi::CStr so that we can avoid the allocation. Problem: It's in our public api.
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn get_proc_address(&self, name: &str) -> *const std::ffi::c_void {
-        self.context.display().get_proc_address(&std::ffi::CString::new(name).unwrap())
+    pub fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void {
+        self.context.display().get_proc_address(name)
     }
 }

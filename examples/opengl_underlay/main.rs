@@ -190,7 +190,7 @@ pub fn main() {
                 let context = match graphics_api {
                     #[cfg(not(target_arch = "wasm32"))]
                     slint::GraphicsAPI::NativeOpenGL { get_proc_address } => unsafe {
-                        glow::Context::from_loader_function(|s| get_proc_address(s))
+                        glow::Context::from_loader_function_cstr(|s| get_proc_address(s))
                     },
                     #[cfg(target_arch = "wasm32")]
                     slint::GraphicsAPI::WebGL { canvas_element_id, context_type } => {
