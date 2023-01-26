@@ -74,7 +74,7 @@ impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign> Iterator
 
             self.glyph_index += 1;
 
-            if self.glyph_index >= self.shaped_text.glyphs.len() {
+            if self.glyph_index >= current_run.glyph_range.end {
                 cluster_byte_offset = current_run.byte_range.end;
                 break;
             }

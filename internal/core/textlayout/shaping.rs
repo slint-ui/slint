@@ -156,9 +156,10 @@ impl<'a> Iterator for ShapeBoundaries<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct TextRun {
     pub byte_range: Range<usize>,
-    //pub glyph_range: Range<usize>,
+    pub glyph_range: Range<usize>,
     // TODO: direction, etc.
 }
 
@@ -198,10 +199,7 @@ impl<Length> ShapeBuffer<Length> {
 
                 let run = TextRun {
                     byte_range: Range { start: *run_start, end: run_end },
-                    //glyph_range: Range {
-                    //     start: glyphs_start,
-                    //     end: glyph_buffer.borrow().as_ref().len(),
-                    // },
+                    glyph_range: Range { start: glyphs_start, end: glyphs.len() },
                 };
                 *run_start = run_end;
 
