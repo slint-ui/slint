@@ -676,7 +676,7 @@ impl SharedBufferCommand {
                 }
             }
             SharedBufferData::AlphaMap { data, width } => SceneTexture {
-                data: &data[begin * 4..],
+                data: &data[begin..],
                 stride: *width,
                 format: PixelFormat::AlphaMap,
                 source_size: self.source_rect.size,
