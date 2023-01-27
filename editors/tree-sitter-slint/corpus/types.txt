@@ -1148,10 +1148,7 @@ TestCase := Rectangle {
           (var_identifier)
           (value
             (basic_value
-              (string_value
-                (ERROR
-                  (UNEXPECTED 'q')))))
-          (ERROR)))
+              (string_value)))))
       (block_statement
         (property
           (type

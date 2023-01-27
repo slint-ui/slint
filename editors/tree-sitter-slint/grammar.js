@@ -523,6 +523,7 @@ module.exports = grammar({
                     /u\{[0-9a-fA-F]+\}/,
                     "n",
                     "\\",
+                    '"',
                     seq("{", $._expression, "}"),
                 ),
             ),
