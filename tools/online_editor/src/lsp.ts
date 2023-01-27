@@ -55,37 +55,44 @@ function createLanguageClient(
 export type FileReader = (_url: string) => Promise<string>;
 
 export class LspWaiter {
-    #lsp_worker: Worker | null;
     #previewer_port: MessagePort;
+    #previewer_promise: Promise<slint_preview.InitOutput> | null;
+    #lsp_promise: Promise<Worker> | null;
 
     constructor() {
         const lsp_previewer_channel = new MessageChannel();
         const lsp_side = lsp_previewer_channel.port1;
         this.#previewer_port = lsp_previewer_channel.port2;
 
-        this.#lsp_worker = new Worker(
+        const worker = new Worker(
             new URL("worker/lsp_worker.ts", import.meta.url),
             { type: "module" },
         );
-        this.#lsp_worker.postMessage(lsp_side, [lsp_side]);
-
-        slint_init(); // Initialize Previewer!
-    }
-
-    async wait_for_lsp(): Promise<Lsp> {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        const worker = this.#lsp_worker!;
-        this.#lsp_worker = null;
-
-        return new Promise<Lsp>((resolve) => {
+        this.#lsp_promise = new Promise<Worker>((resolve) => {
             worker.onmessage = (m) => {
                 // We cannot start sending messages to the client before we start listening which
                 // the server only does in a future after the wasm is loaded.
                 if (m.data === "OK") {
-                    resolve(new Lsp(worker, this.#previewer_port));
+                    resolve(worker);
                 }
             };
         });
+        worker.postMessage(lsp_side, [lsp_side]);
+
+        this.#previewer_promise = slint_init();
+    }
+
+    async wait_for_lsp(): Promise<Lsp> {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const lp = this.#lsp_promise!;
+        this.#lsp_promise = null;
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        const pp = this.#previewer_promise!;
+        this.#previewer_promise = null;
+
+        const [_, worker] = await Promise.all([pp, lp]);
+
+        return Promise.resolve(new Lsp(worker, this.#previewer_port));
     }
 }
 
