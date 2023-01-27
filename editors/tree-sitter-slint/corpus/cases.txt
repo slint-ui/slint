@@ -8,7 +8,7 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)

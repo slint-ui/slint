@@ -26,7 +26,7 @@ TestCase := Rectangle {
 }
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (comment)
   (comment)
   (comment)
@@ -38,49 +38,41 @@ TestCase := Rectangle {
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (for_loop
-          (var_identifier)
-          (for_range)
-          (component
-            (type_identifier)
-            (block
-              (block_statement
-                (for_loop
-                  (var_identifier)
-                  (for_range)
-                  (component
-                    (type_identifier)
-                    (block
-                      (block_statement
-                        (for_loop
-                          (var_identifier)
-                          (for_range)
-                          (component
-                            (type_identifier)
-                            (block))))))))))))))
+      (for_loop
+        (var_identifier)
+        (for_range)
+        (component
+          (type_identifier)
+          (block
+            (for_loop
+              (var_identifier)
+              (for_range)
+              (component
+                (type_identifier)
+                (block
+                  (for_loop
+                    (var_identifier)
+                    (for_range)
+                    (component
+                      (type_identifier)
+                      (block)))))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (physical_length_value)))))
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (physical_length_value)))))
-      (block_statement
-        (component
-          (type_identifier)
-          (block))))))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (physical_length_value)))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (physical_length_value)))
+      (component
+        (type_identifier)
+        (block)))))
 
 ================================================================================
 repeaters
@@ -120,7 +112,7 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (comment)
   (comment)
   (comment)
@@ -131,86 +123,71 @@ TestCase := Rectangle {
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (bool_value))))
-      (block_statement
-        (for_loop
-          (var_identifier)
-          (for_range)
-          (component
-            (type_identifier)
-            (block
-              (block_statement
-                (binding_block_statement
-                  (assignment_expr
-                    (var_identifier)
-                    (assignment_prec_operator)
-                    (value
-                      (string_value)))))
-              (block_statement
-                (component
-                  (var_identifier)
-                  (type_identifier)
-                  (block
-                    (block_statement
-                      (binding_block_statement
-                        (callback_event
-                          (function_identifier)
-                          (block
-                            (assignment_expr
-                              (var_identifier
-                                (reference_identifier)
-                                (post_identifier))
-                              (assignment_prec_operator)
-                              (value
-                                (bool_value))))))))))))))))
-  (component_definition
-    (type_identifier)
-    (type_identifier)
-    (block
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (physical_length_value)))))
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (physical_length_value)))))
-      (block_statement
-        (property
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (bool_value)))
+      (for_loop
+        (var_identifier)
+        (for_range)
         (component
-          (type_identifier)
-          (block
-            (block_statement
-              (if_statement
-                (value
-                  (value
-                    (bool_value)))
-                (component
-                  (type_identifier)
-                  (block)))))))
-      (block_statement
-        (component
-          (var_identifier)
           (type_identifier)
           (block
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (length_value)))))))))
+                (string_value)))
+            (component
+              (var_identifier)
+              (type_identifier)
+              (block
+                (callback_event
+                  (function_identifier)
+                  (block
+                    (assignment_expr
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (value
+                        (bool_value))))))))))))
+  (component_definition
+    (type_identifier)
+    (type_identifier)
+    (block
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (physical_length_value)))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (physical_length_value)))
+      (property
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (component
+        (type_identifier)
+        (block
+          (if_statement
+            (value
+              (value
+                (bool_value)))
+            (component
+              (type_identifier)
+              (block)))))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value))))))))

@@ -30,7 +30,7 @@ TestCase := Rectangle {
 }
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (global_definition
     (type_identifier)
     (property
@@ -51,84 +51,74 @@ TestCase := Rectangle {
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (for_loop
-          (var_identifier)
-          (for_range)
-          (component
-            (type_identifier)
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (mult_binary_expression
-                  (add_binary_expression
-                    (var_identifier)
-                    (add_prec_operator)
-                    (var_identifier
-                      (post_identifier)))
-                  (mult_prec_operator)
-                  (value
-                    (length_value))))))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (for_loop
+        (var_identifier)
+        (for_range)
+        (component
+          (type_identifier)
+          (block
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (mult_binary_expression
+                (add_binary_expression
+                  (var_identifier)
+                  (add_prec_operator)
+                  (var_identifier
+                    (post_identifier)))
+                (mult_prec_operator)
+                (value
+                  (length_value)))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (callback
-          (function_identifier)))
-      (block_statement
-        (binding_block_statement
-          (callback_event
-            (function_identifier)
-            (block
-              (var_identifier
-                (post_identifier
-                  (function_call
-                    (function_identifier)
-                    (call_signature))))))))
-      (block_statement
-        (component
-          (type_identifier)
-          (block)))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block)))
-      (block_statement
-        (component
-          (type_identifier)
-          (block)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (add_binary_expression
-            (mult_binary_expression
-              (value
-                (int_value))
-              (mult_prec_operator)
-              (var_identifier
-                (post_identifier)))
-            (add_prec_operator)
-            (value
-              (int_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (callback
+        (function_identifier))
+      (callback_event
+        (function_identifier)
+        (block
           (var_identifier
-            (post_identifier)))))))
+            (post_identifier
+              (function_call
+                (function_identifier)
+                (call_signature))))))
+      (component
+        (type_identifier)
+        (block))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block))
+      (component
+        (type_identifier)
+        (block))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (add_binary_expression
+          (mult_binary_expression
+            (value
+              (int_value))
+            (mult_prec_operator)
+            (var_identifier
+              (post_identifier)))
+          (add_prec_operator)
+          (value
+            (int_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier))))))
 
 ================================================================================
 id_lookup
@@ -149,103 +139,95 @@ id_lookup
 }
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
-                (var_identifier)
-                (value
-                  (int_value))))
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
-                (var_identifier)
-                (value
-                  (int_value))))
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
-                (var_identifier)
-                (add_binary_expression
-                  (add_binary_expression
-                    (mult_binary_expression
-                      (var_identifier)
-                      (mult_prec_operator)
-                      (value
-                        (int_value)))
-                    (add_prec_operator)
-                    (mult_binary_expression
-                      (var_identifier
-                        (reference_identifier)
-                        (post_identifier))
-                      (mult_prec_operator)
-                      (value
-                        (int_value))))
-                  (add_prec_operator)
-                  (mult_binary_expression
-                    (var_identifier
-                      (reference_identifier)
-                      (post_identifier))
-                    (mult_prec_operator)
-                    (value
-                      (int_value)))))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (add_binary_expression
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (property
+            (type
+              (type_identifier))
+            (var_identifier)
+            (value
+              (int_value)))
+          (property
+            (type
+              (type_identifier))
+            (var_identifier)
+            (value
+              (int_value)))
+          (property
+            (type
+              (type_identifier))
+            (var_identifier)
             (add_binary_expression
+              (add_binary_expression
+                (mult_binary_expression
+                  (var_identifier)
+                  (mult_prec_operator)
+                  (value
+                    (int_value)))
+                (add_prec_operator)
+                (mult_binary_expression
+                  (var_identifier
+                    (reference_identifier)
+                    (post_identifier))
+                  (mult_prec_operator)
+                  (value
+                    (int_value))))
+              (add_prec_operator)
               (mult_binary_expression
                 (var_identifier
                   (reference_identifier)
                   (post_identifier))
                 (mult_prec_operator)
                 (value
-                  (int_value)))
-              (add_prec_operator)
-              (mult_binary_expression
-                (var_identifier
-                  (post_identifier))
-                (mult_prec_operator)
-                (value
-                  (int_value))))
-            (add_prec_operator)
+                  (int_value)))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (add_binary_expression
+          (add_binary_expression
             (mult_binary_expression
-              (var_identifier)
+              (var_identifier
+                (reference_identifier)
+                (post_identifier))
               (mult_prec_operator)
               (value
-                (int_value)))))))))
+                (int_value)))
+            (add_prec_operator)
+            (mult_binary_expression
+              (var_identifier
+                (post_identifier))
+              (mult_prec_operator)
+              (value
+                (int_value))))
+          (add_prec_operator)
+          (mult_binary_expression
+            (var_identifier)
+            (mult_prec_operator)
+            (value
+              (int_value))))))))

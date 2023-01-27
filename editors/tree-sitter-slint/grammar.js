@@ -17,11 +17,11 @@ module.exports = grammar({
         [$.anon_struct, $.block],
         [$.assignment_block],
         [$.binding_block, $.anon_struct],
-        [$.binding_block, $.binding_block_statement],
-        [$.binding_block_statement, $.block],
-        [$.block, $.block_statement],
-        [$.block_statement, $._expression_body],
-        [$.export_modifier, $.export_statement],
+        [$.binding_block, $._binding_block_statement],
+        [$._binding_block_statement, $.block],
+        [$.block, $._block_statement],
+        [$._block_statement, $._expression_body],
+        [$._export_modifier, $.export_statement],
         [$.function, $.visibility_modifier],
         [$.function_identifier, $.post_identifier],
         [$.function_identifier, $.var_identifier],
@@ -31,7 +31,7 @@ module.exports = grammar({
     inline: ($) => [$.basic_value, $._string],
 
     rules: {
-        source_file: ($) => repeat($._definition),
+        document: ($) => repeat($._definition),
 
         _definition: ($) =>
             choice(
@@ -42,7 +42,7 @@ module.exports = grammar({
 
         _exportable_definition: ($) =>
             seq(
-                field("export", optional($.export_modifier)),
+                field("export", optional($._export_modifier)),
                 choice(
                     $.struct_definition,
                     $.global_definition,
@@ -87,7 +87,7 @@ module.exports = grammar({
                 ";",
             ),
 
-        export_modifier: (_) => "export",
+        _export_modifier: (_) => "export",
 
         component: ($) =>
             seq(
@@ -120,7 +120,7 @@ module.exports = grammar({
         binding_block: ($) =>
             seq(
                 "{",
-                repeat($.binding_block_statement),
+                repeat($._binding_block_statement),
                 optional(
                     seq(
                         choice(
@@ -134,7 +134,7 @@ module.exports = grammar({
                 "}",
             ),
 
-        binding_block_statement: ($) =>
+        _binding_block_statement: ($) =>
             choice(
                 seq($.assignment_block, optional(";")),
                 seq($.assignment_expr, ";"),
@@ -228,7 +228,7 @@ module.exports = grammar({
         block: ($) =>
             seq(
                 "{",
-                repeat($.block_statement),
+                repeat($._block_statement),
                 optional(
                     seq(
                         choice(
@@ -242,9 +242,9 @@ module.exports = grammar({
                 "}",
             ),
 
-        block_statement: ($) =>
+        _block_statement: ($) =>
             choice(
-                $.binding_block_statement,
+                $._binding_block_statement,
                 $.for_loop,
                 $.if_statement,
                 $.animate_statement,
@@ -275,7 +275,7 @@ module.exports = grammar({
                 "[",
                 repeat(
                     seq(
-                        alias($.var_identifier, $.state_identifier),
+                        field("name", $.var_identifier),
                         "when",
                         $._expression,
                         ":",
@@ -352,23 +352,6 @@ module.exports = grammar({
 
         for_range: ($) => choice($._int_number, $.value_list, $.var_identifier),
 
-        // list_definition: ($) =>
-        //   seq(
-        //     $.list_definition_body,
-        //     "]",
-        //   ),
-        //
-        // list_definition_body: ($) =>
-        //   seq(
-        //     "[",
-        //     repeat(
-        //       seq(
-        //         $.block,
-        //         optional(","),
-        //       ),
-        //     ),
-        //   ),
-
         _assignment_setup: ($) =>
             seq(
                 field("name", $.var_identifier),
@@ -388,9 +371,6 @@ module.exports = grammar({
 
         _expression: ($) =>
             choice($._expression_body, seq("(", $._expression, ")")),
-
-        expression_body_paren: ($) =>
-            seq("(", optional($._expression_body), ")"),
 
         _expression_body: ($) =>
             choice(
@@ -424,18 +404,32 @@ module.exports = grammar({
         mult_binary_expression: ($) =>
             prec.left(
                 2,
-                seq($._expression, $.mult_prec_operator, $._expression),
+                seq(
+                    field("left", $._expression),
+                    field("op", $.mult_prec_operator),
+                    field("right", $._expression),
+                ),
             ),
         ternary_expression: ($) =>
             prec.left(
                 3,
-                seq($._expression, "?", $._expression, ":", $._expression),
+                seq(
+                    field("condition", $._expression),
+                    "?",
+                    field("left", $._expression),
+                    ":",
+                    field("right", $._expression),
+                ),
             ),
 
         add_binary_expression: ($) =>
             prec.left(
                 1,
-                seq($._expression, $.add_prec_operator, $._expression),
+                seq(
+                    field("left", $._expression),
+                    field("op", $.add_prec_operator),
+                    field("right", $._expression),
+                ),
             ),
 
         callback: ($) =>
@@ -516,14 +510,10 @@ module.exports = grammar({
                 "(",
                 field(
                     "parameters",
-                    optional(
-                        seq(commaSep1($._formal_parameter), optional(",")),
-                    ),
+                    optional(seq(commaSep1($._expression), optional(","))),
                 ),
                 ")",
             ),
-
-        _formal_parameter: ($) => $._expression,
 
         operators: ($) =>
             choice(

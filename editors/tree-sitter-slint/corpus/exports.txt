@@ -11,27 +11,24 @@ component Ko {
 }
 --------------------------------------------------------------------------------
 
-(source_file
-  (export_modifier)
+(document
   (component_definition
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (visibility_modifier)
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (bool_value))))))
+      (property
+        (visibility_modifier)
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (bool_value)))))
   (component_definition
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (visibility_modifier)
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (bool_value)))))))
+      (property
+        (visibility_modifier)
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (bool_value))))))

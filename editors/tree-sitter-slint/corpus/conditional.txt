@@ -15,71 +15,64 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (ternary_expression
+          (var_identifier)
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))
           (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)))
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (ternary_expression
-              (var_identifier)
-              (var_identifier
-                (reference_identifier)
-                (post_identifier))
-              (var_identifier)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (ternary_expression
           (var_identifier)
-          (ternary_expression
-            (var_identifier)
-            (value
-              (string_value))
-            (value
-              (int_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+          (value
+            (string_value))
+          (value
+            (int_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (ternary_expression
           (var_identifier)
-          (ternary_expression
-            (var_identifier)
-            (value
-              (int_value))
-            (value
-              (string_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+          (value
+            (int_value))
+          (value
+            (string_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (comparison_binary_expression
-            (comparison_binary_expression
-              (var_identifier)
-              (comparison_operator)
-              (mult_binary_expression
-                (value
-                  (string_value))
-                (mult_prec_operator)
-                (var_identifier)))
+            (var_identifier)
             (comparison_operator)
-            (value
-              (string_value))))))))
+            (mult_binary_expression
+              (value
+                (string_value))
+              (mult_prec_operator)
+              (var_identifier)))
+          (comparison_operator)
+          (value
+            (string_value)))))))
 
 ================================================================================
 expr
@@ -95,63 +88,58 @@ TestCase := Rectangle {
 }
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (ternary_expression
           (var_identifier)
+          (value
+            (int_value))
+          (value
+            (int_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (ternary_expression
           (ternary_expression
             (var_identifier)
-            (value
-              (int_value))
-            (value
-              (int_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (ternary_expression
             (ternary_expression
               (var_identifier)
-              (ternary_expression
-                (var_identifier)
-                (value
-                  (int_value))
-                (value
-                  (int_value)))
-              (var_identifier))
-            (value
-              (int_value))
-            (value
-              (int_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (ternary_expression
-            (value
-              (bool_value))
-            (value
-              (int_value))
-            (value
-              (physical_length_value))))))))
+              (value
+                (int_value))
+              (value
+                (int_value)))
+            (var_identifier))
+          (value
+            (int_value))
+          (value
+            (int_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (ternary_expression
+          (value
+            (bool_value))
+          (value
+            (int_value))
+          (value
+            (physical_length_value)))))))
 
 ================================================================================
 stm
@@ -200,134 +188,111 @@ TestCase := Rectangle {
 }
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (callback
-          (function_identifier)))
-      (block_statement
-        (binding_block_statement
-          (callback_event
-            (function_identifier)
-            (block
-              (block_statement
-                (binding_block_statement
-                  (if_expr
-                    (comparison_binary_expression
-                      (var_identifier)
-                      (comparison_operator)
-                      (value
-                        (int_value)))
-                    (binding_block
-                      (binding_block_statement
-                        (assignment_expr
-                          (var_identifier)
-                          (assignment_prec_operator)
-                          (value
-                            (int_value))))
-                      (assignment_expr
-                        (var_identifier)
-                        (assignment_prec_operator)
-                        (value
-                          (int_value)))))))
-              (block_statement
-                (binding_block_statement
-                  (if_expr
-                    (comparison_binary_expression
-                      (var_identifier)
-                      (comparison_operator)
-                      (value
-                        (int_value)))
-                    (binding_block)
-                    (binding_block
-                      (assignment_expr
-                        (var_identifier)
-                        (assignment_prec_operator)
-                        (value
-                          (int_value)))))))))))
-      (block_statement
-        (callback
-          (function_identifier)))
-      (block_statement
-        (binding_block_statement
-          (callback_event
-            (function_identifier)
-            (block
-              (block_statement
-                (binding_block_statement
-                  (if_expr
-                    (value
-                      (value
-                        (bool_value)))
-                    (binding_block
-                      (function_call
-                        (function_identifier)
-                        (call_signature))))))
-              (block_statement
-                (binding_block_statement
-                  (if_expr
-                    (value
-                      (value
-                        (bool_value)))
-                    (binding_block
-                      (binding_block_statement
-                        (assignment_expr
-                          (var_identifier)
-                          (assignment_prec_operator)
-                          (value
-                            (int_value)))))
-                    (binding_block
-                      (function_call
-                        (function_identifier)
-                        (call_signature))))))))))
-      (block_statement
-        (callback
-          (function_identifier)
-          (call_signature
-            (var_identifier))
-          (type_identifier)))
-      (block_statement
-        (binding_block_statement
-          (callback_event
-            (function_identifier)
-            (call_signature
-              (var_identifier))
-            (block
-              (block_statement
-                (binding_block_statement
-                  (if_expr
-                    (comparison_binary_expression
-                      (var_identifier)
-                      (comparison_operator)
-                      (value
-                        (int_value)))
-                    (binding_block
-                      (value
-                        (int_value)))
-                    (if_expr
-                      (comparison_binary_expression
-                        (var_identifier)
-                        (comparison_operator)
-                        (value
-                          (int_value)))
-                      (binding_block
-                        (value
-                          (int_value)))
-                      (binding_block
-                        (value
-                          (int_value))))))))))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (callback
+        (function_identifier))
+      (callback_event
+        (function_identifier)
+        (block
+          (if_expr
+            (comparison_binary_expression
+              (var_identifier)
+              (comparison_operator)
+              (value
+                (int_value)))
+            (binding_block
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (int_value)))
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (int_value)))))
+          (if_expr
+            (comparison_binary_expression
+              (var_identifier)
+              (comparison_operator)
+              (value
+                (int_value)))
+            (binding_block)
+            (binding_block
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (int_value)))))))
+      (callback
+        (function_identifier))
+      (callback_event
+        (function_identifier)
+        (block
+          (if_expr
+            (value
+              (value
+                (bool_value)))
+            (binding_block
+              (function_call
+                (function_identifier)
+                (call_signature))))
+          (if_expr
+            (value
+              (value
+                (bool_value)))
+            (binding_block
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (int_value))))
+            (binding_block
+              (function_call
+                (function_identifier)
+                (call_signature))))))
+      (callback
+        (function_identifier)
+        (call_signature
+          (var_identifier))
+        (type_identifier))
+      (callback_event
+        (function_identifier)
+        (call_signature
+          (var_identifier))
+        (block
+          (if_expr
+            (comparison_binary_expression
+              (var_identifier)
+              (comparison_operator)
+              (value
+                (int_value)))
+            (binding_block
+              (value
+                (int_value)))
+            (if_expr
+              (comparison_binary_expression
+                (var_identifier)
+                (comparison_operator)
+                (value
+                  (int_value)))
+              (binding_block
+                (value
+                  (int_value)))
+              (binding_block
+                (value
+                  (int_value))))))))))

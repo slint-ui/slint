@@ -18,65 +18,59 @@ dashes
 }
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (physical_length_value))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (physical_length_value)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (add_binary_expression
+          (unary_expression
+            (unary_prec_operator)
+            (var_identifier))
+          (add_prec_operator)
           (value
             (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (add_binary_expression
-            (unary_expression
-              (unary_prec_operator)
-              (var_identifier))
-            (add_prec_operator)
-            (value
-              (int_value)))))
       (comment)
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (add_binary_expression
-            (value
-              (int_value))
-            (add_prec_operator)
-            (var_identifier))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (add_binary_expression
+          (value
+            (int_value))
+          (add_prec_operator)
+          (var_identifier)))
       (comment))))
 
 ================================================================================
@@ -116,134 +110,110 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (length_value)))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (length_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier))
+      (animate_statement
+        (var_identifier)
+        (animate_body
+          (value
+            (duration_value))))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (property
+            (type
+              (type_identifier))
             (var_identifier)
-            (assignment_prec_operator)
             (value
-              (length_value)))))
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
+              (int_value)))
+          (animate_statement
             (var_identifier)
-            (assignment_prec_operator)
+            (animate_body
+              (value
+                (duration_value))))
+          (property
+            (type
+              (type_identifier))
+            (var_identifier)
             (value
-              (length_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)))
-      (block_statement
-        (animate_statement
-          (var_identifier)
-          (animate_body
-            (value
-              (duration_value)))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
-                (var_identifier)
+              (bool_value)))
+          (property
+            (type
+              (type_identifier))
+            (var_identifier)
+            (ternary_expression
+              (var_identifier)
+              (value
+                (int_value))
+              (value
+                (int_value))))
+          (animate_statement
+            (var_identifier)
+            (animate_body
+              (value
+                (duration_value))))
+          (callback_event
+            (function_identifier)
+            (block
+              (function_call
+                (function_identifier)
+                (call_signature
+                  (value
+                    (string_value))))
+              (assignment_expr
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))
+                (assignment_prec_operator)
                 (value
-                  (int_value))))
-            (block_statement
-              (animate_statement
-                (var_identifier)
-                (animate_body
-                  (value
-                    (duration_value)))))
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
-                (var_identifier)
+                  (int_value)))
+              (assignment_expr
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))
+                (assignment_prec_operator)
                 (value
-                  (bool_value))))
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
+                  (bool_value)))
+              (assignment_expr
                 (var_identifier)
-                (ternary_expression
-                  (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (int_value)))
+              (function_call
+                (function_identifier)
+                (call_signature
                   (value
-                    (int_value))
-                  (value
-                    (int_value)))))
-            (block_statement
-              (animate_statement
-                (var_identifier)
-                (animate_body
-                  (value
-                    (duration_value)))))
-            (block_statement
-              (binding_block_statement
-                (callback_event
-                  (function_identifier)
-                  (block
-                    (block_statement
-                      (binding_block_statement
-                        (function_call
-                          (function_identifier)
-                          (call_signature
-                            (value
-                              (string_value))))))
-                    (block_statement
-                      (binding_block_statement
-                        (assignment_expr
-                          (var_identifier
-                            (reference_identifier)
-                            (post_identifier))
-                          (assignment_prec_operator)
-                          (value
-                            (int_value)))))
-                    (block_statement
-                      (binding_block_statement
-                        (assignment_expr
-                          (var_identifier
-                            (reference_identifier)
-                            (post_identifier))
-                          (assignment_prec_operator)
-                          (value
-                            (bool_value)))))
-                    (block_statement
-                      (binding_block_statement
-                        (assignment_expr
-                          (var_identifier)
-                          (assignment_prec_operator)
-                          (value
-                            (int_value)))))
-                    (function_call
-                      (function_identifier)
-                      (call_signature
-                        (value
-                          (string_value))))))))))))))
+                    (string_value)))))))))))
 
 ================================================================================
 animation_merging
@@ -286,141 +256,121 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier))
+      (animate_statement
+        (var_identifier)
+        (animate_body
           (var_identifier)))
-      (block_statement
-        (animate_statement
-          (var_identifier)
-          (animate_body
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (duration_value)))))
+  (component_definition
+    (type_identifier)
+    (type_identifier)
+    (block
+      (property
+        (type
+          (type_identifier))
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier))))
+  (component_definition
+    (type_identifier)
+    (type_identifier)
+    (block
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
             (var_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (duration_value))))))
-  (component_definition
-    (type_identifier)
-    (type_identifier)
-    (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier)))))
-  (component_definition
-    (type_identifier)
-    (type_identifier)
-    (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (var_identifier)))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (binding_block_statement
-                (assignment_expr
-                  (var_identifier)
-                  (assignment_prec_operator)
-                  (value
-                    (duration_value)))))
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (var_identifier)))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (animate_statement
-                (var_identifier)
-                (animate_body
-                  (value
-                    (duration_value)))))
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (var_identifier)))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (binding_block_statement
-                (assignment_expr
-                  (var_identifier)
-                  (assignment_prec_operator)
-                  (var_identifier
-                    (reference_identifier)
-                    (post_identifier)))))
-            (block_statement
-              (animate_statement
-                (var_identifier)
-                (animate_body
-                  (value
-                    (duration_value)))))))))))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (duration_value)))
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (var_identifier))))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (animate_statement
+            (var_identifier)
+            (animate_body
+              (value
+                (duration_value))))
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (var_identifier))))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (var_identifier
+              (reference_identifier)
+              (post_identifier)))
+          (animate_statement
+            (var_identifier)
+            (animate_body
+              (value
+                (duration_value)))))))))
 
 ================================================================================
 delayed_transitions
@@ -460,120 +410,111 @@ delayed_transitions
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
-                (var_identifier)
-                (add_binary_expression
-                  (value
-                    (int_value))
-                  (add_prec_operator)
-                  (var_identifier)))))))
-      (block_statement
-        (states_definition
-          (state_identifier)
-          (comparison_binary_expression
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (property
+            (type
+              (type_identifier))
             (var_identifier)
-            (comparison_operator)
-            (value
-              (int_value)))
-          (assignment_expr
-            (var_identifier
-              (post_identifier))
-            (assignment_prec_operator)
             (add_binary_expression
               (value
                 (int_value))
               (add_prec_operator)
-              (mult_binary_expression
-                (value
-                  (int_value))
-                (mult_prec_operator)
-                (var_identifier))))
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (int_value)))
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (int_value)))))
-      (block_statement
-        (transitions_definition
-          (in_out_transition
-            (var_identifier)
-            (animate_statement
-              (var_identifier)
-              (animate_body
-                (value
-                  (duration_value))
-                (value
-                  (duration_value))))
-            (animate_statement
-              (var_identifier)
-              (animate_body
-                (value
-                  (duration_value))
-                (value
-                  (duration_value)))))
-          (in_out_transition
-            (var_identifier)
-            (animate_statement
-              (var_identifier
-                (post_identifier))
-              (animate_body
-                (value
-                  (duration_value))
-                (value
-                  (duration_value)))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+              (var_identifier)))))
+      (states_definition
+        (var_identifier)
+        (comparison_binary_expression
           (var_identifier)
+          (comparison_operator)
+          (value
+            (int_value)))
+        (assignment_expr
           (var_identifier
-            (post_identifier)))))))
+            (post_identifier))
+          (assignment_prec_operator)
+          (add_binary_expression
+            (value
+              (int_value))
+            (add_prec_operator)
+            (mult_binary_expression
+              (value
+                (int_value))
+              (mult_prec_operator)
+              (var_identifier))))
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (int_value)))
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (int_value))))
+      (transitions_definition
+        (in_out_transition
+          (var_identifier)
+          (animate_statement
+            (var_identifier)
+            (animate_body
+              (value
+                (duration_value))
+              (value
+                (duration_value))))
+          (animate_statement
+            (var_identifier)
+            (animate_body
+              (value
+                (duration_value))
+              (value
+                (duration_value)))))
+        (in_out_transition
+          (var_identifier)
+          (animate_statement
+            (var_identifier
+              (post_identifier))
+            (animate_body
+              (value
+                (duration_value))
+              (value
+                (duration_value))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier))))))
 
 ================================================================================
 issue1237_states_visible
@@ -601,101 +542,90 @@ TestCase := Window {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (length_value)))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (length_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (callback_event
+            (function_identifier)
+            (block
+              (assignment_expr
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))
+                (assignment_prec_operator)
+                (value
+                  (int_value)))))
+          (component
             (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (length_value)))))
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (length_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (binding_block_statement
-                (callback_event
-                  (function_identifier)
-                  (block
-                    (assignment_expr
-                      (var_identifier
-                        (reference_identifier)
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (value
-                        (int_value)))))))
-            (block_statement
-              (component
+            (type_identifier)
+            (block
+              (assignment_expr
                 (var_identifier)
-                (type_identifier)
-                (block
-                  (assignment_expr
-                    (var_identifier)
-                    (assignment_prec_operator)
-                    (value
-                      (string_value))))))
-            (block_statement
-              (states_definition
-                (state_identifier)
-                (comparison_binary_expression
-                  (var_identifier
-                    (reference_identifier)
-                    (post_identifier))
-                  (comparison_operator)
-                  (value
-                    (int_value)))
-                (assignment_expr
-                  (var_identifier)
-                  (assignment_prec_operator)
-                  (value
-                    (bool_value)))
-                (state_identifier)
-                (comparison_binary_expression
-                  (var_identifier
-                    (reference_identifier)
-                    (post_identifier))
-                  (comparison_operator)
-                  (value
-                    (int_value)))
-                (assignment_expr
-                  (var_identifier
-                    (post_identifier))
-                  (assignment_prec_operator)
-                  (value
-                    (string_value)))
-                (assignment_expr
-                  (var_identifier
-                    (post_identifier))
-                  (assignment_prec_operator)
-                  (value
-                    (length_value))))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier)))))))
+                (assignment_prec_operator)
+                (value
+                  (string_value)))))
+          (states_definition
+            (var_identifier)
+            (comparison_binary_expression
+              (var_identifier
+                (reference_identifier)
+                (post_identifier))
+              (comparison_operator)
+              (value
+                (int_value)))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (bool_value)))
+            (var_identifier)
+            (comparison_binary_expression
+              (var_identifier
+                (reference_identifier)
+                (post_identifier))
+              (comparison_operator)
+              (value
+                (int_value)))
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (value
+                (string_value)))
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (value
+                (length_value))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier))))))
 
 ================================================================================
 property_animation
@@ -724,65 +654,58 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (animate_statement
-          (var_identifier)
-          (animate_body
-            (mult_binary_expression
-              (var_identifier)
-              (mult_prec_operator)
-              (value
-                (duration_value)))
-            (var_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (animate_statement
-          (var_identifier)
-          (animate_body
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (bool_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (ternary_expression
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (animate_statement
+        (var_identifier)
+        (animate_body
+          (mult_binary_expression
             (var_identifier)
+            (mult_prec_operator)
             (value
-              (int_value))
-            (value
-              (int_value)))))
-      (block_statement
-        (animate_statement
+              (duration_value)))
+          (var_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (animate_statement
+        (var_identifier)
+        (animate_body
+          (value
+            (duration_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (bool_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (ternary_expression
           (var_identifier)
-          (animate_body
-            (value
-              (duration_value))))))))
+          (value
+            (int_value))
+          (value
+            (int_value))))
+      (animate_statement
+        (var_identifier)
+        (animate_body
+          (value
+            (duration_value)))))))
 
 ================================================================================
 states
@@ -850,196 +773,178 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (states_definition
+        (var_identifier)
+        (var_identifier)
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (int_value))))))
+  (component_definition
+    (type_identifier)
+    (type_identifier)
+    (block
+      (states_definition
+        (var_identifier)
+        (var_identifier)
+        (assignment_expr
+          (var_identifier
+            (post_identifier))
+          (assignment_prec_operator)
           (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (states_definition
-          (state_identifier)
-          (var_identifier)
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (int_value)))))))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block))))
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (states_definition
-          (state_identifier)
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
           (assignment_expr
-            (var_identifier
-              (post_identifier))
-            (assignment_prec_operator)
-            (var_identifier))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block)))))
-  (component_definition
-    (type_identifier)
-    (type_identifier)
-    (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (binding_block_statement
-                (assignment_expr
-                  (var_identifier)
-                  (assignment_prec_operator)
-                  (value
-                    (string_value)))))
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
-                (var_identifier)
-                (add_binary_expression
-                  (value
-                    (int_value))
-                  (add_prec_operator)
-                  (var_identifier)))))))
-      (block_statement
-        (states_definition
-          (state_identifier)
-          (comparison_binary_expression
             (var_identifier)
-            (comparison_operator)
-            (value
-              (int_value)))
-          (assignment_expr
-            (var_identifier
-              (post_identifier))
             (assignment_prec_operator)
             (value
               (string_value)))
-          (assignment_expr
-            (var_identifier
-              (post_identifier))
-            (assignment_prec_operator)
+          (property
+            (type
+              (type_identifier))
+            (var_identifier)
             (add_binary_expression
               (value
                 (int_value))
               (add_prec_operator)
-              (mult_binary_expression
-                (value
-                  (int_value))
-                (mult_prec_operator)
-                (var_identifier))))
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (int_value)))
-          (state_identifier)
-          (comparison_binary_expression
-            (var_identifier)
-            (comparison_operator)
-            (value
-              (int_value)))
-          (assignment_expr
-            (var_identifier
-              (post_identifier))
-            (assignment_prec_operator)
-            (value
-              (int_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+              (var_identifier)))))
+      (states_definition
+        (var_identifier)
+        (comparison_binary_expression
           (var_identifier)
+          (comparison_operator)
+          (value
+            (int_value)))
+        (assignment_expr
           (var_identifier
-            (post_identifier))))
-      (block_statement
-        (for_loop
-          (var_identifier)
-          (for_range
-            (value_list
+            (post_identifier))
+          (assignment_prec_operator)
+          (value
+            (string_value)))
+        (assignment_expr
+          (var_identifier
+            (post_identifier))
+          (assignment_prec_operator)
+          (add_binary_expression
+            (value
+              (int_value))
+            (add_prec_operator)
+            (mult_binary_expression
               (value
                 (int_value))
-              (value
-                (int_value))))
-          (component
-            (type_identifier)
-            (block
-              (block_statement
-                (states_definition
-                  (state_identifier)
-                  (comparison_binary_expression
-                    (var_identifier)
-                    (comparison_operator)
-                    (value
-                      (int_value)))
-                  (assignment_expr
-                    (var_identifier)
-                    (assignment_prec_operator)
-                    (mult_binary_expression
-                      (var_identifier)
-                      (mult_prec_operator)
-                      (value
-                        (physical_length_value))))))))))
-      (block_statement
-        (component
+              (mult_prec_operator)
+              (var_identifier))))
+        (assignment_expr
           (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (int_value)))
+        (var_identifier)
+        (comparison_binary_expression
+          (var_identifier)
+          (comparison_operator)
+          (value
+            (int_value)))
+        (assignment_expr
+          (var_identifier
+            (post_identifier))
+          (assignment_prec_operator)
+          (value
+            (int_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (for_loop
+        (var_identifier)
+        (for_range
+          (value_list
+            (value
+              (int_value))
+            (value
+              (int_value))))
+        (component
           (type_identifier)
           (block
-            (assignment_expr
+            (states_definition
               (var_identifier)
-              (assignment_prec_operator)
               (comparison_binary_expression
                 (var_identifier)
                 (comparison_operator)
                 (value
-                  (int_value)))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier)))))))
+                  (int_value)))
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (mult_binary_expression
+                  (var_identifier)
+                  (mult_prec_operator)
+                  (value
+                    (physical_length_value))))))))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (comparison_binary_expression
+              (var_identifier)
+              (comparison_operator)
+              (value
+                (int_value))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier))))))
 
 ================================================================================
 states_with_animation
@@ -1070,74 +975,66 @@ states_with_animation
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
-                (var_identifier)))
-            (comment)
-            (block_statement
-              (animate_statement
-                (var_identifier)
-                (animate_body
-                  (value
-                    (duration_value))))))))
-      (block_statement
-        (states_definition
-          (state_identifier)
-          (comparison_binary_expression
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (property
+            (type
+              (type_identifier))
+            (var_identifier))
+          (comment)
+          (animate_statement
             (var_identifier)
-            (comparison_operator)
-            (value
-              (int_value)))
-          (assignment_expr
-            (var_identifier
-              (post_identifier))
-            (assignment_prec_operator)
-            (value
-              (int_value)))
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (int_value)))))
-      (block_statement
-        (animate_statement
+            (animate_body
+              (value
+                (duration_value))))))
+      (states_definition
+        (var_identifier)
+        (comparison_binary_expression
           (var_identifier)
-          (animate_body
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+          (comparison_operator)
+          (value
+            (int_value)))
+        (assignment_expr
           (var_identifier
-            (post_identifier)))))))
+            (post_identifier))
+          (assignment_prec_operator)
+          (value
+            (int_value)))
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (int_value))))
+      (animate_statement
+        (var_identifier)
+        (animate_body
+          (value
+            (duration_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier))))))
 
 ================================================================================
 transitions
@@ -1174,97 +1071,89 @@ transitions
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
-                (var_identifier)
-                (add_binary_expression
-                  (value
-                    (int_value))
-                  (add_prec_operator)
-                  (var_identifier)))))))
-      (block_statement
-        (states_definition
-          (state_identifier)
-          (comparison_binary_expression
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (property
+            (type
+              (type_identifier))
             (var_identifier)
-            (comparison_operator)
-            (value
-              (int_value)))
-          (assignment_expr
-            (var_identifier
-              (post_identifier))
-            (assignment_prec_operator)
             (add_binary_expression
               (value
                 (int_value))
               (add_prec_operator)
-              (mult_binary_expression
-                (value
-                  (int_value))
-                (mult_prec_operator)
-                (var_identifier))))
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (int_value)))))
-      (block_statement
-        (transitions_definition
-          (in_out_transition
-            (var_identifier)
-            (animate_statement
-              (var_identifier)
-              (animate_body
-                (value
-                  (duration_value)))))
-          (in_out_transition
-            (var_identifier)
-            (animate_statement
-              (var_identifier
-                (post_identifier))
-              (animate_body
-                (value
-                  (duration_value)))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+              (var_identifier)))))
+      (states_definition
+        (var_identifier)
+        (comparison_binary_expression
           (var_identifier)
+          (comparison_operator)
+          (value
+            (int_value)))
+        (assignment_expr
           (var_identifier
-            (post_identifier)))))))
+            (post_identifier))
+          (assignment_prec_operator)
+          (add_binary_expression
+            (value
+              (int_value))
+            (add_prec_operator)
+            (mult_binary_expression
+              (value
+                (int_value))
+              (mult_prec_operator)
+              (var_identifier))))
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (int_value))))
+      (transitions_definition
+        (in_out_transition
+          (var_identifier)
+          (animate_statement
+            (var_identifier)
+            (animate_body
+              (value
+                (duration_value)))))
+        (in_out_transition
+          (var_identifier)
+          (animate_statement
+            (var_identifier
+              (post_identifier))
+            (animate_body
+              (value
+                (duration_value))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier))))))
 
 ================================================================================
 transitions2
@@ -1300,90 +1189,83 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (int_value))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
-                (var_identifier)
-                (add_binary_expression
-                  (value
-                    (int_value))
-                  (add_prec_operator)
-                  (var_identifier)))))))
-      (block_statement
-        (states_definition
-          (state_identifier)
-          (comparison_binary_expression
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (property
+            (type
+              (type_identifier))
             (var_identifier)
-            (comparison_operator)
-            (value
-              (int_value)))
-          (assignment_expr
-            (var_identifier
-              (post_identifier))
-            (assignment_prec_operator)
             (add_binary_expression
               (value
                 (int_value))
               (add_prec_operator)
-              (mult_binary_expression
-                (value
-                  (int_value))
-                (mult_prec_operator)
-                (var_identifier))))
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (int_value)))
-          (in_out_transition
-            (animate_statement
-              (var_identifier)
-              (animate_body
-                (value
-                  (duration_value)))))
-          (in_out_transition
-            (animate_statement
-              (var_identifier
-                (post_identifier))
-              (animate_body
-                (value
-                  (duration_value)))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+              (var_identifier)))))
+      (states_definition
+        (var_identifier)
+        (comparison_binary_expression
           (var_identifier)
+          (comparison_operator)
+          (value
+            (int_value)))
+        (assignment_expr
           (var_identifier
-            (post_identifier)))))))
+            (post_identifier))
+          (assignment_prec_operator)
+          (add_binary_expression
+            (value
+              (int_value))
+            (add_prec_operator)
+            (mult_binary_expression
+              (value
+                (int_value))
+              (mult_prec_operator)
+              (var_identifier))))
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (int_value)))
+        (in_out_transition
+          (animate_statement
+            (var_identifier)
+            (animate_body
+              (value
+                (duration_value)))))
+        (in_out_transition
+          (animate_statement
+            (var_identifier
+              (post_identifier))
+            (animate_body
+              (value
+                (duration_value))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier))))))

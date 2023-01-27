@@ -9,43 +9,41 @@ Test := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (angle_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
+          (function_call
+            (function_identifier)
+            (call_signature
+              (mult_binary_expression
+                (add_binary_expression
+                  (var_identifier)
+                  (add_prec_operator)
+                  (mult_binary_expression
+                    (value
+                      (angle_value))
+                    (mult_prec_operator)
+                    (value
+                      (float_value))))
+                (mult_prec_operator)
+                (value
+                  (angle_value)))))
+          (comparison_operator)
           (value
-            (angle_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (comparison_binary_expression
-            (function_call
-              (function_identifier)
-              (call_signature
-                (mult_binary_expression
-                  (add_binary_expression
-                    (var_identifier)
-                    (add_prec_operator)
-                    (mult_binary_expression
-                      (value
-                        (angle_value))
-                      (mult_prec_operator)
-                      (value
-                        (float_value))))
-                  (mult_prec_operator)
-                  (value
-                    (angle_value)))))
-            (comparison_operator)
-            (value
-              (float_value))))))))
+            (float_value)))))))
 
 ================================================================================
 bool
@@ -57,25 +55,23 @@ TestCase := Rectangle {
 }
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (bool_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (bool_value)))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (bool_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (bool_value))))))
 
 ================================================================================
 color
@@ -109,168 +105,145 @@ Test := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (int_value))
-              (value
-                (int_value))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (function_call
+          (function_identifier)
+          (call_signature
+            (value
+              (int_value))
+            (value
+              (int_value))
+            (value
+              (int_value)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (function_call
+          (function_identifier)
+          (call_signature
+            (value
+              (percent_value))
+            (value
+              (percent_value))
+            (value
+              (percent_value))
+            (value
+              (percent_value)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (function_call
+          (function_identifier)
+          (call_signature
+            (value
+              (int_value))
+            (value
+              (int_value))
+            (unary_expression
+              (unary_prec_operator)
               (value
                 (int_value))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (percent_value))
-              (value
-                (percent_value))
-              (value
-                (percent_value))
-              (value
-                (percent_value))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (int_value))
-              (value
-                (int_value))
-              (unary_expression
-                (unary_prec_operator)
-                (value
-                  (int_value)))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (comparison_binary_expression
             (comparison_binary_expression
               (comparison_binary_expression
                 (comparison_binary_expression
-                  (comparison_binary_expression
-                    (var_identifier)
-                    (comparison_operator)
-                    (mult_binary_expression
-                      (var_identifier)
-                      (mult_prec_operator)
-                      (var_identifier)))
+                  (var_identifier)
                   (comparison_operator)
                   (mult_binary_expression
                     (var_identifier)
@@ -278,30 +251,35 @@ Test := Rectangle {
                     (var_identifier)))
                 (comparison_operator)
                 (mult_binary_expression
-                  (var_identifier
-                    (post_identifier))
+                  (var_identifier)
                   (mult_prec_operator)
-                  (var_identifier
-                    (post_identifier))))
+                  (var_identifier)))
               (comparison_operator)
               (mult_binary_expression
-                (var_identifier)
+                (var_identifier
+                  (post_identifier))
                 (mult_prec_operator)
-                (var_identifier)))
+                (var_identifier
+                  (post_identifier))))
             (comparison_operator)
-            (var_identifier
-              (post_identifier
-                (function_call
-                  (function_identifier)
-                  (call_signature
-                    (value
-                      (int_value))
-                    (value
-                      (percent_value))
-                    (value
-                      (int_value))
-                    (value
-                      (percent_value))))))))))))
+            (mult_binary_expression
+              (var_identifier)
+              (mult_prec_operator)
+              (var_identifier)))
+          (comparison_operator)
+          (var_identifier
+            (post_identifier
+              (function_call
+                (function_identifier)
+                (call_signature
+                  (value
+                    (int_value))
+                  (value
+                    (percent_value))
+                  (value
+                    (int_value))
+                  (value
+                    (percent_value)))))))))))
 
 ================================================================================
 duration
@@ -332,213 +310,195 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (duration_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (duration_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (duration_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (value
+            (int_value))
+          (mult_prec_operator)
           (value
             (duration_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (add_binary_expression
+          (value
+            (duration_value))
+          (add_prec_operator)
           (value
             (duration_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (add_binary_expression
           (var_identifier)
+          (add_prec_operator)
+          (var_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (unary_expression
+          (unary_prec_operator)
           (value
             (duration_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
           (mult_binary_expression
-            (value
-              (int_value))
+            (mult_binary_expression
+              (unary_expression
+                (unary_prec_operator)
+                (value
+                  (duration_value)))
+              (mult_prec_operator)
+              (value
+                (int_value)))
             (mult_prec_operator)
             (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+              (length_value)))
+          (mult_prec_operator)
+          (value
+            (length_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
           (var_identifier)
+          (mult_prec_operator)
+          (value
+            (duration_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (var_identifier)
+          (mult_prec_operator)
           (add_binary_expression
             (value
               (duration_value))
             (add_prec_operator)
             (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (add_binary_expression
-            (var_identifier)
-            (add_prec_operator)
-            (var_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (unary_expression
-            (unary_prec_operator)
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (mult_binary_expression
-              (mult_binary_expression
-                (unary_expression
-                  (unary_prec_operator)
-                  (value
-                    (duration_value)))
-                (mult_prec_operator)
-                (value
-                  (int_value)))
-              (mult_prec_operator)
-              (value
-                (length_value)))
-            (mult_prec_operator)
-            (value
-              (length_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (var_identifier)
-            (mult_prec_operator)
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (var_identifier)
-            (mult_prec_operator)
-            (add_binary_expression
-              (value
-                (duration_value))
-              (add_prec_operator)
-              (value
-                (int_value))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (var_identifier
-              (reference_identifier)
-              (post_identifier))
-            (mult_prec_operator)
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (var_identifier
-              (reference_identifier)
-              (post_identifier))
-            (mult_prec_operator)
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (var_identifier
-              (reference_identifier)
-              (post_identifier))
-            (mult_prec_operator)
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (var_identifier
-              (reference_identifier)
-              (post_identifier))
-            (mult_prec_operator)
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (var_identifier
-              (reference_identifier)
-              (post_identifier))
-            (mult_prec_operator)
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (var_identifier
-              (reference_identifier)
-              (post_identifier))
-            (mult_prec_operator)
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (var_identifier
-              (reference_identifier)
-              (post_identifier))
-            (mult_prec_operator)
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (var_identifier
-              (reference_identifier)
-              (post_identifier))
-            (mult_prec_operator)
-            (value
-              (duration_value))))))))
+              (int_value)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))
+          (mult_prec_operator)
+          (value
+            (duration_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))
+          (mult_prec_operator)
+          (value
+            (duration_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))
+          (mult_prec_operator)
+          (value
+            (duration_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))
+          (mult_prec_operator)
+          (value
+            (duration_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))
+          (mult_prec_operator)
+          (value
+            (duration_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))
+          (mult_prec_operator)
+          (value
+            (duration_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))
+          (mult_prec_operator)
+          (value
+            (duration_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (var_identifier
+            (reference_identifier)
+            (post_identifier))
+          (mult_prec_operator)
+          (value
+            (duration_value)))))))
 
 ================================================================================
 enum_compare
@@ -551,43 +511,41 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (comparison_binary_expression
-            (comparison_binary_expression
-              (var_identifier)
-              (comparison_operator)
-              (mult_binary_expression
-                (var_identifier
-                  (post_identifier))
-                (mult_prec_operator)
-                (var_identifier)))
+            (var_identifier)
             (comparison_operator)
             (mult_binary_expression
               (var_identifier
                 (post_identifier))
               (mult_prec_operator)
-              (unary_expression
-                (unary_prec_operator)
-                (comparison_binary_expression
-                  (var_identifier)
-                  (comparison_operator)
-                  (var_identifier
-                    (post_identifier)))))))))))
+              (var_identifier)))
+          (comparison_operator)
+          (mult_binary_expression
+            (var_identifier
+              (post_identifier))
+            (mult_prec_operator)
+            (unary_expression
+              (unary_prec_operator)
+              (comparison_binary_expression
+                (var_identifier)
+                (comparison_operator)
+                (var_identifier
+                  (post_identifier))))))))))
 
 ================================================================================
 gradients
@@ -608,100 +566,94 @@ Test := Rectangle {
 }
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (comment)
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (function_call
-              (function_identifier)
-              (call_signature
-                (value
-                  (angle_value))
-                (value
-                  (color_value)
-                  (percent_value))
-                (value
-                  (color_value)
-                  (percent_value))
-                (value
-                  (color_value)
-                  (percent_value)))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (color_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (angle_value))
-              (var_identifier
-                (post_identifier
-                  (function_call
-                    (function_identifier)
-                    (call_signature
-                      (value
-                        (float_value))))))
-              (var_identifier
-                (post_identifier
-                  (function_call
-                    (function_identifier)
-                    (call_signature
-                      (value
-                        (float_value))))))))))
-      (block_statement
-        (for_loop
-          (var_identifier)
-          (for_range
-            (value_list
-              (value
-                (anon_struct
-                  (var_identifier)
-                  (value
-                    (color_value))))))
-          (component
-            (type_identifier)
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (function_call
+          (function_identifier)
+          (call_signature
+            (value
+              (angle_value))
+            (value
+              (color_value)
+              (percent_value))
+            (value
+              (color_value)
+              (percent_value))
+            (value
+              (color_value)
+              (percent_value)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (color_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (function_call
+          (function_identifier)
+          (call_signature
+            (value
+              (angle_value))
+            (var_identifier
+              (post_identifier
                 (function_call
                   (function_identifier)
                   (call_signature
                     (value
-                      (angle_value))
-                    (var_identifier
-                      (post_identifier))
-                    (var_identifier))))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (angle_value))
-              (value
-                (color_value))
-              (value
-                (color_value)))))))))
+                      (float_value))))))
+            (var_identifier
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature
+                    (value
+                      (float_value)))))))))
+      (for_loop
+        (var_identifier)
+        (for_range
+          (value_list
+            (value
+              (anon_struct
+                (var_identifier)
+                (value
+                  (color_value))))))
+        (component
+          (type_identifier)
+          (block
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (function_call
+                (function_identifier)
+                (call_signature
+                  (value
+                    (angle_value))
+                  (var_identifier
+                    (post_identifier))
+                  (var_identifier)))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (function_call
+          (function_identifier)
+          (call_signature
+            (value
+              (angle_value))
+            (value
+              (color_value))
+            (value
+              (color_value))))))))
 
 ================================================================================
 nested_struct
@@ -723,7 +675,7 @@ export TestCase := Rectangle {
 }
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (comment)
   (comment)
   (struct_definition
@@ -738,16 +690,14 @@ export TestCase := Rectangle {
       (var_identifier)
       (type
         (type_identifier))))
-  (export_modifier)
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)))))
 
 ================================================================================
 percent
@@ -763,43 +713,39 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (percent_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (percent_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (percent_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (add_binary_expression
           (value
-            (percent_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+            (int_value))
+          (add_prec_operator)
           (value
-            (percent_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (percent_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (add_binary_expression
-            (value
-              (int_value))
-            (add_prec_operator)
-            (value
-              (percent_value))))))))
+            (percent_value)))))))
 
 ================================================================================
 relative_lengths
@@ -831,18 +777,16 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (percent_value)))))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (percent_value)))
       (assignment_expr
         (var_identifier)
         (assignment_prec_operator)
@@ -852,76 +796,63 @@ TestCase := Rectangle {
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (binding_block_statement
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (physical_length_value)))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
             (value
-              (physical_length_value)))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (binding_block_statement
-                (assignment_expr
-                  (var_identifier)
-                  (assignment_prec_operator)
-                  (value
-                    (percent_value)))))
-            (block_statement
-              (component
-                (var_identifier)
-                (type_identifier)
-                (block))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (binding_block_statement
+              (percent_value)))
+          (component
+            (var_identifier)
+            (type_identifier)
+            (block))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (physical_length_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (percent_value)))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
-            (value
-              (physical_length_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (percent_value))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (var_identifier
-                (reference_identifier)
-                (post_identifier))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier)))))))
+            (var_identifier
+              (reference_identifier)
+              (post_identifier)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier))))))
 
 ================================================================================
 resource
@@ -942,76 +873,63 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (comment)
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (string_value))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (string_value))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (function_call
+          (function_identifier)
+          (call_signature
+            (value
+              (string_value)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (function_call
+          (function_identifier)
+          (call_signature
+            (value
+              (string_value)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (comparison_binary_expression
             (comparison_binary_expression
               (comparison_binary_expression
-                (comparison_binary_expression
-                  (var_identifier)
-                  (comparison_operator)
-                  (mult_binary_expression
-                    (value
-                      (int_value))
-                    (mult_prec_operator)
-                    (var_identifier)))
+                (var_identifier)
                 (comparison_operator)
                 (mult_binary_expression
                   (value
@@ -1025,8 +943,14 @@ TestCase := Rectangle {
                 (mult_prec_operator)
                 (var_identifier)))
             (comparison_operator)
-            (value
-              (int_value))))))))
+            (mult_binary_expression
+              (value
+                (int_value))
+              (mult_prec_operator)
+              (var_identifier)))
+          (comparison_operator)
+          (value
+            (int_value)))))))
 
 ================================================================================
 string
@@ -1043,52 +967,47 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (string_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (string_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (string_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (var_identifier)
+          (comparison_operator)
           (value
             (string_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (var_identifier)
+          (comparison_operator)
           (value
-            (string_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (string_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (comparison_binary_expression
-            (var_identifier)
-            (comparison_operator)
-            (value
-              (string_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (comparison_binary_expression
-            (var_identifier)
-            (comparison_operator)
-            (value
-              (string_value))))))))
+            (string_value)))))))
 
 ================================================================================
 string_to_float
@@ -1111,123 +1030,115 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (string_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (string_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (string_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (string_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier
-              (function_call
-                (function_identifier)
-                (call_signature))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier
-              (function_call
-                (function_identifier)
-                (call_signature))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (string_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (string_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (string_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (string_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier
+            (function_call
+              (function_identifier)
+              (call_signature)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier
+            (function_call
+              (function_identifier)
+              (call_signature)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
           (mult_binary_expression
             (mult_binary_expression
-              (mult_binary_expression
-                (unary_expression
-                  (unary_prec_operator)
-                  (var_identifier
-                    (post_identifier
-                      (function_call
-                        (function_identifier)
-                        (call_signature)))))
-                (mult_prec_operator)
-                (var_identifier
-                  (post_identifier
-                    (function_call
-                      (function_identifier)
-                      (call_signature)))))
-              (mult_prec_operator)
               (unary_expression
                 (unary_prec_operator)
                 (var_identifier
                   (post_identifier
                     (function_call
                       (function_identifier)
-                      (call_signature))))))
-            (mult_prec_operator)
-            (var_identifier
-              (post_identifier
-                (function_call
-                  (function_identifier)
-                  (call_signature)))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (comparison_binary_expression
-            (comparison_binary_expression
-              (add_binary_expression
-                (mult_binary_expression
-                  (var_identifier)
-                  (mult_prec_operator)
-                  (value
-                    (float_value)))
-                (add_prec_operator)
-                (var_identifier))
-              (comparison_operator)
-              (mult_binary_expression
-                (value
-                  (float_value))
-                (mult_prec_operator)
-                (value
-                  (string_value))
+                      (call_signature)))))
+              (mult_prec_operator)
+              (var_identifier
                 (post_identifier
                   (function_call
                     (function_identifier)
                     (call_signature)))))
+            (mult_prec_operator)
+            (unary_expression
+              (unary_prec_operator)
+              (var_identifier
+                (post_identifier
+                  (function_call
+                    (function_identifier)
+                    (call_signature))))))
+          (mult_prec_operator)
+          (var_identifier
+            (post_identifier
+              (function_call
+                (function_identifier)
+                (call_signature))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
+          (comparison_binary_expression
+            (add_binary_expression
+              (mult_binary_expression
+                (var_identifier)
+                (mult_prec_operator)
+                (value
+                  (float_value)))
+              (add_prec_operator)
+              (var_identifier))
             (comparison_operator)
-            (value
-              (int_value))))))))
+            (mult_binary_expression
+              (value
+                (float_value))
+              (mult_prec_operator)
+              (value
+                (string_value))
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature)))))
+          (comparison_operator)
+          (value
+            (int_value)))))))
 
 ================================================================================
 structs_keyword
@@ -1246,9 +1157,8 @@ match := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (comment)
-  (export_modifier)
   (struct_definition
     (type_identifier)
     (type_anon_struct
@@ -1259,28 +1169,26 @@ match := Rectangle {
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (binding_block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (string_value))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (comparison_binary_expression
-            (var_identifier
-              (post_identifier))
-            (comparison_operator)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (binding_block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
             (value
-              (string_value))))))))
+              (string_value)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
+          (var_identifier
+            (post_identifier))
+          (comparison_operator)
+          (value
+            (string_value)))))))
 
 ================================================================================
 brush
@@ -1317,212 +1225,187 @@ Test := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
       (comment)
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier))
       (comment)
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (ternary_expression
-            (value
-              (bool_value))
-            (var_identifier
-              (post_identifier
-                (function_call
-                  (function_identifier)
-                  (call_signature
-                    (value
-                      (percent_value))))))
-            (var_identifier
-              (post_identifier
-                (function_call
-                  (function_identifier)
-                  (call_signature
-                    (value
-                      (percent_value)))))))))
-      (block_statement
-        (component
-          (type_identifier)
-          (block
-            (block_statement
-              (component
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (ternary_expression
+          (value
+            (bool_value))
+          (var_identifier
+            (post_identifier
+              (function_call
+                (function_identifier)
+                (call_signature
+                  (value
+                    (percent_value))))))
+          (var_identifier
+            (post_identifier
+              (function_call
+                (function_identifier)
+                (call_signature
+                  (value
+                    (percent_value))))))))
+      (component
+        (type_identifier)
+        (block
+          (component
+            (var_identifier)
+            (type_identifier)
+            (block
+              (assignment_expr
                 (var_identifier)
-                (type_identifier)
-                (block
-                  (assignment_expr
+                (assignment_prec_operator)
+                (function_call
+                  (function_identifier)
+                  (call_signature
+                    (value
+                      (angle_value))
                     (var_identifier)
-                    (assignment_prec_operator)
+                    (var_identifier))))))
+          (component
+            (var_identifier)
+            (type_identifier)
+            (block
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (post_identifier)
+                  (post_identifier
                     (function_call
                       (function_identifier)
                       (call_signature
                         (value
-                          (angle_value))
-                        (var_identifier)
-                        (var_identifier)))))))
-            (block_statement
-              (component
-                (var_identifier)
-                (type_identifier)
-                (block
-                  (assignment_expr
-                    (var_identifier)
-                    (assignment_prec_operator)
-                    (var_identifier
-                      (post_identifier)
-                      (post_identifier
-                        (function_call
-                          (function_identifier)
-                          (call_signature
-                            (value
-                              (percent_value)))))))))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+                          (percent_value)))))))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (ternary_expression
           (ternary_expression
-            (ternary_expression
-              (value
-                (bool_value))
-              (var_identifier
-                (post_identifier))
-              (value
-                (bool_value)))
+            (value
+              (bool_value))
             (var_identifier
               (post_identifier))
-            (var_identifier
-              (post_identifier)))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (block_statement
-              (binding_block_statement
-                (assignment_expr
-                  (var_identifier)
-                  (assignment_prec_operator)
-                  (function_call
-                    (function_identifier)
-                    (call_signature
-                      (var_identifier)
-                      (value
-                        (color_value))
-                      (value
-                        (color_value)
-                        (percent_value))
-                      (value
-                        (color_value)))))))
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
+            (value
+              (bool_value)))
+          (var_identifier
+            (post_identifier))
+          (var_identifier
+            (post_identifier))))
+      (component
+        (var_identifier)
+        (type_identifier)
+        (block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (function_call
+              (function_identifier)
+              (call_signature
                 (var_identifier)
-                (var_identifier)))
-            (block_statement
-              (property
-                (type
-                  (type_identifier))
-                (var_identifier)
-                (comparison_binary_expression
-                  (comparison_binary_expression
-                    (comparison_binary_expression
-                      (var_identifier)
-                      (comparison_operator)
-                      (mult_binary_expression
-                        (value
-                          (color_value))
-                        (mult_prec_operator)
-                        (var_identifier
-                          (post_identifier
-                            (function_call
-                              (function_identifier)
-                              (call_signature
-                                (value
-                                  (percent_value))))))))
-                    (comparison_operator)
-                    (mult_binary_expression
-                      (function_call
-                        (function_identifier)
-                        (call_signature
-                          (var_identifier)
-                          (value
-                            (value
-                              (color_value)))
-                          (post_identifier
-                            (function_call
-                              (function_identifier)
-                              (call_signature
-                                (value
-                                  (percent_value)))))
-                          (comparison_binary_expression
-                            (value
-                              (value
-                                (color_value)))
-                            (post_identifier
-                              (function_call
-                                (function_identifier)
-                                (call_signature
-                                  (value
-                                    (percent_value)))))
-                            (comparison_operator
-                              (MISSING "<"))
-                            (value
-                              (percent_value)))
-                          (value
-                            (value
-                              (color_value)))
-                          (post_identifier
-                            (function_call
-                              (function_identifier)
-                              (call_signature
-                                (value
-                                  (percent_value)))))))
-                      (mult_prec_operator)
-                      (var_identifier)))
-                  (comparison_operator)
-                  (var_identifier)))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (comparison_binary_expression
+                (value
+                  (color_value))
+                (value
+                  (color_value)
+                  (percent_value))
+                (value
+                  (color_value)))))
+          (property
+            (type
+              (type_identifier))
+            (var_identifier)
+            (var_identifier))
+          (property
+            (type
+              (type_identifier))
+            (var_identifier)
             (comparison_binary_expression
               (comparison_binary_expression
                 (comparison_binary_expression
                   (var_identifier)
                   (comparison_operator)
                   (mult_binary_expression
+                    (value
+                      (color_value))
+                    (mult_prec_operator)
                     (var_identifier
-                      (post_identifier)
                       (post_identifier
                         (function_call
                           (function_identifier)
                           (call_signature
                             (value
-                              (percent_value))))))
-                    (mult_prec_operator)
-                    (var_identifier)))
+                              (percent_value))))))))
+                (comparison_operator)
+                (mult_binary_expression
+                  (function_call
+                    (function_identifier)
+                    (call_signature
+                      (var_identifier)
+                      (value
+                        (value
+                          (color_value)))
+                      (post_identifier
+                        (function_call
+                          (function_identifier)
+                          (call_signature
+                            (value
+                              (percent_value)))))
+                      (comparison_binary_expression
+                        (value
+                          (value
+                            (color_value)))
+                        (post_identifier
+                          (function_call
+                            (function_identifier)
+                            (call_signature
+                              (value
+                                (percent_value)))))
+                        (comparison_operator
+                          (MISSING "<"))
+                        (value
+                          (percent_value)))
+                      (value
+                        (value
+                          (color_value)))
+                      (post_identifier
+                        (function_call
+                          (function_identifier)
+                          (call_signature
+                            (value
+                              (percent_value)))))))
+                  (mult_prec_operator)
+                  (var_identifier)))
+              (comparison_operator)
+              (var_identifier)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
+          (comparison_binary_expression
+            (comparison_binary_expression
+              (comparison_binary_expression
+                (var_identifier)
                 (comparison_operator)
                 (mult_binary_expression
                   (var_identifier
@@ -1538,15 +1421,27 @@ Test := Rectangle {
               (comparison_operator)
               (mult_binary_expression
                 (var_identifier
-                  (post_identifier))
+                  (post_identifier)
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (value
+                          (percent_value))))))
                 (mult_prec_operator)
                 (var_identifier)))
             (comparison_operator)
             (mult_binary_expression
-              (var_identifier)
-              (mult_prec_operator)
               (var_identifier
-                (post_identifier)))))))))
+                (post_identifier))
+              (mult_prec_operator)
+              (var_identifier)))
+          (comparison_operator)
+          (mult_binary_expression
+            (var_identifier)
+            (mult_prec_operator)
+            (var_identifier
+              (post_identifier))))))))
 
 ================================================================================
 length
@@ -1579,205 +1474,191 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (physical_length_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (length_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (add_binary_expression
           (value
-            (physical_length_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+            (physical_length_value))
+          (add_prec_operator)
           (value
             (length_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (value
+            (int_value))
+          (mult_prec_operator)
+          (value
+            (physical_length_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (physical_length_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (length_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (add_binary_expression
+          (value
+            (physical_length_value))
+          (add_prec_operator)
+          (value
+            (length_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (value
+            (int_value))
+          (mult_prec_operator)
+          (value
+            (physical_length_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (var_identifier)
+          (comparison_operator)
           (add_binary_expression
             (value
               (physical_length_value))
             (add_prec_operator)
             (value
-              (length_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (value
-              (int_value))
-            (mult_prec_operator)
-            (value
               (physical_length_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (physical_length_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (length_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (add_binary_expression
           (add_binary_expression
-            (value
-              (physical_length_value))
-            (add_prec_operator)
-            (value
-              (length_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (value
-              (int_value))
-            (mult_prec_operator)
-            (value
-              (physical_length_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (comparison_binary_expression
-            (var_identifier)
-            (comparison_operator)
             (add_binary_expression
               (value
-                (physical_length_value))
+                (int_value))
               (add_prec_operator)
               (value
-                (physical_length_value))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
+                (physical_length_value)))
+            (add_prec_operator)
+            (value
+              (int_value)))
+          (add_prec_operator)
+          (value
+            (physical_length_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (var_identifier)
+          (comparison_operator)
           (value
             (int_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (add_binary_expression
-            (add_binary_expression
-              (add_binary_expression
-                (value
-                  (int_value))
-                (add_prec_operator)
-                (value
-                  (physical_length_value)))
-              (add_prec_operator)
-              (value
-                (int_value)))
-            (add_prec_operator)
-            (value
-              (physical_length_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (mult_binary_expression
+          (value
+            (length_value))
+          (mult_prec_operator)
+          (value
+            (physical_length_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (comparison_binary_expression
-            (var_identifier)
-            (comparison_operator)
-            (value
-              (int_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (mult_binary_expression
-            (value
-              (length_value))
-            (mult_prec_operator)
-            (value
-              (physical_length_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (comparison_binary_expression
-            (comparison_binary_expression
+            (mult_binary_expression
               (mult_binary_expression
                 (mult_binary_expression
-                  (mult_binary_expression
-                    (value
-                      (physical_length_value))
-                    (mult_prec_operator)
-                    (value
-                      (length_value)))
+                  (value
+                    (physical_length_value))
                   (mult_prec_operator)
                   (value
-                    (duration_value)))
+                    (length_value)))
                 (mult_prec_operator)
                 (value
-                  (physical_length_value)))
-              (comparison_operator)
-              (add_binary_expression
+                  (duration_value)))
+              (mult_prec_operator)
+              (value
+                (physical_length_value)))
+            (comparison_operator)
+            (add_binary_expression
+              (mult_binary_expression
                 (mult_binary_expression
                   (mult_binary_expression
                     (mult_binary_expression
                       (mult_binary_expression
+                        (value
+                          (length_value))
+                        (mult_prec_operator)
                         (mult_binary_expression
                           (value
-                            (length_value))
+                            (duration_value))
                           (mult_prec_operator)
-                          (mult_binary_expression
-                            (value
-                              (duration_value))
-                            (mult_prec_operator)
-                            (value
-                              (physical_length_value))))
-                        (mult_prec_operator)
-                        (value
-                          (length_value)))
+                          (value
+                            (physical_length_value))))
                       (mult_prec_operator)
-                      (var_identifier))
+                      (value
+                        (length_value)))
                     (mult_prec_operator)
                     (var_identifier))
                   (mult_prec_operator)
                   (var_identifier))
-                (add_prec_operator)
-                (mult_binary_expression
-                  (var_identifier)
-                  (mult_prec_operator)
-                  (var_identifier))))
-            (comparison_operator)
-            (mult_binary_expression
-              (mult_binary_expression
-                (value
-                  (length_value))
                 (mult_prec_operator)
-                (value
-                  (physical_length_value)))
+                (var_identifier))
+              (add_prec_operator)
+              (mult_binary_expression
+                (var_identifier)
+                (mult_prec_operator)
+                (var_identifier))))
+          (comparison_operator)
+          (mult_binary_expression
+            (mult_binary_expression
+              (value
+                (length_value))
               (mult_prec_operator)
-              (var_identifier))))))))
+              (value
+                (physical_length_value)))
+            (mult_prec_operator)
+            (var_identifier)))))))
 
 ================================================================================
 rem
@@ -1807,7 +1688,7 @@ TestCase := Window {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (global_definition
     (type_identifier)
     (property
@@ -1820,104 +1701,86 @@ TestCase := Window {
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (binding_block_statement
-          (assignment_expr
-            (var_identifier)
-            (assignment_prec_operator)
-            (value
-              (length_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (relative_font_size_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (relative_font_size_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (relative_font_size_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (relative_font_size_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (relative_font_size_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (length_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (physical_length_value))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (length_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (relative_font_size_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (relative_font_size_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (relative_font_size_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (relative_font_size_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (relative_font_size_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (length_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (physical_length_value)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (comparison_binary_expression
-            (comparison_binary_expression
-              (var_identifier)
-              (comparison_operator)
-              (mult_binary_expression
-                (value
-                  (relative_font_size_value))
-                (mult_prec_operator)
-                (var_identifier)))
+            (var_identifier)
             (comparison_operator)
-            (value
-              (relative_font_size_value)))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
+            (mult_binary_expression
+              (value
+                (relative_font_size_value))
+              (mult_prec_operator)
+              (var_identifier)))
+          (comparison_operator)
+          (value
+            (relative_font_size_value))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (comparison_binary_expression
             (comparison_binary_expression
               (comparison_binary_expression
                 (comparison_binary_expression
                   (comparison_binary_expression
                     (comparison_binary_expression
-                      (comparison_binary_expression
-                        (var_identifier)
-                        (comparison_operator)
-                        (mult_binary_expression
-                          (value
-                            (length_value))
-                          (mult_prec_operator)
-                          (var_identifier)))
+                      (var_identifier)
                       (comparison_operator)
                       (mult_binary_expression
                         (value
@@ -1935,23 +1798,29 @@ TestCase := Window {
                     (value
                       (length_value))
                     (mult_prec_operator)
-                    (var_identifier
-                      (post_identifier))))
+                    (var_identifier)))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
                     (length_value))
                   (mult_prec_operator)
-                  (var_identifier)))
+                  (var_identifier
+                    (post_identifier))))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (physical_length_value))
+                  (length_value))
                 (mult_prec_operator)
                 (var_identifier)))
             (comparison_operator)
-            (value
-              (relative_font_size_value))))))))
+            (mult_binary_expression
+              (value
+                (physical_length_value))
+              (mult_prec_operator)
+              (var_identifier)))
+          (comparison_operator)
+          (value
+            (relative_font_size_value)))))))
 
 ================================================================================
 array
@@ -1983,15 +1852,13 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
-  (export_modifier)
+(document
   (struct_definition
     (type_identifier)
     (type_anon_struct
       (var_identifier)
       (type
         (type_identifier))))
-  (export_modifier)
   (struct_definition
     (type_identifier)
     (type_anon_struct
@@ -2000,7 +1867,6 @@ TestCase := Rectangle {
         (type_list
           (type
             (type_identifier))))))
-  (export_modifier)
   (struct_definition
     (type_identifier)
     (type_anon_struct
@@ -2030,111 +1896,105 @@ TestCase := Rectangle {
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_list
-              (type
-                (type_identifier))))
-          (var_identifier)
-          (value
-            (value_list
-              (value
-                (int_value))
-              (value
-                (int_value))))))
-      (block_statement
-        (property
-          (type
-            (type_list
-              (type
-                (type_identifier))))
-          (var_identifier)
-          (value
-            (value_list
-              (value
-                (int_value))
-              (value
-                (float_value))))))
-      (block_statement
-        (property
-          (type
-            (type_list
-              (type
-                (type_identifier))))
-          (var_identifier)
-          (value
-            (value_list))))
-      (block_statement
-        (property
-          (type
-            (type_list
-              (type
-                (type_anon_struct
-                  (var_identifier)
-                  (type
-                    (type_identifier))
-                  (var_identifier)
-                  (type
-                    (type_identifier))))))
-          (var_identifier)
-          (value
-            (value_list
-              (value
-                (anon_struct
-                  (var_identifier)
-                  (value
-                    (int_value))))
-              (value
-                (anon_struct
-                  (var_identifier)
-                  (value
-                    (int_value))
-                  (var_identifier)
-                  (value
-                    (int_value))))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (binding_block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (value_list
-                  (value
-                    (anon_struct
-                      (var_identifier)
-                      (value
-                        (string_value))))
-                  (value
-                    (anon_struct
-                      (var_identifier)
-                      (value
-                        (float_value))))))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (binding_block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (value_list
-                  (value
-                    (anon_struct
-                      (var_identifier)
-                      (value
-                        (value_list
-                          (value
-                            (anon_struct
-                              (var_identifier)
-                              (value
-                                (int_value)))))))))))))))))
+      (property
+        (type
+          (type_list
+            (type
+              (type_identifier))))
+        (var_identifier)
+        (value
+          (value_list
+            (value
+              (int_value))
+            (value
+              (int_value)))))
+      (property
+        (type
+          (type_list
+            (type
+              (type_identifier))))
+        (var_identifier)
+        (value
+          (value_list
+            (value
+              (int_value))
+            (value
+              (float_value)))))
+      (property
+        (type
+          (type_list
+            (type
+              (type_identifier))))
+        (var_identifier)
+        (value
+          (value_list)))
+      (property
+        (type
+          (type_list
+            (type
+              (type_anon_struct
+                (var_identifier)
+                (type
+                  (type_identifier))
+                (var_identifier)
+                (type
+                  (type_identifier))))))
+        (var_identifier)
+        (value
+          (value_list
+            (value
+              (anon_struct
+                (var_identifier)
+                (value
+                  (int_value))))
+            (value
+              (anon_struct
+                (var_identifier)
+                (value
+                  (int_value))
+                (var_identifier)
+                (value
+                  (int_value)))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (binding_block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (value_list
+                (value
+                  (anon_struct
+                    (var_identifier)
+                    (value
+                      (string_value))))
+                (value
+                  (anon_struct
+                    (var_identifier)
+                    (value
+                      (float_value)))))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (binding_block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (value_list
+                (value
+                  (anon_struct
+                    (var_identifier)
+                    (value
+                      (value_list
+                        (value
+                          (anon_struct
+                            (var_identifier)
+                            (value
+                              (int_value))))))))))))))))
 
 ================================================================================
 object
@@ -2166,41 +2026,126 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_anon_struct
-              (var_identifier)
-              (type
-                (type_identifier))
-              (var_identifier)
-              (type
-                (type_identifier))))
-          (var_identifier)
+      (property
+        (type
+          (type_anon_struct
+            (var_identifier)
+            (type
+              (type_identifier))
+            (var_identifier)
+            (type
+              (type_identifier))))
+        (var_identifier)
+        (value
+          (anon_struct
+            (var_identifier)
+            (value
+              (string_value))
+            (var_identifier)
+            (value
+              (int_value)))))
+      (property
+        (type
+          (type_anon_struct
+            (var_identifier)
+            (type
+              (type_identifier))
+            (var_identifier)
+            (type
+              (type_identifier))))
+        (var_identifier)
+        (value
+          (anon_struct
+            (var_identifier)
+            (value
+              (int_value))
+            (var_identifier)
+            (value
+              (int_value))
+            (var_identifier)
+            (value
+              (string_value)))))
+      (property
+        (type
+          (type_anon_struct
+            (var_identifier)
+            (type
+              (type_identifier))
+            (var_identifier)
+            (type
+              (type_identifier))))
+        (var_identifier)
+        (binding_block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (string_value)))))
+      (property
+        (type
+          (type_anon_struct
+            (var_identifier)
+            (type
+              (type_identifier))
+            (var_identifier)
+            (type
+              (type_identifier))))
+        (var_identifier)
+        (ternary_expression
+          (value
+            (bool_value))
           (value
             (anon_struct
               (var_identifier)
               (value
-                (string_value))
+                (int_value))
+              (var_identifier)
+              (value
+                (string_value))))
+          (value
+            (anon_struct
+              (var_identifier)
+              (value
+                (int_value))
+              (var_identifier)
+              (value
+                (int_value))
+              (var_identifier)
+              (value
+                (string_value))))))
+      (property
+        (type
+          (type_anon_struct
+            (var_identifier)
+            (type
+              (type_identifier))
+            (var_identifier)
+            (type
+              (type_identifier))))
+        (var_identifier)
+        (ternary_expression
+          (value
+            (bool_value))
+          (value
+            (anon_struct
+              (var_identifier)
+              (value
+                (int_value))))
+          (value
+            (anon_struct
               (var_identifier)
               (value
                 (int_value))))))
-      (block_statement
-        (property
-          (type
-            (type_anon_struct
-              (var_identifier)
-              (type
-                (type_identifier))
-              (var_identifier)
-              (type
-                (type_identifier))))
-          (var_identifier)
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
           (value
             (anon_struct
               (var_identifier)
@@ -2208,198 +2153,95 @@ TestCase := Rectangle {
                 (int_value))
               (var_identifier)
               (value
+                (int_value))))
+          (comparison_operator)
+          (value
+            (anon_struct
+              (var_identifier)
+              (value
                 (int_value))
               (var_identifier)
               (value
-                (string_value))))))
-      (block_statement
-        (property
-          (type
-            (type_anon_struct
-              (var_identifier)
-              (type
-                (type_identifier))
-              (var_identifier)
-              (type
-                (type_identifier))))
-          (var_identifier)
-          (binding_block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
+                (int_value))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (callback
+        (function_identifier))
+      (callback_event
+        (function_identifier)
+        (block
+          (assignment_expr
+            (var_identifier
+              (post_identifier))
+            (assignment_prec_operator)
+            (var_identifier
+              (post_identifier)))
+          (assignment_expr
+            (var_identifier
+              (post_identifier))
+            (assignment_prec_operator)
+            (add_binary_expression
               (value
-                (string_value))))))
-      (block_statement
-        (property
-          (type
-            (type_anon_struct
+                (int_value))
+              (add_prec_operator)
+              (var_identifier
+                (post_identifier))))))
+      (function
+        (function_identifier)
+        (function_signature)
+        (type
+          (type_anon_struct
+            (var_identifier)
+            (type
+              (type_anon_struct
+                (var_identifier)
+                (type
+                  (type_identifier))))))
+        (block
+          (value
+            (anon_struct
               (var_identifier)
-              (type
-                (type_identifier))
-              (var_identifier)
-              (type
-                (type_identifier))))
-          (var_identifier)
-          (ternary_expression
-            (value
-              (bool_value))
-            (value
-              (anon_struct
-                (var_identifier)
-                (value
-                  (int_value))
-                (var_identifier)
-                (value
-                  (string_value))))
-            (value
-              (anon_struct
-                (var_identifier)
-                (value
-                  (int_value))
-                (var_identifier)
-                (value
-                  (int_value))
-                (var_identifier)
-                (value
-                  (string_value)))))))
-      (block_statement
-        (property
-          (type
-            (type_anon_struct
-              (var_identifier)
-              (type
-                (type_identifier))
-              (var_identifier)
-              (type
-                (type_identifier))))
-          (var_identifier)
-          (ternary_expression
-            (value
-              (bool_value))
-            (value
-              (anon_struct
-                (var_identifier)
-                (value
-                  (int_value))))
-            (value
-              (anon_struct
-                (var_identifier)
-                (value
-                  (int_value)))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (comparison_binary_expression
-            (value
-              (anon_struct
-                (var_identifier)
-                (value
-                  (int_value))
-                (var_identifier)
-                (value
-                  (int_value))))
-            (comparison_operator)
-            (value
-              (anon_struct
-                (var_identifier)
-                (value
-                  (int_value))
-                (var_identifier)
-                (value
-                  (int_value)))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (callback
-          (function_identifier)))
-      (block_statement
-        (binding_block_statement
-          (callback_event
-            (function_identifier)
-            (block
-              (block_statement
-                (binding_block_statement
-                  (assignment_expr
-                    (var_identifier
-                      (post_identifier))
-                    (assignment_prec_operator)
-                    (var_identifier
-                      (post_identifier)))))
-              (assignment_expr
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (add_binary_expression
-                  (value
-                    (int_value))
-                  (add_prec_operator)
-                  (var_identifier
-                    (post_identifier))))))))
-      (block_statement
-        (function
-          (function_identifier)
-          (function_signature)
-          (type
-            (type_anon_struct
-              (var_identifier)
-              (type
-                (type_anon_struct
+              (value
+                (anon_struct
                   (var_identifier)
-                  (type
-                    (type_identifier))))))
-          (block
-            (block_statement
-              (binding_block_statement
-                (value
-                  (anon_struct
-                    (var_identifier)
-                    (value
-                      (anon_struct
-                        (var_identifier)
-                        (value
-                          (anon_struct
-                            (var_identifier)
-                            (value
-                              (int_value))))
-                        (post_identifier))))))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (comparison_binary_expression
-            (function_call
-              (function_identifier)
-              (call_signature))
-            (post_identifier)
-            (post_identifier)
-            (comparison_operator)
-            (mult_binary_expression
-              (value
-                (int_value))
-              (mult_prec_operator)
-              (var_identifier))))))))
+                  (value
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (int_value))))
+                  (post_identifier)))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
+          (function_call
+            (function_identifier)
+            (call_signature))
+          (post_identifier)
+          (post_identifier)
+          (comparison_operator)
+          (mult_binary_expression
+            (value
+              (int_value))
+            (mult_prec_operator)
+            (var_identifier)))))))
 
 ================================================================================
 structs2
@@ -2433,7 +2275,7 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
+(document
   (comment)
   (struct_definition
     (type_identifier)
@@ -2463,75 +2305,64 @@ TestCase := Rectangle {
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (callback
-          (function_identifier)
-          (call_signature
-            (var_identifier))
-          (type_identifier)))
-      (block_statement
-        (binding_block_statement
-          (callback_event
-            (function_identifier)
-            (call_signature
-              (var_identifier))
-            (block
-              (block_statement
-                (binding_block_statement
-                  (value
-                    (anon_struct
-                      (var_identifier)
-                      (add_binary_expression
-                        (var_identifier
-                          (post_identifier)
-                          (post_identifier))
-                        (add_prec_operator)
-                        (value
-                          (int_value)))))))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)))
-      (block_statement
-        (callback
+      (callback
+        (function_identifier)
+        (call_signature
+          (var_identifier))
+        (type_identifier))
+      (callback_event
+        (function_identifier)
+        (call_signature
+          (var_identifier))
+        (block
+          (value
+            (anon_struct
+              (var_identifier)
+              (add_binary_expression
+                (var_identifier
+                  (post_identifier)
+                  (post_identifier))
+                (add_prec_operator)
+                (value
+                  (int_value)))))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier))
+      (callback
+        (function_identifier)
+        (call_signature
+          (var_identifier)
+          (var_identifier))
+        (type_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (function_call
           (function_identifier)
           (call_signature
             (var_identifier)
-            (var_identifier))
-          (type_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (var_identifier)
-              (var_identifier)))))
+            (var_identifier))))
       (comment)
-      (block_statement
-        (component
-          (type_identifier)
-          (block
-            (block_statement
-              (property
+      (component
+        (type_identifier)
+        (block
+          (property
+            (type
+              (type_list
                 (type
-                  (type_list
-                    (type
-                      (type_identifier))))
+                  (type_identifier))))
+            (var_identifier))
+          (for_loop
+            (var_identifier
+              (index_operator
                 (var_identifier)))
-            (block_statement
-              (for_loop
-                (var_identifier
-                  (index_operator
-                    (var_identifier)))
-                (for_range
-                  (var_identifier))
-                (component
-                  (type_identifier)
-                  (block))))))))))
+            (for_range
+              (var_identifier))
+            (component
+              (type_identifier)
+              (block))))))))
 
 ================================================================================
 structs
@@ -2566,8 +2397,7 @@ TestCase := Rectangle {
 
 --------------------------------------------------------------------------------
 
-(source_file
-  (export_modifier)
+(document
   (struct_definition
     (type_identifier)
     (type_anon_struct
@@ -2580,7 +2410,6 @@ TestCase := Rectangle {
       (var_identifier)
       (type
         (type_identifier))))
-  (export_modifier)
   (struct_definition
     (type_identifier)
     (type_anon_struct
@@ -2591,100 +2420,93 @@ TestCase := Rectangle {
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (anon_struct
-              (var_identifier)
-              (value
-                (string_value))
-              (var_identifier)
-              (value
-                (int_value))
-              (var_identifier)
-              (value
-                (percent_value))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (anon_struct
-              (var_identifier)
-              (value
-                (string_value))
-              (var_identifier)
-              (value
-                (int_value))
-              (var_identifier)
-              (value
-                (percent_value))))))
-      (block_statement
-        (property
-          (type
-            (type_list
-              (type
-                (type_identifier))))
-          (var_identifier)
-          (value
-            (value_list
-              (var_identifier)
-              (var_identifier)))))
-      (block_statement
-        (property
-          (type
-            (type_list
-              (type
-                (type_identifier))))
-          (var_identifier)
-          (value
-            (value_list
-              (value
-                (anon_struct
-                  (var_identifier)
-                  (value
-                    (string_value))
-                  (var_identifier)
-                  (value
-                    (int_value))
-                  (var_identifier)
-                  (value
-                    (percent_value))))
-              (value
-                (anon_struct
-                  (var_identifier)
-                  (value
-                    (string_value))
-                  (var_identifier)
-                  (value
-                    (int_value))))
-              (value
-                (anon_struct
-                  (var_identifier)
-                  (value
-                    (string_value))))))))
-      (block_statement
-        (property
-          (var_identifier)
-          (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (comparison_binary_expression
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (anon_struct
             (var_identifier)
-            (comparison_operator)
             (value
-              (int_value))))))))
+              (string_value))
+            (var_identifier)
+            (value
+              (int_value))
+            (var_identifier)
+            (value
+              (percent_value)))))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (value
+          (anon_struct
+            (var_identifier)
+            (value
+              (string_value))
+            (var_identifier)
+            (value
+              (int_value))
+            (var_identifier)
+            (value
+              (percent_value)))))
+      (property
+        (type
+          (type_list
+            (type
+              (type_identifier))))
+        (var_identifier)
+        (value
+          (value_list
+            (var_identifier)
+            (var_identifier))))
+      (property
+        (type
+          (type_list
+            (type
+              (type_identifier))))
+        (var_identifier)
+        (value
+          (value_list
+            (value
+              (anon_struct
+                (var_identifier)
+                (value
+                  (string_value))
+                (var_identifier)
+                (value
+                  (int_value))
+                (var_identifier)
+                (value
+                  (percent_value))))
+            (value
+              (anon_struct
+                (var_identifier)
+                (value
+                  (string_value))
+                (var_identifier)
+                (value
+                  (int_value))))
+            (value
+              (anon_struct
+                (var_identifier)
+                (value
+                  (string_value)))))))
+      (property
+        (var_identifier)
+        (var_identifier))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier))
+        (var_identifier)
+        (comparison_binary_expression
+          (var_identifier)
+          (comparison_operator)
+          (value
+            (int_value)))))))
