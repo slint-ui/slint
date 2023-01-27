@@ -679,27 +679,15 @@ Test := Rectangle {
               (value
                 (basic_value
                   (angle_value)))
-              (ERROR
-                (value
-                  (basic_value
-                    (color_value))))
               (value
-                (basic_value
-                  (percent_value)))
-              (ERROR
-                (value
-                  (basic_value
-                    (color_value))))
+                (color_value)
+                (percent_value))
               (value
-                (basic_value
-                  (percent_value)))
-              (ERROR
-                (value
-                  (basic_value
-                    (color_value))))
+                (color_value)
+                (percent_value))
               (value
-                (basic_value
-                  (percent_value)))))))
+                (color_value)
+                (percent_value))))))
       (block_statement
         (property
           (type
@@ -1541,13 +1529,9 @@ Test := Rectangle {
                     (value
                       (basic_value
                         (color_value)))
-                    (ERROR
-                      (value
-                        (basic_value
-                          (color_value))))
                     (value
-                      (basic_value
-                        (percent_value)))
+                      (color_value)
+                      (percent_value))
                     (value
                       (basic_value
                         (color_value)))))))

@@ -574,6 +574,7 @@ module.exports = grammar({
         value: ($) =>
             choice(
                 seq("(", $.value, ")"),
+                seq($.color_value, $.percent_value), // gradient values
                 $.anon_struct,
                 $.value_list,
                 $.basic_value,
