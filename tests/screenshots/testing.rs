@@ -9,15 +9,17 @@ use crossterm::style::Stylize;
 
 use i_slint_core::{
     graphics::{
-        euclid::{Box2D, Point2D},
-        Rgb8Pixel, SharedPixelBuffer,
+        euclid::{self, Box2D, Point2D},
+        IntRect, Rgb8Pixel, SharedPixelBuffer,
     },
+    item_rendering::DirtyRegion,
     renderer::Renderer,
     software_renderer::{LineBufferProvider, MinimalSoftwareWindow},
+    window::WindowAdapterSealed,
 };
 
 pub struct SwrTestingBackend {
-    window: Rc<MinimalSoftwareWindow<0>>,
+    window: Rc<MinimalSoftwareWindow<1>>,
 }
 
 impl i_slint_core::platform::Platform for SwrTestingBackend {
@@ -30,7 +32,7 @@ impl i_slint_core::platform::Platform for SwrTestingBackend {
     }
 }
 
-pub fn init_swr() -> std::rc::Rc<MinimalSoftwareWindow<0>> {
+pub fn init_swr() -> Rc<MinimalSoftwareWindow<1>> {
     let window = MinimalSoftwareWindow::new();
 
     i_slint_core::platform::set_platform(Box::new(SwrTestingBackend { window: window.clone() }))
@@ -50,7 +52,7 @@ pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgb8Pixel>, image::I
     })
 }
 
-pub fn screenshot(window: std::rc::Rc<MinimalSoftwareWindow<0>>) -> SharedPixelBuffer<Rgb8Pixel> {
+pub fn screenshot(window: Rc<MinimalSoftwareWindow<1>>) -> SharedPixelBuffer<Rgb8Pixel> {
     let size = window.size();
     let width = size.width;
     let height = size.height;
@@ -72,6 +74,8 @@ pub fn screenshot(window: std::rc::Rc<MinimalSoftwareWindow<0>>) -> SharedPixelB
 
 struct TestingLineBuffer<'a> {
     buffer: &'a mut [Rgb8Pixel],
+    stride: usize,
+    region: Option<IntRect>,
 }
 
 impl<'a> LineBufferProvider for TestingLineBuffer<'a> {
@@ -83,8 +87,12 @@ impl<'a> LineBufferProvider for TestingLineBuffer<'a> {
         range: core::ops::Range<usize>,
         render_fn: impl FnOnce(&mut [Self::TargetPixel]),
     ) {
-        let start = line * range.len();
-        let end = start + range.len();
+        if let Some(r) = self.region.map(|r| r.cast::<usize>()) {
+            assert!(r.y_range().contains(&line), "line {line} out of range {r:?}");
+            assert_eq!(r.cast().x_range(), range);
+        }
+        let start = line * self.stride + range.start;
+        let end = line * self.stride + range.end;
         render_fn(&mut self.buffer[(start..end)]);
     }
 }
@@ -165,43 +173,59 @@ fn compare_images(
     result
 }
 
-pub fn assert_with_render(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
+pub fn assert_with_render(path: &str, window: Rc<MinimalSoftwareWindow<1>>) {
     let rendering = screenshot(window);
     if let Err(reason) = compare_images(path, &rendering) {
         panic!("Image comparison failure for {path}: {reason}");
     }
 }
 
-pub fn assert_with_render_by_line(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
-    let rendering = screenshot_render_by_line(window);
+pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow<1>>) {
+    let s = window.size();
+    let mut rendering = SharedPixelBuffer::<Rgb8Pixel>::new(s.width, s.height);
+
+    screenshot_render_by_line(window.clone(), None, &mut rendering);
     if let Err(reason) = compare_images(path, &rendering) {
         panic!("Image comparison failure for line-by-line rendering for {path}: {reason}");
+    }
+
+    // Try to render a clipped version (to simulate partial rendering) and it should be exactly the same
+    let region = euclid::rect(s.width / 4, s.height / 4, s.width / 2, s.height / 2).cast::<usize>();
+    for y in region.y_range() {
+        let stride = rendering.stride() as usize;
+        rendering.make_mut_slice()[y * stride..][region.x_range()].fill(Default::default());
+    }
+    screenshot_render_by_line(window, Some(region.cast()), &mut rendering);
+    if let Err(reason) = compare_images(path, &rendering) {
+        panic!("Partial rendeing image comparison failure for line-by-line rendering for {path}: {reason}");
     }
 }
 
 pub fn screenshot_render_by_line(
-    window: std::rc::Rc<MinimalSoftwareWindow<0>>,
-) -> SharedPixelBuffer<Rgb8Pixel> {
-    let size = window.size();
-    let width = size.width;
-    let height = size.height;
-
-    let mut buffer = SharedPixelBuffer::<Rgb8Pixel>::new(width, height);
-
+    window: Rc<MinimalSoftwareWindow<1>>,
+    region: Option<IntRect>,
+    buffer: &mut SharedPixelBuffer<Rgb8Pixel>,
+) {
     // render to buffer
     window.request_redraw();
-    window.draw_if_needed(|renderer| {
-        renderer.mark_dirty_region(Box2D::new(
-            Point2D::new(0., 0.),
-            Point2D::new(width as f32, height as f32),
-        ));
-        renderer.render_by_line(TestingLineBuffer { buffer: buffer.make_mut_slice() });
-    });
 
-    buffer
+    window.draw_if_needed(|renderer| {
+        match region {
+            None => renderer.mark_dirty_region(Box2D::new(
+                euclid::point2(0., 0.),
+                euclid::point2(buffer.width() as f32, buffer.height() as f32),
+            )),
+            Some(r) => renderer.mark_dirty_region(DirtyRegion::from_untyped(&r.to_box2d().cast())),
+        }
+        renderer.render_by_line(TestingLineBuffer {
+            stride: buffer.stride() as usize,
+            buffer: buffer.make_mut_slice(),
+            region,
+        });
+    });
 }
 
-pub fn save_screenshot(path: &str, window: std::rc::Rc<MinimalSoftwareWindow<0>>) {
+pub fn save_screenshot(path: &str, window: Rc<MinimalSoftwareWindow<1>>) {
     let buffer = screenshot(window.clone());
     image::save_buffer(
         path,
