@@ -177,6 +177,7 @@ TestCase := Rectangle {
         (var_identifier
           (index_operator
             (ERROR
+              (var_identifier)
               (value
                 (basic_value
                   (bool_value))))
@@ -1021,8 +1022,7 @@ TestCase := Window {
                       (var_identifier
                         (post_identifier)
                         (post_identifier))))
-                  (block_statement
-                    (var_identifier)))))
+                  (var_identifier))))
             (block_statement
               (callback_event
                 (function_identifier)
@@ -1057,8 +1057,7 @@ TestCase := Window {
                       (var_identifier
                         (post_identifier)
                         (post_identifier))))
-                  (block_statement
-                    (var_identifier))))))))
+                  (var_identifier)))))))
       (block_statement
         (property
           (type_identifier)

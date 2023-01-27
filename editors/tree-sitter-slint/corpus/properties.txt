@@ -206,47 +206,46 @@ TestCase := Rectangle {
               (callback_event
                 (function_identifier)
                 (block
+                  (block_statement
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (value
+                          (basic_value
+                            (string_value
+                              (_string_fragment)))))))
+                  (block_statement
+                    (assignment_expr
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (value
+                        (basic_value
+                          (int_value)))))
+                  (block_statement
+                    (assignment_expr
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (value
+                        (basic_value
+                          (bool_value)))))
+                  (block_statement
+                    (assignment_expr
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (basic_value
+                          (int_value)))))
                   (function_call
                     (function_identifier)
                     (call_signature
                       (value
                         (basic_value
                           (string_value
-                            (_string_fragment))))))
-                  (MISSING "}"))))
-            (block_statement
-              (assignment_expr
-                (var_identifier
-                  (reference_identifier)
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (basic_value
-                    (int_value)))))
-            (block_statement
-              (assignment_expr
-                (var_identifier
-                  (reference_identifier)
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (basic_value
-                    (bool_value)))))
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (basic_value
-                    (int_value)))))
-            (function_call
-              (function_identifier)
-              (call_signature
-                (value
-                  (basic_value
-                    (string_value
-                      (_string_fragment)))))))))))
-  (ERROR))
+                            (_string_fragment)))))))))))))))
 
 ================================================================================
 animation_merging
@@ -554,6 +553,7 @@ delayed_transitions
         (UNEXPECTED 'a')
         (UNEXPECTED 't')
         (ERROR
+          (var_identifier)
           (value
             (anon_struct
               (var_identifier)
@@ -674,6 +674,7 @@ TestCase := Window {
             (var_identifier
               (index_operator
                 (ERROR
+                  (var_identifier)
                   (comparison_binary_expression
                     (var_identifier
                       (reference_identifier)
@@ -893,35 +894,42 @@ TestCase := Rectangle {
           (value
             (basic_value
               (int_value)))))
-      (var_identifier
-        (index_operator
-          (ERROR
-            (UNEXPECTED 'c'))
-          (value
-            (anon_struct
-              (var_identifier)
-              (value
-                (basic_value
-                  (int_value)))
-              (ERROR)))))))
+      (assignment_block
+        (var_identifier)
+        (ERROR
+          (var_identifier)
+          (UNEXPECTED 'c'))
+        (assignment_prec_operator)
+        (block
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (basic_value
+                (int_value))))))
+      (ERROR)))
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
       (block_statement
-        (component
-          (var_identifier
-            (index_operator
-              (ERROR
-                (UNEXPECTED 'c'))
-              (value
-                (anon_struct
-                  (var_identifier
-                    (post_identifier))
-                  (var_identifier)
-                  (ERROR)))))
+        (assignment_block
+          (var_identifier)
           (ERROR
-            (UNEXPECTED '))
+            (var_identifier)
+            (UNEXPECTED 'c'))
+          (assignment_prec_operator)
+          (block
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (var_identifier)))))
+      (ERROR
+        (UNEXPECTED ')
+        (UNEXPECTED 'R'))
+      (block_statement
+        (component
           (type_identifier)
           (block)))))
   (component_definition
@@ -1330,7 +1338,8 @@ transitions
       (ERROR
         (UNEXPECTED 'a')
         (UNEXPECTED 't')
-        (ERROR)
+        (ERROR
+          (var_identifier))
         (UNEXPECTED 'm'))
       (assignment_expr
         (var_identifier)

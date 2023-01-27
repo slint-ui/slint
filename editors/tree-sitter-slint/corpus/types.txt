@@ -2267,118 +2267,115 @@ TestCase := Rectangle {
               (var_identifier)
               (var_identifier)))
           (comparison_operator)
-          (var_identifier))
+          (var_identifier)))
+      (block_statement
+        (value
+          (anon_struct
+            (var_identifier)
+            (value
+              (basic_value
+                (string_value
+                  (_string_fragment))))
+            (var_identifier)
+            (value
+              (basic_value
+                (int_value))))))
+      (ERROR
         (comparison_binary_expression
-          (comparison_binary_expression
-            (value
-              (anon_struct
-                (var_identifier)
-                (value
-                  (basic_value
-                    (string_value
-                      (_string_fragment))))
-                (var_identifier)
-                (value
-                  (basic_value
-                    (int_value)))))
-            (ERROR)
-            (comparison_operator)
-            (value
-              (anon_struct
-                (var_identifier)
-                (var_identifier)
-                (var_identifier)
-                (var_identifier))))
+          (value
+            (anon_struct
+              (var_identifier)
+              (var_identifier)
+              (var_identifier)
+              (var_identifier)))
           (comparison_operator)
-          (var_identifier))
+          (var_identifier)))
+      (block_statement
+        (value
+          (anon_struct
+            (var_identifier)
+            (value
+              (basic_value
+                (int_value)))
+            (var_identifier)
+            (value
+              (basic_value
+                (int_value)))
+            (var_identifier)
+            (value
+              (basic_value
+                (string_value
+                  (_string_fragment)))))))
+      (ERROR
         (comparison_binary_expression
-          (comparison_binary_expression
-            (value
-              (anon_struct
-                (var_identifier)
-                (value
-                  (basic_value
-                    (int_value)))
-                (var_identifier)
-                (value
-                  (basic_value
-                    (int_value)))
-                (var_identifier)
-                (value
-                  (basic_value
-                    (string_value
-                      (_string_fragment))))))
-            (ERROR)
-            (comparison_operator)
-            (value
-              (anon_struct
-                (var_identifier)
-                (var_identifier)
-                (var_identifier)
-                (var_identifier))))
+          (value
+            (anon_struct
+              (var_identifier)
+              (var_identifier)
+              (var_identifier)
+              (var_identifier)))
           (comparison_operator)
-          (var_identifier))
+          (var_identifier)))
+      (block_statement
+        (value
+          (anon_struct
+            (var_identifier)
+            (value
+              (basic_value
+                (string_value
+                  (_string_fragment)))))))
+      (ERROR
         (comparison_binary_expression
-          (comparison_binary_expression
-            (value
-              (anon_struct
-                (var_identifier)
-                (value
-                  (basic_value
-                    (string_value
-                      (_string_fragment))))))
-            (ERROR)
-            (comparison_operator)
-            (value
-              (anon_struct
-                (var_identifier)
-                (var_identifier)
-                (var_identifier)
-                (var_identifier))))
+          (value
+            (anon_struct
+              (var_identifier)
+              (var_identifier)
+              (var_identifier)
+              (var_identifier)))
           (comparison_operator)
-          (var_identifier))
-        (comparison_binary_expression
-          (comparison_binary_expression
-            (ternary_expression
+          (var_identifier)))
+      (block_statement
+        (ternary_expression
+          (value
+            (basic_value
+              (bool_value)))
+          (value
+            (anon_struct
+              (var_identifier)
               (value
                 (basic_value
-                  (bool_value)))
+                  (int_value)))
+              (var_identifier)
               (value
-                (anon_struct
-                  (var_identifier)
-                  (value
-                    (basic_value
-                      (int_value)))
-                  (var_identifier)
-                  (value
-                    (basic_value
-                      (string_value
-                        (_string_fragment))))))
+                (basic_value
+                  (string_value
+                    (_string_fragment))))))
+          (value
+            (anon_struct
+              (var_identifier)
               (value
-                (anon_struct
-                  (var_identifier)
-                  (value
-                    (basic_value
-                      (int_value)))
-                  (var_identifier)
-                  (value
-                    (basic_value
-                      (int_value)))
-                  (var_identifier)
-                  (value
-                    (basic_value
-                      (string_value
-                        (_string_fragment)))))))
-            (ERROR)
-            (comparison_operator)
-            (value
-              (anon_struct
-                (var_identifier)
-                (var_identifier)
-                (var_identifier)
-                (var_identifier))))
+                (basic_value
+                  (int_value)))
+              (var_identifier)
+              (value
+                (basic_value
+                  (int_value)))
+              (var_identifier)
+              (value
+                (basic_value
+                  (string_value
+                    (_string_fragment))))))))
+      (ERROR
+        (comparison_binary_expression
+          (value
+            (anon_struct
+              (var_identifier)
+              (var_identifier)
+              (var_identifier)
+              (var_identifier)))
           (comparison_operator)
-          (var_identifier))
+          (var_identifier)))
+      (block_statement
         (ternary_expression
           (value
             (basic_value
@@ -2408,7 +2405,8 @@ TestCase := Rectangle {
                   (int_value))))
             (ERROR
               (UNEXPECTED 'x')))))
-      (ERROR
+      (ERROR)
+      (block_statement
         (value
           (anon_struct
             (var_identifier)
@@ -2462,12 +2460,10 @@ TestCase := Rectangle {
                 (add_prec_operator)
                 (var_identifier
                   (post_identifier)))))))
-      (block_statement
+      (ERROR
         (function_call
           (function_identifier)
-          (ERROR)
-          (call_signature)))
-      (ERROR
+          (call_signature))
         (value
           (anon_struct
             (var_identifier)

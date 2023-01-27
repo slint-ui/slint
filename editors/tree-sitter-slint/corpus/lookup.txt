@@ -88,12 +88,11 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (var_identifier
-                (post_identifier
-                  (function_call
-                    (function_identifier)
-                    (call_signature))))))))
+            (var_identifier
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature)))))))
       (block_statement
         (component
           (type_identifier)

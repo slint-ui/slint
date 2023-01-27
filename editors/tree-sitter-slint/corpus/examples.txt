@@ -2910,10 +2910,9 @@ Hello := Rectangle {
               (callback_event
                 (function_identifier)
                 (block
-                  (block_statement
-                    (function_call
-                      (function_identifier)
-                      (call_signature)))))))))
+                  (function_call
+                    (function_identifier)
+                    (call_signature))))))))
       (block_statement
         (component
           (type_identifier)
@@ -3120,10 +3119,9 @@ Hello := Rectangle {
               (callback_event
                 (function_identifier)
                 (block
-                  (block_statement
-                    (function_call
-                      (function_identifier)
-                      (call_signature))))))
+                  (function_call
+                    (function_identifier)
+                    (call_signature)))))
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
@@ -3577,17 +3575,20 @@ W := Window {
                                       (basic_value
                                         (string_value
                                           (_string_fragment))))))))))
-                        (function_call
-                          (function_identifier)
-                          (call_signature
+                        (block_statement
+                          (function_call
+                            (function_identifier)
+                            (call_signature
+                              (var_identifier
+                                (post_identifier)))))
+                        (block_statement
+                          (assignment_expr
+                            (var_identifier
+                              (post_identifier))
+                            (assignment_prec_operator)
                             (var_identifier
                               (post_identifier))))
-                        (ERROR
-                          (UNEXPECTED '.')
-                          (UNEXPECTED 'e')
-                          (UNEXPECTED 'v')
-                          (UNEXPECTED 'e')
-                          (UNEXPECTED 'c')))))
+                        (var_identifier))))
                   (block_statement
                     (component
                       (type_identifier)
@@ -3838,29 +3839,30 @@ export TestCase := Window {
                             (type_identifier)
                             (var_identifier)))
                         (block_statement
-                          (var_identifier
-                            (index_operator
-                              (ERROR
-                                (UNEXPECTED 'l')
+                          (assignment_block
+                            (var_identifier)
+                            (ERROR
+                              (var_identifier)
+                              (UNEXPECTED 'l'))
+                            (assignment_prec_operator)
+                            (block
+                              (assignment_expr
+                                (var_identifier)
+                                (assignment_prec_operator)
                                 (value
-                                  (anon_struct
-                                    (var_identifier)
-                                    (value
-                                      (basic_value
-                                        (length_value)))
-                                    (ERROR)))
-                                (UNEXPECTED 'w')
-                                (unary_expression
-                                  (unary_prec_operator)
-                                  (var_identifier)))
+                                  (basic_value
+                                    (length_value)))))))
+                        (ERROR
+                          (unary_expression
+                            (unary_prec_operator)
+                            (var_identifier))
+                          (value
+                            (anon_struct
+                              (var_identifier)
                               (value
-                                (anon_struct
-                                  (var_identifier)
-                                  (value
-                                    (basic_value
-                                      (length_value)))
-                                  (ERROR)))))
-                          (MISSING ";"))
+                                (basic_value
+                                  (length_value)))
+                              (ERROR))))
                         (block_statement
                           (animate_statement
                             (var_identifier)

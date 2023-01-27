@@ -238,12 +238,11 @@ TestCase := Rectangle {
                   (function_call
                     (function_identifier)
                     (call_signature)))))
-            (block_statement
-              (var_identifier
-                (post_identifier
-                  (function_call
-                    (function_identifier)
-                    (call_signature))))))))
+            (var_identifier
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature)))))))
       (block_statement
         (property
           (type_identifier)

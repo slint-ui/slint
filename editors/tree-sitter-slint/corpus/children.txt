@@ -63,7 +63,7 @@ TestCase := Container {
                           (var_identifier)
                           (assignment_prec_operator)
                           (var_identifier)))))
-                  (var_identifier
+                  (block_statement
                     (children_identifier))))))))))
   (component_definition
     (type_identifier)
@@ -177,7 +177,7 @@ TestCase := MegaContainer {
                           (var_identifier)
                           (assignment_prec_operator)
                           (var_identifier)))))
-                  (var_identifier
+                  (block_statement
                     (children_identifier))))))))))
   (component_definition
     (type_identifier)
@@ -188,11 +188,10 @@ TestCase := MegaContainer {
           (type_identifier)
           (block
             (block_statement
+              (children_identifier))
+            (block_statement
               (assignment_expr
-                (var_identifier
-                  (children_identifier))
-                (ERROR
-                  (UNEXPECTED 'w'))
+                (var_identifier)
                 (assignment_prec_operator)
                 (var_identifier
                   (reference_identifier)
@@ -592,15 +591,20 @@ TestCase := Rectangle {
                           (callback_event
                             (function_identifier)
                             (block
-                              (function_call
-                                (function_identifier)
-                                (call_signature
-                                  (value
-                                    (basic_value
-                                      (string_value
-                                        (_string_fragment))))))
-                              (ERROR
-                                (UNEXPECTED 'o'))))))))
+                              (block_statement
+                                (function_call
+                                  (function_identifier)
+                                  (call_signature
+                                    (value
+                                      (basic_value
+                                        (string_value
+                                          (_string_fragment)))))))
+                              (assignment_expr
+                                (var_identifier)
+                                (assignment_prec_operator)
+                                (value
+                                  (basic_value
+                                    (int_value))))))))))
                   (block_statement
                     (component
                       (type_identifier)

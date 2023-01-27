@@ -799,12 +799,11 @@ App := Window {
                             (callback_event
                               (function_identifier)
                               (block
-                                (block_statement
-                                  (var_identifier
-                                    (post_identifier
-                                      (function_call
-                                        (function_identifier)
-                                        (call_signature)))))))))))
+                                (var_identifier
+                                  (post_identifier
+                                    (function_call
+                                      (function_identifier)
+                                      (call_signature))))))))))
                     (block_statement
                       (component
                         (var_identifier)
@@ -826,12 +825,11 @@ App := Window {
                 (callback_event
                   (function_identifier)
                   (block
-                    (block_statement
-                      (var_identifier
-                        (post_identifier
-                          (function_call
-                            (function_identifier)
-                            (call_signature))))))))
+                    (var_identifier
+                      (post_identifier
+                        (function_call
+                          (function_identifier)
+                          (call_signature)))))))
               (block_statement
                 (if_statement
                   (value
@@ -844,12 +842,11 @@ App := Window {
                         (callback_event
                           (function_identifier)
                           (block
-                            (block_statement
-                              (var_identifier
-                                (post_identifier
-                                  (function_call
-                                    (function_identifier)
-                                    (call_signature))))))))))))
+                            (var_identifier
+                              (post_identifier
+                                (function_call
+                                  (function_identifier)
+                                  (call_signature)))))))))))
               (block_statement
                 (component
                   (var_identifier)
@@ -1249,7 +1246,8 @@ export InkEffect := Rectangle {
       (ERROR
         (UNEXPECTED 'a')
         (UNEXPECTED 't')
-        (ERROR)
+        (ERROR
+          (var_identifier))
         (UNEXPECTED 'u'))
       (assignment_expr
         (var_identifier)
@@ -1850,8 +1848,8 @@ export TestCase := Window {
 
 (source_file
   (comment)
-  (export_statement)
   (component_definition
+    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -1876,17 +1874,19 @@ export TestCase := Window {
         (callback_event
           (function_identifier)
           (block
-            (ERROR
+            (block_statement
               (function_call
                 (function_identifier)
                 (call_signature
                   (value
                     (basic_value
                       (string_value
-                        (_string_fragment))))))
-              (UNEXPECTED 'o'))
-            (value
-              (value_list)))))
+                        (_string_fragment)))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (value_list))))))
       (block_statement
         (property
           (type_identifier)
@@ -1943,13 +1943,12 @@ export TestCase := Window {
                                   (callback_event
                                     (function_identifier)
                                     (block
-                                      (block_statement
-                                        (var_identifier
-                                          (reference_identifier)
-                                          (post_identifier
-                                            (function_call
-                                              (function_identifier)
-                                              (call_signature))))))))
+                                      (var_identifier
+                                        (reference_identifier)
+                                        (post_identifier
+                                          (function_call
+                                            (function_identifier)
+                                            (call_signature)))))))
                                 (block_statement
                                   (component
                                     (type_identifier)
@@ -2164,7 +2163,8 @@ Bar := Rectangle {
           (function_identifier)
           (ERROR
             (UNEXPECTED 'h'))
-          (call_signature)))
+          (call_signature))
+        (MISSING ";"))
       (ERROR
         (var_identifier
           (post_identifier
@@ -2195,12 +2195,11 @@ Bar := Rectangle {
                         (function_call
                           (function_identifier)
                           (call_signature)))))
-                  (block_statement
-                    (var_identifier
-                      (post_identifier
-                        (function_call
-                          (function_identifier)
-                          (call_signature)))))))))))
+                  (var_identifier
+                    (post_identifier
+                      (function_call
+                        (function_identifier)
+                        (call_signature))))))))))
       (block_statement
         (component
           (type_identifier)

@@ -333,17 +333,17 @@ TestCase := Rectangle {
       (type_identifier)
       (var_identifier)
       (block
-        (add_binary_expression
+        (block_statement
           (function_call
             (function_identifier)
             (call_signature
               (var_identifier
                 (post_identifier))
               (var_identifier
-                (post_identifier))))
-          (ERROR
-            (UNEXPECTED 'A')
-            (UNEXPECTED '))
+                (post_identifier)))))
+        (add_binary_expression
+          (var_identifier
+            (post_identifier))
           (add_prec_operator)
           (var_identifier
             (post_identifier))))))

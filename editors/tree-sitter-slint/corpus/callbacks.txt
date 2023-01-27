@@ -62,13 +62,12 @@ TestCase := Rectangle {
                 (value
                   (basic_value
                     (int_value)))))
-            (block_statement
-              (var_identifier
-                (reference_identifier)
-                (post_identifier
-                  (function_call
-                    (function_identifier)
-                    (call_signature)))))))))))
+            (var_identifier
+              (reference_identifier)
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature))))))))))
 
 ================================================================================
 handler_with_arg
@@ -133,17 +132,16 @@ TestCase := Rectangle {
                 (value
                   (basic_value
                     (int_value)))))
-            (block_statement
-              (var_identifier
-                (reference_identifier)
-                (post_identifier
-                  (function_call
-                    (function_identifier)
-                    (call_signature
-                      (value
-                        (basic_value
-                          (int_value)))
-                      (var_identifier))))))))))))
+            (var_identifier
+              (reference_identifier)
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature
+                    (value
+                      (basic_value
+                        (int_value)))
+                    (var_identifier)))))))))))
 
 ================================================================================
 callback_name_conflicts
@@ -391,7 +389,7 @@ TestCase := Rectangle {
                 (basic_value
                   (string_value
                     (_string_fragment))))))))
-      (var_identifier
+      (block_statement
         (children_identifier))))
   (component_definition
     (type_identifier)
@@ -817,13 +815,12 @@ TestCase := Rectangle {
               (callback_event
                 (function_identifier)
                 (block
-                  (block_statement
-                    (function_call
-                      (function_identifier)
-                      (call_signature
-                        (value
-                          (basic_value
-                            (int_value))))))))))))
+                  (function_call
+                    (function_identifier)
+                    (call_signature
+                      (value
+                        (basic_value
+                          (int_value)))))))))))
       (block_statement
         (property
           (type_identifier)
@@ -975,158 +972,55 @@ TestCase := Rectangle {
                         (value
                           (basic_value
                             (length_value))))))))))))
-      (block_statement
-        (function_call
-          (function_identifier)
-          (ERROR)
-          (call_signature)))
-      (ERROR
-        (value
-          (anon_struct))
-        (UNEXPECTED 'h')
-        (var_identifier)
-        (assignment_expr
-          (var_identifier)
-          (ERROR
-            (UNEXPECTED ':'))
-          (assignment_prec_operator)
-          (var_identifier)))
-      (block_statement
-        (component
-          (type_identifier)
-          (block
-            (add_binary_expression
-              (add_binary_expression
-                (add_binary_expression
-                  (function_call
-                    (function_identifier)
-                    (call_signature))
-                  (ERROR
-                    (UNEXPECTED '))
-                  (add_prec_operator)
-                  (var_identifier))
-                (add_prec_operator)
-                (var_identifier))
-              (add_prec_operator)
-              (var_identifier)))))
-      (block_statement
-        (if_statement
-          (value
-            (basic_value
-              (bool_value)))
-          (component
-            (type_identifier)
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (comparison_binary_expression
-                  (function_call
-                    (function_identifier)
-                    (call_signature
-                      (value
-                        (basic_value
-                          (int_value)))
-                      (value
-                        (basic_value
-                          (int_value)))))
-                  (comparison_operator)
-                  (ternary_expression
-                    (value
-                      (basic_value
-                        (int_value)))
-                    (var_identifier)
-                    (var_identifier
-                      (post_identifier
-                        (function_call
-                          (function_identifier)
-                          (call_signature)))))))))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block)))
-      (block_statement
-        (function_call
-          (function_identifier)
-          (ERROR
-            (UNEXPECTED '('))
-          (call_signature
-            (var_identifier)
-            (ERROR)
-            (var_identifier)
-            (ERROR))))
-      (ERROR)
-      (block_statement
-        (component
-          (type_identifier)
-          (block
-            (add_binary_expression
-              (add_binary_expression
-                (var_identifier)
-                (add_prec_operator)
-                (var_identifier))
-              (add_prec_operator)
-              (var_identifier)))))
-      (block_statement
-        (function_call
-          (function_identifier)
-          (ERROR
-            (UNEXPECTED 't'))
-          (call_signature
-            (var_identifier)
-            (ERROR))))
-      (ERROR
-        (value
-          (anon_struct
-            (ERROR
-              (UNEXPECTED ')))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (comparison_binary_expression
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (function_call
-                  (function_identifier)
-                  (call_signature
-                    (value
-                      (basic_value
-                        (int_value)))
-                    (value
-                      (basic_value
-                        (int_value)))))
-                (comparison_operator)
-                (mult_binary_expression
-                  (value
-                    (basic_value
-                      (int_value)))
-                  (mult_prec_operator)
-                  (var_identifier
-                    (post_identifier
-                      (function_call
-                        (function_identifier)
-                        (call_signature
-                          (value
-                            (basic_value
-                              (string_value
-                                (_string_fragment))))))))))
-              (comparison_operator)
-              (mult_binary_expression
-                (value
-                  (basic_value
-                    (string_value
-                      (_string_fragment))))
-                (mult_prec_operator)
-                (var_identifier
-                  (post_identifier
-                    (function_call
-                      (function_identifier)
-                      (call_signature))))))
-            (comparison_operator)
-            (var_identifier
-              (post_identifier))))))))
+      (function_call
+        (function_identifier)
+        (ERROR)
+        (call_signature))
+      (ERROR)))
+  (component_definition
+    (type_identifier)
+    (ERROR
+      (UNEXPECTED 'h')
+      (UNEXPECTED ':')
+      (UNEXPECTED ':')
+      (UNEXPECTED 'o')
+      (UNEXPECTED ')
+      (UNEXPECTED ')
+      (UNEXPECTED ')
+      (UNEXPECTED 'n')
+      (UNEXPECTED 'R')
+      (UNEXPECTED 'a')
+      (UNEXPECTED 'h')
+      (UNEXPECTED 'l')
+      (UNEXPECTED '.')
+      (UNEXPECTED 'h')
+      (UNEXPECTED '))
+    (type_identifier)
+    (block))
+  (ERROR
+    (type_identifier)
+    (UNEXPECTED 'u')
+    (UNEXPECTED ':')
+    (UNEXPECTED ':')
+    (UNEXPECTED ')
+    (UNEXPECTED ')
+    (UNEXPECTED ')
+    (UNEXPECTED 'u')
+    (UNEXPECTED 't')
+    (UNEXPECTED ':')
+    (UNEXPECTED ')
+    (UNEXPECTED ')
+    (UNEXPECTED 'e')
+    (UNEXPECTED ':')
+    (UNEXPECTED 'h')
+    (UNEXPECTED 'G')
+    (UNEXPECTED 'e')
+    (UNEXPECTED 'w')
+    (UNEXPECTED 'h')
+    (UNEXPECTED '.')
+    (UNEXPECTED 'h')
+    (UNEXPECTED 'C')
+    (UNEXPECTED 'd')))
 
 ================================================================================
 return_value
@@ -1244,17 +1138,16 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (function_call
-                (function_identifier)
-                (call_signature
-                  (value
-                    (basic_value
-                      (string_value
-                        (_string_fragment))))
-                  (value
-                    (basic_value
-                      (int_value)))))))))
+            (function_call
+              (function_identifier)
+              (call_signature
+                (value
+                  (basic_value
+                    (string_value
+                      (_string_fragment))))
+                (value
+                  (basic_value
+                    (int_value))))))))
       (block_statement
         (property
           (type_identifier)

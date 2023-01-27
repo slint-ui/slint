@@ -192,6 +192,7 @@ module.exports = grammar({
                 $.for_loop,
                 $.if_statement,
                 $.animate_statement,
+                $.children_identifier, // No `;` after this one!
                 seq($.assignment_block, optional(";")),
                 seq($.assignment_expr, ";"),
                 seq("return", $._expression, ";"),
@@ -202,8 +203,7 @@ module.exports = grammar({
                 $.callback,
                 $.callback_event,
                 $.callback_alias,
-                $.function_call,
-                seq($.var_identifier, ";"),
+                seq($._expression, ";"),
                 // $.states_definition,
                 // $.transitions_definition,
             ),
@@ -590,7 +590,6 @@ module.exports = grammar({
 
         var_identifier: ($) =>
             choice(
-                $.children_identifier,
                 field("match_all", "*"),
                 seq($._var_identifier_start, optional($._accessor_postfix)),
                 seq($._identifier, repeat(seq(".", $.post_identifier))),
