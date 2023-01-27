@@ -605,7 +605,7 @@ module.exports = grammar({
         _number: ($) => choice($._int_number, $._float_number),
 
         _int_number: (_) => /\d+/,
-        _float_number: (_) => /\d+\.\d+/,
+        _float_number: (_) => /(\d*\.\d+|\d+\.\d*)/,
 
         int_value: ($) => field("value", $._int_number),
         float_value: ($) => field("value", $._float_number),

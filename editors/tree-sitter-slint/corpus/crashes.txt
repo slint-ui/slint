@@ -1041,7 +1041,7 @@ export InkEffect := Rectangle {
 
 (source_file
   (comment)
-  (export_modifier)
+  (export_statement)
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -1191,8 +1191,7 @@ export InkEffect := Rectangle {
             (var_identifier)
             (assignment_prec_operator)
             (value
-              (int_value)))
-          (ERROR)
+              (float_value)))
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
