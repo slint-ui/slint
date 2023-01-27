@@ -480,20 +480,18 @@ TestCase := Rectangle {
           (var_identifier)
           (type_identifier)
           (block
-            (ERROR
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
-                (ERROR)
+            (block_statement
+              (property_alias
+                (var_identifier)
                 (var_identifier
                   (reference_identifier)
-                  (post_identifier)))
-              (UNEXPECTED 'h'))
+                  (post_identifier))))
             (block_statement
-              (var_identifier
-                (reference_identifier)
-                (post_identifier)))
-            (ERROR))))
+              (property_alias
+                (var_identifier)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))))))
       (block_statement
         (property
           (type_identifier)
@@ -959,15 +957,10 @@ TestCase := Rectangle {
           (var_identifier)
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
-                (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (type_identifier))
-            (ERROR))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier))))))
       (block_statement
         (property_alias
           (type_identifier)
@@ -995,15 +988,10 @@ TestCase := Rectangle {
           (var_identifier)
           (type_identifier)
           (block
-            (ERROR
-              (comparison_binary_expression
-                (comparison_binary_expression
-                  (type_identifier)
-                  (comparison_operator)
-                  (var_identifier
-                    (MISSING "*")))
-                (comparison_operator)
-                (type_identifier)))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier)))
             (block_statement
               (property
                 (type_identifier)
@@ -1194,66 +1182,56 @@ TestCase := Window {
                 (var_identifier)
                 (type_identifier)
                 (block
-                  (comparison_binary_expression
-                    (type_identifier)
-                    (comparison_operator)
-                    (ERROR)
-                    (var_identifier
-                      (reference_identifier)
-                      (post_identifier)))
-                  (ERROR))))
+                  (block_statement
+                    (property_alias
+                      (var_identifier)
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier)))))))
             (block_statement
               (component
                 (var_identifier)
                 (type_identifier)
                 (block
-                  (comparison_binary_expression
-                    (type_identifier)
-                    (comparison_operator)
-                    (ERROR)
-                    (var_identifier
-                      (reference_identifier)
-                      (post_identifier)))
-                  (ERROR))))
+                  (block_statement
+                    (property_alias
+                      (var_identifier)
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier)))))))
             (block_statement
               (component
                 (var_identifier)
                 (type_identifier)
                 (block
-                  (comparison_binary_expression
-                    (type_identifier)
-                    (comparison_operator)
-                    (ERROR)
-                    (var_identifier
-                      (reference_identifier)
-                      (post_identifier)))
-                  (ERROR))))
+                  (block_statement
+                    (property_alias
+                      (var_identifier)
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier)))))))
             (block_statement
               (component
                 (var_identifier)
                 (type_identifier)
                 (block
-                  (comparison_binary_expression
-                    (type_identifier)
-                    (comparison_operator)
-                    (ERROR)
-                    (var_identifier
-                      (reference_identifier)
-                      (post_identifier)))
-                  (ERROR))))
+                  (block_statement
+                    (property_alias
+                      (var_identifier)
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier)))))))
             (block_statement
               (component
                 (var_identifier)
                 (type_identifier)
                 (block
-                  (comparison_binary_expression
-                    (type_identifier)
-                    (comparison_operator)
-                    (ERROR)
-                    (var_identifier
-                      (reference_identifier)
-                      (post_identifier)))
-                  (ERROR)))))))
+                  (block_statement
+                    (property_alias
+                      (var_identifier)
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier))))))))))
       (block_statement
         (property
           (type_identifier)
@@ -1472,30 +1450,20 @@ TestCase := Rectangle {
           (var_identifier)
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
-                (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (type_identifier))
-            (ERROR))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier))))))
       (block_statement
         (component
           (var_identifier)
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
+            (block_statement
+              (property_alias
+                (var_identifier)
                 (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (var_identifier
-                (post_identifier)))
-            (ERROR))))
+                  (post_identifier)))))))
       (block_statement
         (component
           (var_identifier)
@@ -1510,34 +1478,29 @@ TestCase := Rectangle {
         (component
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
-                (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (type_identifier))
-            (ERROR))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier))))))
       (block_statement
         (component
           (var_identifier)
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (type_identifier)
-              (comparison_operator)
-              (ERROR)
-              (var_identifier
-                (reference_identifier)
-                (post_identifier)))
-            (ERROR
-              (UNEXPECTED 'm')
-              (UNEXPECTED 't')
-              (UNEXPECTED 'm')
-              (UNEXPECTED 'm')
-              (UNEXPECTED 't')
-              (UNEXPECTED 'm')))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier)))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier))))))
       (block_statement
         (callback
           (function_identifier)
@@ -1738,15 +1701,10 @@ TestCase := Rectangle {
               (property_alias
                 (var_identifier)
                 (var_identifier)))
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
-                (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (type_identifier))
-            (ERROR))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier))))))
       (block_statement
         (component
           (var_identifier)
@@ -1760,16 +1718,11 @@ TestCase := Rectangle {
               (property_alias
                 (var_identifier)
                 (var_identifier)))
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
+            (block_statement
+              (property_alias
+                (var_identifier)
                 (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (var_identifier
-                (post_identifier)))
-            (ERROR))))
+                  (post_identifier)))))))
       (block_statement
         (component
           (var_identifier)
@@ -1784,34 +1737,29 @@ TestCase := Rectangle {
         (component
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
-                (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (type_identifier))
-            (ERROR))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier))))))
       (block_statement
         (component
           (var_identifier)
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (type_identifier)
-              (comparison_operator)
-              (ERROR)
-              (var_identifier
-                (reference_identifier)
-                (post_identifier)))
-            (ERROR
-              (UNEXPECTED 'm')
-              (UNEXPECTED 't')
-              (UNEXPECTED 'm')
-              (UNEXPECTED 'm')
-              (UNEXPECTED 't')
-              (UNEXPECTED 'm')))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier)))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier))))))
       (block_statement
         (callback
           (function_identifier)
@@ -1961,14 +1909,12 @@ TestCase := Rectangle {
           (var_identifier)
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (type_identifier)
-              (comparison_operator)
-              (ERROR)
-              (var_identifier
-                (reference_identifier)
-                (post_identifier)))
-            (ERROR))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))))))
       (block_statement
         (property
           (type_identifier)
@@ -2046,69 +1992,87 @@ TestCase := Rectangle {
           (var_identifier
             (post_identifier))))
       (block_statement
-        (assignment
+        (component
           (var_identifier)
-          (ERROR
-            (type_identifier)
-            (comparison_binary_expression
-              (type_identifier)
-              (comparison_operator)
-              (ERROR)
-              (var_identifier
-                (reference_identifier)
-                (post_identifier)))
-            (UNEXPECTED 'w')
-            (UNEXPECTED 'n')
-            (UNEXPECTED 'c')
-            (UNEXPECTED 'n')
-            (UNEXPECTED 'h'))
-          (assignment_prec_operator)
-          (value
-            (physical_length_value))))
-      (block_statement
-        (callback_event
-          (function_identifier)
+          (type_identifier)
           (block
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))))
             (block_statement
               (assignment
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (int_value)))))))))
-  (component_definition
-    (type_identifier)
-    (type_identifier)
-    (block
-      (ERROR
-        (comparison_binary_expression
-          (type_identifier)
-          (comparison_operator)
-          (ERROR)
-          (var_identifier
-            (reference_identifier)
-            (post_identifier)))
-        (UNEXPECTED 'w'))
+                  (physical_length_value))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier
+                  (post_identifier))))
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (physical_length_value))))
+            (block_statement
+              (callback_event
+                (function_identifier)
+                (block
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (int_value))))))))))
       (block_statement
-        (assignment
-          (var_identifier
-            (reference_identifier)
-            (post_identifier)
-            (ERROR
-              (UNEXPECTED 'h')
-              (UNEXPECTED 'i')
-              (UNEXPECTED '.'))
-            (post_identifier))
-          (ERROR
-            (UNEXPECTED 'l')
-            (UNEXPECTED 's')
-            (UNEXPECTED 'u'))
-          (assignment_prec_operator)
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier
+                  (post_identifier))))
+            (block_statement
+              (callback_event
+                (function_identifier)
+                (block
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (int_value)))))))
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (physical_length_value)))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
           (value
-            (int_value))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 's')
-    (UNEXPECTED 'u')))
+            (int_value)))))))
 
 ================================================================================
 two_way_priority_default
@@ -2205,21 +2169,18 @@ export TestCase := Rectangle {
           (var_identifier)
           (type_identifier)
           (block
-            (ERROR
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
-                (ERROR)
+            (block_statement
+              (property_alias
+                (var_identifier)
                 (var_identifier
                   (reference_identifier)
-                  (post_identifier)))
-              (UNEXPECTED 'v')
-              (UNEXPECTED 'b'))
+                  (post_identifier))))
             (block_statement
-              (var_identifier
-                (reference_identifier)
-                (post_identifier)))
-            (ERROR))))
+              (property_alias
+                (var_identifier)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))))))
       (block_statement
         (property
           (type_identifier)
@@ -2474,31 +2435,21 @@ export TestCase := Window {
           (var_identifier)
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
+            (block_statement
+              (property_alias
+                (var_identifier)
                 (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (var_identifier
-                (post_identifier)))
-            (ERROR))))
+                  (post_identifier)))))))
       (block_statement
         (component
           (var_identifier)
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
+            (block_statement
+              (property_alias
+                (var_identifier)
                 (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (var_identifier
-                (post_identifier)))
-            (ERROR))))
+                  (post_identifier)))))))
       (block_statement
         (component
           (var_identifier)
@@ -2715,15 +2666,10 @@ export TestCase := Window {
           (ERROR
             (UNEXPECTED 'C'))
           (block
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
-                (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (type_identifier))
-            (ERROR))))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier))))))))
   (ERROR
     (type_identifier)
     (UNEXPECTED '0')

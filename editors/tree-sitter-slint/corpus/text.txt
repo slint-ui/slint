@@ -869,15 +869,10 @@ TestCase := Window {
                       (var_identifier)
                       (var_identifier
                         (post_identifier))))
-                  (ERROR
-                    (comparison_binary_expression
-                      (comparison_binary_expression
-                        (type_identifier)
-                        (comparison_operator)
-                        (var_identifier
-                          (MISSING "*")))
-                      (comparison_operator)
-                      (type_identifier)))
+                  (block_statement
+                    (property_alias
+                      (var_identifier)
+                      (var_identifier)))
                   (block_statement
                     (property_alias
                       (type_identifier)
@@ -888,16 +883,11 @@ TestCase := Window {
                 (var_identifier)
                 (type_identifier)
                 (block
-                  (comparison_binary_expression
-                    (comparison_binary_expression
-                      (type_identifier)
-                      (comparison_operator)
+                  (block_statement
+                    (property_alias
+                      (var_identifier)
                       (var_identifier
-                        (MISSING "*")))
-                    (comparison_operator)
-                    (var_identifier
-                      (post_identifier)))
-                  (ERROR))))
+                        (post_identifier)))))))
             (block_statement
               (component
                 (type_identifier)

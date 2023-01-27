@@ -594,15 +594,10 @@ App := Rectangle {
           (component
             (type_identifier)
             (block
-              (comparison_binary_expression
-                (comparison_binary_expression
-                  (type_identifier)
-                  (comparison_operator)
-                  (var_identifier
-                    (MISSING "*")))
-                (comparison_operator)
-                (type_identifier))
-              (ERROR)))))
+              (block_statement
+                (property_alias
+                  (var_identifier)
+                  (var_identifier)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1186,7 +1181,7 @@ export InkEffect := Rectangle {
         (UNEXPECTED 'a')
         (UNEXPECTED 't')
         (visibility_modifier)
-        (UNEXPECTED 'i')
+        (var_identifier)
         (UNEXPECTED 'i')
         (UNEXPECTED 'u'))
       (block_statement

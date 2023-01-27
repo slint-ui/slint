@@ -440,6 +440,7 @@ TestCase := Rectangle {
   (global_definition
     (type_identifier)
     (ERROR
+      (UNEXPECTED 'h')
       (UNEXPECTED 'G')
       (UNEXPECTED 'h')))
   (component_definition
@@ -842,29 +843,19 @@ export component TestCase inherits Window {
           (type_identifier)
           (block
             (comment)
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
+            (block_statement
+              (property_alias
+                (var_identifier)
                 (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (var_identifier
-                (post_identifier)))
-            (ERROR))))
+                  (post_identifier)))))))
       (block_statement
         (component
           (var_identifier)
           (type_identifier)
           (block
             (comment)
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
+            (block_statement
+              (property_alias
+                (var_identifier)
                 (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (var_identifier
-                (post_identifier)))
-            (ERROR)))))))
+                  (post_identifier))))))))))

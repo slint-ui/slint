@@ -64,7 +64,7 @@ module.exports = grammar({
         property_alias: ($) =>
             seq(
                 field("visibility", optional($.visibility_modifier)),
-                "property",
+                optional("property"),
                 optional(seq("<", field("type", $.type_identifier), ">")),
                 field("name", $.var_identifier),
                 field("binding_op", "<=>"),

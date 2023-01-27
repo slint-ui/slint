@@ -154,17 +154,22 @@ TestCase := Rectangle {
           (var_identifier)
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
-                (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (type_identifier))
-            (ERROR
-              (UNEXPECTED 'x')
-              (UNEXPECTED 'y')))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier)))
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (physical_length_value))))
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (physical_length_value)))))))
       (block_statement
         (component
           (var_identifier)
@@ -372,17 +377,22 @@ TestCase := Rectangle {
           (var_identifier)
           (type_identifier)
           (block
-            (comparison_binary_expression
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
-                (var_identifier
-                  (MISSING "*")))
-              (comparison_operator)
-              (type_identifier))
-            (ERROR
-              (UNEXPECTED 'x')
-              (UNEXPECTED 'y')))))
+            (block_statement
+              (property_alias
+                (var_identifier)
+                (var_identifier)))
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (physical_length_value))))
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (physical_length_value)))))))
       (block_statement
         (component
           (var_identifier)
