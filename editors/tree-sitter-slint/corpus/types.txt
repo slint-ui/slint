@@ -2728,16 +2728,8 @@ TestCase := Rectangle {
           (var_identifier)
           (value
             (value_list
-              (ERROR
-                (UNEXPECTED 'l'))
-              (value
-                (basic_value
-                  (int_value)))
-              (ERROR
-                (UNEXPECTED 'l'))
-              (value
-                (basic_value
-                  (int_value)))))))
+              (var_identifier)
+              (var_identifier)))))
       (block_statement
         (property
           (type_list

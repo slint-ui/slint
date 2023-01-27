@@ -553,12 +553,22 @@ delayed_transitions
       (ERROR
         (UNEXPECTED 'a')
         (UNEXPECTED 't')
-        (visibility_modifier)
-        (var_identifier)
-        (var_identifier)
         (ERROR
-          (UNEXPECTED 'm')
-          (UNEXPECTED 'l'))
+          (value
+            (anon_struct
+              (var_identifier)
+              (ERROR
+                (UNEXPECTED 'm')
+                (UNEXPECTED 'l')
+                (value
+                  (basic_value
+                    (duration_value))))
+              (value
+                (basic_value
+                  (duration_value)))
+              (ERROR)))
+          (UNEXPECTED 't'))
+        (var_identifier)
         (value
           (basic_value
             (duration_value))))
@@ -569,13 +579,12 @@ delayed_transitions
           (basic_value
             (duration_value))))))
   (ERROR
-    (type_identifier)
-    (UNEXPECTED 't')
-    (UNEXPECTED 'l')
     (UNEXPECTED 'x')
     (UNEXPECTED 'e')
     (UNEXPECTED 'o')
     (UNEXPECTED 'l')
+    (type_identifier)
+    (type_identifier)
     (UNEXPECTED 'e')
     (UNEXPECTED '_')
     (UNEXPECTED 'e')
@@ -1321,8 +1330,7 @@ transitions
       (ERROR
         (UNEXPECTED 'a')
         (UNEXPECTED 't')
-        (visibility_modifier)
-        (var_identifier)
+        (ERROR)
         (UNEXPECTED 'm'))
       (assignment_expr
         (var_identifier)

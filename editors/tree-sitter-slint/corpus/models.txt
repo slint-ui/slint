@@ -327,8 +327,9 @@ export TestCase := Rectangle {
           (var_identifier)
           (value
             (value_list
-              (ERROR)
-              (ERROR)))))
+              (var_identifier)
+              (var_identifier)
+              (var_identifier)))))
       (block_statement
         (property
           (type_identifier)
@@ -597,8 +598,7 @@ export TestCase := Rectangle {
                   (value
                     (basic_value
                       (int_value)))
-                  (ERROR
-                    (UNEXPECTED 'o'))))
+                  (var_identifier)))
               (value
                 (value_list
                   (value
@@ -1398,10 +1398,8 @@ TestCase := Rectangle {
               (assignment_prec_operator)
               (value
                 (value_list
-                  (ERROR
-                    (UNEXPECTED 'o'))
-                  (ERROR
-                    (UNEXPECTED 'o'))))))))
+                  (var_identifier)
+                  (var_identifier)))))))
       (block_statement
         (property
           (type_list
@@ -1410,10 +1408,8 @@ TestCase := Rectangle {
           (var_identifier)
           (value
             (value_list
-              (ERROR
-                (UNEXPECTED 'a'))
-              (ERROR
-                (UNEXPECTED 'a')))))))))
+              (var_identifier)
+              (var_identifier))))))))
 
 ================================================================================
 scrolled_model

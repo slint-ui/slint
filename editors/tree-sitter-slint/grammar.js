@@ -553,7 +553,8 @@ module.exports = grammar({
         type_identifier: ($) =>
             choice($._user_type_identifier, $._builtin_type_identifier),
 
-        value_list: ($) => seq("[", commaSep($.value), optional(","), "]"),
+        value_list: ($) =>
+            seq("[", commaSep($._expression), optional(","), "]"),
 
         value: ($) =>
             choice(

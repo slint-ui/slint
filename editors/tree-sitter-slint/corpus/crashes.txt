@@ -1250,8 +1250,7 @@ export InkEffect := Rectangle {
       (ERROR
         (UNEXPECTED 'a')
         (UNEXPECTED 't')
-        (visibility_modifier)
-        (var_identifier)
+        (ERROR)
         (UNEXPECTED 'u'))
       (assignment_expr
         (var_identifier)
