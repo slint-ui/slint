@@ -226,43 +226,35 @@ TestCase := Rectangle {
             (function_identifier)
             (block
               (block_statement
-                (if_statement
-                  (comparison_binary_expression
-                    (var_identifier)
-                    (comparison_operator)
-                    (value
-                      (int_value)))
-                  (component
-                    (type_identifier
-                      (MISSING _identifier))
-                    (block
-                      (block_statement
-                        (binding_block_statement
-                          (assignment_expr
-                            (var_identifier)
-                            (assignment_prec_operator)
-                            (value
-                              (int_value)))))
+                (binding_block_statement
+                  (if_expr
+                    (comparison_binary_expression
+                      (var_identifier)
+                      (comparison_operator)
+                      (value
+                        (int_value)))
+                    (binding_block
+                      (binding_block_statement
+                        (assignment_expr
+                          (var_identifier)
+                          (assignment_prec_operator)
+                          (value
+                            (int_value))))
                       (assignment_expr
                         (var_identifier)
                         (assignment_prec_operator)
                         (value
                           (int_value)))))))
               (block_statement
-                (if_statement
-                  (comparison_binary_expression
-                    (var_identifier)
-                    (comparison_operator)
-                    (value
-                      (int_value)))
-                  (component
-                    (type_identifier
-                      (MISSING _identifier))
-                    (block))
-                  (component
-                    (type_identifier
-                      (MISSING _identifier))
-                    (block
+                (binding_block_statement
+                  (if_expr
+                    (comparison_binary_expression
+                      (var_identifier)
+                      (comparison_operator)
+                      (value
+                        (int_value)))
+                    (binding_block)
+                    (binding_block
                       (assignment_expr
                         (var_identifier)
                         (assignment_prec_operator)
@@ -277,35 +269,29 @@ TestCase := Rectangle {
             (function_identifier)
             (block
               (block_statement
-                (if_statement
-                  (value
+                (binding_block_statement
+                  (if_expr
                     (value
-                      (bool_value)))
-                  (component
-                    (type_identifier
-                      (MISSING _identifier))
-                    (block
+                      (value
+                        (bool_value)))
+                    (binding_block
                       (function_call
                         (function_identifier)
                         (call_signature))))))
               (block_statement
-                (if_statement
-                  (value
+                (binding_block_statement
+                  (if_expr
                     (value
-                      (bool_value)))
-                  (component
-                    (type_identifier
-                      (MISSING _identifier))
-                    (block
-                      (assignment_expr
-                        (var_identifier)
-                        (assignment_prec_operator)
-                        (value
-                          (int_value)))))
-                  (component
-                    (type_identifier
-                      (MISSING _identifier))
-                    (block
+                      (value
+                        (bool_value)))
+                    (binding_block
+                      (binding_block_statement
+                        (assignment_expr
+                          (var_identifier)
+                          (assignment_prec_operator)
+                          (value
+                            (int_value)))))
+                    (binding_block
                       (function_call
                         (function_identifier)
                         (call_signature))))))))))
@@ -323,33 +309,25 @@ TestCase := Rectangle {
               (var_identifier))
             (block
               (block_statement
-                (if_statement
-                  (comparison_binary_expression
-                    (var_identifier)
-                    (comparison_operator)
-                    (value
-                      (int_value)))
-                  (component
-                    (type_identifier
-                      (MISSING _identifier))
-                    (block
-                      (value
-                        (int_value))))
-                  (if_statement
+                (binding_block_statement
+                  (if_expr
                     (comparison_binary_expression
                       (var_identifier)
                       (comparison_operator)
                       (value
                         (int_value)))
-                    (component
-                      (type_identifier
-                        (MISSING _identifier))
-                      (block
+                    (binding_block
+                      (value
+                        (int_value)))
+                    (if_expr
+                      (comparison_binary_expression
+                        (var_identifier)
+                        (comparison_operator)
                         (value
-                          (int_value))))
-                    (component
-                      (type_identifier
-                        (MISSING _identifier))
-                      (block
+                          (int_value)))
+                      (binding_block
+                        (value
+                          (int_value)))
+                      (binding_block
                         (value
                           (int_value))))))))))))))

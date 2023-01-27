@@ -1378,43 +1378,70 @@ TestCase := Rectangle {
             (type_identifier))
           (var_identifier)
           (binding_block
-            (ERROR
-              (function_call
-                (function_identifier)
-                (call_signature
-                  (var_identifier))))
+            (binding_block_statement
+              (if_expr
+                (var_identifier)
+                (binding_block
+                  (binding_block_statement
+                    (value
+                      (int_value))))))
             (binding_block_statement
               (value
                 (int_value))))))
       (block_statement
+        (property
+          (type
+            (type_identifier))
+          (var_identifier)
+          (binding_block
+            (binding_block_statement
+              (value
+                (int_value))))))
+      (block_statement
+        (callback
+          (function_identifier)))
+      (block_statement
+        (property
+          (type
+            (type_identifier))
+          (var_identifier)))
+      (block_statement
+        (property
+          (type
+            (type_identifier))
+          (var_identifier)))
+      (block_statement
         (binding_block_statement
-          (value
-            (int_value))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'v')
-    (UNEXPECTED 'e')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'e')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'e')
-    (UNEXPECTED ':')
-    (UNEXPECTED 'v')
-    (UNEXPECTED 'v')))
+          (callback_event
+            (function_identifier)
+            (block
+              (block_statement
+                (binding_block_statement
+                  (if_expr
+                    (var_identifier)
+                    (binding_block
+                      (binding_block_statement
+                        (var_identifier
+                          (MISSING "*")))))))
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (bool_value)))))))
+      (block_statement
+        (property
+          (type
+            (type_identifier))
+          (var_identifier)
+          (binding_block
+            (binding_block_statement
+              (comparison_binary_expression
+                (var_identifier)
+                (comparison_operator)
+                (var_identifier)))
+            (binding_block_statement
+              (value
+                (bool_value)))))))))
 
 ================================================================================
 round

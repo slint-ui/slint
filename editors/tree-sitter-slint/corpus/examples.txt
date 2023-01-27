@@ -3444,90 +3444,78 @@ W := Window {
                           (var_identifier))
                         (block
                           (block_statement
-                            (if_statement
-                              (comparison_binary_expression
+                            (binding_block_statement
+                              (if_expr
+                                (comparison_binary_expression
+                                  (var_identifier
+                                    (post_identifier))
+                                  (comparison_operator)
+                                  (var_identifier
+                                    (post_identifier)))
+                                (binding_block
+                                  (function_call
+                                    (function_identifier)
+                                    (call_signature
+                                      (value
+                                        (string_value))))))))
+                          (block_statement
+                            (binding_block_statement
+                              (if_expr
+                                (comparison_binary_expression
+                                  (var_identifier
+                                    (post_identifier))
+                                  (comparison_operator)
+                                  (var_identifier
+                                    (post_identifier)))
+                                (binding_block
+                                  (function_call
+                                    (function_identifier)
+                                    (call_signature
+                                      (value
+                                        (string_value))))))))
+                          (block_statement
+                            (binding_block_statement
+                              (if_expr
                                 (var_identifier
+                                  (post_identifier)
                                   (post_identifier))
-                                (comparison_operator)
-                                (var_identifier
-                                  (post_identifier)))
-                              (component
-                                (type_identifier
-                                  (MISSING _identifier))
-                                (block
+                                (binding_block
                                   (function_call
                                     (function_identifier)
                                     (call_signature
                                       (value
                                         (string_value))))))))
                           (block_statement
-                            (if_statement
-                              (comparison_binary_expression
+                            (binding_block_statement
+                              (if_expr
                                 (var_identifier
+                                  (post_identifier)
                                   (post_identifier))
-                                (comparison_operator)
+                                (binding_block
+                                  (function_call
+                                    (function_identifier)
+                                    (call_signature
+                                      (value
+                                        (string_value))))))))
+                          (block_statement
+                            (binding_block_statement
+                              (if_expr
                                 (var_identifier
-                                  (post_identifier)))
-                              (component
-                                (type_identifier
-                                  (MISSING _identifier))
-                                (block
+                                  (post_identifier)
+                                  (post_identifier))
+                                (binding_block
                                   (function_call
                                     (function_identifier)
                                     (call_signature
                                       (value
                                         (string_value))))))))
                           (block_statement
-                            (if_statement
-                              (var_identifier
-                                (post_identifier)
-                                (post_identifier))
-                              (component
-                                (type_identifier
-                                  (MISSING _identifier))
-                                (block
-                                  (function_call
-                                    (function_identifier)
-                                    (call_signature
-                                      (value
-                                        (string_value))))))))
-                          (block_statement
-                            (if_statement
-                              (var_identifier
-                                (post_identifier)
-                                (post_identifier))
-                              (component
-                                (type_identifier
-                                  (MISSING _identifier))
-                                (block
-                                  (function_call
-                                    (function_identifier)
-                                    (call_signature
-                                      (value
-                                        (string_value))))))))
-                          (block_statement
-                            (if_statement
-                              (var_identifier
-                                (post_identifier)
-                                (post_identifier))
-                              (component
-                                (type_identifier
-                                  (MISSING _identifier))
-                                (block
-                                  (function_call
-                                    (function_identifier)
-                                    (call_signature
-                                      (value
-                                        (string_value))))))))
-                          (block_statement
-                            (if_statement
-                              (var_identifier
-                                (post_identifier)
-                                (post_identifier))
-                              (component
-                                (type_identifier
-                                  (MISSING _identifier))
-                                (block
+                            (binding_block_statement
+                              (if_expr
+                                (var_identifier
+                                  (post_identifier)
+                                  (post_identifier))
+                                (binding_block
                                   (function_call
                                     (function_identifier)
                                     (call_signature

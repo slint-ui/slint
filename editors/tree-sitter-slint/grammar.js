@@ -138,6 +138,7 @@ module.exports = grammar({
             choice(
                 seq($.assignment_block, optional(";")),
                 seq($.assignment_expr, ";"),
+                $.if_expr,
                 $.binding,
                 $.binding_alias,
                 $.callback_event,
@@ -299,6 +300,17 @@ module.exports = grammar({
         animate_body: ($) =>
             seq("{", repeat(seq($._identifier, ":", $._expression, ";")), "}"),
 
+        if_expr: ($) =>
+            seq(
+                "if",
+                field(
+                    "condition",
+                    choice($._expression_body, seq("(", $._expression, ")")),
+                ),
+                $.binding_block,
+                optional(seq("else", choice($.if_expr, $.binding_block))),
+            ),
+
         if_statement: ($) =>
             seq(
                 "if",
@@ -306,7 +318,7 @@ module.exports = grammar({
                     "condition",
                     choice($._expression_body, seq("(", $._expression, ")")),
                 ),
-                optional(":"),
+                ":",
                 $.component,
                 optional(seq("else", choice($.if_statement, $.component))),
             ),

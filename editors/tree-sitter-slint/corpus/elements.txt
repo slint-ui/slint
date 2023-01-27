@@ -1473,46 +1473,39 @@ export TestCase := Window {
                                       (function_identifier)
                                       (block
                                         (block_statement
-                                          (if_statement
-                                            (var_identifier)
-                                            (component
-                                              (type_identifier
-                                                (MISSING _identifier))
-                                              (block
-                                                (block_statement
-                                                  (binding_block_statement
-                                                    (assignment_expr
-                                                      (var_identifier
-                                                        (post_identifier))
-                                                      (assignment_prec_operator)
-                                                      (var_identifier))))
-                                                (assignment_expr
-                                                  (var_identifier)
-                                                  (assignment_prec_operator)
-                                                  (value
-                                                    (bool_value)))))
-                                            (component
-                                              (type_identifier
-                                                (MISSING _identifier))
-                                              (block
-                                                (block_statement
-                                                  (binding_block_statement
-                                                    (assignment_expr
-                                                      (var_identifier
-                                                        (post_identifier))
-                                                      (assignment_prec_operator)
-                                                      (unary_expression
-                                                        (unary_prec_operator)
-                                                        (var_identifier
-                                                          (post_identifier))))))
-                                                (block_statement
-                                                  (binding_block_statement
-                                                    (assignment_expr
-                                                      (var_identifier
-                                                        (post_identifier))
-                                                      (assignment_prec_operator)
+                                          (binding_block_statement
+                                            (if_expr
+                                              (var_identifier)
+                                              (binding_block
+                                                (binding_block_statement
+                                                  (assignment_expr
+                                                    (var_identifier
+                                                      (post_identifier))
+                                                    (assignment_prec_operator)
+                                                    (var_identifier)))
+                                                (binding_block_statement
+                                                  (assignment_expr
+                                                    (var_identifier)
+                                                    (assignment_prec_operator)
+                                                    (value
+                                                      (bool_value)))))
+                                              (binding_block
+                                                (binding_block_statement
+                                                  (assignment_expr
+                                                    (var_identifier
+                                                      (post_identifier))
+                                                    (assignment_prec_operator)
+                                                    (unary_expression
+                                                      (unary_prec_operator)
                                                       (var_identifier
                                                         (post_identifier)))))
+                                                (binding_block_statement
+                                                  (assignment_expr
+                                                    (var_identifier
+                                                      (post_identifier))
+                                                    (assignment_prec_operator)
+                                                    (var_identifier
+                                                      (post_identifier))))
                                                 (assignment_expr
                                                   (var_identifier)
                                                   (assignment_prec_operator)
@@ -2633,132 +2626,114 @@ TestCase := Rectangle {
                     (var_identifier))
                   (block
                     (block_statement
-                      (if_statement
-                        (comparison_binary_expression
-                          (var_identifier
-                            (post_identifier))
-                          (comparison_operator)
-                          (var_identifier
-                            (post_identifier)))
-                        (component
-                          (type_identifier
-                            (MISSING _identifier))
-                          (block
-                            (assignment_expr
-                              (var_identifier)
-                              (assignment_prec_operator)
-                              (value
-                                (string_value)))))
-                        (if_statement
+                      (binding_block_statement
+                        (if_expr
                           (comparison_binary_expression
                             (var_identifier
                               (post_identifier))
                             (comparison_operator)
                             (var_identifier
                               (post_identifier)))
-                          (component
-                            (type_identifier
-                              (MISSING _identifier))
-                            (block
+                          (binding_block
+                            (binding_block_statement
                               (assignment_expr
                                 (var_identifier)
                                 (assignment_prec_operator)
                                 (value
                                   (string_value)))))
-                          (if_statement
+                          (if_expr
                             (comparison_binary_expression
                               (var_identifier
                                 (post_identifier))
                               (comparison_operator)
                               (var_identifier
                                 (post_identifier)))
-                            (component
-                              (type_identifier
-                                (MISSING _identifier))
-                              (block
+                            (binding_block
+                              (binding_block_statement
                                 (assignment_expr
                                   (var_identifier)
                                   (assignment_prec_operator)
                                   (value
                                     (string_value)))))
-                            (component
-                              (type_identifier
-                                (MISSING _identifier))
-                              (block
-                                (assignment_expr
-                                  (var_identifier)
-                                  (assignment_prec_operator)
-                                  (value
-                                    (string_value)))))))))
-                    (block_statement
-                      (if_statement
-                        (comparison_binary_expression
-                          (var_identifier
-                            (post_identifier))
-                          (comparison_operator)
-                          (var_identifier
-                            (post_identifier)))
-                        (component
-                          (type_identifier
-                            (MISSING _identifier))
-                          (block
-                            (assignment_expr
-                              (var_identifier)
-                              (assignment_prec_operator)
-                              (value
-                                (string_value)))))
-                        (if_statement
-                          (comparison_binary_expression
-                            (var_identifier
-                              (post_identifier))
-                            (comparison_operator)
-                            (var_identifier
-                              (post_identifier)))
-                          (component
-                            (type_identifier
-                              (MISSING _identifier))
-                            (block
-                              (assignment_expr
-                                (var_identifier)
-                                (assignment_prec_operator)
-                                (value
-                                  (string_value)))))
-                          (if_statement
-                            (comparison_binary_expression
-                              (var_identifier
-                                (post_identifier))
-                              (comparison_operator)
-                              (var_identifier
-                                (post_identifier)))
-                            (component
-                              (type_identifier
-                                (MISSING _identifier))
-                              (block
-                                (assignment_expr
-                                  (var_identifier)
-                                  (assignment_prec_operator)
-                                  (value
-                                    (string_value)))))
-                            (if_statement
+                            (if_expr
                               (comparison_binary_expression
                                 (var_identifier
                                   (post_identifier))
                                 (comparison_operator)
                                 (var_identifier
                                   (post_identifier)))
-                              (component
-                                (type_identifier
-                                  (MISSING _identifier))
-                                (block
+                              (binding_block
+                                (binding_block_statement
                                   (assignment_expr
                                     (var_identifier)
                                     (assignment_prec_operator)
                                     (value
                                       (string_value)))))
-                              (component
-                                (type_identifier
-                                  (MISSING _identifier))
-                                (block
+                              (binding_block
+                                (assignment_expr
+                                  (var_identifier)
+                                  (assignment_prec_operator)
+                                  (value
+                                    (string_value)))))))))
+                    (block_statement
+                      (binding_block_statement
+                        (if_expr
+                          (comparison_binary_expression
+                            (var_identifier
+                              (post_identifier))
+                            (comparison_operator)
+                            (var_identifier
+                              (post_identifier)))
+                          (binding_block
+                            (binding_block_statement
+                              (assignment_expr
+                                (var_identifier)
+                                (assignment_prec_operator)
+                                (value
+                                  (string_value)))))
+                          (if_expr
+                            (comparison_binary_expression
+                              (var_identifier
+                                (post_identifier))
+                              (comparison_operator)
+                              (var_identifier
+                                (post_identifier)))
+                            (binding_block
+                              (binding_block_statement
+                                (assignment_expr
+                                  (var_identifier)
+                                  (assignment_prec_operator)
+                                  (value
+                                    (string_value)))))
+                            (if_expr
+                              (comparison_binary_expression
+                                (var_identifier
+                                  (post_identifier))
+                                (comparison_operator)
+                                (var_identifier
+                                  (post_identifier)))
+                              (binding_block
+                                (binding_block_statement
+                                  (assignment_expr
+                                    (var_identifier)
+                                    (assignment_prec_operator)
+                                    (value
+                                      (string_value)))))
+                              (if_expr
+                                (comparison_binary_expression
+                                  (var_identifier
+                                    (post_identifier))
+                                  (comparison_operator)
+                                  (var_identifier
+                                    (post_identifier)))
+                                (binding_block
+                                  (binding_block_statement
+                                    (assignment_expr
+                                      (var_identifier)
+                                      (assignment_prec_operator)
+                                      (value
+                                        (string_value)))))
+                                (binding_block
                                   (assignment_expr
                                     (var_identifier)
                                     (assignment_prec_operator)

@@ -927,22 +927,19 @@ TestCase := Window {
             (assignment_prec_operator)
             (block
               (block_statement
-                (if_statement
-                  (comparison_binary_expression
-                    (var_identifier)
-                    (comparison_operator)
-                    (value
-                      (int_value)))
-                  (component
-                    (type_identifier
-                      (MISSING _identifier))
-                    (block
-                      (block_statement
-                        (binding_block_statement
-                          (assignment_expr
-                            (var_identifier)
-                            (assignment_prec_operator)
-                            (var_identifier))))
+                (binding_block_statement
+                  (if_expr
+                    (comparison_binary_expression
+                      (var_identifier)
+                      (comparison_operator)
+                      (value
+                        (int_value)))
+                    (binding_block
+                      (binding_block_statement
+                        (assignment_expr
+                          (var_identifier)
+                          (assignment_prec_operator)
+                          (var_identifier)))
                       (assignment_expr
                         (var_identifier)
                         (assignment_prec_operator)
@@ -1053,7 +1050,7 @@ export InkEffect := Rectangle {
 
 (source_file
   (comment)
-  (export_statement)
+  (export_modifier)
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -1305,90 +1302,81 @@ export InkEffect := Rectangle {
                     (var_identifier))
                   (block
                     (block_statement
-                      (if_statement
-                        (comparison_binary_expression
+                      (binding_block_statement
+                        (if_expr
                           (comparison_binary_expression
-                            (var_identifier
-                              (post_identifier))
-                            (comparison_operator)
-                            (mult_binary_expression
+                            (comparison_binary_expression
                               (var_identifier
                                 (post_identifier))
-                              (mult_prec_operator)
-                              (var_identifier
-                                (post_identifier))))
-                          (comparison_operator)
-                          (var_identifier
-                            (post_identifier)))
-                        (component
-                          (type_identifier
-                            (MISSING _identifier))
-                          (block
-                            (block_statement
-                              (if_statement
+                              (comparison_operator)
+                              (mult_binary_expression
+                                (var_identifier
+                                  (post_identifier))
+                                (mult_prec_operator)
+                                (var_identifier
+                                  (post_identifier))))
+                            (comparison_operator)
+                            (var_identifier
+                              (post_identifier)))
+                          (binding_block
+                            (binding_block_statement
+                              (if_expr
                                 (unary_expression
                                   (unary_prec_operator)
                                   (var_identifier
                                     (post_identifier)))
-                                (component
-                                  (type_identifier
-                                    (MISSING _identifier))
-                                  (block
-                                    (block_statement
-                                      (binding_block_statement
-                                        (assignment_expr
-                                          (var_identifier
-                                            (post_identifier))
-                                          (assignment_prec_operator)
-                                          (var_identifier))))
-                                    (block_statement
-                                      (binding_block_statement
-                                        (assignment_expr
-                                          (var_identifier
-                                            (post_identifier))
-                                          (assignment_prec_operator)
-                                          (var_identifier))))
-                                    (block_statement
-                                      (binding_block_statement
-                                        (assignment_expr
-                                          (var_identifier
-                                            (post_identifier))
-                                          (assignment_prec_operator)
-                                          (mult_binary_expression
-                                            (var_identifier
-                                              (reference_identifier)
-                                              (post_identifier))
-                                            (mult_prec_operator)
-                                            (value
-                                              (length_value))))))
-                                    (block_statement
-                                      (binding_block_statement
-                                        (assignment_expr
-                                          (var_identifier
-                                            (post_identifier))
-                                          (assignment_prec_operator)
-                                          (mult_binary_expression
-                                            (var_identifier
-                                              (reference_identifier)
-                                              (post_identifier))
-                                            (mult_prec_operator)
-                                            (value
-                                              (length_value))))))
+                                (binding_block
+                                  (binding_block_statement
                                     (assignment_expr
                                       (var_identifier
                                         (post_identifier))
                                       (assignment_prec_operator)
-                                      (comparison_binary_expression
+                                      (var_identifier)))
+                                  (binding_block_statement
+                                    (assignment_expr
+                                      (var_identifier
+                                        (post_identifier))
+                                      (assignment_prec_operator)
+                                      (var_identifier)))
+                                  (binding_block_statement
+                                    (assignment_expr
+                                      (var_identifier
+                                        (post_identifier))
+                                      (assignment_prec_operator)
+                                      (mult_binary_expression
                                         (var_identifier
+                                          (reference_identifier)
                                           (post_identifier))
-                                        (comparison_operator)
-                                        (ternary_expression
-                                          (value
-                                            (int_value))
-                                          (value
-                                            (float_value))
-                                          (value
-                                            (int_value)))))))))))))))))))))))
+                                        (mult_prec_operator)
+                                        (value
+                                          (length_value)))))
+                                  (binding_block_statement
+                                    (assignment_expr
+                                      (var_identifier
+                                        (post_identifier))
+                                      (assignment_prec_operator)
+                                      (mult_binary_expression
+                                        (var_identifier
+                                          (reference_identifier)
+                                          (post_identifier))
+                                        (mult_prec_operator)
+                                        (value
+                                          (length_value)))))
+                                  (assignment_expr
+                                    (var_identifier
+                                      (post_identifier))
+                                    (assignment_prec_operator)
+                                    (comparison_binary_expression
+                                      (var_identifier
+                                        (post_identifier))
+                                      (comparison_operator)
+                                      (ternary_expression
+                                        (value
+                                          (int_value))
+                                        (value
+                                          (float_value))
+                                        (value
+                                          (int_value))))))))))))))))))))))
 
 ================================================================================
 issue1659_combobox_in_tab
