@@ -33,7 +33,6 @@ TestCase := Rectangle {
   (import_statement
     (type_identifier)
     (ERROR
-      (UNEXPECTED 's')
       (UNEXPECTED 'T')
       (UNEXPECTED 'B'))
     (string_value
@@ -139,9 +138,8 @@ export { ExportedB }
     (type_identifier)
     (type_identifier)
     (block))
-  (ERROR
-    (export_modifier)
-    (UNEXPECTED 'E')))
+  (export_statement
+    (type_identifier)))
 
 ================================================================================
 external_globals
@@ -216,7 +214,6 @@ TestCase := Rectangle {
     (type_identifier)
     (type_identifier)
     (ERROR
-      (UNEXPECTED 's')
       (UNEXPECTED 'F'))
     (string_value
       (_string_fragment)))
@@ -429,7 +426,6 @@ TestCase := Rectangle {
   (import_statement
     (type_identifier)
     (ERROR
-      (UNEXPECTED 's')
       (UNEXPECTED 'R'))
     (string_value
       (_string_fragment)))
@@ -444,7 +440,6 @@ TestCase := Rectangle {
   (import_statement
     (type_identifier)
     (ERROR
-      (UNEXPECTED 's')
       (UNEXPECTED 'R'))
     (string_value
       (_string_fragment)))

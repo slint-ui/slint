@@ -190,8 +190,8 @@ export Demo := Window {
       (type_identifier)
       (ERROR)
       (var_identifier)))
+  (export_statement)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -1067,8 +1067,8 @@ export InkEffect := Rectangle {
 
 (source_file
   (comment)
+  (export_statement)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -1261,8 +1261,8 @@ export InkEffect := Rectangle {
   (ERROR
     (type_identifier)
     (UNEXPECTED 'p'))
+  (export_statement)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -1851,8 +1851,8 @@ export TestCase := Window {
 
 (source_file
   (comment)
+  (export_statement)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block

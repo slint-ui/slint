@@ -27,24 +27,26 @@ TestCase := Rectangle {
       (value
         (basic_value
           (int_value)))))
-  (ERROR
-    (export_modifier)
-    (UNEXPECTED 'M')
-    (export_modifier)
-    (ERROR
-      (UNEXPECTED 'M')
-      (UNEXPECTED 'G')
-      (UNEXPECTED 'T')
-      (UNEXPECTED 'C')
-      (UNEXPECTED ')
-      (UNEXPECTED 'R')
-      (type_identifier)
-      (type_identifier)
-      (UNEXPECTED 'e')
-      (UNEXPECTED '_'))
+  (export_statement
+    (type_identifier))
+  (export_statement
     (type_identifier)
-    (UNEXPECTED 'M')
-    (UNEXPECTED 'h')))
+    (type_identifier))
+  (component_definition
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (comparison_binary_expression
+            (var_identifier
+              (post_identifier))
+            (comparison_operator)
+            (value
+              (basic_value
+                (int_value)))))))))
 
 ================================================================================
 global_binding
@@ -573,9 +575,7 @@ TestCase := Rectangle {
   (import_statement
     (type_identifier)
     (ERROR
-      (UNEXPECTED 's')
       (UNEXPECTED 'R')
-      (export_modifier)
       (UNEXPECTED 'd'))
     (string_value
       (_string_fragment)))
@@ -606,18 +606,13 @@ TestCase := Rectangle {
         (var_identifier)
         (var_identifier))
       (type_identifier)))
-  (ERROR
-    (export_modifier)
-    (UNEXPECTED 'I')
-    (UNEXPECTED 'P')
-    (export_modifier)
-    (UNEXPECTED 'R'))
+  (export_statement
+    (type_identifier)
+    (type_identifier))
+  (export_statement
+    (type_identifier))
   (component_definition
     (type_identifier)
-    (ERROR
-      (UNEXPECTED 'T')
-      (UNEXPECTED 'C')
-      (UNEXPECTED '))
     (type_identifier)
     (block
       (block_statement
@@ -830,8 +825,8 @@ export component TestCase inherits Window {
       (visibility_modifier)
       (type_identifier)
       (var_identifier)))
+  (export_statement)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block

@@ -1418,8 +1418,8 @@ export TestCase := Window {
               (var_identifier)
               (assignment_prec_operator)
               (var_identifier)))))))
+  (export_statement)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block

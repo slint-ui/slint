@@ -3758,8 +3758,8 @@ export TestCase := Window {
                         (basic_value
                           (string_value
                             (_string_fragment))))))))))))))
+  (export_statement)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block

@@ -80,8 +80,8 @@ export AppWindow := Window {
                       (percent_value)))
                   (var_identifier)
                   (var_identifier)))))))))
+  (export_statement)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block

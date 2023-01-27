@@ -15,6 +15,7 @@ module.exports = grammar({
         [$.assignment_block],
         [$.block, $.block_statement],
         [$.block_statement, $._expression_body],
+        [$.export_modifier, $.export_statement],
         [$.value, $.property],
         [$.function_identifier, $.post_identifier],
         [$.function_identifier, $.var_identifier],
@@ -26,10 +27,28 @@ module.exports = grammar({
 
         _definition: ($) =>
             choice(
+                $.export_statement,
                 $.import_statement,
                 $.struct_definition,
                 $.global_definition,
                 $.component_definition,
+            ),
+
+        export_statement: ($) =>
+            seq(
+                "export",
+                optional(
+                    seq(
+                        "{",
+                        commaSep(
+                            seq(
+                                $.type_identifier,
+                                optional(seq("as", $.type_identifier)),
+                            ),
+                        ),
+                        "}",
+                    ),
+                ),
             ),
 
         import_statement: ($) =>
