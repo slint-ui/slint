@@ -25,7 +25,8 @@ Line comment with line continuation
 (document
   (comment)
   (import_statement
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (string_value)))
 
 ================================================================================

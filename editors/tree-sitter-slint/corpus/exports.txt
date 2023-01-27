@@ -13,22 +13,26 @@ component Ko {
 
 (document
   (component_definition
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (visibility_modifier)
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (bool_value)))))
   (component_definition
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (visibility_modifier)
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (bool_value))))))

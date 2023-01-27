@@ -7,28 +7,17 @@ module.exports = grammar({
     extras: ($) => [/[\s\r\n]+/, $.comment],
     conflicts: ($) => [
         [$._assignment_value_block],
-        [$._assignment_value_expr, $.value],
         [$._binding],
-        [$._exportable_definition, $.export_statement],
-        [$._expression, $.if_statement],
         [$._expression_body, $.value],
         [$._var_identifier_start, $.var_identifier],
         [$.anon_struct, $.assignment_prec_operator, $.binding],
-        [$.anon_struct, $.block],
         [$.assignment_block],
-        [$.binding_block, $.anon_struct],
         [$.binding_block, $._binding_block_statement],
         [$._binding_block_statement, $.block],
-        [$.block, $._block_statement],
-        [$._block_statement, $._expression_body],
         [$._export_modifier, $.export_statement],
-        [$.function, $.visibility_modifier],
         [$.function_identifier, $.post_identifier],
-        [$.function_identifier, $.var_identifier],
-        [$.value, $.property],
         [$.var_identifier],
     ],
-    inline: ($) => [$.basic_value, $._string],
 
     rules: {
         document: ($) => repeat($._definition),
@@ -593,9 +582,9 @@ module.exports = grammar({
                 ),
             ),
 
-        _user_type_identifier: ($) => prec(1, $._identifier),
+        user_type_identifier: ($) => prec(1, $._identifier),
         type_identifier: ($) =>
-            choice($._user_type_identifier, $._builtin_type_identifier),
+            choice($.user_type_identifier, $._builtin_type_identifier),
 
         value_list: ($) =>
             seq("[", commaSep($._expression), optional(","), "]"),
@@ -606,7 +595,7 @@ module.exports = grammar({
                 seq($.color_value, $.percent_value), // gradient values
                 $.anon_struct,
                 $.value_list,
-                $.basic_value,
+                $._basic_value,
             ),
 
         _var_identifier_start: ($) =>
@@ -663,7 +652,7 @@ module.exports = grammar({
         relative_font_size_value: ($) =>
             seq(field("value", $._number), field("unit", "rem")),
 
-        basic_value: ($) =>
+        _basic_value: ($) =>
             choice(
                 $.int_value,
                 $.float_value,

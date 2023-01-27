@@ -1,5 +1,10 @@
 bindings/
+build/
+node_modules/
 src/
-package.json
-Cargo.toml
 binding.gyp
+Cargo.toml
+Makefile
+package.json
+package-lock.json
+libtree-sitter-slint.*

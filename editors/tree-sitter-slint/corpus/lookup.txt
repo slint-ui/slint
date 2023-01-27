@@ -32,28 +32,34 @@ TestCase := Rectangle {
 
 (document
   (global_definition
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (property
       (type
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (var_identifier)
       (value
         (int_value)))
     (property
       (type
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (var_identifier)
       (value
         (int_value)))
     (callback
       (function_identifier)))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
@@ -61,7 +67,8 @@ TestCase := Rectangle {
         (var_identifier)
         (for_range)
         (component
-          (type_identifier)
+          (type_identifier
+            (user_type_identifier))
           (block
             (assignment_expr
               (var_identifier)
@@ -76,8 +83,10 @@ TestCase := Rectangle {
                 (value
                   (length_value)))))))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (callback
         (function_identifier))
@@ -90,18 +99,22 @@ TestCase := Rectangle {
                 (function_identifier)
                 (call_signature))))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (mult_binary_expression
@@ -115,7 +128,8 @@ TestCase := Rectangle {
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier))))))
@@ -141,40 +155,48 @@ id_lookup
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (int_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (int_value)))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (property
             (type
-              (type_identifier))
+              (type_identifier
+                (user_type_identifier)))
             (var_identifier)
             (value
               (int_value)))
           (property
             (type
-              (type_identifier))
+              (type_identifier
+                (user_type_identifier)))
             (var_identifier)
             (value
               (int_value)))
           (property
             (type
-              (type_identifier))
+              (type_identifier
+                (user_type_identifier)))
             (var_identifier)
             (add_binary_expression
               (add_binary_expression
@@ -201,13 +223,15 @@ id_lookup
                   (int_value)))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (add_binary_expression

@@ -10,6 +10,8 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block)))

@@ -31,34 +31,43 @@ TestCase := Rectangle {
   (comment)
   (comment)
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (for_loop
         (var_identifier)
         (for_range)
         (component
-          (type_identifier)
+          (type_identifier
+            (user_type_identifier))
           (block
             (for_loop
               (var_identifier)
               (for_range)
               (component
-                (type_identifier)
+                (type_identifier
+                  (user_type_identifier))
                 (block
                   (for_loop
                     (var_identifier)
                     (for_range)
                     (component
-                      (type_identifier)
+                      (type_identifier
+                        (user_type_identifier))
                       (block)))))))))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -71,7 +80,8 @@ TestCase := Rectangle {
         (value
           (physical_length_value)))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block)))))
 
 ================================================================================
@@ -120,12 +130,15 @@ TestCase := Rectangle {
   (comment)
   (comment)
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (bool_value)))
@@ -133,7 +146,8 @@ TestCase := Rectangle {
         (var_identifier)
         (for_range)
         (component
-          (type_identifier)
+          (type_identifier
+            (user_type_identifier))
           (block
             (assignment_expr
               (var_identifier)
@@ -142,7 +156,8 @@ TestCase := Rectangle {
                 (string_value)))
             (component
               (var_identifier)
-              (type_identifier)
+              (type_identifier
+                (user_type_identifier))
               (block
                 (callback_event
                   (function_identifier)
@@ -155,8 +170,10 @@ TestCase := Rectangle {
                       (value
                         (bool_value))))))))))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -173,18 +190,21 @@ TestCase := Rectangle {
         (var_identifier
           (post_identifier)))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (if_statement
             (value
               (value
                 (bool_value)))
             (component
-              (type_identifier)
+              (type_identifier
+                (user_type_identifier))
               (block)))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)

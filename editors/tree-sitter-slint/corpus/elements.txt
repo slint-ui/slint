@@ -27,16 +27,22 @@ TestCase := Dialog {
 
 (document
   (import_statement
-    (type_identifier)
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (string_value))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -53,49 +59,56 @@ TestCase := Dialog {
             (value
               (length_value)))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
             (var_identifier))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
             (var_identifier))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
             (var_identifier))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
             (var_identifier))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
             (var_identifier))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
             (var_identifier))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -124,23 +137,28 @@ TestCase := Path {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (int_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (int_value)))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -197,8 +215,10 @@ TestCase := Window {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -217,7 +237,8 @@ TestCase := Window {
           (bool_value)))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -261,7 +282,8 @@ TestCase := Window {
               (physical_length_value)))
           (component
             (var_identifier)
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (assignment_expr
                 (var_identifier)
@@ -284,7 +306,8 @@ TestCase := Window {
                 (value
                   (physical_length_value)))
               (component
-                (type_identifier)
+                (type_identifier
+                  (user_type_identifier))
                 (block
                   (assignment_expr
                     (var_identifier)
@@ -326,7 +349,8 @@ TestCase := Window {
                           (physical_length_value)))))))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (unary_expression
           (unary_prec_operator)
@@ -334,7 +358,8 @@ TestCase := Window {
             (post_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (unary_expression
           (unary_prec_operator)
@@ -342,19 +367,22 @@ TestCase := Window {
             (post_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)))))
 
 ================================================================================
@@ -417,12 +445,16 @@ TestCase := Window {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -435,15 +467,18 @@ TestCase := Window {
         (value
           (physical_length_value)))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (component
             (var_identifier)
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (property
                 (type
-                  (type_identifier))
+                  (type_identifier
+                    (user_type_identifier)))
                 (var_identifier)
                 (comparison_binary_expression
                   (comparison_binary_expression
@@ -460,7 +495,8 @@ TestCase := Window {
                     (reference_identifier)
                     (post_identifier))))))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -474,11 +510,13 @@ TestCase := Window {
               (physical_length_value)))
           (component
             (var_identifier)
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (property
                 (type
-                  (type_identifier))
+                  (type_identifier
+                    (user_type_identifier)))
                 (var_identifier)
                 (comparison_binary_expression
                   (comparison_binary_expression
@@ -494,10 +532,12 @@ TestCase := Window {
                     (physical_length_value))))))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (component
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (assignment_expr
                 (var_identifier)
@@ -511,11 +551,13 @@ TestCase := Window {
                   (physical_length_value)))
               (component
                 (var_identifier)
-                (type_identifier)
+                (type_identifier
+                  (user_type_identifier))
                 (block
                   (property
                     (type
-                      (type_identifier))
+                      (type_identifier
+                        (user_type_identifier)))
                     (var_identifier)
                     (comparison_binary_expression
                       (comparison_binary_expression
@@ -551,7 +593,8 @@ TestCase := Window {
                       (value
                         (physical_length_value))))))
               (component
-                (type_identifier)
+                (type_identifier
+                  (user_type_identifier))
                 (block
                   (assignment_expr
                     (var_identifier)
@@ -560,10 +603,12 @@ TestCase := Window {
                       (physical_length_value)))))))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (component
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (assignment_expr
                 (var_identifier)
@@ -577,11 +622,13 @@ TestCase := Window {
                   (physical_length_value)))
               (component
                 (var_identifier)
-                (type_identifier)
+                (type_identifier
+                  (user_type_identifier))
                 (block
                   (property
                     (type
-                      (type_identifier))
+                      (type_identifier
+                        (user_type_identifier)))
                     (var_identifier)
                     (comparison_binary_expression
                       (comparison_binary_expression
@@ -599,7 +646,8 @@ TestCase := Window {
                         (reference_identifier)
                         (post_identifier))))))
               (component
-                (type_identifier)
+                (type_identifier
+                  (user_type_identifier))
                 (block
                   (assignment_expr
                     (var_identifier)
@@ -607,17 +655,20 @@ TestCase := Window {
                     (value
                       (physical_length_value)))))))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (for_loop
             (var_identifier)
             (for_range)
             (component
-              (type_identifier)
+              (type_identifier
+                (user_type_identifier))
               (block)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (mult_binary_expression
           (mult_binary_expression
@@ -635,7 +686,8 @@ TestCase := Window {
             (post_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier)))))
 
@@ -677,8 +729,10 @@ TestCase := Window {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -692,7 +746,8 @@ TestCase := Window {
           (physical_length_value)))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -711,7 +766,8 @@ TestCase := Window {
               (physical_length_value)))
           (component
             (var_identifier)
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (assignment_expr
                 (var_identifier)
@@ -719,7 +775,8 @@ TestCase := Window {
                 (value
                   (physical_length_value)))))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -738,7 +795,8 @@ TestCase := Window {
               (physical_length_value)))
           (component
             (var_identifier)
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (assignment_expr
                 (var_identifier)
@@ -747,13 +805,15 @@ TestCase := Window {
                   (physical_length_value)))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
@@ -798,8 +858,10 @@ TestCase := Window {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -818,7 +880,8 @@ TestCase := Window {
           (bool_value)))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -861,7 +924,8 @@ TestCase := Window {
               (length_value)))
           (component
             (var_identifier)
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (assignment_expr
                 (var_identifier)
@@ -869,7 +933,8 @@ TestCase := Window {
                 (value
                   (length_value)))
               (component
-                (type_identifier)
+                (type_identifier
+                  (user_type_identifier))
                 (block
                   (assignment_expr
                     (var_identifier)
@@ -884,7 +949,8 @@ TestCase := Window {
                         (var_identifier))))))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (unary_expression
           (unary_prec_operator)
@@ -892,7 +958,8 @@ TestCase := Window {
             (post_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (unary_expression
           (unary_prec_operator)
@@ -900,7 +967,8 @@ TestCase := Window {
             (post_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -958,11 +1026,14 @@ TestCase := Window {
 
 (document
   (import_statement
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (string_value))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -976,11 +1047,13 @@ TestCase := Window {
           (length_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (for_loop
             (var_identifier)
@@ -1076,7 +1149,8 @@ TestCase := Window {
                       (color_value))))))
             (component
               (var_identifier)
-              (type_identifier)
+              (type_identifier
+                (user_type_identifier))
               (block
                 (assignment_expr
                   (var_identifier)
@@ -1097,11 +1171,13 @@ TestCase := Window {
                               (value
                                 (float_value)))))))))
                 (component
-                  (type_identifier)
+                  (type_identifier
+                    (user_type_identifier))
                   (block
                     (component
                       (var_identifier)
-                      (type_identifier)
+                      (type_identifier
+                        (user_type_identifier))
                       (block
                         (assignment_expr
                           (var_identifier)
@@ -1124,7 +1200,8 @@ TestCase := Window {
                           (value
                             (length_value)))))))
                 (component
-                  (type_identifier)
+                  (type_identifier
+                    (user_type_identifier))
                   (block
                     (callback_event
                       (function_identifier)
@@ -1191,15 +1268,19 @@ export TestCase := Window {
 
 (document
   (import_statement
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (string_value))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (assignment_expr
         (var_identifier)
@@ -1210,7 +1291,8 @@ export TestCase := Window {
           (add_prec_operator)
           (var_identifier)))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -1222,8 +1304,10 @@ export TestCase := Window {
             (assignment_prec_operator)
             (var_identifier))))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -1237,7 +1321,8 @@ export TestCase := Window {
           (physical_length_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (unary_expression
           (unary_prec_operator)
@@ -1245,26 +1330,30 @@ export TestCase := Window {
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (physical_length_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (for_loop
             (var_identifier)
             (for_range)
             (component
               (var_identifier)
-              (type_identifier)
+              (type_identifier
+                (user_type_identifier))
               (block
                 (assignment_expr
                   (var_identifier)
@@ -1276,13 +1365,16 @@ export TestCase := Window {
                   (var_identifier))
                 (property
                   (type
-                    (type_identifier))
+                    (type_identifier
+                      (user_type_identifier)))
                   (var_identifier))
                 (component
-                  (type_identifier)
+                  (type_identifier
+                    (user_type_identifier))
                   (block
                     (component
-                      (type_identifier)
+                      (type_identifier
+                        (user_type_identifier))
                       (block
                         (callback_event
                           (function_identifier)
@@ -1321,7 +1413,8 @@ export TestCase := Window {
                                   (value
                                     (bool_value)))))))))
                     (component
-                      (type_identifier)
+                      (type_identifier
+                        (user_type_identifier))
                       (block
                         (callback_event
                           (function_identifier)
@@ -1353,21 +1446,26 @@ TestCase := Rectangle {
 
 (document
   (import_statement
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (string_value))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -1417,12 +1515,15 @@ TestCase := Rectangle {
 (document
   (comment)
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -1434,7 +1535,8 @@ TestCase := Rectangle {
                   (string_value)))))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -1451,19 +1553,22 @@ TestCase := Rectangle {
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -1569,8 +1674,10 @@ TestCase := Rectangle {
 (document
   (comment)
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -1586,12 +1693,15 @@ TestCase := Rectangle {
         (value
           (physical_length_value)))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -1605,7 +1715,8 @@ TestCase := Rectangle {
               (physical_length_value)))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -1622,15 +1733,18 @@ TestCase := Rectangle {
             (assignment_prec_operator)
             (var_identifier))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (component
             (var_identifier)
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block))
           (component
             (var_identifier)
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (assignment_expr
                 (var_identifier)
@@ -1638,11 +1752,13 @@ TestCase := Rectangle {
                 (var_identifier))))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (property
             (type
-              (type_identifier))
+              (type_identifier
+                (user_type_identifier)))
             (var_identifier)
             (comparison_binary_expression
               (var_identifier
@@ -1653,7 +1769,8 @@ TestCase := Rectangle {
                 (physical_length_value))))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -1670,7 +1787,8 @@ TestCase := Rectangle {
               (physical_length_value)))
           (property
             (type
-              (type_identifier))
+              (type_identifier
+                (user_type_identifier)))
             (var_identifier)
             (comparison_binary_expression
               (var_identifier
@@ -1681,7 +1799,8 @@ TestCase := Rectangle {
                 (physical_length_value))))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -1708,7 +1827,8 @@ TestCase := Rectangle {
               (int_value)))
           (property
             (type
-              (type_identifier))
+              (type_identifier
+                (user_type_identifier)))
             (var_identifier)
             (comparison_binary_expression
               (var_identifier
@@ -1719,7 +1839,8 @@ TestCase := Rectangle {
                 (physical_length_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (var_identifier
@@ -1729,7 +1850,8 @@ TestCase := Rectangle {
             (post_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (var_identifier
@@ -1739,7 +1861,8 @@ TestCase := Rectangle {
             (post_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (var_identifier
@@ -1749,7 +1872,8 @@ TestCase := Rectangle {
             (post_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (var_identifier
@@ -1759,25 +1883,29 @@ TestCase := Rectangle {
             (post_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (mult_binary_expression
           (mult_binary_expression
@@ -1832,11 +1960,14 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -1849,7 +1980,8 @@ TestCase := Rectangle {
             (var_identifier))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -1876,7 +2008,8 @@ TestCase := Rectangle {
             (value
               (physical_length_value)))
           (component
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (assignment_expr
                 (var_identifier)
@@ -1956,11 +2089,14 @@ TestCase := Window {
 
 (document
   (import_statement
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (string_value))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -1974,12 +2110,14 @@ TestCase := Window {
           (length_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -1988,7 +2126,8 @@ TestCase := Window {
               (length_value)))
           (component
             (var_identifier)
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (assignment_expr
                 (var_identifier)
@@ -1996,7 +2135,8 @@ TestCase := Window {
                 (value
                   (int_value)))
               (component
-                (type_identifier)
+                (type_identifier
+                  (user_type_identifier))
                 (block
                   (assignment_expr
                     (var_identifier)
@@ -2004,7 +2144,8 @@ TestCase := Window {
                     (value
                       (string_value)))
                   (component
-                    (type_identifier)
+                    (type_identifier
+                      (user_type_identifier))
                     (block
                       (assignment_expr
                         (var_identifier)
@@ -2012,7 +2153,8 @@ TestCase := Window {
                         (value
                           (color_value)))))))
               (component
-                (type_identifier)
+                (type_identifier
+                  (user_type_identifier))
                 (block
                   (assignment_expr
                     (var_identifier)
@@ -2020,7 +2162,8 @@ TestCase := Window {
                     (value
                       (string_value)))
                   (component
-                    (type_identifier)
+                    (type_identifier
+                      (user_type_identifier))
                     (block
                       (assignment_expr
                         (var_identifier)
@@ -2028,7 +2171,8 @@ TestCase := Window {
                         (value
                           (string_value)))))))
               (component
-                (type_identifier)
+                (type_identifier
+                  (user_type_identifier))
                 (block
                   (assignment_expr
                     (var_identifier)
@@ -2036,7 +2180,8 @@ TestCase := Window {
                     (value
                       (string_value)))
                   (component
-                    (type_identifier)
+                    (type_identifier
+                      (user_type_identifier))
                     (block
                       (assignment_expr
                         (var_identifier)
@@ -2049,7 +2194,8 @@ TestCase := Window {
                       (length_value)))))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -2147,27 +2293,34 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -2202,7 +2355,8 @@ TestCase := Rectangle {
             (assignment_prec_operator)
             (var_identifier))
           (component
-            (type_identifier)
+            (type_identifier
+              (user_type_identifier))
             (block
               (assignment_expr
                 (var_identifier)
@@ -2237,7 +2391,8 @@ TestCase := Rectangle {
                 (assignment_prec_operator)
                 (var_identifier))))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)

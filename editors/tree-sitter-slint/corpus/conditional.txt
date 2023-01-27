@@ -17,16 +17,20 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (assignment_expr
         (var_identifier)
@@ -39,7 +43,8 @@ TestCase := Rectangle {
           (var_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (ternary_expression
           (var_identifier)
@@ -49,7 +54,8 @@ TestCase := Rectangle {
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (ternary_expression
           (var_identifier)
@@ -59,7 +65,8 @@ TestCase := Rectangle {
             (string_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -90,16 +97,20 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (ternary_expression
           (var_identifier)
@@ -109,11 +120,13 @@ TestCase := Rectangle {
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (ternary_expression
           (ternary_expression
@@ -131,7 +144,8 @@ TestCase := Rectangle {
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (ternary_expression
           (value
@@ -190,16 +204,20 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (int_value)))
@@ -269,7 +287,8 @@ TestCase := Rectangle {
         (function_identifier)
         (call_signature
           (var_identifier))
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (callback_event
         (function_identifier)
         (call_signature

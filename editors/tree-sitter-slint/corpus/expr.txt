@@ -12,12 +12,15 @@ abs
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -26,7 +29,8 @@ abs
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -37,7 +41,8 @@ abs
                 (float_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -46,7 +51,8 @@ abs
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -69,12 +75,15 @@ acos
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -83,7 +92,8 @@ acos
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -92,7 +102,8 @@ acos
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -130,16 +141,20 @@ arithmetic
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (add_binary_expression
@@ -165,7 +180,8 @@ arithmetic
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (mult_binary_expression
@@ -183,7 +199,8 @@ arithmetic
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (var_identifier)
@@ -207,7 +224,8 @@ arithmetic
                   (int_value)))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (add_binary_expression
@@ -241,7 +259,8 @@ arithmetic
                     (int_value))))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (mult_binary_expression
           (value
@@ -310,12 +329,15 @@ asin
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -324,7 +346,8 @@ asin
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -333,7 +356,8 @@ asin
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -355,12 +379,15 @@ atan
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -369,7 +396,8 @@ atan
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -389,7 +417,8 @@ atan
                     (int_value))))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -398,7 +427,8 @@ atan
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -428,12 +458,15 @@ ceil
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -442,7 +475,8 @@ ceil
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -451,7 +485,8 @@ ceil
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -460,7 +495,8 @@ ceil
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -469,7 +505,8 @@ ceil
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -480,7 +517,8 @@ ceil
                 (float_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -491,7 +529,8 @@ ceil
                 (float_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -502,7 +541,8 @@ ceil
                 (float_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -533,18 +573,22 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (int_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -560,7 +604,8 @@ TestCase := Rectangle {
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -576,7 +621,8 @@ TestCase := Rectangle {
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -592,7 +638,8 @@ TestCase := Rectangle {
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (mult_binary_expression
           (var_identifier)
@@ -603,7 +650,8 @@ TestCase := Rectangle {
             (var_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (add_binary_expression
@@ -627,7 +675,8 @@ TestCase := Rectangle {
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (mult_binary_expression
@@ -642,13 +691,15 @@ TestCase := Rectangle {
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (string_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (var_identifier)
@@ -670,12 +721,15 @@ cos
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -684,7 +738,8 @@ cos
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -693,7 +748,8 @@ cos
               (angle_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -702,7 +758,8 @@ cos
               (angle_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -729,12 +786,15 @@ floor
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -743,7 +803,8 @@ floor
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -752,7 +813,8 @@ floor
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -761,7 +823,8 @@ floor
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -770,7 +833,8 @@ floor
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -781,7 +845,8 @@ floor
                 (float_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -792,7 +857,8 @@ floor
                 (float_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -803,7 +869,8 @@ floor
                 (float_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -825,12 +892,15 @@ log
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -841,7 +911,8 @@ log
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -866,12 +937,15 @@ math
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -908,7 +982,8 @@ math
             (float_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -947,7 +1022,8 @@ math
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -990,7 +1066,8 @@ math
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -1033,7 +1110,8 @@ math
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (mult_binary_expression
           (mult_binary_expression
@@ -1065,16 +1143,20 @@ minmax
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (function_call
@@ -1117,7 +1199,8 @@ minmax
                 (float_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -1164,17 +1247,20 @@ minmax
             (int_value))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (property
             (type
-              (type_identifier))
+              (type_identifier
+                (user_type_identifier)))
             (var_identifier)
             (value
               (int_value)))
           (property
             (type
-              (type_identifier))
+              (type_identifier
+                (user_type_identifier)))
             (var_identifier)
             (add_binary_expression
               (var_identifier
@@ -1192,7 +1278,8 @@ minmax
               (var_identifier)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (mult_binary_expression
@@ -1220,12 +1307,15 @@ pow
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1236,7 +1326,8 @@ pow
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1278,19 +1369,23 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (binding_block
           (value
             (bool_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (binding_block
           (if_expr
@@ -1302,7 +1397,8 @@ TestCase := Rectangle {
             (int_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (binding_block
           (value
@@ -1311,11 +1407,13 @@ TestCase := Rectangle {
         (function_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (callback_event
         (function_identifier)
@@ -1332,7 +1430,8 @@ TestCase := Rectangle {
               (bool_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (binding_block
           (comparison_binary_expression
@@ -1361,12 +1460,15 @@ round
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1375,7 +1477,8 @@ round
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1384,7 +1487,8 @@ round
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1393,7 +1497,8 @@ round
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1402,7 +1507,8 @@ round
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1413,7 +1519,8 @@ round
                 (float_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1424,7 +1531,8 @@ round
                 (float_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1435,7 +1543,8 @@ round
                 (float_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1459,12 +1568,15 @@ sin
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1473,7 +1585,8 @@ sin
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1482,7 +1595,8 @@ sin
               (angle_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1491,7 +1605,8 @@ sin
               (angle_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1511,12 +1626,15 @@ sqrt
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1525,7 +1643,8 @@ sqrt
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1554,18 +1673,22 @@ string_template
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (int_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (string_value
@@ -1573,7 +1696,8 @@ string_template
             (var_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (string_value
@@ -1583,7 +1707,8 @@ string_template
               (float_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (string_value)))
@@ -1592,7 +1717,8 @@ string_template
           (type_anon_struct
             (var_identifier)
             (type
-              (type_identifier))))
+              (type_identifier
+                (user_type_identifier)))))
         (var_identifier)
         (binding_block
           (assignment_expr
@@ -1602,7 +1728,8 @@ string_template
               (string_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (string_value
@@ -1656,12 +1783,15 @@ tan
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1670,7 +1800,8 @@ tan
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1679,7 +1810,8 @@ tan
               (angle_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1708,12 +1840,15 @@ trigo
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -1914,7 +2049,8 @@ trigo
               (bool_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier)))))
 
@@ -1930,12 +2066,15 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (mult_binary_expression
           (function_call
@@ -1970,18 +2109,22 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (string_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (binding_block
           (function_call
@@ -2008,11 +2151,13 @@ TestCase := Rectangle {
           (var_identifier)))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (binding_block
           (function_call
@@ -2068,12 +2213,15 @@ mod
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -2084,7 +2232,8 @@ mod
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -2095,7 +2244,8 @@ mod
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -2106,7 +2256,8 @@ mod
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -2117,7 +2268,8 @@ mod
               (duration_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -2170,18 +2322,22 @@ string_concatenation
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (int_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (add_binary_expression
@@ -2193,7 +2349,8 @@ string_concatenation
           (var_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (add_binary_expression
@@ -2207,7 +2364,8 @@ string_concatenation
             (float_value))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (string_value)))
@@ -2216,7 +2374,8 @@ string_concatenation
           (type_anon_struct
             (var_identifier)
             (type
-              (type_identifier))))
+              (type_identifier
+                (user_type_identifier)))))
         (var_identifier)
         (binding_block
           (assignment_expr
@@ -2226,7 +2385,8 @@ string_concatenation
               (string_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (var_identifier
@@ -2255,7 +2415,8 @@ string_concatenation
               (string_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (add_binary_expression

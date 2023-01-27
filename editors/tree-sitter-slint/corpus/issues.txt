@@ -25,12 +25,15 @@ export AppWindow := Window {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (assignment_expr
         (var_identifier)
@@ -45,15 +48,19 @@ export AppWindow := Window {
             (var_identifier))))))
   (comment)
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -63,7 +70,8 @@ export AppWindow := Window {
               (post_identifier)))))
       (comment)
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -78,8 +86,10 @@ export AppWindow := Window {
                 (var_identifier))))))))
   (export_statement)
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -92,7 +102,8 @@ export AppWindow := Window {
         (value
           (length_value)))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -127,8 +138,10 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -142,17 +155,20 @@ TestCase := Rectangle {
           (physical_length_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (if_statement
         (value
           (bool_value))
         (component
-          (type_identifier)
+          (type_identifier
+            (user_type_identifier))
           (block
             (assignment_expr
               (var_identifier)
@@ -169,7 +185,8 @@ TestCase := Rectangle {
                   (value
                     (int_value))))))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (for_loop
             (var_identifier)
@@ -178,7 +195,8 @@ TestCase := Rectangle {
                 (value
                   (int_value))))
             (component
-              (type_identifier)
+              (type_identifier
+                (user_type_identifier))
               (block
                 (assignment_expr
                   (var_identifier)

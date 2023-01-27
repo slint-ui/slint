@@ -20,8 +20,10 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (callback
         (function_identifier))
@@ -31,7 +33,8 @@ TestCase := Rectangle {
         (function_identifier))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (callback_event
         (function_identifier)
@@ -77,8 +80,10 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (callback
         (function_identifier)
@@ -95,7 +100,8 @@ TestCase := Rectangle {
           (var_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (callback_event
         (function_identifier)
@@ -144,8 +150,10 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -159,13 +167,15 @@ TestCase := Rectangle {
           (physical_length_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier))
       (callback
         (function_identifier))
       (comment)
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (callback_event
             (function_identifier)
@@ -265,16 +275,20 @@ TestCase := Rectangle {
 (document
   (comment)
   (global_definition
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (property
       (type
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (var_identifier)
       (value
         (string_value))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (callback_event
         (function_identifier)
@@ -286,8 +300,10 @@ TestCase := Rectangle {
             (value
               (string_value)))))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (callback_event
         (function_identifier)
@@ -299,8 +315,10 @@ TestCase := Rectangle {
             (value
               (string_value)))))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (callback_event
         (function_identifier)
@@ -312,12 +330,15 @@ TestCase := Rectangle {
             (value
               (string_value)))))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (string_value)))
@@ -330,11 +351,14 @@ TestCase := Rectangle {
             (assignment_prec_operator)
             (var_identifier))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (callback_event
         (function_identifier)
@@ -347,8 +371,10 @@ TestCase := Rectangle {
               (string_value)))))
       (children_identifier)))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -370,7 +396,8 @@ TestCase := Rectangle {
             (value
               (string_value)))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (callback_event
             (function_identifier)
@@ -382,10 +409,12 @@ TestCase := Rectangle {
                 (value
                   (string_value)))))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (assignment_expr
             (var_identifier)
@@ -393,10 +422,12 @@ TestCase := Rectangle {
             (value
               (string_value)))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (callback_event
             (function_identifier)
@@ -411,7 +442,8 @@ TestCase := Rectangle {
         (var_identifier)
         (for_range)
         (component
-          (type_identifier)
+          (type_identifier
+            (user_type_identifier))
           (block
             (callback_event
               (function_identifier)
@@ -429,19 +461,22 @@ TestCase := Rectangle {
                   (var_identifier)))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (var_identifier
           (post_identifier)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (string_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (var_identifier
@@ -487,16 +522,20 @@ TestCase := Rectangle {
 (document
   (comment)
   (global_definition
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (property
       (type
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (var_identifier)
       (value
         (string_value))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (assignment_expr
         (var_identifier)
@@ -518,7 +557,8 @@ TestCase := Rectangle {
             (value
               (string_value)))))
       (component
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (for_loop
             (var_identifier)
@@ -529,7 +569,8 @@ TestCase := Rectangle {
                 (value
                   (string_value))))
             (component
-              (type_identifier)
+              (type_identifier
+                (user_type_identifier))
               (block
                 (assignment_expr
                   (var_identifier)
@@ -550,13 +591,15 @@ TestCase := Rectangle {
                         (var_identifier))))))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (string_value)))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -613,8 +656,10 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (callback_alias
         (function_identifier)
@@ -626,13 +671,15 @@ TestCase := Rectangle {
           (post_identifier)))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (callback
             (function_identifier)
             (call_signature
               (var_identifier))
-            (type_identifier))
+            (type_identifier
+              (user_type_identifier)))
           (callback_event
             (function_identifier)
             (call_signature
@@ -645,11 +692,14 @@ TestCase := Rectangle {
                   (int_value)))))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (callback_alias
         (function_identifier)
@@ -667,7 +717,8 @@ TestCase := Rectangle {
         (function_identifier)
         (call_signature
           (var_identifier))
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (callback_event
         (function_identifier)
         (call_signature
@@ -681,7 +732,8 @@ TestCase := Rectangle {
                   (var_identifier)))))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (callback_event
             (function_identifier)
@@ -695,7 +747,8 @@ TestCase := Rectangle {
                   (int_value)))))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block
           (callback_event
             (function_identifier)
@@ -707,7 +760,8 @@ TestCase := Rectangle {
                     (int_value))))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -777,10 +831,12 @@ TestCase := Rectangle {
 
 (document
   (global_definition
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (property
       (type
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (var_identifier)
       (value
         (string_value)))
@@ -788,9 +844,11 @@ TestCase := Rectangle {
       (function_identifier)
       (function_signature
         (type
-          (type_identifier)))
+          (type_identifier
+            (user_type_identifier))))
       (type
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (block
         (add_binary_expression
           (add_binary_expression
@@ -801,27 +859,34 @@ TestCase := Rectangle {
           (add_prec_operator)
           (var_identifier)))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (function
         (function_identifier)
         (function_signature)
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (block
           (var_identifier)))))
   (global_definition
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
     (function
       (function_identifier)
       (function_signature
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (type
-          (type_identifier)))
+          (type_identifier
+            (user_type_identifier))))
       (type
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (block
         (add_binary_expression
           (add_binary_expression
@@ -832,19 +897,23 @@ TestCase := Rectangle {
           (value
             (int_value))))))
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (int_value)))
       (property
         (visibility_modifier)
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (value
@@ -875,11 +944,14 @@ TestCase := Rectangle {
         (function_identifier)
         (function_signature
           (type
-            (type_identifier))
+            (type_identifier
+              (user_type_identifier)))
           (type
-            (type_identifier)))
+            (type_identifier
+              (user_type_identifier))))
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (block
           (function_call
             (function_identifier)
@@ -898,7 +970,8 @@ TestCase := Rectangle {
         (value
           (bool_value))
         (component
-          (type_identifier)
+          (type_identifier
+            (user_type_identifier))
           (block
             (assignment_expr
               (var_identifier)
@@ -923,17 +996,21 @@ TestCase := Rectangle {
                         (call_signature))))))))))
       (component
         (var_identifier)
-        (type_identifier)
+        (type_identifier
+          (user_type_identifier))
         (block))
       (function
         (function_identifier)
         (function_signature
           (type
-            (type_identifier))
+            (type_identifier
+              (user_type_identifier)))
           (type
-            (type_identifier)))
+            (type_identifier
+              (user_type_identifier))))
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (block
           (add_binary_expression
             (add_binary_expression
@@ -946,7 +1023,8 @@ TestCase := Rectangle {
         (function_identifier)
         (function_signature
           (type
-            (type_identifier)))
+            (type_identifier
+              (user_type_identifier))))
         (block
           (assignment_expr
             (var_identifier)
@@ -954,7 +1032,8 @@ TestCase := Rectangle {
             (var_identifier))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
@@ -1017,20 +1096,24 @@ TestCase := Rectangle {
 
 (document
   (component_definition
-    (type_identifier)
-    (type_identifier)
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
     (block
       (callback
         (function_identifier)
         (call_signature
           (var_identifier))
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (callback
         (function_identifier)
         (call_signature
           (var_identifier)
           (var_identifier))
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (callback_event
         (function_identifier)
         (call_signature
@@ -1050,7 +1133,8 @@ TestCase := Rectangle {
               (var_identifier)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (add_binary_expression
           (value
@@ -1063,7 +1147,8 @@ TestCase := Rectangle {
                 (int_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (function_call
           (function_identifier)
@@ -1074,14 +1159,16 @@ TestCase := Rectangle {
               (int_value)))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (value
           (int_value)))
       (callback
         (function_identifier)
         (call_signature)
-        (type_identifier))
+        (type_identifier
+          (user_type_identifier)))
       (callback_event
         (function_identifier)
         (block
@@ -1101,7 +1188,8 @@ TestCase := Rectangle {
                 (int_value))))))
       (property
         (type
-          (type_identifier))
+          (type_identifier
+            (user_type_identifier)))
         (var_identifier)
         (comparison_binary_expression
           (comparison_binary_expression
