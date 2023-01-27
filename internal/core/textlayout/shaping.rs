@@ -297,18 +297,10 @@ impl<'a> FontMetrics<f32> for &rustybuzz::Face<'a> {
 #[cfg(test)]
 fn with_dejavu_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> Option<R> {
     let mut fontdb = fontdb::Database::new();
-    let dejavu_path: std::path::PathBuf = [
-        env!("CARGO_MANIFEST_DIR"),
-        "..",
-        "backends",
-        "winit",
-        "renderer",
-        "femtovg",
-        "fonts",
-        "DejaVuSans.ttf",
-    ]
-    .iter()
-    .collect();
+    let dejavu_path: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "..", "renderers", "femtovg", "fonts", "DejaVuSans.ttf"]
+            .iter()
+            .collect();
     fontdb.load_font_file(dejavu_path).expect("unable to load test dejavu font");
     let font_id = fontdb.faces()[0].id;
     fontdb.with_face_data(font_id, |data, font_index| {

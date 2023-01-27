@@ -32,6 +32,7 @@ members = [
     'internal/backends/selector',
     'internal/backends/testing',
     'internal/renderers/skia',
+    'internal/renderers/femtovg',
     'internal/common',
     'internal/compiler',
     'internal/compiler/parser-test-macro',

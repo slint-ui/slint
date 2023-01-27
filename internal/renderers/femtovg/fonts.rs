@@ -17,12 +17,15 @@ use super::{PhysicalLength, PhysicalPoint, PhysicalSize};
 pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
 pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
 
-#[cfg(not(any(
-    target_family = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_arch = "wasm32"
-)))]
+#[cfg(all(
+    not(any(
+        target_family = "windows",
+        target_os = "macos",
+        target_os = "ios",
+        target_arch = "wasm32"
+    )),
+    feature = "fontconfig"
+))]
 mod fontconfig;
 
 /// This function can be used to register a custom TrueType font with Slint,
@@ -38,7 +41,7 @@ pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std:
     Ok(())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "diskfonts")]
 pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let requested_path = path.canonicalize().unwrap_or_else(|_| path.to_owned());
     FONT_CACHE.with(|cache| {
@@ -57,11 +60,11 @@ pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std
     })
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(not(feature = "diskfonts"))]
 pub fn register_font_from_path(_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     return Err(std::io::Error::new(
         std::io::ErrorKind::Other,
-        "Registering fonts from paths is not supported in WASM builds",
+        "Registering fonts from paths is not supported in builds without the diskfonts feature (like WASM)",
     )
     .into());
 }
@@ -179,12 +182,15 @@ pub struct FontCache {
     pub(crate) text_context: TextContext,
     pub(crate) available_fonts: fontdb::Database,
     available_families: HashSet<SharedString>,
-    #[cfg(not(any(
-        target_family = "windows",
-        target_os = "macos",
-        target_os = "ios",
-        target_arch = "wasm32"
-    )))]
+    #[cfg(all(
+        not(any(
+            target_family = "windows",
+            target_os = "macos",
+            target_os = "ios",
+            target_arch = "wasm32"
+        )),
+        feature = "fontconfig"
+    ))]
     fontconfig_fallback_families: Vec<SharedString>,
 }
 
@@ -192,43 +198,47 @@ impl Default for FontCache {
     fn default() -> Self {
         let mut font_db = fontdb::Database::new();
 
-        #[cfg(not(any(
-            target_family = "windows",
-            target_os = "macos",
-            target_os = "ios",
-            target_arch = "wasm32"
-        )))]
+        #[cfg(all(
+            not(any(
+                target_family = "windows",
+                target_os = "macos",
+                target_os = "ios",
+                target_arch = "wasm32"
+            )),
+            feature = "fontconfig"
+        ))]
         let mut fontconfig_fallback_families;
 
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(not(feature = "diskfonts"))]
         {
             let data = include_bytes!("fonts/DejaVuSans.ttf");
             font_db.load_font_data(data.to_vec());
             font_db.set_sans_serif_family("DejaVu Sans");
         }
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(feature = "diskfonts")]
         {
             font_db.load_system_fonts();
-            #[cfg(any(
-                target_family = "windows",
-                target_os = "macos",
-                target_os = "ios",
-                target_arch = "wasm32"
-            ))]
-            let default_sans_serif_family = "Arial";
-            #[cfg(not(any(
-                target_family = "windows",
-                target_os = "macos",
-                target_os = "ios",
-                target_arch = "wasm32"
-            )))]
-            let default_sans_serif_family = {
-                fontconfig_fallback_families = fontconfig::find_families("sans-serif")
-                    .into_iter()
-                    .map(|s| s.into())
-                    .collect::<Vec<SharedString>>();
-                fontconfig_fallback_families.remove(0)
-            };
+            cfg_if::cfg_if! {
+                if #[cfg(all(
+                    not(any(
+                        target_family = "windows",
+                        target_os = "macos",
+                        target_os = "ios",
+                        target_arch = "wasm32"
+                    )),
+                    feature = "fontconfig"
+                ))] {
+                    let default_sans_serif_family = {
+                        fontconfig_fallback_families = fontconfig::find_families("sans-serif")
+                            .into_iter()
+                            .map(|s| s.into())
+                            .collect::<Vec<SharedString>>();
+                        fontconfig_fallback_families.remove(0)
+                    };
+                } else {
+                    let default_sans_serif_family = "Arial";
+                }
+            }
             font_db.set_sans_serif_family(default_sans_serif_family);
         }
         let available_families = font_db
@@ -245,12 +255,15 @@ impl Default for FontCache {
             text_context: Default::default(),
             available_fonts: font_db,
             available_families,
-            #[cfg(not(any(
-                target_family = "windows",
-                target_os = "macos",
-                target_os = "ios",
-                target_arch = "wasm32"
-            )))]
+            #[cfg(all(
+                not(any(
+                    target_family = "windows",
+                    target_os = "macos",
+                    target_os = "ios",
+                    target_arch = "wasm32"
+                )),
+                feature = "fontconfig"
+            ))]
             fontconfig_fallback_families,
         }
     }
@@ -298,11 +311,11 @@ impl FontCache {
         // replacing files. Unlinking OTOH is safe and doesn't destroy the file mapping,
         // the backing file becomes an orphan in a special area of the file system. That works
         // on Unixy platforms and on Windows the default file flags prevent the deletion.
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(feature = "diskfonts")]
         let (shared_data, face_index) = unsafe {
             self.available_fonts.make_shared_face_data(fontdb_face_id).expect("unable to mmap font")
         };
-        #[cfg(target_arch = "wasm32")]
+        #[cfg(not(feature = "diskfonts"))]
         let (shared_data, face_index) = self
             .available_fonts
             .face_source(fontdb_face_id)
@@ -509,7 +522,15 @@ impl FontCache {
         fallback_fonts
     }
 
-    #[cfg(all(not(target_os = "macos"), not(target_os = "windows"), not(target_arch = "wasm32")))]
+    #[cfg(all(
+        not(any(
+            target_family = "windows",
+            target_os = "macos",
+            target_os = "ios",
+            target_arch = "wasm32"
+        )),
+        feature = "fontconfig"
+    ))]
     fn font_fallbacks_for_request(
         &self,
         _family: Option<&SharedString>,
@@ -524,7 +545,7 @@ impl FontCache {
             .collect()
     }
 
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(not(feature = "diskfonts"))]
     fn font_fallbacks_for_request(
         &self,
         _family: Option<&SharedString>,
