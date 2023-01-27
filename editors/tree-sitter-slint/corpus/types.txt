@@ -19,7 +19,8 @@ Test := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (angle_value))))
+            (basic_value
+              (angle_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -30,20 +31,24 @@ Test := Rectangle {
               (call_signature
                 (mult_binary_expression
                   (add_binary_expression
-                    (type_identifier)
+                    (var_identifier)
                     (add_prec_operator)
                     (mult_binary_expression
                       (value
-                        (angle_value))
+                        (basic_value
+                          (angle_value)))
                       (mult_prec_operator)
                       (value
-                        (float_value))))
+                        (basic_value
+                          (float_value)))))
                   (mult_prec_operator)
                   (value
-                    (angle_value)))))
+                    (basic_value
+                      (angle_value))))))
             (comparison_operator)
             (value
-              (float_value))))))))
+              (basic_value
+                (float_value)))))))))
 
 ================================================================================
 bool
@@ -65,13 +70,15 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (bool_value))))
+            (basic_value
+              (bool_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (bool_value)))))))
+            (basic_value
+              (bool_value))))))))
 
 ================================================================================
 color
@@ -114,83 +121,94 @@ Test := Rectangle {
         (property
           (type_identifier)
           (var_identifier)
-          (type_identifier)))
+          (var_identifier)))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (color_value))))
+            (basic_value
+              (color_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (color_value))))
+            (basic_value
+              (color_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (color_value))))
+            (basic_value
+              (color_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (color_value))))
+            (basic_value
+              (color_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
-          (type_identifier)))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (value
-            (color_value))))
+          (var_identifier)))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (color_value))))
+            (basic_value
+              (color_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (color_value))))
+            (basic_value
+              (color_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (color_value))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (type_identifier)))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (value
-            (color_value))))
+            (basic_value
+              (color_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (color_value))))
+            (basic_value
+              (color_value)))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier)))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (color_value))))
+            (basic_value
+              (color_value)))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (value
+            (basic_value
+              (color_value)))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (value
+            (basic_value
+              (color_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -199,11 +217,14 @@ Test := Rectangle {
             (function_identifier)
             (call_signature
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -212,13 +233,17 @@ Test := Rectangle {
             (function_identifier)
             (call_signature
               (value
-                (percent_value))
+                (basic_value
+                  (percent_value)))
               (value
-                (percent_value))
+                (basic_value
+                  (percent_value)))
               (value
-                (percent_value))
+                (basic_value
+                  (percent_value)))
               (value
-                (percent_value))))))
+                (basic_value
+                  (percent_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -227,13 +252,16 @@ Test := Rectangle {
             (function_identifier)
             (call_signature
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (unary_expression
                 (unary_prec_operator)
                 (value
-                  (int_value)))))))
+                  (basic_value
+                    (int_value))))))))
       (block_statement
         (property
           (type_identifier)
@@ -243,17 +271,17 @@ Test := Rectangle {
               (comparison_binary_expression
                 (comparison_binary_expression
                   (comparison_binary_expression
-                    (type_identifier)
+                    (var_identifier)
                     (comparison_operator)
                     (mult_binary_expression
-                      (type_identifier)
+                      (var_identifier)
                       (mult_prec_operator)
-                      (type_identifier)))
+                      (var_identifier)))
                   (comparison_operator)
                   (mult_binary_expression
-                    (type_identifier)
+                    (var_identifier)
                     (mult_prec_operator)
-                    (type_identifier)))
+                    (var_identifier)))
                 (comparison_operator)
                 (mult_binary_expression
                   (var_identifier
@@ -263,9 +291,9 @@ Test := Rectangle {
                     (post_identifier))))
               (comparison_operator)
               (mult_binary_expression
-                (type_identifier)
+                (var_identifier)
                 (mult_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (comparison_operator)
             (var_identifier
               (post_identifier
@@ -273,13 +301,17 @@ Test := Rectangle {
                   (function_identifier)
                   (call_signature
                     (value
-                      (int_value))
+                      (basic_value
+                        (int_value)))
                     (value
-                      (percent_value))
+                      (basic_value
+                        (percent_value)))
                     (value
-                      (int_value))
+                      (basic_value
+                        (int_value)))
                     (value
-                      (percent_value))))))))))))
+                      (basic_value
+                        (percent_value)))))))))))))
 
 ================================================================================
 duration
@@ -320,47 +352,54 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (duration_value))))
+            (basic_value
+              (duration_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (duration_value))))
+            (basic_value
+              (duration_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (duration_value))))
+            (basic_value
+              (duration_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (mult_binary_expression
             (value
-              (int_value))
+              (basic_value
+                (int_value)))
             (mult_prec_operator)
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (add_binary_expression
             (value
-              (duration_value))
+              (basic_value
+                (duration_value)))
             (add_prec_operator)
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (add_binary_expression
-            (type_identifier)
+            (var_identifier)
             (add_prec_operator)
-            (type_identifier))))
+            (var_identifier))))
       (block_statement
         (property
           (type_identifier)
@@ -368,7 +407,8 @@ TestCase := Rectangle {
           (unary_expression
             (unary_prec_operator)
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -379,38 +419,45 @@ TestCase := Rectangle {
                 (unary_expression
                   (unary_prec_operator)
                   (value
-                    (duration_value)))
+                    (basic_value
+                      (duration_value))))
                 (mult_prec_operator)
                 (value
-                  (int_value)))
+                  (basic_value
+                    (int_value))))
               (mult_prec_operator)
               (value
-                (length_value)))
+                (basic_value
+                  (length_value))))
             (mult_prec_operator)
             (value
-              (length_value)))))
+              (basic_value
+                (length_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (mult_binary_expression
-            (type_identifier)
+            (var_identifier)
             (mult_prec_operator)
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (mult_binary_expression
-            (type_identifier)
+            (var_identifier)
             (mult_prec_operator)
             (add_binary_expression
               (value
-                (duration_value))
+                (basic_value
+                  (duration_value)))
               (add_prec_operator)
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -421,7 +468,8 @@ TestCase := Rectangle {
               (post_identifier))
             (mult_prec_operator)
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -432,7 +480,8 @@ TestCase := Rectangle {
               (post_identifier))
             (mult_prec_operator)
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -443,7 +492,8 @@ TestCase := Rectangle {
               (post_identifier))
             (mult_prec_operator)
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -454,7 +504,8 @@ TestCase := Rectangle {
               (post_identifier))
             (mult_prec_operator)
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -465,7 +516,8 @@ TestCase := Rectangle {
               (post_identifier))
             (mult_prec_operator)
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -476,7 +528,8 @@ TestCase := Rectangle {
               (post_identifier))
             (mult_prec_operator)
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -487,7 +540,8 @@ TestCase := Rectangle {
               (post_identifier))
             (mult_prec_operator)
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -498,7 +552,8 @@ TestCase := Rectangle {
               (post_identifier))
             (mult_prec_operator)
             (value
-              (duration_value))))))))
+              (basic_value
+                (duration_value)))))))))
 
 ================================================================================
 enum_compare
@@ -520,20 +575,20 @@ TestCase := Rectangle {
         (property
           (type_identifier)
           (var_identifier)
-          (type_identifier)))
+          (var_identifier)))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
-              (type_identifier)
+              (var_identifier)
               (comparison_operator)
               (mult_binary_expression
                 (var_identifier
                   (post_identifier))
                 (mult_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (comparison_operator)
             (mult_binary_expression
               (var_identifier
@@ -542,7 +597,7 @@ TestCase := Rectangle {
               (unary_expression
                 (unary_prec_operator)
                 (comparison_binary_expression
-                  (type_identifier)
+                  (var_identifier)
                   (comparison_operator)
                   (var_identifier
                     (post_identifier)))))))))))
@@ -580,22 +635,33 @@ Test := Rectangle {
             (function_identifier)
             (call_signature
               (value
-                (angle_value))
+                (basic_value
+                  (angle_value)))
               (value
-                (color_value))
+                (basic_value
+                  (color_value)))
               (ERROR)
+              (ERROR
+                (value
+                  (basic_value
+                    (color_value))))
               (value
-                (color_value))
-              (ERROR)
+                (basic_value
+                  (percent_value)))
+              (ERROR
+                (value
+                  (basic_value
+                    (color_value))))
               (value
-                (color_value))
-              (ERROR)))))
+                (basic_value
+                  (percent_value)))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (color_value))))
+            (basic_value
+              (color_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -604,30 +670,35 @@ Test := Rectangle {
             (function_identifier)
             (call_signature
               (value
-                (angle_value))
+                (basic_value
+                  (angle_value)))
               (var_identifier
                 (post_identifier
                   (function_call
                     (function_identifier)
                     (call_signature
                       (value
-                        (float_value))))))
+                        (basic_value
+                          (float_value)))))))
               (var_identifier
                 (post_identifier
                   (function_call
                     (function_identifier)
                     (call_signature
                       (value
-                        (float_value))))))))))
+                        (basic_value
+                          (float_value)))))))))))
       (block_statement
         (for_loop
           (var_identifier)
           (for_range
             (value_list
-              (anon_struct
-                (var_identifier)
-                (value
-                  (color_value)))))
+              (value
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (color_value)))))))
           (component
             (type_identifier)
             (block
@@ -638,10 +709,11 @@ Test := Rectangle {
                   (function_identifier)
                   (call_signature
                     (value
-                      (angle_value))
+                      (basic_value
+                        (angle_value)))
                     (var_identifier
                       (post_identifier))
-                    (type_identifier))))))))
+                    (var_identifier))))))))
       (block_statement
         (property
           (type_identifier)
@@ -650,11 +722,14 @@ Test := Rectangle {
             (function_identifier)
             (call_signature
               (value
-                (angle_value))
+                (basic_value
+                  (angle_value)))
               (value
-                (color_value))
+                (basic_value
+                  (color_value)))
               (value
-                (color_value)))))))))
+                (basic_value
+                  (color_value))))))))))
 
 ================================================================================
 nested_struct
@@ -725,29 +800,34 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (percent_value))))
+            (basic_value
+              (percent_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (percent_value))))
+            (basic_value
+              (percent_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (percent_value))))
+            (basic_value
+              (percent_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (add_binary_expression
             (value
-              (int_value))
+              (basic_value
+                (int_value)))
             (add_prec_operator)
             (value
-              (percent_value))))))))
+              (basic_value
+                (percent_value)))))))))
 
 ================================================================================
 relative_lengths
@@ -789,12 +869,14 @@ TestCase := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (percent_value))))
+            (basic_value
+              (percent_value)))))
       (assignment_expr
         (var_identifier)
         (assignment_prec_operator)
         (value
-          (percent_value)))))
+          (basic_value
+            (percent_value))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -804,7 +886,8 @@ TestCase := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (physical_length_value))))
+            (basic_value
+              (physical_length_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -815,7 +898,8 @@ TestCase := Rectangle {
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (percent_value))))
+                  (basic_value
+                    (percent_value)))))
             (block_statement
               (component
                 (var_identifier)
@@ -838,13 +922,15 @@ TestCase := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (physical_length_value))))
+            (basic_value
+              (physical_length_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (percent_value))))
+            (basic_value
+              (percent_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -896,7 +982,8 @@ TestCase := Rectangle {
             (function_identifier)
             (call_signature
               (value
-                (string_value))))))
+                (basic_value
+                  (string_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -905,8 +992,9 @@ TestCase := Rectangle {
             (function_identifier)
             (call_signature
               (value
-                (string_value
-                  (_string_fragment)))))))
+                (basic_value
+                  (string_value
+                    (_string_fragment))))))))
       (block_statement
         (property
           (type_identifier)
@@ -939,28 +1027,32 @@ TestCase := Rectangle {
             (comparison_binary_expression
               (comparison_binary_expression
                 (comparison_binary_expression
-                  (type_identifier)
+                  (var_identifier)
                   (comparison_operator)
                   (mult_binary_expression
                     (value
-                      (int_value))
+                      (basic_value
+                        (int_value)))
                     (mult_prec_operator)
-                    (type_identifier)))
+                    (var_identifier)))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (mult_prec_operator)
-                  (type_identifier)))
+                  (var_identifier)))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (comparison_operator)
             (value
-              (int_value))))))))
+              (basic_value
+                (int_value)))))))))
 
 ================================================================================
 string
@@ -987,43 +1079,48 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (value
-            (string_value
-              (_string_fragment)))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (value
-            (string_value
-              (_string_fragment)
-              (_string_fragment)))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (comparison_binary_expression
-            (type_identifier)
-            (comparison_operator)
-            (value
+            (basic_value
               (string_value
                 (_string_fragment))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
+          (value
+            (basic_value
+              (string_value
+                (_string_fragment))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (value
+            (basic_value
+              (string_value
+                (_string_fragment)
+                (_string_fragment))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
           (comparison_binary_expression
-            (type_identifier)
+            (var_identifier)
             (comparison_operator)
             (value
-              (string_value
-                (_string_fragment)))))))))
+              (basic_value
+                (string_value
+                  (_string_fragment)))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (comparison_binary_expression
+            (var_identifier)
+            (comparison_operator)
+            (value
+              (basic_value
+                (string_value
+                  (_string_fragment))))))))))
 
 ================================================================================
 string_to_float
@@ -1056,29 +1153,33 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)))))
+            (basic_value
+              (string_value
+                (_string_fragment))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)))))
+            (basic_value
+              (string_value
+                (_string_fragment))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)))))
+            (basic_value
+              (string_value
+                (_string_fragment))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)))))
+            (basic_value
+              (string_value
+                (_string_fragment))))))
       (block_statement
         (property
           (type_identifier)
@@ -1139,21 +1240,24 @@ TestCase := Rectangle {
             (comparison_binary_expression
               (add_binary_expression
                 (mult_binary_expression
-                  (type_identifier)
+                  (var_identifier)
                   (mult_prec_operator)
                   (value
-                    (float_value)))
+                    (basic_value
+                      (float_value))))
                 (add_prec_operator)
-                (type_identifier))
+                (var_identifier))
               (comparison_operator)
               (add_binary_expression
                 (mult_binary_expression
                   (value
-                    (float_value))
+                    (basic_value
+                      (float_value)))
                   (mult_prec_operator)
                   (value
-                    (string_value
-                      (_string_fragment))))
+                    (basic_value
+                      (string_value
+                        (_string_fragment)))))
                 (ERROR
                   (UNEXPECTED 'o'))
                 (add_prec_operator)
@@ -1162,7 +1266,8 @@ TestCase := Rectangle {
                   (call_signature))))
             (comparison_operator)
             (value
-              (int_value))))))))
+              (basic_value
+                (int_value)))))))))
 
 ================================================================================
 structs_keyword
@@ -1204,8 +1309,9 @@ match := Rectangle {
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (string_value
-                  (_string_fragment)))))))
+                (basic_value
+                  (string_value
+                    (_string_fragment))))))))
       (block_statement
         (property
           (type_identifier)
@@ -1215,8 +1321,9 @@ match := Rectangle {
               (post_identifier))
             (comparison_operator)
             (value
-              (string_value
-                (_string_fragment)))))))))
+              (basic_value
+                (string_value
+                  (_string_fragment))))))))))
 
 ================================================================================
 brush
@@ -1263,7 +1370,7 @@ Test := Rectangle {
         (property
           (type_identifier)
           (var_identifier)
-          (type_identifier)))
+          (var_identifier)))
       (comment)
       (block_statement
         (property
@@ -1271,21 +1378,24 @@ Test := Rectangle {
           (var_identifier)
           (ternary_expression
             (value
-              (bool_value))
+              (basic_value
+                (bool_value)))
             (var_identifier
               (post_identifier
                 (function_call
                   (function_identifier)
                   (call_signature
                     (value
-                      (percent_value))))))
+                      (basic_value
+                        (percent_value)))))))
             (var_identifier
               (post_identifier
                 (function_call
                   (function_identifier)
                   (call_signature
                     (value
-                      (percent_value)))))))))
+                      (basic_value
+                        (percent_value))))))))))
       (block_statement
         (component
           (type_identifier)
@@ -1302,9 +1412,10 @@ Test := Rectangle {
                       (function_identifier)
                       (call_signature
                         (value
-                          (angle_value))
-                        (type_identifier)
-                        (type_identifier)))))))
+                          (basic_value
+                            (angle_value)))
+                        (var_identifier)
+                        (var_identifier)))))))
             (block_statement
               (component
                 (var_identifier)
@@ -1320,7 +1431,8 @@ Test := Rectangle {
                           (function_identifier)
                           (call_signature
                             (value
-                              (percent_value)))))))))))))
+                              (basic_value
+                                (percent_value))))))))))))))
       (block_statement
         (property
           (type_identifier)
@@ -1334,11 +1446,13 @@ Test := Rectangle {
           (ternary_expression
             (ternary_expression
               (value
-                (bool_value))
+                (basic_value
+                  (bool_value)))
               (var_identifier
                 (post_identifier))
               (value
-                (bool_value)))
+                (basic_value
+                  (bool_value))))
             (var_identifier
               (post_identifier))
             (var_identifier
@@ -1355,31 +1469,38 @@ Test := Rectangle {
                 (function_call
                   (function_identifier)
                   (call_signature
-                    (type_identifier)
+                    (var_identifier)
                     (value
-                      (color_value))
+                      (basic_value
+                        (color_value)))
+                    (ERROR
+                      (value
+                        (basic_value
+                          (color_value))))
                     (value
-                      (color_value))
-                    (ERROR)
+                      (basic_value
+                        (percent_value)))
                     (value
-                      (color_value))))))
+                      (basic_value
+                        (color_value)))))))
             (block_statement
               (property
                 (type_identifier)
                 (var_identifier)
-                (type_identifier)))
+                (var_identifier)))
             (block_statement
               (property
                 (type_identifier)
                 (var_identifier)
-                (ERROR
+                (comparison_binary_expression
                   (comparison_binary_expression
                     (comparison_binary_expression
-                      (type_identifier)
+                      (var_identifier)
                       (comparison_operator)
                       (mult_binary_expression
                         (value
-                          (color_value))
+                          (basic_value
+                            (color_value)))
                         (mult_prec_operator)
                         (var_identifier
                           (post_identifier
@@ -1387,33 +1508,51 @@ Test := Rectangle {
                               (function_identifier)
                               (call_signature
                                 (value
-                                  (percent_value))))))))
+                                  (basic_value
+                                    (percent_value)))))))))
                     (comparison_operator)
-                    (function_call
-                      (function_identifier)
-                      (call_signature
-                        (type_identifier)
-                        (value
-                          (color_value))
-                        (ERROR
-                          (UNEXPECTED 'i')))))
-                  (UNEXPECTED 'i')
-                  (value
-                    (percent_value))
-                  (value
-                    (percent_value))
-                  (value
-                    (color_value))
-                  (UNEXPECTED 'i'))
-                (comparison_binary_expression
-                  (mult_binary_expression
-                    (value
-                      (percent_value))
-                    (ERROR)
-                    (mult_prec_operator)
-                    (type_identifier))
+                    (mult_binary_expression
+                      (function_call
+                        (function_identifier)
+                        (call_signature
+                          (var_identifier)
+                          (ERROR
+                            (value
+                              (value
+                                (basic_value
+                                  (color_value))))
+                            (UNEXPECTED 'i'))
+                          (value
+                            (value
+                              (basic_value
+                                (percent_value))))
+                          (ERROR
+                            (value
+                              (value
+                                (basic_value
+                                  (color_value))))
+                            (UNEXPECTED 'i')
+                            (value
+                              (value
+                                (basic_value
+                                  (percent_value)))))
+                          (value
+                            (basic_value
+                              (percent_value)))
+                          (ERROR
+                            (value
+                              (value
+                                (basic_value
+                                  (color_value))))
+                            (UNEXPECTED 'i'))
+                          (value
+                            (value
+                              (basic_value
+                                (percent_value))))))
+                      (mult_prec_operator)
+                      (var_identifier)))
                   (comparison_operator)
-                  (type_identifier)))))))
+                  (var_identifier)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1422,7 +1561,7 @@ Test := Rectangle {
             (comparison_binary_expression
               (comparison_binary_expression
                 (comparison_binary_expression
-                  (type_identifier)
+                  (var_identifier)
                   (comparison_operator)
                   (mult_binary_expression
                     (var_identifier
@@ -1432,9 +1571,10 @@ Test := Rectangle {
                           (function_identifier)
                           (call_signature
                             (value
-                              (percent_value))))))
+                              (basic_value
+                                (percent_value)))))))
                     (mult_prec_operator)
-                    (type_identifier)))
+                    (var_identifier)))
                 (comparison_operator)
                 (mult_binary_expression
                   (var_identifier
@@ -1444,18 +1584,19 @@ Test := Rectangle {
                         (function_identifier)
                         (call_signature
                           (value
-                            (percent_value))))))
+                            (basic_value
+                              (percent_value)))))))
                   (mult_prec_operator)
-                  (type_identifier)))
+                  (var_identifier)))
               (comparison_operator)
               (mult_binary_expression
                 (var_identifier
                   (post_identifier))
                 (mult_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (comparison_operator)
             (mult_binary_expression
-              (type_identifier)
+              (var_identifier)
               (mult_prec_operator)
               (var_identifier
                 (post_identifier)))))))))
@@ -1501,84 +1642,99 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (physical_length_value))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (value
-            (length_value))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (add_binary_expression
-            (value
-              (physical_length_value))
-            (add_prec_operator)
-            (value
-              (length_value)))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (mult_binary_expression
-            (value
-              (int_value))
-            (mult_prec_operator)
-            (value
+            (basic_value
               (physical_length_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (physical_length_value))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (value
-            (length_value))))
+            (basic_value
+              (length_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (add_binary_expression
             (value
-              (physical_length_value))
+              (basic_value
+                (physical_length_value)))
             (add_prec_operator)
             (value
-              (length_value)))))
+              (basic_value
+                (length_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (mult_binary_expression
             (value
-              (int_value))
+              (basic_value
+                (int_value)))
             (mult_prec_operator)
             (value
-              (physical_length_value)))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (comparison_binary_expression
-            (type_identifier)
-            (comparison_operator)
-            (add_binary_expression
-              (value
-                (physical_length_value))
-              (add_prec_operator)
-              (value
+              (basic_value
                 (physical_length_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (physical_length_value)))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (value
+            (basic_value
+              (length_value)))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (add_binary_expression
+            (value
+              (basic_value
+                (physical_length_value)))
+            (add_prec_operator)
+            (value
+              (basic_value
+                (length_value))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (mult_binary_expression
+            (value
+              (basic_value
+                (int_value)))
+            (mult_prec_operator)
+            (value
+              (basic_value
+                (physical_length_value))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (comparison_binary_expression
+            (var_identifier)
+            (comparison_operator)
+            (add_binary_expression
+              (value
+                (basic_value
+                  (physical_length_value)))
+              (add_prec_operator)
+              (value
+                (basic_value
+                  (physical_length_value)))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (value
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -1587,35 +1743,42 @@ TestCase := Rectangle {
             (add_binary_expression
               (add_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (add_prec_operator)
                 (value
-                  (physical_length_value)))
+                  (basic_value
+                    (physical_length_value))))
               (add_prec_operator)
               (value
-                (int_value)))
+                (basic_value
+                  (int_value))))
             (add_prec_operator)
             (value
-              (physical_length_value)))))
+              (basic_value
+                (physical_length_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (comparison_binary_expression
-            (type_identifier)
+            (var_identifier)
             (comparison_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (mult_binary_expression
             (value
-              (length_value))
+              (basic_value
+                (length_value)))
             (mult_prec_operator)
             (value
-              (physical_length_value)))))
+              (basic_value
+                (physical_length_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -1626,16 +1789,20 @@ TestCase := Rectangle {
                 (mult_binary_expression
                   (mult_binary_expression
                     (value
-                      (physical_length_value))
+                      (basic_value
+                        (physical_length_value)))
                     (mult_prec_operator)
                     (value
-                      (length_value)))
+                      (basic_value
+                        (length_value))))
                   (mult_prec_operator)
                   (value
-                    (duration_value)))
+                    (basic_value
+                      (duration_value))))
                 (mult_prec_operator)
                 (value
-                  (physical_length_value)))
+                  (basic_value
+                    (physical_length_value))))
               (comparison_operator)
               (add_binary_expression
                 (mult_binary_expression
@@ -1644,38 +1811,44 @@ TestCase := Rectangle {
                       (mult_binary_expression
                         (mult_binary_expression
                           (value
-                            (length_value))
+                            (basic_value
+                              (length_value)))
                           (mult_prec_operator)
                           (mult_binary_expression
                             (value
-                              (duration_value))
+                              (basic_value
+                                (duration_value)))
                             (mult_prec_operator)
                             (value
-                              (physical_length_value))))
+                              (basic_value
+                                (physical_length_value)))))
                         (mult_prec_operator)
                         (value
-                          (length_value)))
+                          (basic_value
+                            (length_value))))
                       (mult_prec_operator)
-                      (type_identifier))
+                      (var_identifier))
                     (mult_prec_operator)
-                    (type_identifier))
+                    (var_identifier))
                   (mult_prec_operator)
-                  (type_identifier))
+                  (var_identifier))
                 (add_prec_operator)
                 (mult_binary_expression
-                  (type_identifier)
+                  (var_identifier)
                   (mult_prec_operator)
-                  (type_identifier))))
+                  (var_identifier))))
             (comparison_operator)
             (mult_binary_expression
               (mult_binary_expression
                 (value
-                  (length_value))
+                  (basic_value
+                    (length_value)))
                 (mult_prec_operator)
                 (value
-                  (physical_length_value)))
+                  (basic_value
+                    (physical_length_value))))
               (mult_prec_operator)
-              (type_identifier))))))))
+              (var_identifier))))))))
 
 ================================================================================
 rem
@@ -1712,7 +1885,8 @@ TestCase := Window {
       (type_identifier)
       (var_identifier)
       (value
-        (relative_font_size_value))))
+        (basic_value
+          (relative_font_size_value)))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -1722,70 +1896,80 @@ TestCase := Window {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (length_value))))
+            (basic_value
+              (length_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (relative_font_size_value))))
+            (basic_value
+              (relative_font_size_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (relative_font_size_value))))
+            (basic_value
+              (relative_font_size_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (relative_font_size_value))))
+            (basic_value
+              (relative_font_size_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (relative_font_size_value))))
+            (basic_value
+              (relative_font_size_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
-          (type_identifier)))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (value
-            (relative_font_size_value))))
+          (var_identifier)))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (length_value))))
+            (basic_value
+              (relative_font_size_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (physical_length_value))))
+            (basic_value
+              (length_value)))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (value
+            (basic_value
+              (physical_length_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
-              (type_identifier)
+              (var_identifier)
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (relative_font_size_value))
+                  (basic_value
+                    (relative_font_size_value)))
                 (mult_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (comparison_operator)
             (value
-              (relative_font_size_value)))))
+              (basic_value
+                (relative_font_size_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -1797,47 +1981,54 @@ TestCase := Window {
                   (comparison_binary_expression
                     (comparison_binary_expression
                       (comparison_binary_expression
-                        (type_identifier)
+                        (var_identifier)
                         (comparison_operator)
                         (mult_binary_expression
                           (value
-                            (length_value))
+                            (basic_value
+                              (length_value)))
                           (mult_prec_operator)
-                          (type_identifier)))
+                          (var_identifier)))
                       (comparison_operator)
                       (mult_binary_expression
                         (value
-                          (length_value))
+                          (basic_value
+                            (length_value)))
                         (mult_prec_operator)
-                        (type_identifier)))
+                        (var_identifier)))
                     (comparison_operator)
                     (mult_binary_expression
                       (value
-                        (length_value))
+                        (basic_value
+                          (length_value)))
                       (mult_prec_operator)
-                      (type_identifier)))
+                      (var_identifier)))
                   (comparison_operator)
                   (mult_binary_expression
                     (value
-                      (length_value))
+                      (basic_value
+                        (length_value)))
                     (mult_prec_operator)
                     (var_identifier
                       (post_identifier))))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (length_value))
+                    (basic_value
+                      (length_value)))
                   (mult_prec_operator)
-                  (type_identifier)))
+                  (var_identifier)))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (physical_length_value))
+                  (basic_value
+                    (physical_length_value)))
                 (mult_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (comparison_operator)
             (value
-              (relative_font_size_value))))))))
+              (basic_value
+                (relative_font_size_value)))))))))
 
 ================================================================================
 array
@@ -1925,29 +2116,36 @@ TestCase := Rectangle {
             (type
               (type_identifier)))
           (var_identifier)
-          (value_list
-            (value
-              (int_value))
-            (value
-              (int_value)))))
+          (value
+            (value_list
+              (value
+                (basic_value
+                  (int_value)))
+              (value
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_list
             (type
               (type_identifier)))
           (var_identifier)
-          (value_list
-            (value
-              (int_value))
-            (value
-              (float_value)))))
+          (value
+            (value_list
+              (value
+                (basic_value
+                  (int_value)))
+              (value
+                (basic_value
+                  (float_value)))))))
       (block_statement
         (property
           (type_list
             (type
               (type_identifier)))
           (var_identifier)
-          (value_list)))
+          (value
+            (value_list))))
       (block_statement
         (property
           (type_list
@@ -1961,18 +2159,24 @@ TestCase := Rectangle {
               (type_identifier))
             (ERROR))
           (var_identifier)
-          (value_list
-            (anon_struct
-              (var_identifier)
+          (value
+            (value_list
               (value
-                (int_value)))
-            (anon_struct
-              (var_identifier)
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (int_value)))))
               (value
-                (int_value))
-              (var_identifier)
-              (value
-                (int_value))))))
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (int_value)))))))))
       (block_statement
         (property
           (type_identifier)
@@ -1981,16 +2185,21 @@ TestCase := Rectangle {
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
-              (value_list
-                (anon_struct
-                  (var_identifier)
+              (value
+                (value_list
                   (value
-                    (string_value
-                      (_string_fragment))))
-                (anon_struct
-                  (var_identifier)
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (basic_value
+                          (string_value
+                            (_string_fragment))))))
                   (value
-                    (float_value))))))))
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (basic_value
+                          (float_value)))))))))))
       (block_statement
         (property
           (type_identifier)
@@ -1999,15 +2208,19 @@ TestCase := Rectangle {
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
-              (ERROR
-                (var_identifier))
-              (value_list
-                (anon_struct
-                  (var_identifier)
+              (value
+                (value_list
                   (value
-                    (int_value))))))))
-      (ERROR)))
-  (ERROR))
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (value_list
+                          (value
+                            (anon_struct
+                              (var_identifier)
+                              (value
+                                (basic_value
+                                  (int_value))))))))))))))))))
 
 ================================================================================
 object
@@ -2044,141 +2257,167 @@ TestCase := Rectangle {
     (type_identifier)
     (type_identifier)
     (block
-      (block_statement
-        (property
-          (ERROR
-            (UNEXPECTED ':')
-            (type_identifier)
-            (UNEXPECTED ':'))
-          (type_identifier)
-          (ERROR)
-          (var_identifier)
-          (block
-            (assignment_expr
+      (ERROR
+        (comparison_binary_expression
+          (value
+            (anon_struct
               (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (string_value
-                  (_string_fragment))))
-            (ERROR
-              (UNEXPECTED ':')))))
-      (block_statement
-        (property
-          (ERROR
-            (UNEXPECTED ':')
-            (type_identifier)
-            (UNEXPECTED ':'))
-          (type_identifier)
-          (ERROR)
-          (var_identifier)
-          (block
-            (assignment_expr
               (var_identifier)
-              (assignment_prec_operator)
-              (ERROR
-                (value
-                  (int_value))
-                (UNEXPECTED ')
-                (UNEXPECTED ':'))
-              (value
-                (string_value
-                  (_string_fragment)))))))
-      (block_statement
-        (property
-          (ERROR
-            (UNEXPECTED ':')
-            (type_identifier)
-            (UNEXPECTED ':'))
-          (type_identifier)
-          (ERROR)
-          (var_identifier)
-          (block
-            (assignment_expr
               (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (string_value
-                  (_string_fragment)))))))
-      (block_statement
-        (property
-          (ERROR
-            (UNEXPECTED ':')
-            (type_identifier)
-            (UNEXPECTED ':'))
-          (type_identifier)
-          (ERROR)
-          (var_identifier)
-          (ERROR
+              (var_identifier)))
+          (comparison_operator)
+          (var_identifier))
+        (comparison_binary_expression
+          (comparison_binary_expression
             (value
-              (bool_value))
-            (block
-              (assignment_expr
+              (anon_struct
                 (var_identifier)
-                (assignment_prec_operator)
-                (ERROR
+                (value
+                  (basic_value
+                    (string_value
+                      (_string_fragment))))
+                (var_identifier)
+                (value
+                  (basic_value
+                    (int_value)))))
+            (ERROR)
+            (comparison_operator)
+            (value
+              (anon_struct
+                (var_identifier)
+                (var_identifier)
+                (var_identifier)
+                (var_identifier))))
+          (comparison_operator)
+          (var_identifier))
+        (comparison_binary_expression
+          (comparison_binary_expression
+            (value
+              (anon_struct
+                (var_identifier)
+                (value
+                  (basic_value
+                    (int_value)))
+                (var_identifier)
+                (value
+                  (basic_value
+                    (int_value)))
+                (var_identifier)
+                (value
+                  (basic_value
+                    (string_value
+                      (_string_fragment))))))
+            (ERROR)
+            (comparison_operator)
+            (value
+              (anon_struct
+                (var_identifier)
+                (var_identifier)
+                (var_identifier)
+                (var_identifier))))
+          (comparison_operator)
+          (var_identifier))
+        (comparison_binary_expression
+          (comparison_binary_expression
+            (value
+              (anon_struct
+                (var_identifier)
+                (value
+                  (basic_value
+                    (string_value
+                      (_string_fragment))))))
+            (ERROR)
+            (comparison_operator)
+            (value
+              (anon_struct
+                (var_identifier)
+                (var_identifier)
+                (var_identifier)
+                (var_identifier))))
+          (comparison_operator)
+          (var_identifier))
+        (comparison_binary_expression
+          (comparison_binary_expression
+            (ternary_expression
+              (value
+                (basic_value
+                  (bool_value)))
+              (value
+                (anon_struct
+                  (var_identifier)
                   (value
-                    (int_value))
-                  (UNEXPECTED '))
-                (value
-                  (string_value
-                    (_string_fragment))))))
-          (block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (ERROR
-                (value
-                  (int_value))
-                (UNEXPECTED ')
-                (UNEXPECTED ':'))
+                    (basic_value
+                      (int_value)))
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (string_value
+                        (_string_fragment))))))
               (value
-                (string_value
-                  (_string_fragment)))))))
-      (block_statement
-        (property
-          (ERROR
-            (UNEXPECTED ':')
-            (type_identifier)
-            (UNEXPECTED ':'))
-          (type_identifier)
-          (ERROR)
-          (var_identifier)
-          (ERROR
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (string_value
+                        (_string_fragment)))))))
+            (ERROR)
+            (comparison_operator)
             (value
-              (bool_value))
-            (block
-              (assignment_expr
+              (anon_struct
                 (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (int_value)))))
-          (block
-            (assignment_expr
+                (var_identifier)
+                (var_identifier)
+                (var_identifier))))
+          (comparison_operator)
+          (var_identifier))
+        (ternary_expression
+          (value
+            (basic_value
+              (bool_value)))
+          (value
+            (anon_struct
               (var_identifier)
-              (assignment_prec_operator)
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))
+          (value
+            (anon_struct
+              (var_identifier)
+              (value
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
-          (ERROR
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (int_value)))
-              (ERROR
-                (UNEXPECTED 'x'))))
           (block
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (int_value)))
+                (basic_value
+                  (int_value))))
             (ERROR
               (UNEXPECTED 'x')))))
+      (ERROR
+        (value
+          (anon_struct
+            (var_identifier)
+            (value
+              (basic_value
+                (int_value)))
+            (var_identifier)
+            (value
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -2217,7 +2456,8 @@ TestCase := Rectangle {
               (assignment_prec_operator)
               (add_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (add_prec_operator)
                 (var_identifier
                   (post_identifier)))))))
@@ -2227,14 +2467,29 @@ TestCase := Rectangle {
           (ERROR)
           (call_signature)))
       (ERROR
-        (UNEXPECTED 'a')
-        (UNEXPECTED 'b'))
-      (type_identifier)))
+        (value
+          (anon_struct
+            (var_identifier)
+            (value
+              (anon_struct
+                (var_identifier)
+                (var_identifier))))))
+      (block_statement
+        (value
+          (anon_struct
+            (var_identifier)
+            (value
+              (anon_struct
+                (var_identifier)
+                (value
+                  (anon_struct
+                    (var_identifier)
+                    (value
+                      (basic_value
+                        (int_value)))))
+                (ERROR
+                  (UNEXPECTED 'c')))))))))
   (ERROR
-    (UNEXPECTED 'a')
-    (UNEXPECTED 'b')
-    (UNEXPECTED 'c')
-    (UNEXPECTED 'c')
     (type_identifier)
     (UNEXPECTED 'e')
     (UNEXPECTED ':')
@@ -2311,47 +2566,67 @@ TestCase := Rectangle {
         (callback
           (function_identifier)
           (call_signature
-            (type_identifier))
+            (var_identifier))
           (type_identifier)))
       (block_statement
         (callback_event
           (function_identifier)
           (call_signature
-            (type_identifier))
-          (ERROR)
+            (var_identifier))
           (block
-            (assignment_expr
+            (block_statement
+              (value
+                (anon_struct
+                  (var_identifier)
+                  (add_binary_expression
+                    (var_identifier
+                      (post_identifier)
+                      (post_identifier))
+                    (add_prec_operator)
+                    (value
+                      (basic_value
+                        (int_value))))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)))
+      (block_statement
+        (callback
+          (function_identifier)
+          (call_signature
+            (var_identifier)
+            (var_identifier))
+          (type_identifier)))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
               (var_identifier)
-              (assignment_prec_operator)
-              (add_binary_expression
+              (var_identifier)))))
+      (comment)
+      (block_statement
+        (component
+          (type_identifier)
+          (block
+            (block_statement
+              (property
+                (type_list
+                  (type
+                    (type_identifier)))
+                (var_identifier)))
+            (block_statement
+              (for_loop
                 (var_identifier
-                  (post_identifier)
-                  (post_identifier))
-                (add_prec_operator)
-                (value
-                  (int_value)))))))
-      (ERROR)))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'F')
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'b')
-    (UNEXPECTED 'F')
-    (UNEXPECTED 'F')
-    (UNEXPECTED 'F')
-    (UNEXPECTED 'F')
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'b')
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'x')
-    (comment)
-    (UNEXPECTED 'R')
-    (UNEXPECTED 'D')
-    (UNEXPECTED 'a')
-    (UNEXPECTED '[')
-    (UNEXPECTED ']')
-    (UNEXPECTED 'a')
-    (UNEXPECTED 'R')))
+                  (index_operator
+                    (var_identifier)))
+                (for_range
+                  (var_identifier))
+                (component
+                  (type_identifier)
+                  (block))))))))))
 
 ================================================================================
 structs
@@ -2419,12 +2694,14 @@ TestCase := Rectangle {
               (assignment_prec_operator)
               (ERROR
                 (value
-                  (string_value
-                    (_string_fragment)))
+                  (basic_value
+                    (string_value
+                      (_string_fragment))))
                 (UNEXPECTED 'r')
                 (UNEXPECTED 'n'))
               (value
-                (percent_value))))))
+                (basic_value
+                  (percent_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -2435,52 +2712,73 @@ TestCase := Rectangle {
               (assignment_prec_operator)
               (ERROR
                 (value
-                  (string_value
-                    (_string_fragment)))
+                  (basic_value
+                    (string_value
+                      (_string_fragment))))
                 (UNEXPECTED 'r')
                 (UNEXPECTED 'n'))
               (value
-                (percent_value))))))
+                (basic_value
+                  (percent_value)))))))
       (block_statement
         (property
           (type_list
             (type
               (type_identifier)))
           (var_identifier)
-          (value_list
-            (var_identifier)
-            (var_identifier))))
+          (value
+            (value_list
+              (ERROR
+                (UNEXPECTED 'l'))
+              (value
+                (basic_value
+                  (int_value)))
+              (ERROR
+                (UNEXPECTED 'l'))
+              (value
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_list
             (type
               (type_identifier)))
           (var_identifier)
-          (value_list
-            (anon_struct
-              (var_identifier)
+          (value
+            (value_list
               (value
-                (string_value
-                  (_string_fragment)))
-              (var_identifier)
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (string_value
+                        (_string_fragment))))
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (percent_value)))))
               (value
-                (int_value))
-              (var_identifier)
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (string_value
+                        (_string_fragment))))
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (int_value)))))
               (value
-                (percent_value)))
-            (anon_struct
-              (var_identifier)
-              (value
-                (string_value
-                  (_string_fragment)))
-              (var_identifier)
-              (value
-                (int_value)))
-            (anon_struct
-              (var_identifier)
-              (value
-                (string_value
-                  (_string_fragment)))))))
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (string_value
+                        (_string_fragment))))))))))
       (block_statement
         (property_alias
           (var_identifier)
@@ -2496,7 +2794,8 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (comparison_binary_expression
-            (type_identifier)
+            (var_identifier)
             (comparison_operator)
             (value
-              (int_value))))))))
+              (basic_value
+                (int_value)))))))))

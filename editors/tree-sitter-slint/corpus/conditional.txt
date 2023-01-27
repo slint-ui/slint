@@ -33,51 +33,57 @@ TestCase := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (ternary_expression
-            (type_identifier)
+            (var_identifier)
             (var_identifier
               (reference_identifier)
               (post_identifier))
-            (type_identifier))))
+            (var_identifier))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (ternary_expression
-            (type_identifier)
+            (var_identifier)
             (value
-              (string_value
-                (_string_fragment)))
+              (basic_value
+                (string_value
+                  (_string_fragment))))
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (ternary_expression
-            (type_identifier)
+            (var_identifier)
             (value
-              (int_value))
+              (basic_value
+                (int_value)))
             (value
-              (string_value
-                (_string_fragment))))))
+              (basic_value
+                (string_value
+                  (_string_fragment)))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
-              (type_identifier)
+              (var_identifier)
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (string_value
-                    (_string_fragment)))
+                  (basic_value
+                    (string_value
+                      (_string_fragment))))
                 (mult_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (comparison_operator)
             (value
-              (string_value
-                (_string_fragment)))))))))
+              (basic_value
+                (string_value
+                  (_string_fragment))))))))))
 
 ================================================================================
 expr
@@ -107,11 +113,13 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (ternary_expression
-            (type_identifier)
+            (var_identifier)
             (value
-              (int_value))
+              (basic_value
+                (int_value)))
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -122,29 +130,36 @@ TestCase := Rectangle {
           (var_identifier)
           (ternary_expression
             (ternary_expression
-              (type_identifier)
+              (var_identifier)
               (ternary_expression
-                (type_identifier)
+                (var_identifier)
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (value
-                  (int_value)))
-              (type_identifier))
+                  (basic_value
+                    (int_value))))
+              (var_identifier))
             (value
-              (int_value))
+              (basic_value
+                (int_value)))
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (ternary_expression
             (value
-              (bool_value))
+              (basic_value
+                (bool_value)))
             (value
-              (int_value))
+              (basic_value
+                (int_value)))
             (value
-              (physical_length_value))))))))
+              (basic_value
+                (physical_length_value)))))))))
 
 ================================================================================
 stm
@@ -207,7 +222,8 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (callback
           (function_identifier)))
@@ -218,10 +234,11 @@ TestCase := Rectangle {
             (block_statement
               (if_statement
                 (comparison_binary_expression
-                  (type_identifier)
+                  (var_identifier)
                   (comparison_operator)
                   (value
-                    (int_value)))
+                    (basic_value
+                      (int_value))))
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -231,19 +248,22 @@ TestCase := Rectangle {
                         (var_identifier)
                         (assignment_prec_operator)
                         (value
-                          (int_value))))
+                          (basic_value
+                            (int_value)))))
                     (assignment_expr
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (int_value)))))))
+                        (basic_value
+                          (int_value))))))))
             (block_statement
               (if_statement
                 (comparison_binary_expression
-                  (type_identifier)
+                  (var_identifier)
                   (comparison_operator)
                   (value
-                    (int_value)))
+                    (basic_value
+                      (int_value))))
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -256,7 +276,8 @@ TestCase := Rectangle {
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (int_value))))))))))
+                        (basic_value
+                          (int_value)))))))))))
       (block_statement
         (callback
           (function_identifier)))
@@ -267,7 +288,9 @@ TestCase := Rectangle {
             (block_statement
               (if_statement
                 (value
-                  (bool_value))
+                  (value
+                    (basic_value
+                      (bool_value))))
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -278,7 +301,9 @@ TestCase := Rectangle {
             (block_statement
               (if_statement
                 (value
-                  (bool_value))
+                  (value
+                    (basic_value
+                      (bool_value))))
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -287,7 +312,8 @@ TestCase := Rectangle {
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (int_value)))))
+                        (basic_value
+                          (int_value))))))
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -299,42 +325,47 @@ TestCase := Rectangle {
         (callback
           (function_identifier)
           (call_signature
-            (type_identifier))
+            (var_identifier))
           (type_identifier)))
       (block_statement
         (callback_event
           (function_identifier)
           (call_signature
-            (type_identifier))
+            (var_identifier))
           (block
             (block_statement
               (if_statement
                 (comparison_binary_expression
-                  (type_identifier)
+                  (var_identifier)
                   (comparison_operator)
                   (value
-                    (int_value)))
+                    (basic_value
+                      (int_value))))
                 (component
                   (type_identifier
                     (MISSING _identifier))
                   (block
                     (value
-                      (int_value))))
+                      (basic_value
+                        (int_value)))))
                 (if_statement
                   (comparison_binary_expression
-                    (type_identifier)
+                    (var_identifier)
                     (comparison_operator)
                     (value
-                      (int_value)))
-                  (component
-                    (type_identifier
-                      (MISSING _identifier))
-                    (block
-                      (value
+                      (basic_value
                         (int_value))))
                   (component
                     (type_identifier
                       (MISSING _identifier))
                     (block
                       (value
-                        (int_value)))))))))))))
+                        (basic_value
+                          (int_value)))))
+                  (component
+                    (type_identifier
+                      (MISSING _identifier))
+                    (block
+                      (value
+                        (basic_value
+                          (int_value))))))))))))))

@@ -36,13 +36,14 @@ export AppWindow := Window {
         (var_identifier)
         (assignment_prec_operator)
         (comparison_binary_expression
-          (type_identifier)
+          (var_identifier)
           (comparison_operator)
           (ternary_expression
             (value
-              (percent_value))
-            (type_identifier)
-            (type_identifier))))))
+              (basic_value
+                (percent_value)))
+            (var_identifier)
+            (var_identifier))))))
   (comment)
   (component_definition
     (type_identifier)
@@ -71,13 +72,14 @@ export AppWindow := Window {
               (var_identifier)
               (assignment_prec_operator)
               (comparison_binary_expression
-                (type_identifier)
+                (var_identifier)
                 (comparison_operator)
                 (ternary_expression
                   (value
-                    (percent_value))
-                  (type_identifier)
-                  (type_identifier)))))))))
+                    (basic_value
+                      (percent_value)))
+                  (var_identifier)
+                  (var_identifier)))))))))
   (component_definition
     (export_modifier)
     (type_identifier)
@@ -88,13 +90,15 @@ export AppWindow := Window {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (length_value))))
+            (basic_value
+              (length_value)))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (length_value))))
+            (basic_value
+              (length_value)))))
       (block_statement
         (component
           (type_identifier)
@@ -103,7 +107,8 @@ export AppWindow := Window {
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (percent_value)))))))))
+                (basic_value
+                  (percent_value))))))))))
 
 ================================================================================
 issue_1846_visibility_in_for
@@ -140,13 +145,15 @@ TestCase := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (physical_length_value))))
+            (basic_value
+              (physical_length_value)))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (physical_length_value))))
+            (basic_value
+              (physical_length_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -158,7 +165,8 @@ TestCase := Rectangle {
       (block_statement
         (if_statement
           (value
-            (bool_value))
+            (basic_value
+              (bool_value)))
           (component
             (type_identifier)
             (block
@@ -166,7 +174,7 @@ TestCase := Rectangle {
                 (assignment_expr
                   (var_identifier)
                   (assignment_prec_operator)
-                  (type_identifier)))
+                  (var_identifier)))
               (block_statement
                 (callback_event
                   (function_identifier)
@@ -177,7 +185,8 @@ TestCase := Rectangle {
                         (post_identifier))
                       (assignment_prec_operator)
                       (value
-                        (int_value))))))))))
+                        (basic_value
+                          (int_value)))))))))))
       (block_statement
         (component
           (type_identifier)
@@ -188,7 +197,8 @@ TestCase := Rectangle {
                 (for_range
                   (value_list
                     (value
-                      (int_value))))
+                      (basic_value
+                        (int_value)))))
                 (component
                   (type_identifier)
                   (block
@@ -197,7 +207,8 @@ TestCase := Rectangle {
                         (var_identifier)
                         (assignment_prec_operator)
                         (value
-                          (bool_value))))
+                          (basic_value
+                            (bool_value)))))
                     (block_statement
                       (callback_event
                         (function_identifier)
@@ -207,4 +218,4 @@ TestCase := Rectangle {
                               (reference_identifier)
                               (post_identifier))
                             (assignment_prec_operator)
-                            (type_identifier)))))))))))))))
+                            (var_identifier)))))))))))))))

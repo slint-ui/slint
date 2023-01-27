@@ -44,13 +44,15 @@ dashes
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (physical_length_value))))))
+                (basic_value
+                  (physical_length_value)))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -58,10 +60,11 @@ dashes
           (add_binary_expression
             (unary_expression
               (unary_prec_operator)
-              (type_identifier))
+              (var_identifier))
             (add_prec_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (comment)
       (block_statement
         (property
@@ -69,9 +72,10 @@ dashes
           (var_identifier)
           (add_binary_expression
             (value
-              (int_value))
+              (basic_value
+                (int_value)))
             (add_prec_operator)
-            (type_identifier))))
+            (var_identifier))))
       (comment))))
 
 ================================================================================
@@ -121,13 +125,15 @@ TestCase := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (length_value))))
+            (basic_value
+              (length_value)))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (length_value))))
+            (basic_value
+              (length_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -149,7 +155,8 @@ TestCase := Rectangle {
           (var_identifier)
           (animate_body
             (value
-              (duration_value)))))
+              (basic_value
+                (duration_value))))))
       (block_statement
         (component
           (var_identifier)
@@ -160,35 +167,41 @@ TestCase := Rectangle {
                 (type_identifier)
                 (var_identifier)
                 (value
-                  (int_value))))
-            (block_statement
-              (animate_statement
-                (var_identifier)
-                (animate_body
-                  (value
-                    (duration_value)))))
-            (block_statement
-              (property
-                (type_identifier)
-                (var_identifier)
-                (value
-                  (bool_value))))
-            (block_statement
-              (property
-                (type_identifier)
-                (var_identifier)
-                (ternary_expression
-                  (type_identifier)
-                  (value
-                    (int_value))
-                  (value
+                  (basic_value
                     (int_value)))))
             (block_statement
               (animate_statement
                 (var_identifier)
                 (animate_body
                   (value
-                    (duration_value)))))
+                    (basic_value
+                      (duration_value))))))
+            (block_statement
+              (property
+                (type_identifier)
+                (var_identifier)
+                (value
+                  (basic_value
+                    (bool_value)))))
+            (block_statement
+              (property
+                (type_identifier)
+                (var_identifier)
+                (ternary_expression
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (value
+                    (basic_value
+                      (int_value))))))
+            (block_statement
+              (animate_statement
+                (var_identifier)
+                (animate_body
+                  (value
+                    (basic_value
+                      (duration_value))))))
             (block_statement
               (callback_event
                 (function_identifier)
@@ -197,8 +210,9 @@ TestCase := Rectangle {
                     (function_identifier)
                     (call_signature
                       (value
-                        (string_value
-                          (_string_fragment)))))
+                        (basic_value
+                          (string_value
+                            (_string_fragment))))))
                   (MISSING "}"))))
             (block_statement
               (assignment_expr
@@ -207,7 +221,8 @@ TestCase := Rectangle {
                   (post_identifier))
                 (assignment_prec_operator)
                 (value
-                  (int_value))))
+                  (basic_value
+                    (int_value)))))
             (block_statement
               (assignment_expr
                 (var_identifier
@@ -215,19 +230,22 @@ TestCase := Rectangle {
                   (post_identifier))
                 (assignment_prec_operator)
                 (value
-                  (bool_value))))
+                  (basic_value
+                    (bool_value)))))
             (block_statement
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (int_value))))
+                  (basic_value
+                    (int_value)))))
             (function_call
               (function_identifier)
               (call_signature
                 (value
-                  (string_value
-                    (_string_fragment))))))))))
+                  (basic_value
+                    (string_value
+                      (_string_fragment)))))))))))
   (ERROR))
 
 ================================================================================
@@ -284,13 +302,14 @@ TestCase := Rectangle {
         (animate_statement
           (var_identifier)
           (animate_body
-            (type_identifier))))
+            (var_identifier))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (duration_value))))))
+            (basic_value
+              (duration_value)))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -303,7 +322,7 @@ TestCase := Rectangle {
         (property
           (type_identifier)
           (var_identifier)
-          (type_identifier)))))
+          (var_identifier)))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -313,7 +332,8 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -346,7 +366,7 @@ TestCase := Rectangle {
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
-              (type_identifier)))))
+              (var_identifier)))))
       (block_statement
         (component
           (var_identifier)
@@ -357,11 +377,12 @@ TestCase := Rectangle {
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (duration_value))))
+                  (basic_value
+                    (duration_value)))))
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
-              (type_identifier)))))
+              (var_identifier)))))
       (block_statement
         (component
           (var_identifier)
@@ -372,11 +393,12 @@ TestCase := Rectangle {
                 (var_identifier)
                 (animate_body
                   (value
-                    (duration_value)))))
+                    (basic_value
+                      (duration_value))))))
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
-              (type_identifier)))))
+              (var_identifier)))))
       (block_statement
         (component
           (var_identifier)
@@ -394,7 +416,8 @@ TestCase := Rectangle {
                 (var_identifier)
                 (animate_body
                   (value
-                    (duration_value)))))))))))
+                    (basic_value
+                      (duration_value))))))))))))
 
 ================================================================================
 delayed_transitions
@@ -444,25 +467,29 @@ delayed_transitions
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -474,49 +501,81 @@ delayed_transitions
                 (var_identifier)
                 (add_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (add_prec_operator)
-                  (type_identifier)))))))
+                  (var_identifier)))))))
+      (block_statement
+        (assignment_block
+          (var_identifier
+            (index_operator
+              (comparison_binary_expression
+                (var_identifier)
+                (ERROR
+                  (UNEXPECTED 'c')
+                  (UNEXPECTED 'x'))
+                (comparison_operator)
+                (value
+                  (basic_value
+                    (int_value))))
+              (MISSING "]")))
+          (assignment_prec_operator)
+          (block
+            (block_statement
+              (assignment_expr
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (add_binary_expression
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (add_prec_operator)
+                  (mult_binary_expression
+                    (value
+                      (basic_value
+                        (int_value)))
+                    (mult_prec_operator)
+                    (var_identifier)))))
+            (block_statement
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (basic_value
+                    (int_value)))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (basic_value
+                  (int_value)))))))
       (ERROR
-        (UNEXPECTED 'c')
-        (comparison_binary_expression
-          (type_identifier)
-          (comparison_operator)
-          (value
-            (int_value)))
-        (UNEXPECTED 'e')
-        (UNEXPECTED 'o')
-        (add_binary_expression
-          (value
-            (int_value))
-          (add_prec_operator)
-          (mult_binary_expression
-            (value
-              (int_value))
-            (mult_prec_operator)
-            (type_identifier)))
-        (UNEXPECTED 'm')
+        (UNEXPECTED 'a')
+        (UNEXPECTED 't')
+        (visibility_modifier)
+        (var_identifier)
+        (var_identifier)
+        (ERROR
+          (UNEXPECTED 'm')
+          (UNEXPECTED 'l'))
         (value
-          (int_value))
-        (UNEXPECTED 't'))
-      (value
-        (int_value))))
+          (basic_value
+            (duration_value))))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (basic_value
+            (duration_value))))))
   (ERROR
-    (UNEXPECTED 'a')
-    (UNEXPECTED 't')
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'm')
-    (UNEXPECTED 'l')
     (type_identifier)
     (UNEXPECTED 't')
     (UNEXPECTED 'l')
-    (type_identifier)
     (UNEXPECTED 'x')
     (UNEXPECTED 'e')
     (UNEXPECTED 'o')
     (UNEXPECTED 'l')
-    (type_identifier)
-    (type_identifier)
     (UNEXPECTED 'e')
     (UNEXPECTED '_')
     (UNEXPECTED 'e')
@@ -558,19 +617,22 @@ TestCase := Window {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (length_value))))
+            (basic_value
+              (length_value)))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (length_value))))
+            (basic_value
+              (length_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -586,7 +648,8 @@ TestCase := Window {
                       (post_identifier))
                     (assignment_prec_operator)
                     (value
-                      (int_value))))))
+                      (basic_value
+                        (int_value)))))))
             (block_statement
               (component
                 (var_identifier)
@@ -596,58 +659,57 @@ TestCase := Window {
                     (var_identifier)
                     (assignment_prec_operator)
                     (value
-                      (string_value
-                        (_string_fragment)))))))
-            (block_statement
-              (assignment_block
-                (var_identifier
-                  (index_operator
-                    (ERROR)
-                    (comparison_binary_expression
-                      (var_identifier
-                        (reference_identifier)
-                        (post_identifier))
-                      (comparison_operator)
-                      (value
-                        (int_value)))
-                    (MISSING "]")))
-                (assignment_prec_operator)
-                (block
-                  (assignment_expr
-                    (var_identifier)
-                    (assignment_prec_operator)
-                    (value
-                      (bool_value))))))
-            (ERROR
-              (comparison_binary_expression
-                (var_identifier
-                  (reference_identifier)
-                  (post_identifier))
-                (comparison_operator)
-                (value
-                  (int_value)))
-              (UNEXPECTED '.')
-              (UNEXPECTED 'e')
-              (add_binary_expression
-                (value
-                  (string_value
-                    (_string_fragment)))
+                      (basic_value
+                        (string_value
+                          (_string_fragment))))))))
+            (var_identifier
+              (index_operator
                 (ERROR
-                  (UNEXPECTED '.')
-                  (UNEXPECTED 'n'))
-                (add_prec_operator)
-                (type_identifier)))
-            (value
-              (length_value)))))
-      (ERROR)))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'e')
-    (UNEXPECTED ':')
-    (UNEXPECTED 'e')
-    (UNEXPECTED '.')
-    (UNEXPECTED 'v')
-    (UNEXPECTED 'b')))
+                  (comparison_binary_expression
+                    (var_identifier
+                      (reference_identifier)
+                      (post_identifier))
+                    (comparison_operator)
+                    (value
+                      (basic_value
+                        (int_value))))
+                  (value
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (basic_value
+                          (bool_value)))
+                      (ERROR)))
+                  (UNEXPECTED 'w')
+                  (comparison_binary_expression
+                    (var_identifier
+                      (reference_identifier)
+                      (post_identifier))
+                    (comparison_operator)
+                    (value
+                      (basic_value
+                        (int_value)))))
+                (value
+                  (anon_struct
+                    (var_identifier
+                      (post_identifier))
+                    (add_binary_expression
+                      (value
+                        (basic_value
+                          (string_value
+                            (_string_fragment))))
+                      (ERROR
+                        (UNEXPECTED '.')
+                        (UNEXPECTED 'n'))
+                      (add_prec_operator)
+                      (var_identifier))
+                    (ERROR))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier)))))))
 
 ================================================================================
 property_animation
@@ -686,51 +748,59 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (animate_statement
           (var_identifier)
           (animate_body
             (mult_binary_expression
-              (type_identifier)
+              (var_identifier)
               (mult_prec_operator)
               (value
-                (duration_value)))
-            (type_identifier))))
+                (basic_value
+                  (duration_value))))
+            (var_identifier))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
-      (block_statement
-        (animate_statement
-          (var_identifier)
-          (animate_body
-            (value
-              (duration_value)))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (value
-            (bool_value))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (ternary_expression
-            (type_identifier)
-            (value
-              (int_value))
-            (value
+            (basic_value
               (int_value)))))
       (block_statement
         (animate_statement
           (var_identifier)
           (animate_body
             (value
-              (duration_value))))))))
+              (basic_value
+                (duration_value))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (value
+            (basic_value
+              (bool_value)))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (ternary_expression
+            (var_identifier)
+            (value
+              (basic_value
+                (int_value)))
+            (value
+              (basic_value
+                (int_value))))))
+      (block_statement
+        (animate_statement
+          (var_identifier)
+          (animate_body
+            (value
+              (basic_value
+                (duration_value)))))))))
 
 ================================================================================
 states
@@ -812,39 +882,37 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
-      (block_statement
-        (component
-          (type_identifier)
+            (basic_value
+              (int_value)))))
+      (var_identifier
+        (index_operator
           (ERROR
             (UNEXPECTED 'c'))
-          (block
-            (assignment_expr
+          (value
+            (anon_struct
               (var_identifier)
-              (assignment_prec_operator)
               (value
-                (int_value))))))
-      (ERROR)))
+                (basic_value
+                  (int_value)))
+              (ERROR)))))))
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
       (block_statement
         (component
-          (type_identifier)
+          (var_identifier
+            (index_operator
+              (ERROR
+                (UNEXPECTED 'c'))
+              (value
+                (anon_struct
+                  (var_identifier
+                    (post_identifier))
+                  (var_identifier)
+                  (ERROR)))))
           (ERROR
-            (UNEXPECTED 'c'))
-          (block
-            (assignment_expr
-              (var_identifier
-                (post_identifier))
-              (assignment_prec_operator)
-              (type_identifier)))))
-      (ERROR
-        (UNEXPECTED ')
-        (UNEXPECTED 'R'))
-      (block_statement
-        (component
+            (UNEXPECTED '))
           (type_identifier)
           (block)))))
   (component_definition
@@ -856,19 +924,22 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -879,76 +950,149 @@ TestCase := Rectangle {
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (string_value
-                    (_string_fragment)))))
+                  (basic_value
+                    (string_value
+                      (_string_fragment))))))
             (block_statement
               (property
                 (type_identifier)
                 (var_identifier)
                 (add_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (add_prec_operator)
-                  (type_identifier)))))))
+                  (var_identifier)))))))
+      (block_statement
+        (assignment_block
+          (var_identifier
+            (index_operator
+              (comparison_binary_expression
+                (var_identifier)
+                (ERROR
+                  (UNEXPECTED 'c')
+                  (UNEXPECTED 'x'))
+                (comparison_operator)
+                (value
+                  (basic_value
+                    (int_value))))
+              (MISSING "]")))
+          (assignment_prec_operator)
+          (block
+            (block_statement
+              (assignment_expr
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (value
+                  (basic_value
+                    (string_value
+                      (_string_fragment))))))
+            (block_statement
+              (assignment_expr
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (add_binary_expression
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (add_prec_operator)
+                  (mult_binary_expression
+                    (value
+                      (basic_value
+                        (int_value)))
+                    (mult_prec_operator)
+                    (var_identifier)))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (basic_value
+                  (int_value)))))))
       (ERROR
-        (UNEXPECTED 'c')
         (comparison_binary_expression
-          (type_identifier)
+          (var_identifier)
+          (ERROR
+            (UNEXPECTED 'c')
+            (UNEXPECTED 'x'))
           (comparison_operator)
           (value
-            (int_value)))
-        (UNEXPECTED 'e')
-        (UNEXPECTED 'e')
+            (basic_value
+              (int_value))))
         (value
-          (string_value
-            (_string_fragment)))
-        (UNEXPECTED 'e')
-        (UNEXPECTED 'o')
-        (add_binary_expression
-          (value
-            (int_value))
-          (add_prec_operator)
-          (mult_binary_expression
+          (anon_struct
+            (var_identifier
+              (post_identifier))
             (value
-              (int_value))
-            (mult_prec_operator)
-            (type_identifier)))
-        (UNEXPECTED 'm'))
-      (value
-        (int_value))))
-  (component_definition
-    (type_identifier)
-    (ERROR
-      (UNEXPECTED 'w')
-      (UNEXPECTED 'x')
-      (UNEXPECTED 'e')
-      (UNEXPECTED 'o')
-      (UNEXPECTED 'e')
-      (UNEXPECTED '_')
-      (UNEXPECTED 'e')
-      (UNEXPECTED 'o')
-      (UNEXPECTED 'x')
-      (UNEXPECTED 'R')
-      (UNEXPECTED 'a')
-      (UNEXPECTED 'o')
-      (UNEXPECTED 'h')
-      (UNEXPECTED 'o')
-      (UNEXPECTED '))
-    (type_identifier)
-    (block
-      (assignment_expr
-        (var_identifier)
-        (assignment_prec_operator)
-        (comparison_binary_expression
+              (basic_value
+                (int_value)))
+            (ERROR))))
+      (block_statement
+        (property
           (type_identifier)
-          (comparison_operator)
-          (value
-            (int_value))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'u')
-    (UNEXPECTED '.')
-    (UNEXPECTED 'v')))
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (for_loop
+          (var_identifier)
+          (for_range
+            (value_list
+              (value
+                (basic_value
+                  (int_value)))
+              (value
+                (basic_value
+                  (int_value)))))
+          (component
+            (type_identifier)
+            (block
+              (block_statement
+                (assignment_block
+                  (var_identifier
+                    (index_operator
+                      (comparison_binary_expression
+                        (var_identifier)
+                        (ERROR
+                          (UNEXPECTED 'x'))
+                        (comparison_operator)
+                        (value
+                          (basic_value
+                            (int_value))))
+                      (MISSING "]")))
+                  (assignment_prec_operator)
+                  (block
+                    (assignment_expr
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (mult_binary_expression
+                        (var_identifier)
+                        (mult_prec_operator)
+                        (value
+                          (basic_value
+                            (physical_length_value))))))))
+              (ERROR)))))
+      (block_statement
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (comparison_binary_expression
+                (var_identifier)
+                (comparison_operator)
+                (value
+                  (basic_value
+                    (int_value))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier)))))))
 
 ================================================================================
 states_with_animation
@@ -989,13 +1133,15 @@ states_with_animation
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -1011,29 +1157,52 @@ states_with_animation
                 (var_identifier)
                 (animate_body
                   (value
-                    (duration_value))))))))
-      (ERROR
-        (UNEXPECTED 'c')
-        (comparison_binary_expression
+                    (basic_value
+                      (duration_value)))))))))
+      (block_statement
+        (assignment_block
+          (var_identifier
+            (index_operator
+              (comparison_binary_expression
+                (var_identifier)
+                (ERROR
+                  (UNEXPECTED 'c')
+                  (UNEXPECTED 'x'))
+                (comparison_operator)
+                (value
+                  (basic_value
+                    (int_value))))
+              (MISSING "]")))
+          (assignment_prec_operator)
+          (block
+            (block_statement
+              (assignment_expr
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (value
+                  (basic_value
+                    (int_value)))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (basic_value
+                  (int_value)))))))
+      (ERROR)
+      (block_statement
+        (animate_statement
+          (var_identifier)
+          (animate_body
+            (value
+              (basic_value
+                (duration_value))))))
+      (block_statement
+        (property
           (type_identifier)
-          (comparison_operator)
-          (value
-            (int_value)))
-        (UNEXPECTED 'e')
-        (UNEXPECTED 'o')
-        (value
-          (int_value))
-        (UNEXPECTED 'm'))
-      (value
-        (int_value))))
-  (ERROR
-    (UNEXPECTED 'm')
-    (type_identifier)
-    (type_identifier)
-    (UNEXPECTED 'e')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'o')))
+          (var_identifier)
+          (var_identifier
+            (post_identifier)))))))
 
 ================================================================================
 transitions
@@ -1080,19 +1249,22 @@ transitions
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -1104,36 +1276,61 @@ transitions
                 (var_identifier)
                 (add_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (add_prec_operator)
-                  (type_identifier)))))))
+                  (var_identifier)))))))
+      (block_statement
+        (assignment_block
+          (var_identifier
+            (index_operator
+              (comparison_binary_expression
+                (var_identifier)
+                (ERROR
+                  (UNEXPECTED 'c')
+                  (UNEXPECTED 'x'))
+                (comparison_operator)
+                (value
+                  (basic_value
+                    (int_value))))
+              (MISSING "]")))
+          (assignment_prec_operator)
+          (block
+            (block_statement
+              (assignment_expr
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (add_binary_expression
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (add_prec_operator)
+                  (mult_binary_expression
+                    (value
+                      (basic_value
+                        (int_value)))
+                    (mult_prec_operator)
+                    (var_identifier)))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (basic_value
+                  (int_value)))))))
       (ERROR
-        (UNEXPECTED 'c')
-        (comparison_binary_expression
-          (type_identifier)
-          (comparison_operator)
-          (value
-            (int_value)))
-        (UNEXPECTED 'e')
-        (UNEXPECTED 'o')
-        (add_binary_expression
-          (value
-            (int_value))
-          (add_prec_operator)
-          (mult_binary_expression
-            (value
-              (int_value))
-            (mult_prec_operator)
-            (type_identifier)))
+        (UNEXPECTED 'a')
+        (UNEXPECTED 't')
+        (visibility_modifier)
+        (var_identifier)
         (UNEXPECTED 'm'))
-      (value
-        (int_value))))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (basic_value
+            (duration_value))))))
   (ERROR
-    (UNEXPECTED 'a')
-    (UNEXPECTED 't')
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'm')
-    (type_identifier)
     (UNEXPECTED 'x')
     (UNEXPECTED 'e')
     (UNEXPECTED 'o')
@@ -1188,19 +1385,22 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -1212,40 +1412,70 @@ TestCase := Rectangle {
                 (var_identifier)
                 (add_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (add_prec_operator)
-                  (type_identifier)))))))
+                  (var_identifier)))))))
+      (block_statement
+        (assignment_block
+          (var_identifier
+            (index_operator
+              (comparison_binary_expression
+                (var_identifier)
+                (ERROR
+                  (UNEXPECTED 'c')
+                  (UNEXPECTED 'x'))
+                (comparison_operator)
+                (value
+                  (basic_value
+                    (int_value))))
+              (MISSING "]")))
+          (assignment_prec_operator)
+          (block
+            (block_statement
+              (assignment_expr
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (add_binary_expression
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (add_prec_operator)
+                  (mult_binary_expression
+                    (value
+                      (basic_value
+                        (int_value)))
+                    (mult_prec_operator)
+                    (var_identifier)))))
+            (block_statement
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (basic_value
+                    (int_value)))))
+            (ERROR
+              (visibility_modifier))
+            (block_statement
+              (animate_statement
+                (var_identifier)
+                (animate_body
+                  (value
+                    (basic_value
+                      (duration_value)))))))))
       (ERROR
-        (UNEXPECTED 'c')
-        (comparison_binary_expression
-          (type_identifier)
-          (comparison_operator)
-          (value
-            (int_value)))
-        (UNEXPECTED 'e')
-        (UNEXPECTED 'o')
-        (add_binary_expression
-          (value
-            (int_value))
-          (add_prec_operator)
-          (mult_binary_expression
-            (value
-              (int_value))
-            (mult_prec_operator)
-            (type_identifier)))
-        (UNEXPECTED 'm')
-        (value
-          (int_value)))
+        (visibility_modifier))
       (block_statement
         (animate_statement
-          (var_identifier)
+          (var_identifier
+            (post_identifier))
           (animate_body
             (value
-              (duration_value)))))))
+              (basic_value
+                (duration_value))))))))
   (ERROR
     (type_identifier)
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'o')
     (UNEXPECTED 'e')
     (UNEXPECTED '_')
     (UNEXPECTED 'e')

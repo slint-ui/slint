@@ -23,17 +23,7 @@ abs
             (function_identifier)
             (call_signature
               (value
-                (float_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (unary_expression
-                (unary_prec_operator)
-                (value
+                (basic_value
                   (float_value)))))))
       (block_statement
         (property
@@ -42,8 +32,21 @@ abs
           (function_call
             (function_identifier)
             (call_signature
+              (unary_expression
+                (unary_prec_operator)
+                (value
+                  (basic_value
+                    (float_value))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
               (value
-                (float_value))))))
+                (basic_value
+                  (float_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -54,7 +57,8 @@ abs
               (unary_expression
                 (unary_prec_operator)
                 (value
-                  (float_value))))))))))
+                  (basic_value
+                    (float_value)))))))))))
 
 ================================================================================
 acos
@@ -80,7 +84,8 @@ acos
             (function_identifier)
             (call_signature
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -89,7 +94,8 @@ acos
             (function_identifier)
             (call_signature
               (value
-                (float_value))))))
+                (basic_value
+                  (float_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -98,7 +104,8 @@ acos
             (function_identifier)
             (call_signature
               (value
-                (int_value)))))))))
+                (basic_value
+                  (int_value))))))))))
 
 ================================================================================
 arithmetic
@@ -146,23 +153,29 @@ arithmetic
               (add_binary_expression
                 (add_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (add_prec_operator)
                   (mult_binary_expression
                     (value
-                      (int_value))
+                      (basic_value
+                        (int_value)))
                     (mult_prec_operator)
                     (value
-                      (int_value))))
+                      (basic_value
+                        (int_value)))))
                 (add_prec_operator)
                 (value
-                  (int_value)))
+                  (basic_value
+                    (int_value))))
               (add_prec_operator)
               (value
-                (int_value)))
+                (basic_value
+                  (int_value))))
             (add_prec_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -171,37 +184,44 @@ arithmetic
             (mult_binary_expression
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
                 (value
-                  (int_value)))
+                  (basic_value
+                    (int_value))))
               (mult_prec_operator)
               (value
-                (int_value)))
+                (basic_value
+                  (int_value))))
             (add_prec_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (add_binary_expression
-            (type_identifier)
+            (var_identifier)
             (add_prec_operator)
             (add_binary_expression
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (add_prec_operator)
               (ERROR)
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
                 (add_binary_expression
-                  (type_identifier)
+                  (var_identifier)
                   (add_prec_operator)
                   (value
-                    (int_value))))))))
+                    (basic_value
+                      (int_value)))))))))
       (block_statement
         (property
           (type_identifier)
@@ -210,22 +230,26 @@ arithmetic
             (add_binary_expression
               (add_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (add_prec_operator)
                 (unary_expression
                   (unary_prec_operator)
                   (ERROR)
                   (value
-                    (int_value))))
+                    (basic_value
+                      (int_value)))))
               (add_prec_operator)
               (value
-                (int_value)))
+                (basic_value
+                  (int_value))))
             (add_prec_operator)
             (mult_binary_expression
               (unary_expression
                 (unary_prec_operator)
                 (value
-                  (int_value)))
+                  (basic_value
+                    (int_value))))
               (mult_prec_operator)
               (unary_expression
                 (unary_prec_operator)
@@ -234,17 +258,20 @@ arithmetic
                   (unary_expression
                     (unary_prec_operator)
                     (value
-                      (int_value)))))))))
+                      (basic_value
+                        (int_value))))))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (mult_binary_expression
             (value
-              (length_value))
+              (basic_value
+                (length_value)))
             (mult_prec_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (callback
           (function_identifier)))
@@ -258,48 +285,56 @@ arithmetic
                 (assignment_prec_operator)
                 (ERROR)
                 (value
-                  (int_value))))
+                  (basic_value
+                    (int_value)))))
             (block_statement
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (int_value))))
+                  (basic_value
+                    (int_value)))))
             (block_statement
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (int_value))))
+                  (basic_value
+                    (int_value)))))
             (block_statement
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (int_value))))
+                  (basic_value
+                    (int_value)))))
             (block_statement
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (length_value))))
+                  (basic_value
+                    (length_value)))))
             (block_statement
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (int_value))))
+                  (basic_value
+                    (int_value)))))
             (block_statement
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (length_value))))
+                  (basic_value
+                    (length_value)))))
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (int_value)))))))))
+                (basic_value
+                  (int_value))))))))))
 
 ================================================================================
 asin
@@ -325,7 +360,8 @@ asin
             (function_identifier)
             (call_signature
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -334,7 +370,8 @@ asin
             (function_identifier)
             (call_signature
               (value
-                (float_value))))))
+                (basic_value
+                  (float_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -343,7 +380,8 @@ asin
             (function_identifier)
             (call_signature
               (value
-                (int_value)))))))))
+                (basic_value
+                  (int_value))))))))))
 
 ================================================================================
 atan
@@ -370,7 +408,8 @@ atan
             (function_identifier)
             (call_signature
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -381,16 +420,19 @@ atan
               (mult_binary_expression
                 (mult_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (mult_prec_operator)
                   (value
-                    (int_value)))
+                    (basic_value
+                      (int_value))))
                 (mult_prec_operator)
                 (function_call
                   (function_identifier)
                   (call_signature
                     (value
-                      (int_value)))))))))
+                      (basic_value
+                        (int_value))))))))))
       (block_statement
         (property
           (type_identifier)
@@ -399,7 +441,8 @@ atan
             (function_identifier)
             (call_signature
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -411,7 +454,8 @@ atan
                 (function_identifier)
                 (call_signature
                   (value
-                    (int_value)))))))))))
+                    (basic_value
+                      (int_value))))))))))))
 
 ================================================================================
 ceil
@@ -443,44 +487,7 @@ ceil
             (function_identifier)
             (call_signature
               (value
-                (float_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (float_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (float_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (int_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (unary_expression
-                (unary_prec_operator)
-                (value
+                (basic_value
                   (float_value)))))))
       (block_statement
         (property
@@ -489,10 +496,29 @@ ceil
           (function_call
             (function_identifier)
             (call_signature
-              (unary_expression
-                (unary_prec_operator)
-                (value
+              (value
+                (basic_value
                   (float_value)))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (value
+                (basic_value
+                  (float_value)))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (value
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -503,7 +529,8 @@ ceil
               (unary_expression
                 (unary_prec_operator)
                 (value
-                  (float_value)))))))
+                  (basic_value
+                    (float_value))))))))
       (block_statement
         (property
           (type_identifier)
@@ -514,7 +541,32 @@ ceil
               (unary_expression
                 (unary_prec_operator)
                 (value
-                  (int_value))))))))))
+                  (basic_value
+                    (float_value))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (unary_expression
+                (unary_prec_operator)
+                (value
+                  (basic_value
+                    (float_value))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (unary_expression
+                (unary_prec_operator)
+                (value
+                  (basic_value
+                    (int_value)))))))))))
 
 ================================================================================
 comparison
@@ -545,22 +597,7 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (comparison_binary_expression
-            (comparison_binary_expression
-              (type_identifier)
-              (comparison_operator)
-              (mult_binary_expression
-                (value
-                  (int_value))
-                (mult_prec_operator)
-                (type_identifier)))
-            (comparison_operator)
-            (value
+            (basic_value
               (int_value)))))
       (block_statement
         (property
@@ -568,43 +605,65 @@ TestCase := Rectangle {
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
-              (type_identifier)
+              (var_identifier)
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (comparison_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
-              (type_identifier)
+              (var_identifier)
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (comparison_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (comparison_binary_expression
+            (comparison_binary_expression
+              (var_identifier)
+              (comparison_operator)
+              (mult_binary_expression
+                (value
+                  (basic_value
+                    (int_value)))
+                (mult_prec_operator)
+                (var_identifier)))
+            (comparison_operator)
+            (value
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (mult_binary_expression
-            (type_identifier)
+            (var_identifier)
             (mult_prec_operator)
             (mult_binary_expression
-              (type_identifier)
+              (var_identifier)
               (mult_prec_operator)
-              (type_identifier)))))
+              (var_identifier)))))
       (block_statement
         (property
           (type_identifier)
@@ -612,23 +671,27 @@ TestCase := Rectangle {
           (comparison_binary_expression
             (add_binary_expression
               (mult_binary_expression
-                (type_identifier)
+                (var_identifier)
                 (mult_prec_operator)
-                (type_identifier))
+                (var_identifier))
               (add_prec_operator)
               (value
-                (int_value)))
+                (basic_value
+                  (int_value))))
             (comparison_operator)
             (add_binary_expression
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
                 (value
-                  (int_value)))
+                  (basic_value
+                    (int_value))))
               (add_prec_operator)
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -637,30 +700,34 @@ TestCase := Rectangle {
             (mult_binary_expression
               (unary_expression
                 (unary_prec_operator)
-                (type_identifier))
+                (var_identifier))
               (mult_prec_operator)
               (value
-                (int_value)))
+                (basic_value
+                  (int_value))))
             (comparison_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)))))
+            (basic_value
+              (string_value
+                (_string_fragment))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (comparison_binary_expression
-            (type_identifier)
+            (var_identifier)
             (comparison_operator)
             (value
-              (string_value
-                (_string_fragment)))))))))
+              (basic_value
+                (string_value
+                  (_string_fragment))))))))))
 
 ================================================================================
 cos
@@ -687,7 +754,8 @@ cos
             (function_identifier)
             (call_signature
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -696,7 +764,8 @@ cos
             (function_identifier)
             (call_signature
               (value
-                (angle_value))))))
+                (basic_value
+                  (angle_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -705,7 +774,8 @@ cos
             (function_identifier)
             (call_signature
               (value
-                (angle_value))))))
+                (basic_value
+                  (angle_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -714,7 +784,8 @@ cos
             (function_identifier)
             (call_signature
               (value
-                (angle_value)))))))))
+                (basic_value
+                  (angle_value))))))))))
 
 ================================================================================
 floor
@@ -746,44 +817,7 @@ floor
             (function_identifier)
             (call_signature
               (value
-                (float_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (float_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (float_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (int_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (unary_expression
-                (unary_prec_operator)
-                (value
+                (basic_value
                   (float_value)))))))
       (block_statement
         (property
@@ -792,10 +826,29 @@ floor
           (function_call
             (function_identifier)
             (call_signature
-              (unary_expression
-                (unary_prec_operator)
-                (value
+              (value
+                (basic_value
                   (float_value)))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (value
+                (basic_value
+                  (float_value)))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (value
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -806,7 +859,8 @@ floor
               (unary_expression
                 (unary_prec_operator)
                 (value
-                  (float_value)))))))
+                  (basic_value
+                    (float_value))))))))
       (block_statement
         (property
           (type_identifier)
@@ -817,7 +871,32 @@ floor
               (unary_expression
                 (unary_prec_operator)
                 (value
-                  (int_value))))))))))
+                  (basic_value
+                    (float_value))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (unary_expression
+                (unary_prec_operator)
+                (value
+                  (basic_value
+                    (float_value))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (unary_expression
+                (unary_prec_operator)
+                (value
+                  (basic_value
+                    (int_value)))))))))))
 
 ================================================================================
 log
@@ -842,9 +921,11 @@ log
             (function_identifier)
             (call_signature
               (value
-                (float_value))
+                (basic_value
+                  (float_value)))
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -853,9 +934,11 @@ log
             (function_identifier)
             (call_signature
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (value
-                (float_value)))))))))
+                (basic_value
+                  (float_value))))))))))
 
 ================================================================================
 math
@@ -886,11 +969,13 @@ math
                   (function_identifier)
                   (call_signature
                     (value
-                      (int_value))))
+                      (basic_value
+                        (int_value)))))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (mult_prec_operator)
                   (var_identifier
                     (post_identifier
@@ -898,20 +983,24 @@ math
                         (function_identifier)
                         (call_signature
                           (value
-                            (int_value))))))))
+                            (basic_value
+                              (int_value)))))))))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
                 (function_call
                   (function_identifier)
                   (call_signature
                     (value
-                      (float_value))))))
+                      (basic_value
+                        (float_value)))))))
             (comparison_operator)
             (value
-              (float_value)))))
+              (basic_value
+                (float_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -923,11 +1012,13 @@ math
                   (function_identifier)
                   (call_signature
                     (value
-                      (float_value))))
+                      (basic_value
+                        (float_value)))))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (float_value))
+                    (basic_value
+                      (float_value)))
                   (mult_prec_operator)
                   (var_identifier
                     (post_identifier
@@ -937,20 +1028,24 @@ math
                           (unary_expression
                             (unary_prec_operator)
                             (value
-                              (float_value)))))))))
+                              (basic_value
+                                (float_value))))))))))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (float_value))
+                  (basic_value
+                    (float_value)))
                 (mult_prec_operator)
                 (function_call
                   (function_identifier)
                   (call_signature
                     (value
-                      (int_value))))))
+                      (basic_value
+                        (int_value)))))))
             (comparison_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -962,13 +1057,16 @@ math
                   (function_identifier)
                   (call_signature
                     (value
-                      (int_value))
+                      (basic_value
+                        (int_value)))
                     (value
-                      (int_value))))
+                      (basic_value
+                        (int_value)))))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (mult_prec_operator)
                   (var_identifier
                     (post_identifier
@@ -976,24 +1074,30 @@ math
                         (function_identifier)
                         (call_signature
                           (value
-                            (int_value))
+                            (basic_value
+                              (int_value)))
                           (value
-                            (int_value))))))))
+                            (basic_value
+                              (int_value)))))))))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
                 (function_call
                   (function_identifier)
                   (call_signature
                     (value
-                      (int_value))
+                      (basic_value
+                        (int_value)))
                     (value
-                      (int_value))))))
+                      (basic_value
+                        (int_value)))))))
             (comparison_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -1005,13 +1109,16 @@ math
                   (function_identifier)
                   (call_signature
                     (value
-                      (int_value))
+                      (basic_value
+                        (int_value)))
                     (value
-                      (int_value))))
+                      (basic_value
+                        (int_value)))))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (mult_prec_operator)
                   (var_identifier
                     (post_identifier
@@ -1019,24 +1126,30 @@ math
                         (function_identifier)
                         (call_signature
                           (value
-                            (int_value))
+                            (basic_value
+                              (int_value)))
                           (value
-                            (int_value))))))))
+                            (basic_value
+                              (int_value)))))))))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
                 (function_call
                   (function_identifier)
                   (call_signature
                     (value
-                      (int_value))
+                      (basic_value
+                        (int_value)))
                     (value
-                      (int_value))))))
+                      (basic_value
+                        (int_value)))))))
             (comparison_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -1044,13 +1157,13 @@ math
           (mult_binary_expression
             (mult_binary_expression
               (mult_binary_expression
-                (type_identifier)
+                (var_identifier)
                 (mult_prec_operator)
-                (type_identifier))
+                (var_identifier))
               (mult_prec_operator)
-              (type_identifier))
+              (var_identifier))
             (mult_prec_operator)
-            (type_identifier)))))))
+            (var_identifier)))))))
 
 ================================================================================
 minmax
@@ -1087,40 +1200,49 @@ minmax
               (function_identifier)
               (call_signature
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (function_call
                   (function_identifier)
                   (call_signature
                     (value
-                      (int_value))
+                      (basic_value
+                        (int_value)))
                     (value
-                      (int_value))))
+                      (basic_value
+                        (int_value)))))
                 (function_call
                   (function_identifier)
                   (call_signature
                     (unary_expression
                       (unary_prec_operator)
                       (value
-                        (int_value)))
+                        (basic_value
+                          (int_value))))
                     (add_binary_expression
                       (value
-                        (int_value))
+                        (basic_value
+                          (int_value)))
                       (add_prec_operator)
                       (value
-                        (float_value)))))
+                        (basic_value
+                          (float_value))))))
                 (unary_expression
                   (unary_prec_operator)
                   (value
-                    (int_value)))))
+                    (basic_value
+                      (int_value))))))
             (add_prec_operator)
             (function_call
               (function_identifier)
               (call_signature
-                (type_identifier)
+                (var_identifier)
                 (value
-                  (float_value)))))))
+                  (basic_value
+                    (float_value))))))))
       (block_statement
         (property
           (type_identifier)
@@ -1133,41 +1255,50 @@ minmax
                   (call_signature
                     (mult_binary_expression
                       (value
-                        (int_value))
+                        (basic_value
+                          (int_value)))
                       (mult_prec_operator)
                       (value
-                        (int_value)))))
+                        (basic_value
+                          (int_value))))))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (mult_prec_operator)
                   (function_call
                     (function_identifier)
                     (call_signature
                       (mult_binary_expression
                         (value
-                          (int_value))
+                          (basic_value
+                            (int_value)))
                         (mult_prec_operator)
                         (value
-                          (int_value)))))))
+                          (basic_value
+                            (int_value))))))))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
                 (function_call
                   (function_identifier)
                   (call_signature
                     (mult_binary_expression
                       (value
-                        (int_value))
+                        (basic_value
+                          (int_value)))
                       (mult_prec_operator)
                       (value
-                        (int_value)))))))
+                        (basic_value
+                          (int_value))))))))
             (comparison_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (block_statement
         (component
           (var_identifier)
@@ -1178,7 +1309,8 @@ minmax
                 (type_identifier)
                 (var_identifier)
                 (value
-                  (int_value))))
+                  (basic_value
+                    (int_value)))))
             (block_statement
               (property
                 (type_identifier)
@@ -1190,30 +1322,35 @@ minmax
                         (function_identifier)
                         (call_signature
                           (value
-                            (int_value))
+                            (basic_value
+                              (int_value)))
                           (value
-                            (int_value))
+                            (basic_value
+                              (int_value)))
                           (value
-                            (int_value))))))
+                            (basic_value
+                              (int_value)))))))
                   (add_prec_operator)
-                  (type_identifier)))))))
+                  (var_identifier)))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (comparison_binary_expression
             (mult_binary_expression
-              (type_identifier)
+              (var_identifier)
               (mult_prec_operator)
               (var_identifier
                 (post_identifier)))
             (comparison_operator)
             (add_binary_expression
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (add_prec_operator)
               (value
-                (int_value)))))))))
+                (basic_value
+                  (int_value))))))))))
 
 ================================================================================
 pow
@@ -1238,9 +1375,11 @@ pow
             (function_identifier)
             (call_signature
               (value
-                (float_value))
+                (basic_value
+                  (float_value)))
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1249,9 +1388,11 @@ pow
             (function_identifier)
             (call_signature
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (value
-                (float_value)))))))))
+                (basic_value
+                  (float_value))))))))))
 
 ================================================================================
 return
@@ -1295,7 +1436,8 @@ TestCase := Rectangle {
           (block
             (block_statement
               (value
-                (bool_value))))))
+                (basic_value
+                  (bool_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1303,17 +1445,19 @@ TestCase := Rectangle {
           (block
             (block_statement
               (if_statement
-                (type_identifier)
+                (var_identifier)
                 (component
                   (type_identifier
                     (MISSING _identifier))
                   (block
                     (block_statement
                       (value
-                        (int_value)))))))
+                        (basic_value
+                          (int_value))))))))
             (block_statement
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1321,7 +1465,8 @@ TestCase := Rectangle {
           (block
             (block_statement
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (callback
           (function_identifier)))
@@ -1339,7 +1484,7 @@ TestCase := Rectangle {
           (block
             (block_statement
               (if_statement
-                (type_identifier)
+                (var_identifier)
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -1351,7 +1496,8 @@ TestCase := Rectangle {
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (bool_value))))))
+                (basic_value
+                  (bool_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1359,12 +1505,13 @@ TestCase := Rectangle {
           (block
             (block_statement
               (comparison_binary_expression
-                (type_identifier)
+                (var_identifier)
                 (comparison_operator)
-                (type_identifier)))
+                (var_identifier)))
             (block_statement
               (value
-                (bool_value)))))))))
+                (basic_value
+                  (bool_value))))))))))
 
 ================================================================================
 round
@@ -1396,44 +1543,7 @@ round
             (function_identifier)
             (call_signature
               (value
-                (float_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (float_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (float_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (int_value))))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (unary_expression
-                (unary_prec_operator)
-                (value
+                (basic_value
                   (float_value)))))))
       (block_statement
         (property
@@ -1442,10 +1552,29 @@ round
           (function_call
             (function_identifier)
             (call_signature
-              (unary_expression
-                (unary_prec_operator)
-                (value
+              (value
+                (basic_value
                   (float_value)))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (value
+                (basic_value
+                  (float_value)))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (value
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1456,7 +1585,8 @@ round
               (unary_expression
                 (unary_prec_operator)
                 (value
-                  (float_value)))))))
+                  (basic_value
+                    (float_value))))))))
       (block_statement
         (property
           (type_identifier)
@@ -1467,7 +1597,32 @@ round
               (unary_expression
                 (unary_prec_operator)
                 (value
-                  (int_value))))))))))
+                  (basic_value
+                    (float_value))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (unary_expression
+                (unary_prec_operator)
+                (value
+                  (basic_value
+                    (float_value))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature
+              (unary_expression
+                (unary_prec_operator)
+                (value
+                  (basic_value
+                    (int_value)))))))))))
 
 ================================================================================
 sin
@@ -1494,7 +1649,8 @@ sin
             (function_identifier)
             (call_signature
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1503,7 +1659,8 @@ sin
             (function_identifier)
             (call_signature
               (value
-                (angle_value))))))
+                (basic_value
+                  (angle_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1512,7 +1669,8 @@ sin
             (function_identifier)
             (call_signature
               (value
-                (angle_value))))))
+                (basic_value
+                  (angle_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1521,7 +1679,8 @@ sin
             (function_identifier)
             (call_signature
               (value
-                (angle_value)))))))))
+                (basic_value
+                  (angle_value))))))))))
 
 ================================================================================
 sqrt
@@ -1546,7 +1705,8 @@ sqrt
             (function_identifier)
             (call_signature
               (value
-                (float_value))))))
+                (basic_value
+                  (float_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1555,7 +1715,8 @@ sqrt
             (function_identifier)
             (call_signature
               (value
-                (int_value)))))))))
+                (basic_value
+                  (int_value))))))))))
 
 ================================================================================
 string_template
@@ -1586,43 +1747,48 @@ string_template
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)
-              (_string_fragment)
-              (_string_fragment)))))
+            (basic_value
+              (string_value
+                (_string_fragment)
+                (_string_fragment)
+                (_string_fragment))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)
-              (_string_fragment)))))
+            (basic_value
+              (string_value
+                (_string_fragment)
+                (_string_fragment))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)))))
-      (block_statement
-        (property
-          (ERROR
-            (UNEXPECTED ':'))
-          (type_identifier)
-          (ERROR)
-          (var_identifier)
-          (block
-            (assignment_expr
+            (basic_value
+              (string_value
+                (_string_fragment))))))
+      (ERROR
+        (comparison_binary_expression
+          (value
+            (anon_struct
               (var_identifier)
-              (assignment_prec_operator)
-              (value
+              (var_identifier)))
+          (comparison_operator)
+          (var_identifier))
+        (value
+          (anon_struct
+            (var_identifier)
+            (value
+              (basic_value
                 (string_value
                   (_string_fragment)))))))
       (block_statement
@@ -1630,8 +1796,9 @@ string_template
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)))))
+            (basic_value
+              (string_value
+                (_string_fragment))))))
       (block_statement
         (callback
           (function_identifier)))
@@ -1643,14 +1810,16 @@ string_template
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (string_value
-                  (_string_fragment)
-                  (_string_fragment))))
+                (basic_value
+                  (string_value
+                    (_string_fragment)
+                    (_string_fragment)))))
             (ERROR))))
       (ERROR
         (UNEXPECTED '+'))
       (value
-        (int_value))))
+        (basic_value
+          (int_value)))))
   (ERROR
     (UNEXPECTED 'b')
     (UNEXPECTED ')
@@ -1682,7 +1851,8 @@ tan
             (function_identifier)
             (call_signature
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1691,7 +1861,8 @@ tan
             (function_identifier)
             (call_signature
               (value
-                (angle_value))))))
+                (basic_value
+                  (angle_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -1700,7 +1871,8 @@ tan
             (function_identifier)
             (call_signature
               (value
-                (angle_value)))))))))
+                (basic_value
+                  (angle_value))))))))))
 
 ================================================================================
 trigo
@@ -1745,125 +1917,147 @@ trigo
                                   (function_identifier)
                                   (call_signature
                                     (value
-                                      (int_value))))
+                                      (basic_value
+                                        (int_value)))))
                                 (comparison_operator)
                                 (mult_binary_expression
                                   (value
-                                    (int_value))
+                                    (basic_value
+                                      (int_value)))
                                   (mult_prec_operator)
                                   (function_call
                                     (function_identifier)
                                     (call_signature
                                       (value
-                                        (int_value))))))
+                                        (basic_value
+                                          (int_value)))))))
                               (comparison_operator)
                               (mult_binary_expression
                                 (value
-                                  (int_value))
+                                  (basic_value
+                                    (int_value)))
                                 (mult_prec_operator)
                                 (function_call
                                   (function_identifier)
                                   (call_signature
                                     (mult_binary_expression
                                       (value
-                                        (int_value))
+                                        (basic_value
+                                          (int_value)))
                                       (mult_prec_operator)
                                       (function_call
                                         (function_identifier)
                                         (call_signature
                                           (value
-                                            (angle_value)))))))))
+                                            (basic_value
+                                              (angle_value))))))))))
                             (comparison_operator)
                             (mult_binary_expression
                               (value
-                                (int_value))
+                                (basic_value
+                                  (int_value)))
                               (mult_prec_operator)
                               (function_call
                                 (function_identifier)
                                 (call_signature
                                   (mult_binary_expression
                                     (value
-                                      (int_value))
+                                      (basic_value
+                                        (int_value)))
                                     (mult_prec_operator)
                                     (function_call
                                       (function_identifier)
                                       (call_signature
                                         (value
-                                          (angle_value)))))))))
+                                          (basic_value
+                                            (angle_value))))))))))
                           (comparison_operator)
                           (mult_binary_expression
                             (value
-                              (int_value))
+                              (basic_value
+                                (int_value)))
                             (mult_prec_operator)
                             (function_call
                               (function_identifier)
                               (call_signature
                                 (mult_binary_expression
                                   (value
-                                    (int_value))
+                                    (basic_value
+                                      (int_value)))
                                   (mult_prec_operator)
                                   (function_call
                                     (function_identifier)
                                     (call_signature
                                       (value
-                                        (angle_value)))))))))
+                                        (basic_value
+                                          (angle_value))))))))))
                         (comparison_operator)
                         (mult_binary_expression
                           (value
-                            (int_value))
+                            (basic_value
+                              (int_value)))
                           (mult_prec_operator)
                           (function_call
                             (function_identifier)
                             (call_signature
                               (mult_binary_expression
                                 (value
-                                  (int_value))
+                                  (basic_value
+                                    (int_value)))
                                 (mult_prec_operator)
                                 (function_call
                                   (function_identifier)
                                   (call_signature
                                     (value
-                                      (angle_value)))))))))
+                                      (basic_value
+                                        (angle_value))))))))))
                       (comparison_operator)
                       (mult_binary_expression
                         (unary_expression
                           (unary_prec_operator)
                           (value
-                            (int_value)))
+                            (basic_value
+                              (int_value))))
                         (mult_prec_operator)
                         (function_call
                           (function_identifier)
                           (call_signature
                             (mult_binary_expression
                               (value
-                                (int_value))
+                                (basic_value
+                                  (int_value)))
                               (mult_prec_operator)
                               (function_call
                                 (function_identifier)
                                 (call_signature
                                   (value
-                                    (angle_value)))))))))
+                                    (basic_value
+                                      (angle_value))))))))))
                     (comparison_operator)
                     (mult_binary_expression
                       (value
-                        (int_value))
+                        (basic_value
+                          (int_value)))
                       (mult_prec_operator)
                       (function_call
                         (function_identifier)
                         (call_signature
                           (mult_binary_expression
                             (value
-                              (int_value))
+                              (basic_value
+                                (int_value)))
                             (mult_prec_operator)
                             (function_call
                               (function_identifier)
                               (call_signature
                                 (value
-                                  (angle_value)))))))))
+                                  (basic_value
+                                    (angle_value))))))))))
                   (comparison_operator)
                   (mult_binary_expression
                     (value
-                      (int_value))
+                      (basic_value
+                        (int_value)))
                     (mult_prec_operator)
                     (function_call
                       (function_identifier)
@@ -1876,14 +2070,17 @@ trigo
                                 (function_identifier)
                                 (call_signature
                                   (value
-                                    (angle_value))))))
+                                    (basic_value
+                                      (angle_value)))))))
                           (mult_prec_operator)
                           (value
-                            (angle_value)))))))
+                            (basic_value
+                              (angle_value))))))))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (mult_prec_operator)
                   (function_call
                     (function_identifier)
@@ -1896,14 +2093,17 @@ trigo
                               (function_identifier)
                               (call_signature
                                 (value
-                                  (angle_value))))))
+                                  (basic_value
+                                    (angle_value)))))))
                         (mult_prec_operator)
                         (value
-                          (angle_value)))))))
+                          (basic_value
+                            (angle_value))))))))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
                 (function_call
                   (function_identifier)
@@ -1916,22 +2116,26 @@ trigo
                             (function_identifier)
                             (call_signature
                               (value
-                                (angle_value))))))
+                                (basic_value
+                                  (angle_value)))))))
                       (mult_prec_operator)
                       (value
-                        (angle_value)))))))
+                        (basic_value
+                          (angle_value))))))))
             (comparison_operator)
             (mult_binary_expression
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (mult_prec_operator)
               (value
-                (bool_value))))))
+                (basic_value
+                  (bool_value)))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
-          (type_identifier))))))
+          (var_identifier))))))
 
 ================================================================================
 animation_tick
@@ -1958,7 +2162,8 @@ TestCase := Rectangle {
               (call_signature))
             (mult_prec_operator)
             (value
-              (duration_value))))))))
+              (basic_value
+                (duration_value)))))))))
 
 ================================================================================
 debug
@@ -1993,8 +2198,9 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)))))
+            (basic_value
+              (string_value
+                (_string_fragment))))))
       (block_statement
         (property
           (type_identifier)
@@ -2003,7 +2209,7 @@ TestCase := Rectangle {
             (function_call
               (function_identifier)
               (call_signature
-                (type_identifier)))
+                (var_identifier)))
             (ERROR
               (UNEXPECTED 'e')))))
       (block_statement
@@ -2017,17 +2223,19 @@ TestCase := Rectangle {
               (function_identifier)
               (call_signature
                 (value
-                  (string_value
-                    (_string_fragment))))))))
+                  (basic_value
+                    (string_value
+                      (_string_fragment)))))))))
       (block_statement
         (assignment_block
           (var_identifier)
           (assignment_prec_operator)
           (block
-            (type_identifier)
-            (ERROR
-              (UNEXPECTED 'e')
-              (UNEXPECTED 'l')))))
+            (block_statement
+              (var_identifier))
+            (block_statement
+              (var_identifier))
+            (var_identifier))))
       (block_statement
         (component
           (var_identifier)
@@ -2037,32 +2245,45 @@ TestCase := Rectangle {
         (property
           (type_identifier)
           (var_identifier)
-          (ERROR
-            (mult_binary_expression
-              (function_call
-                (function_identifier)
-                (call_signature))
-              (ERROR
-                (UNEXPECTED 'b')
-                (UNEXPECTED 'w'))
-              (mult_prec_operator)
-              (value
-                (duration_value)))
-            (UNEXPECTED 'x')
-            (UNEXPECTED 'y')
-            (UNEXPECTED '.')
-            (UNEXPECTED '_')
-            (UNEXPECTED 'z'))
           (block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
+            (ERROR
+              (mult_binary_expression
+                (function_call
+                  (function_identifier)
+                  (call_signature))
+                (ERROR
+                  (UNEXPECTED 'b')
+                  (UNEXPECTED 'w'))
+                (mult_prec_operator)
+                (value
+                  (basic_value
+                    (duration_value))))
+              (value
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (var_identifier)
+                  (var_identifier
+                    (post_identifier))
+                  (var_identifier)
+                  (value
+                    (anon_struct
+                      (var_identifier)
+                      (var_identifier
+                        (post_identifier)))))))
+            (block_statement
               (var_identifier
-                (post_identifier))))))))
-  (ERROR
-    (UNEXPECTED 'a')
-    (UNEXPECTED '.')
-    (UNEXPECTED 'r')))
+                (reference_identifier)
+                (post_identifier)
+                (ERROR
+                  (UNEXPECTED '.'))
+                (post_identifier))
+              (ERROR))
+            (value
+              (basic_value
+                (bool_value)))))))))
 
 ================================================================================
 mod
@@ -2091,9 +2312,11 @@ mod
             (function_identifier)
             (call_signature
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -2102,9 +2325,11 @@ mod
             (function_identifier)
             (call_signature
               (value
-                (float_value))
+                (basic_value
+                  (float_value)))
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -2113,9 +2338,11 @@ mod
             (function_identifier)
             (call_signature
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -2124,9 +2351,11 @@ mod
             (function_identifier)
             (call_signature
               (value
-                (duration_value))
+                (basic_value
+                  (duration_value)))
               (value
-                (duration_value))))))
+                (basic_value
+                  (duration_value)))))))
       (block_statement
         (property
           (type_identifier)
@@ -2135,28 +2364,32 @@ mod
             (comparison_binary_expression
               (comparison_binary_expression
                 (comparison_binary_expression
-                  (type_identifier)
+                  (var_identifier)
                   (comparison_operator)
                   (mult_binary_expression
                     (value
-                      (int_value))
+                      (basic_value
+                        (int_value)))
                     (mult_prec_operator)
-                    (type_identifier)))
+                    (var_identifier)))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (float_value))
+                    (basic_value
+                      (float_value)))
                   (mult_prec_operator)
-                  (type_identifier)))
+                  (var_identifier)))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (comparison_operator)
             (value
-              (duration_value))))))))
+              (basic_value
+                (duration_value)))))))))
 
 ================================================================================
 string_concatenation
@@ -2190,7 +2423,8 @@ string_concatenation
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))
+            (basic_value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -2198,12 +2432,13 @@ string_concatenation
           (add_binary_expression
             (add_binary_expression
               (value
-                (string_value
-                  (_string_fragment)))
+                (basic_value
+                  (string_value
+                    (_string_fragment))))
               (add_prec_operator)
-              (type_identifier))
+              (var_identifier))
             (add_prec_operator)
-            (type_identifier))))
+            (var_identifier))))
       (block_statement
         (property
           (type_identifier)
@@ -2211,33 +2446,38 @@ string_concatenation
           (add_binary_expression
             (add_binary_expression
               (value
-                (int_value))
+                (basic_value
+                  (int_value)))
               (add_prec_operator)
               (value
-                (string_value
-                  (_string_fragment))))
+                (basic_value
+                  (string_value
+                    (_string_fragment)))))
             (add_prec_operator)
             (value
-              (float_value)))))
+              (basic_value
+                (float_value))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)))))
-      (block_statement
-        (property
-          (ERROR
-            (UNEXPECTED ':'))
-          (type_identifier)
-          (ERROR)
-          (var_identifier)
-          (block
-            (assignment_expr
+            (basic_value
+              (string_value
+                (_string_fragment))))))
+      (ERROR
+        (comparison_binary_expression
+          (value
+            (anon_struct
               (var_identifier)
-              (assignment_prec_operator)
-              (value
+              (var_identifier)))
+          (comparison_operator)
+          (var_identifier))
+        (value
+          (anon_struct
+            (var_identifier)
+            (value
+              (basic_value
                 (string_value
                   (_string_fragment)))))))
       (block_statement
@@ -2249,8 +2489,9 @@ string_concatenation
               (post_identifier))
             (add_prec_operator)
             (value
-              (string_value
-                (_string_fragment))))))
+              (basic_value
+                (string_value
+                  (_string_fragment)))))))
       (block_statement
         (callback
           (function_identifier)))
@@ -2262,19 +2503,20 @@ string_concatenation
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (block_statement
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (assignment_expr
               (var_identifier
                 (post_identifier))
               (assignment_prec_operator)
               (value
-                (string_value
-                  (_string_fragment)))))))
+                (basic_value
+                  (string_value
+                    (_string_fragment))))))))
       (block_statement
         (property
           (type_identifier)
@@ -2283,9 +2525,9 @@ string_concatenation
             (add_binary_expression
               (add_binary_expression
                 (add_binary_expression
-                  (type_identifier)
+                  (var_identifier)
                   (add_prec_operator)
-                  (type_identifier))
+                  (var_identifier))
                 (add_prec_operator)
                 (var_identifier
                   (post_identifier)))
@@ -2294,5 +2536,6 @@ string_concatenation
                 (post_identifier)))
             (comparison_operator)
             (value
-              (string_value
-                (_string_fragment)))))))))
+              (basic_value
+                (string_value
+                  (_string_fragment))))))))))

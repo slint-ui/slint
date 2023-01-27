@@ -6,13 +6,19 @@ module.exports = grammar({
 
     extras: ($) => [/[\s\r\n]+/, $.comment],
     conflicts: ($) => [
-        [$._expression, $.if_statement],
         [$._assignment_value_block],
+        [$._assignment_value_expr, $.value],
+        [$._expression, $.if_statement],
+        [$._expression_body, $.value],
+        [$._var_identifier_start, $.var_identifier],
+        [$.anon_struct, $.block],
+        [$.assignment_block],
         [$.block, $.block_statement],
         [$.block_statement, $._expression_body],
+        [$.value, $.property],
         [$.function_identifier, $.post_identifier],
         [$.function_identifier, $.var_identifier],
-        [$.assignment_block],
+        [$.var_identifier],
     ],
 
     rules: {
@@ -97,7 +103,6 @@ module.exports = grammar({
                             field(
                                 "binding",
                                 choice(
-                                    seq($.value_list, ";"),
                                     seq($.block, optional(";")),
                                     seq($._expression, ";"),
                                 ),
@@ -262,14 +267,6 @@ module.exports = grammar({
                 $.component,
             ),
 
-        value_list: ($) =>
-            seq(
-                "[",
-                commaSep(choice($.var_identifier, $.value, $.anon_struct)),
-                optional(","),
-                "]",
-            ),
-
         type_anon_struct: ($) =>
             seq(
                 "{",
@@ -282,10 +279,9 @@ module.exports = grammar({
                 ),
                 "}",
             ),
+        type_list: ($) => seq("[", commaSep($.type), optional(","), "]"),
 
         type: ($) => choice($.type_identifier, $.type_list, $.type_anon_struct),
-
-        type_list: ($) => seq("[", commaSep($.type), optional(","), "]"),
 
         for_range: ($) => choice($._int_number, $.value_list, $.var_identifier),
 
@@ -315,8 +311,7 @@ module.exports = grammar({
         _assignment_value_block: ($) =>
             field("value", seq($.block, optional(";"))),
 
-        _assignment_value_expr: ($) =>
-            field("value", choice($._expression, $.value_list)),
+        _assignment_value_expr: ($) => field("value", $._expression),
 
         assignment_block: ($) =>
             seq($._assignment_setup, $._assignment_value_block, optional(";")),
@@ -335,7 +330,6 @@ module.exports = grammar({
                 $.value,
                 $.function_call,
                 $.var_identifier,
-                $.type_identifier,
                 $.unary_expression,
                 $._binary_expression,
                 $.ternary_expression,
@@ -559,20 +553,27 @@ module.exports = grammar({
         type_identifier: ($) =>
             choice($._user_type_identifier, $._builtin_type_identifier),
 
+        value_list: ($) => seq("[", commaSep($.value), optional(","), "]"),
+
+        value: ($) =>
+            choice(
+                seq("(", $.value, ")"),
+                $.anon_struct,
+                $.value_list,
+                $.basic_value,
+            ),
+
+        _var_identifier_start: ($) =>
+            choice($._identifier, $.reference_identifier),
+        _var_identifier_rest: ($) =>
+            repeat1(choice(seq(".", $.post_identifier), $.index_operator)),
+
         var_identifier: ($) =>
-            seq(
-                choice(
-                    $._identifier,
-                    $.reference_identifier,
-                    $.children_identifier,
-                    field("match_all", "*"),
-                    seq($._identifier, repeat(seq(".", $.post_identifier))),
-                    seq(
-                        $.reference_identifier,
-                        repeat(seq(".", $.post_identifier)),
-                    ),
-                ),
-                optional($.index_operator),
+            choice(
+                $.children_identifier,
+                field("match_all", "*"),
+                seq($._var_identifier_start, optional($._var_identifier_rest)),
+                seq($._identifier, repeat(seq(".", $.post_identifier))),
             ),
 
         children_identifier: (_) => "@children",
@@ -617,7 +618,7 @@ module.exports = grammar({
         relative_font_size_value: ($) =>
             seq(field("value", $._number), field("unit", "rem")),
 
-        value: ($) =>
+        basic_value: ($) =>
             choice(
                 $.int_value,
                 $.float_value,

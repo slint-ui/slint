@@ -48,7 +48,8 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (int_value))))))
+            (basic_value
+              (int_value)))))))
   (comment)
   (component_definition
     (type_identifier)
@@ -59,8 +60,9 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (value
-            (string_value
-              (_string_fragment)))))))
+            (basic_value
+              (string_value
+                (_string_fragment))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -72,7 +74,7 @@ TestCase := Rectangle {
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
-              (type_identifier)))))
+              (var_identifier)))))
       (block_statement
         (component
           (type_identifier)
@@ -81,7 +83,8 @@ TestCase := Rectangle {
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (int_value))))))
+                (basic_value
+                  (int_value)))))))
       (block_statement
         (component
           (type_identifier)
@@ -90,8 +93,9 @@ TestCase := Rectangle {
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (string_value
-                  (_string_fragment)))))))
+                (basic_value
+                  (string_value
+                    (_string_fragment))))))))
       (block_statement
         (component
           (type_identifier)
@@ -100,8 +104,9 @@ TestCase := Rectangle {
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (string_value
-                  (_string_fragment))))))))))
+                (basic_value
+                  (string_value
+                    (_string_fragment)))))))))))
 
 ================================================================================
 exported_component
@@ -222,20 +227,23 @@ TestCase := Rectangle {
         (type_identifier)
         (var_identifier)
         (value
-          (int_value))))
+          (basic_value
+            (int_value)))))
     (property
       (type_identifier)
       (var_identifier)
       (value
-        (string_value
-          (_string_fragment)))))
+        (basic_value
+          (string_value
+            (_string_fragment))))))
   (global_definition
     (type_identifier)
     (property
       (type_identifier)
       (var_identifier)
       (value
-        (int_value))))
+        (basic_value
+          (int_value)))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -274,22 +282,25 @@ TestCase := Rectangle {
           (comparison_binary_expression
             (comparison_binary_expression
               (comparison_binary_expression
-                (type_identifier)
+                (var_identifier)
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (mult_prec_operator)
-                  (type_identifier)))
+                  (var_identifier)))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (int_value))
+                  (basic_value
+                    (int_value)))
                 (mult_prec_operator)
-                (type_identifier)))
+                (var_identifier)))
             (comparison_operator)
             (value
-              (int_value)))))
+              (basic_value
+                (int_value))))))
       (comment))))
 
 ================================================================================
@@ -330,14 +341,16 @@ TestCase := Rectangle {
                 (assignment_prec_operator)
                 (ERROR
                   (value
-                    (int_value))
+                    (basic_value
+                      (int_value)))
                   (UNEXPECTED ':'))
                 (block
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
                     (value
-                      (int_value)))))))))
+                      (basic_value
+                        (int_value))))))))))
       (block_statement
         (component
           (var_identifier)
@@ -354,14 +367,16 @@ TestCase := Rectangle {
                       (assignment_prec_operator)
                       (ERROR
                         (value
-                          (int_value))
+                          (basic_value
+                            (int_value)))
                         (UNEXPECTED ':'))
                       (block
                         (assignment_expr
                           (var_identifier)
                           (assignment_prec_operator)
                           (value
-                            (int_value)))))))))
+                            (basic_value
+                              (int_value))))))))))
             (assignment_block
               (var_identifier)
               (assignment_prec_operator)
@@ -372,14 +387,16 @@ TestCase := Rectangle {
                     (assignment_prec_operator)
                     (ERROR
                       (value
-                        (int_value))
+                        (basic_value
+                          (int_value)))
                       (UNEXPECTED ':'))
                     (block
                       (assignment_expr
                         (var_identifier)
                         (assignment_prec_operator)
                         (value
-                          (int_value)))))))))))
+                          (basic_value
+                            (int_value))))))))))))
       (block_statement
         (property
           (type_identifier)

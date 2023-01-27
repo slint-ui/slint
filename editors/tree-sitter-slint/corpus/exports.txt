@@ -22,7 +22,8 @@ component Ko {
           (type_identifier)
           (var_identifier)
           (value
-            (bool_value))))))
+            (basic_value
+              (bool_value)))))))
   (component_definition
     (type_identifier)
     (block
@@ -32,4 +33,5 @@ component Ko {
           (type_identifier)
           (var_identifier)
           (value
-            (bool_value)))))))
+            (basic_value
+              (bool_value))))))))
