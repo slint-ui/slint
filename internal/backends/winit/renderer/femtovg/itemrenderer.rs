@@ -176,7 +176,7 @@ impl<'a> GLItemRenderer<'a> {
         // Since we're filling a straight rectangle with either color or gradient, save
         // the extra stroke triangle strip around the edges
         .with_anti_alias(false);
-        self.canvas.borrow_mut().fill_path(&mut path, paint);
+        self.canvas.borrow_mut().fill_path(&mut path, &paint);
     }
 }
 
@@ -250,12 +250,12 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let mut canvas = self.canvas.borrow_mut();
         if let Some(paint) = fill_paint {
-            canvas.fill_path(&mut background_path, paint);
+            canvas.fill_path(&mut background_path, &paint);
         }
         if let Some(border_paint) = border_paint {
             canvas.stroke_path(
                 maybe_border_path.as_mut().unwrap_or(&mut background_path),
-                border_paint,
+                &border_paint,
             );
         }
     }
@@ -325,9 +325,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             text.wrap(),
             text.overflow(),
             false,
-            paint,
+            &paint,
             |to_draw, pos, _, _| {
-                canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), paint).unwrap();
+                canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
             },
         );
     }
@@ -371,7 +371,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             };
 
         let mut canvas = self.canvas.borrow_mut();
-        let font_height = PhysicalLength::new(canvas.measure_font(paint).unwrap().height());
+        let font_height = PhysicalLength::new(canvas.measure_font(&paint).unwrap().height());
         let mut text: SharedString = visual_representation.text.into();
 
         if let InputType::Password = text_input.input_type() {
@@ -391,7 +391,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             text_input.wrap(),
             items::TextOverflow::Clip,
             text_input.single_line(),
-            paint,
+            &paint,
             |to_draw, pos, start, metrics| {
                 let range = start..(start + to_draw.len());
                 if min_select != max_select
@@ -436,11 +436,11 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     );
                     canvas.fill_path(
                         &mut rect_to_path(selection_rect),
-                        femtovg::Paint::color(to_femtovg_color(
+                        &femtovg::Paint::color(to_femtovg_color(
                             &text_input.selection_background_color(),
                         )),
                     );
-                    let mut selected_paint = paint;
+                    let mut selected_paint = paint.clone();
                     selected_paint
                         .set_color(to_femtovg_color(&text_input.selection_foreground_color()));
                     canvas
@@ -448,7 +448,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                             pos.x,
                             pos.y,
                             &to_draw[..min_select.saturating_sub(start)].trim_end(),
-                            paint,
+                            &paint,
                         )
                         .unwrap();
                     canvas
@@ -458,7 +458,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                             &to_draw[min_select.saturating_sub(start)
                                 ..(max_select - start).min(to_draw.len())]
                                 .trim_end(),
-                            selected_paint,
+                            &selected_paint,
                         )
                         .unwrap();
                     canvas
@@ -466,12 +466,12 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                             pos.x + after_selection_x.get(),
                             pos.y,
                             &to_draw[(max_select - start).min(to_draw.len())..].trim_end(),
-                            paint,
+                            &paint,
                         )
                         .unwrap();
                 } else {
                     // no selection on this line
-                    canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), paint).unwrap();
+                    canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), &paint).unwrap();
                 };
                 if cursor_visible
                     && (range.contains(&cursor_pos)
@@ -510,7 +510,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                 (text_input.text_cursor_width() * self.scale_factor).get(),
                 font_height.get(),
             );
-            canvas.fill_path(&mut cursor_rect, paint);
+            canvas.fill_path(&mut cursor_rect, &paint);
         }
     }
 
@@ -611,11 +611,11 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(offset.x, offset.y);
-            if let Some(fill_paint) = fill_paint {
-                canvas.fill_path(&mut femtovg_path, fill_paint);
+            if let Some(fill_paint) = &fill_paint {
+                canvas.fill_path(&mut femtovg_path, &fill_paint);
             }
-            if let Some(border_paint) = border_paint {
-                canvas.stroke_path(&mut femtovg_path, border_paint);
+            if let Some(border_paint) = &border_paint {
+                canvas.stroke_path(&mut femtovg_path, &border_paint);
             }
         })
     }
@@ -689,7 +689,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     );
                     canvas.fill_path(
                         &mut shadow_path,
-                        femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255)),
+                        &femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255)),
                     );
                 }
 
@@ -715,7 +715,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     shadow_image_rect.rect(0., 0., shadow_rect.width(), shadow_rect.height());
                     canvas.fill_path(
                         &mut shadow_image_rect,
-                        femtovg::Paint::color(to_femtovg_color(&box_shadow.color())),
+                        &femtovg::Paint::color(to_femtovg_color(&box_shadow.color())),
                     );
 
                     canvas.restore();
@@ -754,7 +754,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y())
                 * self.scale_factor;
             canvas.translate(offset.x - blur.get(), offset.y - blur.get());
-            canvas.fill_path(&mut shadow_image_rect, shadow_image_paint);
+            canvas.fill_path(&mut shadow_image_rect, &shadow_image_paint);
         });
     }
 
@@ -807,7 +807,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     self.scale_factor,
                 );
 
-                self.canvas.borrow_mut().fill_path(&mut layer_path, layer_image_paint);
+                self.canvas.borrow_mut().fill_path(&mut layer_path, &layer_image_paint);
             }
 
             RenderingResult::ContinueRenderingWithoutChildren
@@ -911,7 +911,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let fill_paint = femtovg::Paint::image(image_id, 0., 0., width, height, 0.0, 1.0);
         let mut path = femtovg::Path::new();
         path.rect(0., 0., width, height);
-        canvas.fill_path(&mut path, fill_paint);
+        canvas.fill_path(&mut path, &fill_paint);
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
@@ -920,7 +920,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let paint = font
             .init_paint(PhysicalLength::default(), femtovg::Paint::color(to_femtovg_color(&color)));
         let mut canvas = self.canvas.borrow_mut();
-        canvas.fill_text(0., 0., string, paint).unwrap();
+        canvas.fill_text(0., 0., string, &paint).unwrap();
     }
 
     fn window(&self) -> &i_slint_core::api::Window {
@@ -1111,7 +1111,7 @@ impl<'a> GLItemRenderer<'a> {
                 layer_image.as_paint_with_alpha(alpha_tint).with_anti_alias(false);
 
             layer_path.rect(0., 0., layer_size.width as _, layer_size.height as _);
-            self.canvas.borrow_mut().fill_path(&mut layer_path, layer_image_paint);
+            self.canvas.borrow_mut().fill_path(&mut layer_path, &layer_image_paint);
         }
         RenderingResult::ContinueRenderingWithoutChildren
     }
@@ -1169,7 +1169,7 @@ impl<'a> GLItemRenderer<'a> {
             canvas.global_composite_operation(femtovg::CompositeOperation::Copy);
             canvas.fill_path(
                 &mut image_rect,
-                femtovg::Paint::image(
+                &femtovg::Paint::image(
                     image_id,
                     0.,
                     0.,
@@ -1181,7 +1181,7 @@ impl<'a> GLItemRenderer<'a> {
             );
 
             canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
-            canvas.fill_path(&mut image_rect, brush_paint);
+            canvas.fill_path(&mut image_rect, &brush_paint);
 
             canvas.set_render_target(self.current_render_target());
         });
@@ -1342,7 +1342,7 @@ impl<'a> GLItemRenderer<'a> {
 
             canvas.scale(source_to_target_scale_x, source_to_target_scale_y);
 
-            canvas.fill_path(&mut path, fill_paint);
+            canvas.fill_path(&mut path, &fill_paint);
         })
     }
 

@@ -99,27 +99,27 @@ impl Font {
         max_width: Option<PhysicalLength>,
     ) -> PhysicalSize {
         let paint = self.init_paint(letter_spacing, femtovg::Paint::default());
-        let font_metrics = self.text_context.measure_font(paint).unwrap();
+        let font_metrics = self.text_context.measure_font(&paint).unwrap();
         let mut lines = 0;
         let mut width = 0.;
         let mut start = 0;
         if let Some(max_width) = max_width {
             while start < text.len() {
                 let index =
-                    self.text_context.break_text(max_width.get(), &text[start..], paint).unwrap();
+                    self.text_context.break_text(max_width.get(), &text[start..], &paint).unwrap();
                 if index == 0 {
                     break;
                 }
                 let index = start + index;
                 let measure =
-                    self.text_context.measure_text(0., 0., &text[start..index], paint).unwrap();
+                    self.text_context.measure_text(0., 0., &text[start..index], &paint).unwrap();
                 start = index;
                 lines += 1;
                 width = measure.width().max(width);
             }
         } else {
             for line in text.lines() {
-                let measure = self.text_context.measure_text(0., 0., line, paint).unwrap();
+                let measure = self.text_context.measure_text(0., 0., line, &paint).unwrap();
                 lines += 1;
                 width = measure.width().max(width);
             }
@@ -627,7 +627,7 @@ pub(crate) fn layout_text_lines(
     wrap: TextWrap,
     overflow: TextOverflow,
     single_line: bool,
-    paint: femtovg::Paint,
+    paint: &femtovg::Paint,
     mut layout_line: impl FnMut(&str, PhysicalPoint, usize, &femtovg::TextMetrics),
 ) -> PhysicalLength {
     let wrap = wrap == TextWrap::WordWrap;
