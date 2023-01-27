@@ -787,8 +787,7 @@ App := Window {
                                   (post_identifier
                                     (function_call
                                       (function_identifier)
-                                      (call_signature)))))
-                              (ERROR)))))))
+                                      (call_signature)))))))))))
                   (block_statement
                     (component
                       (var_identifier)
@@ -813,8 +812,7 @@ App := Window {
                         (post_identifier
                           (function_call
                             (function_identifier)
-                            (call_signature)))))
-                    (ERROR))))
+                            (call_signature))))))))
               (UNEXPECTED 'T'))
             (block
               (block_statement
@@ -826,8 +824,7 @@ App := Window {
                         (post_identifier
                           (function_call
                             (function_identifier)
-                            (call_signature)))))
-                    (ERROR))))))))
+                            (call_signature))))))))))))
       (block_statement
         (component
           (var_identifier)
@@ -893,7 +890,7 @@ TestCase := Window {
   (component_definition
     (type_identifier)
     (type_identifier)
-    (ERROR
+    (block
       (block_statement
         (property
           (type_identifier)
@@ -909,21 +906,18 @@ TestCase := Window {
             (value
               (int_value)))))
       (block_statement
-        (var_identifier))
-      (ERROR
-        (assignment_prec_operator))
-      (expression_body_paren
-        (comparison_binary_expression
-          (type_identifier)
-          (comparison_operator)
-          (value
-            (int_value)))))
-    (block
-      (block_statement
         (assignment
           (var_identifier)
           (assignment_prec_operator)
-          (type_identifier)))
+          (ERROR)
+          (comparison_binary_expression
+            (type_identifier)
+            (comparison_operator)
+            (value
+              (int_value))))
+        (ERROR
+          (UNEXPECTED '_')
+          (UNEXPECTED '_')))
       (block_statement
         (assignment
           (var_identifier)
@@ -1128,10 +1122,9 @@ export InkEffect := Rectangle {
           (value
             (int_value))))
       (block_statement
-        (var_identifier))
-      (block_statement
         (component
           (type_identifier)
+          (ERROR)
           (block
             (block_statement
               (assignment
@@ -1591,7 +1584,6 @@ export TestCase := Window {
                                   (function_call
                                     (function_identifier)
                                     (call_signature)))))
-                            (ERROR)
                             (block_statement
                               (assignment
                                 (var_identifier
@@ -1777,8 +1769,13 @@ export TestCase := Window {
                   (value
                     (string_value
                       (_string_fragment))))))
-            (ERROR
-              (UNEXPECTED 'o')))))
+            (block_statement
+              (var_identifier
+                (MISSING "*")))
+            (block_statement
+              (var_identifier)
+              (ERROR
+                (assignment_prec_operator))))))
       (block_statement
         (property
           (type_identifier)
@@ -1840,8 +1837,7 @@ export TestCase := Window {
                                           (post_identifier
                                             (function_call
                                               (function_identifier)
-                                              (call_signature)))))
-                                      (ERROR))))
+                                              (call_signature))))))))
                                 (block_statement
                                   (component
                                     (type_identifier)
@@ -2051,12 +2047,10 @@ Bar := Rectangle {
     (type_identifier)
     (block
       (block_statement
-        (var_identifier))
-      (block_statement
-        (var_identifier))
-      (block_statement
         (function_call
           (function_identifier)
+          (ERROR
+            (UNEXPECTED 'h'))
           (call_signature)))
       (block_statement
         (component
@@ -2068,8 +2062,7 @@ Bar := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))
+                    (call_signature))))))))
       (block_statement
         (component
           (var_identifier)
@@ -2092,14 +2085,13 @@ Bar := Rectangle {
                       (post_identifier
                         (function_call
                           (function_identifier)
-                          (call_signature)))
-                      (ERROR
-                        (UNEXPECTED '.'))
+                          (call_signature)))))
+                  (block_statement
+                    (var_identifier
                       (post_identifier
                         (function_call
                           (function_identifier)
-                          (call_signature)))))
-                  (ERROR)))))))
+                          (call_signature)))))))))))
       (block_statement
         (component
           (type_identifier)

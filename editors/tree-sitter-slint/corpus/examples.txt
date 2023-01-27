@@ -1720,13 +1720,12 @@ PlusMinus := Rectangle {
               (callback_event
                 (function_identifier)
                 (block
-                  (block_statement
-                    (var_identifier
-                      (reference_identifier)
-                      (post_identifier
-                        (function_call
-                          (function_identifier)
-                          (call_signature)))))))))))
+                  (var_identifier
+                    (reference_identifier)
+                    (post_identifier
+                      (function_call
+                        (function_identifier)
+                        (call_signature))))))))))
       (block_statement
         (component
           (type_identifier)
@@ -2478,13 +2477,12 @@ Hello := Rectangle {
                     (callback_event
                       (function_identifier)
                       (block
-                        (block_statement
-                          (var_identifier
-                            (reference_identifier)
-                            (post_identifier
-                              (function_call
-                                (function_identifier)
-                                (call_signature))))))))))))))))
+                        (var_identifier
+                          (reference_identifier)
+                          (post_identifier
+                            (function_call
+                              (function_identifier)
+                              (call_signature)))))))))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -2551,13 +2549,12 @@ Hello := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (var_identifier
-                (reference_identifier)
-                (post_identifier
-                  (function_call
-                    (function_identifier)
-                    (call_signature))))))))))
+            (var_identifier
+              (reference_identifier)
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature)))))))))
   (component_definition
     (type_identifier)
     (ERROR
@@ -3272,15 +3269,14 @@ export TestCase := Window {
                                   (assignment_prec_operator)
                                   (value
                                     (length_value)))))))
-                        (block_statement
-                          (var_identifier))
-                        (block_statement
-                          (var_identifier))
-                        (unary_expression
-                          (unary_prec_operator)
-                          (type_identifier))
                         (ERROR
-                          (UNEXPECTED 'x')))))
+                          (unary_expression
+                            (unary_prec_operator)
+                            (type_identifier))
+                          (UNEXPECTED 'x'))
+                        (value
+                          (length_value))
+                        (ERROR))))
                   (ERROR
                     (UNEXPECTED 'i'))
                   (block_statement

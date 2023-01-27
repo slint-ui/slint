@@ -146,10 +146,9 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)))
       (block_statement
-        (var_identifier))
-      (block_statement
         (component
           (type_identifier)
+          (ERROR)
           (block
             (block_statement
               (assignment
@@ -169,10 +168,9 @@ TestCase := Rectangle {
                 (value
                   (int_value))))
             (block_statement
-              (var_identifier))
-            (block_statement
               (component
                 (type_identifier)
+                (ERROR)
                 (block
                   (block_statement
                     (assignment
@@ -197,10 +195,9 @@ TestCase := Rectangle {
                   (value
                     (int_value)))))
             (block_statement
-              (var_identifier))
-            (block_statement
               (component
                 (type_identifier)
+                (ERROR)
                 (block
                   (block_statement
                     (assignment
@@ -301,10 +298,9 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)))
       (block_statement
-        (var_identifier))
-      (block_statement
         (component
           (type_identifier)
+          (ERROR)
           (block
             (block_statement
               (assignment
@@ -395,8 +391,7 @@ TestCase := Rectangle {
           (var_identifier)
           (type_identifier)
           (block
-            (block_statement
-              (var_identifier))
+            (ERROR)
             (block_statement
               (component
                 (type_identifier)
@@ -425,10 +420,9 @@ TestCase := Rectangle {
                   (reference_identifier)
                   (post_identifier))))
             (block_statement
-              (var_identifier))
-            (block_statement
               (component
                 (type_identifier)
+                (ERROR)
                 (block
                   (block_statement
                     (assignment
@@ -518,8 +512,6 @@ delayed_transitions
                     (int_value))
                   (add_prec_operator)
                   (type_identifier)))))))
-      (block_statement
-        (var_identifier))
       (ERROR
         (UNEXPECTED 'c')
         (comparison_binary_expression
@@ -664,10 +656,6 @@ TestCase := Window {
                       (assignment_prec_operator)
                       (value
                         (bool_value)))))))
-            (block_statement
-              (var_identifier))
-            (block_statement
-              (var_identifier))
             (ERROR
               (comparison_binary_expression
                 (var_identifier
@@ -739,10 +727,9 @@ TestCase := Rectangle {
           (value
             (int_value))))
       (block_statement
-        (var_identifier))
-      (block_statement
         (component
           (type_identifier)
+          (ERROR)
           (block
             (block_statement
               (assignment
@@ -765,10 +752,9 @@ TestCase := Rectangle {
           (value
             (int_value))))
       (block_statement
-        (var_identifier))
-      (block_statement
         (component
           (type_identifier)
+          (ERROR)
           (block
             (block_statement
               (assignment
@@ -793,10 +779,9 @@ TestCase := Rectangle {
             (value
               (int_value)))))
       (block_statement
-        (var_identifier))
-      (block_statement
         (component
           (type_identifier)
+          (ERROR)
           (block
             (block_statement
               (assignment
@@ -965,8 +950,6 @@ TestCase := Rectangle {
                     (int_value))
                   (add_prec_operator)
                   (type_identifier)))))))
-      (block_statement
-        (var_identifier))
       (ERROR
         (UNEXPECTED 'c')
         (comparison_binary_expression
@@ -1086,10 +1069,9 @@ states_with_animation
                 (var_identifier)))
             (comment)
             (block_statement
-              (var_identifier))
-            (block_statement
               (component
                 (type_identifier)
+                (ERROR)
                 (block
                   (block_statement
                     (assignment
@@ -1097,8 +1079,6 @@ states_with_animation
                       (assignment_prec_operator)
                       (value
                         (duration_value))))))))))
-      (block_statement
-        (var_identifier))
       (ERROR
         (UNEXPECTED 'c')
         (comparison_binary_expression
@@ -1196,8 +1176,6 @@ transitions
                     (int_value))
                   (add_prec_operator)
                   (type_identifier)))))))
-      (block_statement
-        (var_identifier))
       (ERROR
         (UNEXPECTED 'c')
         (comparison_binary_expression
@@ -1308,8 +1286,6 @@ TestCase := Rectangle {
                     (int_value))
                   (add_prec_operator)
                   (type_identifier)))))))
-      (block_statement
-        (var_identifier))
       (ERROR
         (UNEXPECTED 'c')
         (comparison_binary_expression

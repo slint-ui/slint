@@ -60,13 +60,13 @@ TestCase := Rectangle {
                 (assignment_prec_operator)
                 (value
                   (int_value))))
-            (var_identifier
-              (reference_identifier)
-              (post_identifier
-                (function_call
-                  (function_identifier)
-                  (call_signature))))
-            (ERROR)))))))
+            (block_statement
+              (var_identifier
+                (reference_identifier)
+                (post_identifier
+                  (function_call
+                    (function_identifier)
+                    (call_signature)))))))))))
 
 ================================================================================
 handler_with_arg
@@ -130,16 +130,16 @@ TestCase := Rectangle {
                 (assignment_prec_operator)
                 (value
                   (int_value))))
-            (var_identifier
-              (reference_identifier)
-              (post_identifier
-                (function_call
-                  (function_identifier)
-                  (call_signature
-                    (value
-                      (int_value))
-                    (type_identifier)))))
-            (ERROR)))))))
+            (block_statement
+              (var_identifier
+                (reference_identifier)
+                (post_identifier
+                  (function_call
+                    (function_identifier)
+                    (call_signature
+                      (value
+                        (int_value))
+                      (type_identifier))))))))))))
 
 ================================================================================
 callback_name_conflicts

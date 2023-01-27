@@ -92,8 +92,7 @@ TestCase := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))
+                    (call_signature))))))))
       (block_statement
         (component
           (type_identifier)

@@ -994,8 +994,8 @@ TestCase := Window {
                       (var_identifier
                         (post_identifier)
                         (post_identifier))))
-                  (type_identifier)
-                  (ERROR))))
+                  (block_statement
+                    (var_identifier)))))
             (block_statement
               (callback_event
                 (function_identifier)
@@ -1030,8 +1030,8 @@ TestCase := Window {
                       (var_identifier
                         (post_identifier)
                         (post_identifier))))
-                  (type_identifier)
-                  (ERROR)))))))
+                  (block_statement
+                    (var_identifier))))))))
       (block_statement
         (property
           (type_identifier)

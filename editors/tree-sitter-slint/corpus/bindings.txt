@@ -42,10 +42,9 @@ TestCase := Rectangle {
           (block
             (comment)
             (block_statement
-              (var_identifier))
-            (block_statement
               (component
                 (type_identifier)
+                (ERROR)
                 (block
                   (block_statement
                     (assignment
@@ -54,10 +53,9 @@ TestCase := Rectangle {
                       (value
                         (duration_value)))))))
             (block_statement
-              (var_identifier))
-            (block_statement
               (component
                 (type_identifier)
+                (ERROR)
                 (block
                   (block_statement
                     (assignment
@@ -156,12 +154,11 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (var_identifier
-                (post_identifier
-                  (function_call
-                    (function_identifier)
-                    (call_signature))))))))
+            (var_identifier
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature)))))))
       (block_statement
         (property
           (type_identifier)
@@ -242,9 +239,12 @@ TestCase := Rectangle {
                   (function_call
                     (function_identifier)
                     (call_signature)))))
-            (ERROR
-              (UNEXPECTED 'u')
-              (UNEXPECTED 'h')))))
+            (block_statement
+              (var_identifier
+                (post_identifier
+                  (function_call
+                    (function_identifier)
+                    (call_signature))))))))
       (block_statement
         (property
           (type_identifier)
@@ -1067,10 +1067,9 @@ TestCase := Rectangle {
                   (value
                     (int_value)))))
             (block_statement
-              (var_identifier))
-            (block_statement
               (component
                 (type_identifier)
+                (ERROR)
                 (block
                   (block_statement
                     (assignment
@@ -1839,10 +1838,9 @@ TestCase := Rectangle {
           (value
             (int_value))))
       (block_statement
-        (var_identifier))
-      (block_statement
         (component
           (type_identifier)
+          (ERROR)
           (block
             (block_statement
               (assignment
@@ -1865,10 +1863,9 @@ TestCase := Rectangle {
           (value
             (int_value))))
       (block_statement
-        (var_identifier))
-      (block_statement
         (component
           (type_identifier)
+          (ERROR)
           (block
             (block_statement
               (assignment
@@ -1893,10 +1890,9 @@ TestCase := Rectangle {
             (value
               (int_value)))))
       (block_statement
-        (var_identifier))
-      (block_statement
         (component
           (type_identifier)
+          (ERROR)
           (block
             (block_statement
               (assignment

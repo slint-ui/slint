@@ -2209,10 +2209,9 @@ TestCase := Rectangle {
                   (var_identifier
                     (post_identifier))))))))
       (block_statement
-        (var_identifier))
-      (block_statement
         (function_call
           (function_identifier)
+          (ERROR)
           (call_signature)))
       (ERROR
         (UNEXPECTED 'a')

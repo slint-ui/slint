@@ -2545,7 +2545,62 @@ TestCase := Rectangle {
                         (string_value
                           (_string_fragment))))))))
             (block_statement
-              (var_identifier))
+              (function_call
+                (function_identifier)
+                (ERROR)
+                (call_signature
+                  (comparison_binary_expression
+                    (var_identifier
+                      (post_identifier))
+                    (comparison_operator)
+                    (var_identifier
+                      (post_identifier))))))
+            (block_statement
+              (component
+                (type_identifier
+                  (MISSING _identifier))
+                (block
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (string_value
+                          (_string_fragment))))))))
+            (block_statement
+              (function_call
+                (function_identifier)
+                (ERROR)
+                (call_signature
+                  (comparison_binary_expression
+                    (var_identifier
+                      (post_identifier))
+                    (comparison_operator)
+                    (var_identifier
+                      (post_identifier))))))
+            (block_statement
+              (component
+                (type_identifier
+                  (MISSING _identifier))
+                (block
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (string_value
+                          (_string_fragment))))))))
+            (block_statement
+              (component
+                (type_identifier)
+                (block
+                  (block_statement
+                    (assignment
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (string_value
+                          (_string_fragment))))))))
             (ERROR
               (expression_body_paren
                 (comparison_binary_expression
@@ -2563,59 +2618,83 @@ TestCase := Rectangle {
                   (string_value
                     (_string_fragment))))))))
       (block_statement
-        (var_identifier))
-      (ERROR
-        (expression_body_paren
-          (comparison_binary_expression
-            (var_identifier
-              (post_identifier))
-            (comparison_operator)
-            (var_identifier
-              (post_identifier))))
-        (UNEXPECTED 'o'))
+        (function_call
+          (function_identifier)
+          (ERROR)
+          (call_signature
+            (comparison_binary_expression
+              (var_identifier
+                (post_identifier))
+              (comparison_operator)
+              (var_identifier
+                (post_identifier))))))
       (block_statement
-        (assignment
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (string_value
-              (_string_fragment)))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'o')
-    (type_identifier)
-    (UNEXPECTED 'r')
-    (UNEXPECTED '.')
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'P')
-    (type_identifier)
-    (UNEXPECTED 'i')
-    (UNEXPECTED 'o')
-    (type_identifier)
-    (UNEXPECTED 'i')
-    (UNEXPECTED '.')
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'P')
-    (type_identifier)
-    (UNEXPECTED 'f')
-    (UNEXPECTED 'o')
-    (type_identifier)
-    (UNEXPECTED 'f')
-    (UNEXPECTED '.')
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'P')
-    (type_identifier)
-    (UNEXPECTED 'i')
-    (UNEXPECTED 'o')
-    (type_identifier)
-    (UNEXPECTED 'i')
-    (UNEXPECTED '.')
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'P')
-    (type_identifier)
-    (UNEXPECTED 't')
-    (UNEXPECTED 'o')
-    (type_identifier)
-    (UNEXPECTED 't')
-    (UNEXPECTED 'o')
-    (type_identifier)))
+        (component
+          (type_identifier
+            (MISSING _identifier))
+          (block
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (string_value
+                    (_string_fragment))))))))
+      (block_statement
+        (function_call
+          (function_identifier)
+          (ERROR)
+          (call_signature
+            (comparison_binary_expression
+              (var_identifier
+                (post_identifier))
+              (comparison_operator)
+              (var_identifier
+                (post_identifier))))))
+      (block_statement
+        (component
+          (type_identifier
+            (MISSING _identifier))
+          (block
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (string_value
+                    (_string_fragment))))))))
+      (block_statement
+        (function_call
+          (function_identifier)
+          (ERROR)
+          (call_signature
+            (comparison_binary_expression
+              (var_identifier
+                (post_identifier))
+              (comparison_operator)
+              (var_identifier
+                (post_identifier))))))
+      (block_statement
+        (component
+          (type_identifier
+            (MISSING _identifier))
+          (block
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (string_value
+                    (_string_fragment))))))))
+      (block_statement
+        (component
+          (type_identifier)
+          (block
+            (block_statement
+              (assignment
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (string_value
+                    (_string_fragment))))))))))
+  (ERROR))

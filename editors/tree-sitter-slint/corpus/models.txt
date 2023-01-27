@@ -1730,15 +1730,12 @@ TestCase := Rectangle {
             (type_identifier))
           (block
             (block_statement
-              (var_identifier
-                (index_operator
-                  (type_identifier))))
-            (block_statement
               (assignment
                 (var_identifier
-                  (reference_identifier
-                    (MISSING "parent"))
-                  (post_identifier))
+                  (index_operator
+                    (type_identifier)))
+                (ERROR
+                  (UNEXPECTED 'r'))
                 (assignment_prec_operator)
                 (type_identifier)))))))))
 

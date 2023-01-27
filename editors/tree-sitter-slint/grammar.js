@@ -169,7 +169,7 @@ module.exports = grammar({
                 $.for_loop,
                 $.if_statement,
                 // $.animate_statement,
-                $.var_identifier,
+                seq($.var_identifier, ";"),
                 // $.states_definition,
                 // $.transitions_definition,
             ),

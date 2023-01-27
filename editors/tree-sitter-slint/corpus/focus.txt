@@ -56,8 +56,7 @@ TestCase := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))
+                    (call_signature))))))))
       (block_statement
         (component
           (var_identifier)
@@ -187,8 +186,7 @@ TestCase := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))))
+                    (call_signature))))))))))
   (ERROR
     (UNEXPECTED 'T')
     (UNEXPECTED 'C')
@@ -786,8 +784,7 @@ TestCase := Window {
                                                             (post_identifier
                                                               (function_call
                                                                 (function_identifier)
-                                                                (call_signature)))))
-                                                        (ERROR))))))))))))))))))))))))))
+                                                                (call_signature))))))))))))))))))))))))))))))
       (block_statement
         (property
           (type_identifier)
@@ -1025,8 +1022,7 @@ TestCase := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))
+                    (call_signature))))))))
       (block_statement
         (component
           (var_identifier)
@@ -1062,8 +1058,7 @@ TestCase := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))))
+                    (call_signature))))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -1087,8 +1082,7 @@ TestCase := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))
+                    (call_signature))))))))
       (block_statement
         (component
           (var_identifier)
@@ -1123,8 +1117,7 @@ TestCase := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))
+                    (call_signature))))))))
       (block_statement
         (callback
           (function_identifier)
@@ -1138,8 +1131,7 @@ TestCase := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))
+                    (call_signature))))))))
       (block_statement
         (callback
           (function_identifier)
@@ -1153,8 +1145,7 @@ TestCase := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))
+                    (call_signature))))))))
       (block_statement
         (component
           (var_identifier)
@@ -1339,8 +1330,7 @@ TestCase := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))
+                    (call_signature))))))))
       (block_statement
         (callback
           (function_identifier)
@@ -1354,8 +1344,7 @@ TestCase := Rectangle {
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature)))))
-            (ERROR))))
+                    (call_signature))))))))
       (block_statement
         (component
           (type_identifier)
