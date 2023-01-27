@@ -70,9 +70,8 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
         #[cfg(not(target_arch = "wasm32"))]
         let gl_renderer = unsafe {
-            // TODO: use new_from_function_cstr with new FemtoVG release
-            femtovg::renderer::OpenGl::new_from_function(|s| {
-                opengl_context.get_proc_address(&std::ffi::CString::new(s).unwrap()) as *const _
+            femtovg::renderer::OpenGl::new_from_function_cstr(|s| {
+                opengl_context.get_proc_address(s) as *const _
             })
             .unwrap()
         };
@@ -308,7 +307,7 @@ impl Renderer for FemtoVGRenderer {
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
         let text_context = crate::renderer::femtovg::fonts::FONT_CACHE
             .with(|cache| cache.borrow().text_context.clone());
-        let font_height = text_context.measure_font(paint).unwrap().height();
+        let font_height = text_context.measure_font(&paint).unwrap().height();
         crate::renderer::femtovg::fonts::layout_text_lines(
             actual_text,
             &font,
@@ -317,7 +316,7 @@ impl Renderer for FemtoVGRenderer {
             text_input.wrap(),
             i_slint_core::items::TextOverflow::Clip,
             text_input.single_line(),
-            paint,
+            &paint,
             |line_text, line_pos, start, metrics| {
                 if (line_pos.y..(line_pos.y + font_height)).contains(&pos.y) {
                     let mut current_x = 0.;
@@ -388,7 +387,7 @@ impl Renderer for FemtoVGRenderer {
             text_input.wrap(),
             i_slint_core::items::TextOverflow::Clip,
             text_input.single_line(),
-            paint,
+            &paint,
             |line_text, line_pos, start, metrics| {
                 if (start..=(start + line_text.len())).contains(&byte_offset) {
                     for glyph in &metrics.glyphs {
