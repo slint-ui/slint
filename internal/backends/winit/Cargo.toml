@@ -21,7 +21,7 @@ path = "lib.rs"
 [features]
 wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland"]
 x11 = ["winit/x11", "glutin/x11", "glutin/glx", "copypasta/x11", "i-slint-renderer-skia?/x11"]
-renderer-winit-femtovg = ["femtovg", "fontdb", "libc", "yeslogic-fontconfig-sys", "winapi", "dwrote", "imgref", "unicode-script", "ttf-parser", "rgb", "i-slint-core/box-shadow-cache"]
+renderer-winit-femtovg = ["i-slint-renderer-femtovg"]
 renderer-winit-skia = ["i-slint-renderer-skia"]
 renderer-winit-skia-opengl = ["renderer-winit-skia", "i-slint-renderer-skia/opengl"]
 renderer-winit-software = ["softbuffer", "imgref", "rgb", "i-slint-core/systemfonts"]
@@ -49,43 +49,32 @@ raw-window-handle = { version = "0.5", features = ["alloc"] }
 scopeguard =  { version = "1.1.0", default-features = false }
 
 # For the FemtoVG renderer
-femtovg = { version = "0.6.0", optional = true }
-fontdb = { version = "0.12.0", optional = true, default-features = false }
-ttf-parser = { version = "0.18.0", optional = true } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
-unicode-script = { version = "0.5.4", optional = true } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
-imgref = { version = "1.6.1", optional = true }
-rgb = { version = "0.8.27", optional = true }
+i-slint-renderer-femtovg = { version = "=1.0.0", path = "../../renderers/femtovg", optional = true }
 
 # For the Skia renderer
 i-slint-renderer-skia = { version = "=1.0.0", path = "../../renderers/skia", optional = true }
 
 # For the software renderer
 softbuffer = { version = "0.2.0", optional = true }
+imgref = { version = "1.6.1", optional = true }
+rgb = { version = "0.8.27", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { version = "0.3", features=["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "CssStyleDeclaration", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent"] }
+web-sys = { version = "0.3", features=["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent"] }
 wasm-bindgen = { version = "0.2" }
 send_wrapper = "0.6.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-fontdb = { version = "0.12", optional = true, features = ["memmap", "fontconfig"] }
 glutin = { version = "0.30", optional = true, default-features = false, features = ["egl", "wgl"] }
-
-# For the FemtoVG renderer
-[target.'cfg(target_family = "windows")'.dependencies]
-dwrote = { version = "0.11.0", optional = true }
-winapi = { version = "0.3", optional = true, features = ["dwrite"] }
+i-slint-renderer-femtovg = { version = "=1.0.0", path = "../../renderers/femtovg", optional = true, features = ["diskfonts"] }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
-libc = { version = "0.2", optional = true }
-yeslogic-fontconfig-sys = { version = "3.2", optional = true }
+i-slint-renderer-femtovg = { version = "=1.0.0", path = "../../renderers/femtovg", optional = true, features = ["fontconfig"] }
 dark-light = "1.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # For GL rendering
 cocoa = { version = "0.24.0" }
-core-foundation = { version = "0.9.1" }
-core-text = { version = "19.1.0" }
 
 [build-dependencies]
 cfg_aliases = "0.1.0"

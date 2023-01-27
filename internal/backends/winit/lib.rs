@@ -58,7 +58,7 @@ pub(crate) mod wasm_input_helper;
 
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<dyn WindowAdapter> {
-    GLWindow::<crate::renderer::femtovg::FemtoVGRenderer>::new(canvas_id)
+    GLWindow::<crate::renderer::femtovg::GlutinFemtoVGRenderer>::new(canvas_id)
 }
 
 fn window_factory_fn<R: WinitCompatibleRenderer + 'static>() -> Rc<dyn WindowAdapter> {
@@ -70,7 +70,7 @@ fn window_factory_fn<R: WinitCompatibleRenderer + 'static>() -> Rc<dyn WindowAda
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "renderer-winit-femtovg")] {
-        type DefaultRenderer = renderer::femtovg::FemtoVGRenderer;
+        type DefaultRenderer = renderer::femtovg::GlutinFemtoVGRenderer;
     } else if #[cfg(enable_skia_renderer)] {
         type DefaultRenderer = renderer::skia::SkiaRenderer;
     } else if #[cfg(feature = "renderer-winit-software")] {
@@ -98,7 +98,9 @@ impl Backend {
     pub fn new(renderer_name: Option<&str>) -> Self {
         let window_factory_fn = match renderer_name {
             #[cfg(feature = "renderer-winit-femtovg")]
-            Some("gl") | Some("femtovg") => window_factory_fn::<renderer::femtovg::FemtoVGRenderer>,
+            Some("gl") | Some("femtovg") => {
+                window_factory_fn::<renderer::femtovg::GlutinFemtoVGRenderer>
+            }
             #[cfg(enable_skia_renderer)]
             Some("skia") => window_factory_fn::<renderer::skia::SkiaRenderer>,
             #[cfg(feature = "renderer-winit-software")]
