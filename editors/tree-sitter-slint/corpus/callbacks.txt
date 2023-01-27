@@ -41,7 +41,7 @@ TestCase := Rectangle {
           (function_identifier)
           (block
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
@@ -55,7 +55,7 @@ TestCase := Rectangle {
           (function_identifier)
           (block
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
@@ -112,12 +112,11 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (int_value)))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (int_value))))))
       (block_statement
         (callback_event
           (function_identifier)
@@ -125,7 +124,7 @@ TestCase := Rectangle {
             (type_identifier))
           (block
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
@@ -164,13 +163,13 @@ TestCase := Rectangle {
     (type_identifier)
     (block
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
             (physical_length_value))))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
@@ -191,12 +190,11 @@ TestCase := Rectangle {
               (callback_event
                 (function_identifier)
                 (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (int_value)))))))))))))
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (int_value))))))))))))
 
 ================================================================================
 init
@@ -303,14 +301,13 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))))))))
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (value
+                (string_value
+                  (_string_fragment)))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -319,14 +316,13 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))))))))
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (value
+                (string_value
+                  (_string_fragment)))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -335,14 +331,13 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))))))))
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (value
+                (string_value
+                  (_string_fragment)))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -358,12 +353,11 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (type_identifier))))))
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (type_identifier)))))
       (block_statement
         (component
           (type_identifier)
@@ -376,14 +370,13 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))))))
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (value
+                (string_value
+                  (_string_fragment)))))))
       (var_identifier
         (children_identifier))))
   (component_definition
@@ -391,13 +384,13 @@ TestCase := Rectangle {
     (type_identifier)
     (block
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
             (physical_length_value))))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
@@ -406,14 +399,13 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))))))
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (value
+                (string_value
+                  (_string_fragment)))))))
       (block_statement
         (component
           (type_identifier)
@@ -422,14 +414,27 @@ TestCase := Rectangle {
               (callback_event
                 (function_identifier)
                 (block
-                  (block_statement
-                    (assignment
-                      (var_identifier
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (value
-                        (string_value
-                          (_string_fragment)))))))))))
+                  (assignment_expr
+                    (var_identifier
+                      (post_identifier))
+                    (assignment_prec_operator)
+                    (value
+                      (string_value
+                        (_string_fragment))))))))))
+      (block_statement
+        (component
+          (type_identifier)
+          (block)))
+      (block_statement
+        (component
+          (type_identifier)
+          (block
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (string_value
+                  (_string_fragment)))))))
       (block_statement
         (component
           (type_identifier)
@@ -439,32 +444,16 @@ TestCase := Rectangle {
           (type_identifier)
           (block
             (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))))))
-      (block_statement
-        (component
-          (type_identifier)
-          (block)))
-      (block_statement
-        (component
-          (type_identifier)
-          (block
-            (block_statement
               (callback_event
                 (function_identifier)
                 (block
-                  (block_statement
-                    (assignment
-                      (var_identifier
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (value
-                        (string_value
-                          (_string_fragment)))))))))))
+                  (assignment_expr
+                    (var_identifier
+                      (post_identifier))
+                    (assignment_prec_operator)
+                    (value
+                      (string_value
+                        (_string_fragment))))))))))
       (block_statement
         (for_loop
           (var_identifier)
@@ -477,19 +466,18 @@ TestCase := Rectangle {
                   (function_identifier)
                   (block
                     (block_statement
-                      (assignment
+                      (assignment_expr
                         (var_identifier
                           (post_identifier))
                         (assignment_prec_operator)
                         (value
                           (string_value
                             (_string_fragment)))))
-                    (block_statement
-                      (assignment
-                        (var_identifier
-                          (post_identifier))
-                        (assignment_prec_operator)
-                        (type_identifier))))))))))
+                    (assignment_expr
+                      (var_identifier
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (type_identifier)))))))))
       (block_statement
         (property
           (type_identifier)
@@ -564,13 +552,13 @@ TestCase := Rectangle {
     (type_identifier)
     (block
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
             (physical_length_value))))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
@@ -579,14 +567,13 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))))))
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (value
+                (string_value
+                  (_string_fragment)))))))
       (block_statement
         (component
           (type_identifier)
@@ -605,7 +592,7 @@ TestCase := Rectangle {
                   (type_identifier)
                   (block
                     (block_statement
-                      (assignment
+                      (assignment_expr
                         (var_identifier)
                         (assignment_prec_operator)
                         (value
@@ -614,17 +601,16 @@ TestCase := Rectangle {
                       (callback_event
                         (function_identifier)
                         (block
-                          (block_statement
-                            (assignment
-                              (var_identifier
-                                (post_identifier))
-                              (assignment_prec_operator)
-                              (add_binary_expression
-                                (value
-                                  (string_value
-                                    (_string_fragment)))
-                                (add_prec_operator)
-                                (type_identifier))))))))))))))
+                          (assignment_expr
+                            (var_identifier
+                              (post_identifier))
+                            (assignment_prec_operator)
+                            (add_binary_expression
+                              (value
+                                (string_value
+                                  (_string_fragment)))
+                              (add_prec_operator)
+                              (type_identifier)))))))))))))
       (block_statement
         (property
           (type_identifier)

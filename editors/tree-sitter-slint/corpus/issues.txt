@@ -32,18 +32,17 @@ export AppWindow := Window {
         (property
           (type_identifier)
           (var_identifier)))
-      (block_statement
-        (assignment
-          (var_identifier)
-          (assignment_prec_operator)
-          (comparison_binary_expression
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (comparison_binary_expression
+          (type_identifier)
+          (comparison_operator)
+          (ternary_expression
+            (value
+              (percent_value))
             (type_identifier)
-            (comparison_operator)
-            (ternary_expression
-              (value
-                (percent_value))
-              (type_identifier)
-              (type_identifier)))))))
+            (type_identifier))))))
   (comment)
   (component_definition
     (type_identifier)
@@ -57,43 +56,41 @@ export AppWindow := Window {
         (component
           (type_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (var_identifier
-                  (reference_identifier)
-                  (post_identifier)))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (var_identifier
+                (reference_identifier)
+                (post_identifier))))))
       (comment)
       (block_statement
         (component
           (type_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (comparison_binary_expression
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (comparison_binary_expression
+                (type_identifier)
+                (comparison_operator)
+                (ternary_expression
+                  (value
+                    (percent_value))
                   (type_identifier)
-                  (comparison_operator)
-                  (ternary_expression
-                    (value
-                      (percent_value))
-                    (type_identifier)
-                    (type_identifier))))))))))
+                  (type_identifier)))))))))
   (component_definition
     (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
             (length_value))))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
@@ -102,12 +99,11 @@ export AppWindow := Window {
         (component
           (type_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (percent_value))))))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (percent_value)))))))))
 
 ================================================================================
 issue_1846_visibility_in_for
@@ -138,52 +134,76 @@ TestCase := Rectangle {
   (component_definition
     (type_identifier)
     (type_identifier)
-    (ERROR
-      (block_statement
-        (assignment
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (physical_length_value))))
-      (block_statement
-        (assignment
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (physical_length_value))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)))
-      (UNEXPECTED 'T'))
     (block
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
-          (type_identifier)))
+          (value
+            (physical_length_value))))
       (block_statement
-        (callback_event
-          (function_identifier)
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (physical_length_value))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)))
+      (block_statement
+        (if_statement
+          (value
+            (bool_value))
+          (component
+            (type_identifier)
+            (block
+              (block_statement
+                (assignment_expr
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (type_identifier)))
+              (block_statement
+                (callback_event
+                  (function_identifier)
+                  (block
+                    (assignment_expr
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (value
+                        (int_value))))))))))
+      (block_statement
+        (component
+          (type_identifier)
           (block
             (block_statement
-              (assignment
-                (var_identifier
-                  (reference_identifier)
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (int_value)))))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'T')
-    (UNEXPECTED 'v')
-    (UNEXPECTED 'b')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'x')))
+              (for_loop
+                (var_identifier)
+                (for_range
+                  (value
+                    (int_value)))
+                (component
+                  (type_identifier)
+                  (block
+                    (block_statement
+                      (assignment_expr
+                        (var_identifier)
+                        (assignment_prec_operator)
+                        (value
+                          (bool_value))))
+                    (block_statement
+                      (callback_event
+                        (function_identifier)
+                        (block
+                          (assignment_expr
+                            (var_identifier
+                              (reference_identifier)
+                              (post_identifier))
+                            (assignment_prec_operator)
+                            (type_identifier)))))))))))))))

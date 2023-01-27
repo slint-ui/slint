@@ -29,7 +29,7 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (ternary_expression
@@ -215,39 +215,38 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (ERROR
-            (expression_body_paren
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
-                (value
-                  (int_value)))))
+            (comparison_binary_expression
+              (type_identifier)
+              (comparison_operator)
+              (value
+                (int_value))))
           (block
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
                   (int_value))))
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (int_value)))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (int_value))))))
       (ERROR
-        (expression_body_paren
-          (comparison_binary_expression
-            (type_identifier)
-            (comparison_operator)
-            (value
-              (int_value)))))))
+        (comparison_binary_expression
+          (type_identifier)
+          (comparison_operator)
+          (value
+            (int_value)))
+        (UNEXPECTED 's')
+        (UNEXPECTED 'u')
+        (UNEXPECTED 'x')
+        (UNEXPECTED 'x')
+        (value
+          (bool_value))
+        (UNEXPECTED 'c'))))
   (ERROR
     (type_identifier)
-    (UNEXPECTED 's')
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'c')
     (UNEXPECTED 's')
     (UNEXPECTED 'u')
     (UNEXPECTED 'c')

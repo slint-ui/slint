@@ -64,13 +64,13 @@ TestCase := Rectangle {
     (type_identifier)
     (block
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
             (physical_length_value))))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
@@ -143,7 +143,7 @@ TestCase := Rectangle {
             (type_identifier)
             (block
               (block_statement
-                (assignment
+                (assignment_expr
                   (var_identifier)
                   (assignment_prec_operator)
                   (value
@@ -158,26 +158,25 @@ TestCase := Rectangle {
                       (callback_event
                         (function_identifier)
                         (block
-                          (block_statement
-                            (assignment
-                              (var_identifier
-                                (reference_identifier)
-                                (post_identifier))
-                              (assignment_prec_operator)
-                              (value
-                                (bool_value))))))))))))))))
+                          (assignment_expr
+                            (var_identifier
+                              (reference_identifier)
+                              (post_identifier))
+                            (assignment_prec_operator)
+                            (value
+                              (bool_value)))))))))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
             (physical_length_value))))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
@@ -193,9 +192,8 @@ TestCase := Rectangle {
           (block
             (block_statement
               (if_statement
-                (expression_body_paren
-                  (value
-                    (bool_value)))
+                (value
+                  (bool_value))
                 (component
                   (type_identifier)
                   (block)))))))
@@ -204,9 +202,8 @@ TestCase := Rectangle {
           (var_identifier)
           (type_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (length_value))))))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (length_value)))))))))

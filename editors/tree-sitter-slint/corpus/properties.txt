@@ -40,12 +40,11 @@ dashes
           (var_identifier)
           (type_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (physical_length_value)))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (physical_length_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -118,13 +117,13 @@ TestCase := Rectangle {
     (type_identifier)
     (block
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
             (length_value))))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
@@ -146,16 +145,11 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)))
       (block_statement
-        (component
-          (type_identifier)
-          (ERROR)
-          (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (duration_value)))))))
+        (animate_statement
+          (var_identifier)
+          (animate_body
+            (value
+              (duration_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -168,16 +162,11 @@ TestCase := Rectangle {
                 (value
                   (int_value))))
             (block_statement
-              (component
-                (type_identifier)
-                (ERROR)
-                (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (duration_value)))))))
+              (animate_statement
+                (var_identifier)
+                (animate_body
+                  (value
+                    (duration_value)))))
             (block_statement
               (property
                 (type_identifier)
@@ -195,57 +184,51 @@ TestCase := Rectangle {
                   (value
                     (int_value)))))
             (block_statement
-              (component
-                (type_identifier)
-                (ERROR)
-                (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (duration_value)))))))
+              (animate_statement
+                (var_identifier)
+                (animate_body
+                  (value
+                    (duration_value)))))
             (block_statement
               (callback_event
                 (function_identifier)
                 (block
-                  (block_statement
-                    (function_call
-                      (function_identifier)
-                      (call_signature
-                        (value
-                          (string_value
-                            (_string_fragment))))))
-                  (ERROR)
-                  (block_statement
-                    (assignment
-                      (var_identifier
-                        (reference_identifier)
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (value
-                        (int_value))))
-                  (block_statement
-                    (assignment
-                      (var_identifier
-                        (reference_identifier)
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (value
-                        (bool_value))))
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (int_value))))
                   (function_call
                     (function_identifier)
                     (call_signature
                       (value
                         (string_value
                           (_string_fragment)))))
-                  (ERROR))))))))))
+                  (MISSING "}"))))
+            (block_statement
+              (assignment_expr
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))
+                (assignment_prec_operator)
+                (value
+                  (int_value))))
+            (block_statement
+              (assignment_expr
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))
+                (assignment_prec_operator)
+                (value
+                  (bool_value))))
+            (block_statement
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (int_value))))
+            (function_call
+              (function_identifier)
+              (call_signature
+                (value
+                  (string_value
+                    (_string_fragment))))))))))
+  (ERROR))
 
 ================================================================================
 animation_merging
@@ -298,15 +281,10 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)))
       (block_statement
-        (component
-          (type_identifier)
-          (ERROR)
-          (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (type_identifier))))))
+        (animate_statement
+          (var_identifier)
+          (animate_body
+            (type_identifier))))
       (block_statement
         (property
           (type_identifier)
@@ -365,71 +343,58 @@ TestCase := Rectangle {
           (var_identifier)
           (type_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (type_identifier))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (type_identifier)))))
       (block_statement
         (component
           (var_identifier)
           (type_identifier)
           (block
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
                   (duration_value))))
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (type_identifier))))))
-      (block_statement
-        (component
-          (var_identifier)
-          (type_identifier)
-          (block
-            (ERROR)
-            (block_statement
-              (component
-                (type_identifier)
-                (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (duration_value)))))))
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (type_identifier))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (type_identifier)))))
       (block_statement
         (component
           (var_identifier)
           (type_identifier)
           (block
             (block_statement
-              (assignment
+              (animate_statement
+                (var_identifier)
+                (animate_body
+                  (value
+                    (duration_value)))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (type_identifier)))))
+      (block_statement
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block
+            (block_statement
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (var_identifier
                   (reference_identifier)
                   (post_identifier))))
             (block_statement
-              (component
-                (type_identifier)
-                (ERROR)
-                (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (duration_value)))))))))))))
+              (animate_statement
+                (var_identifier)
+                (animate_body
+                  (value
+                    (duration_value)))))))))))
 
 ================================================================================
 delayed_transitions
@@ -535,21 +500,19 @@ delayed_transitions
           (int_value))
         (UNEXPECTED 't'))
       (value
-        (int_value))
-      (ERROR)))
+        (int_value))))
   (ERROR
     (UNEXPECTED 'a')
     (UNEXPECTED 't')
     (UNEXPECTED 'x')
-    (UNEXPECTED 'i')
     (UNEXPECTED 'm')
     (UNEXPECTED 'l')
     (type_identifier)
-    (UNEXPECTED 'i')
+    (UNEXPECTED 't')
     (UNEXPECTED 'l')
     (type_identifier)
     (UNEXPECTED 'x')
-    (UNEXPECTED 'i')
+    (UNEXPECTED 'e')
     (UNEXPECTED 'o')
     (UNEXPECTED 'l')
     (type_identifier)
@@ -591,13 +554,13 @@ TestCase := Window {
     (type_identifier)
     (block
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
             (length_value))))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
@@ -617,45 +580,44 @@ TestCase := Window {
               (callback_event
                 (function_identifier)
                 (block
-                  (block_statement
-                    (assignment
-                      (var_identifier
-                        (reference_identifier)
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (value
-                        (int_value)))))))
+                  (assignment_expr
+                    (var_identifier
+                      (reference_identifier)
+                      (post_identifier))
+                    (assignment_prec_operator)
+                    (value
+                      (int_value))))))
             (block_statement
               (component
                 (var_identifier)
                 (type_identifier)
                 (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (string_value
-                          (_string_fragment))))))))
-            (block_statement
-              (component
-                (type_identifier)
-                (ERROR
-                  (ERROR)
-                  (comparison_binary_expression
-                    (var_identifier
-                      (reference_identifier)
-                      (post_identifier))
-                    (comparison_operator)
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
                     (value
-                      (int_value))))
-                (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
+                      (string_value
+                        (_string_fragment)))))))
+            (block_statement
+              (assignment_block
+                (var_identifier
+                  (index_operator
+                    (ERROR)
+                    (comparison_binary_expression
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier))
+                      (comparison_operator)
                       (value
-                        (bool_value)))))))
+                        (int_value)))
+                    (MISSING "]")))
+                (assignment_prec_operator)
+                (block
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (bool_value))))))
             (ERROR
               (comparison_binary_expression
                 (var_identifier
@@ -676,8 +638,7 @@ TestCase := Window {
                 (add_prec_operator)
                 (type_identifier)))
             (value
-              (length_value))
-            (ERROR))))
+              (length_value)))))
       (ERROR)))
   (ERROR
     (type_identifier)
@@ -727,24 +688,15 @@ TestCase := Rectangle {
           (value
             (int_value))))
       (block_statement
-        (component
-          (type_identifier)
-          (ERROR)
-          (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (mult_binary_expression
-                  (type_identifier)
-                  (mult_prec_operator)
-                  (value
-                    (duration_value)))))
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (type_identifier))))))
+        (animate_statement
+          (var_identifier)
+          (animate_body
+            (mult_binary_expression
+              (type_identifier)
+              (mult_prec_operator)
+              (value
+                (duration_value)))
+            (type_identifier))))
       (block_statement
         (property
           (type_identifier)
@@ -752,16 +704,11 @@ TestCase := Rectangle {
           (value
             (int_value))))
       (block_statement
-        (component
-          (type_identifier)
-          (ERROR)
-          (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (duration_value)))))))
+        (animate_statement
+          (var_identifier)
+          (animate_body
+            (value
+              (duration_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -779,16 +726,11 @@ TestCase := Rectangle {
             (value
               (int_value)))))
       (block_statement
-        (component
-          (type_identifier)
-          (ERROR)
-          (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (duration_value))))))))))
+        (animate_statement
+          (var_identifier)
+          (animate_body
+            (value
+              (duration_value))))))))
 
 ================================================================================
 states
@@ -877,12 +819,11 @@ TestCase := Rectangle {
           (ERROR
             (UNEXPECTED 'c'))
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (int_value)))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (int_value))))))
       (ERROR)))
   (component_definition
     (type_identifier)
@@ -894,12 +835,11 @@ TestCase := Rectangle {
           (ERROR
             (UNEXPECTED 'c'))
           (block
-            (block_statement
-              (assignment
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (type_identifier))))))
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (type_identifier)))))
       (ERROR
         (UNEXPECTED ')
         (UNEXPECTED 'R'))
@@ -935,7 +875,7 @@ TestCase := Rectangle {
           (type_identifier)
           (block
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
@@ -975,8 +915,7 @@ TestCase := Rectangle {
             (type_identifier)))
         (UNEXPECTED 'm'))
       (value
-        (int_value))
-      (ERROR)))
+        (int_value))))
   (component_definition
     (type_identifier)
     (ERROR
@@ -997,15 +936,14 @@ TestCase := Rectangle {
       (UNEXPECTED '))
     (type_identifier)
     (block
-      (block_statement
-        (assignment
-          (var_identifier)
-          (assignment_prec_operator)
-          (comparison_binary_expression
-            (type_identifier)
-            (comparison_operator)
-            (value
-              (int_value)))))))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (comparison_binary_expression
+          (type_identifier)
+          (comparison_operator)
+          (value
+            (int_value))))))
   (ERROR
     (type_identifier)
     (UNEXPECTED 'u')
@@ -1069,16 +1007,11 @@ states_with_animation
                 (var_identifier)))
             (comment)
             (block_statement
-              (component
-                (type_identifier)
-                (ERROR)
-                (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (duration_value))))))))))
+              (animate_statement
+                (var_identifier)
+                (animate_body
+                  (value
+                    (duration_value))))))))
       (ERROR
         (UNEXPECTED 'c')
         (comparison_binary_expression
@@ -1092,10 +1025,8 @@ states_with_animation
           (int_value))
         (UNEXPECTED 'm'))
       (value
-        (int_value))
-      (ERROR)))
+        (int_value))))
   (ERROR
-    (UNEXPECTED 'i')
     (UNEXPECTED 'm')
     (type_identifier)
     (type_identifier)
@@ -1196,17 +1127,15 @@ transitions
             (type_identifier)))
         (UNEXPECTED 'm'))
       (value
-        (int_value))
-      (ERROR)))
+        (int_value))))
   (ERROR
     (UNEXPECTED 'a')
     (UNEXPECTED 't')
     (UNEXPECTED 'x')
-    (UNEXPECTED 'i')
     (UNEXPECTED 'm')
     (type_identifier)
     (UNEXPECTED 'x')
-    (UNEXPECTED 'i')
+    (UNEXPECTED 'e')
     (UNEXPECTED 'o')
     (type_identifier)
     (type_identifier)
@@ -1306,21 +1235,17 @@ TestCase := Rectangle {
             (type_identifier)))
         (UNEXPECTED 'm')
         (value
-          (int_value))
-        (visibility_modifier)
-        (UNEXPECTED 'i')
-        (UNEXPECTED 'm'))
+          (int_value)))
       (block_statement
-        (assignment
+        (animate_statement
           (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (duration_value))))))
+          (animate_body
+            (value
+              (duration_value)))))))
   (ERROR
-    (UNEXPECTED 'i')
+    (type_identifier)
+    (UNEXPECTED 'e')
     (UNEXPECTED 'o')
-    (type_identifier)
-    (type_identifier)
     (UNEXPECTED 'e')
     (UNEXPECTED '_')
     (UNEXPECTED 'e')

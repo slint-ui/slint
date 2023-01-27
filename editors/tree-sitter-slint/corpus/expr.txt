@@ -253,54 +253,53 @@ arithmetic
           (function_identifier)
           (block
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (ERROR)
                 (value
                   (int_value))))
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
                   (int_value))))
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
                   (int_value))))
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
                   (int_value))))
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
                   (length_value))))
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
                   (int_value))))
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
                   (length_value))))
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (int_value))))))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (int_value)))))))))
 
 ================================================================================
 asin
@@ -1303,8 +1302,7 @@ TestCase := Rectangle {
           (var_identifier)
           (block
             (ERROR
-              (expression_body_paren
-                (type_identifier)))
+              (type_identifier))
             (block_statement
               (value
                 (int_value))))))
@@ -1584,7 +1582,7 @@ string_template
           (ERROR)
           (var_identifier)
           (block
-            (assignment
+            (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
               (value
@@ -1604,7 +1602,7 @@ string_template
         (callback_event
           (function_identifier)
           (block
-            (assignment
+            (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
               (value
@@ -1969,37 +1967,62 @@ TestCase := Rectangle {
               (function_identifier)
               (call_signature
                 (type_identifier)))
-            (MISSING "}"))))
-      (type_identifier)))
-  (component_definition
-    (type_identifier)
-    (ERROR
-      (UNEXPECTED 'o')
-      (UNEXPECTED 'o')
-      (UNEXPECTED 'b')
-      (UNEXPECTED 'a')
-      (UNEXPECTED 'e')
-      (UNEXPECTED ';')
-      (UNEXPECTED 'e')
-      (UNEXPECTED 'l')
-      (UNEXPECTED '))
-    (type_identifier)
-    (block))
+            (ERROR
+              (UNEXPECTED 'e')))))
+      (block_statement
+        (callback
+          (function_identifier)))
+      (block_statement
+        (callback_event
+          (function_identifier)
+          (block
+            (function_call
+              (function_identifier)
+              (call_signature
+                (value
+                  (string_value
+                    (_string_fragment))))))))
+      (block_statement
+        (assignment_block
+          (var_identifier)
+          (assignment_prec_operator)
+          (block
+            (type_identifier)
+            (ERROR
+              (UNEXPECTED 'e')
+              (UNEXPECTED 'l')))))
+      (block_statement
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block)))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (ERROR
+            (mult_binary_expression
+              (function_call
+                (function_identifier)
+                (call_signature))
+              (ERROR
+                (UNEXPECTED 'b')
+                (UNEXPECTED 'w'))
+              (mult_prec_operator)
+              (value
+                (duration_value)))
+            (UNEXPECTED 'x')
+            (UNEXPECTED 'y')
+            (UNEXPECTED '.')
+            (UNEXPECTED '_')
+            (UNEXPECTED 'z'))
+          (block
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (var_identifier
+                (post_identifier))))))))
   (ERROR
-    (type_identifier)
-    (UNEXPECTED 'e')
-    (UNEXPECTED ':')
-    (UNEXPECTED 'b')
-    (UNEXPECTED 'b')
-    (UNEXPECTED 'w')
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'y')
-    (UNEXPECTED '.')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'z')
-    (UNEXPECTED ':')
-    (UNEXPECTED '.')
-    (UNEXPECTED 'p')
     (UNEXPECTED 'a')
     (UNEXPECTED '.')
     (UNEXPECTED 'r')))
@@ -2174,7 +2197,7 @@ string_concatenation
           (ERROR)
           (var_identifier)
           (block
-            (assignment
+            (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
               (value
@@ -2199,23 +2222,22 @@ string_concatenation
           (function_identifier)
           (block
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (type_identifier)))
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (type_identifier)))
-            (block_statement
-              (assignment
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))))))
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
+              (value
+                (string_value
+                  (_string_fragment)))))))
       (block_statement
         (property
           (type_identifier)

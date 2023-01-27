@@ -81,34 +81,32 @@ TestCase := Rectangle {
           (type_identifier)
           (block
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (var_identifier
                   (reference_identifier)
                   (post_identifier))))
             (block_statement
-              (assignment
+              (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
                   (percent_value))))
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (percent_value)))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (percent_value))))))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (type_identifier)))
-      (block_statement
-        (assignment
-          (var_identifier)
-          (assignment_prec_operator)
-          (type_identifier)))))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (type_identifier))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -118,7 +116,7 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (type_identifier)))
@@ -133,28 +131,27 @@ TestCase := Rectangle {
           (var_identifier
             (post_identifier))))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (type_identifier)))
-      (block_statement
-        (assignment
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (bool_value))))))
+      (assignment_expr
+        (var_identifier)
+        (assignment_prec_operator)
+        (value
+          (bool_value)))))
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
             (physical_length_value))))
       (block_statement
-        (assignment
+        (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
@@ -169,49 +166,45 @@ TestCase := Rectangle {
                 (var_identifier)
                 (type_identifier)
                 (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (string_value
-                          (_string_fragment))))))))
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (string_value
+                        (_string_fragment)))))))
             (block_statement
               (component
                 (var_identifier)
                 (type_identifier)
                 (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (string_value
-                          (_string_fragment))))))))
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (string_value
+                        (_string_fragment)))))))
             (block_statement
               (component
                 (var_identifier)
                 (type_identifier)
                 (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (string_value
-                          (_string_fragment))))))))
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (string_value
+                        (_string_fragment)))))))
             (block_statement
               (component
                 (var_identifier)
                 (type_identifier)
                 (block
-                  (block_statement
-                    (assignment
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (string_value
-                          (_string_fragment)))))))))))
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (string_value
+                        (_string_fragment))))))))))
       (block_statement
         (for_loop
           (var_identifier)
@@ -223,15 +216,14 @@ TestCase := Rectangle {
             (type_identifier)
             (block
               (block_statement
-                (assignment
+                (assignment_expr
                   (var_identifier)
                   (assignment_prec_operator)
                   (type_identifier)))
-              (block_statement
-                (assignment
-                  (var_identifier)
-                  (assignment_prec_operator)
-                  (type_identifier)))))))
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (type_identifier))))))
       (block_statement
         (property
           (type_identifier)

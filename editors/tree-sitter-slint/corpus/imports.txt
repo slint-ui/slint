@@ -69,43 +69,39 @@ TestCase := Rectangle {
         (component
           (type_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (type_identifier))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (type_identifier)))))
       (block_statement
         (component
           (type_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (int_value)))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (int_value))))))
       (block_statement
         (component
           (type_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (string_value
+                  (_string_fragment)))))))
       (block_statement
         (component
           (type_identifier)
           (block
-            (block_statement
-              (assignment
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment)))))))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (string_value
+                  (_string_fragment))))))))))
 
 ================================================================================
 exported_component
@@ -327,37 +323,71 @@ TestCase := Rectangle {
         (property
           (type_identifier)
           (var_identifier)
-          (ERROR
-            (assignment
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (int_value)))
-            (UNEXPECTED ':'))
           (block
-            (assignment
+            (block_statement
+              (assignment_block
+                (var_identifier)
+                (assignment_prec_operator)
+                (ERROR
+                  (value
+                    (int_value))
+                  (UNEXPECTED ':'))
+                (block
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (int_value)))))))))
+      (block_statement
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block
+            (block_statement
+              (assignment_block
+                (var_identifier)
+                (assignment_prec_operator)
+                (block
+                  (block_statement
+                    (assignment_block
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (ERROR
+                        (value
+                          (int_value))
+                        (UNEXPECTED ':'))
+                      (block
+                        (assignment_expr
+                          (var_identifier)
+                          (assignment_prec_operator)
+                          (value
+                            (int_value)))))))))
+            (assignment_block
               (var_identifier)
               (assignment_prec_operator)
-              (value
-                (int_value))))))))
-  (ERROR
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'U')
-    (UNEXPECTED 'S')
-    (UNEXPECTED ':')
-    (UNEXPECTED ':')
-    (UNEXPECTED ':')
-    (UNEXPECTED ':')
-    (UNEXPECTED 'n')
-    (UNEXPECTED ':')
-    (UNEXPECTED ':')
-    (UNEXPECTED ':')
-    (type_identifier)
-    (UNEXPECTED '1')
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'n')
-    (UNEXPECTED '.')
-    (UNEXPECTED ';')))
+              (block
+                (block_statement
+                  (assignment_block
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (ERROR
+                      (value
+                        (int_value))
+                      (UNEXPECTED ':'))
+                    (block
+                      (assignment_expr
+                        (var_identifier)
+                        (assignment_prec_operator)
+                        (value
+                          (int_value)))))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier)
+            (post_identifier)
+            (post_identifier)))))))
 
 ================================================================================
 external_type

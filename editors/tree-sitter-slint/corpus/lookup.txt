@@ -63,19 +63,18 @@ TestCase := Rectangle {
           (component
             (type_identifier)
             (block
-              (block_statement
-                (assignment
-                  (var_identifier)
-                  (assignment_prec_operator)
-                  (mult_binary_expression
-                    (add_binary_expression
-                      (type_identifier)
-                      (add_prec_operator)
-                      (var_identifier
-                        (post_identifier)))
-                    (mult_prec_operator)
-                    (value
-                      (length_value)))))))))))
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (mult_binary_expression
+                  (add_binary_expression
+                    (type_identifier)
+                    (add_prec_operator)
+                    (var_identifier
+                      (post_identifier)))
+                  (mult_prec_operator)
+                  (value
+                    (length_value))))))))))
   (component_definition
     (type_identifier)
     (type_identifier)

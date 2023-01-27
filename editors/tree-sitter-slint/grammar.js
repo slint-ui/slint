@@ -6,9 +6,12 @@ module.exports = grammar({
 
     extras: ($) => [/[\s\r\n]+/, $.comment],
     conflicts: ($) => [
-        [$.var_identifier, $.function_identifier],
-        [$.function_identifier, $.post_identifier],
+        [$.block, $.block_statement],
         [$.block_statement, $._expression_body],
+        [$.function_identifier, $.post_identifier],
+        [$.function_identifier, $.var_identifier],
+        [$._assignment_value_block],
+        [$.assignment_block],
     ],
 
     rules: {
@@ -149,14 +152,24 @@ module.exports = grammar({
                 seq(
                     "{",
                     repeat($.block_statement),
-                    optional(choice($._expression, $.assignment)), // "return value"
+                    optional(
+                        seq(
+                            choice(
+                                $._expression,
+                                $.assignment_block,
+                                $.assignment_expr,
+                            ),
+                            optional(";"),
+                        ),
+                    ), // "return value"
                     "}",
                 ),
             ),
 
         block_statement: ($) =>
             choice(
-                seq($.assignment, ";"),
+                seq($.assignment_block, optional(";")),
+                seq($.assignment_expr, ";"),
                 seq("return", $._expression, ";"),
                 $.component,
                 $.property_alias,
@@ -168,7 +181,7 @@ module.exports = grammar({
                 $.function_call,
                 $.for_loop,
                 $.if_statement,
-                // $.animate_statement,
+                $.animate_statement,
                 seq($.var_identifier, ";"),
                 // $.states_definition,
                 // $.transitions_definition,
@@ -216,31 +229,23 @@ module.exports = grammar({
         //     ),
         //     "]",
         //   ),
-        //
-        // animate_statement: ($) =>
-        //   seq(
-        //     "animate",
-        //     $.var_identifier,
-        //     $.animate_declaration_list,
-        //   ),
-        // animate_declaration_list: ($) =>
-        //   seq(
-        //     "{",
-        //     repeat(
-        //       seq(
-        //         $.builtin_type_identifier,
-        //         ":",
-        //         $._expression,
-        //         ";",
-        //       ),
-        //     ),
-        //     "}",
-        //   ),
+
+        animate_statement: ($) =>
+            seq("animate", $.var_identifier, $.animate_body),
+
+        animate_body: ($) =>
+            seq(
+                "{",
+                repeat(
+                    seq($._builtin_type_identifier, ":", $._expression, ";"),
+                ),
+                "}",
+            ),
 
         if_statement: ($) =>
             seq(
                 "if",
-                field("condition", $.expression_body_paren),
+                field("condition", $._expression),
                 ":",
                 $.component,
                 optional(seq("else", choice($.if_statement, $.component))),
@@ -262,6 +267,7 @@ module.exports = grammar({
                 seq(
                     "[",
                     commaSep(choice($.var_identifier, $.value, $.anon_struct)),
+                    optional(","),
                     "]",
                 ),
                 $.var_identifier,
@@ -284,12 +290,22 @@ module.exports = grammar({
         //     ),
         //   ),
 
-        assignment: ($) =>
+        _assignment_setup: ($) =>
             seq(
                 field("name", $.var_identifier),
                 field("op", $.assignment_prec_operator),
-                field("expression", $._expression),
             ),
+
+        _assignment_value_block: ($) =>
+            field("value", seq($.block, optional(";"))),
+
+        _assignment_value_expr: ($) => field("value", $._expression),
+
+        assignment_block: ($) =>
+            seq($._assignment_setup, $._assignment_value_block, optional(";")),
+
+        assignment_expr: ($) =>
+            seq($._assignment_setup, $._assignment_value_expr),
 
         _expression: ($) =>
             choice($._expression_body, seq("(", $._expression, ")")),
