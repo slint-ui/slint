@@ -836,15 +836,13 @@ TestCase := Window {
   (comment)
   (global_definition
     (type_identifier)
-    (ERROR
-      (property
-        (type_identifier)
-        (var_identifier)
-        (ERROR
-          (UNEXPECTED 'r')))
-      (property
-        (type_identifier)
-        (var_identifier)))
+    (property_alias
+      (type_identifier)
+      (var_identifier)
+      (var_identifier))
+    (property
+      (type_identifier)
+      (var_identifier))
     (property
       (type_identifier)
       (var_identifier)

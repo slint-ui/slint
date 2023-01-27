@@ -147,8 +147,7 @@ module.exports = grammar({
                 field("name", $.type_identifier),
                 optional(":="), // old syntax!
                 "{",
-                commaSep(choice($.property, $.callback)),
-                optional(","),
+                repeat(choice($.property, $.property_alias, $.callback)),
                 "}",
             ),
 

@@ -71,18 +71,16 @@ TestCase := Rectangle {
 (source_file
   (global_definition
     (type_identifier)
-    (ERROR
-      (property
-        (type_identifier)
-        (var_identifier)
-        (ERROR
-          (UNEXPECTED ';')))
-      (property
-        (type_identifier)
-        (var_identifier)
-        (value
-          (basic_value
-            (int_value)))))
+    (property_alias
+      (type_identifier)
+      (var_identifier)
+      (var_identifier))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (value
+        (basic_value
+          (int_value))))
     (property
       (type_identifier)
       (var_identifier)
@@ -164,13 +162,12 @@ TestCase := Rectangle {
   (comment)
   (global_definition
     (type_identifier)
-    (ERROR
-      (property
-        (type_identifier)
-        (var_identifier)
-        (value
-          (basic_value
-            (int_value)))))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (value
+        (basic_value
+          (int_value))))
     (property
       (type_identifier)
       (var_identifier)
@@ -182,11 +179,10 @@ TestCase := Rectangle {
             (int_value))))))
   (global_definition
     (type_identifier)
-    (ERROR
-      (property
-        (type_identifier)
-        (var_identifier)
-        (var_identifier)))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (var_identifier))
     (property
       (type_identifier)
       (var_identifier)
@@ -285,13 +281,12 @@ TestCase := Rectangle {
 (source_file
   (global_definition
     (type_identifier)
-    (ERROR
-      (property
-        (type_identifier)
-        (var_identifier)
-        (value
-          (basic_value
-            (int_value)))))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (value
+        (basic_value
+          (int_value))))
     (property
       (type_identifier)
       (var_identifier)
@@ -308,25 +303,23 @@ TestCase := Rectangle {
   (global_definition
     (export_modifier)
     (type_identifier)
-    (ERROR
-      (property
-        (type_identifier)
+    (property_alias
+      (type_identifier)
+      (var_identifier)
+      (var_identifier))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (value
+        (basic_value
+          (int_value))))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (add_binary_expression
         (var_identifier)
-        (ERROR
-          (UNEXPECTED ';')))
-      (property
-        (type_identifier)
-        (var_identifier)
-        (value
-          (basic_value
-            (int_value))))
-      (property
-        (type_identifier)
-        (var_identifier)
-        (add_binary_expression
-          (var_identifier)
-          (add_prec_operator)
-          (var_identifier))))
+        (add_prec_operator)
+        (var_identifier)))
     (property
       (type_identifier)
       (var_identifier)
@@ -438,19 +431,18 @@ TestCase := Rectangle {
       (_string_fragment)))
   (global_definition
     (type_identifier)
-    (ERROR
-      (property
-        (type_identifier)
-        (var_identifier)
-        (value
-          (basic_value
-            (int_value))))
-      (property
-        (type_identifier)
-        (var_identifier)
-        (value
-          (basic_value
-            (int_value)))))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (value
+        (basic_value
+          (int_value))))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (value
+        (basic_value
+          (int_value))))
     (property
       (type_identifier)
       (var_identifier)
@@ -459,10 +451,10 @@ TestCase := Rectangle {
           (int_value)))))
   (global_definition
     (type_identifier)
-    (ERROR
-      (UNEXPECTED 'h')
-      (UNEXPECTED 'G')
-      (UNEXPECTED 'h')))
+    (property_alias
+      (var_identifier)
+      (var_identifier
+        (post_identifier))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -590,16 +582,15 @@ TestCase := Rectangle {
         (type_identifier))))
   (global_definition
     (type_identifier)
-    (ERROR
-      (property
-        (type_identifier)
-        (var_identifier)
-        (value
-          (basic_value
-            (int_value))))
-      (property
-        (type_identifier)
-        (var_identifier)))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (value
+        (basic_value
+          (int_value))))
+    (property
+      (type_identifier)
+      (var_identifier))
     (callback
       (function_identifier)
       (call_signature
@@ -680,47 +671,67 @@ TestCase := Window {
 (source_file
   (global_definition
     (type_identifier)
-    (ERROR
-      (property
-        (type_identifier)
+    (property
+      (type_identifier)
+      (var_identifier)
+      (value
+        (basic_value
+          (int_value))))
+    (callback
+      (function_identifier)
+      (call_signature
         (var_identifier)
-        (value
-          (basic_value
-            (int_value))))
-      (callback
-        (function_identifier)
-        (call_signature
-          (var_identifier)
-          (var_identifier))
-        (type_identifier))
-      (callback
-        (function_identifier)
-        (call_signature
-          (var_identifier)
-          (var_identifier))
-        (type_identifier)))
+        (var_identifier))
+      (type_identifier))
+    (callback
+      (function_identifier)
+      (call_signature
+        (var_identifier)
+        (var_identifier))
+      (type_identifier))
     (callback
       (function_identifier)
       (call_signature)
       (type_identifier))
-    (ERROR))
-  (ERROR
-    (UNEXPECTED 'E')
-    (UNEXPECTED 'R')
-    (type_identifier)
-    (type_identifier)
-    (UNEXPECTED 'i')
-    (UNEXPECTED 'G')
-    (UNEXPECTED 'u'))
+    (ERROR
+      (var_identifier)
+      (ERROR)))
   (component_definition
     (type_identifier)
-    (ERROR
-      (UNEXPECTED 'x')
-      (UNEXPECTED 'G')
-      (UNEXPECTED 'u')
-      (UNEXPECTED 'T')
-      (UNEXPECTED 'C')
-      (UNEXPECTED '))
+    (type_identifier)
+    (block
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier
+              (function_call
+                (function_identifier)
+                (call_signature
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (value
+                    (basic_value
+                      (int_value)))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier
+              (function_call
+                (function_identifier)
+                (call_signature
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (value
+                    (basic_value
+                      (int_value)))))))))))
+  (component_definition
+    (type_identifier)
     (type_identifier)
     (block
       (block_statement
@@ -813,20 +824,19 @@ export component TestCase inherits Window {
   (global_definition
     (export_modifier)
     (type_identifier)
-    (ERROR
-      (property
-        (visibility_modifier)
-        (type_identifier)
-        (var_identifier)
-        (value
-          (basic_value
-            (bool_value)))))
+    (property
+      (visibility_modifier)
+      (type_identifier)
+      (var_identifier)
+      (value
+        (basic_value
+          (bool_value))))
     (property
       (visibility_modifier)
       (type_identifier)
       (var_identifier)))
-  (export_statement)
   (component_definition
+    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block

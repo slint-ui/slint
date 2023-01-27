@@ -10201,11 +10201,12 @@ TestCase := Window {
   (global_definition
     (type_identifier)
     (ERROR
-      (UNEXPECTED 'u')
-      (UNEXPECTED 'e')
-      (UNEXPECTED 'o')
-      (UNEXPECTED 'z'))
-    (ERROR
+      (var_identifier)
+      (ERROR
+        (UNEXPECTED 'u')
+        (UNEXPECTED 'e')
+        (UNEXPECTED 'o'))
+      (UNEXPECTED 'z')
       (UNEXPECTED 'b')
       (UNEXPECTED 'o')
       (UNEXPECTED 'z')))

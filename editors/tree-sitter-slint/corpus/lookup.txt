@@ -33,19 +33,18 @@ TestCase := Rectangle {
 (source_file
   (global_definition
     (type_identifier)
-    (ERROR
-      (property
-        (type_identifier)
-        (var_identifier)
-        (value
-          (basic_value
-            (int_value))))
-      (property
-        (type_identifier)
-        (var_identifier)
-        (value
-          (basic_value
-            (int_value)))))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (value
+        (basic_value
+          (int_value))))
+    (property
+      (type_identifier)
+      (var_identifier)
+      (value
+        (basic_value
+          (int_value))))
     (callback
       (function_identifier)))
   (component_definition

@@ -167,19 +167,18 @@ export Demo := Window {
   (comment)
   (global_definition
     (type_identifier)
-    (ERROR
-      (property
-        (type_identifier)
-        (var_identifier))
-      (property
-        (type_identifier)
-        (var_identifier))
-      (property
-        (type_identifier)
-        (var_identifier))
-      (property
-        (type_identifier)
-        (var_identifier)))
+    (property
+      (type_identifier)
+      (var_identifier))
+    (property
+      (type_identifier)
+      (var_identifier))
+    (property
+      (type_identifier)
+      (var_identifier))
+    (property
+      (type_identifier)
+      (var_identifier))
     (property
       (ERROR
         (UNEXPECTED 'a')
