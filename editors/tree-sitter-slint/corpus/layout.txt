@@ -10309,20 +10309,45 @@ TestCase := Window {
 (source_file
   (global_definition
     (type_identifier)
-    (ERROR
-      (var_identifier)
-      (ERROR
-        (UNEXPECTED 'u')
-        (UNEXPECTED 't')
-        (UNEXPECTED 's')
-        (UNEXPECTED 'e')
-        (UNEXPECTED 'e')
-        (UNEXPECTED 'o'))
-      (UNEXPECTED 'z')
-      (UNEXPECTED 'b')
-      (UNEXPECTED 'o')
-      (UNEXPECTED 'z')))
-  (ERROR)
+    (function
+      (function_identifier)
+      (function_signature
+        (type
+          (type_identifier))
+        (type
+          (type_identifier))
+        (type
+          (type_identifier)))
+      (type
+        (type_identifier))
+      (block
+        (block_statement
+          (comparison_binary_expression
+            (function_call
+              (function_identifier)
+              (call_signature
+                (add_binary_expression
+                  (mult_binary_expression
+                    (var_identifier)
+                    (mult_prec_operator)
+                    (value
+                      (basic_value
+                        (length_value))))
+                  (add_prec_operator)
+                  (mult_binary_expression
+                    (add_binary_expression
+                      (var_identifier
+                        (reference_identifier))
+                      (add_prec_operator)
+                      (var_identifier))
+                    (mult_prec_operator)
+                    (value
+                      (basic_value
+                        (length_value)))))))
+            (comparison_operator)
+            (value
+              (basic_value
+                (float_value))))))))
   (component_definition
     (type_identifier)
     (block

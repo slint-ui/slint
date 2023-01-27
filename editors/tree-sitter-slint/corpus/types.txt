@@ -2560,40 +2560,52 @@ TestCase := Rectangle {
                 (add_prec_operator)
                 (var_identifier
                   (post_identifier)))))))
-      (ERROR
-        (function_call
-          (function_identifier)
-          (call_signature))
-        (value
-          (anon_struct
-            (var_identifier)
-            (value
-              (anon_struct
-                (var_identifier)
-                (var_identifier))))))
       (block_statement
-        (value
-          (anon_struct
-            (var_identifier)
-            (value
-              (anon_struct
-                (var_identifier)
-                (value
-                  (anon_struct
-                    (var_identifier)
-                    (value
-                      (basic_value
-                        (int_value)))))
-                (post_identifier))))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'e')
-    (UNEXPECTED ':')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'a')
-    (UNEXPECTED 'b')
-    (UNEXPECTED 'b')
-    (UNEXPECTED 'p')))
+        (function
+          (function_identifier)
+          (function_signature)
+          (type
+            (type_anon_struct
+              (var_identifier)
+              (type
+                (type_anon_struct
+                  (var_identifier)
+                  (type
+                    (type_identifier))))))
+          (block
+            (block_statement
+              (value
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (anon_struct
+                          (var_identifier)
+                          (value
+                            (basic_value
+                              (int_value)))))
+                      (post_identifier)))))))))
+      (block_statement
+        (property
+          (type
+            (type_identifier))
+          (var_identifier)
+          (comparison_binary_expression
+            (function_call
+              (function_identifier)
+              (call_signature))
+            (ERROR
+              (UNEXPECTED 'a')
+              (UNEXPECTED 'b'))
+            (comparison_operator)
+            (mult_binary_expression
+              (value
+                (basic_value
+                  (int_value)))
+              (mult_prec_operator)
+              (var_identifier))))))))
 
 ================================================================================
 structs2

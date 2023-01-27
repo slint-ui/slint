@@ -17,6 +17,7 @@ module.exports = grammar({
         [$.block_statement, $._expression_body],
         [$.export_modifier, $.export_statement],
         [$.value, $.property],
+        [$.function, $.visibility_modifier],
         [$.function_identifier, $.post_identifier],
         [$.function_identifier, $.var_identifier],
         [$.var_identifier],
@@ -153,7 +154,14 @@ module.exports = grammar({
                 field("name", $.type_identifier),
                 optional(":="), // old syntax!
                 "{",
-                repeat(choice($.property, $.property_alias, $.callback)),
+                repeat(
+                    choice(
+                        $.property,
+                        $.property_alias,
+                        $.callback,
+                        $.function,
+                    ),
+                ),
                 "}",
             ),
 
@@ -207,6 +215,7 @@ module.exports = grammar({
                 $.property,
                 $.binding,
                 $.callback,
+                $.function,
                 $.callback_event,
                 $.callback_alias,
                 seq($._expression, ";"),
@@ -403,29 +412,24 @@ module.exports = grammar({
 
         function: ($) =>
             seq(
-                choice(
-                    seq(
-                        optional(field("purity", "pure")),
-                        optional(
-                            field(
-                                "visibility",
-                                optional(choice("private", "public")),
-                            ),
+                optional(
+                    choice(
+                        field("purity", "pure"),
+                        field("visibility", choice("private", "public")),
+                        seq(
+                            field("purity", "pure"),
+                            field("visibility", choice("private", "public")),
                         ),
-                    ),
-                    seq(
-                        optional(
-                            field(
-                                "visibility",
-                                optional(choice("private", "public")),
-                            ),
+                        seq(
+                            field("visibility", choice("private", "public")),
+                            field("purity", "pure"),
                         ),
-                        optional(field("purity", "pure")),
                     ),
                 ),
+                "function",
                 field("name", $.function_identifier),
-                optional($.call_signature),
-                optional(seq("->", field("return_type", $.type_identifier))),
+                optional($.function_signature),
+                optional(seq("->", field("return_type", $.type))),
                 $.block,
             ),
 
@@ -452,6 +456,21 @@ module.exports = grammar({
                 field("name", $.var_identifier),
                 optional($.call_signature),
                 ";",
+            ),
+
+        function_signature: ($) =>
+            seq(
+                "(",
+                field(
+                    "parameters",
+                    optional(
+                        seq(
+                            commaSep1(seq($._identifier, ":", $.type)),
+                            optional(","),
+                        ),
+                    ),
+                ),
+                ")",
             ),
 
         call_signature: ($) =>

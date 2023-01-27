@@ -891,45 +891,66 @@ TestCase := Rectangle {
 
 (source_file
   (global_definition
-    (ERROR
-      (type_identifier)
-      (property
-        (type
-          (type_identifier))
-        (var_identifier)
-        (value
-          (basic_value
-            (string_value))))
-      (UNEXPECTED 'e')
-      (UNEXPECTED ':'))
     (type_identifier)
-    (ERROR
+    (property
+      (type
+        (type_identifier))
       (var_identifier)
-      (ERROR
-        (UNEXPECTED 'h')
-        (UNEXPECTED ';'))))
-  (ERROR
-    (UNEXPECTED 'S')
-    (UNEXPECTED 'R')
+      (value
+        (basic_value
+          (string_value))))
+    (function
+      (function_identifier)
+      (function_signature
+        (type
+          (type_identifier)))
+      (type
+        (type_identifier))
+      (block
+        (block_statement
+          (add_binary_expression
+            (add_binary_expression
+              (var_identifier)
+              (add_prec_operator)
+              (value
+                (basic_value
+                  (string_value))))
+            (add_prec_operator)
+            (var_identifier))))))
+  (component_definition
     (type_identifier)
-    (UNEXPECTED 'u')
-    (UNEXPECTED 't')
-    (UNEXPECTED 'h')
     (type_identifier)
-    (UNEXPECTED 'd'))
+    (block
+      (block_statement
+        (function
+          (function_identifier)
+          (function_signature)
+          (type
+            (type_identifier))
+          (block
+            (var_identifier))))))
   (global_definition
     (export_modifier)
     (type_identifier)
-    (ERROR
-      (var_identifier)
-      (ERROR
-        (UNEXPECTED 'u')
-        (UNEXPECTED 't')
-        (UNEXPECTED 'e')
-        (UNEXPECTED ':'))
-      (UNEXPECTED ':')
-      (UNEXPECTED ')
-      (UNEXPECTED ')))
+    (function
+      (function_identifier)
+      (function_signature
+        (type
+          (type_identifier))
+        (type
+          (type_identifier)))
+      (type
+        (type_identifier))
+      (block
+        (add_binary_expression
+          (add_binary_expression
+            (var_identifier)
+            (add_prec_operator)
+            (var_identifier))
+          (add_prec_operator)
+          (value
+            (basic_value
+              (int_value)))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -972,63 +993,147 @@ TestCase := Rectangle {
                         (value
                           (basic_value
                             (length_value))))))))))))
-      (function_call
-        (function_identifier)
-        (ERROR)
-        (call_signature))
-      (ERROR)))
-  (component_definition
-    (type_identifier)
-    (ERROR
-      (UNEXPECTED 'h')
-      (UNEXPECTED 't')
-      (UNEXPECTED ':')
-      (UNEXPECTED ':')
-      (UNEXPECTED 'o')
-      (UNEXPECTED ')
-      (UNEXPECTED ')
-      (UNEXPECTED ')
-      (UNEXPECTED 'n')
-      (UNEXPECTED ')
-      (UNEXPECTED 'R')
-      (UNEXPECTED 'a')
-      (UNEXPECTED ':')
-      (UNEXPECTED 'h')
-      (UNEXPECTED 't')
-      (UNEXPECTED 'l')
-      (UNEXPECTED '.')
-      (UNEXPECTED 'h')
-      (UNEXPECTED '))
-    (type_identifier)
-    (block))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'u')
-    (UNEXPECTED 't')
-    (UNEXPECTED '(')
-    (UNEXPECTED ':')
-    (UNEXPECTED ':')
-    (UNEXPECTED ')
-    (UNEXPECTED ')
-    (UNEXPECTED ')
-    (UNEXPECTED 'u')
-    (UNEXPECTED 't')
-    (UNEXPECTED 't')
-    (UNEXPECTED ':')
-    (UNEXPECTED ')
-    (UNEXPECTED ')
-    (UNEXPECTED 'e')
-    (UNEXPECTED ':')
-    (UNEXPECTED 'h')
-    (UNEXPECTED 't')
-    (UNEXPECTED 'G')
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'o')
-    (UNEXPECTED 'h')
-    (UNEXPECTED '.')
-    (UNEXPECTED 'h')
-    (UNEXPECTED 'C')
-    (UNEXPECTED 'd')))
+      (block_statement
+        (function
+          (function_identifier)
+          (function_signature)
+          (block)))
+      (block_statement
+        (function
+          (function_identifier)
+          (function_signature
+            (type
+              (type_identifier))
+            (type
+              (type_identifier)))
+          (type
+            (type_identifier))
+          (block
+            (block_statement
+              (function_call
+                (function_identifier)
+                (call_signature)))
+            (add_binary_expression
+              (add_binary_expression
+                (add_binary_expression
+                  (var_identifier)
+                  (add_prec_operator)
+                  (var_identifier))
+                (add_prec_operator)
+                (var_identifier))
+              (add_prec_operator)
+              (var_identifier)))))
+      (block_statement
+        (if_statement
+          (value
+            (basic_value
+              (bool_value)))
+          (component
+            (type_identifier)
+            (block
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (comparison_binary_expression
+                  (function_call
+                    (function_identifier)
+                    (call_signature
+                      (value
+                        (basic_value
+                          (int_value)))
+                      (value
+                        (basic_value
+                          (int_value)))))
+                  (comparison_operator)
+                  (ternary_expression
+                    (value
+                      (basic_value
+                        (int_value)))
+                    (var_identifier)
+                    (var_identifier
+                      (post_identifier
+                        (function_call
+                          (function_identifier)
+                          (call_signature)))))))))))
+      (block_statement
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block)))
+      (block_statement
+        (function
+          (function_identifier)
+          (function_signature
+            (type
+              (type_identifier))
+            (type
+              (type_identifier)))
+          (type
+            (type_identifier))
+          (block
+            (add_binary_expression
+              (add_binary_expression
+                (var_identifier)
+                (add_prec_operator)
+                (var_identifier))
+              (add_prec_operator)
+              (var_identifier)))))
+      (block_statement
+        (function
+          (function_identifier)
+          (function_signature
+            (type
+              (type_identifier)))
+          (block
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (var_identifier)))))
+      (block_statement
+        (property
+          (type
+            (type_identifier))
+          (var_identifier)
+          (comparison_binary_expression
+            (comparison_binary_expression
+              (comparison_binary_expression
+                (function_call
+                  (function_identifier)
+                  (call_signature
+                    (value
+                      (basic_value
+                        (int_value)))
+                    (value
+                      (basic_value
+                        (int_value)))))
+                (comparison_operator)
+                (mult_binary_expression
+                  (value
+                    (basic_value
+                      (int_value)))
+                  (mult_prec_operator)
+                  (var_identifier
+                    (post_identifier
+                      (function_call
+                        (function_identifier)
+                        (call_signature
+                          (value
+                            (basic_value
+                              (string_value)))))))))
+              (comparison_operator)
+              (mult_binary_expression
+                (value
+                  (basic_value
+                    (string_value)))
+                (mult_prec_operator)
+                (var_identifier
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature))))))
+            (comparison_operator)
+            (var_identifier
+              (post_identifier))))))))
 
 ================================================================================
 return_value

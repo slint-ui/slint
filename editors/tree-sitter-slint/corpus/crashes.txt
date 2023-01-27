@@ -2183,22 +2183,18 @@ Bar := Rectangle {
     (type_identifier)
     (block
       (block_statement
-        (function_call
+        (function
           (function_identifier)
-          (ERROR
-            (UNEXPECTED 'h'))
-          (call_signature))
-        (MISSING ";"))
-      (ERROR
-        (var_identifier
-          (post_identifier
-            (function_call
-              (function_identifier)
-              (call_signature))))
-        (UNEXPECTED 'x')
-        (UNEXPECTED 'P'))
+          (function_signature)
+          (block
+            (var_identifier
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature)))))))
       (block_statement
         (component
+          (var_identifier)
           (type_identifier)
           (block)))))
   (component_definition
