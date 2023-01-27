@@ -483,7 +483,7 @@ module.exports = grammar({
                 $.assignment_prec_operator,
             ),
 
-        unary_prec_operator: (_) => choice("!", "-"),
+        unary_prec_operator: (_) => choice("!", "-", "+"),
 
         add_prec_operator: (_) => choice("+", "-"),
         mult_prec_operator: (_) => choice("*", "/", "&&", "||"),

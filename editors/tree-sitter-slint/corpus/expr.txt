@@ -210,11 +210,14 @@ arithmetic
                 (basic_value
                   (int_value)))
               (add_prec_operator)
-              (ERROR)
               (mult_binary_expression
-                (value
-                  (basic_value
-                    (int_value)))
+                (unary_expression
+                  (unary_prec_operator)
+                  (unary_expression
+                    (unary_prec_operator)
+                    (value
+                      (basic_value
+                        (int_value)))))
                 (mult_prec_operator)
                 (add_binary_expression
                   (var_identifier)
@@ -235,10 +238,11 @@ arithmetic
                 (add_prec_operator)
                 (unary_expression
                   (unary_prec_operator)
-                  (ERROR)
-                  (value
-                    (basic_value
-                      (int_value)))))
+                  (unary_expression
+                    (unary_prec_operator)
+                    (value
+                      (basic_value
+                        (int_value))))))
               (add_prec_operator)
               (value
                 (basic_value
@@ -283,10 +287,11 @@ arithmetic
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
-                (ERROR)
-                (value
-                  (basic_value
-                    (int_value)))))
+                (unary_expression
+                  (unary_prec_operator)
+                  (value
+                    (basic_value
+                      (int_value))))))
             (block_statement
               (assignment_expr
                 (var_identifier)
@@ -1818,9 +1823,11 @@ string_template
             (ERROR))))
       (ERROR
         (UNEXPECTED '+'))
-      (value
-        (basic_value
-          (int_value)))))
+      (unary_expression
+        (unary_prec_operator)
+        (value
+          (basic_value
+            (int_value))))))
   (ERROR
     (UNEXPECTED 'b')
     (UNEXPECTED ')
