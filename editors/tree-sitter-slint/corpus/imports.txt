@@ -319,63 +319,52 @@ TestCase := Rectangle {
           (type
             (type_identifier))
           (var_identifier)
-          (block
-            (block_statement
-              (assignment_block
-                (var_identifier)
-                (assignment_prec_operator)
-                (ERROR
+          (value
+            (anon_struct
+              (var_identifier)
+              (value
+                (int_value))
+              (var_identifier)
+              (value
+                (anon_struct
+                  (var_identifier)
                   (value
-                    (int_value))
-                  (UNEXPECTED ':'))
-                (block
-                  (assignment_expr
-                    (var_identifier)
-                    (assignment_prec_operator)
-                    (value
-                      (int_value)))))))))
+                    (int_value))))))))
       (block_statement
         (component
           (var_identifier)
           (type_identifier)
           (block
             (block_statement
-              (assignment_block
-                (var_identifier)
-                (assignment_prec_operator)
-                (block
-                  (block_statement
-                    (assignment_block
+              (binding_block_statement
+                (assignment_expr
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (value
+                    (anon_struct
                       (var_identifier)
-                      (assignment_prec_operator)
-                      (ERROR
-                        (value
-                          (int_value))
-                        (UNEXPECTED ':'))
-                      (block
-                        (assignment_expr
-                          (var_identifier)
-                          (assignment_prec_operator)
-                          (value
-                            (int_value)))))))))
-            (assignment_block
-              (var_identifier)
-              (assignment_prec_operator)
-              (block
-                (block_statement
-                  (assignment_block
-                    (var_identifier)
-                    (assignment_prec_operator)
-                    (ERROR
                       (value
                         (int_value))
-                      (UNEXPECTED ':'))
-                    (block
-                      (assignment_expr
-                        (var_identifier)
-                        (assignment_prec_operator)
-                        (value
-                          (int_value)))))))))))
+                      (var_identifier)
+                      (value
+                        (anon_struct
+                          (var_identifier)
+                          (value
+                            (int_value)))))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (int_value))
+                  (var_identifier)
+                  (value
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (int_value))))))))))
       (block_statement
         (property
           (type

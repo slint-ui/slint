@@ -8,19 +8,24 @@ module.exports = grammar({
     conflicts: ($) => [
         [$._assignment_value_block],
         [$._assignment_value_expr, $.value],
+        [$._binding],
         [$._exportable_definition, $.export_statement],
         [$._expression, $.if_statement],
         [$._expression_body, $.value],
         [$._var_identifier_start, $.var_identifier],
+        [$.anon_struct, $.assignment_prec_operator, $.binding],
         [$.anon_struct, $.block],
         [$.assignment_block],
+        [$.binding_block, $.anon_struct],
+        [$.binding_block, $.binding_block_statement],
+        [$.binding_block_statement, $.block],
         [$.block, $.block_statement],
         [$.block_statement, $._expression_body],
         [$.export_modifier, $.export_statement],
-        [$.value, $.property],
         [$.function, $.visibility_modifier],
         [$.function_identifier, $.post_identifier],
         [$.function_identifier, $.var_identifier],
+        [$.value, $.property],
         [$.var_identifier],
     ],
     inline: ($) => [$.basic_value, $._string],
@@ -112,6 +117,43 @@ module.exports = grammar({
             ),
 
         _property_type: ($) => seq("<", field("type", $.type), ">"),
+        binding_block: ($) =>
+            seq(
+                "{",
+                repeat($.binding_block_statement),
+                optional(
+                    seq(
+                        choice(
+                            $._expression,
+                            $.assignment_block,
+                            $.assignment_expr,
+                        ),
+                        optional(";"),
+                    ),
+                ),
+                "}",
+            ),
+
+        binding_block_statement: ($) =>
+            choice(
+                seq($.assignment_block, optional(";")),
+                seq($.assignment_expr, ";"),
+                $.binding,
+                $.binding_alias,
+                $.callback_event,
+                $.callback_alias,
+                seq(optional("return"), $._expression, ";"),
+            ),
+
+        _binding: ($) =>
+            field(
+                "binding",
+                choice(
+                    seq($.binding_block, optional(";")),
+                    seq($._expression, ";"),
+                ),
+            ),
+
         property: ($) =>
             seq(
                 field("visibility", optional($.visibility_modifier)),
@@ -121,18 +163,7 @@ module.exports = grammar({
                         $._property_type,
                         field("name", $.var_identifier),
                         choice(
-                            optional(
-                                seq(
-                                    field("binding_op", ":"),
-                                    field(
-                                        "binding",
-                                        choice(
-                                            seq($.block, optional(";")),
-                                            seq($._expression, ";"),
-                                        ),
-                                    ),
-                                ),
-                            ),
+                            optional(seq(field("binding_op", ":"), $._binding)),
                             ";",
                         ),
                     ),
@@ -155,12 +186,7 @@ module.exports = grammar({
             ),
 
         binding: ($) =>
-            seq(
-                field("name", $.var_identifier),
-                ":",
-                field("expression", $._expression),
-                ";",
-            ),
+            seq(field("name", $.var_identifier), ":", $._binding, ";"),
 
         global_definition: ($) =>
             seq(
@@ -188,50 +214,44 @@ module.exports = grammar({
             ),
 
         anon_struct: ($) =>
-            seq(
-                "{",
-                commaSep(seq($.var_identifier, ":", $._expression)),
-                optional(","),
-                "}",
-            ),
-
-        block: ($) =>
-            choice(
+            prec(
+                100,
                 seq(
                     "{",
-                    repeat($.block_statement),
-                    optional(
-                        seq(
-                            choice(
-                                $._expression,
-                                $.assignment_block,
-                                $.assignment_expr,
-                            ),
-                            optional(";"),
-                        ),
-                    ), // "return value"
+                    commaSep(seq($.var_identifier, ":", $._expression)),
+                    optional(","),
                     "}",
                 ),
             ),
 
+        block: ($) =>
+            seq(
+                "{",
+                repeat($.block_statement),
+                optional(
+                    seq(
+                        choice(
+                            $._expression,
+                            $.assignment_block,
+                            $.assignment_expr,
+                        ),
+                        optional(";"),
+                    ),
+                ), // "return value"
+                "}",
+            ),
+
         block_statement: ($) =>
             choice(
+                $.binding_block_statement,
                 $.for_loop,
                 $.if_statement,
                 $.animate_statement,
                 $.children_identifier, // No `;` after this one!
-                seq($.assignment_block, optional(";")),
-                seq($.assignment_expr, ";"),
-                seq("return", $._expression, ";"),
                 $.component,
                 $.property,
-                $.binding,
-                $.binding_alias,
                 $.callback,
                 $.function,
-                $.callback_event,
-                $.callback_alias,
-                seq($._expression, ";"),
                 $.states_definition,
                 $.transitions_definition,
             ),

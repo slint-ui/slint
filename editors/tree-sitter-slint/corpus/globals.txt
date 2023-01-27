@@ -101,16 +101,17 @@ TestCase := Rectangle {
           (call_signature
             (var_identifier))))
       (block_statement
-        (callback_event
-          (function_identifier)
-          (call_signature
-            (var_identifier))
-          (block
-            (assignment_expr
-              (var_identifier
-                (post_identifier))
-              (assignment_prec_operator)
-              (var_identifier)))))
+        (binding_block_statement
+          (callback_event
+            (function_identifier)
+            (call_signature
+              (var_identifier))
+            (block
+              (assignment_expr
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (var_identifier))))))
       (block_statement
         (property
           (type
@@ -336,8 +337,8 @@ TestCase := Rectangle {
       (type
         (type_identifier))
       (var_identifier)
-      (block
-        (block_statement
+      (binding_block
+        (binding_block_statement
           (function_call
             (function_identifier)
             (call_signature
@@ -361,16 +362,17 @@ TestCase := Rectangle {
           (call_signature
             (var_identifier))))
       (block_statement
-        (callback_event
-          (function_identifier)
-          (call_signature
-            (var_identifier))
-          (block
-            (assignment_expr
-              (var_identifier
-                (post_identifier))
-              (assignment_prec_operator)
-              (var_identifier)))))
+        (binding_block_statement
+          (callback_event
+            (function_identifier)
+            (call_signature
+              (var_identifier))
+            (block
+              (assignment_expr
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (var_identifier))))))
       (block_statement
         (property
           (type
@@ -701,8 +703,9 @@ TestCase := Window {
       (call_signature)
       (block
         (block_statement
-          (value
-            (int_value))))))
+          (binding_block_statement
+            (value
+              (int_value)))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -740,15 +743,17 @@ TestCase := Window {
     (type_identifier)
     (block
       (block_statement
-        (callback_alias
-          (function_identifier)
-          (var_identifier
-            (post_identifier))))
+        (binding_block_statement
+          (callback_alias
+            (function_identifier)
+            (var_identifier
+              (post_identifier)))))
       (block_statement
-        (callback_alias
-          (function_identifier)
-          (var_identifier
-            (post_identifier))))
+        (binding_block_statement
+          (callback_alias
+            (function_identifier)
+            (var_identifier
+              (post_identifier)))))
       (block_statement
         (component
           (var_identifier)
@@ -849,17 +854,19 @@ export component TestCase inherits Window {
     (type_identifier)
     (block
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
         (property
           (visibility_modifier)
@@ -887,10 +894,11 @@ export component TestCase inherits Window {
           (block
             (comment)
             (block_statement
-              (binding_alias
-                (var_identifier)
-                (var_identifier
-                  (post_identifier)))))))
+              (binding_block_statement
+                (binding_alias
+                  (var_identifier)
+                  (var_identifier
+                    (post_identifier))))))))
       (block_statement
         (component
           (var_identifier)
@@ -898,7 +906,8 @@ export component TestCase inherits Window {
           (block
             (comment)
             (block_statement
-              (binding_alias
-                (var_identifier)
-                (var_identifier
-                  (post_identifier))))))))))
+              (binding_block_statement
+                (binding_alias
+                  (var_identifier)
+                  (var_identifier
+                    (post_identifier)))))))))))

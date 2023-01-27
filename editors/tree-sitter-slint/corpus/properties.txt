@@ -122,17 +122,19 @@ TestCase := Rectangle {
     (type_identifier)
     (block
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
         (property
           (type
@@ -201,42 +203,47 @@ TestCase := Rectangle {
                   (value
                     (duration_value)))))
             (block_statement
-              (callback_event
-                (function_identifier)
-                (block
-                  (block_statement
+              (binding_block_statement
+                (callback_event
+                  (function_identifier)
+                  (block
+                    (block_statement
+                      (binding_block_statement
+                        (function_call
+                          (function_identifier)
+                          (call_signature
+                            (value
+                              (string_value))))))
+                    (block_statement
+                      (binding_block_statement
+                        (assignment_expr
+                          (var_identifier
+                            (reference_identifier)
+                            (post_identifier))
+                          (assignment_prec_operator)
+                          (value
+                            (int_value)))))
+                    (block_statement
+                      (binding_block_statement
+                        (assignment_expr
+                          (var_identifier
+                            (reference_identifier)
+                            (post_identifier))
+                          (assignment_prec_operator)
+                          (value
+                            (bool_value)))))
+                    (block_statement
+                      (binding_block_statement
+                        (assignment_expr
+                          (var_identifier)
+                          (assignment_prec_operator)
+                          (value
+                            (int_value)))))
                     (function_call
                       (function_identifier)
                       (call_signature
                         (value
-                          (string_value)))))
-                  (block_statement
-                    (assignment_expr
-                      (var_identifier
-                        (reference_identifier)
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (value
-                        (int_value))))
-                  (block_statement
-                    (assignment_expr
-                      (var_identifier
-                        (reference_identifier)
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (value
-                        (bool_value))))
-                  (block_statement
-                    (assignment_expr
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (int_value))))
-                  (function_call
-                    (function_identifier)
-                    (call_signature
-                      (value
-                        (string_value)))))))))))))
+                          (string_value))))))))))))))
 
 ================================================================================
 animation_merging
@@ -370,11 +377,12 @@ TestCase := Rectangle {
           (type_identifier)
           (block
             (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (duration_value))))
+              (binding_block_statement
+                (assignment_expr
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (value
+                    (duration_value)))))
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
@@ -400,12 +408,13 @@ TestCase := Rectangle {
           (type_identifier)
           (block
             (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (var_identifier
-                  (reference_identifier)
-                  (post_identifier))))
+              (binding_block_statement
+                (assignment_expr
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (var_identifier
+                    (reference_identifier)
+                    (post_identifier)))))
             (block_statement
               (animate_statement
                 (var_identifier)
@@ -598,17 +607,19 @@ TestCase := Window {
     (type_identifier)
     (block
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
         (property
           (type
@@ -622,16 +633,17 @@ TestCase := Window {
           (type_identifier)
           (block
             (block_statement
-              (callback_event
-                (function_identifier)
-                (block
-                  (assignment_expr
-                    (var_identifier
-                      (reference_identifier)
-                      (post_identifier))
-                    (assignment_prec_operator)
-                    (value
-                      (int_value))))))
+              (binding_block_statement
+                (callback_event
+                  (function_identifier)
+                  (block
+                    (assignment_expr
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (value
+                        (int_value)))))))
             (block_statement
               (component
                 (var_identifier)
@@ -913,11 +925,12 @@ TestCase := Rectangle {
           (type_identifier)
           (block
             (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value))))
+              (binding_block_statement
+                (assignment_expr
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (value
+                    (string_value)))))
             (block_statement
               (property
                 (type

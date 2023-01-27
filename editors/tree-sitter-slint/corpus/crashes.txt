@@ -199,23 +199,26 @@ export Demo := Window {
     (type_identifier)
     (block
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (var_identifier
-            (post_identifier))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (var_identifier
+              (post_identifier)))))
       (block_statement
         (component
           (var_identifier)
@@ -403,16 +406,17 @@ export TestCase := Window {
     (type_identifier)
     (block
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (length_value))
-              (var_identifier
-                (post_identifier))))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (function_call
+              (function_identifier)
+              (call_signature
+                (value
+                  (length_value))
+                (var_identifier
+                  (post_identifier)))))))
       (block_statement
         (component
           (var_identifier)
@@ -483,11 +487,12 @@ export D := Rectangle {
             (type_identifier)
             (block
               (block_statement
-                (assignment_expr
-                  (var_identifier)
-                  (assignment_prec_operator)
-                  (value
-                    (color_value))))
+                (binding_block_statement
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (color_value)))))
               (block_statement
                 (component
                   (type_identifier)
@@ -533,11 +538,12 @@ export D := Window {
                   (type_identifier)
                   (block
                     (block_statement
-                      (assignment_expr
-                        (var_identifier)
-                        (assignment_prec_operator)
-                        (value
-                          (percent_value))))
+                      (binding_block_statement
+                        (assignment_expr
+                          (var_identifier)
+                          (assignment_prec_operator)
+                          (value
+                            (percent_value)))))
                     (assignment_expr
                       (var_identifier)
                       (assignment_prec_operator)
@@ -596,9 +602,10 @@ App := Rectangle {
             (type_identifier)
             (block
               (block_statement
-                (binding_alias
-                  (var_identifier)
-                  (var_identifier)))))))
+                (binding_block_statement
+                  (binding_alias
+                    (var_identifier)
+                    (var_identifier))))))))
       (block_statement
         (property
           (type
@@ -781,14 +788,15 @@ App := Window {
                         (type_identifier)
                         (block
                           (block_statement
-                            (callback_event
-                              (function_identifier)
-                              (block
-                                (var_identifier
-                                  (post_identifier
-                                    (function_call
-                                      (function_identifier)
-                                      (call_signature))))))))))
+                            (binding_block_statement
+                              (callback_event
+                                (function_identifier)
+                                (block
+                                  (var_identifier
+                                    (post_identifier
+                                      (function_call
+                                        (function_identifier)
+                                        (call_signature)))))))))))
                     (block_statement
                       (component
                         (var_identifier)
@@ -806,14 +814,15 @@ App := Window {
             (type_identifier)
             (block
               (block_statement
-                (callback_event
-                  (function_identifier)
-                  (block
-                    (var_identifier
-                      (post_identifier
-                        (function_call
-                          (function_identifier)
-                          (call_signature)))))))
+                (binding_block_statement
+                  (callback_event
+                    (function_identifier)
+                    (block
+                      (var_identifier
+                        (post_identifier
+                          (function_call
+                            (function_identifier)
+                            (call_signature))))))))
               (block_statement
                 (if_statement
                   (value
@@ -822,14 +831,15 @@ App := Window {
                     (type_identifier)
                     (block
                       (block_statement
-                        (callback_event
-                          (function_identifier)
-                          (block
-                            (var_identifier
-                              (post_identifier
-                                (function_call
-                                  (function_identifier)
-                                  (call_signature)))))))))))
+                        (binding_block_statement
+                          (callback_event
+                            (function_identifier)
+                            (block
+                              (var_identifier
+                                (post_identifier
+                                  (function_call
+                                    (function_identifier)
+                                    (call_signature))))))))))))
               (block_statement
                 (component
                   (var_identifier)
@@ -911,39 +921,41 @@ TestCase := Window {
             (value
               (int_value)))))
       (block_statement
-        (assignment_block
-          (var_identifier)
-          (assignment_prec_operator)
-          (block
-            (block_statement
-              (if_statement
-                (comparison_binary_expression
-                  (var_identifier)
-                  (comparison_operator)
-                  (value
-                    (int_value)))
-                (component
-                  (type_identifier
-                    (MISSING _identifier))
-                  (block
-                    (block_statement
+        (binding_block_statement
+          (assignment_block
+            (var_identifier)
+            (assignment_prec_operator)
+            (block
+              (block_statement
+                (if_statement
+                  (comparison_binary_expression
+                    (var_identifier)
+                    (comparison_operator)
+                    (value
+                      (int_value)))
+                  (component
+                    (type_identifier
+                      (MISSING _identifier))
+                    (block
+                      (block_statement
+                        (binding_block_statement
+                          (assignment_expr
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (var_identifier))))
                       (assignment_expr
                         (var_identifier)
                         (assignment_prec_operator)
-                        (var_identifier)))
-                    (assignment_expr
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (int_value)))))))
-            (comparison_binary_expression
-              (var_identifier)
-              (comparison_operator)
-              (ternary_expression
-                (value
-                  (int_value))
+                        (value
+                          (int_value)))))))
+              (comparison_binary_expression
                 (var_identifier)
-                (var_identifier))))))
+                (comparison_operator)
+                (ternary_expression
+                  (value
+                    (int_value))
+                  (var_identifier)
+                  (var_identifier)))))))
       (block_statement
         (property
           (type
@@ -1089,71 +1101,77 @@ export InkEffect := Rectangle {
           (value
             (bool_value))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (mult_binary_expression
+        (binding_block_statement
+          (assignment_expr
             (var_identifier)
-            (mult_prec_operator)
-            (value
-              (int_value)))))
-      (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (mult_binary_expression
-            (var_identifier)
-            (mult_prec_operator)
-            (value
-              (int_value)))))
-      (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (add_binary_expression
-            (var_identifier)
-            (add_prec_operator)
+            (assignment_prec_operator)
             (mult_binary_expression
               (var_identifier)
               (mult_prec_operator)
               (value
                 (int_value))))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (add_binary_expression
+        (binding_block_statement
+          (assignment_expr
             (var_identifier)
-            (add_prec_operator)
+            (assignment_prec_operator)
             (mult_binary_expression
               (var_identifier)
               (mult_prec_operator)
               (value
                 (int_value))))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (int_value))
-              (value
-                (int_value))
-              (value
-                (int_value))
-              (value
-                (float_value))))))
-      (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (mult_binary_expression
+        (binding_block_statement
+          (assignment_expr
             (var_identifier)
-            (mult_prec_operator)
-            (value
-              (int_value)))))
+            (assignment_prec_operator)
+            (add_binary_expression
+              (var_identifier)
+              (add_prec_operator)
+              (mult_binary_expression
+                (var_identifier)
+                (mult_prec_operator)
+                (value
+                  (int_value)))))))
+      (block_statement
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (add_binary_expression
+              (var_identifier)
+              (add_prec_operator)
+              (mult_binary_expression
+                (var_identifier)
+                (mult_prec_operator)
+                (value
+                  (int_value)))))))
+      (block_statement
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (function_call
+              (function_identifier)
+              (call_signature
+                (value
+                  (int_value))
+                (value
+                  (int_value))
+                (value
+                  (int_value))
+                (value
+                  (float_value)))))))
+      (block_statement
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (mult_binary_expression
+              (var_identifier)
+              (mult_prec_operator)
+              (value
+                (int_value))))))
       (block_statement
         (property
           (type
@@ -1217,28 +1235,32 @@ export InkEffect := Rectangle {
     (type_identifier)
     (block
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (var_identifier)))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (var_identifier))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (bool_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (bool_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -1260,106 +1282,113 @@ export InkEffect := Rectangle {
           (type_identifier)
           (block
             (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (var_identifier
-                  (reference_identifier)
-                  (post_identifier))))
+              (binding_block_statement
+                (assignment_expr
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (var_identifier
+                    (reference_identifier)
+                    (post_identifier)))))
             (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (var_identifier
-                  (reference_identifier)
-                  (post_identifier))))
+              (binding_block_statement
+                (assignment_expr
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (var_identifier
+                    (reference_identifier)
+                    (post_identifier)))))
             (block_statement
-              (callback_event
-                (function_identifier)
-                (call_signature
-                  (var_identifier))
-                (block
-                  (block_statement
-                    (if_statement
-                      (comparison_binary_expression
+              (binding_block_statement
+                (callback_event
+                  (function_identifier)
+                  (call_signature
+                    (var_identifier))
+                  (block
+                    (block_statement
+                      (if_statement
                         (comparison_binary_expression
-                          (var_identifier
-                            (post_identifier))
-                          (comparison_operator)
-                          (mult_binary_expression
+                          (comparison_binary_expression
                             (var_identifier
                               (post_identifier))
-                            (mult_prec_operator)
-                            (var_identifier
-                              (post_identifier))))
-                        (comparison_operator)
-                        (var_identifier
-                          (post_identifier)))
-                      (component
-                        (type_identifier
-                          (MISSING _identifier))
-                        (block
-                          (block_statement
-                            (if_statement
-                              (unary_expression
-                                (unary_prec_operator)
-                                (var_identifier
-                                  (post_identifier)))
-                              (component
-                                (type_identifier
-                                  (MISSING _identifier))
-                                (block
-                                  (block_statement
+                            (comparison_operator)
+                            (mult_binary_expression
+                              (var_identifier
+                                (post_identifier))
+                              (mult_prec_operator)
+                              (var_identifier
+                                (post_identifier))))
+                          (comparison_operator)
+                          (var_identifier
+                            (post_identifier)))
+                        (component
+                          (type_identifier
+                            (MISSING _identifier))
+                          (block
+                            (block_statement
+                              (if_statement
+                                (unary_expression
+                                  (unary_prec_operator)
+                                  (var_identifier
+                                    (post_identifier)))
+                                (component
+                                  (type_identifier
+                                    (MISSING _identifier))
+                                  (block
+                                    (block_statement
+                                      (binding_block_statement
+                                        (assignment_expr
+                                          (var_identifier
+                                            (post_identifier))
+                                          (assignment_prec_operator)
+                                          (var_identifier))))
+                                    (block_statement
+                                      (binding_block_statement
+                                        (assignment_expr
+                                          (var_identifier
+                                            (post_identifier))
+                                          (assignment_prec_operator)
+                                          (var_identifier))))
+                                    (block_statement
+                                      (binding_block_statement
+                                        (assignment_expr
+                                          (var_identifier
+                                            (post_identifier))
+                                          (assignment_prec_operator)
+                                          (mult_binary_expression
+                                            (var_identifier
+                                              (reference_identifier)
+                                              (post_identifier))
+                                            (mult_prec_operator)
+                                            (value
+                                              (length_value))))))
+                                    (block_statement
+                                      (binding_block_statement
+                                        (assignment_expr
+                                          (var_identifier
+                                            (post_identifier))
+                                          (assignment_prec_operator)
+                                          (mult_binary_expression
+                                            (var_identifier
+                                              (reference_identifier)
+                                              (post_identifier))
+                                            (mult_prec_operator)
+                                            (value
+                                              (length_value))))))
                                     (assignment_expr
                                       (var_identifier
                                         (post_identifier))
                                       (assignment_prec_operator)
-                                      (var_identifier)))
-                                  (block_statement
-                                    (assignment_expr
-                                      (var_identifier
-                                        (post_identifier))
-                                      (assignment_prec_operator)
-                                      (var_identifier)))
-                                  (block_statement
-                                    (assignment_expr
-                                      (var_identifier
-                                        (post_identifier))
-                                      (assignment_prec_operator)
-                                      (mult_binary_expression
+                                      (comparison_binary_expression
                                         (var_identifier
-                                          (reference_identifier)
                                           (post_identifier))
-                                        (mult_prec_operator)
-                                        (value
-                                          (length_value)))))
-                                  (block_statement
-                                    (assignment_expr
-                                      (var_identifier
-                                        (post_identifier))
-                                      (assignment_prec_operator)
-                                      (mult_binary_expression
-                                        (var_identifier
-                                          (reference_identifier)
-                                          (post_identifier))
-                                        (mult_prec_operator)
-                                        (value
-                                          (length_value)))))
-                                  (assignment_expr
-                                    (var_identifier
-                                      (post_identifier))
-                                    (assignment_prec_operator)
-                                    (comparison_binary_expression
-                                      (var_identifier
-                                        (post_identifier))
-                                      (comparison_operator)
-                                      (ternary_expression
-                                        (value
-                                          (int_value))
-                                        (value
-                                          (float_value))
-                                        (value
-                                          (int_value))))))))))))))))))))))
+                                        (comparison_operator)
+                                        (ternary_expression
+                                          (value
+                                            (int_value))
+                                          (value
+                                            (float_value))
+                                          (value
+                                            (int_value)))))))))))))))))))))))
 
 ================================================================================
 issue1659_combobox_in_tab
@@ -1396,16 +1425,17 @@ export AppWindow := Window {
     (type_identifier)
     (block
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (function_call
-            (function_identifier)
-            (call_signature
-              (value
-                (length_value))
-              (var_identifier
-                (post_identifier))))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (function_call
+              (function_identifier)
+              (call_signature
+                (value
+                  (length_value))
+                (var_identifier
+                  (post_identifier)))))))
       (block_statement
         (component
           (var_identifier)
@@ -1487,17 +1517,19 @@ App := Window {
     (type_identifier)
     (block
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
         (component
           (type_identifier)
@@ -1515,11 +1547,12 @@ App := Window {
                   (type_identifier)
                   (block
                     (block_statement
-                      (assignment_expr
-                        (var_identifier)
-                        (assignment_prec_operator)
-                        (value
-                          (length_value))))
+                      (binding_block_statement
+                        (assignment_expr
+                          (var_identifier)
+                          (assignment_prec_operator)
+                          (value
+                            (length_value)))))
                     (block_statement
                       (component
                         (type_identifier)
@@ -1569,17 +1602,19 @@ export TestCase := Window {
     (type_identifier)
     (block
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (physical_length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (physical_length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (physical_length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (physical_length_value)))))
       (block_statement
         (property
           (type
@@ -1603,22 +1638,24 @@ export TestCase := Window {
                     (type_identifier)
                     (block
                       (block_statement
-                        (callback_event
-                          (function_identifier)
-                          (block
-                            (block_statement
-                              (var_identifier
-                                (post_identifier
-                                  (function_call
-                                    (function_identifier)
-                                    (call_signature)))))
-                            (assignment_expr
-                              (var_identifier
-                                (reference_identifier)
-                                (post_identifier))
-                              (assignment_prec_operator)
-                              (var_identifier
-                                (post_identifier)))))))))))))))))
+                        (binding_block_statement
+                          (callback_event
+                            (function_identifier)
+                            (block
+                              (block_statement
+                                (binding_block_statement
+                                  (var_identifier
+                                    (post_identifier
+                                      (function_call
+                                        (function_identifier)
+                                        (call_signature))))))
+                              (assignment_expr
+                                (var_identifier
+                                  (reference_identifier)
+                                  (post_identifier))
+                                (assignment_prec_operator)
+                                (var_identifier
+                                  (post_identifier))))))))))))))))))
 
 ================================================================================
 issue_983_listview_const_width
@@ -1707,17 +1744,19 @@ MainWindow := Window {
           (value
             (value_list))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -1787,35 +1826,39 @@ export TestCase := Window {
     (type_identifier)
     (block
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
         (callback
           (function_identifier)))
       (block_statement
-        (callback_event
-          (function_identifier)
-          (block
-            (block_statement
-              (function_call
-                (function_identifier)
-                (call_signature
-                  (value
-                    (string_value)))))
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (value_list))))))
+        (binding_block_statement
+          (callback_event
+            (function_identifier)
+            (block
+              (block_statement
+                (binding_block_statement
+                  (function_call
+                    (function_identifier)
+                    (call_signature
+                      (value
+                        (string_value))))))
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_list)))))))
       (block_statement
         (property
           (type
@@ -1856,27 +1899,30 @@ export TestCase := Window {
                               (type_identifier)
                               (block
                                 (block_statement
-                                  (assignment_expr
-                                    (var_identifier)
-                                    (assignment_prec_operator)
-                                    (value
-                                      (int_value))))
+                                  (binding_block_statement
+                                    (assignment_expr
+                                      (var_identifier)
+                                      (assignment_prec_operator)
+                                      (value
+                                        (int_value)))))
                                 (block_statement
-                                  (assignment_expr
-                                    (var_identifier)
-                                    (assignment_prec_operator)
-                                    (value
-                                      (int_value))))
+                                  (binding_block_statement
+                                    (assignment_expr
+                                      (var_identifier)
+                                      (assignment_prec_operator)
+                                      (value
+                                        (int_value)))))
                                 (block_statement
-                                  (callback_event
-                                    (function_identifier)
-                                    (block
-                                      (var_identifier
-                                        (reference_identifier)
-                                        (post_identifier
-                                          (function_call
-                                            (function_identifier)
-                                            (call_signature)))))))
+                                  (binding_block_statement
+                                    (callback_event
+                                      (function_identifier)
+                                      (block
+                                        (var_identifier
+                                          (reference_identifier)
+                                          (post_identifier
+                                            (function_call
+                                              (function_identifier)
+                                              (call_signature))))))))
                                 (block_statement
                                   (component
                                     (type_identifier)
@@ -1890,17 +1936,19 @@ export TestCase := Window {
                 (type_identifier)
                 (block
                   (block_statement
-                    (assignment_expr
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (int_value))))
+                    (binding_block_statement
+                      (assignment_expr
+                        (var_identifier)
+                        (assignment_prec_operator)
+                        (value
+                          (int_value)))))
                   (block_statement
-                    (assignment_expr
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (int_value))))
+                    (binding_block_statement
+                      (assignment_expr
+                        (var_identifier)
+                        (assignment_prec_operator)
+                        (value
+                          (int_value)))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -1991,14 +2039,15 @@ export TestCase := Window {
           (type_identifier)
           (block
             (block_statement
-              (callback_event
-                (function_identifier)
-                (block
-                  (assignment_expr
-                    (var_identifier
-                      (post_identifier))
-                    (assignment_prec_operator)
-                    (var_identifier))))))))))
+              (binding_block_statement
+                (callback_event
+                  (function_identifier)
+                  (block
+                    (assignment_expr
+                      (var_identifier
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (var_identifier)))))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -2009,17 +2058,19 @@ export TestCase := Window {
     (type_identifier)
     (block
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (value
-            (length_value))))
+        (binding_block_statement
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (length_value)))))
       (block_statement
         (component
           (type_identifier)
@@ -2107,20 +2158,22 @@ Bar := Rectangle {
           (type_identifier)
           (block
             (block_statement
-              (callback_event
-                (function_identifier)
-                (block
-                  (block_statement
+              (binding_block_statement
+                (callback_event
+                  (function_identifier)
+                  (block
+                    (block_statement
+                      (binding_block_statement
+                        (var_identifier
+                          (post_identifier
+                            (function_call
+                              (function_identifier)
+                              (call_signature))))))
                     (var_identifier
                       (post_identifier
                         (function_call
                           (function_identifier)
-                          (call_signature)))))
-                  (var_identifier
-                    (post_identifier
-                      (function_call
-                        (function_identifier)
-                        (call_signature))))))))))
+                          (call_signature)))))))))))
       (block_statement
         (component
           (type_identifier)

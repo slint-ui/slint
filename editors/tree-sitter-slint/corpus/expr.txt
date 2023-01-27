@@ -266,58 +266,66 @@ arithmetic
         (callback
           (function_identifier)))
       (block_statement
-        (callback_event
-          (function_identifier)
-          (block
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (unary_expression
-                  (unary_prec_operator)
-                  (value
-                    (int_value)))))
-            (block_statement
+        (binding_block_statement
+          (callback_event
+            (function_identifier)
+            (block
+              (block_statement
+                (binding_block_statement
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (unary_expression
+                      (unary_prec_operator)
+                      (value
+                        (int_value))))))
+              (block_statement
+                (binding_block_statement
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (int_value)))))
+              (block_statement
+                (binding_block_statement
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (int_value)))))
+              (block_statement
+                (binding_block_statement
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (int_value)))))
+              (block_statement
+                (binding_block_statement
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (length_value)))))
+              (block_statement
+                (binding_block_statement
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (int_value)))))
+              (block_statement
+                (binding_block_statement
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (length_value)))))
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (int_value))))
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (int_value))))
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (int_value))))
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (length_value))))
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (int_value))))
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (length_value))))
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (int_value)))))))))
+                  (int_value))))))))))
 
 ================================================================================
 asin
@@ -1360,8 +1368,8 @@ TestCase := Rectangle {
           (type
             (type_identifier))
           (var_identifier)
-          (block
-            (block_statement
+          (binding_block
+            (binding_block_statement
               (value
                 (bool_value))))))
       (block_statement
@@ -1369,75 +1377,44 @@ TestCase := Rectangle {
           (type
             (type_identifier))
           (var_identifier)
-          (block
-            (block_statement
-              (if_statement
-                (var_identifier)
-                (component
-                  (type_identifier
-                    (MISSING _identifier))
-                  (block
-                    (block_statement
-                      (value
-                        (int_value)))))))
-            (block_statement
+          (binding_block
+            (ERROR
+              (function_call
+                (function_identifier)
+                (call_signature
+                  (var_identifier))))
+            (binding_block_statement
               (value
                 (int_value))))))
       (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (block
-            (block_statement
-              (value
-                (int_value))))))
-      (block_statement
-        (callback
-          (function_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)))
-      (block_statement
-        (callback_event
-          (function_identifier)
-          (block
-            (block_statement
-              (if_statement
-                (var_identifier)
-                (component
-                  (type_identifier
-                    (MISSING _identifier))
-                  (block
-                    (block_statement
-                      (var_identifier
-                        (MISSING "*")))))))
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (bool_value))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (block
-            (block_statement
-              (comparison_binary_expression
-                (var_identifier)
-                (comparison_operator)
-                (var_identifier)))
-            (block_statement
-              (value
-                (bool_value)))))))))
+        (binding_block_statement
+          (value
+            (int_value))))))
+  (ERROR
+    (type_identifier)
+    (UNEXPECTED 'v')
+    (UNEXPECTED 'e')
+    (UNEXPECTED '_')
+    (UNEXPECTED 'g')
+    (UNEXPECTED 'l')
+    (UNEXPECTED 'l')
+    (UNEXPECTED 'g')
+    (UNEXPECTED 'l')
+    (UNEXPECTED 'g')
+    (UNEXPECTED 'l')
+    (UNEXPECTED 'e')
+    (UNEXPECTED '_')
+    (UNEXPECTED 'g')
+    (UNEXPECTED 'l')
+    (UNEXPECTED 'l')
+    (UNEXPECTED 'g')
+    (UNEXPECTED 'l')
+    (UNEXPECTED 'g')
+    (UNEXPECTED 'l')
+    (UNEXPECTED 'e')
+    (UNEXPECTED ':')
+    (UNEXPECTED 'v')
+    (UNEXPECTED 'v')))
 
 ================================================================================
 round
@@ -1710,7 +1687,7 @@ string_template
               (type
                 (type_identifier))))
           (var_identifier)
-          (block
+          (binding_block
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
@@ -1729,21 +1706,15 @@ string_template
         (callback
           (function_identifier)))
       (block_statement
-        (callback_event
-          (function_identifier)
-          (block
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
+        (binding_block_statement
+          (callback_event
+            (function_identifier)
+            (block
+              (block_statement
+                (binding_block_statement
+                  (assignment_expr
                     (var_identifier)
-                    (add_binary_expression
-                      (var_identifier)
-                      (add_prec_operator)
-                      (value
-                        (int_value)))
+                    (assignment_prec_operator)
                     (value
                       (string_value
                         (var_identifier)
@@ -1751,17 +1722,25 @@ string_template
                           (var_identifier)
                           (add_prec_operator)
                           (value
-                            (int_value)))))))))
-            (assignment_expr
-              (var_identifier
-                (post_identifier))
-              (assignment_prec_operator)
-              (value
-                (string_value
-                  (var_identifier
-                    (post_identifier))
-                  (value
-                    (string_value)))))))))))
+                            (int_value)))
+                        (value
+                          (string_value
+                            (var_identifier)
+                            (add_binary_expression
+                              (var_identifier)
+                              (add_prec_operator)
+                              (value
+                                (int_value))))))))))
+              (assignment_expr
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (value
+                  (string_value
+                    (var_identifier
+                      (post_identifier))
+                    (value
+                      (string_value))))))))))))
 
 ================================================================================
 tan
@@ -2111,8 +2090,8 @@ TestCase := Rectangle {
           (type
             (type_identifier))
           (var_identifier)
-          (block
-            (block_statement
+          (binding_block
+            (binding_block_statement
               (function_call
                 (function_identifier)
                 (call_signature
@@ -2122,24 +2101,28 @@ TestCase := Rectangle {
         (callback
           (function_identifier)))
       (block_statement
-        (callback_event
-          (function_identifier)
-          (block
-            (function_call
-              (function_identifier)
-              (call_signature
-                (value
-                  (string_value)))))))
+        (binding_block_statement
+          (callback_event
+            (function_identifier)
+            (block
+              (function_call
+                (function_identifier)
+                (call_signature
+                  (value
+                    (string_value))))))))
       (block_statement
-        (assignment_block
-          (var_identifier)
-          (assignment_prec_operator)
-          (block
-            (block_statement
-              (var_identifier))
-            (block_statement
-              (var_identifier))
-            (var_identifier))))
+        (binding_block_statement
+          (assignment_block
+            (var_identifier)
+            (assignment_prec_operator)
+            (block
+              (block_statement
+                (binding_block_statement
+                  (var_identifier)))
+              (block_statement
+                (binding_block_statement
+                  (var_identifier)))
+              (var_identifier)))))
       (block_statement
         (component
           (var_identifier)
@@ -2150,12 +2133,12 @@ TestCase := Rectangle {
           (type
             (type_identifier))
           (var_identifier)
-          (block
-            (block_statement
+          (binding_block
+            (binding_block_statement
               (function_call
                 (function_identifier)
                 (call_signature)))
-            (block_statement
+            (binding_block_statement
               (function_call
                 (function_identifier)
                 (call_signature
@@ -2366,7 +2349,7 @@ string_concatenation
               (type
                 (type_identifier))))
           (var_identifier)
-          (block
+          (binding_block
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
@@ -2387,25 +2370,28 @@ string_concatenation
         (callback
           (function_identifier)))
       (block_statement
-        (callback_event
-          (function_identifier)
-          (block
-            (block_statement
+        (binding_block_statement
+          (callback_event
+            (function_identifier)
+            (block
+              (block_statement
+                (binding_block_statement
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (var_identifier))))
+              (block_statement
+                (binding_block_statement
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (var_identifier))))
               (assignment_expr
-                (var_identifier)
+                (var_identifier
+                  (post_identifier))
                 (assignment_prec_operator)
-                (var_identifier)))
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (var_identifier)))
-            (assignment_expr
-              (var_identifier
-                (post_identifier))
-              (assignment_prec_operator)
-              (value
-                (string_value))))))
+                (value
+                  (string_value)))))))
       (block_statement
         (property
           (type
