@@ -32,9 +32,7 @@ TestCase := Rectangle {
       (_string_fragment)))
   (import_statement
     (type_identifier)
-    (ERROR
-      (UNEXPECTED 'T')
-      (UNEXPECTED 'B'))
+    (type_identifier)
     (string_value
       (_string_fragment)))
   (comment)
@@ -213,8 +211,7 @@ TestCase := Rectangle {
   (import_statement
     (type_identifier)
     (type_identifier)
-    (ERROR
-      (UNEXPECTED 'F'))
+    (type_identifier)
     (string_value
       (_string_fragment)))
   (global_definition
@@ -424,11 +421,6 @@ TestCase := Rectangle {
   (comment)
   (import_statement
     (type_identifier)
-    (ERROR
-      (UNEXPECTED 'R'))
-    (string_value
-      (_string_fragment)))
-  (import_statement
     (type_identifier)
     (string_value
       (_string_fragment)))
@@ -438,8 +430,11 @@ TestCase := Rectangle {
       (_string_fragment)))
   (import_statement
     (type_identifier)
-    (ERROR
-      (UNEXPECTED 'R'))
+    (string_value
+      (_string_fragment)))
+  (import_statement
+    (type_identifier)
+    (type_identifier)
     (string_value
       (_string_fragment)))
   (import_statement

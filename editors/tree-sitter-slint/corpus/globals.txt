@@ -566,9 +566,7 @@ TestCase := Rectangle {
       (_string_fragment)))
   (import_statement
     (type_identifier)
-    (ERROR
-      (UNEXPECTED 'R')
-      (UNEXPECTED 'd'))
+    (type_identifier)
     (string_value
       (_string_fragment)))
   (struct_definition

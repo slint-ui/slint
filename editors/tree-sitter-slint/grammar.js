@@ -54,7 +54,19 @@ module.exports = grammar({
         import_statement: ($) =>
             seq(
                 "import",
-                optional(seq("{", commaSep($.type_identifier), "}", "from")),
+                optional(
+                    seq(
+                        "{",
+                        commaSep(
+                            seq(
+                                $.type_identifier,
+                                optional(seq("as", $.type_identifier)),
+                            ),
+                        ),
+                        "}",
+                        "from",
+                    ),
+                ),
                 $.string_value,
                 ";",
             ),
