@@ -8,6 +8,7 @@ module.exports = grammar({
     conflicts: ($) => [
         [$._assignment_value_block],
         [$._assignment_value_expr, $.value],
+        [$._exportable_definition, $.export_statement],
         [$._expression, $.if_statement],
         [$._expression_body, $.value],
         [$._var_identifier_start, $.var_identifier],
@@ -22,6 +23,7 @@ module.exports = grammar({
         [$.function_identifier, $.var_identifier],
         [$.var_identifier],
     ],
+    inline: ($) => [$.basic_value, $._string],
 
     rules: {
         source_file: ($) => repeat($._definition),
@@ -30,9 +32,17 @@ module.exports = grammar({
             choice(
                 $.export_statement,
                 $.import_statement,
-                $.struct_definition,
-                $.global_definition,
-                $.component_definition,
+                $._exportable_definition,
+            ),
+
+        _exportable_definition: ($) =>
+            seq(
+                field("export", optional($.export_modifier)),
+                choice(
+                    $.struct_definition,
+                    $.global_definition,
+                    $.component_definition,
+                ),
             ),
 
         export_statement: ($) =>
@@ -85,7 +95,6 @@ module.exports = grammar({
             choice(
                 seq(
                     // new syntax
-                    field("export", optional($.export_modifier)),
                     "component",
                     field("name", $.type_identifier),
                     optional(
@@ -95,7 +104,6 @@ module.exports = grammar({
                 ),
                 seq(
                     // old syntax
-                    field("export", optional($.export_modifier)),
                     field("name", $.type_identifier),
                     ":=",
                     field("base_type", $.type_identifier),
@@ -104,39 +112,46 @@ module.exports = grammar({
             ),
 
         _property_type: ($) => seq("<", field("type", $.type), ">"),
-
-        property_alias: ($) =>
-            seq(
-                field("visibility", optional($.visibility_modifier)),
-                optional("property"),
-                optional($._property_type),
-                field("name", $.var_identifier),
-                field("binding_op", "<=>"),
-                field("binding", $.var_identifier),
-                ";",
-            ),
-
         property: ($) =>
             seq(
                 field("visibility", optional($.visibility_modifier)),
                 "property",
-                $._property_type,
-                field("name", $.var_identifier),
                 choice(
-                    optional(
-                        seq(
-                            field("binding_op", ":"),
-                            field(
-                                "binding",
-                                choice(
-                                    seq($.block, optional(";")),
-                                    seq($._expression, ";"),
+                    seq(
+                        $._property_type,
+                        field("name", $.var_identifier),
+                        choice(
+                            optional(
+                                seq(
+                                    field("binding_op", ":"),
+                                    field(
+                                        "binding",
+                                        choice(
+                                            seq($.block, optional(";")),
+                                            seq($._expression, ";"),
+                                        ),
+                                    ),
                                 ),
                             ),
+                            ";",
                         ),
                     ),
-                    ";",
+                    seq(
+                        optional($._property_type),
+                        field("name", $.var_identifier),
+                        field("binding_op", "<=>"),
+                        field("binding", $.var_identifier),
+                        ";",
+                    ),
                 ),
+            ),
+
+        binding_alias: ($) =>
+            seq(
+                field("name", $.var_identifier),
+                "<=>",
+                field("alias", $.var_identifier),
+                ";",
             ),
 
         binding: ($) =>
@@ -149,25 +164,16 @@ module.exports = grammar({
 
         global_definition: ($) =>
             seq(
-                field("export", optional($.export_modifier)),
                 "global",
                 field("name", $.type_identifier),
                 optional(":="), // old syntax!
                 "{",
-                repeat(
-                    choice(
-                        $.property,
-                        $.property_alias,
-                        $.callback,
-                        $.function,
-                    ),
-                ),
+                repeat(choice($.property, $.callback, $.function)),
                 "}",
             ),
 
         struct_definition: ($) =>
             seq(
-                field("export", optional($.export_modifier)),
                 "struct",
                 field("name", $.type_identifier),
                 optional(":="), // old syntax!
@@ -211,9 +217,9 @@ module.exports = grammar({
                 seq($.assignment_expr, ";"),
                 seq("return", $._expression, ";"),
                 $.component,
-                $.property_alias,
                 $.property,
                 $.binding,
+                $.binding_alias,
                 $.callback,
                 $.function,
                 $.callback_event,

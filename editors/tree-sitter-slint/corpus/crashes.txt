@@ -15,8 +15,8 @@ export TestCase := Window {
 
 (source_file
   (comment)
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -39,8 +39,7 @@ export TestCase := Window {
               (post_identifier))
             (comparison_operator)
             (value
-              (basic_value
-                (int_value)))))))))
+              (int_value))))))))
 
 ================================================================================
 access_moved_propdecl
@@ -81,11 +80,9 @@ App := Rectangle {
                   (var_identifier
                     (post_identifier))
                   (value
-                    (basic_value
-                      (string_value)))
+                    (string_value))
                   (value
-                    (basic_value
-                      (string_value))))))
+                    (string_value)))))
             (block_statement
               (property
                 (type
@@ -116,8 +113,8 @@ export Test := Window {
   (import_statement
     (type_identifier)
     (string_value))
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -196,8 +193,8 @@ export Demo := Window {
           (type
             (type_identifier))))
       (var_identifier)))
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -206,15 +203,13 @@ export Demo := Window {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
@@ -265,16 +260,14 @@ export Demo := Window {
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (basic_value
-                    (int_value)))
+                  (int_value))
                 (mult_prec_operator)
                 (var_identifier
                   (post_identifier)
                   (post_identifier))))
             (comparison_operator)
             (value
-              (basic_value
-                (string_value))))))
+              (string_value)))))
       (block_statement
         (property
           (type
@@ -287,8 +280,7 @@ export Demo := Window {
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (basic_value
-                      (string_value)))
+                    (string_value))
                   (mult_prec_operator)
                   (var_identifier
                     (post_identifier))))
@@ -302,8 +294,7 @@ export Demo := Window {
             (comparison_operator)
             (mult_binary_expression
               (value
-                (basic_value
-                  (int_value)))
+                (int_value))
               (mult_prec_operator)
               (var_identifier))))))))
 
@@ -337,7 +328,7 @@ TestCase := Window {
     (type_identifier)
     (block
       (block_statement
-        (property_alias
+        (property
           (type
             (type_identifier))
           (var_identifier)
@@ -372,8 +363,7 @@ TestCase := Window {
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (basic_value
-                  (string_value)))))))
+                (string_value))))))
       (block_statement
         (component
           (var_identifier)
@@ -383,8 +373,7 @@ TestCase := Window {
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (basic_value
-                  (string_value))))))))))
+                (string_value)))))))))
 
 ================================================================================
 layout_if_in_component
@@ -408,8 +397,8 @@ export TestCase := Window {
 --------------------------------------------------------------------------------
 
 (source_file
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -421,8 +410,7 @@ export TestCase := Window {
             (function_identifier)
             (call_signature
               (value
-                (basic_value
-                  (length_value)))
+                (length_value))
               (var_identifier
                 (post_identifier))))))
       (block_statement
@@ -434,8 +422,7 @@ export TestCase := Window {
               (if_statement
                 (value
                   (value
-                    (basic_value
-                      (bool_value))))
+                    (bool_value)))
                 (component
                   (var_identifier)
                   (type_identifier)
@@ -444,15 +431,14 @@ export TestCase := Window {
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (basic_value
-                          (length_value))))))))
+                        (length_value)))))))
             (block_statement
               (component
                 (var_identifier)
                 (type_identifier)
                 (block))))))))
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -484,8 +470,8 @@ export D := Rectangle {
 --------------------------------------------------------------------------------
 
 (source_file
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -501,8 +487,7 @@ export D := Rectangle {
                   (var_identifier)
                   (assignment_prec_operator)
                   (value
-                    (basic_value
-                      (color_value)))))
+                    (color_value))))
               (block_statement
                 (component
                   (type_identifier)
@@ -531,8 +516,8 @@ export D := Window {
 --------------------------------------------------------------------------------
 
 (source_file
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -552,14 +537,12 @@ export D := Window {
                         (var_identifier)
                         (assignment_prec_operator)
                         (value
-                          (basic_value
-                            (percent_value)))))
+                          (percent_value))))
                     (assignment_expr
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (basic_value
-                          (length_value))))))))))))))
+                        (length_value)))))))))))))
 
 ================================================================================
 alias_in_if
@@ -601,21 +584,19 @@ App := Rectangle {
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (string_value)))))
+            (string_value))))
       (block_statement
         (if_statement
           (comparison_binary_expression
             (var_identifier)
             (comparison_operator)
             (value
-              (basic_value
-                (string_value))))
+              (string_value)))
           (component
             (type_identifier)
             (block
               (block_statement
-                (property_alias
+                (binding_alias
                   (var_identifier)
                   (var_identifier)))))))
       (block_statement
@@ -627,8 +608,7 @@ App := Rectangle {
             (var_identifier)
             (comparison_operator)
             (value
-              (basic_value
-                (string_value))))))
+              (string_value)))))
       (comment)
       (block_statement
         (property
@@ -636,8 +616,7 @@ App := Rectangle {
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (string_value)))))
+            (string_value))))
       (block_statement
         (component
           (var_identifier)
@@ -646,14 +625,13 @@ App := Rectangle {
             (block_statement
               (if_statement
                 (value
-                  (basic_value
-                    (bool_value)))
+                  (bool_value))
                 (component
                   (var_identifier)
                   (type_identifier)
                   (block
                     (block_statement
-                      (property_alias
+                      (property
                         (type
                           (type_identifier))
                         (var_identifier)
@@ -683,8 +661,7 @@ App := Rectangle {
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (basic_value
-                  (string_value)))))))
+                (string_value))))))
       (block_statement
         (property
           (type
@@ -762,8 +739,7 @@ App := Window {
                   (value
                     (value_list
                       (value
-                        (basic_value
-                          (string_value)))))))))
+                        (string_value))))))))
           (component
             (type_identifier)
             (block
@@ -792,8 +768,7 @@ App := Window {
       (block_statement
         (if_statement
           (value
-            (basic_value
-              (bool_value)))
+            (bool_value))
           (component
             (type_identifier)
             (block
@@ -826,8 +801,7 @@ App := Window {
           (for_range
             (value_list
               (value
-                (basic_value
-                  (int_value)))))
+                (int_value))))
           (component
             (type_identifier)
             (block
@@ -843,8 +817,7 @@ App := Window {
               (block_statement
                 (if_statement
                   (value
-                    (basic_value
-                      (bool_value)))
+                    (bool_value))
                   (component
                     (type_identifier)
                     (block
@@ -894,8 +867,7 @@ MainWindow := Window {
                     (var_identifier)
                     (assignment_prec_operator)
                     (value
-                      (basic_value
-                        (float_value)))))))))))))
+                      (float_value))))))))))))
 
 ================================================================================
 issue1271_set_in_if
@@ -928,8 +900,7 @@ TestCase := Window {
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (property
           (type
@@ -938,8 +909,7 @@ TestCase := Window {
           (unary_expression
             (unary_prec_operator)
             (value
-              (basic_value
-                (int_value))))))
+              (int_value)))))
       (block_statement
         (assignment_block
           (var_identifier)
@@ -951,8 +921,7 @@ TestCase := Window {
                   (var_identifier)
                   (comparison_operator)
                   (value
-                    (basic_value
-                      (int_value))))
+                    (int_value)))
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -966,15 +935,13 @@ TestCase := Window {
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (basic_value
-                          (int_value))))))))
+                        (int_value)))))))
             (comparison_binary_expression
               (var_identifier)
               (comparison_operator)
               (ternary_expression
                 (value
-                  (basic_value
-                    (int_value)))
+                  (int_value))
                 (var_identifier)
                 (var_identifier))))))
       (block_statement
@@ -995,14 +962,12 @@ TestCase := Window {
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (basic_value
-                    (int_value)))
+                  (int_value))
                 (mult_prec_operator)
                 (var_identifier)))
             (comparison_operator)
             (value
-              (basic_value
-                (int_value)))))))))
+              (int_value))))))))
 
 ================================================================================
 issue1327_inlined_state_property
@@ -1076,7 +1041,7 @@ export InkEffect := Rectangle {
 
 (source_file
   (comment)
-  (export_statement)
+  (export_modifier)
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -1087,48 +1052,42 @@ export InkEffect := Rectangle {
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (property
           (type
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (property
           (type
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (property
           (type
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (property
           (type
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (property
           (type
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (bool_value)))))
+            (bool_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
@@ -1137,8 +1096,7 @@ export InkEffect := Rectangle {
             (var_identifier)
             (mult_prec_operator)
             (value
-              (basic_value
-                (int_value))))))
+              (int_value)))))
       (block_statement
         (assignment_expr
           (var_identifier)
@@ -1147,7 +1105,18 @@ export InkEffect := Rectangle {
             (var_identifier)
             (mult_prec_operator)
             (value
-              (basic_value
+              (int_value)))))
+      (block_statement
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (add_binary_expression
+            (var_identifier)
+            (add_prec_operator)
+            (mult_binary_expression
+              (var_identifier)
+              (mult_prec_operator)
+              (value
                 (int_value))))))
       (block_statement
         (assignment_expr
@@ -1160,21 +1129,7 @@ export InkEffect := Rectangle {
               (var_identifier)
               (mult_prec_operator)
               (value
-                (basic_value
-                  (int_value)))))))
-      (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (add_binary_expression
-            (var_identifier)
-            (add_prec_operator)
-            (mult_binary_expression
-              (var_identifier)
-              (mult_prec_operator)
-              (value
-                (basic_value
-                  (int_value)))))))
+                (int_value))))))
       (block_statement
         (assignment_expr
           (var_identifier)
@@ -1183,17 +1138,13 @@ export InkEffect := Rectangle {
             (function_identifier)
             (call_signature
               (value
-                (basic_value
-                  (int_value)))
+                (int_value))
               (value
-                (basic_value
-                  (int_value)))
+                (int_value))
               (value
-                (basic_value
-                  (int_value)))
+                (int_value))
               (value
-                (basic_value
-                  (float_value)))))))
+                (float_value))))))
       (block_statement
         (assignment_expr
           (var_identifier)
@@ -1202,23 +1153,20 @@ export InkEffect := Rectangle {
             (var_identifier)
             (mult_prec_operator)
             (value
-              (basic_value
-                (int_value))))))
+              (int_value)))))
       (block_statement
         (property
           (type
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (animate_statement
           (var_identifier)
           (animate_body
             (value
-              (basic_value
-                (duration_value))))))
+              (duration_value)))))
       (block_statement
         (states_definition
           (state_identifier)
@@ -1228,33 +1176,28 @@ export InkEffect := Rectangle {
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (basic_value
-                    (int_value)))
+                  (int_value))
                 (mult_prec_operator)
                 (var_identifier)))
             (comparison_operator)
             (value
-              (basic_value
-                (float_value))))
+              (float_value)))
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
             (value
-              (basic_value
-                (length_value))))
+              (length_value)))
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
             (value
-              (basic_value
-                (int_value))))
+              (int_value)))
           (ERROR)
           (assignment_expr
             (var_identifier)
             (assignment_prec_operator)
             (value
-              (basic_value
-                (bool_value))))))
+              (bool_value)))))
       (block_statement
         (transitions_definition
           (in_out_transition
@@ -1263,15 +1206,13 @@ export InkEffect := Rectangle {
               (var_identifier)
               (animate_body
                 (value
-                  (basic_value
-                    (duration_value)))))
+                  (duration_value))))
             (animate_statement
               (var_identifier)
               (animate_body
                 (value
-                  (basic_value
-                    (duration_value))))))))))
-  (export_statement)
+                  (duration_value)))))))))
+  (export_modifier)
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -1281,15 +1222,13 @@ export InkEffect := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
@@ -1300,8 +1239,7 @@ export InkEffect := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (bool_value)))))
+            (bool_value))))
       (block_statement
         (component
           (var_identifier)
@@ -1395,8 +1333,7 @@ export InkEffect := Rectangle {
                                           (post_identifier))
                                         (mult_prec_operator)
                                         (value
-                                          (basic_value
-                                            (length_value))))))
+                                          (length_value)))))
                                   (block_statement
                                     (assignment_expr
                                       (var_identifier
@@ -1408,8 +1345,7 @@ export InkEffect := Rectangle {
                                           (post_identifier))
                                         (mult_prec_operator)
                                         (value
-                                          (basic_value
-                                            (length_value))))))
+                                          (length_value)))))
                                   (assignment_expr
                                     (var_identifier
                                       (post_identifier))
@@ -1420,14 +1356,11 @@ export InkEffect := Rectangle {
                                       (comparison_operator)
                                       (ternary_expression
                                         (value
-                                          (basic_value
-                                            (int_value)))
+                                          (int_value))
                                         (value
-                                          (basic_value
-                                            (float_value)))
+                                          (float_value))
                                         (value
-                                          (basic_value
-                                            (int_value)))))))))))))))))))))))
+                                          (int_value))))))))))))))))))))))
 
 ================================================================================
 issue1659_combobox_in_tab
@@ -1458,8 +1391,8 @@ export AppWindow := Window {
   (import_statement
     (type_identifier)
     (string_value))
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -1471,8 +1404,7 @@ export AppWindow := Window {
             (function_identifier)
             (call_signature
               (value
-                (basic_value
-                  (length_value)))
+                (length_value))
               (var_identifier
                 (post_identifier))))))
       (block_statement
@@ -1484,8 +1416,8 @@ export AppWindow := Window {
               (component
                 (type_identifier)
                 (block))))))))
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -1504,8 +1436,8 @@ export AppWindow := Window {
                       (var_identifier)
                       (type_identifier)
                       (block)))))))))))
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -1560,15 +1492,13 @@ App := Window {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (component
           (type_identifier)
@@ -1590,8 +1520,7 @@ App := Window {
                         (var_identifier)
                         (assignment_prec_operator)
                         (value
-                          (basic_value
-                            (length_value)))))
+                          (length_value))))
                     (block_statement
                       (component
                         (type_identifier)
@@ -1607,8 +1536,7 @@ App := Window {
                                     (function_identifier)
                                     (call_signature
                                       (value
-                                        (basic_value
-                                          (string_value))))))))))))))))))))))
+                                        (string_value)))))))))))))))))))))
 
 ================================================================================
 issue_422_enclosing_component
@@ -1636,8 +1564,8 @@ export TestCase := Window {
 
 (source_file
   (comment)
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -1646,15 +1574,13 @@ export TestCase := Window {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (property
           (type
@@ -1664,8 +1590,7 @@ export TestCase := Window {
         (if_statement
           (value
             (value
-              (basic_value
-                (bool_value))))
+              (bool_value)))
           (component
             (var_identifier)
             (type_identifier)
@@ -1674,8 +1599,7 @@ export TestCase := Window {
                 (if_statement
                   (value
                     (value
-                      (basic_value
-                        (bool_value))))
+                      (bool_value)))
                   (component
                     (type_identifier)
                     (block
@@ -1763,8 +1687,8 @@ MainWindow := Window {
                     (var_identifier
                       (reference_identifier)
                       (post_identifier)))))))))))
+  (export_modifier)
   (struct_definition
-    (export_modifier)
     (type_identifier)
     (type_anon_struct
       (var_identifier)
@@ -1788,15 +1712,13 @@ MainWindow := Window {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (component
           (var_identifier)
@@ -1860,8 +1782,8 @@ export TestCase := Window {
 
 (source_file
   (comment)
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -1870,15 +1792,13 @@ export TestCase := Window {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (callback
           (function_identifier)))
@@ -1891,8 +1811,7 @@ export TestCase := Window {
                 (function_identifier)
                 (call_signature
                   (value
-                    (basic_value
-                      (string_value))))))
+                    (string_value)))))
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
@@ -1915,8 +1834,7 @@ export TestCase := Window {
           (value
             (value_list
               (value
-                (basic_value
-                  (int_value)))))))
+                (int_value))))))
       (block_statement
         (component
           (type_identifier)
@@ -1943,15 +1861,13 @@ export TestCase := Window {
                                     (var_identifier)
                                     (assignment_prec_operator)
                                     (value
-                                      (basic_value
-                                        (int_value)))))
+                                      (int_value))))
                                 (block_statement
                                   (assignment_expr
                                     (var_identifier)
                                     (assignment_prec_operator)
                                     (value
-                                      (basic_value
-                                        (int_value)))))
+                                      (int_value))))
                                 (block_statement
                                   (callback_event
                                     (function_identifier)
@@ -1979,15 +1895,13 @@ export TestCase := Window {
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (basic_value
-                          (int_value)))))
+                        (int_value))))
                   (block_statement
                     (assignment_expr
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (basic_value
-                          (int_value)))))
+                        (int_value))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -2015,8 +1929,8 @@ export TestCase := Window {
     (type_identifier)
     (type_identifier)
     (block))
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -2090,8 +2004,8 @@ export TestCase := Window {
     (type_identifier)
     (type_identifier)
     (block))
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -2100,15 +2014,13 @@ export TestCase := Window {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (component
           (type_identifier)
@@ -2121,8 +2033,7 @@ export TestCase := Window {
                     (var_identifier)
                     (assignment_prec_operator)
                     (value
-                      (basic_value
-                        (int_value)))))))
+                      (int_value))))))
             (block_statement
               (component
                 (type_identifier)
@@ -2131,8 +2042,7 @@ export TestCase := Window {
                     (var_identifier)
                     (assignment_prec_operator)
                     (value
-                      (basic_value
-                        (int_value))))))))))
+                      (int_value)))))))))
       (block_statement
         (property
           (type

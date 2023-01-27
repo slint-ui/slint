@@ -26,8 +26,7 @@ TestCase := Rectangle {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value)))))
+        (int_value))))
   (export_statement
     (type_identifier))
   (export_statement
@@ -47,8 +46,7 @@ TestCase := Rectangle {
               (post_identifier))
             (comparison_operator)
             (value
-              (basic_value
-                (int_value)))))))))
+              (int_value))))))))
 
 ================================================================================
 global_binding
@@ -73,7 +71,7 @@ TestCase := Rectangle {
 (source_file
   (global_definition
     (type_identifier)
-    (property_alias
+    (property
       (type
         (type_identifier))
       (var_identifier)
@@ -83,8 +81,7 @@ TestCase := Rectangle {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value))))
+        (int_value)))
     (property
       (type
         (type_identifier))
@@ -93,8 +90,7 @@ TestCase := Rectangle {
         (var_identifier)
         (add_prec_operator)
         (value
-          (basic_value
-            (int_value))))))
+          (int_value)))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -132,12 +128,10 @@ TestCase := Rectangle {
             (comparison_operator)
             (add_binary_expression
               (value
-                (basic_value
-                  (int_value)))
+                (int_value))
               (add_prec_operator)
               (value
-                (basic_value
-                  (int_value))))))))))
+                (int_value)))))))))
 
 ================================================================================
 global_binding_const
@@ -174,8 +168,7 @@ TestCase := Rectangle {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value))))
+        (int_value)))
     (property
       (type
         (type_identifier))
@@ -184,8 +177,7 @@ TestCase := Rectangle {
         (var_identifier)
         (add_prec_operator)
         (value
-          (basic_value
-            (int_value))))))
+          (int_value)))))
   (global_definition
     (type_identifier)
     (property
@@ -198,8 +190,7 @@ TestCase := Rectangle {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value)))))
+        (int_value))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -223,13 +214,11 @@ TestCase := Rectangle {
                 (var_identifier)
                 (ternary_expression
                   (value
-                    (basic_value
-                      (bool_value)))
+                    (bool_value))
                   (var_identifier
                     (post_identifier))
                   (value
-                    (basic_value
-                      (int_value)))))))))
+                    (int_value))))))))
       (block_statement
         (property
           (type
@@ -246,16 +235,13 @@ TestCase := Rectangle {
             (add_binary_expression
               (add_binary_expression
                 (value
-                  (basic_value
-                    (int_value)))
+                  (int_value))
                 (add_prec_operator)
                 (value
-                  (basic_value
-                    (int_value))))
+                  (int_value)))
               (add_prec_operator)
               (value
-                (basic_value
-                  (int_value))))))))))
+                (int_value)))))))))
 
 ================================================================================
 global_depends_on_global
@@ -300,8 +286,7 @@ TestCase := Rectangle {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value))))
+        (int_value)))
     (property
       (type
         (type_identifier))
@@ -314,12 +299,11 @@ TestCase := Rectangle {
             (post_identifier)))
         (add_prec_operator)
         (value
-          (basic_value
-            (int_value))))))
+          (int_value)))))
+  (export_modifier)
   (global_definition
-    (export_modifier)
     (type_identifier)
-    (property_alias
+    (property
       (type
         (type_identifier))
       (var_identifier)
@@ -329,8 +313,7 @@ TestCase := Rectangle {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value))))
+        (int_value)))
     (property
       (type
         (type_identifier))
@@ -345,8 +328,8 @@ TestCase := Rectangle {
       (var_identifier)
       (var_identifier
         (post_identifier))))
+  (export_modifier)
   (global_definition
-    (export_modifier)
     (type_identifier)
     (comment)
     (property
@@ -405,12 +388,10 @@ TestCase := Rectangle {
             (comparison_operator)
             (add_binary_expression
               (value
-                (basic_value
-                  (int_value)))
+                (int_value))
               (add_prec_operator)
               (value
-                (basic_value
-                  (int_value))))))))))
+                (int_value)))))))))
 
 ================================================================================
 alias_to_global
@@ -458,25 +439,22 @@ TestCase := Rectangle {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value))))
+        (int_value)))
     (property
       (type
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value))))
+        (int_value)))
     (property
       (type
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value)))))
+        (int_value))))
   (global_definition
     (type_identifier)
-    (property_alias
+    (property
       (var_identifier)
       (var_identifier
         (post_identifier))))
@@ -485,7 +463,7 @@ TestCase := Rectangle {
     (type_identifier)
     (block
       (block_statement
-        (property_alias
+        (property
           (var_identifier)
           (var_identifier
             (post_identifier))))))
@@ -496,14 +474,14 @@ TestCase := Rectangle {
       (comment)
       (comment)
       (block_statement
-        (property_alias
+        (property
           (type
             (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
-        (property_alias
+        (property
           (type
             (type_identifier))
           (var_identifier)
@@ -527,16 +505,14 @@ TestCase := Rectangle {
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (basic_value
-                    (int_value)))
+                  (int_value))
                 (mult_prec_operator)
                 (var_identifier)))
             (comparison_operator)
             (value
-              (basic_value
-                (int_value))))))
+              (int_value)))))
       (block_statement
-        (property_alias
+        (property
           (type
             (type_identifier))
           (var_identifier)
@@ -550,7 +526,7 @@ TestCase := Rectangle {
           (var_identifier
             (post_identifier))))
       (block_statement
-        (property_alias
+        (property
           (type
             (type_identifier))
           (var_identifier)
@@ -614,8 +590,7 @@ TestCase := Rectangle {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value))))
+        (int_value)))
     (property
       (type
         (type_identifier))
@@ -645,8 +620,7 @@ TestCase := Rectangle {
               (post_identifier))
             (comparison_operator)
             (value
-              (basic_value
-                (int_value))))))
+              (int_value)))))
       (block_statement
         (property
           (type
@@ -658,11 +632,9 @@ TestCase := Rectangle {
                 (function_identifier)
                 (call_signature
                   (value
-                    (basic_value
-                      (int_value)))
+                    (int_value))
                   (value
-                    (basic_value
-                      (int_value))))))))))))
+                    (int_value)))))))))))
 
 ================================================================================
 global_callback
@@ -707,8 +679,7 @@ TestCase := Window {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value))))
+        (int_value)))
     (callback
       (function_identifier)
       (call_signature
@@ -726,46 +697,24 @@ TestCase := Window {
       (call_signature)
       (type_identifier))
     (ERROR
-      (var_identifier)
-      (ERROR)))
+      (UNEXPECTED 'c')))
+  (ERROR
+    (UNEXPECTED 'E')
+    (UNEXPECTED 'R')
+    (type_identifier)
+    (type_identifier)
+    (UNEXPECTED 'i')
+    (UNEXPECTED 'G')
+    (UNEXPECTED 'm'))
   (component_definition
     (type_identifier)
-    (type_identifier)
-    (block
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier
-              (function_call
-                (function_identifier)
-                (call_signature
-                  (value
-                    (basic_value
-                      (int_value)))
-                  (value
-                    (basic_value
-                      (int_value)))))))))
-      (block_statement
-        (property
-          (type
-            (type_identifier))
-          (var_identifier)
-          (var_identifier
-            (post_identifier
-              (function_call
-                (function_identifier)
-                (call_signature
-                  (value
-                    (basic_value
-                      (int_value)))
-                  (value
-                    (basic_value
-                      (int_value)))))))))))
-  (component_definition
-    (type_identifier)
+    (ERROR
+      (UNEXPECTED 'x')
+      (UNEXPECTED 'G')
+      (UNEXPECTED 'u')
+      (UNEXPECTED 'T')
+      (UNEXPECTED 'C')
+      (UNEXPECTED '))
     (type_identifier)
     (block
       (block_statement
@@ -819,14 +768,12 @@ TestCase := Window {
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (basic_value
-                    (int_value)))
+                  (int_value))
                 (mult_prec_operator)
                 (var_identifier)))
             (comparison_operator)
             (value
-              (basic_value
-                (int_value))))))
+              (int_value)))))
       (comment))))
 
 ================================================================================
@@ -859,8 +806,8 @@ export component TestCase inherits Window {
 --------------------------------------------------------------------------------
 
 (source_file
+  (export_modifier)
   (global_definition
-    (export_modifier)
     (type_identifier)
     (property
       (visibility_modifier)
@@ -868,15 +815,14 @@ export component TestCase inherits Window {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (bool_value))))
+        (bool_value)))
     (property
       (visibility_modifier)
       (type
         (type_identifier))
       (var_identifier)))
+  (export_modifier)
   (component_definition
-    (export_modifier)
     (type_identifier)
     (type_identifier)
     (block
@@ -885,15 +831,13 @@ export component TestCase inherits Window {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (length_value)))))
+            (length_value))))
       (block_statement
         (property
           (visibility_modifier)
@@ -907,15 +851,13 @@ export component TestCase inherits Window {
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (basic_value
-                    (bool_value)))
+                  (bool_value))
                 (mult_prec_operator)
                 (var_identifier
                   (post_identifier))))
             (comparison_operator)
             (value
-              (basic_value
-                (bool_value))))))
+              (bool_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -923,7 +865,7 @@ export component TestCase inherits Window {
           (block
             (comment)
             (block_statement
-              (property_alias
+              (binding_alias
                 (var_identifier)
                 (var_identifier
                   (post_identifier)))))))
@@ -934,7 +876,7 @@ export component TestCase inherits Window {
           (block
             (comment)
             (block_statement
-              (property_alias
+              (binding_alias
                 (var_identifier)
                 (var_identifier
                   (post_identifier))))))))))

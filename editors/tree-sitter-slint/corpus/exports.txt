@@ -12,19 +12,7 @@ component Ko {
 --------------------------------------------------------------------------------
 
 (source_file
-  (component_definition
-    (export_modifier)
-    (type_identifier)
-    (block
-      (block_statement
-        (property
-          (visibility_modifier)
-          (type
-            (type_identifier))
-          (var_identifier)
-          (value
-            (basic_value
-              (bool_value)))))))
+  (export_modifier)
   (component_definition
     (type_identifier)
     (block
@@ -35,5 +23,15 @@ component Ko {
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (bool_value))))))))
+            (bool_value))))))
+  (component_definition
+    (type_identifier)
+    (block
+      (block_statement
+        (property
+          (visibility_modifier)
+          (type
+            (type_identifier))
+          (var_identifier)
+          (value
+            (bool_value)))))))

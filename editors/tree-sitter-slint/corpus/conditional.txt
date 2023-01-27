@@ -48,11 +48,9 @@ TestCase := Rectangle {
           (ternary_expression
             (var_identifier)
             (value
-              (basic_value
-                (string_value)))
+              (string_value))
             (value
-              (basic_value
-                (int_value))))))
+              (int_value)))))
       (block_statement
         (property
           (type
@@ -61,11 +59,9 @@ TestCase := Rectangle {
           (ternary_expression
             (var_identifier)
             (value
-              (basic_value
-                (int_value)))
+              (int_value))
             (value
-              (basic_value
-                (string_value))))))
+              (string_value)))))
       (block_statement
         (property
           (type
@@ -77,14 +73,12 @@ TestCase := Rectangle {
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (basic_value
-                    (string_value)))
+                  (string_value))
                 (mult_prec_operator)
                 (var_identifier)))
             (comparison_operator)
             (value
-              (basic_value
-                (string_value)))))))))
+              (string_value))))))))
 
 ================================================================================
 expr
@@ -118,11 +112,9 @@ TestCase := Rectangle {
           (ternary_expression
             (var_identifier)
             (value
-              (basic_value
-                (int_value)))
+              (int_value))
             (value
-              (basic_value
-                (int_value))))))
+              (int_value)))))
       (block_statement
         (property
           (type
@@ -139,18 +131,14 @@ TestCase := Rectangle {
               (ternary_expression
                 (var_identifier)
                 (value
-                  (basic_value
-                    (int_value)))
+                  (int_value))
                 (value
-                  (basic_value
-                    (int_value))))
+                  (int_value)))
               (var_identifier))
             (value
-              (basic_value
-                (int_value)))
+              (int_value))
             (value
-              (basic_value
-                (int_value))))))
+              (int_value)))))
       (block_statement
         (property
           (type
@@ -158,14 +146,11 @@ TestCase := Rectangle {
           (var_identifier)
           (ternary_expression
             (value
-              (basic_value
-                (bool_value)))
+              (bool_value))
             (value
-              (basic_value
-                (int_value)))
+              (int_value))
             (value
-              (basic_value
-                (physical_length_value)))))))))
+              (physical_length_value))))))))
 
 ================================================================================
 stm
@@ -230,8 +215,7 @@ TestCase := Rectangle {
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (callback
           (function_identifier)))
@@ -245,8 +229,7 @@ TestCase := Rectangle {
                   (var_identifier)
                   (comparison_operator)
                   (value
-                    (basic_value
-                      (int_value))))
+                    (int_value)))
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -256,22 +239,19 @@ TestCase := Rectangle {
                         (var_identifier)
                         (assignment_prec_operator)
                         (value
-                          (basic_value
-                            (int_value)))))
+                          (int_value))))
                     (assignment_expr
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (basic_value
-                          (int_value))))))))
+                        (int_value)))))))
             (block_statement
               (if_statement
                 (comparison_binary_expression
                   (var_identifier)
                   (comparison_operator)
                   (value
-                    (basic_value
-                      (int_value))))
+                    (int_value)))
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -284,8 +264,7 @@ TestCase := Rectangle {
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (basic_value
-                          (int_value)))))))))))
+                        (int_value))))))))))
       (block_statement
         (callback
           (function_identifier)))
@@ -297,8 +276,7 @@ TestCase := Rectangle {
               (if_statement
                 (value
                   (value
-                    (basic_value
-                      (bool_value))))
+                    (bool_value)))
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -310,8 +288,7 @@ TestCase := Rectangle {
               (if_statement
                 (value
                   (value
-                    (basic_value
-                      (bool_value))))
+                    (bool_value)))
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -320,8 +297,7 @@ TestCase := Rectangle {
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (basic_value
-                          (int_value))))))
+                        (int_value)))))
                 (component
                   (type_identifier
                     (MISSING _identifier))
@@ -347,33 +323,28 @@ TestCase := Rectangle {
                   (var_identifier)
                   (comparison_operator)
                   (value
-                    (basic_value
-                      (int_value))))
+                    (int_value)))
                 (component
                   (type_identifier
                     (MISSING _identifier))
                   (block
                     (value
-                      (basic_value
-                        (int_value)))))
+                      (int_value))))
                 (if_statement
                   (comparison_binary_expression
                     (var_identifier)
                     (comparison_operator)
                     (value
-                      (basic_value
+                      (int_value)))
+                  (component
+                    (type_identifier
+                      (MISSING _identifier))
+                    (block
+                      (value
                         (int_value))))
                   (component
                     (type_identifier
                       (MISSING _identifier))
                     (block
                       (value
-                        (basic_value
-                          (int_value)))))
-                  (component
-                    (type_identifier
-                      (MISSING _identifier))
-                    (block
-                      (value
-                        (basic_value
-                          (int_value))))))))))))))
+                        (int_value)))))))))))))

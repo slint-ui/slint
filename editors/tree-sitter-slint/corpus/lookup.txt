@@ -38,15 +38,13 @@ TestCase := Rectangle {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value))))
+        (int_value)))
     (property
       (type
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (int_value))))
+        (int_value)))
     (callback
       (function_identifier)))
   (component_definition
@@ -78,8 +76,7 @@ TestCase := Rectangle {
                       (post_identifier)))
                   (mult_prec_operator)
                   (value
-                    (basic_value
-                      (length_value)))))))))))
+                    (length_value))))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -117,15 +114,13 @@ TestCase := Rectangle {
           (add_binary_expression
             (mult_binary_expression
               (value
-                (basic_value
-                  (int_value)))
+                (int_value))
               (mult_prec_operator)
               (var_identifier
                 (post_identifier)))
             (add_prec_operator)
             (value
-              (basic_value
-                (int_value))))))
+              (int_value)))))
       (block_statement
         (property
           (type
@@ -164,16 +159,14 @@ id_lookup
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (property
           (type
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (component
           (var_identifier)
@@ -185,16 +178,14 @@ id_lookup
                   (type_identifier))
                 (var_identifier)
                 (value
-                  (basic_value
-                    (int_value)))))
+                  (int_value))))
             (block_statement
               (property
                 (type
                   (type_identifier))
                 (var_identifier)
                 (value
-                  (basic_value
-                    (int_value)))))
+                  (int_value))))
             (block_statement
               (property
                 (type
@@ -206,8 +197,7 @@ id_lookup
                       (var_identifier)
                       (mult_prec_operator)
                       (value
-                        (basic_value
-                          (int_value))))
+                        (int_value)))
                     (add_prec_operator)
                     (mult_binary_expression
                       (var_identifier
@@ -215,8 +205,7 @@ id_lookup
                         (post_identifier))
                       (mult_prec_operator)
                       (value
-                        (basic_value
-                          (int_value)))))
+                        (int_value))))
                   (add_prec_operator)
                   (mult_binary_expression
                     (var_identifier
@@ -224,8 +213,7 @@ id_lookup
                       (post_identifier))
                     (mult_prec_operator)
                     (value
-                      (basic_value
-                        (int_value))))))))))
+                      (int_value)))))))))
       (block_statement
         (property
           (type
@@ -246,20 +234,17 @@ id_lookup
                   (post_identifier))
                 (mult_prec_operator)
                 (value
-                  (basic_value
-                    (int_value))))
+                  (int_value)))
               (add_prec_operator)
               (mult_binary_expression
                 (var_identifier
                   (post_identifier))
                 (mult_prec_operator)
                 (value
-                  (basic_value
-                    (int_value)))))
+                  (int_value))))
             (add_prec_operator)
             (mult_binary_expression
               (var_identifier)
               (mult_prec_operator)
               (value
-                (basic_value
-                  (int_value))))))))))
+                (int_value)))))))))

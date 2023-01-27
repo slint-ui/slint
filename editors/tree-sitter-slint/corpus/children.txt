@@ -42,15 +42,13 @@ TestCase := Container {
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (basic_value
-                    (physical_length_value)))))
+                  (physical_length_value))))
             (block_statement
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (basic_value
-                    (physical_length_value)))))
+                  (physical_length_value))))
             (block_statement
               (component
                 (type_identifier)
@@ -74,15 +72,13 @@ TestCase := Container {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (component
           (var_identifier)
@@ -102,8 +98,7 @@ TestCase := Container {
               (post_identifier))
             (comparison_operator)
             (value
-              (basic_value
-                (physical_length_value)))))))))
+              (physical_length_value))))))))
 
 ================================================================================
 children_placeholder_two_levels
@@ -157,15 +152,13 @@ TestCase := MegaContainer {
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (basic_value
-                    (physical_length_value)))))
+                  (physical_length_value))))
             (block_statement
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (basic_value
-                    (physical_length_value)))))
+                  (physical_length_value))))
             (block_statement
               (component
                 (type_identifier)
@@ -212,15 +205,13 @@ TestCase := MegaContainer {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (component
           (var_identifier)
@@ -240,8 +231,7 @@ TestCase := MegaContainer {
               (post_identifier))
             (comparison_operator)
             (value
-              (basic_value
-                (physical_length_value)))))))))
+              (physical_length_value))))))))
 
 ================================================================================
 zorder
@@ -339,15 +329,13 @@ TestCase := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (property
           (type
@@ -372,15 +360,13 @@ TestCase := Rectangle {
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (basic_value
-                    (int_value)))))
+                  (int_value))))
             (block_statement
               (assignment_expr
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (basic_value
-                    (int_value)))))
+                  (int_value))))
             (block_statement
               (component
                 (type_identifier)
@@ -395,8 +381,7 @@ TestCase := Rectangle {
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (basic_value
-                          (int_value)))))
+                        (int_value))))
                   (block_statement
                     (component
                       (type_identifier)
@@ -409,8 +394,7 @@ TestCase := Rectangle {
                                 (var_identifier)
                                 (assignment_prec_operator)
                                 (value
-                                  (basic_value
-                                    (int_value)))))))))))))
+                                  (int_value))))))))))))
             (block_statement
               (component
                 (type_identifier)
@@ -425,8 +409,7 @@ TestCase := Rectangle {
                       (var_identifier)
                       (assignment_prec_operator)
                       (value
-                        (basic_value
-                          (int_value)))))
+                        (int_value))))
                   (block_statement
                     (component
                       (type_identifier)
@@ -439,8 +422,7 @@ TestCase := Rectangle {
                                 (var_identifier)
                                 (assignment_prec_operator)
                                 (value
-                                  (basic_value
-                                    (int_value))))))))))
+                                  (int_value)))))))))
                   (block_statement
                     (for_loop
                       (var_identifier)
@@ -450,32 +432,26 @@ TestCase := Rectangle {
                             (anon_struct
                               (var_identifier)
                               (value
-                                (basic_value
-                                  (color_value)))
+                                (color_value))
                               (var_identifier)
                               (value
-                                (basic_value
-                                  (int_value)))))
+                                (int_value))))
                           (value
                             (anon_struct
                               (var_identifier)
                               (value
-                                (basic_value
-                                  (color_value)))
+                                (color_value))
                               (var_identifier)
                               (value
-                                (basic_value
-                                  (int_value)))))
+                                (int_value))))
                           (value
                             (anon_struct
                               (var_identifier)
                               (value
-                                (basic_value
-                                  (color_value)))
+                                (color_value))
                               (var_identifier)
                               (value
-                                (basic_value
-                                  (int_value)))))))
+                                (int_value))))))
                       (component
                         (type_identifier)
                         (block
@@ -484,8 +460,7 @@ TestCase := Rectangle {
                               (var_identifier)
                               (assignment_prec_operator)
                               (value
-                                (basic_value
-                                  (int_value)))))
+                                (int_value))))
                           (block_statement
                             (assignment_expr
                               (var_identifier)
@@ -519,8 +494,7 @@ TestCase := Rectangle {
                                 (var_identifier)
                                 (assignment_prec_operator)
                                 (value
-                                  (basic_value
-                                    (int_value))))))))))
+                                  (int_value)))))))))
                   (block_statement
                     (component
                       (type_identifier)
@@ -530,8 +504,7 @@ TestCase := Rectangle {
                             (var_identifier)
                             (assignment_prec_operator)
                             (value
-                              (basic_value
-                                (int_value)))))
+                              (int_value))))
                         (block_statement
                           (callback_event
                             (function_identifier)
@@ -540,8 +513,7 @@ TestCase := Rectangle {
                                 (var_identifier)
                                 (assignment_prec_operator)
                                 (value
-                                  (basic_value
-                                    (int_value)))))))))))))
+                                  (int_value))))))))))))
             (block_statement
               (component
                 (type_identifier)
@@ -558,8 +530,7 @@ TestCase := Rectangle {
                       (unary_expression
                         (unary_prec_operator)
                         (value
-                          (basic_value
-                            (int_value))))))
+                          (int_value)))))
                   (block_statement
                     (component
                       (type_identifier)
@@ -572,8 +543,7 @@ TestCase := Rectangle {
                                 (var_identifier)
                                 (assignment_prec_operator)
                                 (value
-                                  (basic_value
-                                    (int_value))))))))))
+                                  (int_value)))))))))
                   (block_statement
                     (component
                       (type_identifier)
@@ -586,8 +556,7 @@ TestCase := Rectangle {
                                 (var_identifier)
                                 (assignment_prec_operator)
                                 (value
-                                  (basic_value
-                                    (int_value))))))))))
+                                  (int_value)))))))))
                   (block_statement
                     (component
                       (type_identifier)
@@ -601,14 +570,12 @@ TestCase := Rectangle {
                                   (function_identifier)
                                   (call_signature
                                     (value
-                                      (basic_value
-                                        (string_value))))))
+                                      (string_value)))))
                               (assignment_expr
                                 (var_identifier)
                                 (assignment_prec_operator)
                                 (value
-                                  (basic_value
-                                    (int_value))))))))))
+                                  (int_value)))))))))
                   (block_statement
                     (component
                       (type_identifier)
@@ -620,8 +587,7 @@ TestCase := Rectangle {
                             (unary_expression
                               (unary_prec_operator)
                               (value
-                                (basic_value
-                                  (int_value))))))
+                                (int_value)))))
                         (block_statement
                           (callback_event
                             (function_identifier)
@@ -630,5 +596,4 @@ TestCase := Rectangle {
                                 (var_identifier)
                                 (assignment_prec_operator)
                                 (value
-                                  (basic_value
-                                    (int_value)))))))))))))))))))
+                                  (int_value))))))))))))))))))

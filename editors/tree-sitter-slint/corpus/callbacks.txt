@@ -46,8 +46,7 @@ TestCase := Rectangle {
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (basic_value
-                    (int_value)))))
+                  (int_value))))
             (comment)
             (comment)
             (comment)
@@ -61,8 +60,7 @@ TestCase := Rectangle {
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (basic_value
-                    (int_value)))))
+                  (int_value))))
             (var_identifier
               (reference_identifier)
               (post_identifier
@@ -119,8 +117,7 @@ TestCase := Rectangle {
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (basic_value
-                  (int_value)))))))
+                (int_value))))))
       (block_statement
         (callback_event
           (function_identifier)
@@ -132,8 +129,7 @@ TestCase := Rectangle {
                 (var_identifier)
                 (assignment_prec_operator)
                 (value
-                  (basic_value
-                    (int_value)))))
+                  (int_value))))
             (var_identifier
               (reference_identifier)
               (post_identifier
@@ -141,8 +137,7 @@ TestCase := Rectangle {
                   (function_identifier)
                   (call_signature
                     (value
-                      (basic_value
-                        (int_value)))
+                      (int_value))
                     (var_identifier)))))))))))
 
 ================================================================================
@@ -172,15 +167,13 @@ TestCase := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (property
           (type
@@ -202,8 +195,7 @@ TestCase := Rectangle {
                     (var_identifier)
                     (assignment_prec_operator)
                     (value
-                      (basic_value
-                        (int_value)))))))))))))
+                      (int_value))))))))))))
 
 ================================================================================
 init
@@ -293,16 +285,15 @@ TestCase := Rectangle {
 
 (source_file
   (comment)
+  (export_modifier)
   (global_definition
-    (export_modifier)
     (type_identifier)
     (property
       (type
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (string_value)))))
+        (string_value))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -316,8 +307,7 @@ TestCase := Rectangle {
                 (post_identifier))
               (assignment_prec_operator)
               (value
-                (basic_value
-                  (string_value)))))))))
+                (string_value))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -331,8 +321,7 @@ TestCase := Rectangle {
                 (post_identifier))
               (assignment_prec_operator)
               (value
-                (basic_value
-                  (string_value)))))))))
+                (string_value))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -346,8 +335,7 @@ TestCase := Rectangle {
                 (post_identifier))
               (assignment_prec_operator)
               (value
-                (basic_value
-                  (string_value)))))))))
+                (string_value))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -358,8 +346,7 @@ TestCase := Rectangle {
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (string_value)))))
+            (string_value))))
       (block_statement
         (callback_event
           (function_identifier)
@@ -386,8 +373,7 @@ TestCase := Rectangle {
                 (post_identifier))
               (assignment_prec_operator)
               (value
-                (basic_value
-                  (string_value)))))))
+                (string_value))))))
       (block_statement
         (children_identifier))))
   (component_definition
@@ -399,15 +385,13 @@ TestCase := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (callback_event
           (function_identifier)
@@ -417,8 +401,7 @@ TestCase := Rectangle {
                 (post_identifier))
               (assignment_prec_operator)
               (value
-                (basic_value
-                  (string_value)))))))
+                (string_value))))))
       (block_statement
         (component
           (type_identifier)
@@ -432,8 +415,7 @@ TestCase := Rectangle {
                       (post_identifier))
                     (assignment_prec_operator)
                     (value
-                      (basic_value
-                        (string_value))))))))))
+                      (string_value)))))))))
       (block_statement
         (component
           (type_identifier)
@@ -446,8 +428,7 @@ TestCase := Rectangle {
               (var_identifier)
               (assignment_prec_operator)
               (value
-                (basic_value
-                  (string_value)))))))
+                (string_value))))))
       (block_statement
         (component
           (type_identifier)
@@ -465,8 +446,7 @@ TestCase := Rectangle {
                       (post_identifier))
                     (assignment_prec_operator)
                     (value
-                      (basic_value
-                        (string_value))))))))))
+                      (string_value)))))))))
       (block_statement
         (for_loop
           (var_identifier)
@@ -484,8 +464,7 @@ TestCase := Rectangle {
                           (post_identifier))
                         (assignment_prec_operator)
                         (value
-                          (basic_value
-                            (string_value)))))
+                          (string_value))))
                     (assignment_expr
                       (var_identifier
                         (post_identifier))
@@ -504,8 +483,7 @@ TestCase := Rectangle {
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (string_value)))))
+            (string_value))))
       (block_statement
         (property
           (type
@@ -554,16 +532,15 @@ TestCase := Rectangle {
 
 (source_file
   (comment)
+  (export_modifier)
   (global_definition
-    (export_modifier)
     (type_identifier)
     (property
       (type
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (string_value)))))
+        (string_value))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -573,15 +550,13 @@ TestCase := Rectangle {
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (assignment_expr
           (var_identifier)
           (assignment_prec_operator)
           (value
-            (basic_value
-              (physical_length_value)))))
+            (physical_length_value))))
       (block_statement
         (callback_event
           (function_identifier)
@@ -591,8 +566,7 @@ TestCase := Rectangle {
                 (post_identifier))
               (assignment_prec_operator)
               (value
-                (basic_value
-                  (string_value)))))))
+                (string_value))))))
       (block_statement
         (component
           (type_identifier)
@@ -603,11 +577,9 @@ TestCase := Rectangle {
                 (for_range
                   (value_list
                     (value
-                      (basic_value
-                        (string_value)))
+                      (string_value))
                     (value
-                      (basic_value
-                        (string_value)))))
+                      (string_value))))
                 (component
                   (type_identifier)
                   (block
@@ -616,8 +588,7 @@ TestCase := Rectangle {
                         (var_identifier)
                         (assignment_prec_operator)
                         (value
-                          (basic_value
-                            (length_value)))))
+                          (length_value))))
                     (block_statement
                       (callback_event
                         (function_identifier)
@@ -628,8 +599,7 @@ TestCase := Rectangle {
                             (assignment_prec_operator)
                             (add_binary_expression
                               (value
-                                (basic_value
-                                  (string_value)))
+                                (string_value))
                               (add_prec_operator)
                               (var_identifier)))))))))))))
       (block_statement
@@ -638,8 +608,7 @@ TestCase := Rectangle {
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (string_value)))))
+            (string_value))))
       (block_statement
         (property
           (type
@@ -653,8 +622,7 @@ TestCase := Rectangle {
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (basic_value
-                    (length_value)))
+                  (length_value))
                 (mult_prec_operator)
                 (var_identifier
                   (post_identifier))))
@@ -736,8 +704,7 @@ TestCase := Rectangle {
                       (var_identifier)
                       (add_prec_operator)
                       (value
-                        (basic_value
-                          (int_value)))))))))))
+                        (int_value))))))))))
       (block_statement
         (component
           (var_identifier)
@@ -797,8 +764,7 @@ TestCase := Rectangle {
                       (var_identifier)
                       (add_prec_operator)
                       (value
-                        (basic_value
-                          (int_value)))))))))))
+                        (int_value))))))))))
       (block_statement
         (component
           (var_identifier)
@@ -812,8 +778,7 @@ TestCase := Rectangle {
                     (function_identifier)
                     (call_signature
                       (value
-                        (basic_value
-                          (int_value)))))))))))
+                        (int_value))))))))))
       (block_statement
         (property
           (type
@@ -825,24 +790,20 @@ TestCase := Rectangle {
                 (function_identifier)
                 (call_signature
                   (value
-                    (basic_value
-                      (int_value)))))
+                    (int_value))))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (basic_value
-                    (int_value)))
+                  (int_value))
                 (mult_prec_operator)
                 (function_call
                   (function_identifier)
                   (call_signature
                     (value
-                      (basic_value
-                        (int_value)))))))
+                      (int_value))))))
             (comparison_operator)
             (value
-              (basic_value
-                (int_value)))))))))
+              (int_value))))))))
 
 ================================================================================
 functions
@@ -897,8 +858,7 @@ TestCase := Rectangle {
         (type_identifier))
       (var_identifier)
       (value
-        (basic_value
-          (string_value))))
+        (string_value)))
     (function
       (function_identifier)
       (function_signature
@@ -913,8 +873,7 @@ TestCase := Rectangle {
               (var_identifier)
               (add_prec_operator)
               (value
-                (basic_value
-                  (string_value))))
+                (string_value)))
             (add_prec_operator)
             (var_identifier))))))
   (component_definition
@@ -929,8 +888,8 @@ TestCase := Rectangle {
             (type_identifier))
           (block
             (var_identifier))))))
+  (export_modifier)
   (global_definition
-    (export_modifier)
     (type_identifier)
     (function
       (function_identifier)
@@ -949,8 +908,7 @@ TestCase := Rectangle {
             (var_identifier))
           (add_prec_operator)
           (value
-            (basic_value
-              (int_value)))))))
+            (int_value))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -961,8 +919,7 @@ TestCase := Rectangle {
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (property
           (visibility_modifier)
@@ -971,8 +928,7 @@ TestCase := Rectangle {
           (var_identifier)
           (add_binary_expression
             (value
-              (basic_value
-                (int_value)))
+              (int_value))
             (add_prec_operator)
             (var_identifier
               (post_identifier
@@ -984,15 +940,13 @@ TestCase := Rectangle {
                         (var_identifier)
                         (mult_prec_operator)
                         (value
-                          (basic_value
-                            (length_value))))
+                          (length_value)))
                       (add_prec_operator)
                       (mult_binary_expression
                         (var_identifier)
                         (mult_prec_operator)
                         (value
-                          (basic_value
-                            (length_value))))))))))))
+                          (length_value)))))))))))
       (block_statement
         (function
           (function_identifier)
@@ -1026,8 +980,7 @@ TestCase := Rectangle {
       (block_statement
         (if_statement
           (value
-            (basic_value
-              (bool_value)))
+            (bool_value))
           (component
             (type_identifier)
             (block
@@ -1039,16 +992,13 @@ TestCase := Rectangle {
                     (function_identifier)
                     (call_signature
                       (value
-                        (basic_value
-                          (int_value)))
+                        (int_value))
                       (value
-                        (basic_value
-                          (int_value)))))
+                        (int_value))))
                   (comparison_operator)
                   (ternary_expression
                     (value
-                      (basic_value
-                        (int_value)))
+                      (int_value))
                     (var_identifier)
                     (var_identifier
                       (post_identifier
@@ -1101,16 +1051,13 @@ TestCase := Rectangle {
                   (function_identifier)
                   (call_signature
                     (value
-                      (basic_value
-                        (int_value)))
+                      (int_value))
                     (value
-                      (basic_value
-                        (int_value)))))
+                      (int_value))))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
-                    (basic_value
-                      (int_value)))
+                    (int_value))
                   (mult_prec_operator)
                   (var_identifier
                     (post_identifier
@@ -1118,13 +1065,11 @@ TestCase := Rectangle {
                         (function_identifier)
                         (call_signature
                           (value
-                            (basic_value
-                              (string_value)))))))))
+                            (string_value))))))))
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (basic_value
-                    (string_value)))
+                  (string_value))
                 (mult_prec_operator)
                 (var_identifier
                   (post_identifier
@@ -1188,8 +1133,7 @@ TestCase := Rectangle {
                 (var_identifier)
                 (add_prec_operator)
                 (value
-                  (basic_value
-                    (string_value))))
+                  (string_value)))
               (add_prec_operator)
               (add_binary_expression
                 (var_identifier)
@@ -1202,15 +1146,13 @@ TestCase := Rectangle {
           (var_identifier)
           (add_binary_expression
             (value
-              (basic_value
-                (int_value)))
+              (int_value))
             (add_prec_operator)
             (function_call
               (function_identifier)
               (call_signature
                 (value
-                  (basic_value
-                    (int_value))))))))
+                  (int_value)))))))
       (block_statement
         (property
           (type
@@ -1220,19 +1162,16 @@ TestCase := Rectangle {
             (function_identifier)
             (call_signature
               (value
-                (basic_value
-                  (string_value)))
+                (string_value))
               (value
-                (basic_value
-                  (int_value)))))))
+                (int_value))))))
       (block_statement
         (property
           (type
             (type_identifier))
           (var_identifier)
           (value
-            (basic_value
-              (int_value)))))
+            (int_value))))
       (block_statement
         (callback
           (function_identifier)
@@ -1243,8 +1182,7 @@ TestCase := Rectangle {
           (function_identifier)
           (block
             (value
-              (basic_value
-                (float_value))))))
+              (float_value)))))
       (block_statement
         (callback
           (function_identifier)))
@@ -1256,11 +1194,9 @@ TestCase := Rectangle {
               (function_identifier)
               (call_signature
                 (value
-                  (basic_value
-                    (string_value)))
+                  (string_value))
                 (value
-                  (basic_value
-                    (int_value))))))))
+                  (int_value)))))))
       (block_statement
         (property
           (type
@@ -1272,11 +1208,9 @@ TestCase := Rectangle {
               (comparison_operator)
               (mult_binary_expression
                 (value
-                  (basic_value
-                    (int_value)))
+                  (int_value))
                 (mult_prec_operator)
                 (var_identifier)))
             (comparison_operator)
             (value
-              (basic_value
-                (string_value)))))))))
+              (string_value))))))))
