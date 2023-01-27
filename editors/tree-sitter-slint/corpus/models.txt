@@ -356,7 +356,7 @@ export TestCase := Rectangle {
                       (mult_prec_operator)
                       (var_identifier)))
                   (comparison_operator)
-                  (add_binary_expression
+                  (mult_binary_expression
                     (value
                       (value
                         (value_list
@@ -367,17 +367,13 @@ export TestCase := Rectangle {
                             (basic_value
                               (string_value
                                 (_string_fragment)))))))
-                    (add_prec_operator
-                      (MISSING "-"))
-                    (mult_binary_expression
+                    (index_operator
                       (value
-                        (value_list
-                          (value
-                            (basic_value
-                              (int_value)))))
-                      (mult_prec_operator)
-                      (var_identifier
-                        (post_identifier)))))
+                        (basic_value
+                          (int_value))))
+                    (mult_prec_operator)
+                    (var_identifier
+                      (post_identifier))))
                 (comparison_operator)
                 (mult_binary_expression
                   (value
@@ -439,14 +435,11 @@ export TestCase := Rectangle {
                     (basic_value
                       (string_value
                         (_string_fragment))))))))
-          (MISSING ";")))
-      (value
-        (value_list
-          (value
-            (basic_value
-              (int_value)))))
-      (ERROR
-        (UNEXPECTED ';')))))
+          (index_operator
+            (value
+              (basic_value
+                (int_value))))
+          (post_identifier))))))
 
 ================================================================================
 for

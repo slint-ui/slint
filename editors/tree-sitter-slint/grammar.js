@@ -327,7 +327,7 @@ module.exports = grammar({
 
         _expression_body: ($) =>
             choice(
-                $.value,
+                seq($.value, optional($._accessor_postfix)),
                 $.function_call,
                 $.var_identifier,
                 $.unary_expression,
@@ -566,14 +566,14 @@ module.exports = grammar({
 
         _var_identifier_start: ($) =>
             choice($._identifier, $.reference_identifier),
-        _var_identifier_rest: ($) =>
+        _accessor_postfix: ($) =>
             repeat1(choice(seq(".", $.post_identifier), $.index_operator)),
 
         var_identifier: ($) =>
             choice(
                 $.children_identifier,
                 field("match_all", "*"),
-                seq($._var_identifier_start, optional($._var_identifier_rest)),
+                seq($._var_identifier_start, optional($._accessor_postfix)),
                 seq($._identifier, repeat(seq(".", $.post_identifier))),
             ),
 

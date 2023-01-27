@@ -637,10 +637,13 @@ Test := Rectangle {
               (value
                 (basic_value
                   (angle_value)))
+              (ERROR
+                (value
+                  (basic_value
+                    (color_value))))
               (value
                 (basic_value
-                  (color_value)))
-              (ERROR)
+                  (percent_value)))
               (ERROR
                 (value
                   (basic_value
@@ -1248,22 +1251,19 @@ TestCase := Rectangle {
                 (add_prec_operator)
                 (var_identifier))
               (comparison_operator)
-              (add_binary_expression
-                (mult_binary_expression
-                  (value
-                    (basic_value
-                      (float_value)))
-                  (mult_prec_operator)
-                  (value
-                    (basic_value
-                      (string_value
-                        (_string_fragment)))))
-                (ERROR
-                  (UNEXPECTED 'o'))
-                (add_prec_operator)
-                (function_call
-                  (function_identifier)
-                  (call_signature))))
+              (mult_binary_expression
+                (value
+                  (basic_value
+                    (float_value)))
+                (mult_prec_operator)
+                (value
+                  (basic_value
+                    (string_value
+                      (_string_fragment))))
+                (post_identifier
+                  (function_call
+                    (function_identifier)
+                    (call_signature)))))
             (comparison_operator)
             (value
               (basic_value
@@ -1516,39 +1516,45 @@ Test := Rectangle {
                         (function_identifier)
                         (call_signature
                           (var_identifier)
-                          (ERROR
+                          (value
+                            (value
+                              (basic_value
+                                (color_value))))
+                          (post_identifier
+                            (function_call
+                              (function_identifier)
+                              (call_signature
+                                (value
+                                  (basic_value
+                                    (percent_value))))))
+                          (comparison_binary_expression
                             (value
                               (value
                                 (basic_value
                                   (color_value))))
-                            (UNEXPECTED 'i'))
-                          (value
+                            (post_identifier
+                              (function_call
+                                (function_identifier)
+                                (call_signature
+                                  (value
+                                    (basic_value
+                                      (percent_value))))))
+                            (comparison_operator
+                              (MISSING "<"))
                             (value
                               (basic_value
                                 (percent_value))))
-                          (ERROR
-                            (value
-                              (value
-                                (basic_value
-                                  (color_value))))
-                            (UNEXPECTED 'i')
-                            (value
-                              (value
-                                (basic_value
-                                  (percent_value)))))
-                          (value
-                            (basic_value
-                              (percent_value)))
-                          (ERROR
-                            (value
-                              (value
-                                (basic_value
-                                  (color_value))))
-                            (UNEXPECTED 'i'))
                           (value
                             (value
                               (basic_value
-                                (percent_value))))))
+                                (color_value))))
+                          (post_identifier
+                            (function_call
+                              (function_identifier)
+                              (call_signature
+                                (value
+                                  (basic_value
+                                    (percent_value))))))))
                       (mult_prec_operator)
                       (var_identifier)))
                   (comparison_operator)
@@ -2487,8 +2493,7 @@ TestCase := Rectangle {
                     (value
                       (basic_value
                         (int_value)))))
-                (ERROR
-                  (UNEXPECTED 'c')))))))))
+                (post_identifier))))))))
   (ERROR
     (type_identifier)
     (UNEXPECTED 'e')
