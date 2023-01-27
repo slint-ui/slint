@@ -473,7 +473,8 @@ Win := Window {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
@@ -569,8 +570,7 @@ Win := Window {
                       (call_signature
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))))))))
+                            (string_value)))))))))
             (block_statement
               (component
                 (type_identifier)
@@ -584,8 +584,7 @@ Win := Window {
                         (call_signature
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment))))))))
+                              (string_value)))))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -610,8 +609,7 @@ Win := Window {
                         (call_signature
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment))))))))
+                              (string_value)))))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -636,8 +634,7 @@ Win := Window {
                         (call_signature
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment))))))))
+                              (string_value)))))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -699,8 +696,7 @@ Win := Window {
                       (call_signature
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))))))))
+                            (string_value)))))))))
             (block_statement
               (component
                 (type_identifier)
@@ -714,8 +710,7 @@ Win := Window {
                         (call_signature
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment))))))))
+                              (string_value)))))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -740,8 +735,7 @@ Win := Window {
                         (call_signature
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment))))))))
+                              (string_value)))))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -759,8 +753,7 @@ Win := Window {
                         (call_signature
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment))))))))
+                              (string_value)))))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -800,8 +793,7 @@ export MainWindow := Window {
           (assignment_prec_operator)
           (value
             (basic_value
-              (string_value
-                (_string_fragment))))))
+              (string_value)))))
       (block_statement
         (assignment_expr
           (var_identifier)
@@ -833,8 +825,7 @@ export MainWindow := Window {
                         (call_signature
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment))))))))
+                              (string_value)))))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -852,8 +843,7 @@ export MainWindow := Window {
                         (call_signature
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment))))))))
+                              (string_value)))))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -1198,8 +1188,7 @@ PathFillRule := Window {
                           (assignment_prec_operator)
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment))))))))
+                              (string_value)))))))
                   (block_statement
                     (component
                       (type_identifier)
@@ -1210,8 +1199,7 @@ PathFillRule := Window {
                             (assignment_prec_operator)
                             (value
                               (basic_value
-                                (string_value
-                                  (_string_fragment))))))
+                                (string_value)))))
                         (block_statement
                           (assignment_expr
                             (var_identifier)
@@ -1246,8 +1234,7 @@ PathFillRule := Window {
                           (assignment_prec_operator)
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment))))))))
+                              (string_value)))))))
                   (block_statement
                     (component
                       (type_identifier)
@@ -1258,8 +1245,7 @@ PathFillRule := Window {
                             (assignment_prec_operator)
                             (value
                               (basic_value
-                                (string_value
-                                  (_string_fragment))))))
+                                (string_value)))))
                         (block_statement
                           (assignment_expr
                             (var_identifier)
@@ -1777,7 +1763,8 @@ PlusMinus := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (callback
@@ -1876,7 +1863,8 @@ PlusMinus := Rectangle {
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (component
@@ -1905,8 +1893,7 @@ PlusMinus := Rectangle {
                           (assignment_prec_operator)
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment)))))))))))
+                              (string_value))))))))))
             (block_statement
               (component
                 (type_identifier)
@@ -1947,8 +1934,7 @@ PlusMinus := Rectangle {
                           (assignment_prec_operator)
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment)))))))))))))))))
+                              (string_value))))))))))))))))
 
 ================================================================================
 rectangle_clip
@@ -2167,8 +2153,7 @@ export Test := Window {
                       (assignment_prec_operator)
                       (value
                         (basic_value
-                          (string_value
-                            (_string_fragment))))))
+                          (string_value)))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -2224,8 +2209,7 @@ export Test := Window {
                         (call_signature
                           (value
                             (basic_value
-                              (string_value
-                                (_string_fragment))))))))
+                              (string_value)))))))
                   (block_statement
                     (assignment_expr
                       (var_identifier)
@@ -2276,11 +2260,13 @@ SampleComponent := Window {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (callback
@@ -2336,8 +2322,7 @@ TestCase := Window {
           (assignment_prec_operator)
           (value
             (basic_value
-              (string_value
-                (_string_fragment))))))
+              (string_value)))))
       (block_statement
         (assignment_expr
           (var_identifier)
@@ -2358,9 +2343,7 @@ TestCase := Window {
                     (assignment_prec_operator)
                     (value
                       (basic_value
-                        (string_value
-                          (_string_fragment)
-                          (_string_fragment))))))))))))))
+                        (string_value)))))))))))))
 
 ================================================================================
 hello
@@ -2618,7 +2601,8 @@ Hello := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (callback
@@ -3014,8 +2998,7 @@ Hello := Rectangle {
                 (call_signature
                   (value
                     (basic_value
-                      (string_value
-                        (_string_fragment))))))))))
+                      (string_value)))))))))
       (block_statement
         (component
           (type_identifier)
@@ -3056,11 +3039,11 @@ Hello := Rectangle {
               (assignment_prec_operator)
               (value
                 (basic_value
-                  (string_value
-                    (_string_fragment))))))))
+                  (string_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (component
@@ -3127,8 +3110,7 @@ Hello := Rectangle {
               (assignment_prec_operator)
               (value
                 (basic_value
-                  (string_value
-                    (_string_fragment))))))))
+                  (string_value)))))))
       (block_statement
         (component
           (type_identifier)
@@ -3378,20 +3360,20 @@ Hello := Rectangle {
           (block)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
-              (string_value
-                (_string_fragment))))))
+              (string_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
-              (string_value
-                (_string_fragment)))))))))
+              (string_value))))))))
 
 ================================================================================
 key_press
@@ -3490,8 +3472,7 @@ W := Window {
                                   (call_signature
                                     (value
                                       (basic_value
-                                        (string_value
-                                          (_string_fragment))))))))))
+                                        (string_value)))))))))
                         (block_statement
                           (if_statement
                             (comparison_binary_expression
@@ -3509,8 +3490,7 @@ W := Window {
                                   (call_signature
                                     (value
                                       (basic_value
-                                        (string_value
-                                          (_string_fragment))))))))))
+                                        (string_value)))))))))
                         (block_statement
                           (if_statement
                             (var_identifier
@@ -3525,8 +3505,7 @@ W := Window {
                                   (call_signature
                                     (value
                                       (basic_value
-                                        (string_value
-                                          (_string_fragment))))))))))
+                                        (string_value)))))))))
                         (block_statement
                           (if_statement
                             (var_identifier
@@ -3541,8 +3520,7 @@ W := Window {
                                   (call_signature
                                     (value
                                       (basic_value
-                                        (string_value
-                                          (_string_fragment))))))))))
+                                        (string_value)))))))))
                         (block_statement
                           (if_statement
                             (var_identifier
@@ -3557,8 +3535,7 @@ W := Window {
                                   (call_signature
                                     (value
                                       (basic_value
-                                        (string_value
-                                          (_string_fragment))))))))))
+                                        (string_value)))))))))
                         (block_statement
                           (if_statement
                             (var_identifier
@@ -3573,8 +3550,7 @@ W := Window {
                                   (call_signature
                                     (value
                                       (basic_value
-                                        (string_value
-                                          (_string_fragment))))))))))
+                                        (string_value)))))))))
                         (block_statement
                           (function_call
                             (function_identifier)
@@ -3607,8 +3583,7 @@ W := Window {
                     (assignment_prec_operator)
                     (value
                       (basic_value
-                        (string_value
-                          (_string_fragment))))))))))))))
+                        (string_value)))))))))))))
 
 ================================================================================
 layer
@@ -3679,8 +3654,7 @@ export TestCase := Window {
 (source_file
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (comment)
   (comment)
   (comment)
@@ -3757,8 +3731,7 @@ export TestCase := Window {
                       (assignment_prec_operator)
                       (value
                         (basic_value
-                          (string_value
-                            (_string_fragment))))))))))))))
+                          (string_value)))))))))))))
   (export_statement)
   (component_definition
     (type_identifier)
@@ -3797,8 +3770,7 @@ export TestCase := Window {
                       (assignment_prec_operator)
                       (value
                         (basic_value
-                          (string_value
-                            (_string_fragment))))))
+                          (string_value)))))
                   (block_statement
                     (callback_event
                       (function_identifier)
@@ -3836,7 +3808,8 @@ export TestCase := Window {
                                 (length_value)))))
                         (block_statement
                           (property
-                            (type_identifier)
+                            (type
+                              (type_identifier))
                             (var_identifier)))
                         (block_statement
                           (states_definition
@@ -4034,8 +4007,7 @@ TestCase := Window {
                       (call_signature
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))))))))
+                            (string_value)))))))))
             (block_statement
               (component
                 (type_identifier)
@@ -4143,5 +4115,4 @@ TestCase := Window {
                       (call_signature
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))))))))))))))
+                            (string_value)))))))))))))))

@@ -30,7 +30,8 @@ export AppWindow := Window {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (assignment_expr
         (var_identifier)
@@ -51,7 +52,8 @@ export AppWindow := Window {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (component
@@ -156,11 +158,13 @@ TestCase := Rectangle {
               (physical_length_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (if_statement

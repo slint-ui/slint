@@ -34,13 +34,15 @@ TestCase := Rectangle {
   (global_definition
     (type_identifier)
     (property
-      (type_identifier)
+      (type
+        (type_identifier))
       (var_identifier)
       (value
         (basic_value
           (int_value))))
     (property
-      (type_identifier)
+      (type
+        (type_identifier))
       (var_identifier)
       (value
         (basic_value
@@ -53,7 +55,8 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
@@ -108,7 +111,8 @@ TestCase := Rectangle {
           (block)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (add_binary_expression
             (mult_binary_expression
@@ -124,7 +128,8 @@ TestCase := Rectangle {
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier)))))))
@@ -155,14 +160,16 @@ id_lookup
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
               (int_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
@@ -174,21 +181,24 @@ id_lookup
           (block
             (block_statement
               (property
-                (type_identifier)
+                (type
+                  (type_identifier))
                 (var_identifier)
                 (value
                   (basic_value
                     (int_value)))))
             (block_statement
               (property
-                (type_identifier)
+                (type
+                  (type_identifier))
                 (var_identifier)
                 (value
                   (basic_value
                     (int_value)))))
             (block_statement
               (property
-                (type_identifier)
+                (type
+                  (type_identifier))
                 (var_identifier)
                 (add_binary_expression
                   (add_binary_expression
@@ -218,13 +228,15 @@ id_lookup
                         (int_value))))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (add_binary_expression
             (add_binary_expression

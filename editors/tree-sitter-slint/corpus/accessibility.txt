@@ -73,7 +73,8 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (component
@@ -115,7 +116,8 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (assignment_expr
@@ -176,8 +178,7 @@ TestCase := Rectangle {
                     (assignment_prec_operator)
                     (value
                       (basic_value
-                        (string_value
-                          (_string_fragment))))))))
+                        (string_value)))))))
             (block_statement
               (component
                 (var_identifier)
@@ -188,8 +189,7 @@ TestCase := Rectangle {
                     (assignment_prec_operator)
                     (value
                       (basic_value
-                        (string_value
-                          (_string_fragment))))))))
+                        (string_value)))))))
             (block_statement
               (component
                 (var_identifier)
@@ -200,8 +200,7 @@ TestCase := Rectangle {
                     (assignment_prec_operator)
                     (value
                       (basic_value
-                        (string_value
-                          (_string_fragment))))))))
+                        (string_value)))))))
             (block_statement
               (component
                 (var_identifier)
@@ -212,8 +211,7 @@ TestCase := Rectangle {
                     (assignment_prec_operator)
                     (value
                       (basic_value
-                        (string_value
-                          (_string_fragment)))))))))))
+                        (string_value))))))))))
       (block_statement
         (for_loop
           (var_identifier)
@@ -221,8 +219,7 @@ TestCase := Rectangle {
             (value_list
               (value
                 (basic_value
-                  (string_value
-                    (_string_fragment))))))
+                  (string_value)))))
           (component
             (type_identifier)
             (block
@@ -237,43 +234,50 @@ TestCase := Rectangle {
                 (var_identifier))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -292,8 +296,7 @@ TestCase := Rectangle {
                     (mult_binary_expression
                       (value
                         (basic_value
-                          (string_value
-                            (_string_fragment))))
+                          (string_value)))
                       (mult_prec_operator)
                       (var_identifier)))
                   (comparison_operator)
@@ -313,8 +316,7 @@ TestCase := Rectangle {
               (mult_binary_expression
                 (value
                   (basic_value
-                    (string_value
-                      (_string_fragment))))
+                    (string_value)))
                 (mult_prec_operator)
                 (var_identifier)))
             (comparison_operator)

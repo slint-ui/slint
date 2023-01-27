@@ -28,13 +28,11 @@ TestCase := Rectangle {
   (comment)
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (import_statement
     (type_identifier)
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (comment)
   (component_definition
     (type_identifier)
@@ -42,7 +40,8 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
@@ -54,12 +53,12 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
-              (string_value
-                (_string_fragment))))))))
+              (string_value)))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -91,8 +90,7 @@ TestCase := Rectangle {
               (assignment_prec_operator)
               (value
                 (basic_value
-                  (string_value
-                    (_string_fragment))))))))
+                  (string_value)))))))
       (block_statement
         (component
           (type_identifier)
@@ -102,8 +100,7 @@ TestCase := Rectangle {
               (assignment_prec_operator)
               (value
                 (basic_value
-                  (string_value
-                    (_string_fragment)))))))))))
+                  (string_value))))))))))
 
 ================================================================================
 exported_component
@@ -156,8 +153,7 @@ TestCase := Rectangle {
   (comment)
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -169,13 +165,15 @@ TestCase := Rectangle {
           (block)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier)))))))
@@ -212,27 +210,28 @@ TestCase := Rectangle {
     (type_identifier)
     (type_identifier)
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (global_definition
     (type_identifier)
     (property
-      (type_identifier)
+      (type
+        (type_identifier))
       (var_identifier)
       (value
         (basic_value
           (int_value))))
     (property
-      (type_identifier)
+      (type
+        (type_identifier))
       (var_identifier)
       (value
         (basic_value
-          (string_value
-            (_string_fragment))))))
+          (string_value)))))
   (global_definition
     (type_identifier)
     (property
-      (type_identifier)
+      (type
+        (type_identifier))
       (var_identifier)
       (value
         (basic_value
@@ -248,19 +247,22 @@ TestCase := Rectangle {
           (block)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (add_binary_expression
             (var_identifier
@@ -270,7 +272,8 @@ TestCase := Rectangle {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -317,15 +320,15 @@ TestCase := Rectangle {
   (import_statement
     (type_identifier)
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (block
             (block_statement
@@ -392,7 +395,8 @@ TestCase := Rectangle {
                             (int_value))))))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier)
@@ -422,25 +426,20 @@ TestCase := Rectangle {
   (import_statement
     (type_identifier)
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (import_statement
     (type_identifier)
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -479,8 +478,7 @@ import { MainWindow } from "main_window.slint";
   (comment)
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment))))
+    (string_value)))
 
 ================================================================================
 import_multi
@@ -498,12 +496,10 @@ TestCase := Rectangle {
 (source_file
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -534,8 +530,7 @@ TestCase := Rectangle {
   (import_statement
     (type_identifier)
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)

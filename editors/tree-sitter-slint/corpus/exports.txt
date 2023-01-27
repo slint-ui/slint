@@ -19,7 +19,8 @@ component Ko {
       (block_statement
         (property
           (visibility_modifier)
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
@@ -30,7 +31,8 @@ component Ko {
       (block_statement
         (property
           (visibility_modifier)
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value

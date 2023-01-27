@@ -17,7 +17,8 @@ abs
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -27,7 +28,8 @@ abs
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -39,7 +41,8 @@ abs
                     (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -49,7 +52,8 @@ abs
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -78,7 +82,8 @@ acos
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -88,7 +93,8 @@ acos
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -98,7 +104,8 @@ acos
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -142,11 +149,13 @@ arithmetic
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (add_binary_expression
             (add_binary_expression
@@ -178,7 +187,8 @@ arithmetic
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (add_binary_expression
             (mult_binary_expression
@@ -200,7 +210,8 @@ arithmetic
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (add_binary_expression
             (var_identifier)
@@ -227,7 +238,8 @@ arithmetic
                       (int_value)))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (add_binary_expression
             (add_binary_expression
@@ -266,7 +278,8 @@ arithmetic
                         (int_value))))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (mult_binary_expression
             (value
@@ -359,7 +372,8 @@ asin
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -369,7 +383,8 @@ asin
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -379,7 +394,8 @@ asin
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -407,7 +423,8 @@ atan
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -417,7 +434,8 @@ atan
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -440,7 +458,8 @@ atan
                         (int_value))))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -450,7 +469,8 @@ atan
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -486,7 +506,8 @@ ceil
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -496,7 +517,8 @@ ceil
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -506,7 +528,8 @@ ceil
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -516,7 +539,8 @@ ceil
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -526,7 +550,8 @@ ceil
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -538,7 +563,8 @@ ceil
                     (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -550,7 +576,8 @@ ceil
                     (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -562,7 +589,8 @@ ceil
                     (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -599,14 +627,16 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
               (int_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -624,7 +654,8 @@ TestCase := Rectangle {
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -642,7 +673,8 @@ TestCase := Rectangle {
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -660,7 +692,8 @@ TestCase := Rectangle {
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (mult_binary_expression
             (var_identifier)
@@ -671,7 +704,8 @@ TestCase := Rectangle {
               (var_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (add_binary_expression
@@ -699,7 +733,8 @@ TestCase := Rectangle {
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (mult_binary_expression
@@ -716,23 +751,23 @@ TestCase := Rectangle {
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
-              (string_value
-                (_string_fragment))))))
+              (string_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier)
             (comparison_operator)
             (value
               (basic_value
-                (string_value
-                  (_string_fragment))))))))))
+                (string_value)))))))))
 
 ================================================================================
 cos
@@ -753,7 +788,8 @@ cos
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -763,7 +799,8 @@ cos
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -773,7 +810,8 @@ cos
                   (angle_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -783,7 +821,8 @@ cos
                   (angle_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -816,7 +855,8 @@ floor
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -826,7 +866,8 @@ floor
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -836,7 +877,8 @@ floor
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -846,7 +888,8 @@ floor
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -856,7 +899,8 @@ floor
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -868,7 +912,8 @@ floor
                     (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -880,7 +925,8 @@ floor
                     (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -892,7 +938,8 @@ floor
                     (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -920,7 +967,8 @@ log
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -933,7 +981,8 @@ log
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -965,7 +1014,8 @@ math
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -1008,7 +1058,8 @@ math
                 (float_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -1053,7 +1104,8 @@ math
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -1105,7 +1157,8 @@ math
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -1157,7 +1210,8 @@ math
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (mult_binary_expression
             (mult_binary_expression
@@ -1194,11 +1248,13 @@ minmax
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (add_binary_expression
             (function_call
@@ -1250,7 +1306,8 @@ minmax
                     (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -1311,14 +1368,16 @@ minmax
           (block
             (block_statement
               (property
-                (type_identifier)
+                (type
+                  (type_identifier))
                 (var_identifier)
                 (value
                   (basic_value
                     (int_value)))))
             (block_statement
               (property
-                (type_identifier)
+                (type
+                  (type_identifier))
                 (var_identifier)
                 (add_binary_expression
                   (var_identifier
@@ -1339,7 +1398,8 @@ minmax
                   (var_identifier)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (mult_binary_expression
@@ -1374,7 +1434,8 @@ pow
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1387,7 +1448,8 @@ pow
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1436,7 +1498,8 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (block
             (block_statement
@@ -1445,7 +1508,8 @@ TestCase := Rectangle {
                   (bool_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (block
             (block_statement
@@ -1465,7 +1529,8 @@ TestCase := Rectangle {
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (block
             (block_statement
@@ -1477,11 +1542,13 @@ TestCase := Rectangle {
           (function_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (callback_event
@@ -1505,7 +1572,8 @@ TestCase := Rectangle {
                   (bool_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (block
             (block_statement
@@ -1542,7 +1610,8 @@ round
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1552,7 +1621,8 @@ round
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1562,7 +1632,8 @@ round
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1572,7 +1643,8 @@ round
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1582,7 +1654,8 @@ round
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1594,7 +1667,8 @@ round
                     (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1606,7 +1680,8 @@ round
                     (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1618,7 +1693,8 @@ round
                     (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1648,7 +1724,8 @@ sin
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1658,7 +1735,8 @@ sin
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1668,7 +1746,8 @@ sin
                   (angle_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1678,7 +1757,8 @@ sin
                   (angle_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1704,7 +1784,8 @@ sqrt
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1714,7 +1795,8 @@ sqrt
                   (float_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1749,62 +1831,69 @@ string_template
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
               (int_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
               (string_value
-                (_string_fragment)
-                (_string_fragment)
-                (_string_fragment))))))
+                (var_identifier)
+                (var_identifier))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
               (string_value
-                (_string_fragment)
-                (_string_fragment))))))
+                (value
+                  (basic_value
+                    (int_value)))
+                (value
+                  (basic_value
+                    (float_value))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
-              (string_value
-                (_string_fragment))))))
-      (ERROR
-        (comparison_binary_expression
-          (value
-            (anon_struct
+              (string_value)))))
+      (block_statement
+        (property
+          (type
+            (type_anon_struct
               (var_identifier)
-              (var_identifier)))
-          (comparison_operator)
-          (var_identifier)))
-      (block_statement
-        (value
-          (anon_struct
-            (var_identifier)
-            (value
-              (basic_value
-                (string_value
-                  (_string_fragment)))))))
+              (type
+                (type_identifier))))
+          (var_identifier)
+          (block
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (basic_value
+                  (string_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
               (string_value
-                (_string_fragment))))))
+                (var_identifier
+                  (post_identifier)))))))
       (block_statement
         (callback
           (function_identifier)))
@@ -1812,28 +1901,42 @@ string_template
         (callback_event
           (function_identifier)
           (block
+            (block_statement
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (basic_value
+                    (string_value
+                      (var_identifier)
+                      (add_binary_expression
+                        (var_identifier)
+                        (add_prec_operator)
+                        (value
+                          (basic_value
+                            (int_value))))
+                      (value
+                        (basic_value
+                          (string_value
+                            (var_identifier)
+                            (add_binary_expression
+                              (var_identifier)
+                              (add_prec_operator)
+                              (value
+                                (basic_value
+                                  (int_value))))))))))))
             (assignment_expr
-              (var_identifier)
+              (var_identifier
+                (post_identifier))
               (assignment_prec_operator)
               (value
                 (basic_value
                   (string_value
-                    (_string_fragment)
-                    (_string_fragment)))))
-            (ERROR))))
-      (ERROR
-        (UNEXPECTED '+'))
-      (unary_expression
-        (unary_prec_operator)
-        (value
-          (basic_value
-            (int_value))))))
-  (ERROR
-    (UNEXPECTED 'b')
-    (UNEXPECTED ')
-    (UNEXPECTED 'b')
-    (UNEXPECTED '}')
-    (UNEXPECTED 'y')))
+                    (var_identifier
+                      (post_identifier))
+                    (value
+                      (basic_value
+                        (string_value)))))))))))))
 
 ================================================================================
 tan
@@ -1853,7 +1956,8 @@ tan
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1863,7 +1967,8 @@ tan
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1873,7 +1978,8 @@ tan
                   (angle_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -1908,7 +2014,8 @@ trigo
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -2141,7 +2248,8 @@ trigo
                   (bool_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier))))))
 
@@ -2162,7 +2270,8 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (mult_binary_expression
             (function_call
@@ -2203,15 +2312,16 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
-              (string_value
-                (_string_fragment))))))
+              (string_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (block
             (block_statement
@@ -2232,8 +2342,7 @@ TestCase := Rectangle {
               (call_signature
                 (value
                   (basic_value
-                    (string_value
-                      (_string_fragment)))))))))
+                    (string_value))))))))
       (block_statement
         (assignment_block
           (var_identifier)
@@ -2251,7 +2360,8 @@ TestCase := Rectangle {
           (block)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (block
             (block_statement
@@ -2319,7 +2429,8 @@ mod
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -2332,7 +2443,8 @@ mod
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -2345,7 +2457,8 @@ mod
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -2358,7 +2471,8 @@ mod
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (function_call
             (function_identifier)
@@ -2371,7 +2485,8 @@ mod
                   (duration_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -2433,28 +2548,30 @@ string_concatenation
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
               (int_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (add_binary_expression
             (add_binary_expression
               (value
                 (basic_value
-                  (string_value
-                    (_string_fragment))))
+                  (string_value)))
               (add_prec_operator)
               (var_identifier))
             (add_prec_operator)
             (var_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (add_binary_expression
             (add_binary_expression
@@ -2464,39 +2581,38 @@ string_concatenation
               (add_prec_operator)
               (value
                 (basic_value
-                  (string_value
-                    (_string_fragment)))))
+                  (string_value))))
             (add_prec_operator)
             (value
               (basic_value
                 (float_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
-              (string_value
-                (_string_fragment))))))
-      (ERROR
-        (comparison_binary_expression
-          (value
-            (anon_struct
-              (var_identifier)
-              (var_identifier)))
-          (comparison_operator)
-          (var_identifier)))
-      (block_statement
-        (value
-          (anon_struct
-            (var_identifier)
-            (value
-              (basic_value
-                (string_value
-                  (_string_fragment)))))))
+              (string_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_anon_struct
+              (var_identifier)
+              (type
+                (type_identifier))))
+          (var_identifier)
+          (block
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (basic_value
+                  (string_value)))))))
+      (block_statement
+        (property
+          (type
+            (type_identifier))
           (var_identifier)
           (add_binary_expression
             (var_identifier
@@ -2504,8 +2620,7 @@ string_concatenation
             (add_prec_operator)
             (value
               (basic_value
-                (string_value
-                  (_string_fragment)))))))
+                (string_value))))))
       (block_statement
         (callback
           (function_identifier)))
@@ -2529,11 +2644,11 @@ string_concatenation
               (assignment_prec_operator)
               (value
                 (basic_value
-                  (string_value
-                    (_string_fragment))))))))
+                  (string_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (add_binary_expression
@@ -2551,5 +2666,4 @@ string_concatenation
             (comparison_operator)
             (value
               (basic_value
-                (string_value
-                  (_string_fragment))))))))))
+                (string_value)))))))))

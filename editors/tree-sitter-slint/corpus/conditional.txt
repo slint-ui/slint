@@ -22,11 +22,13 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (assignment_expr
@@ -40,20 +42,21 @@ TestCase := Rectangle {
             (var_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (ternary_expression
             (var_identifier)
             (value
               (basic_value
-                (string_value
-                  (_string_fragment))))
+                (string_value)))
             (value
               (basic_value
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (ternary_expression
             (var_identifier)
@@ -62,11 +65,11 @@ TestCase := Rectangle {
                 (int_value)))
             (value
               (basic_value
-                (string_value
-                  (_string_fragment)))))))
+                (string_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -75,15 +78,13 @@ TestCase := Rectangle {
               (mult_binary_expression
                 (value
                   (basic_value
-                    (string_value
-                      (_string_fragment))))
+                    (string_value)))
                 (mult_prec_operator)
                 (var_identifier)))
             (comparison_operator)
             (value
               (basic_value
-                (string_value
-                  (_string_fragment))))))))))
+                (string_value)))))))))
 
 ================================================================================
 expr
@@ -106,11 +107,13 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (ternary_expression
             (var_identifier)
@@ -122,11 +125,13 @@ TestCase := Rectangle {
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (ternary_expression
             (ternary_expression
@@ -148,7 +153,8 @@ TestCase := Rectangle {
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (ternary_expression
             (value
@@ -215,11 +221,13 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value

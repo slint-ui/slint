@@ -30,8 +30,7 @@ TestCase := Dialog {
     (type_identifier)
     (type_identifier)
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -116,8 +115,7 @@ TestCase := Dialog {
                 (assignment_prec_operator)
                 (value
                   (basic_value
-                    (string_value
-                      (_string_fragment))))))
+                    (string_value)))))
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
@@ -145,14 +143,16 @@ TestCase := Path {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
               (int_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
@@ -379,7 +379,8 @@ TestCase := Window {
                                   (physical_length_value)))))))))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (unary_expression
             (unary_prec_operator)
@@ -387,7 +388,8 @@ TestCase := Window {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (unary_expression
             (unary_prec_operator)
@@ -395,19 +397,22 @@ TestCase := Window {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier))))))
 
 ================================================================================
@@ -502,7 +507,8 @@ TestCase := Window {
                 (block
                   (block_statement
                     (property
-                      (type_identifier)
+                      (type
+                        (type_identifier))
                       (var_identifier)
                       (comparison_binary_expression
                         (comparison_binary_expression
@@ -543,7 +549,8 @@ TestCase := Window {
                 (block
                   (block_statement
                     (property
-                      (type_identifier)
+                      (type
+                        (type_identifier))
                       (var_identifier)
                       (comparison_binary_expression
                         (comparison_binary_expression
@@ -589,7 +596,8 @@ TestCase := Window {
                       (block
                         (block_statement
                           (property
-                            (type_identifier)
+                            (type
+                              (type_identifier))
                             (var_identifier)
                             (comparison_binary_expression
                               (comparison_binary_expression
@@ -668,7 +676,8 @@ TestCase := Window {
                       (block
                         (block_statement
                           (property
-                            (type_identifier)
+                            (type
+                              (type_identifier))
                             (var_identifier)
                             (comparison_binary_expression
                               (comparison_binary_expression
@@ -709,7 +718,8 @@ TestCase := Window {
                   (block)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (mult_binary_expression
             (mult_binary_expression
@@ -727,7 +737,8 @@ TestCase := Window {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier))))))
 
@@ -861,13 +872,15 @@ TestCase := Window {
                         (physical_length_value))))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
@@ -1021,7 +1034,8 @@ TestCase := Window {
                               (var_identifier)))))))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (unary_expression
             (unary_prec_operator)
@@ -1029,7 +1043,8 @@ TestCase := Window {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (unary_expression
             (unary_prec_operator)
@@ -1037,7 +1052,8 @@ TestCase := Window {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -1098,8 +1114,7 @@ TestCase := Window {
 (source_file
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -1120,7 +1135,8 @@ TestCase := Window {
               (length_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (component
@@ -1137,8 +1153,7 @@ TestCase := Window {
                         (var_identifier)
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))
+                            (string_value)))
                         (var_identifier)
                         (value
                           (basic_value
@@ -1152,8 +1167,7 @@ TestCase := Window {
                         (var_identifier)
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))
+                            (string_value)))
                         (var_identifier)
                         (value
                           (basic_value
@@ -1167,8 +1181,7 @@ TestCase := Window {
                         (var_identifier)
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))
+                            (string_value)))
                         (var_identifier)
                         (value
                           (basic_value
@@ -1182,8 +1195,7 @@ TestCase := Window {
                         (var_identifier)
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))
+                            (string_value)))
                         (var_identifier)
                         (value
                           (basic_value
@@ -1197,8 +1209,7 @@ TestCase := Window {
                         (var_identifier)
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))
+                            (string_value)))
                         (var_identifier)
                         (value
                           (basic_value
@@ -1212,8 +1223,7 @@ TestCase := Window {
                         (var_identifier)
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))
+                            (string_value)))
                         (var_identifier)
                         (value
                           (basic_value
@@ -1227,8 +1237,7 @@ TestCase := Window {
                         (var_identifier)
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))
+                            (string_value)))
                         (var_identifier)
                         (value
                           (basic_value
@@ -1242,8 +1251,7 @@ TestCase := Window {
                         (var_identifier)
                         (value
                           (basic_value
-                            (string_value
-                              (_string_fragment))))
+                            (string_value)))
                         (var_identifier)
                         (value
                           (basic_value
@@ -1382,15 +1390,15 @@ export TestCase := Window {
 (source_file
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (assignment_expr
@@ -1399,8 +1407,7 @@ export TestCase := Window {
           (add_binary_expression
             (value
               (basic_value
-                (string_value
-                  (_string_fragment))))
+                (string_value)))
             (add_prec_operator)
             (var_identifier))))
       (block_statement
@@ -1439,7 +1446,8 @@ export TestCase := Window {
               (physical_length_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (unary_expression
             (unary_prec_operator)
@@ -1448,14 +1456,16 @@ export TestCase := Window {
                 (int_value))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
               (physical_length_value)))))
       (block_statement
         (property_alias
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
@@ -1484,7 +1494,8 @@ export TestCase := Window {
                         (var_identifier)))
                     (block_statement
                       (property
-                        (type_identifier)
+                        (type
+                          (type_identifier))
                         (var_identifier)))
                     (block_statement
                       (component
@@ -1579,15 +1590,15 @@ TestCase := Rectangle {
 (source_file
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
       (block_statement
         (property_alias
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
@@ -1667,8 +1678,7 @@ TestCase := Rectangle {
                 (call_signature
                   (value
                     (basic_value
-                      (string_value
-                        (_string_fragment))))))))))
+                      (string_value)))))))))
       (block_statement
         (component
           (var_identifier)
@@ -1683,8 +1693,7 @@ TestCase := Rectangle {
                   (call_signature
                     (value
                       (basic_value
-                        (string_value
-                          (_string_fragment))))))))
+                        (string_value)))))))
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
@@ -1693,19 +1702,22 @@ TestCase := Rectangle {
                   (int_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -1827,8 +1839,7 @@ TestCase := Rectangle {
             (call_signature
               (value
                 (basic_value
-                  (string_value
-                    (_string_fragment))))))))
+                  (string_value)))))))
       (assignment_expr
         (var_identifier)
         (assignment_prec_operator)
@@ -1905,7 +1916,8 @@ TestCase := Rectangle {
           (block
             (block_statement
               (property
-                (type_identifier)
+                (type
+                  (type_identifier))
                 (var_identifier)
                 (comparison_binary_expression
                   (var_identifier
@@ -1929,8 +1941,7 @@ TestCase := Rectangle {
                   (call_signature
                     (value
                       (basic_value
-                        (string_value
-                          (_string_fragment))))))))
+                        (string_value)))))))
             (block_statement
               (assignment_expr
                 (var_identifier)
@@ -1940,7 +1951,8 @@ TestCase := Rectangle {
                     (physical_length_value)))))
             (block_statement
               (property
-                (type_identifier)
+                (type
+                  (type_identifier))
                 (var_identifier)
                 (comparison_binary_expression
                   (var_identifier
@@ -1964,8 +1976,7 @@ TestCase := Rectangle {
                   (call_signature
                     (value
                       (basic_value
-                        (string_value
-                          (_string_fragment))))))))
+                        (string_value)))))))
             (block_statement
               (assignment_expr
                 (var_identifier)
@@ -1989,7 +2000,8 @@ TestCase := Rectangle {
                     (int_value)))))
             (block_statement
               (property
-                (type_identifier)
+                (type
+                  (type_identifier))
                 (var_identifier)
                 (comparison_binary_expression
                   (var_identifier
@@ -2001,7 +2013,8 @@ TestCase := Rectangle {
                       (physical_length_value)))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier
@@ -2011,7 +2024,8 @@ TestCase := Rectangle {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier
@@ -2021,7 +2035,8 @@ TestCase := Rectangle {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier
@@ -2031,7 +2046,8 @@ TestCase := Rectangle {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier
@@ -2041,25 +2057,29 @@ TestCase := Rectangle {
               (post_identifier)))))
       (block_statement
         (property_alias
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property_alias
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property_alias
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (mult_binary_expression
             (mult_binary_expression
@@ -2127,8 +2147,7 @@ TestCase := Rectangle {
                 (assignment_prec_operator)
                 (value
                   (basic_value
-                    (string_value
-                      (_string_fragment))))))
+                    (string_value)))))
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
@@ -2207,8 +2226,7 @@ TestCase := Rectangle {
                       (assignment_prec_operator)
                       (value
                         (basic_value
-                          (string_value
-                            (_string_fragment))))))
+                          (string_value)))))
                   (block_statement
                     (assignment_expr
                       (var_identifier)
@@ -2265,8 +2283,7 @@ TestCase := Window {
 (source_file
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -2287,7 +2304,8 @@ TestCase := Window {
               (length_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
@@ -2324,8 +2342,7 @@ TestCase := Window {
                             (assignment_prec_operator)
                             (value
                               (basic_value
-                                (string_value
-                                  (_string_fragment))))))
+                                (string_value)))))
                         (block_statement
                           (component
                             (type_identifier)
@@ -2346,8 +2363,7 @@ TestCase := Window {
                             (assignment_prec_operator)
                             (value
                               (basic_value
-                                (string_value
-                                  (_string_fragment))))))
+                                (string_value)))))
                         (block_statement
                           (component
                             (type_identifier)
@@ -2357,8 +2373,7 @@ TestCase := Window {
                                 (assignment_prec_operator)
                                 (value
                                   (basic_value
-                                    (string_value
-                                      (_string_fragment)))))))))))
+                                    (string_value))))))))))
                   (block_statement
                     (component
                       (type_identifier)
@@ -2369,8 +2384,7 @@ TestCase := Window {
                             (assignment_prec_operator)
                             (value
                               (basic_value
-                                (string_value
-                                  (_string_fragment))))))
+                                (string_value)))))
                         (block_statement
                           (component
                             (type_identifier)
@@ -2387,7 +2401,8 @@ TestCase := Window {
                               (length_value)))))))))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -2494,19 +2509,23 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (component
@@ -2648,8 +2667,7 @@ TestCase := Rectangle {
                       (assignment_prec_operator)
                       (value
                         (basic_value
-                          (string_value
-                            (_string_fragment))))))
+                          (string_value)))))
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
@@ -2679,8 +2697,7 @@ TestCase := Rectangle {
                             (assignment_prec_operator)
                             (value
                               (basic_value
-                                (string_value
-                                  (_string_fragment)))))))
+                                (string_value))))))
                       (if_statement
                         (comparison_binary_expression
                           (var_identifier
@@ -2697,8 +2714,7 @@ TestCase := Rectangle {
                               (assignment_prec_operator)
                               (value
                                 (basic_value
-                                  (string_value
-                                    (_string_fragment)))))))
+                                  (string_value))))))
                         (if_statement
                           (comparison_binary_expression
                             (var_identifier
@@ -2715,8 +2731,7 @@ TestCase := Rectangle {
                                 (assignment_prec_operator)
                                 (value
                                   (basic_value
-                                    (string_value
-                                      (_string_fragment)))))))
+                                    (string_value))))))
                           (component
                             (type_identifier
                               (MISSING _identifier))
@@ -2726,8 +2741,7 @@ TestCase := Rectangle {
                                 (assignment_prec_operator)
                                 (value
                                   (basic_value
-                                    (string_value
-                                      (_string_fragment)))))))))))
+                                    (string_value))))))))))
                   (block_statement
                     (if_statement
                       (comparison_binary_expression
@@ -2745,8 +2759,7 @@ TestCase := Rectangle {
                             (assignment_prec_operator)
                             (value
                               (basic_value
-                                (string_value
-                                  (_string_fragment)))))))
+                                (string_value))))))
                       (if_statement
                         (comparison_binary_expression
                           (var_identifier
@@ -2763,8 +2776,7 @@ TestCase := Rectangle {
                               (assignment_prec_operator)
                               (value
                                 (basic_value
-                                  (string_value
-                                    (_string_fragment)))))))
+                                  (string_value))))))
                         (if_statement
                           (comparison_binary_expression
                             (var_identifier
@@ -2781,8 +2793,7 @@ TestCase := Rectangle {
                                 (assignment_prec_operator)
                                 (value
                                   (basic_value
-                                    (string_value
-                                      (_string_fragment)))))))
+                                    (string_value))))))
                           (if_statement
                             (comparison_binary_expression
                               (var_identifier
@@ -2799,8 +2810,7 @@ TestCase := Rectangle {
                                   (assignment_prec_operator)
                                   (value
                                     (basic_value
-                                      (string_value
-                                        (_string_fragment)))))))
+                                      (string_value))))))
                             (component
                               (type_identifier
                                 (MISSING _identifier))
@@ -2810,5 +2820,4 @@ TestCase := Rectangle {
                                   (assignment_prec_operator)
                                   (value
                                     (basic_value
-                                      (string_value
-                                        (_string_fragment)))))))))))))))))))))
+                                      (string_value))))))))))))))))))))

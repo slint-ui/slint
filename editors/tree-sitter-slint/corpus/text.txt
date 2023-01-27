@@ -21,11 +21,9 @@ TestCase := Window {
   (comment)
   (comment)
   (import_statement
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (import_statement
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -50,8 +48,7 @@ TestCase := Window {
           (assignment_prec_operator)
           (value
             (basic_value
-              (string_value
-                (_string_fragment)))))))))
+              (string_value))))))))
 
 ================================================================================
 default_color
@@ -92,8 +89,7 @@ TestCase := Rectangle {
 (source_file
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment)))
+    (string_value))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -113,8 +109,7 @@ TestCase := Rectangle {
               (assignment_prec_operator)
               (value
                 (basic_value
-                  (string_value
-                    (_string_fragment))))))))))
+                  (string_value)))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -122,7 +117,8 @@ TestCase := Rectangle {
       (comment)
       (block_statement
         (property_alias
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
@@ -136,8 +132,7 @@ TestCase := Rectangle {
               (assignment_prec_operator)
               (value
                 (basic_value
-                  (string_value
-                    (_string_fragment))))))))
+                  (string_value)))))))
       (block_statement
         (component
           (var_identifier)
@@ -149,8 +144,7 @@ TestCase := Rectangle {
                 (assignment_prec_operator)
                 (value
                   (basic_value
-                    (string_value
-                      (_string_fragment))))))
+                    (string_value)))))
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
@@ -189,31 +183,36 @@ TestCase := Rectangle {
                   (color_value)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (comparison_binary_expression
@@ -266,8 +265,7 @@ TestCase := TextInput {
           (assignment_prec_operator)
           (value
             (basic_value
-              (string_value
-                (_string_fragment))))))
+              (string_value)))))
       (block_statement
         (assignment_expr
           (var_identifier)
@@ -317,13 +315,15 @@ TestCase := Window {
           (block)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property_alias
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier)))))))
@@ -365,28 +365,32 @@ TestCase := TextInput {
               (physical_length_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier
@@ -398,7 +402,8 @@ TestCase := TextInput {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
@@ -441,28 +446,32 @@ TestCase := TextInput {
               (physical_length_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier
@@ -474,7 +483,8 @@ TestCase := TextInput {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
@@ -517,28 +527,32 @@ TestCase := TextInput {
               (physical_length_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier
@@ -550,7 +564,8 @@ TestCase := TextInput {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
@@ -593,28 +608,32 @@ TestCase := TextInput {
               (physical_length_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier
@@ -626,7 +645,8 @@ TestCase := TextInput {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
@@ -669,28 +689,32 @@ TestCase := TextInput {
               (physical_length_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier
@@ -702,7 +726,8 @@ TestCase := TextInput {
               (post_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (reference_identifier)
@@ -777,19 +802,22 @@ TestCase := Window {
                 (block))))))
       (block_statement
         (property_alias
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier)))))))
@@ -835,14 +863,17 @@ TestCase := Window {
   (global_definition
     (type_identifier)
     (property_alias
-      (type_identifier)
+      (type
+        (type_identifier))
       (var_identifier)
       (var_identifier))
     (property
-      (type_identifier)
+      (type
+        (type_identifier))
       (var_identifier))
     (property
-      (type_identifier)
+      (type
+        (type_identifier))
       (var_identifier)
       (var_identifier)))
   (component_definition
@@ -888,7 +919,8 @@ TestCase := Window {
                 (block
                   (block_statement
                     (property_alias
-                      (type_identifier)
+                      (type
+                        (type_identifier))
                       (var_identifier)
                       (var_identifier
                         (post_identifier))))
@@ -898,7 +930,8 @@ TestCase := Window {
                       (var_identifier)))
                   (block_statement
                     (property_alias
-                      (type_identifier)
+                      (type
+                        (type_identifier))
                       (var_identifier)
                       (var_identifier))))))
             (block_statement
@@ -917,13 +950,15 @@ TestCase := Window {
                 (block))))))
       (block_statement
         (property_alias
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier)))))))
@@ -1057,23 +1092,28 @@ TestCase := Window {
                   (var_identifier)))))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (var_identifier
             (post_identifier))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier))))))

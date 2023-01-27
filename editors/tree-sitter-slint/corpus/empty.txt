@@ -26,8 +26,7 @@ Line comment with line continuation
   (comment)
   (import_statement
     (type_identifier)
-    (string_value
-      (_string_fragment))))
+    (string_value)))
 
 ================================================================================
 Multiline comment

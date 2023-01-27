@@ -133,7 +133,8 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (value
             (basic_value
@@ -151,8 +152,7 @@ TestCase := Rectangle {
                   (assignment_prec_operator)
                   (value
                     (basic_value
-                      (string_value
-                        (_string_fragment))))))
+                      (string_value)))))
               (block_statement
                 (component
                   (var_identifier)

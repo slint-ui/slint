@@ -94,7 +94,8 @@ TestCase := Container {
               (var_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier
@@ -231,7 +232,8 @@ TestCase := MegaContainer {
               (var_identifier)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)
           (comparison_binary_expression
             (var_identifier
@@ -348,15 +350,18 @@ TestCase := Rectangle {
               (physical_length_value)))))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (property
-          (type_identifier)
+          (type
+            (type_identifier))
           (var_identifier)))
       (block_statement
         (component
@@ -597,8 +602,7 @@ TestCase := Rectangle {
                                   (call_signature
                                     (value
                                       (basic_value
-                                        (string_value
-                                          (_string_fragment)))))))
+                                        (string_value))))))
                               (assignment_expr
                                 (var_identifier)
                                 (assignment_prec_operator)

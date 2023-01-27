@@ -102,17 +102,13 @@ module.exports = grammar({
                 ),
             ),
 
+        _property_type: ($) => seq("<", field("type", $.type), ">"),
+
         property_alias: ($) =>
             seq(
                 field("visibility", optional($.visibility_modifier)),
                 optional("property"),
-                optional(
-                    seq(
-                        "<",
-                        field("type", choice($.type_identifier, $.type_list)),
-                        ">",
-                    ),
-                ),
+                optional($._property_type),
                 field("name", $.var_identifier),
                 field("binding_op", "<=>"),
                 field("binding", $.var_identifier),
@@ -123,9 +119,7 @@ module.exports = grammar({
             seq(
                 field("visibility", optional($.visibility_modifier)),
                 "property",
-                "<",
-                field("type", choice($.type_identifier, $.type_list)),
-                ">",
+                $._property_type,
                 field("name", $.var_identifier),
                 choice(
                     optional(
@@ -491,7 +485,7 @@ module.exports = grammar({
         assignment_prec_operator: (_) =>
             prec.left(1, choice("=", ":", "+=", "-=", "*=", "/=")),
 
-        // This is taken from tree-sitter-javascript
+        // This is inspired from tree-sitter-javascript
         // https://github.com/tree-sitter/tree-sitter-javascript/blob/fdeb68ac8d2bd5a78b943528bb68ceda3aade2eb/grammar.js#L866
         /////////////////////////////////////////////////////////////////////
         _string: ($) =>
@@ -500,10 +494,7 @@ module.exports = grammar({
                     '"',
                     repeat(
                         choice(
-                            alias(
-                                $._unescaped_double_string_fragment,
-                                $._string_fragment,
-                            ),
+                            $._unescaped_string_fragment,
                             $._escape_sequence,
                         ),
                     ),
@@ -511,37 +502,16 @@ module.exports = grammar({
                 ),
             ),
 
-        _unescaped_double_string_fragment: (_) =>
-            token.immediate(prec(1, /[^"\\]+/)),
+        _unescaped_string_fragment: (_) => token.immediate(prec(1, /[^"\\]+/)),
 
-        // same here
-        _unescaped_single_string_fragment: (_) =>
-            token.immediate(prec(1, /[^'\\]+/)),
-
-        _escape_sequence: (_) =>
-            token.immediate(
-                seq(
+        _escape_sequence: ($) =>
+            seq(
+                "\\",
+                choice(
+                    /u\{[0-9a-fA-F]+\}/,
+                    "n",
                     "\\",
-                    choice(
-                        /[^xu0-7]/,
-                        /[0-7]{1,3}/,
-                        /x[0-9a-fA-F]{2}/,
-                        /u[0-9a-fA-F]{4}/,
-                        /u{[0-9a-fA-F]+}/,
-                    ),
-                ),
-            ),
-
-        _escape_sequence: (_) =>
-            token.immediate(
-                seq(
-                    "\\",
-                    choice(
-                        /[^xu]/,
-                        /u[0-9a-fA-F]{4}/,
-                        /u{[0-9a-fA-F]+}/,
-                        /x[0-9a-fA-F]{2}/,
-                    ),
+                    seq("{", $._expression, "}"),
                 ),
             ),
         /////////////////////////////////////////////////////////////////////
