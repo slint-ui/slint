@@ -168,7 +168,14 @@ module.exports = grammar({
                 field("name", $.type_identifier),
                 optional(":="), // old syntax!
                 "{",
-                repeat(choice($.property, $.callback, $.function)),
+                repeat(
+                    choice(
+                        $.property,
+                        $.callback,
+                        $.callback_event,
+                        $.function,
+                    ),
+                ),
                 "}",
             ),
 
