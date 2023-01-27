@@ -204,7 +204,7 @@ module.exports = grammar({
                 $.callback_event,
                 $.callback_alias,
                 seq($._expression, ";"),
-                // $.states_definition,
+                $.states_definition,
                 // $.transitions_definition,
             ),
 
@@ -229,27 +229,22 @@ module.exports = grammar({
         //     ),
         //     "]",
         //   ),
-        //
-        // states_definition: ($) =>
-        //   seq(
-        //     "states",
-        //     $.states_list_definition,
-        //   ),
-        //
-        // states_list_definition: ($) =>
-        //   seq(
-        //     "[",
-        //     repeat(
-        //       seq(
-        //         alias($.var_identifier, $.state_identifier),
-        //         "when",
-        //         $._expression,
-        //         ":",
-        //         $.block,
-        //       ),
-        //     ),
-        //     "]",
-        //   ),
+
+        states_definition: ($) =>
+            seq(
+                "states",
+                "[",
+                repeat(
+                    seq(
+                        alias($.var_identifier, $.state_identifier),
+                        "when",
+                        $._expression,
+                        ":",
+                        $.block,
+                    ),
+                ),
+                "]",
+            ),
 
         animate_statement: ($) =>
             seq("animate", $.var_identifier, $.animate_body),

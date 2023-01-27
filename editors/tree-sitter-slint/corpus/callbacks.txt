@@ -907,13 +907,13 @@ TestCase := Rectangle {
             (string_value
               (_string_fragment)))))
       (UNEXPECTED 'e')
-      (UNEXPECTED 'w'))
+      (UNEXPECTED ':'))
     (type_identifier)
     (ERROR
       (var_identifier)
       (ERROR
         (UNEXPECTED 'h')
-        (UNEXPECTED 'w'))))
+        (UNEXPECTED ';'))))
   (ERROR
     (UNEXPECTED 'S')
     (UNEXPECTED 'R')
@@ -1015,7 +1015,7 @@ TestCase := Rectangle {
     (UNEXPECTED 'h')
     (UNEXPECTED 'G')
     (UNEXPECTED 'e')
-    (UNEXPECTED 'w')
+    (UNEXPECTED 'o')
     (UNEXPECTED 'h')
     (UNEXPECTED '.')
     (UNEXPECTED 'h')

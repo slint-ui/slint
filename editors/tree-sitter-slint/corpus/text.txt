@@ -174,22 +174,19 @@ TestCase := Rectangle {
           (type_identifier)
           (block)))
       (block_statement
-        (var_identifier
-          (index_operator
-            (ERROR
-              (var_identifier)
+        (states_definition
+          (state_identifier)
+          (value
+            (basic_value
+              (bool_value)))
+          (block
+            (assignment_expr
+              (var_identifier
+                (post_identifier))
+              (assignment_prec_operator)
               (value
                 (basic_value
-                  (bool_value))))
-            (value
-              (anon_struct
-                (var_identifier
-                  (post_identifier))
-                (value
-                  (basic_value
-                    (color_value)))
-                (ERROR)))))
-        (MISSING ";"))
+                  (color_value)))))))
       (block_statement
         (property
           (type_identifier)

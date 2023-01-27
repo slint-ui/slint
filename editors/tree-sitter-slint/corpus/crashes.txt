@@ -1200,27 +1200,22 @@ export InkEffect := Rectangle {
               (basic_value
                 (duration_value))))))
       (block_statement
-        (assignment_block
-          (var_identifier
-            (index_operator
-              (comparison_binary_expression
-                (comparison_binary_expression
-                  (var_identifier)
-                  (ERROR
-                    (UNEXPECTED 'u'))
-                  (comparison_operator)
-                  (mult_binary_expression
-                    (value
-                      (basic_value
-                        (int_value)))
-                    (mult_prec_operator)
-                    (var_identifier)))
-                (comparison_operator)
+        (states_definition
+          (state_identifier)
+          (comparison_binary_expression
+            (comparison_binary_expression
+              (var_identifier)
+              (comparison_operator)
+              (mult_binary_expression
                 (value
                   (basic_value
-                    (float_value))))
-              (MISSING "]")))
-          (assignment_prec_operator)
+                    (int_value)))
+                (mult_prec_operator)
+                (var_identifier)))
+            (comparison_operator)
+            (value
+              (basic_value
+                (float_value))))
           (block
             (block_statement
               (assignment_expr
@@ -1243,21 +1238,27 @@ export InkEffect := Rectangle {
               (value
                 (basic_value
                   (bool_value)))))))
-      (ERROR
-        (UNEXPECTED 'a')
-        (UNEXPECTED 't')
+      (assignment_block
+        (var_identifier)
         (ERROR
           (var_identifier))
-        (UNEXPECTED 'u'))
-      (assignment_expr
-        (var_identifier)
         (assignment_prec_operator)
-        (value
-          (basic_value
-            (duration_value))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'p'))
+        (block
+          (block_statement
+            (animate_statement
+              (var_identifier)
+              (animate_body
+                (value
+                  (basic_value
+                    (duration_value))))))
+          (block_statement
+            (animate_statement
+              (var_identifier)
+              (animate_body
+                (value
+                  (basic_value
+                    (duration_value))))))))
+      (ERROR)))
   (export_statement)
   (component_definition
     (type_identifier)
