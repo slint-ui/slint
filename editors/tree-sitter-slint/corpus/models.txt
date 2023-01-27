@@ -33,32 +33,30 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR
+          (value_list
             (value
               (int_value))
             (value
-              (int_value)))
-          (value
-            (int_value))
-          (ERROR)))
+              (int_value))
+            (value
+              (int_value)))))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR
+          (value_list
             (value
               (int_value))
             (value
-              (int_value)))
-          (value
-            (int_value))
-          (ERROR)))
+              (int_value))
+            (value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -223,11 +221,11 @@ export TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR
+          (value_list
             (value
               (int_value))
             (value
@@ -235,10 +233,9 @@ export TestCase := Rectangle {
             (value
               (int_value))
             (value
-              (int_value)))
-          (value
-            (int_value))
-          (ERROR)))
+              (int_value))
+            (value
+              (int_value)))))
       (block_statement
         (property
           (type_identifier)
@@ -282,22 +279,27 @@ export TestCase := Rectangle {
                 (post_identifier))))))
       (block_statement
         (property
-          (ERROR
-            (UNEXPECTED ':'))
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_anon_struct
+                (var_identifier)
+                (type
+                  (type_list
+                    (type
+                      (type_identifier)))))))
           (var_identifier)))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_list
+                (type
+                  (type_identifier)))))
           (var_identifier)
-          (ERROR
-            (type_identifier)
-            (type_identifier))
-          (type_identifier)
-          (ERROR)))
+          (value_list
+            (var_identifier)
+            (var_identifier)
+            (var_identifier))))
       (block_statement
         (property
           (type_identifier)
@@ -371,25 +373,22 @@ export TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (ERROR
-            (block
-              (assignment_expr
+            (value_list
+              (anon_struct
                 (var_identifier)
-                (assignment_prec_operator)
+                (value
+                  (string_value
+                    (_string_fragment))))
+              (anon_struct
+                (var_identifier)
                 (value
                   (string_value
                     (_string_fragment))))))
-          (block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (string_value
-                  (_string_fragment)))))))
-      (ERROR)
-      (value
-        (int_value))
-      (ERROR
-        (UNEXPECTED ';')))))
+          (value_list
+            (value
+              (int_value)))
+          (ERROR
+            (UNEXPECTED ';')))))))
 
 ================================================================================
 for
@@ -491,16 +490,17 @@ export TestCase := Rectangle {
         (for_loop
           (var_identifier)
           (for_range
-            (anon_struct
-              (var_identifier)
-              (value
-                (string_value
-                  (_string_fragment))))
-            (anon_struct
-              (var_identifier)
-              (value
-                (string_value
-                  (_string_fragment)))))
+            (value_list
+              (anon_struct
+                (var_identifier)
+                (value
+                  (string_value
+                    (_string_fragment))))
+              (anon_struct
+                (var_identifier)
+                (value
+                  (string_value
+                    (_string_fragment))))))
           (component
             (type_identifier)
             (block
@@ -531,14 +531,16 @@ export TestCase := Rectangle {
               (type_identifier)))
           (ERROR
             (for_range
+              (value_list
+                (value
+                  (int_value))
+                (var_identifier))))
+          (for_range
+            (value_list
               (value
                 (int_value))
-              (var_identifier)))
-          (for_range
-            (value
-              (int_value))
-            (value
-              (int_value)))
+              (value
+                (int_value))))
           (ERROR)
           (component
             (var_identifier)
@@ -721,8 +723,9 @@ export TestCase := Rectangle {
                       (for_loop
                         (var_identifier)
                         (for_range
-                          (value
-                            (physical_length_value)))
+                          (value_list
+                            (value
+                              (physical_length_value))))
                         (component
                           (type_identifier)
                           (block
@@ -749,12 +752,13 @@ export TestCase := Rectangle {
             (index_operator
               (type_identifier)))
           (for_range
-            (value
-              (int_value))
-            (value
-              (int_value))
-            (value
-              (int_value)))
+            (value_list
+              (value
+                (int_value))
+              (value
+                (int_value))
+              (value
+                (int_value))))
           (component
             (type_identifier)
             (block
@@ -781,15 +785,16 @@ export TestCase := Rectangle {
             (index_operator
               (type_identifier)))
           (for_range
-            (value
-              (string_value
-                (_string_fragment)))
-            (value
-              (string_value
-                (_string_fragment)))
-            (value
-              (string_value
-                (_string_fragment))))
+            (value_list
+              (value
+                (string_value
+                  (_string_fragment)))
+              (value
+                (string_value
+                  (_string_fragment)))
+              (value
+                (string_value
+                  (_string_fragment)))))
           (component
             (type_identifier)
             (block
@@ -814,34 +819,35 @@ export TestCase := Rectangle {
         (for_loop
           (var_identifier)
           (for_range
-            (anon_struct
-              (var_identifier)
-              (value
-                (int_value))
-              (var_identifier)
-              (value
-                (string_value
-                  (_string_fragment)))
-              (var_identifier)
-              (ERROR
-                (UNEXPECTED ':'))
-              (value
-                (color_value)))
-            (ERROR)
-            (anon_struct
-              (var_identifier)
-              (value
-                (int_value))
-              (var_identifier)
-              (value
-                (string_value
-                  (_string_fragment)))
-              (var_identifier)
-              (ERROR
-                (UNEXPECTED ':'))
-              (value
-                (color_value)))
-            (ERROR))
+            (value_list
+              (anon_struct
+                (var_identifier)
+                (value
+                  (int_value))
+                (var_identifier)
+                (value
+                  (string_value
+                    (_string_fragment)))
+                (var_identifier)
+                (ERROR
+                  (UNEXPECTED ':'))
+                (value
+                  (color_value)))
+              (ERROR)
+              (anon_struct
+                (var_identifier)
+                (value
+                  (int_value))
+                (var_identifier)
+                (value
+                  (string_value
+                    (_string_fragment)))
+                (var_identifier)
+                (ERROR
+                  (UNEXPECTED ':'))
+                (value
+                  (color_value)))
+              (ERROR)))
           (component
             (type_identifier)
             (block
@@ -911,10 +917,12 @@ export TestCase := Rectangle {
                       (post_identifier)))))))))
       (block_statement
         (property
-          (ERROR
-            (UNEXPECTED ':'))
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_anon_struct
+                (var_identifier)
+                (type
+                  (type_identifier)))))
           (var_identifier)))
       (block_statement
         (for_loop
@@ -1229,24 +1237,34 @@ TestCase := Rectangle {
 (source_file
   (struct_definition
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))
+      (ERROR)))
   (comment)
   (comment)
   (comment)
   (struct_definition
     (type_identifier)
-    (ERROR
+    (type_anon_struct
       (var_identifier)
-      (UNEXPECTED 'F')))
+      (type
+        (type_list
+          (type
+            (type_identifier))))
+      (ERROR)))
   (component_definition
     (type_identifier)
     (type_identifier)
     (block
-      (ERROR
-        (UNEXPECTED 'B')
-        (UNEXPECTED 'a'))
+      (block_statement
+        (property
+          (type_list
+            (type
+              (type_identifier)))
+          (var_identifier)
+          (value_list)))
       (comment)
       (block_statement
         (property
@@ -1266,18 +1284,18 @@ TestCase := Rectangle {
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
-              (var_identifier
-                (reference_identifier
-                  (MISSING "parent"))
-                (index_operator
-                  (type_identifier)
-                  (ERROR
-                    (UNEXPECTED 'o'))))))))
-      (ERROR
-        (UNEXPECTED 'B')
-        (UNEXPECTED 'a')
-        (UNEXPECTED 'a')
-        (UNEXPECTED 'a')))))
+              (value_list
+                (var_identifier)
+                (var_identifier))))))
+      (block_statement
+        (property
+          (type_list
+            (type
+              (type_identifier)))
+          (var_identifier)
+          (value_list
+            (var_identifier)
+            (var_identifier)))))))
 
 ================================================================================
 scrolled_model
@@ -1350,173 +1368,114 @@ TestCase := Rectangle {
             (physical_length_value))))
       (block_statement
         (property
-          (ERROR
-            (UNEXPECTED 'n'))
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_anon_struct
+                (var_identifier)
+                (type
+                  (type_identifier)))))
           (var_identifier)
-          (ERROR
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR))
-            (block
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (string_value
-                    (_string_fragment))))
-              (ERROR)))
-          (block
-            (assignment_expr
+          (value_list
+            (anon_struct
               (var_identifier)
-              (assignment_prec_operator)
               (value
                 (string_value
                   (_string_fragment))))
-            (ERROR))
-          (ERROR)))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment))))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))))))
       (block_statement
         (component
           (type_identifier)
@@ -1616,49 +1575,45 @@ TestCase := Rectangle {
             (physical_length_value))))
       (block_statement
         (property
-          (ERROR
-            (UNEXPECTED 'n')
-            (type_identifier)
-            (UNEXPECTED 'c')
-            (type_identifier)
-            (UNEXPECTED 'r'))
-          (type_identifier)
-          (ERROR)
-          (var_identifier)
-          (ERROR
-            (block
-              (assignment_expr
+          (type_list
+            (type
+              (type_anon_struct
                 (var_identifier)
-                (assignment_prec_operator)
-                (ERROR
-                  (value
-                    (string_value
-                      (_string_fragment)))
-                  (UNEXPECTED 'c')
-                  (value
-                    (string_value
-                      (_string_fragment)))
-                  (UNEXPECTED 'r'))
-                (value
-                  (int_value)))
-              (ERROR)))
-          (block
-            (assignment_expr
+                (type
+                  (type_identifier))
+                (MISSING "}")))
+            (type
+              (type_identifier))
+            (ERROR)
+            (type
+              (type_identifier))
+            (ERROR))
+          (var_identifier)
+          (value_list
+            (anon_struct
               (var_identifier)
-              (assignment_prec_operator)
-              (ERROR
-                (value
-                  (string_value
-                    (_string_fragment)))
-                (UNEXPECTED 'c')
-                (value
-                  (string_value
-                    (_string_fragment)))
-                (UNEXPECTED 'r'))
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
               (value
                 (int_value)))
-            (ERROR))
-          (ERROR)))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
+              (value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -1788,9 +1743,9 @@ TestCase := Rectangle {
     (block
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)))
       (block_statement
         (component
@@ -1841,9 +1796,9 @@ TestCase := Rectangle {
             (length_value))))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)))
       (block_statement
         (component
@@ -1918,49 +1873,45 @@ TestCase := Rectangle {
             (physical_length_value))))
       (block_statement
         (property
-          (ERROR
-            (UNEXPECTED 'n')
-            (type_identifier)
-            (UNEXPECTED 'c')
-            (type_identifier)
-            (UNEXPECTED 'r'))
-          (type_identifier)
-          (ERROR)
-          (var_identifier)
-          (ERROR
-            (block
-              (assignment_expr
+          (type_list
+            (type
+              (type_anon_struct
                 (var_identifier)
-                (assignment_prec_operator)
-                (ERROR
-                  (value
-                    (string_value
-                      (_string_fragment)))
-                  (UNEXPECTED 'c')
-                  (value
-                    (string_value
-                      (_string_fragment)))
-                  (UNEXPECTED 'r'))
-                (value
-                  (int_value)))
-              (ERROR)))
-          (block
-            (assignment_expr
+                (type
+                  (type_identifier))
+                (MISSING "}")))
+            (type
+              (type_identifier))
+            (ERROR)
+            (type
+              (type_identifier))
+            (ERROR))
+          (var_identifier)
+          (value_list
+            (anon_struct
               (var_identifier)
-              (assignment_prec_operator)
-              (ERROR
-                (value
-                  (string_value
-                    (_string_fragment)))
-                (UNEXPECTED 'c')
-                (value
-                  (string_value
-                    (_string_fragment)))
-                (UNEXPECTED 'r'))
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
               (value
                 (int_value)))
-            (ERROR))
-          (ERROR)))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
+              (value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -2318,16 +2269,15 @@ TestCase := Window {
             (post_identifier))))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR
+          (value_list
             (value
-              (length_value)))
-          (value
-            (length_value))
-          (ERROR)))
+              (length_value))
+            (value
+              (length_value)))))
       (block_statement
         (component
           (var_identifier)
@@ -2367,9 +2317,6 @@ TestCase := Window {
                   (assignment_expr
                     (var_identifier)
                     (assignment_prec_operator)
-                    (var_identifier
-                      (reference_identifier
-                        (MISSING "parent"))
-                      (index_operator
-                        (value
-                          (length_value))))))))))))))
+                    (value_list
+                      (value
+                        (length_value)))))))))))))

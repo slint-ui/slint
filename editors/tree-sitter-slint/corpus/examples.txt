@@ -177,14 +177,15 @@ TestCase := Window {
                   (index_operator
                     (type_identifier)))
                 (for_range
-                  (anon_struct
-                    (var_identifier)
-                    (value
-                      (color_value)))
-                  (anon_struct
-                    (var_identifier)
-                    (value
-                      (color_value))))
+                  (value_list
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (color_value)))
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (color_value)))))
                 (component
                   (type_identifier)
                   (block
@@ -2102,12 +2103,12 @@ SampleComponent := Window {
   (struct_definition
     (export_modifier)
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier))
-    (struct_field
-      (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))
+      (ERROR
+        (UNEXPECTED 'a'))))
   (component_definition
     (type_identifier)
     (type_identifier)

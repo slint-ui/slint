@@ -423,27 +423,28 @@ TestCase := Rectangle {
                     (for_loop
                       (var_identifier)
                       (for_range
-                        (anon_struct
-                          (var_identifier)
-                          (value
-                            (color_value))
-                          (var_identifier)
-                          (value
-                            (int_value)))
-                        (anon_struct
-                          (var_identifier)
-                          (value
-                            (color_value))
-                          (var_identifier)
-                          (value
-                            (int_value)))
-                        (anon_struct
-                          (var_identifier)
-                          (value
-                            (color_value))
-                          (var_identifier)
-                          (value
-                            (int_value))))
+                        (value_list
+                          (anon_struct
+                            (var_identifier)
+                            (value
+                              (color_value))
+                            (var_identifier)
+                            (value
+                              (int_value)))
+                          (anon_struct
+                            (var_identifier)
+                            (value
+                              (color_value))
+                            (var_identifier)
+                            (value
+                              (int_value)))
+                          (anon_struct
+                            (var_identifier)
+                            (value
+                              (color_value))
+                            (var_identifier)
+                            (value
+                              (int_value)))))
                       (component
                         (type_identifier)
                         (block

@@ -772,10 +772,11 @@ export TestCase := Rectangle {
                   (index_operator
                     (type_identifier)))
                 (for_range
-                  (anon_struct
-                    (var_identifier)
-                    (value
-                      (length_value))))
+                  (value_list
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (length_value)))))
                 (component
                   (type_identifier)
                   (block

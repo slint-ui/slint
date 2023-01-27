@@ -209,9 +209,10 @@ TestCase := Rectangle {
         (for_loop
           (var_identifier)
           (for_range
-            (value
-              (string_value
-                (_string_fragment))))
+            (value_list
+              (value
+                (string_value
+                  (_string_fragment)))))
           (component
             (type_identifier)
             (block

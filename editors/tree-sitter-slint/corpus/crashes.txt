@@ -721,15 +721,16 @@ App := Window {
         (for_loop
           (var_identifier)
           (for_range
-            (anon_struct
-              (var_identifier)
-              (var_identifier
-                (reference_identifier
-                  (MISSING "parent"))
-                (index_operator
-                  (value
-                    (string_value
-                      (_string_fragment)))))))
+            (value_list
+              (anon_struct
+                (var_identifier)
+                (var_identifier
+                  (reference_identifier
+                    (MISSING "parent"))
+                  (index_operator
+                    (value
+                      (string_value
+                        (_string_fragment))))))))
           (component
             (type_identifier)
             (block
@@ -790,8 +791,9 @@ App := Window {
         (for_loop
           (var_identifier)
           (for_range
-            (value
-              (int_value)))
+            (value_list
+              (value
+                (int_value))))
           (component
             (type_identifier)
             (block
@@ -1503,8 +1505,9 @@ App := Window {
               (for_loop
                 (var_identifier)
                 (for_range
-                  (anon_struct)
-                  (anon_struct))
+                  (value_list
+                    (anon_struct)
+                    (anon_struct)))
                 (component
                   (type_identifier)
                   (block
@@ -1681,40 +1684,57 @@ MainWindow := Window {
   (struct_definition
     (export_modifier)
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))
+      (ERROR)))
   (component_definition
     (type_identifier)
-    (ERROR
-      (type_identifier)
-      (UNEXPECTED 'F')
-      (UNEXPECTED 'i')
-      (UNEXPECTED 'o')
-      (UNEXPECTED 'h')
-      (UNEXPECTED 'w')
-      (UNEXPECTED 'v'))
     (type_identifier)
     (block
+      (block_statement
+        (property
+          (type_list
+            (type
+              (type_identifier)))
+          (var_identifier)
+          (value_list)))
+      (block_statement
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (length_value))))
+      (block_statement
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (length_value))))
       (block_statement
         (component
           (var_identifier)
           (type_identifier)
           (block
             (block_statement
-              (for_loop
+              (component
                 (var_identifier)
-                (for_range
-                  (var_identifier))
-                (component
-                  (type_identifier)
-                  (block
-                    (assignment_expr
+                (type_identifier)
+                (block
+                  (block_statement
+                    (for_loop
                       (var_identifier)
-                      (assignment_prec_operator)
-                      (var_identifier
-                        (post_identifier))))))))))))
-  (ERROR))
+                      (for_range
+                        (var_identifier))
+                      (component
+                        (type_identifier)
+                        (block
+                          (assignment_expr
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (var_identifier
+                              (post_identifier))))))))))))))))
 
 ================================================================================
 layout_deleted_item
@@ -1795,16 +1815,13 @@ export TestCase := Window {
             (post_identifier))))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (var_identifier
-            (reference_identifier
-              (MISSING "parent"))
-            (index_operator
-              (value
-                (int_value))))))
+          (value_list
+            (value
+              (int_value)))))
       (block_statement
         (component
           (type_identifier)

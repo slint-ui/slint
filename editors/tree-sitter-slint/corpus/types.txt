@@ -623,10 +623,11 @@ Test := Rectangle {
         (for_loop
           (var_identifier)
           (for_range
-            (anon_struct
-              (var_identifier)
-              (value
-                (color_value))))
+            (value_list
+              (anon_struct
+                (var_identifier)
+                (value
+                  (color_value)))))
           (component
             (type_identifier)
             (block
@@ -680,14 +681,16 @@ export TestCase := Rectangle {
   (comment)
   (struct_definition
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))))
   (struct_definition
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))))
   (component_definition
     (export_modifier)
     (type_identifier)
@@ -1183,9 +1186,11 @@ match := Rectangle {
   (struct_definition
     (export_modifier)
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))
+      (ERROR)))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -1868,145 +1873,141 @@ TestCase := Rectangle {
   (struct_definition
     (export_modifier)
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))
+      (ERROR)))
   (struct_definition
     (export_modifier)
     (type_identifier)
-    (ERROR
+    (type_anon_struct
       (var_identifier)
-      (UNEXPECTED 'P')))
+      (type
+        (type_list
+          (type
+            (type_identifier))))
+      (ERROR)))
   (struct_definition
     (export_modifier)
     (type_identifier)
-    (ERROR
+    (type_anon_struct
       (var_identifier)
-      (UNEXPECTED 'N')))
+      (type
+        (type_list
+          (type
+            (type_identifier))))
+      (ERROR)))
   (struct_definition
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
+      (type
+        (type_list
+          (type
+            (type_anon_struct
+              (var_identifier)
+              (type
+                (type_identifier))
+              (MISSING "}")))
+          (type
+            (type_identifier))
+          (ERROR)))
       (ERROR
-        (UNEXPECTED 'h'))
-      (type_identifier))
-    (struct_field
-      (var_identifier)
-      (type_identifier)))
-  (ERROR
-    (UNEXPECTED 'x'))
+        (UNEXPECTED 'x'))))
   (component_definition
     (type_identifier)
-    (ERROR
-      (UNEXPECTED 'T')
-      (UNEXPECTED 'C')
-      (UNEXPECTED '))
     (type_identifier)
     (block
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR
+          (value_list
             (value
-              (int_value)))
-          (value
-            (int_value))
-          (ERROR)))
-      (block_statement
-        (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
-          (var_identifier)
-          (ERROR
+              (int_value))
             (value
-              (int_value)))
-          (value
-            (float_value))
-          (ERROR)))
+              (int_value)))))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR)))
+          (value_list
+            (value
+              (int_value))
+            (value
+              (float_value)))))
       (block_statement
         (property
-          (ERROR
-            (UNEXPECTED ':')
-            (type_identifier)
-            (UNEXPECTED ':'))
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR
-            (block
-              (assignment_expr
+          (value_list)))
+      (block_statement
+        (property
+          (type_list
+            (type
+              (type_anon_struct
                 (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (int_value)))))
+                (type
+                  (type_identifier))
+                (MISSING "}")))
+            (type
+              (type_identifier))
+            (ERROR))
+          (var_identifier)
+          (value_list
+            (anon_struct
+              (var_identifier)
+              (value
+                (int_value)))
+            (anon_struct
+              (var_identifier)
+              (value
+                (int_value))
+              (var_identifier)
+              (value
+                (int_value))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
           (block
             (assignment_expr
               (var_identifier)
               (assignment_prec_operator)
-              (value
-                (int_value)))
-            (ERROR
-              (UNEXPECTED ':')))
-          (ERROR)))
+              (value_list
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (string_value
+                      (_string_fragment))))
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (float_value))))))))
       (block_statement
         (property
           (type_identifier)
           (var_identifier)
           (block
-            (block_statement
-              (assignment_block
-                (var_identifier)
-                (assignment_prec_operator)
-                (ERROR
-                  (block
-                    (assignment_expr
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (string_value
-                          (_string_fragment))))))
-                (block
-                  (assignment_expr
-                    (var_identifier)
-                    (assignment_prec_operator)
-                    (value
-                      (float_value))))))
-            (ERROR))))
-      (block_statement
-        (property
-          (type_identifier)
-          (var_identifier)
-          (block
-            (block_statement
-              (assignment_block
-                (var_identifier)
-                (assignment_prec_operator)
-                (ERROR)
-                (block
-                  (block_statement
-                    (assignment_block
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (ERROR)
-                      (block
-                        (assignment_expr
-                          (var_identifier)
-                          (assignment_prec_operator)
-                          (value
-                            (int_value))))))
-                  (ERROR))))
-            (ERROR)))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (ERROR
+                (var_identifier))
+              (value_list
+                (anon_struct
+                  (var_identifier)
+                  (value
+                    (int_value))))))))
+      (ERROR)))
+  (ERROR))
 
 ================================================================================
 object
@@ -2279,24 +2280,29 @@ TestCase := Rectangle {
   (comment)
   (struct_definition
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))
+      (ERROR)))
   (struct_definition
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))))
   (struct_definition
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))))
   (struct_definition
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -2384,21 +2390,21 @@ TestCase := Rectangle {
   (struct_definition
     (export_modifier)
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier))
-    (struct_field
-      (var_identifier)
-      (type_identifier))
-    (struct_field
-      (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))
+      (ERROR
+        (UNEXPECTED 'r')
+        (UNEXPECTED 'n'))))
   (struct_definition
     (export_modifier)
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))
+      (ERROR)))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -2435,43 +2441,62 @@ TestCase := Rectangle {
                 (UNEXPECTED 'n'))
               (value
                 (percent_value))))))
-      (ERROR
-        (UNEXPECTED 'P')
-        (UNEXPECTED 'l')
-        (UNEXPECTED 'l')
-        (UNEXPECTED 'l')
-        (UNEXPECTED 'P')
-        (UNEXPECTED 'l')
-        (UNEXPECTED ':')
-        (UNEXPECTED 'n')
-        (value
-          (string_value
-            (_string_fragment)))
-        (UNEXPECTED 'r')
-        (value
-          (int_value))
-        (UNEXPECTED 'n'))
-      (value
-        (percent_value))))
-  (ERROR
-    (UNEXPECTED 'n')
-    (UNEXPECTED 'O')
-    (UNEXPECTED 'r')
-    (UNEXPECTED 'n')
-    (UNEXPECTED 'N')
-    (UNEXPECTED 'l')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'l')
-    (type_identifier)
-    (UNEXPECTED 'l')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'r')
-    (UNEXPECTED 'l')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'r')
-    (type_identifier)
-    (UNEXPECTED 'e')
-    (UNEXPECTED ':')
-    (UNEXPECTED 'l')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'r')))
+      (block_statement
+        (property
+          (type_list
+            (type
+              (type_identifier)))
+          (var_identifier)
+          (value_list
+            (var_identifier)
+            (var_identifier))))
+      (block_statement
+        (property
+          (type_list
+            (type
+              (type_identifier)))
+          (var_identifier)
+          (value_list
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
+              (value
+                (int_value))
+              (var_identifier)
+              (value
+                (percent_value)))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
+              (value
+                (int_value)))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))))))
+      (block_statement
+        (property_alias
+          (var_identifier)
+          (var_identifier)))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (comparison_binary_expression
+            (type_identifier)
+            (comparison_operator)
+            (value
+              (int_value))))))))

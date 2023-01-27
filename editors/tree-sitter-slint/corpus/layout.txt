@@ -7537,12 +7537,13 @@ TestCase := Rectangle {
             (index_operator
               (type_identifier)))
           (for_range
-            (value
-              (color_value))
-            (value
-              (color_value))
-            (value
-              (color_value)))
+            (value_list
+              (value
+                (color_value))
+              (value
+                (color_value))
+              (value
+                (color_value))))
           (component
             (type_identifier)
             (block
@@ -7686,27 +7687,28 @@ export TestCase := Rectangle {
               (for_loop
                 (var_identifier)
                 (for_range
-                  (anon_struct
-                    (var_identifier)
-                    (value
-                      (color_value))
-                    (var_identifier)
-                    (value
-                      (int_value)))
-                  (anon_struct
-                    (var_identifier)
-                    (value
-                      (color_value))
-                    (var_identifier)
-                    (value
-                      (int_value)))
-                  (anon_struct
-                    (var_identifier)
-                    (value
-                      (color_value))
-                    (var_identifier)
-                    (value
-                      (int_value))))
+                  (value_list
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (color_value))
+                      (var_identifier)
+                      (value
+                        (int_value)))
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (color_value))
+                      (var_identifier)
+                      (value
+                        (int_value)))
+                    (anon_struct
+                      (var_identifier)
+                      (value
+                        (color_value))
+                      (var_identifier)
+                      (value
+                        (int_value)))))
                 (component
                   (type_identifier)
                   (block
@@ -7861,30 +7863,31 @@ TestCase := Window {
                     (for_loop
                       (var_identifier)
                       (for_range
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (value
-                          (string_value
-                            (_string_fragment))))
+                        (value_list
+                          (value
+                            (string_value
+                              (_string_fragment)))
+                          (value
+                            (string_value
+                              (_string_fragment)))
+                          (value
+                            (string_value
+                              (_string_fragment)))
+                          (value
+                            (string_value
+                              (_string_fragment)))
+                          (value
+                            (string_value
+                              (_string_fragment)))
+                          (value
+                            (string_value
+                              (_string_fragment)))
+                          (value
+                            (string_value
+                              (_string_fragment)))
+                          (value
+                            (string_value
+                              (_string_fragment)))))
                       (component
                         (var_identifier)
                         (type_identifier)
@@ -8020,18 +8023,17 @@ TestCase := Window {
             (color_value))))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR
+          (value_list
             (value
               (int_value))
             (value
-              (int_value)))
-          (value
-            (int_value))
-          (ERROR)))
+              (int_value))
+            (value
+              (int_value)))))
       (block_statement
         (component
           (type_identifier)
@@ -8224,18 +8226,17 @@ TestCase := Window {
             (color_value))))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR
+          (value_list
             (value
               (int_value))
             (value
-              (int_value)))
-          (value
-            (int_value))
-          (ERROR)))
+              (int_value))
+            (value
+              (int_value)))))
       (block_statement
         (component
           (type_identifier)
@@ -8431,32 +8432,30 @@ TestCase := Window {
             (physical_length_value))))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR
+          (value_list
             (value
               (int_value))
             (value
-              (int_value)))
-          (value
-            (int_value))
-          (ERROR)))
+              (int_value))
+            (value
+              (int_value)))))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR
+          (value_list
             (value
               (int_value))
             (value
-              (int_value)))
-          (value
-            (int_value))
-          (ERROR)))
+              (int_value))
+            (value
+              (int_value)))))
       (block_statement
         (component
           (type_identifier)
@@ -8599,18 +8598,17 @@ export TestCase := Window {
             (length_value))))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (ERROR
+          (value_list
             (value
               (int_value))
             (value
-              (int_value)))
-          (value
-            (int_value))
-          (ERROR)))
+              (int_value))
+            (value
+              (int_value)))))
       (block_statement
         (component
           (type_identifier)

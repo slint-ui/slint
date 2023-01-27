@@ -1670,49 +1670,45 @@ TestCase := Window {
             (length_value))))
       (block_statement
         (property
-          (ERROR
-            (UNEXPECTED 'n')
-            (type_identifier)
-            (UNEXPECTED 'c')
-            (type_identifier)
-            (UNEXPECTED 'r'))
-          (type_identifier)
-          (ERROR)
-          (var_identifier)
-          (ERROR
-            (block
-              (assignment_expr
+          (type_list
+            (type
+              (type_anon_struct
                 (var_identifier)
-                (assignment_prec_operator)
-                (ERROR
-                  (value
-                    (string_value
-                      (_string_fragment)))
-                  (UNEXPECTED 'c')
-                  (value
-                    (string_value
-                      (_string_fragment)))
-                  (UNEXPECTED 'r'))
-                (value
-                  (int_value)))
-              (ERROR)))
-          (block
-            (assignment_expr
+                (type
+                  (type_identifier))
+                (MISSING "}")))
+            (type
+              (type_identifier))
+            (ERROR)
+            (type
+              (type_identifier))
+            (ERROR))
+          (var_identifier)
+          (value_list
+            (anon_struct
               (var_identifier)
-              (assignment_prec_operator)
-              (ERROR
-                (value
-                  (string_value
-                    (_string_fragment)))
-                (UNEXPECTED 'c')
-                (value
-                  (string_value
-                    (_string_fragment)))
-                (UNEXPECTED 'r'))
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
               (value
                 (int_value)))
-            (ERROR))
-          (ERROR)))
+            (anon_struct
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
+              (value
+                (string_value
+                  (_string_fragment)))
+              (var_identifier)
+              (value
+                (int_value))))))
       (block_statement
         (property
           (type_identifier)
@@ -1909,10 +1905,11 @@ TestCase := Window {
         (for_loop
           (var_identifier)
           (for_range
-            (value
-              (int_value))
-            (value
-              (int_value)))
+            (value_list
+              (value
+                (int_value))
+              (value
+                (int_value))))
           (component
             (type_identifier)
             (block
@@ -2039,17 +2036,14 @@ TestCase := Window {
             (length_value))))
       (block_statement
         (property
-          (ERROR)
-          (type_identifier)
-          (ERROR)
+          (type_list
+            (type
+              (type_identifier)))
           (var_identifier)
-          (var_identifier
-            (reference_identifier
-              (MISSING "parent"))
-            (index_operator
-              (value
-                (string_value
-                  (_string_fragment)))))))
+          (value_list
+            (value
+              (string_value
+                (_string_fragment))))))
       (block_statement
         (property
           (type_identifier)

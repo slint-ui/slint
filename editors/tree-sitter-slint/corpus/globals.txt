@@ -558,12 +558,12 @@ TestCase := Rectangle {
       (_string_fragment)))
   (struct_definition
     (type_identifier)
-    (struct_field
+    (type_anon_struct
       (var_identifier)
-      (type_identifier))
-    (struct_field
-      (var_identifier)
-      (type_identifier)))
+      (type
+        (type_identifier))
+      (ERROR
+        (UNEXPECTED 'y'))))
   (global_definition
     (type_identifier)
     (ERROR

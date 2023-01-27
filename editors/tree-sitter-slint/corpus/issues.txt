@@ -186,8 +186,9 @@ TestCase := Rectangle {
               (for_loop
                 (var_identifier)
                 (for_range
-                  (value
-                    (int_value)))
+                  (value_list
+                    (value
+                      (int_value))))
                 (component
                   (type_identifier)
                   (block

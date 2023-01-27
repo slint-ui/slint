@@ -69,7 +69,13 @@ module.exports = grammar({
             seq(
                 field("visibility", optional($.visibility_modifier)),
                 optional("property"),
-                optional(seq("<", field("type", $.type_identifier), ">")),
+                optional(
+                    seq(
+                        "<",
+                        field("type", choice($.type_identifier, $.type_list)),
+                        ">",
+                    ),
+                ),
                 field("name", $.var_identifier),
                 field("binding_op", "<=>"),
                 field("binding", $.var_identifier),
@@ -81,7 +87,7 @@ module.exports = grammar({
                 field("visibility", optional($.visibility_modifier)),
                 "property",
                 "<",
-                field("type", $.type_identifier),
+                field("type", choice($.type_identifier, $.type_list)),
                 ">",
                 field("name", $.var_identifier),
                 choice(
@@ -91,6 +97,7 @@ module.exports = grammar({
                             field(
                                 "binding",
                                 choice(
+                                    seq($.value_list, ";"),
                                     seq($.block, optional(";")),
                                     seq($._expression, ";"),
                                 ),
@@ -127,17 +134,7 @@ module.exports = grammar({
                 "struct",
                 field("name", $.type_identifier),
                 optional(":="), // old syntax!
-                "{",
-                commaSep($.struct_field),
-                optional(","),
-                "}",
-            ),
-
-        struct_field: ($) =>
-            seq(
-                field("name", $.var_identifier),
-                ":",
-                field("type", $.type_identifier),
+                $.type_anon_struct,
             ),
 
         anon_struct: ($) =>
@@ -265,17 +262,32 @@ module.exports = grammar({
                 $.component,
             ),
 
-        for_range: ($) =>
-            choice(
-                $._int_number,
-                seq(
-                    "[",
-                    commaSep(choice($.var_identifier, $.value, $.anon_struct)),
-                    optional(","),
-                    "]",
-                ),
-                $.var_identifier,
+        value_list: ($) =>
+            seq(
+                "[",
+                commaSep(choice($.var_identifier, $.value, $.anon_struct)),
+                optional(","),
+                "]",
             ),
+
+        type_anon_struct: ($) =>
+            seq(
+                "{",
+                repeat(
+                    seq(
+                        field("name", $.var_identifier),
+                        ":",
+                        field("type", $.type),
+                    ),
+                ),
+                "}",
+            ),
+
+        type: ($) => choice($.type_identifier, $.type_list, $.type_anon_struct),
+
+        type_list: ($) => seq("[", commaSep($.type), optional(","), "]"),
+
+        for_range: ($) => choice($._int_number, $.value_list, $.var_identifier),
 
         // list_definition: ($) =>
         //   seq(
@@ -303,7 +315,8 @@ module.exports = grammar({
         _assignment_value_block: ($) =>
             field("value", seq($.block, optional(";"))),
 
-        _assignment_value_expr: ($) => field("value", $._expression),
+        _assignment_value_expr: ($) =>
+            field("value", choice($._expression, $.value_list)),
 
         assignment_block: ($) =>
             seq($._assignment_setup, $._assignment_value_block, optional(";")),
