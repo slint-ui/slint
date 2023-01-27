@@ -3815,24 +3815,22 @@ export TestCase := Window {
                           (states_definition
                             (state_identifier)
                             (var_identifier)
-                            (block
-                              (assignment_expr
-                                (var_identifier)
-                                (assignment_prec_operator)
-                                (value
-                                  (basic_value
-                                    (length_value)))))
+                            (assignment_expr
+                              (var_identifier)
+                              (assignment_prec_operator)
+                              (value
+                                (basic_value
+                                  (length_value))))
                             (state_identifier)
                             (unary_expression
                               (unary_prec_operator)
                               (var_identifier))
-                            (block
-                              (assignment_expr
-                                (var_identifier)
-                                (assignment_prec_operator)
-                                (value
-                                  (basic_value
-                                    (length_value)))))))
+                            (assignment_expr
+                              (var_identifier)
+                              (assignment_prec_operator)
+                              (value
+                                (basic_value
+                                  (length_value))))))
                         (block_statement
                           (animate_statement
                             (var_identifier)

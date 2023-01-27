@@ -223,19 +223,17 @@ module.exports = grammar({
                 $.transitions_definition,
             ),
 
-        transitions_definition: ($) =>
+        in_out_transition: ($) =>
             seq(
-                "transitions",
-                "[",
-                repeat(
-                    seq(
-                        choice("in", "out"),
-                        optional(seq($.var_identifier, ":")),
-                        $.block,
-                    ),
-                ),
-                "]",
+                choice("in", "out"),
+                optional(seq($.var_identifier, ":")),
+                "{",
+                repeat($.animate_statement),
+                "}",
             ),
+
+        transitions_definition: ($) =>
+            seq("transitions", "[", repeat($.in_out_transition), "]"),
 
         states_definition: ($) =>
             seq(
@@ -247,7 +245,16 @@ module.exports = grammar({
                         "when",
                         $._expression,
                         ":",
-                        $.block,
+                        "{",
+                        repeat(
+                            choice(
+                                $.in_out_transition,
+                                $.assignment_block,
+                                seq($.assignment_expr, ";"),
+                            ),
+                        ),
+                        optional($.assignment_expr),
+                        "}",
                     ),
                 ),
                 "]",

@@ -536,73 +536,67 @@ delayed_transitions
             (value
               (basic_value
                 (int_value))))
-          (block
-            (block_statement
-              (assignment_expr
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (add_binary_expression
-                  (value
-                    (basic_value
-                      (int_value)))
-                  (add_prec_operator)
-                  (mult_binary_expression
-                    (value
-                      (basic_value
-                        (int_value)))
-                    (mult_prec_operator)
-                    (var_identifier)))))
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (basic_value
-                    (int_value)))))
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
+          (assignment_expr
+            (var_identifier
+              (post_identifier))
+            (assignment_prec_operator)
+            (add_binary_expression
               (value
                 (basic_value
-                  (int_value)))))))
+                  (int_value)))
+              (add_prec_operator)
+              (mult_binary_expression
+                (value
+                  (basic_value
+                    (int_value)))
+                (mult_prec_operator)
+                (var_identifier))))
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (basic_value
+                (int_value))))
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (basic_value
+                (int_value))))))
       (block_statement
         (transitions_definition
-          (var_identifier)
-          (block
-            (block_statement
-              (animate_statement
-                (var_identifier)
-                (animate_body
-                  (value
-                    (basic_value
-                      (duration_value)))
-                  (value
-                    (basic_value
-                      (duration_value))))))
-            (block_statement
-              (animate_statement
-                (var_identifier)
-                (animate_body
-                  (value
-                    (basic_value
-                      (duration_value)))
-                  (value
-                    (basic_value
-                      (duration_value)))))))
-          (var_identifier)
-          (block
-            (block_statement
-              (animate_statement
-                (var_identifier
-                  (post_identifier))
-                (animate_body
-                  (value
-                    (basic_value
-                      (duration_value)))
-                  (value
-                    (basic_value
-                      (duration_value)))))))))
+          (in_out_transition
+            (var_identifier)
+            (animate_statement
+              (var_identifier)
+              (animate_body
+                (value
+                  (basic_value
+                    (duration_value)))
+                (value
+                  (basic_value
+                    (duration_value)))))
+            (animate_statement
+              (var_identifier)
+              (animate_body
+                (value
+                  (basic_value
+                    (duration_value)))
+                (value
+                  (basic_value
+                    (duration_value))))))
+          (in_out_transition
+            (var_identifier)
+            (animate_statement
+              (var_identifier
+                (post_identifier))
+              (animate_body
+                (value
+                  (basic_value
+                    (duration_value)))
+                (value
+                  (basic_value
+                    (duration_value))))))))
       (block_statement
         (property
           (type
@@ -703,13 +697,12 @@ TestCase := Window {
                   (value
                     (basic_value
                       (int_value))))
-                (block
-                  (assignment_expr
-                    (var_identifier)
-                    (assignment_prec_operator)
-                    (value
-                      (basic_value
-                        (bool_value)))))
+                (assignment_expr
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (value
+                    (basic_value
+                      (bool_value))))
                 (state_identifier)
                 (comparison_binary_expression
                   (var_identifier
@@ -719,22 +712,20 @@ TestCase := Window {
                   (value
                     (basic_value
                       (int_value))))
-                (block
-                  (block_statement
-                    (assignment_expr
-                      (var_identifier
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (value
-                        (basic_value
-                          (string_value)))))
-                  (assignment_expr
-                    (var_identifier
-                      (post_identifier))
-                    (assignment_prec_operator)
-                    (value
-                      (basic_value
-                        (length_value))))))))))
+                (assignment_expr
+                  (var_identifier
+                    (post_identifier))
+                  (assignment_prec_operator)
+                  (value
+                    (basic_value
+                      (string_value))))
+                (assignment_expr
+                  (var_identifier
+                    (post_identifier))
+                  (assignment_prec_operator)
+                  (value
+                    (basic_value
+                      (length_value)))))))))
       (block_statement
         (property
           (type
@@ -926,13 +917,12 @@ TestCase := Rectangle {
         (states_definition
           (state_identifier)
           (var_identifier)
-          (block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (basic_value
-                  (int_value)))))))))
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (basic_value
+                (int_value))))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -941,12 +931,11 @@ TestCase := Rectangle {
         (states_definition
           (state_identifier)
           (var_identifier)
-          (block
-            (assignment_expr
-              (var_identifier
-                (post_identifier))
-              (assignment_prec_operator)
-              (var_identifier)))))
+          (assignment_expr
+            (var_identifier
+              (post_identifier))
+            (assignment_prec_operator)
+            (var_identifier))))
       (block_statement
         (component
           (var_identifier)
@@ -1012,37 +1001,34 @@ TestCase := Rectangle {
             (value
               (basic_value
                 (int_value))))
-          (block
-            (block_statement
-              (assignment_expr
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (basic_value
-                    (string_value)))))
-            (block_statement
-              (assignment_expr
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (add_binary_expression
-                  (value
-                    (basic_value
-                      (int_value)))
-                  (add_prec_operator)
-                  (mult_binary_expression
-                    (value
-                      (basic_value
-                        (int_value)))
-                    (mult_prec_operator)
-                    (var_identifier)))))
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
+          (assignment_expr
+            (var_identifier
+              (post_identifier))
+            (assignment_prec_operator)
+            (value
+              (basic_value
+                (string_value))))
+          (assignment_expr
+            (var_identifier
+              (post_identifier))
+            (assignment_prec_operator)
+            (add_binary_expression
               (value
                 (basic_value
-                  (int_value)))))
+                  (int_value)))
+              (add_prec_operator)
+              (mult_binary_expression
+                (value
+                  (basic_value
+                    (int_value)))
+                (mult_prec_operator)
+                (var_identifier))))
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (basic_value
+                (int_value))))
           (state_identifier)
           (comparison_binary_expression
             (var_identifier)
@@ -1050,14 +1036,13 @@ TestCase := Rectangle {
             (value
               (basic_value
                 (int_value))))
-          (block
-            (assignment_expr
-              (var_identifier
-                (post_identifier))
-              (assignment_prec_operator)
-              (value
-                (basic_value
-                  (int_value)))))))
+          (assignment_expr
+            (var_identifier
+              (post_identifier))
+            (assignment_prec_operator)
+            (value
+              (basic_value
+                (int_value))))))
       (block_statement
         (property
           (type
@@ -1088,16 +1073,15 @@ TestCase := Rectangle {
                     (value
                       (basic_value
                         (int_value))))
-                  (block
-                    (assignment_expr
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (mult_binary_expression
                       (var_identifier)
-                      (assignment_prec_operator)
-                      (mult_binary_expression
-                        (var_identifier)
-                        (mult_prec_operator)
-                        (value
-                          (basic_value
-                            (physical_length_value))))))))))))
+                      (mult_prec_operator)
+                      (value
+                        (basic_value
+                          (physical_length_value)))))))))))
       (block_statement
         (component
           (var_identifier)
@@ -1197,21 +1181,19 @@ states_with_animation
             (value
               (basic_value
                 (int_value))))
-          (block
-            (block_statement
-              (assignment_expr
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (value
-                  (basic_value
-                    (int_value)))))
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (basic_value
-                  (int_value)))))))
+          (assignment_expr
+            (var_identifier
+              (post_identifier))
+            (assignment_prec_operator)
+            (value
+              (basic_value
+                (int_value))))
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (basic_value
+                (int_value))))))
       (block_statement
         (animate_statement
           (var_identifier)
@@ -1316,50 +1298,46 @@ transitions
             (value
               (basic_value
                 (int_value))))
-          (block
-            (block_statement
-              (assignment_expr
-                (var_identifier
-                  (post_identifier))
-                (assignment_prec_operator)
-                (add_binary_expression
-                  (value
-                    (basic_value
-                      (int_value)))
-                  (add_prec_operator)
-                  (mult_binary_expression
-                    (value
-                      (basic_value
-                        (int_value)))
-                    (mult_prec_operator)
-                    (var_identifier)))))
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
+          (assignment_expr
+            (var_identifier
+              (post_identifier))
+            (assignment_prec_operator)
+            (add_binary_expression
               (value
                 (basic_value
-                  (int_value)))))))
+                  (int_value)))
+              (add_prec_operator)
+              (mult_binary_expression
+                (value
+                  (basic_value
+                    (int_value)))
+                (mult_prec_operator)
+                (var_identifier))))
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (basic_value
+                (int_value))))))
       (block_statement
         (transitions_definition
-          (var_identifier)
-          (block
-            (block_statement
-              (animate_statement
-                (var_identifier)
-                (animate_body
-                  (value
-                    (basic_value
-                      (duration_value)))))))
-          (var_identifier)
-          (block
-            (block_statement
-              (animate_statement
-                (var_identifier
-                  (post_identifier))
-                (animate_body
-                  (value
-                    (basic_value
-                      (duration_value)))))))))
+          (in_out_transition
+            (var_identifier)
+            (animate_statement
+              (var_identifier)
+              (animate_body
+                (value
+                  (basic_value
+                    (duration_value))))))
+          (in_out_transition
+            (var_identifier)
+            (animate_statement
+              (var_identifier
+                (post_identifier))
+              (animate_body
+                (value
+                  (basic_value
+                    (duration_value))))))))
       (block_statement
         (property
           (type
@@ -1447,60 +1425,55 @@ TestCase := Rectangle {
                       (int_value)))
                   (add_prec_operator)
                   (var_identifier)))))))
-      (ERROR
-        (state_identifier)
-        (comparison_binary_expression
-          (var_identifier)
-          (comparison_operator)
-          (value
-            (basic_value
-              (int_value))))
-        (block
-          (block_statement
-            (assignment_expr
-              (var_identifier
-                (post_identifier))
-              (assignment_prec_operator)
-              (add_binary_expression
+      (block_statement
+        (states_definition
+          (state_identifier)
+          (comparison_binary_expression
+            (var_identifier)
+            (comparison_operator)
+            (value
+              (basic_value
+                (int_value))))
+          (assignment_expr
+            (var_identifier
+              (post_identifier))
+            (assignment_prec_operator)
+            (add_binary_expression
+              (value
+                (basic_value
+                  (int_value)))
+              (add_prec_operator)
+              (mult_binary_expression
                 (value
                   (basic_value
                     (int_value)))
-                (add_prec_operator)
-                (mult_binary_expression
-                  (value
-                    (basic_value
-                      (int_value)))
-                  (mult_prec_operator)
-                  (var_identifier)))))
-          (block_statement
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (basic_value
-                  (int_value)))))
-          (ERROR
-            (visibility_modifier))
-          (block_statement
+                (mult_prec_operator)
+                (var_identifier))))
+          (assignment_expr
+            (var_identifier)
+            (assignment_prec_operator)
+            (value
+              (basic_value
+                (int_value))))
+          (in_out_transition
             (animate_statement
               (var_identifier)
               (animate_body
                 (value
                   (basic_value
-                    (duration_value)))))))
-        (var_identifier
-          (ERROR
-            (UNEXPECTED 'e'))
-          (post_identifier)))
-      (assignment_expr
-        (var_identifier)
-        (assignment_prec_operator)
-        (value
-          (basic_value
-            (duration_value))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'e')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'o')))
+                    (duration_value))))))
+          (in_out_transition
+            (animate_statement
+              (var_identifier
+                (post_identifier))
+              (animate_body
+                (value
+                  (basic_value
+                    (duration_value))))))))
+      (block_statement
+        (property
+          (type
+            (type_identifier))
+          (var_identifier)
+          (var_identifier
+            (post_identifier)))))))
