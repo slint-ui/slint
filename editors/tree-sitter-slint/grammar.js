@@ -395,7 +395,7 @@ module.exports = grammar({
         _expression_body: ($) =>
             choice(
                 seq($.value, optional($._accessor_postfix)),
-                $.function_call,
+                seq($.function_call, optional($._accessor_postfix)),
                 $.var_identifier,
                 $.unary_expression,
                 $._binary_expression,

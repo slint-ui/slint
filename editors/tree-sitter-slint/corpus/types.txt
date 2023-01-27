@@ -2392,9 +2392,8 @@ TestCase := Rectangle {
             (function_call
               (function_identifier)
               (call_signature))
-            (ERROR
-              (UNEXPECTED 'a')
-              (UNEXPECTED 'b'))
+            (post_identifier)
+            (post_identifier)
             (comparison_operator)
             (mult_binary_expression
               (value
