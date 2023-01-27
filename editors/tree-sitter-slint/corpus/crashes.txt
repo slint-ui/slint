@@ -904,40 +904,59 @@ TestCase := Window {
         (assignment_block
           (var_identifier)
           (assignment_prec_operator)
-          (ERROR
+          (block
+            (block_statement
+              (if_statement
+                (comparison_binary_expression
+                  (type_identifier)
+                  (comparison_operator)
+                  (value
+                    (int_value)))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (block_statement
+                      (assignment_expr
+                        (var_identifier)
+                        (assignment_prec_operator)
+                        (type_identifier)))
+                    (assignment_expr
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (int_value)))))))
             (comparison_binary_expression
               (type_identifier)
               (comparison_operator)
-              (value
-                (int_value))))
-          (block
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (type_identifier)))
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (int_value))))))
-      (comparison_binary_expression
-        (type_identifier)
-        (comparison_operator)
-        (ternary_expression
-          (value
-            (int_value))
+              (ternary_expression
+                (value
+                  (int_value))
+                (type_identifier)
+                (type_identifier))))))
+      (block_statement
+        (property
           (type_identifier)
-          (type_identifier)))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'e')
-    (UNEXPECTED ':')
-    (UNEXPECTED 'a')
-    (UNEXPECTED 'C')
-    (UNEXPECTED 'w')
-    (UNEXPECTED '_')
-    (UNEXPECTED '_')))
+          (var_identifier)
+          (comparison_binary_expression
+            (comparison_binary_expression
+              (comparison_binary_expression
+                (type_identifier)
+                (comparison_operator)
+                (mult_binary_expression
+                  (var_identifier
+                    (post_identifier))
+                  (mult_prec_operator)
+                  (type_identifier)))
+              (comparison_operator)
+              (mult_binary_expression
+                (value
+                  (int_value))
+                (mult_prec_operator)
+                (type_identifier)))
+            (comparison_operator)
+            (value
+              (int_value))))))))
 
 ================================================================================
 issue1327_inlined_state_property
@@ -1254,79 +1273,88 @@ export InkEffect := Rectangle {
                 (function_identifier)
                 (call_signature
                   (type_identifier))
-                (ERROR
-                  (ERROR
-                    (comparison_binary_expression
-                      (comparison_binary_expression
-                        (var_identifier
-                          (post_identifier))
-                        (comparison_operator)
-                        (mult_binary_expression
-                          (var_identifier
-                            (post_identifier))
-                          (mult_prec_operator)
-                          (var_identifier
-                            (post_identifier))))
-                      (comparison_operator)
-                      (var_identifier
-                        (post_identifier))))
-                  (unary_expression
-                    (unary_prec_operator)
-                    (var_identifier
-                      (post_identifier))))
                 (block
                   (block_statement
-                    (assignment_expr
-                      (var_identifier
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (type_identifier)))
-                  (block_statement
-                    (assignment_expr
-                      (var_identifier
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (type_identifier)))
-                  (block_statement
-                    (assignment_expr
-                      (var_identifier
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (mult_binary_expression
+                    (if_statement
+                      (comparison_binary_expression
+                        (comparison_binary_expression
+                          (var_identifier
+                            (post_identifier))
+                          (comparison_operator)
+                          (mult_binary_expression
+                            (var_identifier
+                              (post_identifier))
+                            (mult_prec_operator)
+                            (var_identifier
+                              (post_identifier))))
+                        (comparison_operator)
                         (var_identifier
-                          (reference_identifier)
-                          (post_identifier))
-                        (mult_prec_operator)
-                        (value
-                          (length_value)))))
-                  (block_statement
-                    (assignment_expr
-                      (var_identifier
-                        (post_identifier))
-                      (assignment_prec_operator)
-                      (mult_binary_expression
-                        (var_identifier
-                          (reference_identifier)
-                          (post_identifier))
-                        (mult_prec_operator)
-                        (value
-                          (length_value)))))
-                  (assignment_expr
-                    (var_identifier
-                      (post_identifier))
-                    (assignment_prec_operator)
-                    (comparison_binary_expression
-                      (var_identifier
-                        (post_identifier))
-                      (comparison_operator)
-                      (ternary_expression
-                        (value
-                          (int_value))
-                        (value
-                          (float_value))
-                        (value
-                          (int_value)))))))))))))
-  (ERROR))
+                          (post_identifier)))
+                      (component
+                        (type_identifier
+                          (MISSING _identifier))
+                        (block
+                          (block_statement
+                            (if_statement
+                              (unary_expression
+                                (unary_prec_operator)
+                                (var_identifier
+                                  (post_identifier)))
+                              (component
+                                (type_identifier
+                                  (MISSING _identifier))
+                                (block
+                                  (block_statement
+                                    (assignment_expr
+                                      (var_identifier
+                                        (post_identifier))
+                                      (assignment_prec_operator)
+                                      (type_identifier)))
+                                  (block_statement
+                                    (assignment_expr
+                                      (var_identifier
+                                        (post_identifier))
+                                      (assignment_prec_operator)
+                                      (type_identifier)))
+                                  (block_statement
+                                    (assignment_expr
+                                      (var_identifier
+                                        (post_identifier))
+                                      (assignment_prec_operator)
+                                      (mult_binary_expression
+                                        (var_identifier
+                                          (reference_identifier)
+                                          (post_identifier))
+                                        (mult_prec_operator)
+                                        (value
+                                          (length_value)))))
+                                  (block_statement
+                                    (assignment_expr
+                                      (var_identifier
+                                        (post_identifier))
+                                      (assignment_prec_operator)
+                                      (mult_binary_expression
+                                        (var_identifier
+                                          (reference_identifier)
+                                          (post_identifier))
+                                        (mult_prec_operator)
+                                        (value
+                                          (length_value)))))
+                                  (assignment_expr
+                                    (var_identifier
+                                      (post_identifier))
+                                    (assignment_prec_operator)
+                                    (comparison_binary_expression
+                                      (var_identifier
+                                        (post_identifier))
+                                      (comparison_operator)
+                                      (ternary_expression
+                                        (value
+                                          (int_value))
+                                        (value
+                                          (float_value))
+                                        (value
+                                          (int_value))))))))))))))))))))))
 
 ================================================================================
 issue1659_combobox_in_tab

@@ -6,11 +6,12 @@ module.exports = grammar({
 
     extras: ($) => [/[\s\r\n]+/, $.comment],
     conflicts: ($) => [
+        [$._expression, $.if_statement],
+        [$._assignment_value_block],
         [$.block, $.block_statement],
         [$.block_statement, $._expression_body],
         [$.function_identifier, $.post_identifier],
         [$.function_identifier, $.var_identifier],
-        [$._assignment_value_block],
         [$.assignment_block],
     ],
 
@@ -168,6 +169,9 @@ module.exports = grammar({
 
         block_statement: ($) =>
             choice(
+                $.for_loop,
+                $.if_statement,
+                $.animate_statement,
                 seq($.assignment_block, optional(";")),
                 seq($.assignment_expr, ";"),
                 seq("return", $._expression, ";"),
@@ -179,9 +183,6 @@ module.exports = grammar({
                 $.callback_event,
                 $.callback_alias,
                 $.function_call,
-                $.for_loop,
-                $.if_statement,
-                $.animate_statement,
                 seq($.var_identifier, ";"),
                 // $.states_definition,
                 // $.transitions_definition,
@@ -245,8 +246,11 @@ module.exports = grammar({
         if_statement: ($) =>
             seq(
                 "if",
-                field("condition", $._expression),
-                ":",
+                field(
+                    "condition",
+                    choice($._expression_body, seq("(", $._expression, ")")),
+                ),
+                optional(":"),
                 $.component,
                 optional(seq("else", choice($.if_statement, $.component))),
             ),
@@ -413,7 +417,7 @@ module.exports = grammar({
                 field("name", $.function_identifier),
                 optional($.call_signature),
                 "=>",
-                $.block,
+                field("action", $.block),
             ),
 
         function_call: ($) =>

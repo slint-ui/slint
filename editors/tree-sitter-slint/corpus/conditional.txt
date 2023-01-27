@@ -214,42 +214,127 @@ TestCase := Rectangle {
       (block_statement
         (callback_event
           (function_identifier)
-          (ERROR
-            (comparison_binary_expression
-              (type_identifier)
-              (comparison_operator)
-              (value
-                (int_value))))
           (block
             (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
+              (if_statement
+                (comparison_binary_expression
+                  (type_identifier)
+                  (comparison_operator)
+                  (value
+                    (int_value)))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (block_statement
+                      (assignment_expr
+                        (var_identifier)
+                        (assignment_prec_operator)
+                        (value
+                          (int_value))))
+                    (assignment_expr
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (int_value)))))))
+            (block_statement
+              (if_statement
+                (comparison_binary_expression
+                  (type_identifier)
+                  (comparison_operator)
+                  (value
+                    (int_value)))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (assignment_expr
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (int_value))))))))))
+      (block_statement
+        (callback
+          (function_identifier)))
+      (block_statement
+        (callback_event
+          (function_identifier)
+          (block
+            (block_statement
+              (if_statement
                 (value
-                  (int_value))))
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (int_value))))))
-      (ERROR
-        (comparison_binary_expression
-          (type_identifier)
-          (comparison_operator)
-          (value
-            (int_value)))
-        (UNEXPECTED 's')
-        (UNEXPECTED 'u')
-        (UNEXPECTED 'x')
-        (UNEXPECTED 'x')
-        (value
-          (bool_value))
-        (UNEXPECTED 'c'))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 's')
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'c')
-    (UNEXPECTED 'v')
-    (UNEXPECTED 'v')
-    (UNEXPECTED 'v')))
+                  (bool_value))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (function_call
+                      (function_identifier)
+                      (call_signature))))))
+            (block_statement
+              (if_statement
+                (value
+                  (bool_value))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (assignment_expr
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (int_value)))))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (function_call
+                      (function_identifier)
+                      (call_signature)))))))))
+      (block_statement
+        (callback
+          (function_identifier)
+          (call_signature
+            (type_identifier))
+          (type_identifier)))
+      (block_statement
+        (callback_event
+          (function_identifier)
+          (call_signature
+            (type_identifier))
+          (block
+            (block_statement
+              (if_statement
+                (comparison_binary_expression
+                  (type_identifier)
+                  (comparison_operator)
+                  (value
+                    (int_value)))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (value
+                      (int_value))))
+                (if_statement
+                  (comparison_binary_expression
+                    (type_identifier)
+                    (comparison_operator)
+                    (value
+                      (int_value)))
+                  (component
+                    (type_identifier
+                      (MISSING _identifier))
+                    (block
+                      (value
+                        (int_value))))
+                  (component
+                    (type_identifier
+                      (MISSING _identifier))
+                    (block
+                      (value
+                        (int_value)))))))))))))

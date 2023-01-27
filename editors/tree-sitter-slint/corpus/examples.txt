@@ -3226,86 +3226,133 @@ W := Window {
                       (function_identifier)
                       (call_signature
                         (type_identifier))
-                      (ERROR
-                        (comparison_binary_expression
-                          (var_identifier
-                            (post_identifier))
-                          (comparison_operator)
-                          (var_identifier
-                            (post_identifier))))
                       (block
+                        (block_statement
+                          (if_statement
+                            (comparison_binary_expression
+                              (var_identifier
+                                (post_identifier))
+                              (comparison_operator)
+                              (var_identifier
+                                (post_identifier)))
+                            (component
+                              (type_identifier
+                                (MISSING _identifier))
+                              (block
+                                (function_call
+                                  (function_identifier)
+                                  (call_signature
+                                    (value
+                                      (string_value
+                                        (_string_fragment)))))))))
+                        (block_statement
+                          (if_statement
+                            (comparison_binary_expression
+                              (var_identifier
+                                (post_identifier))
+                              (comparison_operator)
+                              (var_identifier
+                                (post_identifier)))
+                            (component
+                              (type_identifier
+                                (MISSING _identifier))
+                              (block
+                                (function_call
+                                  (function_identifier)
+                                  (call_signature
+                                    (value
+                                      (string_value
+                                        (_string_fragment)))))))))
+                        (block_statement
+                          (if_statement
+                            (var_identifier
+                              (post_identifier)
+                              (post_identifier))
+                            (component
+                              (type_identifier
+                                (MISSING _identifier))
+                              (block
+                                (function_call
+                                  (function_identifier)
+                                  (call_signature
+                                    (value
+                                      (string_value
+                                        (_string_fragment)))))))))
+                        (block_statement
+                          (if_statement
+                            (var_identifier
+                              (post_identifier)
+                              (post_identifier))
+                            (component
+                              (type_identifier
+                                (MISSING _identifier))
+                              (block
+                                (function_call
+                                  (function_identifier)
+                                  (call_signature
+                                    (value
+                                      (string_value
+                                        (_string_fragment)))))))))
+                        (block_statement
+                          (if_statement
+                            (var_identifier
+                              (post_identifier)
+                              (post_identifier))
+                            (component
+                              (type_identifier
+                                (MISSING _identifier))
+                              (block
+                                (function_call
+                                  (function_identifier)
+                                  (call_signature
+                                    (value
+                                      (string_value
+                                        (_string_fragment)))))))))
+                        (block_statement
+                          (if_statement
+                            (var_identifier
+                              (post_identifier)
+                              (post_identifier))
+                            (component
+                              (type_identifier
+                                (MISSING _identifier))
+                              (block
+                                (function_call
+                                  (function_identifier)
+                                  (call_signature
+                                    (value
+                                      (string_value
+                                        (_string_fragment)))))))))
                         (function_call
                           (function_identifier)
                           (call_signature
-                            (value
-                              (string_value
-                                (_string_fragment))))))))
-                  (block_statement
-                    (if_statement
-                      (ERROR
-                        (comparison_binary_expression
-                          (var_identifier
-                            (post_identifier))
-                          (comparison_operator)
-                          (var_identifier
-                            (post_identifier)))
-                        (UNEXPECTED 'b')
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (var_identifier
-                          (post_identifier)
-                          (post_identifier))
-                        (UNEXPECTED 'b')
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (var_identifier
-                          (post_identifier)
-                          (post_identifier))
-                        (UNEXPECTED 'b')
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (var_identifier
-                          (post_identifier)
-                          (post_identifier))
-                        (UNEXPECTED 'b')
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (var_identifier
-                          (post_identifier)
-                          (post_identifier))
-                        (UNEXPECTED 'b')
-                        (value
-                          (string_value
-                            (_string_fragment)))
-                        (UNEXPECTED 'b')
-                        (var_identifier
-                          (post_identifier))
-                        (UNEXPECTED '.')
-                        (UNEXPECTED 'e')
-                        (UNEXPECTED 'v')
-                        (UNEXPECTED 'e')
-                        (UNEXPECTED 'c')
-                        (UNEXPECTED 'R'))
-                      (type_identifier)
-                      (ERROR
-                        (UNEXPECTED 'a'))
-                      (component
-                        (var_identifier)
+                            (var_identifier
+                              (post_identifier))))
                         (ERROR
-                          (UNEXPECTED ':'))
-                        (type_identifier)
-                        (block
-                          (assignment_expr
-                            (var_identifier)
-                            (assignment_prec_operator)
-                            (value
-                              (string_value
-                                (_string_fragment))))))))))))))
-      (MISSING "}"))))
+                          (UNEXPECTED '.')
+                          (UNEXPECTED 'e')
+                          (UNEXPECTED 'v')
+                          (UNEXPECTED 'e')
+                          (UNEXPECTED 'c')))))
+                  (block_statement
+                    (component
+                      (type_identifier)
+                      (block
+                        (assignment_expr
+                          (var_identifier)
+                          (assignment_prec_operator)
+                          (type_identifier))))))))
+            (block_statement
+              (component
+                (var_identifier)
+                (type_identifier)
+                (block
+                  (assignment_expr
+                    (var_identifier)
+                    (assignment_prec_operator)
+                    (value
+                      (string_value
+                        (_string_fragment)))))))))))))
 
 ================================================================================
 layer

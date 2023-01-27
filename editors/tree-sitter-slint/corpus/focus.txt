@@ -174,54 +174,77 @@ TestCase := Rectangle {
       (block_statement
         (callback_event
           (function_identifier)
-          (ERROR
-            (value
-              (bool_value)))
+          (block
+            (block_statement
+              (if_statement
+                (value
+                  (bool_value))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (block_statement
+                      (var_identifier
+                        (post_identifier
+                          (function_call
+                            (function_identifier)
+                            (call_signature))))))))))))))
+  (component_definition
+    (type_identifier)
+    (type_identifier)
+    (block
+      (block_statement
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (physical_length_value))))
+      (block_statement
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (physical_length_value))))
+      (block_statement
+        (assignment_expr
+          (var_identifier)
+          (assignment_prec_operator)
+          (type_identifier)))
+      (block_statement
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block)))
+      (block_statement
+        (component
+          (var_identifier)
+          (type_identifier)
+          (block)))
+      (block_statement
+        (callback
+          (function_identifier)))
+      (block_statement
+        (callback_event
+          (function_identifier)
           (block
             (block_statement
               (var_identifier
                 (post_identifier
                   (function_call
                     (function_identifier)
-                    (call_signature))))))))))
-  (ERROR
-    (UNEXPECTED 'T')
-    (UNEXPECTED 'C')
-    (UNEXPECTED ')
-    (UNEXPECTED 'R'))
-  (component_definition
-    (type_identifier)
-    (ERROR
-      (UNEXPECTED 'w')
-      (UNEXPECTED 'h')
-      (UNEXPECTED 'w')
-      (UNEXPECTED 'c')
-      (UNEXPECTED 't')
-      (UNEXPECTED 't'))
-    (type_identifier)
-    (block))
-  (component_definition
-    (type_identifier)
-    (type_identifier)
-    (block))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'n')
-    (UNEXPECTED 'n')
-    (UNEXPECTED 't')
-    (UNEXPECTED 'c')
-    (UNEXPECTED 't')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'd')
-    (UNEXPECTED 't')
-    (UNEXPECTED 'h')
-    (UNEXPECTED '_')
-    (UNEXPECTED 't')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'd')
-    (UNEXPECTED 't')
-    (UNEXPECTED 'h')
-    (UNEXPECTED '_')))
+                    (call_signature))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier)))))))
 
 ================================================================================
 initial_focus_through_layout
@@ -459,92 +482,102 @@ assert_eq(instance.get_received(), "ß");
                             (function_identifier)
                             (call_signature
                               (type_identifier))
-                            (ERROR
-                              (comparison_binary_expression
-                                (comparison_binary_expression
-                                  (var_identifier
-                                    (post_identifier))
-                                  (comparison_operator)
-                                  (mult_binary_expression
-                                    (var_identifier
-                                      (post_identifier))
-                                    (mult_prec_operator)
-                                    (var_identifier
-                                      (post_identifier))))
-                                (comparison_operator)
-                                (var_identifier
-                                  (post_identifier))))
                             (block
+                              (block_statement
+                                (if_statement
+                                  (comparison_binary_expression
+                                    (comparison_binary_expression
+                                      (var_identifier
+                                        (post_identifier))
+                                      (comparison_operator)
+                                      (mult_binary_expression
+                                        (var_identifier
+                                          (post_identifier))
+                                        (mult_prec_operator)
+                                        (var_identifier
+                                          (post_identifier))))
+                                    (comparison_operator)
+                                    (var_identifier
+                                      (post_identifier)))
+                                  (component
+                                    (type_identifier
+                                      (MISSING _identifier))
+                                    (block
+                                      (assignment_expr
+                                        (var_identifier)
+                                        (assignment_prec_operator)
+                                        (var_identifier
+                                          (post_identifier)))))))
+                              (type_identifier))))
+                        (block_statement
+                          (if_statement
+                            (value
+                              (bool_value))
+                            (component
+                              (type_identifier)
+                              (block
+                                (block_statement
+                                  (component
+                                    (type_identifier)
+                                    (block)))))))
+                        (block_statement
+                          (component
+                            (var_identifier)
+                            (type_identifier)
+                            (block
+                              (block_statement
+                                (assignment_expr
+                                  (var_identifier)
+                                  (assignment_prec_operator)
+                                  (value
+                                    (percent_value))))
                               (assignment_expr
                                 (var_identifier)
                                 (assignment_prec_operator)
-                                (var_identifier
-                                  (post_identifier))))))
-                        (type_identifier))))
-                  (block_statement
-                    (if_statement
-                      (value
-                        (bool_value))
-                      (component
-                        (type_identifier)
-                        (block
-                          (block_statement
-                            (component
-                              (type_identifier)
-                              (block)))))))
-                  (block_statement
-                    (component
-                      (var_identifier)
-                      (type_identifier)
-                      (block
-                        (block_statement
-                          (assignment_expr
-                            (var_identifier)
-                            (assignment_prec_operator)
-                            (value
-                              (percent_value))))
-                        (assignment_expr
-                          (var_identifier)
-                          (assignment_prec_operator)
-                          (value
-                            (percent_value))))))))))))
-      (block_statement
-        (component
-          (type_identifier)
-          (block
-            (block_statement
-              (assignment_expr
-                (var_identifier)
-                (assignment_prec_operator)
-                (value
-                  (percent_value))))
+                                (value
+                                  (percent_value))))))))))))
             (block_statement
               (component
                 (type_identifier)
-                (block))))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 't')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'd')
-    (UNEXPECTED 't')
-    (UNEXPECTED 'h')
-    (UNEXPECTED '_')
-    (UNEXPECTED 't')
-    (UNEXPECTED '_')
-    (UNEXPECTED 't')
-    (UNEXPECTED 'e')
-    (UNEXPECTED 't')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'd')
-    (UNEXPECTED 't')
-    (UNEXPECTED 'h')
-    (UNEXPECTED '_')
-    (UNEXPECTED 't')
-    (UNEXPECTED '_')
-    (UNEXPECTED 't')
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'c'))
+                (block
+                  (block_statement
+                    (assignment_expr
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (percent_value))))
+                  (block_statement
+                    (component
+                      (type_identifier)
+                      (block)))))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (var_identifier
+            (post_identifier))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)))))
   (comment))
 
 ================================================================================
@@ -1697,166 +1730,245 @@ TestCase := Window {
                       (function_identifier)
                       (call_signature
                         (type_identifier))
-                      (ERROR
-                        (comparison_binary_expression
-                          (var_identifier
-                            (post_identifier))
-                          (comparison_operator)
-                          (value
-                            (string_value
-                              (_string_fragment)))))
                       (block
                         (block_statement
-                          (assignment_expr
-                            (var_identifier)
-                            (assignment_prec_operator)
-                            (value
-                              (string_value
-                                (_string_fragment)))))
+                          (if_statement
+                            (comparison_binary_expression
+                              (var_identifier
+                                (post_identifier))
+                              (comparison_operator)
+                              (value
+                                (string_value
+                                  (_string_fragment))))
+                            (component
+                              (type_identifier
+                                (MISSING _identifier))
+                              (block
+                                (block_statement
+                                  (assignment_expr
+                                    (var_identifier)
+                                    (assignment_prec_operator)
+                                    (value
+                                      (string_value
+                                        (_string_fragment)))))
+                                (block_statement
+                                  (type_identifier))))))
                         (block_statement
-                          (type_identifier)))))
-                  (block_statement
-                    (type_identifier))))))))
-      (block_statement
-        (for_loop
-          (var_identifier
-            (index_operator
-              (type_identifier)))
-          (for_range
-            (var_identifier))
-          (component
-            (type_identifier)
-            (block
-              (block_statement
+                          (type_identifier))))))))
+            (block_statement
+              (for_loop
+                (var_identifier
+                  (index_operator
+                    (type_identifier)))
+                (for_range
+                  (var_identifier))
                 (component
                   (type_identifier)
                   (block
                     (block_statement
-                      (callback_event
-                        (function_identifier)
-                        (call_signature
-                          (type_identifier))
-                        (ERROR
-                          (comparison_binary_expression
-                            (var_identifier
-                              (post_identifier))
-                            (comparison_operator)
-                            (value
-                              (string_value
-                                (_string_fragment)))))
+                      (component
+                        (type_identifier)
                         (block
                           (block_statement
+                            (callback_event
+                              (function_identifier)
+                              (call_signature
+                                (type_identifier))
+                              (block
+                                (block_statement
+                                  (if_statement
+                                    (comparison_binary_expression
+                                      (var_identifier
+                                        (post_identifier))
+                                      (comparison_operator)
+                                      (value
+                                        (string_value
+                                          (_string_fragment))))
+                                    (component
+                                      (type_identifier
+                                        (MISSING _identifier))
+                                      (block
+                                        (block_statement
+                                          (assignment_expr
+                                            (var_identifier)
+                                            (assignment_prec_operator)
+                                            (add_binary_expression
+                                              (add_binary_expression
+                                                (value
+                                                  (string_value
+                                                    (_string_fragment)))
+                                                (add_prec_operator)
+                                                (var_identifier
+                                                  (post_identifier)))
+                                              (add_prec_operator)
+                                              (value
+                                                (string_value
+                                                  (_string_fragment))))))
+                                        (block_statement
+                                          (type_identifier))))))
+                                (block_statement
+                                  (type_identifier))))))))
+                    (block_statement
+                      (component
+                        (type_identifier)
+                        (block
+                          (assignment_expr
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (value
+                              (bool_value))))))
+                    (block_statement
+                      (component
+                        (type_identifier)
+                        (block
+                          (block_statement
+                            (callback_event
+                              (function_identifier)
+                              (call_signature
+                                (type_identifier))
+                              (block
+                                (block_statement
+                                  (if_statement
+                                    (comparison_binary_expression
+                                      (var_identifier
+                                        (post_identifier))
+                                      (comparison_operator)
+                                      (value
+                                        (string_value
+                                          (_string_fragment))))
+                                    (component
+                                      (type_identifier
+                                        (MISSING _identifier))
+                                      (block
+                                        (block_statement
+                                          (assignment_expr
+                                            (var_identifier)
+                                            (assignment_prec_operator)
+                                            (add_binary_expression
+                                              (add_binary_expression
+                                                (value
+                                                  (string_value
+                                                    (_string_fragment)))
+                                                (add_prec_operator)
+                                                (type_identifier))
+                                              (add_prec_operator)
+                                              (value
+                                                (string_value
+                                                  (_string_fragment))))))
+                                        (block_statement
+                                          (type_identifier))))))
+                                (block_statement
+                                  (type_identifier))))))))
+                    (block_statement
+                      (if_statement
+                        (value
+                          (bool_value))
+                        (component
+                          (type_identifier)
+                          (block
                             (assignment_expr
                               (var_identifier)
                               (assignment_prec_operator)
-                              (add_binary_expression
-                                (add_binary_expression
-                                  (value
-                                    (string_value
-                                      (_string_fragment)))
-                                  (add_prec_operator)
-                                  (var_identifier
-                                    (post_identifier)))
-                                (add_prec_operator)
-                                (value
-                                  (string_value
-                                    (_string_fragment))))))
-                          (block_statement
-                            (type_identifier)))))
-                    (block_statement
-                      (type_identifier)))))))))
-      (block_statement
-        (component
-          (type_identifier)
-          (block
-            (assignment_expr
-              (var_identifier)
-              (assignment_prec_operator)
-              (value
-                (bool_value))))))
-      (block_statement
-        (component
-          (type_identifier)
-          (block
+                              (value
+                                (bool_value)))))))))))
             (block_statement
-              (callback_event
-                (function_identifier)
-                (call_signature
-                  (type_identifier))
-                (ERROR
-                  (comparison_binary_expression
-                    (var_identifier
-                      (post_identifier))
-                    (comparison_operator)
-                    (value
-                      (string_value
-                        (_string_fragment)))))
+              (component
+                (type_identifier)
                 (block
                   (block_statement
-                    (assignment_expr
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (add_binary_expression
+                    (callback_event
+                      (function_identifier)
+                      (call_signature
+                        (type_identifier))
+                      (block
+                        (block_statement
+                          (if_statement
+                            (comparison_binary_expression
+                              (var_identifier
+                                (post_identifier))
+                              (comparison_operator)
+                              (value
+                                (string_value
+                                  (_string_fragment))))
+                            (component
+                              (type_identifier
+                                (MISSING _identifier))
+                              (block
+                                (block_statement
+                                  (assignment_expr
+                                    (var_identifier)
+                                    (assignment_prec_operator)
+                                    (value
+                                      (string_value
+                                        (_string_fragment)))))
+                                (block_statement
+                                  (type_identifier))))))
+                        (block_statement
+                          (type_identifier)))))))))))
+      (block_statement
+        (for_loop
+          (var_identifier)
+          (for_range
+            (value
+              (int_value))
+            (value
+              (int_value)))
+          (component
+            (type_identifier)
+            (block
+              (block_statement
+                (assignment_expr
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (value
+                    (bool_value))))
+              (block_statement
+                (callback_event
+                  (function_identifier)
+                  (call_signature
+                    (type_identifier))
+                  (block
+                    (block_statement
+                      (assignment_expr
+                        (var_identifier)
+                        (assignment_prec_operator)
                         (add_binary_expression
                           (value
                             (string_value
                               (_string_fragment)))
                           (add_prec_operator)
-                          (type_identifier))
-                        (add_prec_operator)
-                        (value
-                          (string_value
-                            (_string_fragment))))))
-                  (block_statement
-                    (type_identifier)))))
-            (block_statement
-              (type_identifier)))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'F')
-    (UNEXPECTED 'S')
-    (UNEXPECTED 'n')
-    (UNEXPECTED 'F')
-    (UNEXPECTED 'S')
-    (UNEXPECTED 'k')
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'd')
-    (UNEXPECTED 'v')
-    (UNEXPECTED 'v')
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'X')
-    (UNEXPECTED 's')
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'B')
-    (UNEXPECTED 'c')
-    (UNEXPECTED 'j')
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'F')
-    (UNEXPECTED 'S')
-    (UNEXPECTED 'n')
-    (UNEXPECTED 'k')
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'd')
-    (UNEXPECTED 'v')
-    (UNEXPECTED 's')
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'i')
-    (UNEXPECTED 'b')
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'c')
-    (UNEXPECTED 'F')
-    (UNEXPECTED 'S')
-    (UNEXPECTED 'n')
-    (UNEXPECTED 'k')
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'd')
-    (UNEXPECTED 'v')
-    (UNEXPECTED 's')
-    (UNEXPECTED 'u')
-    (UNEXPECTED 'i')
-    (UNEXPECTED 'b')
-    (UNEXPECTED 'x')
-    (UNEXPECTED 'c')))
+                          (type_identifier))))
+                    (type_identifier))))
+              (block_statement
+                (if_statement
+                  (value
+                    (bool_value))
+                  (component
+                    (type_identifier)
+                    (block
+                      (block_statement
+                        (assignment_expr
+                          (var_identifier)
+                          (assignment_prec_operator)
+                          (value
+                            (bool_value))))
+                      (block_statement
+                        (callback_event
+                          (function_identifier)
+                          (call_signature
+                            (type_identifier))
+                          (block
+                            (block_statement
+                              (assignment_expr
+                                (var_identifier)
+                                (assignment_prec_operator)
+                                (add_binary_expression
+                                  (value
+                                    (string_value
+                                      (_string_fragment)))
+                                  (add_prec_operator)
+                                  (type_identifier))))
+                            (type_identifier)))))))))))))))
 
 ================================================================================
 keyboard_focus2
@@ -1970,60 +2082,69 @@ TestCase := Window {
                                       (function_identifier)
                                       (call_signature
                                         (type_identifier))
-                                      (ERROR
-                                        (comparison_binary_expression
-                                          (var_identifier
-                                            (post_identifier))
-                                          (comparison_operator)
-                                          (value
-                                            (string_value
-                                              (_string_fragment)))))
                                       (block
                                         (block_statement
-                                          (assignment_expr
-                                            (var_identifier)
-                                            (assignment_prec_operator)
-                                            (value
-                                              (string_value
-                                                (_string_fragment)))))
+                                          (if_statement
+                                            (comparison_binary_expression
+                                              (var_identifier
+                                                (post_identifier))
+                                              (comparison_operator)
+                                              (value
+                                                (string_value
+                                                  (_string_fragment))))
+                                            (component
+                                              (type_identifier
+                                                (MISSING _identifier))
+                                              (block
+                                                (block_statement
+                                                  (assignment_expr
+                                                    (var_identifier)
+                                                    (assignment_prec_operator)
+                                                    (value
+                                                      (string_value
+                                                        (_string_fragment)))))
+                                                (block_statement
+                                                  (type_identifier))))))
                                         (block_statement
-                                          (type_identifier)))))
-                                  (block_statement
-                                    (type_identifier)))))))))))))
+                                          (type_identifier)))))))))))))
+                  (block_statement
+                    (if_statement
+                      (value
+                        (bool_value))
+                      (component
+                        (type_identifier)
+                        (block)))))))
             (block_statement
-              (if_statement
-                (value
-                  (bool_value))
-                (component
-                  (type_identifier)
-                  (block)))))))
-      (block_statement
-        (component
-          (type_identifier)
-          (block
-            (block_statement
-              (callback_event
-                (function_identifier)
-                (call_signature
-                  (type_identifier))
-                (ERROR
-                  (comparison_binary_expression
-                    (var_identifier
-                      (post_identifier))
-                    (comparison_operator)
-                    (value
-                      (string_value
-                        (_string_fragment)))))
+              (component
+                (type_identifier)
                 (block
                   (block_statement
-                    (assignment_expr
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (string_value
-                          (_string_fragment)))))
-                  (block_statement
-                    (type_identifier)))))
-            (block_statement
-              (type_identifier)))))))
-  (ERROR))
+                    (callback_event
+                      (function_identifier)
+                      (call_signature
+                        (type_identifier))
+                      (block
+                        (block_statement
+                          (if_statement
+                            (comparison_binary_expression
+                              (var_identifier
+                                (post_identifier))
+                              (comparison_operator)
+                              (value
+                                (string_value
+                                  (_string_fragment))))
+                            (component
+                              (type_identifier
+                                (MISSING _identifier))
+                              (block
+                                (block_statement
+                                  (assignment_expr
+                                    (var_identifier)
+                                    (assignment_prec_operator)
+                                    (value
+                                      (string_value
+                                        (_string_fragment)))))
+                                (block_statement
+                                  (type_identifier))))))
+                        (block_statement
+                          (type_identifier))))))))))))))

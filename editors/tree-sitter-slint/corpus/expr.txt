@@ -1301,33 +1301,70 @@ TestCase := Rectangle {
           (type_identifier)
           (var_identifier)
           (block
-            (ERROR
-              (type_identifier))
+            (block_statement
+              (if_statement
+                (type_identifier)
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (block_statement
+                      (value
+                        (int_value)))))))
             (block_statement
               (value
                 (int_value))))))
       (block_statement
-        (value
-          (int_value)))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'v')
-    (UNEXPECTED 'e')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'e')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'l')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'g')
-    (UNEXPECTED 'e')
-    (UNEXPECTED ':')
-    (UNEXPECTED 'v')
-    (UNEXPECTED 'v')))
+        (property
+          (type_identifier)
+          (var_identifier)
+          (block
+            (block_statement
+              (value
+                (int_value))))))
+      (block_statement
+        (callback
+          (function_identifier)))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)))
+      (block_statement
+        (callback_event
+          (function_identifier)
+          (block
+            (block_statement
+              (if_statement
+                (type_identifier)
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (block_statement
+                      (var_identifier
+                        (MISSING "*")))))))
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (value
+                (bool_value))))))
+      (block_statement
+        (property
+          (type_identifier)
+          (var_identifier)
+          (block
+            (block_statement
+              (comparison_binary_expression
+                (type_identifier)
+                (comparison_operator)
+                (type_identifier)))
+            (block_statement
+              (value
+                (bool_value)))))))))
 
 ================================================================================
 round

@@ -76,40 +76,76 @@ TestCase := Rectangle {
         (callback_event
           (function_identifier)
           (block
-            (ERROR
-              (comparison_binary_expression
-                (type_identifier)
-                (comparison_operator)
+            (block_statement
+              (if_statement
+                (comparison_binary_expression
+                  (type_identifier)
+                  (comparison_operator)
+                  (value
+                    (int_value)))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (block_statement
+                      (value
+                        (bool_value)))))))
+            (comment)
+            (comment)
+            (comment)
+            (comment)
+            (block_statement
+              (assignment_expr
+                (var_identifier)
+                (assignment_prec_operator)
+                (type_identifier)))
+            (block_statement
+              (if_statement
+                (comparison_binary_expression
+                  (type_identifier)
+                  (comparison_operator)
+                  (value
+                    (int_value)))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (block_statement
+                      (value
+                        (bool_value)))))))
+            (block_statement
+              (assignment_expr
+                (var_identifier
+                  (index_operator
+                    (value
+                      (int_value))))
+                (assignment_prec_operator)
                 (value
                   (int_value))))
             (block_statement
+              (if_statement
+                (comparison_binary_expression
+                  (type_identifier)
+                  (comparison_operator)
+                  (value
+                    (int_value)))
+                (component
+                  (type_identifier
+                    (MISSING _identifier))
+                  (block
+                    (block_statement
+                      (value
+                        (bool_value)))))))
+            (block_statement
               (value
                 (bool_value))))))
-      (comment)
-      (comment)
-      (comment)
-      (comment)
       (block_statement
-        (assignment_expr
-          (var_identifier)
-          (assignment_prec_operator)
-          (type_identifier)))
-      (ERROR
-        (comparison_binary_expression
+        (property
           (type_identifier)
-          (comparison_operator)
-          (value
-            (int_value))))
-      (block_statement
-        (value
-          (bool_value)))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'i')
-    (UNEXPECTED ')
-    (UNEXPECTED 'e')
-    (UNEXPECTED ':')
-    (UNEXPECTED 'o')))
+          (var_identifier)
+          (function_call
+            (function_identifier)
+            (call_signature)))))))
 
 ================================================================================
 if_cond_property
