@@ -468,7 +468,7 @@ impl Expression {
             let (before, rest) = stops.split_at_mut(start);
             let pos =
                 rest.iter().position(|s| !matches!(s.1, Expression::Invalid)).unwrap_or(rest.len());
-            if pos > 0 {
+            if pos > 0 && pos < rest.len() {
                 let (middle, after) = rest.split_at_mut(pos);
                 let begin = &before.last().expect("The first should never be invalid").1;
                 let end = &after.first().expect("The last should never be invalid").1;
