@@ -1,0 +1,333 @@
+================================================================================
+materialized
+================================================================================
+
+// Test the propagation of maximum and minimum size through nested grid layouts
+
+Btn := Rectangle {
+    property <string> text;
+
+    t := Text {
+        text: root.text;
+        width: 100%; height: 100%;
+    }
+
+    accessible-label: text;
+    accessible-role: button;
+}
+
+Cb := Rectangle {
+    property <string> text;
+    accessible-label: text;
+    t := Text { }
+    accessible-description <=> t.text;
+    accessible-role: checkbox;
+    accessible-checked: true;
+}
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    vl := VerticalLayout {
+        b1 := Btn {
+            text: "plus";
+        }
+
+        txt := Text {
+            text: "automatic text value";
+        }
+
+
+        b2 := Btn {
+            text : "minus";
+        }
+
+        cb := Cb { text: "hello"; }
+    }
+
+    for t in ["abc"] : Text { text: t; accessible-description: t;  }
+
+    property<AccessibleRole> materialized_b1_role: b1.accessible_role;
+    property<string> materialized_b2_label: b2.accessible-label;
+    property<string> materialized_vl_label: vl.accessible-label;
+    property<AccessibleRole> materialized_vl_role: vl.accessible-role;
+    property<AccessibleRole> materialized_txt_role: txt.accessible-role;
+    property<string> materialized_txt_label: txt.accessible-label;
+
+    property <bool> test:
+        materialized_b1_role == AccessibleRole.button && materialized_b2_label == "minus"
+        && materialized_vl_label == "" && materialized_vl_role == AccessibleRole.none
+        && materialized_txt_label == "automatic text value" && materialized_txt_role == AccessibleRole.text
+        && cb.accessible-checked && !b1.accessible-checked;
+}
+
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_with_units
+                    (number
+                      (int_number))
+                    (unit_type))))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_with_units
+                    (number
+                      (int_number))
+                    (unit_type)))))))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier)))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (callback_call
+          (var_identifier
+            (ERROR
+              (UNEXPECTED '.'))
+            (post_identifier)))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (language_constant))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (component_definition
+                (user_type_identifier)
+                (ERROR
+                  (int_number))
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (string
+                        (string_fragment))))))
+              (component_definition
+                (user_type_identifier)
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (string
+                        (string_fragment))))))
+              (component_definition
+                (user_type_identifier)
+                (ERROR
+                  (int_number))
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (string
+                        (string_fragment))))))
+              (component_definition
+                (user_type_identifier)
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (string
+                        (string_fragment)))))))))
+        (for_loop_definition
+          (var_identifier)
+          (var_identifier
+            (reference_identifier
+              (MISSING "parent"))
+            (index_operator
+              (string
+                (string_fragment))))
+          (component_definition
+            (user_type_identifier)
+            (field_declaration_list
+              (field_declaration_list_body
+                (variable_set_equal
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (var_identifier))
+                (variable_set_equal
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (var_identifier))))))
+        (property_definition
+          (user_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (user_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (user_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (property_expr
+              (var_identifier))
+            (int_number)
+            (UNEXPECTED '_')
+            (property_expr
+              (mult_binary_expression
+                (var_identifier
+                  (post_identifier))
+                (mult_prec_operator)
+                (var_identifier)))
+            (int_number)
+            (UNEXPECTED '_')
+            (property_expr
+              (mult_binary_expression
+                (string
+                  (string_fragment))
+                (mult_prec_operator)
+                (var_identifier)))
+            (property_expr
+              (mult_binary_expression
+                (string)
+                (mult_prec_operator)
+                (var_identifier)))
+            (property_expr
+              (mult_binary_expression
+                (var_identifier
+                  (post_identifier))
+                (mult_prec_operator)
+                (var_identifier)))
+            (property_expr
+              (mult_binary_expression
+                (string
+                  (string_fragment))
+                (mult_prec_operator)
+                (var_identifier))))
+          (property_expr
+            (mult_binary_expression
+              (mult_binary_expression
+                (var_identifier
+                  (post_identifier))
+                (mult_prec_operator)
+                (var_identifier
+                  (post_identifier)))
+              (mult_prec_operator)
+              (unary_expression
+                (unary_prec_operator)
+                (var_identifier
+                  (ERROR
+                    (int_number))
+                  (post_identifier))))))))))

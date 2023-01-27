@@ -1,0 +1,517 @@
+================================================================================
+clip_mouse
+================================================================================
+
+MaybeClip := Rectangle {
+    width: 10phx;
+    height: 10phx;
+    property <int> touch;
+    Rectangle {
+        background: red;
+        x: 5phx;
+        y: -10phx;
+        width: 15phx;
+        height: 15phx;
+        TouchArea {
+            clicked => { touch+=1; }
+        }
+    }
+}
+
+TestCase := Rectangle {
+    height: 100phx;
+    width: 100phx;
+    property <int> touch1 <=> el1.touch;
+    property <int> touch2 <=> el2.touch;
+    property <bool> el1clip;
+
+    el1 := MaybeClip {
+        clip <=> el1clip;
+        x: 10phx;
+        y: 10phx;
+    }
+
+    el2 := MaybeClip {
+        clip: true;
+        x: 30phx;
+        y: 30phx;
+    }
+
+    // MaybeClip must be inlined when "clip" is set, but not when it isn't. Test that we can have
+    // a combinaison of inlined and non inlined item
+    MaybeClip { x: 5000px; }
+
+    test_rect := Rectangle { clip: true; }
+    property <bool> test: test_rect.clip;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (language_constant)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (unary_expression
+                  (unary_prec_operator)
+                  (value
+                    (number
+                      (int_number))))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (callback_event
+                      (function_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (value
+                              (number
+                                (int_number))))))))))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR
+            (int_number))
+          (var_identifier
+            (ERROR
+              (int_number))
+            (post_identifier)))
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR
+            (int_number))
+          (var_identifier
+            (ERROR
+              (int_number))
+            (post_identifier)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED 'l')))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier)
+                (ERROR
+                  (UNEXPECTED '1')
+                  (int_number)
+                  (UNEXPECTED 'l')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (language_constant)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (comment)
+        (comment)
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_with_units
+                    (number
+                      (int_number))
+                    (unit_type)))))))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (language_constant))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))))))
+
+================================================================================
+visible_mouse
+================================================================================
+
+MaybeVisible := Rectangle {
+    width: 10phx;
+    height: 10phx;
+    property <int> touch;
+    Rectangle {
+        background: red;
+        x: 5phx;
+        y: -10phx;
+        width: 15phx;
+        height: 15phx;
+        TouchArea {
+            clicked => { touch+=1; }
+        }
+    }
+}
+
+TestCase := Rectangle {
+    height: 100phx;
+    width: 100phx;
+    property <int> touch1 <=> el1.touch;
+    property <int> touch2 <=> el2.touch;
+    property <bool> el1visible : true;
+
+    el1 := MaybeVisible {
+        visible <=> el1visible;
+        x: 10phx;
+        y: 10phx;
+    }
+
+    el2 := MaybeVisible {
+        visible: false;
+        x: 30phx;
+        y: 30phx;
+    }
+
+    test_rect := Rectangle { }
+    property <bool> test: test_rect.visible && !el2.visible && el1.visible;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (language_constant)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (unary_expression
+                  (unary_prec_operator)
+                  (value
+                    (number
+                      (int_number))))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (callback_event
+                      (function_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (value
+                              (number
+                                (int_number))))))))))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR
+            (int_number))
+          (var_identifier
+            (ERROR
+              (int_number))
+            (post_identifier)))
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR
+            (int_number))
+          (var_identifier
+            (ERROR
+              (int_number))
+            (post_identifier)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED 'v'))
+          (property_expr
+            (value
+              (language_constant))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier)
+                (ERROR
+                  (UNEXPECTED '1')
+                  (int_number)
+                  (UNEXPECTED 'v')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (language_constant)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (mult_binary_expression
+              (mult_binary_expression
+                (var_identifier
+                  (post_identifier))
+                (mult_prec_operator)
+                (unary_expression
+                  (unary_prec_operator)
+                  (var_identifier
+                    (ERROR
+                      (int_number))
+                    (post_identifier))))
+              (mult_prec_operator)
+              (var_identifier
+                (ERROR
+                  (int_number))
+                (post_identifier)))))))))

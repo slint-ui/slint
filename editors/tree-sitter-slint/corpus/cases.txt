@@ -1,0 +1,16 @@
+================================================================================
+simple
+================================================================================
+
+TestCase := Rectangle {
+
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body))))

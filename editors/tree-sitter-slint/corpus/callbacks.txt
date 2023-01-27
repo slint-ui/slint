@@ -1,49 +1,21 @@
-// Copyright © SixtyFPS GmbH <info@slint-ui.com>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
-
 ================================================================================
-Setting a callback
-TODO: single expression `;` are optional
+handler
 ================================================================================
 
-Example := Window {
-    Button {
-        clicked => { counter += 3 }
+TestCase := Rectangle {
+    callback test_callback;
+    callback test_callback2;
+    callback test_callback3;
+    property<int> callback_emission_count;
+    test_callback => {
+        callback_emission_count += 1;
+        // This returns something despite the callback isn't supposed to return anything.
+        // Maybe one should produce a warning in the future, but at least we shouldn't
+        // result in compilation error in the generated code
+        callback_emission_count
     }
+    test_callback2 => {  callback_emission_count = 88; root.test_callback3(); }
 }
-
---------------------------------------------------------------------------------
-
-(source_file
-  (component_definition
-    (user_type_identifier)
-    (user_type_identifier)
-    (field_declaration_list
-      (field_declaration_list_body
-        (component_definition
-          (user_type_identifier)
-          (field_declaration_list
-            (field_declaration_list_body
-              (callback_event
-                (function_identifier)
-                (field_declaration_list
-                  (field_declaration_list_body
-                    (variable_set_equal
-                      (var_identifier)
-                      (assignment_prec_operator)
-                      (value
-                        (number
-                          (int_number)))
-                      (MISSING ";"))))))))))))
-
-================================================================================
-Declare a callback
-================================================================================
-
-Example := Rectangle {
-    callback hello;
-}
-
 --------------------------------------------------------------------------------
 
 (source_file
@@ -53,14 +25,66 @@ Example := Rectangle {
     (field_declaration_list
       (field_declaration_list_body
         (callback_definition
-          (function_identifier))))))
+          (function_identifier))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number)))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number))))
+              (comment)
+              (comment)
+              (comment)
+              (var_identifier))))
+        (callback_event
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number))))
+              (callback_call
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (ERROR
+                        (int_number))
+                      (call_signature
+                        (formal_parameters)))))))))))))
 
 ================================================================================
-Declare callback with parameters
+handler_with_arg
 ================================================================================
 
-Example := Rectangle {
-    callback hello(int, string);
+TestCase := Rectangle {
+    callback test_callback(int);
+    callback test_callback2(string);
+    callback test_callback3(int, string);
+    property<int> callback_emission_count;
+    test_callback => { callback_emission_count += 1; }
+    test_callback2(xx) => { callback_emission_count = 88; root.test_callback3(55, xx); }
 }
 
 --------------------------------------------------------------------------------
@@ -76,16 +100,1164 @@ Example := Rectangle {
           (call_signature
             (formal_parameters
               (formal_parameter
+                (builtin_type_identifier)))))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (call_signature
+            (formal_parameters
+              (formal_parameter
+                (builtin_type_identifier)))))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (call_signature
+            (formal_parameters
+              (formal_parameter
                 (builtin_type_identifier))
               (formal_parameter
-                (builtin_type_identifier)))))))))
+                (builtin_type_identifier)))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))))))
+        (callback_event
+          (function_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED 'x'))
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number))))
+              (callback_call
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (ERROR
+                        (int_number))
+                      (call_signature
+                        (formal_parameters
+                          (formal_parameter
+                            (value
+                              (number
+                                (int_number))))
+                          (formal_parameter
+                            (var_identifier)))))))))))))))
 
 ================================================================================
-Set a callback with parameters
+callback_name_conflicts
 ================================================================================
 
-Example := Rectangle {
-    hello(aa, bb) => { aa + bb }
+TestCase := Rectangle {
+    width: 100phx;
+    height: 100phx;
+    property <int> value;
+    callback clicked; // this callback shouldn't conflict with the other callback
+
+    TouchArea {
+        clicked => { value += 1; }
+    }
 }
 
 --------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (callback_definition
+          (function_identifier))
+        (comment)
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_event
+                (function_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (number
+                          (int_number))))))))))))))
+
+================================================================================
+init
+================================================================================
+
+// Verify that the init callback is invoked in the correct order
+
+export global InitOrder := {
+    property <string> observed-order: "start";
+}
+
+Sub1 := Rectangle {
+    init => {
+        InitOrder.observed-order += "|sub1";
+    }
+}
+
+Sub2 := Rectangle {
+    init => {
+        InitOrder.observed-order += "|sub2";
+    }
+}
+
+SubSub := Rectangle {
+    init => {
+        InitOrder.observed-order += "|subsub";
+    }
+}
+
+Sub3 := Rectangle {
+    property <string> some-value: "should-not-show-up";
+    init => {
+        InitOrder.observed-order += some-value;
+    }
+    SubSub {}
+}
+
+Container := Rectangle {
+    init => {
+        InitOrder.observed-order += "|container";
+    }
+    @children
+}
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+    init => {
+        InitOrder.observed-order += "|root";
+    }
+    Sub1 {
+        init => {
+            InitOrder.observed-order += "|sub1-use-site";
+        }
+    }
+    Sub2 {
+    }
+    Sub3 {
+        some-value: "|sub3";
+    }
+
+    Container {
+
+    }
+
+    Rectangle {
+        init => {
+            InitOrder.observed-order += "|element";
+        }
+    }
+
+    for i in 2: Rectangle {
+        init => {
+            InitOrder.observed-order += "|repeater";
+            InitOrder.observed-order += i;
+        }
+    }
+
+    property <string> test_global_prop_value: InitOrder.observed-order;
+
+    property <string> expected_static_order: "start|sub1|sub2|subsub|sub3|root|sub1-use-site|container|element";
+
+    property <bool> test: InitOrder.observed-order == expected_static_order;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (global_definition
+    (visibility_modifier)
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (string
+              (string_fragment)))))))
+  (component_definition
+    (user_type_identifier)
+    (ERROR
+      (int_number))
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (string
+                  (string_fragment)))))))))
+  (component_definition
+    (user_type_identifier)
+    (ERROR
+      (int_number))
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (string
+                  (string_fragment)))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (string
+                  (string_fragment)))))))))
+  (component_definition
+    (user_type_identifier)
+    (ERROR
+      (int_number))
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (string
+              (string_fragment))))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (var_identifier)))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (string
+                  (string_fragment))))))
+        (var_identifier
+          (children_identifier)))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (string
+                  (string_fragment))))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_event
+                (function_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (string
+                        (string_fragment)))))))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (string
+                  (string_fragment))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_event
+                (function_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (string
+                        (string_fragment)))))))))
+        (ERROR
+          (var_identifier)
+          (int_number)
+          (UNEXPECTED 'R'))
+        (component_definition
+          (builtin_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_event
+                (function_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (string
+                        (string_fragment)))
+                    (variable_set_equal
+                      (var_identifier
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (var_identifier))))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (string
+              (string_fragment))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier)))
+          (ERROR
+            (UNEXPECTED 'e')))))))
+
+================================================================================
+init_layout
+================================================================================
+
+// Verify that the init callback is invoked in the correct order
+
+export global InitOrder := {
+    property <string> observed-order: "start";
+}
+
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+    init => {
+        InitOrder.observed-order += "|root";
+    }
+
+
+    HorizontalLayout {
+        for i in ["hello", "world"]: Rectangle {
+            preferred-width: 10px;
+            init => {
+                InitOrder.observed-order +="|" + i;
+            }
+        }
+    }
+
+    property <string> expected_order: "start|root|hello|world";
+
+    property <bool> test: root.preferred-width == 20px && InitOrder.observed-order == expected_order;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (global_definition
+    (visibility_modifier)
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (string
+              (string_fragment)))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier
+                  (post_identifier))
+                (assignment_prec_operator)
+                (string
+                  (string_fragment))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (for_loop_definition
+                (var_identifier)
+                (var_identifier
+                  (reference_identifier
+                    (MISSING "parent"))
+                  (index_operator
+                    (ERROR
+                      (string
+                        (string_fragment)))
+                    (string
+                      (string_fragment))))
+                (component_definition
+                  (user_type_identifier)
+                  (field_declaration_list
+                    (field_declaration_list_body
+                      (variable_set_equal
+                        (var_identifier)
+                        (assignment_prec_operator)
+                        (value
+                          (value_with_units
+                            (number
+                              (int_number))
+                            (unit_type))))
+                      (callback_event
+                        (function_identifier)
+                        (field_declaration_list
+                          (field_declaration_list_body
+                            (variable_set_equal
+                              (var_identifier
+                                (post_identifier))
+                              (assignment_prec_operator)
+                              (add_binary_expression
+                                (string
+                                  (string_fragment))
+                                (add_prec_operator)
+                                (var_identifier)))))))))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (string
+              (string_fragment))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (mult_binary_expression
+              (var_identifier
+                (reference_identifier)
+                (post_identifier))
+              (ERROR
+                (int_number))
+              (mult_prec_operator)
+              (var_identifier
+                (post_identifier))))
+          (ERROR
+            (UNEXPECTED 'e')))))))
+
+================================================================================
+callback_alias
+================================================================================
+
+Foo := Rectangle {
+    pure callback hallo_alias <=> xxx.hallo;
+    callback clicked <=> are.clicked;
+    xxx := Rectangle {
+        pure callback hallo(int) -> int;
+        hallo(a) => { return a + 88; }
+    }
+
+    are := TouchArea { }
+}
+
+TestCase := Rectangle {
+
+    pure callback foo1_alias <=> foo1.hallo_alias;
+    pure callback foo2_alias <=> foo2.hallo_alias;
+
+    callback foo1_clicked <=> foo1.clicked;
+
+    callback call_foo2(int) -> int;
+    call_foo2(a) => { return foo2.hallo_alias(a); }
+
+    foo1 := Foo {
+        hallo_alias(a) => { return a + 22; }
+    }
+
+    foo2 := Foo {
+        clicked => { debug(42) }
+    }
+
+    property <bool> test: foo1_alias(100) == 122 && foo2_alias(100) == 188;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (var_identifier)
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (UNEXPECTED 'x')
+            (UNEXPECTED 'h')))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (UNEXPECTED 'r')
+            (UNEXPECTED 'l')))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (var_identifier)
+              (callback_definition
+                (function_identifier)
+                (call_signature
+                  (formal_parameters
+                    (formal_parameter
+                      (builtin_type_identifier))))
+                (builtin_type_identifier))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator
+                  (MISSING ":"))
+                (add_binary_expression
+                  (expression_body_paren
+                    (var_identifier))
+                  (ERROR
+                    (UNEXPECTED 't'))
+                  (add_prec_operator)
+                  (value
+                    (number
+                      (int_number)))))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body)))
+  (ERROR
+    (UNEXPECTED 'T')
+    (UNEXPECTED 'R'))
+  (component_definition
+    (builtin_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (var_identifier)
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_')
+            (UNEXPECTED 'o')
+            (int_number)
+            (UNEXPECTED 'h')))
+        (var_identifier)
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_')
+            (UNEXPECTED 'o')
+            (int_number)
+            (UNEXPECTED 'h')))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_')
+            (UNEXPECTED 'o')
+            (int_number)
+            (UNEXPECTED 'l')))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (call_signature
+            (formal_parameters
+              (formal_parameter
+                (builtin_type_identifier))))
+          (builtin_type_identifier))
+        (callback_event
+          (function_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '))
+          (field_declaration_list
+            (field_declaration_list_body
+              (var_identifier)
+              (callback_call
+                (var_identifier
+                  (ERROR
+                    (int_number))
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters
+                          (formal_parameter
+                            (var_identifier)))))))))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator
+                  (MISSING ":"))
+                (add_binary_expression
+                  (expression_body_paren
+                    (var_identifier))
+                  (ERROR
+                    (UNEXPECTED 't'))
+                  (add_prec_operator)
+                  (value
+                    (number
+                      (int_number)))))))))))
+  (component_definition
+    (user_type_identifier)
+    (ERROR
+      (int_number))
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator
+                  (MISSING ":"))
+                (expression_body_paren
+                  (value
+                    (number
+                      (int_number))))
+                (MISSING ";"))))))))
+  (ERROR
+    (user_type_identifier)
+    (UNEXPECTED 'e')
+    (UNEXPECTED 'o')
+    (int_number)
+    (UNEXPECTED '_')
+    (int_number)
+    (int_number)
+    (UNEXPECTED 'o')
+    (int_number)
+    (UNEXPECTED '_')
+    (int_number)
+    (int_number)))
+
+================================================================================
+functions
+================================================================================
+
+global G := {
+    property <string> hello: "hello";
+    function meh(w: string) -> string {
+        return hello + " " + w;
+    }
+}
+
+SubCompo := Rectangle {
+    public pure function hello() -> color { red }
+}
+
+export global PubGlob := {
+    public function beh(a: int, b: int) -> int { a + b + 10 }
+}
+
+TestCase := Rectangle {
+
+    property <int> c: 100000;
+    private property <int> one: 1 + Math.round((x / 1px) - (y / 1px));
+
+    function foo() {}
+    function the_function(a: int, b: int) -> int { foo(); a + b + c + one }
+
+    if true : Rectangle {
+        background: the_function(1, 2) > 3 ? blue: sc.hello();
+    }
+
+    sc := SubCompo {
+
+    }
+
+    public function pub(a: int, b: int) -> int { a + b + c }
+
+    public function set_c(p: int) { c = p }
+
+
+    property <bool> test: the_function(4500, 20) == 104521 && G.meh("world") == "hello world" && sc.hello() == Colors.red;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (string
+              (string_fragment))))
+        (var_identifier)
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator
+            (MISSING ":"))
+          (add_binary_expression
+            (add_binary_expression
+              (add_binary_expression
+                (expression_body_paren
+                  (ERROR
+                    (var_identifier))
+                  (builtin_type_identifier))
+                (add_prec_operator)
+                (ERROR)
+                (builtin_type_identifier))
+              (ERROR
+                (UNEXPECTED 't'))
+              (add_prec_operator)
+              (string
+                (string_fragment)))
+            (add_prec_operator)
+            (var_identifier))))))
+  (ERROR
+    (UNEXPECTED 'S')
+    (UNEXPECTED 'R'))
+  (component_definition
+    (builtin_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (var_identifier)
+        (var_identifier)
+        (var_identifier)
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (UNEXPECTED 'o'))
+          (field_declaration_list
+            (field_declaration_list_body
+              (var_identifier)))))))
+  (global_definition
+    (visibility_modifier)
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (var_identifier)
+        (var_identifier)
+        (var_identifier))
+      (ERROR
+        (assignment_prec_operator
+          (MISSING ":"))
+        (var_identifier)
+        (UNEXPECTED ',')
+        (UNEXPECTED ':')
+        (assignment_prec_operator)
+        (add_binary_expression
+          (add_binary_expression
+            (builtin_type_identifier)
+            (ERROR
+              (UNEXPECTED ')
+              (UNEXPECTED '))
+            (add_prec_operator)
+            (var_identifier))
+          (add_prec_operator)
+          (value
+            (number
+              (int_number)))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (var_identifier)
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (add_binary_expression
+              (value
+                (number
+                  (int_number)))
+              (add_prec_operator)
+              (var_identifier
+                (post_identifier
+                  (function_call
+                    (function_identifier)
+                    (call_signature
+                      (formal_parameters
+                        (formal_parameter
+                          (add_binary_expression
+                            (expression_body_paren
+                              (mult_binary_expression
+                                (var_identifier)
+                                (mult_prec_operator)
+                                (value
+                                  (value_with_units
+                                    (number
+                                      (int_number))
+                                    (unit_type)))))
+                            (add_prec_operator)
+                            (expression_body_paren
+                              (mult_binary_expression
+                                (var_identifier)
+                                (mult_prec_operator)
+                                (value
+                                  (value_with_units
+                                    (number
+                                      (int_number))
+                                    (unit_type)))))))))))))))
+        (var_identifier)
+        (component_definition
+          (user_type_identifier)
+          (ERROR)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (var_identifier)
+        (variable_set_equal
+          (var_identifier)
+          (ERROR
+            (assignment_prec_operator
+              (MISSING ":"))
+            (var_identifier)
+            (UNEXPECTED ',')
+            (UNEXPECTED ':'))
+          (assignment_prec_operator)
+          (builtin_type_identifier)
+          (ERROR
+            (UNEXPECTED ')
+            (UNEXPECTED 'o')))
+        (var_identifier))
+      (ERROR
+        (UNEXPECTED ')
+        (UNEXPECTED ')
+        (UNEXPECTED 'n'))))
+  (ERROR
+    (user_type_identifier)
+    (UNEXPECTED 'R'))
+  (component_definition
+    (builtin_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (comparison_binary_expression
+            (function_call
+              (function_identifier)
+              (call_signature
+                (formal_parameters
+                  (formal_parameter
+                    (value
+                      (number
+                        (int_number))))
+                  (formal_parameter
+                    (value
+                      (number
+                        (int_number)))))))
+            (comparison_operator)
+            (ternary_expression
+              (value
+                (number
+                  (int_number)))
+              (value
+                (language_constant))
+              (var_identifier
+                (post_identifier
+                  (function_call
+                    (function_identifier)
+                    (call_signature
+                      (formal_parameters)))))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body)))
+  (component_definition
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 'u')
+      (UNEXPECTED ':')
+      (UNEXPECTED ',')
+      (UNEXPECTED ':')
+      (UNEXPECTED ')
+      (UNEXPECTED '))
+    (field_declaration_list
+      (field_declaration_list_body
+        (var_identifier))
+      (ERROR
+        (UNEXPECTED ')
+        (UNEXPECTED '))))
+  (component_definition
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 'u')
+      (UNEXPECTED ':')
+      (UNEXPECTED '))
+    (field_declaration_list
+      (field_declaration_list_body
+        (var_identifier)
+        (ERROR
+          (assignment_prec_operator))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (property_expr
+              (function_call
+                (function_identifier)
+                (call_signature
+                  (formal_parameters
+                    (formal_parameter
+                      (value
+                        (number
+                          (int_number))))
+                    (formal_parameter
+                      (value
+                        (number
+                          (int_number))))))))
+            (property_expr
+              (mult_binary_expression
+                (value
+                  (number
+                    (int_number)))
+                (mult_prec_operator)
+                (var_identifier
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters
+                          (formal_parameter
+                            (string
+                              (string_fragment))))))))))
+            (property_expr
+              (mult_binary_expression
+                (string
+                  (string_fragment))
+                (mult_prec_operator)
+                (var_identifier
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters))))))))
+          (property_expr
+            (var_identifier
+              (post_identifier))))))))
+
+================================================================================
+return_value
+================================================================================
+
+TestCase := Rectangle {
+    pure callback test_func(int) -> int;
+    pure callback test_func2(string, int) -> string;
+    test_func2(str, val) => { str + "=" + (val + some_value) }
+
+    property <int> test_prop: 4 + test_func(2);
+    property <string> test_prop2: test_func2("hello", 42);
+    property <int> some_value: 8;
+
+    callback dummy() -> int;
+    dummy => { 4.4 }
+    callback returns_void;
+    returns_void => { test_func2("haha", 8) }
+
+    property <bool> test: test_prop == 4 && test_prop2 == "hello=50";
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (ERROR
+    (user_type_identifier)
+    (user_type_identifier)
+    (var_identifier)
+    (callback_definition
+      (function_identifier)
+      (call_signature
+        (formal_parameters
+          (formal_parameter
+            (builtin_type_identifier))))
+      (builtin_type_identifier))
+    (var_identifier)
+    (callback_definition
+      (function_identifier)
+      (ERROR
+        (int_number))
+      (call_signature
+        (formal_parameters
+          (formal_parameter
+            (builtin_type_identifier))
+          (formal_parameter
+            (builtin_type_identifier))))
+      (builtin_type_identifier))
+    (function_identifier)
+    (ERROR
+      (int_number)
+      (UNEXPECTED ',')
+      (UNEXPECTED 'v'))
+    (variable_set_equal
+      (var_identifier)
+      (ERROR)
+      (assignment_prec_operator)
+      (ERROR
+        (string
+          (string_fragment))
+        (string
+          (string_fragment)))
+      (string
+        (string_fragment))
+      (MISSING ";"))
+    (var_identifier)
+    (assignment_prec_operator)
+    (ERROR
+      (number
+        (int_number)))
+    (string_fragment)))

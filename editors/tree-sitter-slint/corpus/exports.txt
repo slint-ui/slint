@@ -1,0 +1,41 @@
+================================================================================
+export_root
+================================================================================
+
+export component Ok {
+    in-out property <bool> test: true;
+}
+
+component Ko {
+    in-out property <bool> test: false;
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (visibility_modifier)
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 'O'))
+    (field_declaration_list
+      (field_declaration_list_body
+        (var_identifier)
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (language_constant)))))))
+  (component_definition
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 'K'))
+    (field_declaration_list
+      (field_declaration_list_body
+        (var_identifier)
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (language_constant))))))))

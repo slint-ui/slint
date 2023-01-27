@@ -4,6 +4,18 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+# Usage:
+# ```sh
+# # install tree-sitter-tooling
+# cargo install tree-sitter-cli
+# # generate corpus from existing tests
+# find ../../tests/cases -type d -exec ./test-to-corpus.py --tests-directory {} \;
+# # generate parser and update contents of test with current state
+# tree-sitter generate && tree-sitter test -u
+# # Count ERROR in generated outputs:
+# rg ERROR corpus | wc -l
+# ````
+
 import argparse
 import os
 

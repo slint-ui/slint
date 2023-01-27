@@ -1,0 +1,2346 @@
+================================================================================
+forward
+================================================================================
+
+TestCase := Rectangle {
+    width: 400phx;
+    height: 400phx;
+
+    callback focus_rectangle();
+    focus_rectangle => { rectangle.focus(); }
+
+    rectangle := Rectangle {
+        width: parent.width;
+        height: 200phx;
+        forward-focus: input;
+    }
+
+    input := TextInput {
+        y: 200phx;
+        width: parent.width;
+        height: 200phx;
+    }
+
+    property<bool> input_focused: input.has_focus;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (callback_definition
+          (function_identifier)
+          (call_signature
+            (formal_parameters)))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters)))))))))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier)))))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))))))
+
+================================================================================
+initial_focus_through_component
+================================================================================
+
+TextComponent := Rectangle {
+    property<bool> has_focus: my_text_input.has_focus;
+    forward-focus: my_text_input;
+    my_text_input := TextInput { }
+
+    callback not_called;
+    not_called => {
+        if (false) {
+            my_text_input.focus();
+        }
+    }
+}
+
+TestCase := Rectangle {
+    width: 400phx;
+    height: 400phx;
+    forward-focus: input2;
+
+    input1 := TextComponent {
+    }
+    input2 := TextComponent {
+    }
+
+    callback not_called;
+    not_called => {
+      input1.focus();
+    }
+
+    property<bool> input1_focused: input1.has_focus;
+    property<bool> input2_focused: input2.has_focus;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (callback_definition
+          (function_identifier))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (if_statement_definition
+                (expression_body_paren
+                  (value
+                    (language_constant)))
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (callback_call
+                      (var_identifier
+                        (post_identifier
+                          (function_call
+                            (function_identifier)
+                            (call_signature
+                              (formal_parameters)))))))))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (ERROR)
+          (value
+            (number
+              (int_number))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (callback_definition
+          (function_identifier))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier
+                  (ERROR
+                    (int_number))
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters)))))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))))))
+
+================================================================================
+initial_focus_through_layout
+================================================================================
+
+TextComponent := GridLayout {
+    property<bool> has_focus: my_text_input.has_focus;
+    forward-focus: my_text_input;
+    Row {
+        my_text_input := TextInput { }
+    }
+}
+
+TestCase := Rectangle {
+    width: 400phx;
+    height: 400phx;
+    forward-focus: input2;
+
+    input1 := TextComponent {
+    }
+    input2 := TextComponent {
+    }
+
+    property<bool> input1_focused: input1.has_focus;
+    property<bool> input2_focused: input2.has_focus;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (component_definition
+                (user_type_identifier)
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body)))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (ERROR)
+          (value
+            (number
+              (int_number))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))))))
+
+================================================================================
+event_propagation
+================================================================================
+
+TestCase := Rectangle {
+    width: 400phx;
+    height: 400phx;
+    forward-focus: input2;
+
+    input1 := TextInput {
+        width: parent.width;
+        height: 200phx;
+        Rectangle {
+            FocusScope {
+                width: 75%;
+                key-pressed(event) => {
+                    if (event.text != Key.Shift && event.text != Key.Control) {
+                        received += event.text;
+                    }
+                    accept
+                }
+
+                if (false) : Rectangle { FocusScope {} }
+
+                input2 := TextInput {
+                    width: 75%;
+                    height: 100%;
+                }
+            }
+        }
+        Rectangle {
+            width: 0%;
+            FocusScope {  }
+        }
+    }
+
+    property<bool> input1_focused: input1.has_focus;
+    property<string> input1_text: input1.text;
+    property<bool> input2_focused: input2.has_focus;
+    property<string> input2_text: input2.text;
+    property<string> received;
+}
+
+/*
+let instance = TestCase::new();
+
+assert!(!instance.get_input1_focused());
+assert!(instance.get_input2_focused());
+
+slint_testing::send_keyboard_string_sequence(&instance, "Hello");
+assert_eq!(instance.get_input2_text(), "Hello");
+assert_eq!(instance.get_input1_text(), "");
+assert_eq!(instance.get_received(), "");
+
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
+slint_testing::send_keyboard_string_sequence(&instance, "ß");
+assert_eq!(instance.get_input2_text(), "Hello");
+assert_eq!(instance.get_input1_text(), "");
+assert_eq!(instance.get_received(), "ß");
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert(!instance.get_input1_focused());
+assert(instance.get_input2_focused());
+
+slint_testing::send_keyboard_string_sequence(&instance, "Hello");
+assert_eq(instance.get_input2_text(), "Hello");
+assert_eq(instance.get_input1_text(), "");
+assert_eq(instance.get_received(), "");
+
+// Control key
+slint_testing::send_keyboard_char(&instance, slint::SharedString(u8"\U00000011"), true);
+slint_testing::send_keyboard_string_sequence(&instance, "ß");
+assert_eq(instance.get_input2_text(), "Hello");
+assert_eq(instance.get_input1_text(), "");
+assert_eq(instance.get_received(), "ß");
+
+*/
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (ERROR)
+          (value
+            (number
+              (int_number))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (component_definition
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (value
+                              (value_with_units
+                                (number
+                                  (int_number))
+                                (unit_type))))
+                          (var_identifier)
+                          (ERROR
+                            (assignment_prec_operator
+                              (MISSING ":"))
+                            (expression_body_paren
+                              (var_identifier)))
+                          (if_statement_definition
+                            (expression_body_paren
+                              (mult_binary_expression
+                                (var_identifier
+                                  (post_identifier)
+                                  (ERROR
+                                    (UNEXPECTED 'K'))
+                                  (post_identifier))
+                                (mult_prec_operator)
+                                (var_identifier
+                                  (post_identifier)
+                                  (ERROR
+                                    (UNEXPECTED 'K'))
+                                  (post_identifier))))
+                            (field_declaration_list
+                              (field_declaration_list_body
+                                (variable_set_equal
+                                  (var_identifier)
+                                  (assignment_prec_operator)
+                                  (var_identifier
+                                    (post_identifier))))))
+                          (var_identifier))))
+                    (if_statement_definition
+                      (expression_body_paren
+                        (value
+                          (language_constant)))
+                      (component_definition
+                        (user_type_identifier)
+                        (field_declaration_list
+                          (field_declaration_list_body
+                            (component_definition
+                              (user_type_identifier)
+                              (field_declaration_list
+                                (field_declaration_list_body)))))))
+                    (component_definition
+                      (user_type_identifier)
+                      (ERROR
+                        (int_number))
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (value
+                              (value_with_units
+                                (number
+                                  (int_number))
+                                (unit_type))))
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (value
+                              (value_with_units
+                                (number
+                                  (int_number))
+                                (unit_type)))))))))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_with_units
+                    (number
+                      (int_number))
+                    (unit_type))))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body)))))))))
+  (ERROR
+    (user_type_identifier)
+    (UNEXPECTED 'u')
+    (int_number)
+    (UNEXPECTED '_')
+    (UNEXPECTED 'u')
+    (int_number)
+    (UNEXPECTED 'h')
+    (UNEXPECTED 'u')
+    (int_number)
+    (UNEXPECTED '_')
+    (UNEXPECTED 'u')
+    (int_number)
+    (UNEXPECTED 'e')
+    (UNEXPECTED 'u')
+    (int_number)
+    (UNEXPECTED '_')
+    (UNEXPECTED 'u')
+    (int_number)
+    (UNEXPECTED 'h')
+    (UNEXPECTED 'u')
+    (int_number)
+    (UNEXPECTED '_')
+    (UNEXPECTED 'u')
+    (int_number)
+    (UNEXPECTED 'e')
+    (UNEXPECTED 'c'))
+  (comment))
+
+================================================================================
+event_propagation_2
+================================================================================
+
+TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+    FocusScope {
+        key-pressed(event) => {
+            r1 += event.text;
+            return event.text == "a" ? accept : reject;
+        }
+
+        FocusScope {
+            key-pressed(event) => {
+                r2 += event.text;
+                return event.text == "b" ? accept : reject;
+            }
+            Rectangle {
+                FocusScope {
+                    key-pressed(event) => {
+                        r3 += event.text;
+                        return event.text == "c" ? accept : reject;
+                    }
+
+                    if (toggle) : FocusScope {
+                        key-pressed(event) => {
+                            r4 += event.text;
+                            return event.text == "d" ? accept : reject;
+                        }
+                        FocusScope {
+                            key-pressed(event) => {
+                                r5 += event.text;
+                                return event.text == "e" ? accept : reject;
+                            }
+                            TouchArea {
+                                clicked => {
+                                    parent.focus();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    property<bool> toggle: true;
+    property<string> r1;
+    property<string> r2;
+    property<string> r3;
+    property<string> r4;
+    property<string> r5;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (ERROR
+                  (assignment_prec_operator
+                    (MISSING ":"))
+                  (ERROR
+                    (expression_body_paren
+                      (var_identifier))
+                    (UNEXPECTED '1'))
+                  (value
+                    (number
+                      (int_number)))
+                  (add_prec_operator))
+                (assignment_prec_operator)
+                (var_identifier
+                  (post_identifier)))
+              (var_identifier)
+              (variable_set_equal
+                (var_identifier
+                  (post_identifier))
+                (ERROR
+                  (assignment_prec_operator))
+                (assignment_prec_operator)
+                (ternary_expression
+                  (string
+                    (string_fragment))
+                  (var_identifier)
+                  (var_identifier))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (ERROR
+                  (assignment_prec_operator
+                    (MISSING ":"))
+                  (ERROR
+                    (expression_body_paren
+                      (var_identifier))
+                    (UNEXPECTED '2'))
+                  (value
+                    (number
+                      (int_number)))
+                  (add_prec_operator))
+                (assignment_prec_operator)
+                (var_identifier
+                  (post_identifier)))
+              (var_identifier)
+              (variable_set_equal
+                (var_identifier
+                  (post_identifier))
+                (ERROR
+                  (assignment_prec_operator))
+                (assignment_prec_operator)
+                (ternary_expression
+                  (string
+                    (string_fragment))
+                  (var_identifier)
+                  (var_identifier))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (ERROR
+                        (assignment_prec_operator
+                          (MISSING ":"))
+                        (ERROR
+                          (expression_body_paren
+                            (var_identifier))
+                          (UNEXPECTED '3'))
+                        (value
+                          (number
+                            (int_number)))
+                        (add_prec_operator))
+                      (assignment_prec_operator)
+                      (var_identifier
+                        (post_identifier)))
+                    (var_identifier)
+                    (variable_set_equal
+                      (var_identifier
+                        (post_identifier))
+                      (ERROR
+                        (assignment_prec_operator))
+                      (assignment_prec_operator)
+                      (ternary_expression
+                        (string
+                          (string_fragment))
+                        (var_identifier)
+                        (var_identifier))))))
+              (if_statement_definition
+                (expression_body_paren
+                  (var_identifier))
+                (component_definition
+                  (user_type_identifier)
+                  (field_declaration_list
+                    (field_declaration_list_body
+                      (variable_set_equal
+                        (var_identifier)
+                        (ERROR
+                          (assignment_prec_operator
+                            (MISSING ":"))
+                          (ERROR
+                            (expression_body_paren
+                              (var_identifier))
+                            (UNEXPECTED '4'))
+                          (value
+                            (number
+                              (int_number)))
+                          (add_prec_operator))
+                        (assignment_prec_operator)
+                        (var_identifier
+                          (post_identifier)))
+                      (var_identifier)
+                      (variable_set_equal
+                        (var_identifier
+                          (post_identifier))
+                        (ERROR
+                          (assignment_prec_operator))
+                        (assignment_prec_operator)
+                        (ternary_expression
+                          (string
+                            (string_fragment))
+                          (var_identifier)
+                          (var_identifier)))))))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (ERROR
+                        (assignment_prec_operator
+                          (MISSING ":"))
+                        (ERROR
+                          (expression_body_paren
+                            (var_identifier))
+                          (UNEXPECTED '5'))
+                        (value
+                          (number
+                            (int_number)))
+                        (add_prec_operator))
+                      (assignment_prec_operator)
+                      (var_identifier
+                        (post_identifier)))
+                    (var_identifier)
+                    (variable_set_equal
+                      (var_identifier
+                        (post_identifier))
+                      (ERROR
+                        (assignment_prec_operator))
+                      (assignment_prec_operator)
+                      (ternary_expression
+                        (string
+                          (string_fragment))
+                        (var_identifier)
+                        (var_identifier))))))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (callback_event
+                      (function_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (callback_call
+                            (var_identifier
+                              (reference_identifier)
+                              (post_identifier
+                                (function_call
+                                  (function_identifier)
+                                  (call_signature
+                                    (formal_parameters))))))))))))))))))
+  (ERROR
+    (builtin_type_identifier)
+    (UNEXPECTED 'o')
+    (builtin_type_identifier)
+    (UNEXPECTED '1')
+    (int_number)
+    (builtin_type_identifier)
+    (UNEXPECTED '2')
+    (int_number)
+    (builtin_type_identifier)
+    (UNEXPECTED '3')
+    (int_number)
+    (builtin_type_identifier)
+    (UNEXPECTED '4')
+    (int_number)
+    (builtin_type_identifier)
+    (UNEXPECTED '5')
+    (int_number)))
+
+================================================================================
+focus_change
+================================================================================
+
+TestCase := Rectangle {
+    width: 400phx;
+    height: 400phx;
+
+    input1 := TextInput {
+        width: parent.width;
+        height: 200phx;
+    }
+
+    input2 := TextInput {
+        y: 200phx;
+        width: parent.width;
+        height: 200phx;
+    }
+
+    property<bool> input1_focused: input1.has_focus;
+    property<string> input1_text: input1.text;
+    property<bool> input2_focused: input2.has_focus;
+    property<string> input2_text: input2.text;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))))))
+
+================================================================================
+focus_change_subcompo
+================================================================================
+
+// Test that the correct item indices are computed when focusing
+// children of sub-components or their roots.
+
+SubComponentWithFocusableChild := Rectangle {
+    property <bool> has-focus: input.has-focus;
+
+    callback activate();
+    activate => {
+        input.focus();
+    }
+
+    input := TextInput {
+        width: 100%;
+        height: 100%;
+    }
+}
+
+SubComponentWithRootFocusable := TextInput {
+    callback activate();
+    activate => {
+        root.focus();
+    }
+}
+
+FocusInNestedSubComponent := Rectangle {
+    property <bool> has-focus: compo.has-focus;
+    callback activate();
+    activate => {
+        compo.activate();
+    }
+    compo := SubComponentWithRootFocusable {
+    }
+}
+
+
+TestCase := Rectangle {
+    width: 400phx;
+    height: 400phx;
+
+    callback focus_subcompo1();
+    focus_subcompo1 => { input1.activate(); }
+    callback focus_subcompo2();
+    focus_subcompo2 => { input2.activate(); }
+    callback focus_subcompo3();
+    focus_subcompo3 => { input3.activate(); }
+
+    input1 := SubComponentWithFocusableChild {
+        y: 0phx;
+        height: 150phx;
+    }
+
+    input2 := SubComponentWithRootFocusable {
+        y: 150phx;
+        height: 150phx;
+    }
+
+    input3 := FocusInNestedSubComponent {
+        y: 250px;
+        height: 150px;
+    }
+
+    property<bool> input1_focused: input1.has_focus;
+    property<bool> input2_focused: input2.has_focus;
+    property<bool> input3_focused: input3.has_focus;
+
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (comment)
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (callback_definition
+          (function_identifier)
+          (call_signature
+            (formal_parameters)))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters)))))))))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_with_units
+                    (number
+                      (int_number))
+                    (unit_type))))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_with_units
+                    (number
+                      (int_number))
+                    (unit_type))))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (callback_definition
+          (function_identifier)
+          (call_signature
+            (formal_parameters)))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters))))))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (callback_definition
+          (function_identifier)
+          (call_signature
+            (formal_parameters)))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters)))))))))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (call_signature
+            (formal_parameters)))
+        (callback_event
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier
+                  (ERROR
+                    (int_number))
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters)))))))))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (call_signature
+            (formal_parameters)))
+        (callback_event
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier
+                  (ERROR
+                    (int_number))
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters)))))))))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (call_signature
+            (formal_parameters)))
+        (callback_event
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier
+                  (ERROR
+                    (int_number))
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters)))))))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_with_units
+                    (number
+                      (int_number))
+                    (unit_type))))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_with_units
+                    (number
+                      (int_number))
+                    (unit_type)))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))))))
+
+================================================================================
+focus_change_through_signal
+================================================================================
+
+SubElement := Rectangle {
+    property text <=> input.text;
+    property <bool> has-focus: input.has-focus;
+    forward_focus: input;
+    input := TextInput {
+        width: 100%;
+        height: 100%;
+    }
+}
+
+TestCase := Rectangle {
+    width: 400phx;
+    height: 400phx;
+
+    callback focus_input1();
+    focus_input1 => { input1.focus(); }
+
+    callback focus_input2();
+    focus_input2 => { input2.focus(); }
+
+    Rectangle {
+        input1 := TextInput {
+            width: parent.width;
+            height: 200phx;
+        }
+    }
+
+    input2 := SubElement {
+        y: 200phx;
+        width: parent.width;
+        height: 200phx;
+    }
+
+    if (false) : SubElement {  }
+
+    property<bool> input1_focused: input1.has_focus;
+    property<string> input1_text: input1.text;
+    property<bool> input2_focused: input2.has_focus;
+    property<string> input2_text: input2.text;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (ERROR
+          (UNEXPECTED 'e')
+          (UNEXPECTED 'u')
+          (UNEXPECTED 'e'))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_with_units
+                    (number
+                      (int_number))
+                    (unit_type))))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_with_units
+                    (number
+                      (int_number))
+                    (unit_type))))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (call_signature
+            (formal_parameters)))
+        (callback_event
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier
+                  (ERROR
+                    (int_number))
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters)))))))))
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (call_signature
+            (formal_parameters)))
+        (callback_event
+          (function_identifier)
+          (ERROR
+            (int_number))
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier
+                  (ERROR
+                    (int_number))
+                  (post_identifier
+                    (function_call
+                      (function_identifier)
+                      (call_signature
+                        (formal_parameters)))))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (component_definition
+                (user_type_identifier)
+                (ERROR
+                  (int_number))
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier)))
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (number
+                          (int_number)))
+                      (ERROR
+                        (UNEXPECTED 'x')))))))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (if_statement_definition
+          (expression_body_paren
+            (value
+              (language_constant)))
+          (component_definition
+            (user_type_identifier)
+            (field_declaration_list
+              (field_declaration_list_body))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))))))
+
+================================================================================
+initial_focus
+================================================================================
+
+TestCase := Rectangle {
+    width: 400phx;
+    height: 400phx;
+    forward-focus: input1;
+
+    input1 := TextInput {
+        width: parent.width;
+        height: 200phx;
+    }
+    input2 := TextInput {
+        y: 200phx;
+        width: parent.width;
+        height: 200phx;
+    }
+
+    property<bool> input1_focused: input1.has_focus;
+    property<string> input1_text: input1.text;
+    property<bool> input2_focused: input2.has_focus;
+    property<string> input2_text: input2.text;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (ERROR)
+          (value
+            (number
+              (int_number))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x'))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_'))
+          (property_expr
+            (var_identifier
+              (ERROR
+                (int_number))
+              (post_identifier))))))))
+
+================================================================================
+keyboard_focus
+================================================================================
+
+import { SpinBox, LineEdit, HorizontalBox, VerticalBox, TabWidget } from "std-widgets.slint";
+
+TestCase := Window {
+    preferred-width: 500px;
+    preferred-height: 400px;
+
+    property<[{name: string, account: string, score: float}]> model: [
+        {
+            name: "Olivier",
+            account: "ogoffart",
+            score: 456,
+        },
+        {
+            name: "Simon",
+            account: "tronical",
+            score: 789,
+        }
+    ];
+
+    property<string> result;
+
+    VerticalBox {
+        FocusScope {
+            key-pressed(event) => {
+                if (event.text == "X") {
+                    result += "T:";
+                    return accept;
+                }
+                return reject;
+            }
+        }
+
+        for person[i] in model: HorizontalBox {
+            FocusScope {
+                key-pressed(event) => {
+                    if (event.text == "X") {
+                        result += "1." + person.score + ":";
+                        return accept;
+                    }
+                    return reject;
+                }
+            }
+            FocusScope {
+                enabled: false;
+            }
+            FocusScope {
+                key-pressed(event) => {
+                    if (event.text == "X") {
+                        result += "2." + i + ":";
+                        return accept;
+                    }
+                    return reject;
+                }
+            }
+            if (true) : FocusScope {
+                enabled: false;
+            }
+        }
+        FocusScope {
+            key-pressed(event) => {
+                if (event.text == "X") {
+                    result += "B:";
+                    return accept;
+                }
+                return reject;
+            }
+        }
+    }
+    for xxx in [0, 1] : FocusScope {
+        enabled: false;
+        key-pressed(event) => {
+            result += "disabledA" + xxx;
+            accept
+        }
+        if (true) :  FocusScope {
+            enabled: false;
+            key-pressed(event) => {
+                result += "disabledB" + xxx;
+                accept
+            }
+        }
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (import_statement
+    (user_type_identifier)
+    (user_type_identifier)
+    (user_type_identifier)
+    (user_type_identifier)
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (value_with_units
+              (number
+                (int_number))
+              (unit_type))))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (value_with_units
+              (number
+                (int_number))
+              (unit_type))))
+        (property_definition
+          (property_type_list
+            (ERROR
+              (UNEXPECTED 'n')
+              (builtin_type_identifier)
+              (UNEXPECTED 'c')
+              (builtin_type_identifier)
+              (UNEXPECTED 'c'))
+            (builtin_type_identifier)
+            (ERROR))
+          (var_identifier)
+          (property_expr
+            (list_definition
+              (list_definition_body
+                (struct_field_declaration_list
+                  (struct_field_declaration_list_body
+                    (var_identifier)
+                    (string
+                      (string_fragment))
+                    (var_identifier)
+                    (string
+                      (string_fragment))
+                    (var_identifier)
+                    (value
+                      (number
+                        (int_number)))))
+                (struct_field_declaration_list
+                  (struct_field_declaration_list_body
+                    (var_identifier)
+                    (string
+                      (string_fragment))
+                    (var_identifier)
+                    (string
+                      (string_fragment))
+                    (var_identifier)
+                    (value
+                      (number
+                        (int_number)))))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (var_identifier)
+                    (ERROR
+                      (assignment_prec_operator
+                        (MISSING ":"))
+                      (expression_body_paren
+                        (var_identifier)))
+                    (if_statement_definition
+                      (expression_body_paren
+                        (ERROR
+                          (function_identifier))
+                        (string
+                          (string_fragment)))
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (string
+                              (string_fragment)))
+                          (var_identifier)
+                          (callback_call
+                            (var_identifier)))))
+                    (var_identifier)
+                    (callback_call
+                      (var_identifier))))))))
+        (for_loop_definition
+          (var_identifier
+            (index_operator
+              (var_identifier)))
+          (var_identifier)
+          (component_definition
+            (user_type_identifier)
+            (field_declaration_list
+              (field_declaration_list_body
+                (component_definition
+                  (user_type_identifier)
+                  (field_declaration_list
+                    (field_declaration_list_body
+                      (var_identifier)
+                      (ERROR
+                        (assignment_prec_operator
+                          (MISSING ":"))
+                        (expression_body_paren
+                          (var_identifier)))
+                      (if_statement_definition
+                        (expression_body_paren
+                          (ERROR
+                            (function_identifier))
+                          (string
+                            (string_fragment)))
+                        (field_declaration_list
+                          (field_declaration_list_body
+                            (variable_set_equal
+                              (var_identifier)
+                              (assignment_prec_operator)
+                              (add_binary_expression
+                                (add_binary_expression
+                                  (string
+                                    (string_fragment))
+                                  (add_prec_operator)
+                                  (var_identifier
+                                    (post_identifier)))
+                                (add_prec_operator)
+                                (string
+                                  (string_fragment))))
+                            (var_identifier)
+                            (callback_call
+                              (var_identifier)))))
+                      (var_identifier)
+                      (callback_call
+                        (var_identifier)))))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (language_constant))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (var_identifier)
+              (ERROR
+                (assignment_prec_operator
+                  (MISSING ":"))
+                (expression_body_paren
+                  (var_identifier)))
+              (if_statement_definition
+                (expression_body_paren
+                  (ERROR
+                    (function_identifier))
+                  (string
+                    (string_fragment)))
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (add_binary_expression
+                        (add_binary_expression
+                          (string
+                            (string_fragment))
+                          (add_prec_operator)
+                          (var_identifier))
+                        (add_prec_operator)
+                        (string
+                          (string_fragment))))
+                    (var_identifier)
+                    (callback_call
+                      (var_identifier)))))
+              (var_identifier)
+              (callback_call
+                (var_identifier))))))))
+  (component_definition
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 'F'))
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (language_constant))))))
+  (ERROR
+    (UNEXPECTED 'F')
+    (UNEXPECTED 'k')
+    (UNEXPECTED 'e')
+    (UNEXPECTED 'v')
+    (UNEXPECTED 'v')
+    (UNEXPECTED 'e')
+    (UNEXPECTED 'X')
+    (UNEXPECTED 's')
+    (UNEXPECTED 'B')
+    (UNEXPECTED 't')
+    (UNEXPECTED 't')
+    (UNEXPECTED 'x')
+    (int_number)
+    (int_number)
+    (UNEXPECTED 'F')
+    (UNEXPECTED 'a')
+    (UNEXPECTED 'k')
+    (UNEXPECTED 'e')
+    (UNEXPECTED 'v')
+    (UNEXPECTED 's')
+    (UNEXPECTED 'i')
+    (UNEXPECTED 'x')
+    (UNEXPECTED 'c')
+    (UNEXPECTED 'F')
+    (UNEXPECTED 'a')
+    (UNEXPECTED 'k')
+    (UNEXPECTED 'e')
+    (UNEXPECTED 'v')
+    (UNEXPECTED 's')
+    (UNEXPECTED 'i')
+    (UNEXPECTED 'x')
+    (UNEXPECTED 'c')))
+
+================================================================================
+keyboard_focus2
+================================================================================
+
+// cSpell: ignore backtab
+
+import { VerticalBox, ListView } from "std-widgets.slint";
+
+TestCase := Window {
+  width: 500px;
+  height: 400px;
+
+  property <[string]> features : [ "f" ];
+  property <string> result;
+
+  VerticalBox {
+    VerticalBox {
+      if true: ListView {
+        for f in features: FocusScope {
+          key-pressed(event) => {
+              if (event.text == "X") {
+                  result += "1:";
+                  return accept;
+              }
+              return reject;
+          }
+        }
+      }
+      if false: Rectangle { }
+    }
+    FocusScope {
+      key-pressed(event) => {
+          if (event.text == "X") {
+              result += "2:";
+              return accept;
+          }
+          return reject;
+      }
+    }
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (import_statement
+    (user_type_identifier)
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (value_with_units
+              (number
+                (int_number))
+              (unit_type))))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (value_with_units
+              (number
+                (int_number))
+              (unit_type))))
+        (property_definition
+          (property_type_list
+            (builtin_type_identifier))
+          (var_identifier)
+          (property_expr
+            (ERROR)
+            (string
+              (string_fragment)))
+          (ERROR))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (if_statement_definition
+                      (value
+                        (language_constant))
+                      (component_definition
+                        (user_type_identifier)
+                        (field_declaration_list
+                          (field_declaration_list_body
+                            (for_loop_definition
+                              (var_identifier)
+                              (var_identifier)
+                              (component_definition
+                                (user_type_identifier)
+                                (field_declaration_list
+                                  (field_declaration_list_body
+                                    (var_identifier)
+                                    (ERROR
+                                      (assignment_prec_operator
+                                        (MISSING ":"))
+                                      (expression_body_paren
+                                        (var_identifier)))
+                                    (if_statement_definition
+                                      (expression_body_paren
+                                        (ERROR
+                                          (function_identifier))
+                                        (string
+                                          (string_fragment)))
+                                      (field_declaration_list
+                                        (field_declaration_list_body
+                                          (variable_set_equal
+                                            (var_identifier)
+                                            (assignment_prec_operator)
+                                            (string
+                                              (string_fragment)))
+                                          (var_identifier)
+                                          (callback_call
+                                            (var_identifier)))))
+                                    (var_identifier)
+                                    (callback_call
+                                      (var_identifier)))))))))))))
+              (if_statement_definition
+                (value
+                  (language_constant))
+                (component_definition
+                  (user_type_identifier)
+                  (field_declaration_list
+                    (field_declaration_list_body)))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (var_identifier)
+              (ERROR
+                (assignment_prec_operator
+                  (MISSING ":"))
+                (expression_body_paren
+                  (var_identifier)))
+              (if_statement_definition
+                (expression_body_paren
+                  (ERROR
+                    (function_identifier))
+                  (string
+                    (string_fragment)))
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (string
+                        (string_fragment)))
+                    (var_identifier)
+                    (callback_call
+                      (var_identifier)))))
+              (var_identifier)
+              (callback_call
+                (var_identifier))))))))
+  (ERROR))

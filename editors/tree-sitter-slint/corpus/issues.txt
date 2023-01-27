@@ -1,0 +1,233 @@
+================================================================================
+issue_1837_percent_comparison
+================================================================================
+
+Inner := Rectangle {
+    property <percent> val;
+    background: val < 50% ? red : blue;
+}
+
+// It seems the indirection is required
+Outer := VerticalLayout {
+    property <percent> val;
+    Inner { val: parent.val;    } // Commenting this line does not produce a compiler error
+
+    Rectangle { background: val < 50% ? green : yellow; }
+
+}
+
+export AppWindow := Window {
+    width: 240px;
+    height: 240px;
+    Outer { val: 50%; }
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (comparison_binary_expression
+            (var_identifier)
+            (comparison_operator)
+            (ternary_expression
+              (value
+                (value_with_units
+                  (number
+                    (int_number))
+                  (unit_type)))
+              (value
+                (language_constant))
+              (value
+                (language_constant))))))))
+  (comment)
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))))))
+        (comment)
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (comparison_binary_expression
+                  (var_identifier)
+                  (comparison_operator)
+                  (ternary_expression
+                    (value
+                      (value_with_units
+                        (number
+                          (int_number))
+                        (unit_type)))
+                    (value
+                      (language_constant))
+                    (value
+                      (language_constant)))))))))))
+  (component_definition
+    (visibility_modifier)
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (value_with_units
+              (number
+                (int_number))
+              (unit_type))))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (value_with_units
+              (number
+                (int_number))
+              (unit_type))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (value_with_units
+                    (number
+                      (int_number))
+                    (unit_type)))))))))))
+
+================================================================================
+issue_1846_visibility_in_for
+================================================================================
+
+TestCase := Rectangle {
+    height: 100phx;
+    width: 100phx;
+    property <int> clicked;
+    property <bool> condition;
+
+    if true : TouchArea {
+        visible: condition;
+        clicked => { root.clicked += 1; }
+    }
+
+    HorizontalLayout {
+        for xx in [10] : TouchArea {
+            visible: false;
+            clicked => { root.clicked += xx; }
+        }
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (if_statement_definition
+          (value
+            (language_constant))
+          (component_definition
+            (user_type_identifier)
+            (field_declaration_list
+              (field_declaration_list_body
+                (variable_set_equal
+                  (var_identifier)
+                  (assignment_prec_operator)
+                  (var_identifier))
+                (callback_event
+                  (function_identifier)
+                  (field_declaration_list
+                    (field_declaration_list_body
+                      (variable_set_equal
+                        (var_identifier
+                          (reference_identifier)
+                          (post_identifier))
+                        (assignment_prec_operator)
+                        (value
+                          (number
+                            (int_number)))))))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (for_loop_definition
+                (var_identifier)
+                (var_identifier
+                  (reference_identifier
+                    (MISSING "parent"))
+                  (index_operator
+                    (value
+                      (number
+                        (int_number)))))
+                (component_definition
+                  (user_type_identifier)
+                  (field_declaration_list
+                    (field_declaration_list_body
+                      (variable_set_equal
+                        (var_identifier)
+                        (assignment_prec_operator)
+                        (value
+                          (language_constant)))
+                      (callback_event
+                        (function_identifier)
+                        (field_declaration_list
+                          (field_declaration_list_body
+                            (variable_set_equal
+                              (var_identifier
+                                (reference_identifier)
+                                (post_identifier))
+                              (assignment_prec_operator)
+                              (var_identifier))))))))))))))))

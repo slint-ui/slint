@@ -1,0 +1,566 @@
+================================================================================
+duplicated_name
+================================================================================
+
+//include_path: ../../helper_components
+import { ColorButton } from "test_button.slint";
+import { TestButton as TheRealTestButton  } from "re_export.slint";
+
+// ColorButton uses TestButtonImpl
+TestButtonImpl := Rectangle {
+    property <int> abc: 12;
+}
+
+// Testbutton is another name for TestButtonImpl
+TestButton := Rectangle {
+    property <string> abc: "hello";
+}
+
+TestCase := Rectangle {
+    ColorButton { button_color: red; }
+    TestButtonImpl { abc: 4; }
+    TestButton { abc: "world"; }
+    TheRealTestButton{ button-text: "yo"; }
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (import_statement
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (import_statement
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 's'))
+    (string
+      (string_fragment)))
+  (comment)
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number))))))))
+  (comment)
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (string
+              (string_fragment)))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (language_constant))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (string
+                  (string_fragment))))))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (string
+                  (string_fragment))))))))))
+
+================================================================================
+exported_component
+================================================================================
+
+export ExportedA := Rectangle {}
+NotExported := ExportedA {
+    ExportedA {}
+}
+ExportedB := NotExported {
+}
+export { ExportedB }
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (visibility_modifier)
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body)))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body)))
+  (export_statement
+    (user_type_identifier)))
+
+================================================================================
+external_globals
+================================================================================
+
+//include_path: ../../helper_components
+import { UseGlobal } from "export_globals.slint";
+TestCase := Rectangle {
+    ug := UseGlobal {}
+    property<int> p1: ug.used42;
+    property<int> p2: ug.used44;
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (import_statement
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number))
+          (property_expr
+            (var_identifier
+              (post_identifier)))
+          (ERROR
+            (int_number)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number))
+          (property_expr
+            (var_identifier
+              (post_identifier)))
+          (ERROR
+            (int_number)))))))
+
+================================================================================
+external_globals_nameclash
+================================================================================
+
+//include_path: ../../helper_components
+import { UseGlobal, ExportedGlobal as FromExport } from "export_globals.slint";
+
+global NotExported := {
+    property<int> abc: 1000;
+    property<string> prop: "_";
+}
+
+global ExportedGlobal := {
+    property<int> abc: 1001;
+}
+
+TestCase := Rectangle {
+    ug := UseGlobal {}
+    property<int> p1: ug.used42;
+    property<int> p2: ug.used44;
+    property<int> p3: NotExported.abc + ExportedGlobal.abc;
+
+    property <bool> test: p1 == 42 && p2 == 44 && p3 == 2001 ;//&& NotExported.prop == "_";
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (import_statement
+    (user_type_identifier)
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 's'))
+    (string
+      (string_fragment)))
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (string
+              (string_fragment)))))))
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number))
+          (property_expr
+            (var_identifier
+              (post_identifier)))
+          (ERROR
+            (int_number)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number))
+          (property_expr
+            (var_identifier
+              (post_identifier)))
+          (ERROR
+            (int_number)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number))
+          (property_expr
+            (add_binary_expression
+              (var_identifier
+                (post_identifier))
+              (add_prec_operator)
+              (var_identifier
+                (post_identifier)))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (property_expr
+              (var_identifier))
+            (int_number)
+            (property_expr
+              (mult_binary_expression
+                (value
+                  (number
+                    (int_number)))
+                (mult_prec_operator)
+                (var_identifier)))
+            (int_number)
+            (property_expr
+              (mult_binary_expression
+                (value
+                  (number
+                    (int_number)))
+                (mult_prec_operator)
+                (var_identifier)))
+            (int_number))
+          (property_expr
+            (value
+              (number
+                (int_number))))))
+      (comment))))
+
+================================================================================
+external_structs
+================================================================================
+
+//include_path: ../../helper_components
+import { UseStruct , ExportedStruct } from "export_structs.slint";
+TestCase := Rectangle {
+    property <ExportedStruct> exp: { d: 3001, e: {a: 2001} };
+    u := UseStruct {
+        exp: { d: 3002, e: {a: 2002} };
+        nexp: { b: 3003, c: {a: 2003} };
+    }
+    property<int> p1: u.nexp.c.a;
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (import_statement
+    (user_type_identifier)
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (user_type_identifier)
+          (var_identifier)
+          (ERROR
+            (property_expr
+              (ERROR
+                (UNEXPECTED ':'))
+              (value
+                (number
+                  (int_number))))
+            (UNEXPECTED ':')
+            (UNEXPECTED ':'))
+          (property_expr
+            (value
+              (number
+                (int_number))))
+          (ERROR))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (ERROR
+                  (UNEXPECTED ':'))
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED ':')
+                  (UNEXPECTED ':')
+                  (int_number)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (ERROR
+                  (UNEXPECTED ':'))
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED ':')
+                  (UNEXPECTED ':')
+                  (int_number))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number))
+          (property_expr
+            (var_identifier
+              (post_identifier)
+              (post_identifier)
+              (post_identifier))))))))
+
+================================================================================
+external_type
+================================================================================
+
+//include_path: ../../helper_components
+import { TestButton as RealButton } from "test_button.slint";
+import { ColorButton } from "../helper_components/test_button.slint";
+import { Button } from "std-widgets.slint";
+import { TestButton as ReExportedButton } from "re_export.slint";
+import { Main_Window } from "main_window.slint";
+TestCase := Rectangle {
+    RealButton {} // aliased from external file
+    ColorButton {} // from external file
+    ReExportedButton {} // from external file re-exported
+    Button {} // from standard library
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (import_statement
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 's'))
+    (string
+      (string_fragment)))
+  (import_statement
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (import_statement
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (import_statement
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 's'))
+    (string
+      (string_fragment)))
+  (import_statement
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (comment)
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (comment)
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (comment)
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body))))
+      (comment))))
+
+================================================================================
+just_import
+================================================================================
+
+//include_path: ../../helper_components
+import { MainWindow } from "main_window.slint";
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (import_statement
+    (user_type_identifier)
+    (string
+      (string_fragment))))
+
+================================================================================
+import_multi
+================================================================================
+
+import { ExportedA } from "./exported_component.slint";
+import { ExportedB } from "./exported_component.slint";
+
+TestCase := Rectangle {
+    ExportedA {}
+    ExportedB {}
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (import_statement
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (import_statement
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))))))
+
+================================================================================
+reexport
+================================================================================
+
+//include_path: ../../helper_components
+import { TestButton, ColorButton } from "re_export_all.slint";
+TestCase := Rectangle {
+    TestButton {}
+    ColorButton {}
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (import_statement
+    (user_type_identifier)
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))))))

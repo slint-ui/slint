@@ -1,0 +1,927 @@
+================================================================================
+global_alias
+================================================================================
+
+//include_path: ../../helper_components
+
+global MyGlobal := {
+    property <int> hello: 42;
+}
+
+export { MyGlobal }
+export { MyGlobal as GlobalAlias }
+
+TestCase := Rectangle {
+    property <bool> test_global_prop_value: MyGlobal.hello == 100;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number))))))))
+  (export_statement
+    (user_type_identifier))
+  (export_statement
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 's')))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier)))
+          (ERROR
+            (int_number)))))))
+
+================================================================================
+global_binding
+================================================================================
+
+global Glob := {
+    property <int> a_alias <=> a;
+    property <int> a: 3;
+    property <int> b: a + 3;
+
+}
+
+TestCase := Rectangle {
+    callback set_a(int);
+    set_a(a) => { Glob.a_alias = a; }
+    property <int> value1: Glob.b;
+    property <bool> test: value1 == 3+3;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR)
+          (var_identifier))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (add_binary_expression
+              (var_identifier)
+              (add_prec_operator)
+              (value
+                (number
+                  (int_number)))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (ERROR
+      (callback_definition
+        (function_identifier)
+        (call_signature
+          (formal_parameters
+            (formal_parameter
+              (builtin_type_identifier)))))
+      (var_identifier)
+      (assignment_prec_operator
+        (MISSING ":"))
+      (expression_body_paren
+        (var_identifier)))
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier
+            (post_identifier))
+          (assignment_prec_operator)
+          (var_identifier)))))
+  (ERROR
+    (user_type_identifier)
+    (UNEXPECTED '>')
+    (UNEXPECTED 'v')
+    (int_number)
+    (UNEXPECTED 'G')
+    (UNEXPECTED ';')
+    (UNEXPECTED 'e')
+    (UNEXPECTED 'v')
+    (int_number)
+    (int_number)
+    (int_number)))
+
+================================================================================
+global_binding_const
+================================================================================
+
+// This tests that constant property from global are properly initialized
+
+global Glob := {
+    property <int> a: 3;
+    property <int> b: a + 3;
+}
+
+global Glob2 := {
+    property <int> a: other;
+    property <int> other: 5;
+}
+
+TestCase := Rectangle {
+    r := Rectangle {
+        property <int> value1: Glob.b;
+        property <int> value2: true ? Glob2.a : 88;
+    }
+    property <bool> test: r.value1 + r.value2 == 3+3 +5;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (add_binary_expression
+              (var_identifier)
+              (add_prec_operator)
+              (value
+                (number
+                  (int_number)))))))))
+  (global_definition
+    (var_identifier)
+    (ERROR
+      (int_number))
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (property_definition
+                (builtin_type_identifier)
+                (var_identifier)
+                (ERROR
+                  (int_number))
+                (property_expr
+                  (var_identifier
+                    (post_identifier))))
+              (property_definition
+                (builtin_type_identifier)
+                (var_identifier)
+                (ERROR
+                  (int_number))
+                (property_expr
+                  (ternary_expression
+                    (value
+                      (language_constant))
+                    (var_identifier
+                      (ERROR
+                        (int_number))
+                      (post_identifier))
+                    (value
+                      (number
+                        (int_number)))))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (add_binary_expression
+              (add_binary_expression
+                (add_binary_expression
+                  (var_identifier
+                    (post_identifier))
+                  (ERROR
+                    (int_number))
+                  (add_prec_operator)
+                  (var_identifier
+                    (post_identifier)))
+                (ERROR
+                  (int_number)
+                  (int_number))
+                (add_prec_operator)
+                (value
+                  (number
+                    (int_number))))
+              (add_prec_operator)
+              (value
+                (number
+                  (int_number))))))))))
+
+================================================================================
+global_depends_on_global
+================================================================================
+
+global Numbers := {
+    property <int> three: 3;
+    property <int> ten: three * Numbers.three + 1;
+}
+
+export global A := {
+    property <int> a_alias <=> a;
+    property <int> a: 3;
+    property <int> b: a + three;
+    property <int> three: Numbers.three;
+}
+
+export global B := {
+   // property <int> a_alias <=> A.a_alias;
+    property <int> c: {
+        debug(A.b, Numbers.ten);
+        A.b + Numbers.ten;
+    }
+}
+
+TestCase := Rectangle {
+    callback set_a(int);
+    set_a(a) => {
+        A.a_alias = a;
+    }
+    property <int> value1: B.c;
+    property <bool> test: value1 == 3 + 13;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (add_binary_expression
+              (mult_binary_expression
+                (var_identifier)
+                (mult_prec_operator)
+                (var_identifier
+                  (post_identifier)))
+              (add_prec_operator)
+              (value
+                (number
+                  (int_number)))))))))
+  (global_definition
+    (visibility_modifier)
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR)
+          (var_identifier))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (add_binary_expression
+              (var_identifier)
+              (add_prec_operator)
+              (var_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier)))))))
+  (global_definition
+    (visibility_modifier)
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (comment)
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (ERROR
+              (UNEXPECTED 'e'))
+            (expression_body_paren
+              (var_identifier
+                (post_identifier))
+              (ERROR
+                (UNEXPECTED 'N')
+                (UNEXPECTED 'e')))))
+        (callback_call
+          (var_identifier
+            (post_identifier)
+            (ERROR
+              (UNEXPECTED 'N'))
+            (post_identifier))))))
+  (ERROR
+    (UNEXPECTED 'T')
+    (UNEXPECTED 'R'))
+  (component_definition
+    (builtin_type_identifier)
+    (ERROR
+      (callback_definition
+        (function_identifier)
+        (call_signature
+          (formal_parameters
+            (formal_parameter
+              (builtin_type_identifier)))))
+      (var_identifier)
+      (assignment_prec_operator
+        (MISSING ":"))
+      (expression_body_paren
+        (var_identifier)))
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier
+            (post_identifier))
+          (assignment_prec_operator)
+          (var_identifier)))))
+  (ERROR
+    (user_type_identifier)
+    (UNEXPECTED '>')
+    (UNEXPECTED 'v')
+    (int_number)
+    (UNEXPECTED 'B')
+    (UNEXPECTED ';')
+    (UNEXPECTED 'e')
+    (UNEXPECTED 'v')
+    (int_number)
+    (int_number)
+    (int_number)))
+
+================================================================================
+alias_to_global
+================================================================================
+
+import { StyleMetrics } from "std-widgets.slint";
+
+global Glop := {
+    property <int> hello: 42;
+    property <int> second: 88;
+    property <int> third: 102;
+}
+
+global DualBindingGlop := {
+    property third <=> Glop.third;
+}
+
+Widget := Rectangle {
+    property second <=> Glop.second;
+}
+
+TestCase := Rectangle {
+    // This is meant to test an alias to a native global.
+    // Unfortunately, this is only a native global with the Qt backend and not with the Test backend
+    property <length> alias_to_native <=> StyleMetrics.text_cursor_width;
+    property <int> alias_to_global <=> Glop.hello;
+    property <bool> test: alias_to_native == StyleMetrics.text_cursor_width && alias_to_global == 42 && indirect == 88;
+    property <int> indirect <=> widget.second;
+    property <int> direct: Glop.second;
+    property <int> dual <=> DualBindingGlop.third;
+
+    widget := Widget { }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (import_statement
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number))))))))
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body)
+      (ERROR
+        (UNEXPECTED 'r')
+        (UNEXPECTED 'G')
+        (UNEXPECTED 'r'))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body)
+      (ERROR
+        (UNEXPECTED 'e')
+        (UNEXPECTED 'G')
+        (UNEXPECTED 'e'))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (comment)
+        (comment)
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR)
+          (var_identifier
+            (post_identifier)))
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR)
+          (var_identifier
+            (post_identifier)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (property_expr
+              (var_identifier))
+            (property_expr
+              (mult_binary_expression
+                (var_identifier
+                  (post_identifier))
+                (mult_prec_operator)
+                (var_identifier)))
+            (property_expr
+              (mult_binary_expression
+                (value
+                  (number
+                    (int_number)))
+                (mult_prec_operator)
+                (var_identifier))))
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR)
+          (var_identifier
+            (post_identifier)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR)
+          (var_identifier
+            (post_identifier)))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))))))
+
+================================================================================
+global_accessor_api
+================================================================================
+
+//include_path: ../../helper_components
+
+import { StyleMetrics } from "std-widgets.slint";
+import { ExportedGlobal as ReexportedGlobal } from "export_globals.slint";
+
+struct MyStruct := { x:int, y: int, }
+
+global InternalGlobal := {
+    property <int> hello: 42;
+    property <MyStruct> my_struct;
+    pure callback sum(int, int)->int;
+}
+
+export { InternalGlobal as PublicGlobal }
+export { ReexportedGlobal }
+
+TestCase := Rectangle {
+    property <bool> test_global_prop_value: InternalGlobal.hello == 100;
+    property <int> test_call_callback: InternalGlobal.sum(6, 4);
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (import_statement
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (import_statement
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 's')
+      (UNEXPECTED 'd'))
+    (string
+      (string_fragment)))
+  (struct_definition
+    (user_type_identifier)
+    (struct_field_declaration_list
+      (struct_field_declaration_list_body
+        (var_identifier)
+        (builtin_type_identifier)
+        (var_identifier)
+        (builtin_type_identifier))))
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (property_definition
+          (user_type_identifier)
+          (var_identifier))
+        (var_identifier)
+        (callback_definition
+          (function_identifier)
+          (call_signature
+            (formal_parameters
+              (formal_parameter
+                (builtin_type_identifier))
+              (formal_parameter
+                (builtin_type_identifier))))
+          (builtin_type_identifier)))))
+  (export_statement
+    (user_type_identifier)
+    (ERROR
+      (UNEXPECTED 's')))
+  (export_statement
+    (user_type_identifier))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier)))
+          (ERROR
+            (int_number)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature
+                    (formal_parameters
+                      (formal_parameter
+                        (value
+                          (number
+                            (int_number))))
+                      (formal_parameter
+                        (value
+                          (number
+                            (int_number)))))))))))))))
+
+================================================================================
+global_callback
+================================================================================
+
+global Glo := {
+    property <int> hello: 42;
+    pure callback sum(int, int) -> int;
+    pure callback mul(int, int) -> int;
+    pure callback calculate_profit() -> int;
+    calculate_profit() => { return 1000; }
+}
+
+ExtraComp := Rectangle {
+    property<int> five: Glo.sum(3, 2);
+    property<int> six: Glo.mul(3, 2);
+}
+
+
+TestCase := Window {
+    pure callback sum <=> Glo.sum;
+    pure callback mul <=> Glo.mul;
+
+    x := ExtraComp {}
+    property<int> five: x.five;
+    property<int> six: x.six;
+
+    property<int> profit: Glo.calculate-profit();
+
+    //mul(α, β) => { return α * β; }
+    property<bool> test: five == 0 && profit == 1000; // because the callback is not set
+
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (var_identifier)
+        (callback_definition
+          (function_identifier)
+          (call_signature
+            (formal_parameters
+              (formal_parameter
+                (builtin_type_identifier))
+              (formal_parameter
+                (builtin_type_identifier))))
+          (builtin_type_identifier))
+        (var_identifier)
+        (callback_definition
+          (function_identifier)
+          (call_signature
+            (formal_parameters
+              (formal_parameter
+                (builtin_type_identifier))
+              (formal_parameter
+                (builtin_type_identifier))))
+          (builtin_type_identifier))
+        (var_identifier)
+        (callback_definition
+          (function_identifier)
+          (call_signature
+            (formal_parameters))
+          (builtin_type_identifier))
+        (callback_event
+          (function_identifier)
+          (ERROR)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_call
+                (var_identifier)
+                (ERROR
+                  (int_number)))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature
+                    (formal_parameters
+                      (formal_parameter
+                        (value
+                          (number
+                            (int_number))))
+                      (formal_parameter
+                        (value
+                          (number
+                            (int_number)))))))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature
+                    (formal_parameters
+                      (formal_parameter
+                        (value
+                          (number
+                            (int_number))))
+                      (formal_parameter
+                        (value
+                          (number
+                            (int_number))))))))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (var_identifier)
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (UNEXPECTED 'G')
+            (UNEXPECTED 'u')))
+        (var_identifier)
+        (callback_definition
+          (function_identifier)
+          (ERROR
+            (UNEXPECTED 'G')
+            (UNEXPECTED 'u')))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier
+                (function_call
+                  (function_identifier)
+                  (call_signature
+                    (formal_parameters)))))))
+        (comment)
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (ERROR)
+            (mult_binary_expression
+              (value
+                (number
+                  (int_number)))
+              (mult_prec_operator)
+              (ERROR)
+              (value
+                (number
+                  (int_number)))))))
+      (comment))))
+
+================================================================================
+issue_2064_two_way_default_value
+================================================================================
+
+export global MyGlobal {
+    in-out property <bool> foo: false;
+    in-out property <bool> foo2;
+}
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 400px;
+
+    in-out property <bool> test: MyGlobal.foo == false && MyGlobal.foo2 == false;
+
+    r := Rectangle {
+         // This two-way binding causes MyGlobal.foo to be true
+        visible <=> MyGlobal.foo;
+    }
+
+    r2 := Rectangle {
+        // This two-way binding causes MyGlobal.foo to be true
+       visible <=> MyGlobal.foo2;
+    }
+
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (global_definition
+    (visibility_modifier)
+    (var_identifier)
+    (ERROR
+      (UNEXPECTED 'o')
+      (UNEXPECTED 'o')
+      (int_number)
+      (UNEXPECTED 'o')
+      (UNEXPECTED 'h')
+      (UNEXPECTED 'o')
+      (UNEXPECTED 'i')
+      (int_number)
+      (UNEXPECTED 'h')
+      (int_number)
+      (UNEXPECTED 'e')
+      (UNEXPECTED 'M')
+      (UNEXPECTED 'o')
+      (UNEXPECTED 'M')
+      (UNEXPECTED 'o')
+      (int_number)
+      (UNEXPECTED '))
+    (ERROR
+      (UNEXPECTED 'R'))
+    (field_declaration_list
+      (field_declaration_list_body
+        (comment)
+        (callback_call
+          (var_identifier
+            (ERROR
+              (UNEXPECTED 'M'))
+            (post_identifier))))))
+  (component_definition
+    (user_type_identifier)
+    (ERROR
+      (int_number))
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (comment)
+        (callback_call
+          (var_identifier
+            (ERROR
+              (UNEXPECTED 'M'))
+            (post_identifier))
+          (ERROR
+            (int_number))))))
+  (ERROR))

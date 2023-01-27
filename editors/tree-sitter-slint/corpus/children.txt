@@ -1,0 +1,640 @@
+================================================================================
+children_placeholder
+================================================================================
+
+Container := Rectangle {
+    GridLayout {
+        padding: 0phx;
+        spacing: 0phx;
+        Row {
+            Rectangle {
+                background: green;
+            }
+            @children
+        }
+    }
+}
+
+TestCase := Container {
+    width: 300phx;
+    height: 200phx;
+
+    rect1 := Rectangle {
+        background: black;
+    }
+
+
+    property <bool> rect1_pos_ok: rect1.x == 150phx;
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (component_definition
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (value
+                              (language_constant))))))
+                    (var_identifier
+                      (children_identifier)))))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (language_constant))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_')
+            (ERROR
+              (int_number))
+            (function_identifier))
+          (property_expr
+            (value
+              (number
+                (int_number))))
+          (ERROR
+            (UNEXPECTED 'x')))))))
+
+================================================================================
+children_placeholder_two_levels
+================================================================================
+
+Container := Rectangle {
+    GridLayout {
+        padding: 0phx;
+        spacing: 0phx;
+        Row {
+            Rectangle {
+                background: green;
+            }
+            @children
+        }
+    }
+}
+
+MegaContainer := Rectangle {
+    Container {
+        @children
+        width: parent.width;
+        height: parent.height;
+    }
+}
+
+TestCase := MegaContainer {
+    width: 300phx;
+    height: 200phx;
+
+    rect1 := Rectangle {
+        background: black;
+    }
+
+
+    property <bool> rect1_pos_ok: rect1.x == 150phx;
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number)))
+                (ERROR
+                  (UNEXPECTED 'x')))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (component_definition
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (value
+                              (language_constant))))))
+                    (var_identifier
+                      (children_identifier)))))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (var_identifier
+                (children_identifier))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier)))))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (component_definition
+          (user_type_identifier)
+          (ERROR
+            (int_number))
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (language_constant))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)
+            (UNEXPECTED '_')
+            (ERROR
+              (int_number))
+            (function_identifier))
+          (property_expr
+            (value
+              (number
+                (int_number))))
+          (ERROR
+            (UNEXPECTED 'x')))))))
+
+================================================================================
+zorder
+================================================================================
+
+TestCase := Rectangle {
+    width: 100phx;
+    height: 100phx;
+
+    property <int> touch_error;
+    property <int> touch1;
+    property <int> value;
+
+
+    HorizontalLayout {
+        spacing: 0;
+        padding: 0;
+        Rectangle {
+            background: orange;
+            z: 400;
+            TouchArea {
+                clicked => { touch_error+=78 }
+            }
+        }
+
+        Rectangle {
+            background: green;
+            z: 3;
+
+            TouchArea {
+                clicked => { touch_error+=1 }
+            }
+
+            for i in [
+                {color: #0f0, value: 8, },
+                {color: #00f, value: 9, },
+                {color: #f00, value: 10, },
+            ] : Rectangle {
+                z: 78;
+                background: i.color;
+                TouchArea {
+                    clicked => {
+                        root.value = i.value;
+                    }
+                }
+            }
+
+            TouchArea {
+                clicked => { touch_error+=5 }
+            }
+
+            TouchArea {
+                z: 4;
+                clicked => { touch_error+=8 }
+            }
+
+        }
+
+        Rectangle {
+            background: pink;
+            z: -43;
+
+            TouchArea {
+                clicked => { touch_error+=1 }
+            }
+
+            TouchArea {
+                clicked => { touch_error+=180 }
+            }
+
+            TouchArea {
+                clicked => {
+                debug("HI");
+                touch1+=1
+                }
+            }
+
+            TouchArea {
+                z: -1;
+                clicked => { touch_error+=12 }
+            }
+        }
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number))))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number))))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (var_identifier))
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (number
+                          (int_number))))
+                    (component_definition
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (callback_event
+                            (function_identifier)
+                            (field_declaration_list
+                              (field_declaration_list_body
+                                (variable_set_equal
+                                  (var_identifier)
+                                  (assignment_prec_operator)
+                                  (value
+                                    (number
+                                      (int_number)))
+                                  (MISSING ";")))))))))))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (language_constant)))
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (number
+                          (int_number))))
+                    (component_definition
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (callback_event
+                            (function_identifier)
+                            (field_declaration_list
+                              (field_declaration_list_body
+                                (variable_set_equal
+                                  (var_identifier)
+                                  (assignment_prec_operator)
+                                  (value
+                                    (number
+                                      (int_number)))
+                                  (MISSING ";"))))))))
+                    (ERROR
+                      (var_identifier)
+                      (UNEXPECTED 'o')
+                      (int_number)
+                      (UNEXPECTED '0')
+                      (int_number)
+                      (UNEXPECTED 'v')
+                      (int_number)
+                      (UNEXPECTED 'o')
+                      (int_number)
+                      (UNEXPECTED ',')
+                      (UNEXPECTED 'v')
+                      (int_number)
+                      (UNEXPECTED 'o')
+                      (UNEXPECTED '0')
+                      (int_number)
+                      (UNEXPECTED 'v')
+                      (int_number)
+                      (UNEXPECTED 'R'))
+                    (component_definition
+                      (builtin_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (value
+                              (number
+                                (int_number))))
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (var_identifier
+                              (post_identifier)))
+                          (component_definition
+                            (user_type_identifier)
+                            (field_declaration_list
+                              (field_declaration_list_body
+                                (callback_event
+                                  (function_identifier)
+                                  (field_declaration_list
+                                    (field_declaration_list_body
+                                      (variable_set_equal
+                                        (var_identifier
+                                          (reference_identifier)
+                                          (post_identifier))
+                                        (assignment_prec_operator)
+                                        (var_identifier
+                                          (post_identifier))))))))))))
+                    (component_definition
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (callback_event
+                            (function_identifier)
+                            (field_declaration_list
+                              (field_declaration_list_body
+                                (variable_set_equal
+                                  (var_identifier)
+                                  (assignment_prec_operator)
+                                  (value
+                                    (number
+                                      (int_number)))
+                                  (MISSING ";"))))))))
+                    (component_definition
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (value
+                              (number
+                                (int_number))))
+                          (callback_event
+                            (function_identifier)
+                            (field_declaration_list
+                              (field_declaration_list_body
+                                (variable_set_equal
+                                  (var_identifier)
+                                  (assignment_prec_operator)
+                                  (value
+                                    (number
+                                      (int_number)))
+                                  (MISSING ";")))))))))))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (var_identifier))
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (unary_expression
+                        (unary_prec_operator)
+                        (value
+                          (number
+                            (int_number)))))
+                    (component_definition
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (callback_event
+                            (function_identifier)
+                            (field_declaration_list
+                              (field_declaration_list_body
+                                (variable_set_equal
+                                  (var_identifier)
+                                  (assignment_prec_operator)
+                                  (value
+                                    (number
+                                      (int_number)))
+                                  (MISSING ";"))))))))
+                    (component_definition
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (callback_event
+                            (function_identifier)
+                            (field_declaration_list
+                              (field_declaration_list_body
+                                (variable_set_equal
+                                  (var_identifier)
+                                  (assignment_prec_operator)
+                                  (value
+                                    (number
+                                      (int_number)))
+                                  (MISSING ";"))))))))
+                    (component_definition
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (callback_event
+                            (function_identifier)
+                            (field_declaration_list
+                              (field_declaration_list_body
+                                (variable_set_equal
+                                  (var_identifier)
+                                  (assignment_prec_operator
+                                    (MISSING ":"))
+                                  (expression_body_paren
+                                    (string
+                                      (string_fragment))))
+                                (var_identifier))
+                              (ERROR
+                                (int_number)
+                                (assignment_prec_operator)
+                                (number
+                                  (int_number))))))))
+                    (component_definition
+                      (user_type_identifier)
+                      (field_declaration_list
+                        (field_declaration_list_body
+                          (variable_set_equal
+                            (var_identifier)
+                            (assignment_prec_operator)
+                            (unary_expression
+                              (unary_prec_operator)
+                              (value
+                                (number
+                                  (int_number)))))
+                          (callback_event
+                            (function_identifier)
+                            (field_declaration_list
+                              (field_declaration_list_body
+                                (variable_set_equal
+                                  (var_identifier)
+                                  (assignment_prec_operator)
+                                  (value
+                                    (number
+                                      (int_number)))
+                                  (MISSING ";"))))))))))))))))))

@@ -1,0 +1,1040 @@
+================================================================================
+custom_font
+================================================================================
+
+// This test imports a custom font and declares it for use, to ensure at least that the generated init code for
+// the custom font setup compiles.
+
+import "../../../examples/printerdemo/ui/fonts/NotoSans-Regular.ttf";
+import "../../../examples/printerdemo/ui/fonts/NotoSans-Bold.ttf";
+
+
+TestCase := Window {
+    preferred-width: 100phx;
+    preferred-height: 100phx;
+    default-font-family: "Noto Sans";
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (comment)
+  (import_statement
+    (string
+      (string_fragment)))
+  (import_statement
+    (string
+      (string_fragment)))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (string
+            (string_fragment)))))))
+
+================================================================================
+default_color
+================================================================================
+
+import { StyleMetrics } from "std-widgets.slint";
+
+SubElement := Rectangle {
+    property sub_color <=> sub.color;
+    sub := Text { text: "sub"; }
+}
+
+TestCase := Rectangle {
+    // This binding allow the test to set the style's default color so that we can compare it
+    property<color> binding_to_default_text_color <=> StyleMetrics.default-text-color;
+
+    default_text := Text { text: "default"; }
+    text_with_color := Text {
+        text: "yellow";
+        color: #ffff00ff;
+    }
+    text_in_sub_element := SubElement { sub_color: #ff0000; }
+    text_in_state := Text { }
+    states [ xx when false: { text_in_state.color: #abc; } ]
+
+    property <color> default_text_color: default_text.color;
+    property <color> color_of_initialized_text: text_with_color.color;
+    property <color> color_of_sub_element_text: text_in_sub_element.sub_color;
+    property <color> color_in_state: text-in-state.color;
+
+    property <bool> test: default_text_color == StyleMetrics.default-text-color && color-of-initialized-text == #ffff00ff
+        && color_of_sub_element_text == #ff0000 && color-in-state == StyleMetrics.default-text-color;
+}
+
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (import_statement
+    (user_type_identifier)
+    (string
+      (string_fragment)))
+  (component_definition
+    (user_type_identifier)
+    (ERROR
+      (user_type_identifier)
+      (UNEXPECTED 'u')
+      (UNEXPECTED 'u')
+      (UNEXPECTED 'o')
+      (UNEXPECTED 'u'))
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (string
+            (string_fragment))))))
+  (ERROR
+    (UNEXPECTED 'T')
+    (UNEXPECTED 'R'))
+  (component_definition
+    (builtin_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (comment)
+        (property_definition
+          (user_type_identifier)
+          (ERROR)
+          (var_identifier
+            (post_identifier)))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (string
+                  (string_fragment))))))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (string
+                  (string_fragment)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (color))
+                (ERROR)))))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (color))))))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (states_definition
+          (states_list_definition
+            (state_identifier)
+            (value
+              (language_constant))
+            (field_declaration_list
+              (field_declaration_list_body
+                (variable_set_equal
+                  (var_identifier
+                    (post_identifier))
+                  (assignment_prec_operator)
+                  (value
+                    (color)))))))
+        (property_definition
+          (user_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (user_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (user_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (user_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (property_expr
+              (var_identifier))
+            (property_expr
+              (mult_binary_expression
+                (var_identifier
+                  (post_identifier))
+                (mult_prec_operator)
+                (var_identifier)))
+            (property_expr
+              (mult_binary_expression
+                (value
+                  (color))
+                (ERROR)
+                (mult_prec_operator)
+                (var_identifier)))
+            (property_expr
+              (mult_binary_expression
+                (value
+                  (color))
+                (mult_prec_operator)
+                (var_identifier))))
+          (property_expr
+            (var_identifier
+              (post_identifier))))))))
+
+================================================================================
+input_type
+================================================================================
+
+TestCase := TextInput {
+    text: "hello";
+    input-type: InputType.password;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (string
+            (string_fragment)))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier
+            (post_identifier)))))))
+
+================================================================================
+control_keys_input
+================================================================================
+
+TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+    ti := TextInput {
+    }
+
+    property <bool> input_focused: ti.has_focus;
+    property <string> text <=> ti.text;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR)
+          (var_identifier
+            (post_identifier)))))))
+
+================================================================================
+cursor_move
+================================================================================
+
+TestCase := TextInput {
+    width: 100phx;
+    height: 100phx;
+    property<string> test_text: self.text;
+    property<int> test_cursor_pos: self.cursor_position_byte_offset;
+    property<int> test_anchor_pos: self.anchor_position_byte_offset;
+    property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
+    property<bool> input_focused: self.has_focus;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier)
+              (ERROR
+                (UNEXPECTED 'e'))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))))))
+
+================================================================================
+cursor_move_grapheme
+================================================================================
+
+TestCase := TextInput {
+    width: 100phx;
+    height: 100phx;
+    property<string> test_text: self.text;
+    property<int> test_cursor_pos: self.cursor_position_byte_offset;
+    property<int> test_anchor_pos: self.anchor_position_byte_offset;
+    property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
+    property<bool> input_focused: self.has_focus;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier)
+              (ERROR
+                (UNEXPECTED 'e'))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))))))
+
+================================================================================
+cut
+================================================================================
+
+TestCase := TextInput {
+    width: 100phx;
+    height: 100phx;
+    property<string> test_text: self.text;
+    property<int> test_cursor_pos: self.cursor_position_byte_offset;
+    property<int> test_anchor_pos: self.anchor_position_byte_offset;
+    property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
+    property<bool> input_focused: self.has_focus;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier)
+              (ERROR
+                (UNEXPECTED 'e'))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))))))
+
+================================================================================
+select_all
+================================================================================
+
+TestCase := TextInput {
+    width: 100phx;
+    height: 100phx;
+    property<string> test_text: self.text;
+    property<int> test_cursor_pos: self.cursor_position_byte_offset;
+    property<int> test_anchor_pos: self.anchor_position_byte_offset;
+    property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
+    property<bool> input_focused: self.has_focus;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier)
+              (ERROR
+                (UNEXPECTED 'e'))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))))))
+
+================================================================================
+surrogate_cursor
+================================================================================
+
+TestCase := TextInput {
+    width: 100phx;
+    height: 100phx;
+    property<string> test_text: self.text;
+    property<int> test_cursor_pos: self.cursor_position_byte_offset;
+    property<int> test_anchor_pos: self.anchor_position_byte_offset;
+    property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
+    property<bool> input_focused: self.has_focus;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier)
+              (ERROR
+                (UNEXPECTED 'e'))
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))))))
+
+================================================================================
+text_change
+================================================================================
+
+TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+    VerticalLayout {
+        padding: 0;
+        spacing: 0;
+        ti := TextInput { }
+        Rectangle { }
+    }
+
+    property <string> text <=> ti.text;
+    property <bool> input_focused: ti.has_focus;
+    property<int> test_cursor_pos: ti.cursor_position_byte_offset;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number))))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number))))
+              (component_definition
+                (user_type_identifier)
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body)))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body))))))
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR)
+          (var_identifier
+            (post_identifier)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))))))
+
+================================================================================
+text_property_change
+================================================================================
+
+// Test that the
+
+global SomeGlobal := {
+    property <string> intermediate_alias <=> intermediate_prop;
+    property <string> intermediate_prop;
+    property <string> text: intermediate_prop;
+}
+
+TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+    VerticalLayout {
+        padding: 0;
+        spacing: 0;
+        ti := TextInput {
+            property <string> foo <=> SomeGlobal.intermediate_alias;
+            text <=> foo;
+            property <bool> bar <=> has_focus;
+
+        }
+        t := Text {
+            text <=> SomeGlobal.text;
+        }
+        Rectangle { }
+    }
+
+    property <string> text <=> t.text;
+    property <bool> input_focused: ti.bar;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (global_definition
+    (var_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR)
+          (var_identifier))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number))))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (value
+                  (number
+                    (int_number))))
+              (component_definition
+                (user_type_identifier)
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (property_definition
+                      (builtin_type_identifier)
+                      (ERROR)
+                      (var_identifier
+                        (post_identifier)))
+                    (callback_call
+                      (var_identifier)
+                      (ERROR
+                        (UNEXPECTED 'o')))
+                    (property_definition
+                      (builtin_type_identifier)
+                      (ERROR)
+                      (var_identifier)))))
+              (component_definition
+                (user_type_identifier)
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (callback_call
+                      (var_identifier
+                        (ERROR
+                          (UNEXPECTED 'S'))
+                        (post_identifier))))))
+              (component_definition
+                (user_type_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body))))))
+        (property_definition
+          (builtin_type_identifier)
+          (ERROR)
+          (var_identifier
+            (post_identifier)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (var_identifier
+              (post_identifier))))))))
+
+================================================================================
+keyboard_modifiers
+================================================================================
+
+TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+    ti := FocusScope {
+        key-pressed(event) => {
+            shift_modifier = event.modifiers.shift;
+            alt_modifier = event.modifiers.alt;
+            control_modifier = event.modifiers.control;
+            meta_modifier = event.modifiers.meta;
+            accept;
+        }
+        key-released(event) => {
+            shift_modifier = event.modifiers.shift;
+            alt_modifier = event.modifiers.alt;
+            control_modifier = event.modifiers.control;
+            meta_modifier = event.modifiers.meta;
+            accept;
+        }
+    }
+
+    property <bool> input_focused: ti.has_focus;
+    property <bool> shift_modifier;
+    property <bool> alt_modifier;
+    property <bool> control_modifier;
+    property <bool> meta_modifier;
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (var_identifier)
+              (ERROR
+                (assignment_prec_operator
+                  (MISSING ":"))
+                (expression_body_paren
+                  (var_identifier))
+                (UNEXPECTED 'h'))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (post_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (post_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (post_identifier)
+                  (post_identifier)))
+              (variable_set_equal
+                (var_identifier)
+                (assignment_prec_operator)
+                (var_identifier
+                  (post_identifier)
+                  (post_identifier)))
+              (callback_call
+                (var_identifier)))))
+        (var_identifier)
+        (ERROR
+          (assignment_prec_operator
+            (MISSING ":"))
+          (expression_body_paren
+            (var_identifier))
+          (UNEXPECTED 'h'))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier
+            (post_identifier)
+            (post_identifier)))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier
+            (post_identifier)
+            (post_identifier)))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier
+            (post_identifier)
+            (post_identifier)))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (var_identifier
+            (post_identifier)
+            (post_identifier)))
+        (callback_call
+          (var_identifier)))))
+  (ERROR
+    (builtin_type_identifier)
+    (UNEXPECTED 'u')
+    (UNEXPECTED 'i')
+    (UNEXPECTED 'h')
+    (builtin_type_identifier)
+    (UNEXPECTED 'h')
+    (UNEXPECTED '_')
+    (UNEXPECTED 'e')
+    (builtin_type_identifier)
+    (UNEXPECTED 'l')
+    (UNEXPECTED 'e')
+    (builtin_type_identifier)
+    (UNEXPECTED 'o')
+    (UNEXPECTED 'e')
+    (builtin_type_identifier)
+    (UNEXPECTED 'e')
+    (UNEXPECTED 'e')))

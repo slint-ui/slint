@@ -1,0 +1,349 @@
+================================================================================
+cast
+================================================================================
+
+TestCase := Rectangle {
+    property<bool> condition;
+    property<color> extra_color;
+    background: condition ? root.extra_color : red;
+    property<string> s1 : condition ? "abc" : 123;
+    property<string> s2 : condition ? 123 : "abc";
+
+    property <bool> test: s1 == "123" && s2 == "abc";
+}
+
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (property_definition
+          (user_type_identifier)
+          (var_identifier))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (ternary_expression
+            (var_identifier)
+            (var_identifier
+              (reference_identifier)
+              (post_identifier))
+            (value
+              (language_constant))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number))
+          (property_expr
+            (ternary_expression
+              (var_identifier)
+              (string
+                (string_fragment))
+              (value
+                (number
+                  (int_number))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number))
+          (property_expr
+            (ternary_expression
+              (var_identifier)
+              (value
+                (number
+                  (int_number)))
+              (string
+                (string_fragment)))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (property_expr
+              (var_identifier))
+            (int_number)
+            (property_expr
+              (mult_binary_expression
+                (string
+                  (string_fragment))
+                (mult_prec_operator)
+                (var_identifier)))
+            (int_number))
+          (property_expr
+            (string
+              (string_fragment))))))))
+
+================================================================================
+expr
+================================================================================
+
+TestCase := Rectangle {
+    property<bool> condition;
+    property<int> test_value: condition ? 1 : 2;
+    property<bool> condition2;
+    property<int> test_value2: condition ? condition2 ? 1 : 2 : condition2 ? 3 : 4;
+
+    property<length> test_value3: false ? 0 : 12phx;
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (ternary_expression
+              (var_identifier)
+              (value
+                (number
+                  (int_number)))
+              (value
+                (number
+                  (int_number))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number)))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number))
+          (property_expr
+            (ternary_expression
+              (ternary_expression
+                (var_identifier)
+                (ERROR)
+                (ternary_expression
+                  (value
+                    (number
+                      (int_number)))
+                  (value
+                    (number
+                      (int_number)))
+                  (value
+                    (number
+                      (int_number))))
+                (ERROR)
+                (value
+                  (number
+                    (int_number))))
+              (value
+                (number
+                  (int_number)))
+              (value
+                (number
+                  (int_number))))))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (ERROR
+            (int_number))
+          (property_expr
+            (ternary_expression
+              (value
+                (language_constant))
+              (value
+                (number
+                  (int_number)))
+              (value
+                (number
+                  (int_number)))))
+          (ERROR
+            (UNEXPECTED 'x')))))))
+
+================================================================================
+stm
+================================================================================
+
+TestCase := Rectangle {
+    property<int> value;
+    property<int> result : 3;
+    callback action;
+    action => {
+        if (value == 5) {
+            result += 1;
+            result += 1;
+        }
+
+        if (value != 8) {
+
+        } else {
+            result += 33;
+        }
+    }
+
+    callback xxx;
+    xxx => {
+        if (false) {
+            action();
+        }
+
+        if (true) {
+            result -=1;
+        } else {
+            action();
+        }
+    }
+
+    callback elseif(int) -> int;
+    elseif(v) => {
+        if (v == 1) {
+            41
+        } else if (v == 2) {
+            42
+        } else {
+            43
+        }
+    }
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier))
+        (property_definition
+          (builtin_type_identifier)
+          (var_identifier)
+          (property_expr
+            (value
+              (number
+                (int_number)))))
+        (callback_definition
+          (function_identifier))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (if_statement_definition
+                (expression_body_paren
+                  (ERROR)
+                  (value
+                    (number
+                      (int_number))))
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (number
+                          (int_number))))
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (number
+                          (int_number)))))))
+              (if_statement_definition
+                (expression_body_paren
+                  (ERROR)
+                  (value
+                    (number
+                      (int_number))))
+                (field_declaration_list
+                  (field_declaration_list_body)))
+              (if_statement_definition
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (number
+                          (int_number))))))))))
+        (callback_definition
+          (function_identifier))
+        (callback_event
+          (function_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (if_statement_definition
+                (expression_body_paren
+                  (value
+                    (language_constant)))
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (callback_call
+                      (var_identifier)
+                      (ERROR)))))
+              (if_statement_definition
+                (expression_body_paren
+                  (value
+                    (language_constant)))
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier)
+                      (assignment_prec_operator)
+                      (value
+                        (number
+                          (int_number)))))))
+              (if_statement_definition
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (callback_call
+                      (var_identifier)
+                      (ERROR))))))))
+        (callback_definition
+          (function_identifier)
+          (call_signature
+            (formal_parameters
+              (formal_parameter
+                (builtin_type_identifier))))
+          (builtin_type_identifier))
+        (var_identifier)
+        (ERROR
+          (assignment_prec_operator
+            (MISSING ":"))
+          (expression_body_paren
+            (var_identifier)))
+        (if_statement_definition
+          (expression_body_paren
+            (ERROR)
+            (value
+              (number
+                (int_number))))
+          (field_declaration_list
+            (field_declaration_list_body)
+            (ERROR
+              (int_number))))
+        (if_statement_definition
+          (expression_body_paren
+            (ERROR)
+            (value
+              (number
+                (int_number))))
+          (field_declaration_list
+            (field_declaration_list_body)
+            (ERROR
+              (int_number))))
+        (if_statement_definition
+          (field_declaration_list
+            (field_declaration_list_body)
+            (ERROR
+              (int_number)))))))
+  (ERROR))

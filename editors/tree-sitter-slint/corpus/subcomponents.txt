@@ -1,0 +1,216 @@
+================================================================================
+nested_repeater
+================================================================================
+
+// Verify that we can instantiate sub-components in nested repeaters
+// and succeed in generating code that determines the root correctly,
+// to access global singletons.
+
+Label := Text {
+
+}
+
+SubCompo := Rectangle {
+    for x in 1: Rectangle {
+        for y in 1: Label {
+            for z in 1: Label {
+            }
+        }
+    }
+}
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+    SubCompo {}
+}
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (comment)
+  (comment)
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body)))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (ERROR
+          (var_identifier)
+          (int_number)
+          (UNEXPECTED 'R'))
+        (component_definition
+          (builtin_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)
+            (ERROR
+              (var_identifier)
+              (int_number)
+              (UNEXPECTED 'L')
+              (var_identifier)
+              (int_number)
+              (UNEXPECTED 'L')))))))
+  (ERROR
+    (UNEXPECTED 'T')
+    (UNEXPECTED 'R'))
+  (component_definition
+    (builtin_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (component_definition
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body)))))))
+
+================================================================================
+repeaters
+================================================================================
+
+// Verify that two repeaters (if and for) are placed correctly in the item tree
+// and matched in the dyn_visit closure.
+// The two repeaters ended up being swapped and sub-component's repeater was
+// visisted when the Text's child's repeater should have been, resulting in
+// wrong rendering order. This is tested by clicking into the left half and
+// verifying that it did not hit the sub-component's repeater.
+
+SubCompo := Rectangle {
+    property <bool> clicked: false;
+    for x in 1: Text {
+        text: "I should appear in the right half";
+        ta := TouchArea {
+            clicked => {
+                root.clicked = true;
+            }
+        }
+    }
+}
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+    property clicked <=> c.clicked;
+    Text {
+        if (false): TouchArea {
+        }
+    }
+    c := SubCompo {
+        x: 200px;
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (comment)
+  (comment)
+  (comment)
+  (comment)
+  (comment)
+  (comment)
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (ERROR
+      (property_definition
+        (builtin_type_identifier)
+        (var_identifier)
+        (property_expr
+          (value
+            (language_constant))))
+      (var_identifier)
+      (int_number)
+      (UNEXPECTED 'T'))
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (string
+            (string_fragment)))
+        (component_definition
+          (user_type_identifier)
+          (user_type_identifier)
+          (field_declaration_list
+            (field_declaration_list_body
+              (callback_event
+                (function_identifier)
+                (field_declaration_list
+                  (field_declaration_list_body
+                    (variable_set_equal
+                      (var_identifier
+                        (reference_identifier)
+                        (post_identifier))
+                      (assignment_prec_operator)
+                      (value
+                        (language_constant))))))))))))
+  (ERROR
+    (UNEXPECTED 'T')
+    (UNEXPECTED 'R'))
+  (component_definition
+    (builtin_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (number
+              (int_number)))
+          (ERROR
+            (UNEXPECTED 'x')))
+        (ERROR
+          (UNEXPECTED 'l')
+          (UNEXPECTED '.')
+          (UNEXPECTED 'l')
+          (UNEXPECTED 'T'))
+        (if_statement_definition
+          (expression_body_paren
+            (value
+              (language_constant)))
+          (component_definition
+            (user_type_identifier)
+            (field_declaration_list
+              (field_declaration_list_body)))))))
+  (component_definition
+    (user_type_identifier)
+    (user_type_identifier)
+    (field_declaration_list
+      (field_declaration_list_body
+        (variable_set_equal
+          (var_identifier)
+          (assignment_prec_operator)
+          (value
+            (value_with_units
+              (number
+                (int_number))
+              (unit_type)))))))
+  (ERROR))
