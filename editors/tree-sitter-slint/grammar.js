@@ -270,13 +270,14 @@ module.exports = grammar({
         type_anon_struct: ($) =>
             seq(
                 "{",
-                repeat(
+                commaSep(
                     seq(
                         field("name", $.var_identifier),
                         ":",
                         field("type", $.type),
                     ),
                 ),
+                optional(","),
                 "}",
             ),
         type_list: ($) => seq("[", commaSep($.type), optional(","), "]"),

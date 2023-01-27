@@ -2267,8 +2267,9 @@ SampleComponent := Window {
       (var_identifier)
       (type
         (type_identifier))
-      (ERROR
-        (UNEXPECTED 'a'))))
+      (var_identifier)
+      (type
+        (type_identifier))))
   (component_definition
     (type_identifier)
     (type_identifier)

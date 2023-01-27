@@ -1735,13 +1735,12 @@ TestCase := Window {
                 (var_identifier)
                 (type
                   (type_identifier))
-                (MISSING "}")))
-            (type
-              (type_identifier))
-            (ERROR)
-            (type
-              (type_identifier))
-            (ERROR))
+                (var_identifier)
+                (type
+                  (type_identifier))
+                (var_identifier)
+                (type
+                  (type_identifier)))))
           (var_identifier)
           (value
             (value_list

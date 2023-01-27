@@ -1343,8 +1343,7 @@ TestCase := Rectangle {
     (type_anon_struct
       (var_identifier)
       (type
-        (type_identifier))
-      (ERROR)))
+        (type_identifier))))
   (comment)
   (comment)
   (comment)
@@ -1355,8 +1354,7 @@ TestCase := Rectangle {
       (type
         (type_list
           (type
-            (type_identifier))))
-      (ERROR)))
+            (type_identifier))))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -1735,13 +1733,12 @@ TestCase := Rectangle {
                 (var_identifier)
                 (type
                   (type_identifier))
-                (MISSING "}")))
-            (type
-              (type_identifier))
-            (ERROR)
-            (type
-              (type_identifier))
-            (ERROR))
+                (var_identifier)
+                (type
+                  (type_identifier))
+                (var_identifier)
+                (type
+                  (type_identifier)))))
           (var_identifier)
           (value
             (value_list
@@ -2053,13 +2050,12 @@ TestCase := Rectangle {
                 (var_identifier)
                 (type
                   (type_identifier))
-                (MISSING "}")))
-            (type
-              (type_identifier))
-            (ERROR)
-            (type
-              (type_identifier))
-            (ERROR))
+                (var_identifier)
+                (type
+                  (type_identifier))
+                (var_identifier)
+                (type
+                  (type_identifier)))))
           (var_identifier)
           (value
             (value_list

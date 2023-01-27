@@ -1294,8 +1294,7 @@ match := Rectangle {
     (type_anon_struct
       (var_identifier)
       (type
-        (type_identifier))
-      (ERROR)))
+        (type_identifier))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -2073,8 +2072,7 @@ TestCase := Rectangle {
     (type_anon_struct
       (var_identifier)
       (type
-        (type_identifier))
-      (ERROR)))
+        (type_identifier))))
   (struct_definition
     (export_modifier)
     (type_identifier)
@@ -2083,8 +2081,7 @@ TestCase := Rectangle {
       (type
         (type_list
           (type
-            (type_identifier))))
-      (ERROR)))
+            (type_identifier))))))
   (struct_definition
     (export_modifier)
     (type_identifier)
@@ -2093,8 +2090,7 @@ TestCase := Rectangle {
       (type
         (type_list
           (type
-            (type_identifier))))
-      (ERROR)))
+            (type_identifier))))))
   (struct_definition
     (type_identifier)
     (type_anon_struct
@@ -2106,12 +2102,12 @@ TestCase := Rectangle {
               (var_identifier)
               (type
                 (type_identifier))
-              (MISSING "}")))
-          (type
-            (type_identifier))
-          (ERROR)))
-      (ERROR
-        (UNEXPECTED 'x'))))
+              (var_identifier)
+              (type
+                (type_identifier))))))
+      (var_identifier)
+      (type
+        (type_identifier))))
   (component_definition
     (type_identifier)
     (type_identifier)
@@ -2160,10 +2156,9 @@ TestCase := Rectangle {
                 (var_identifier)
                 (type
                   (type_identifier))
-                (MISSING "}")))
-            (type
-              (type_identifier))
-            (ERROR))
+                (var_identifier)
+                (type
+                  (type_identifier)))))
           (var_identifier)
           (value
             (value_list
@@ -2543,8 +2538,7 @@ TestCase := Rectangle {
     (type_anon_struct
       (var_identifier)
       (type
-        (type_identifier))
-      (ERROR)))
+        (type_identifier))))
   (struct_definition
     (type_identifier)
     (type_anon_struct
@@ -2674,17 +2668,19 @@ TestCase := Rectangle {
       (var_identifier)
       (type
         (type_identifier))
-      (ERROR
-        (UNEXPECTED 'r')
-        (UNEXPECTED 'n'))))
+      (var_identifier)
+      (type
+        (type_identifier))
+      (var_identifier)
+      (type
+        (type_identifier))))
   (struct_definition
     (export_modifier)
     (type_identifier)
     (type_anon_struct
       (var_identifier)
       (type
-        (type_identifier))
-      (ERROR)))
+        (type_identifier))))
   (component_definition
     (type_identifier)
     (type_identifier)

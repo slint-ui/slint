@@ -1761,8 +1761,7 @@ MainWindow := Window {
     (type_anon_struct
       (var_identifier)
       (type
-        (type_identifier))
-      (ERROR)))
+        (type_identifier))))
   (component_definition
     (type_identifier)
     (type_identifier)

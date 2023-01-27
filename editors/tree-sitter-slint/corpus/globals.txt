@@ -585,8 +585,9 @@ TestCase := Rectangle {
       (var_identifier)
       (type
         (type_identifier))
-      (ERROR
-        (UNEXPECTED 'y'))))
+      (var_identifier)
+      (type
+        (type_identifier))))
   (global_definition
     (type_identifier)
     (ERROR
