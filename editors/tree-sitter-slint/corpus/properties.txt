@@ -567,18 +567,16 @@ delayed_transitions
                 (basic_value
                   (int_value)))))))
       (block_statement
-        (assignment_block
+        (transitions_definition
           (var_identifier)
-          (ERROR
-            (var_identifier))
-          (assignment_prec_operator)
           (block
             (block_statement
               (animate_statement
                 (var_identifier)
                 (animate_body
-                  (ERROR
-                    (UNEXPECTED 'l'))
+                  (value
+                    (basic_value
+                      (duration_value)))
                   (value
                     (basic_value
                       (duration_value))))))
@@ -586,33 +584,32 @@ delayed_transitions
               (animate_statement
                 (var_identifier)
                 (animate_body
-                  (ERROR
-                    (UNEXPECTED 'l'))
+                  (value
+                    (basic_value
+                      (duration_value)))
+                  (value
+                    (basic_value
+                      (duration_value)))))))
+          (var_identifier)
+          (block
+            (block_statement
+              (animate_statement
+                (var_identifier
+                  (post_identifier))
+                (animate_body
+                  (value
+                    (basic_value
+                      (duration_value)))
                   (value
                     (basic_value
                       (duration_value)))))))))
-      (ERROR
-        (visibility_modifier)
-        (var_identifier)
-        (var_identifier
-          (post_identifier))
-        (UNEXPECTED 'l'))
       (block_statement
-        (value
-          (basic_value
-            (duration_value))))
-      (assignment_expr
-        (var_identifier)
-        (assignment_prec_operator)
-        (value
-          (basic_value
-            (duration_value))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'e')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'o')))
+        (property
+          (type
+            (type_identifier))
+          (var_identifier)
+          (var_identifier
+            (post_identifier)))))))
 
 ================================================================================
 issue1237_states_visible
@@ -1343,11 +1340,8 @@ transitions
                 (basic_value
                   (int_value)))))))
       (block_statement
-        (assignment_block
+        (transitions_definition
           (var_identifier)
-          (ERROR
-            (var_identifier))
-          (assignment_prec_operator)
           (block
             (block_statement
               (animate_statement
@@ -1355,24 +1349,24 @@ transitions
                 (animate_body
                   (value
                     (basic_value
+                      (duration_value)))))))
+          (var_identifier)
+          (block
+            (block_statement
+              (animate_statement
+                (var_identifier
+                  (post_identifier))
+                (animate_body
+                  (value
+                    (basic_value
                       (duration_value)))))))))
-      (ERROR
-        (visibility_modifier)
-        (var_identifier))
       (block_statement
-        (animate_statement
+        (property
+          (type
+            (type_identifier))
+          (var_identifier)
           (var_identifier
-            (post_identifier))
-          (animate_body
-            (value
-              (basic_value
-                (duration_value))))))))
-  (ERROR
-    (type_identifier)
-    (UNEXPECTED 'e')
-    (UNEXPECTED '_')
-    (UNEXPECTED 'e')
-    (UNEXPECTED 'o')))
+            (post_identifier)))))))
 
 ================================================================================
 transitions2

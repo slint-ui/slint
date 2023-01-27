@@ -1258,27 +1258,24 @@ export InkEffect := Rectangle {
               (value
                 (basic_value
                   (bool_value)))))))
-      (assignment_block
-        (var_identifier)
-        (ERROR
-          (var_identifier))
-        (assignment_prec_operator)
-        (block
-          (block_statement
-            (animate_statement
-              (var_identifier)
-              (animate_body
-                (value
-                  (basic_value
-                    (duration_value))))))
-          (block_statement
-            (animate_statement
-              (var_identifier)
-              (animate_body
-                (value
-                  (basic_value
-                    (duration_value))))))))
-      (ERROR)))
+      (block_statement
+        (transitions_definition
+          (var_identifier)
+          (block
+            (block_statement
+              (animate_statement
+                (var_identifier)
+                (animate_body
+                  (value
+                    (basic_value
+                      (duration_value))))))
+            (block_statement
+              (animate_statement
+                (var_identifier)
+                (animate_body
+                  (value
+                    (basic_value
+                      (duration_value)))))))))))
   (export_statement)
   (component_definition
     (type_identifier)

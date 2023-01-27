@@ -220,30 +220,22 @@ module.exports = grammar({
                 $.callback_alias,
                 seq($._expression, ";"),
                 $.states_definition,
-                // $.transitions_definition,
+                $.transitions_definition,
             ),
 
-        // transitions_definition: ($) =>
-        //   seq(
-        //     "transitions",
-        //     $.transitions_list_definition,
-        //   ),
-        // transitions_list_definition: ($) =>
-        //   seq(
-        //     "[",
-        //     repeat(
-        //       seq(
-        //         choice(
-        //           "in",
-        //           "out",
-        //         ),
-        //         $.var_identifier,
-        //         ":",
-        //         $.block,
-        //       ),
-        //     ),
-        //     "]",
-        //   ),
+        transitions_definition: ($) =>
+            seq(
+                "transitions",
+                "[",
+                repeat(
+                    seq(
+                        choice("in", "out"),
+                        optional(seq($.var_identifier, ":")),
+                        $.block,
+                    ),
+                ),
+                "]",
+            ),
 
         states_definition: ($) =>
             seq(
@@ -265,13 +257,7 @@ module.exports = grammar({
             seq("animate", $.var_identifier, $.animate_body),
 
         animate_body: ($) =>
-            seq(
-                "{",
-                repeat(
-                    seq($._builtin_type_identifier, ":", $._expression, ";"),
-                ),
-                "}",
-            ),
+            seq("{", repeat(seq($._identifier, ":", $._expression, ";")), "}"),
 
         if_statement: ($) =>
             seq(
