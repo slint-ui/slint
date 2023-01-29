@@ -22,7 +22,7 @@ jobs:
           - "https://github.com/slint-ui/cargo-ui"
           # - "https://github.com/Futsch1/image-sieve" (not poted to 0.3)
           - "https://github.com/jturcotte/chiptrack"
-          #- "https://codeberg.org/Be.ing/moire" (not ported to 0.3)
+          #- "https://codeberg.org/moire/moire"
           #- "https://github.com/Project-Trains/launcher"
           #- "https://github.com/jannes/han-cihui"
           #- "https://github.com/leofidus/ntfs-explorer"

@@ -187,7 +187,7 @@ request to add yours)
   Cargo.
 - **[ImageSieve](https://github.com/Futsch1/image-sieve)** : GUI based tool to
   sort and categorize images.
-- **[Moiré](https://codeberg.org/Be.ing/moire)** : Musical live performance
+- **[Moiré](https://codeberg.org/moire/moire)** : Musical live performance
   application with a DAW-like timeline interface.
 - **[Chiptrack](https://github.com/jturcotte/chiptrack)**: A cross-platform
   sequencer that internally uses a Game Boy emulator to synthesize the sound.
