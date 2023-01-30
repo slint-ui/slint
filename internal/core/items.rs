@@ -533,18 +533,17 @@ impl Item for TouchArea {
         };
 
         match event {
-            MouseEvent::Pressed { position, button, click_count } => {
+            MouseEvent::Pressed { position, button, .. } => {
                 self.grabbed.set(true);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(position.x_length());
                     Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(position.y_length());
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
                 }
-                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
-                    button,
-                    kind: PointerEventKind::Down,
-                    click_count: click_count as i32,
-                },));
+                Self::FIELD_OFFSETS
+                    .pointer_event
+                    .apply_pin(self)
+                    .call(&(PointerEvent { button, kind: PointerEventKind::Down },));
             }
             MouseEvent::Exit => {
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
@@ -552,20 +551,18 @@ impl Item for TouchArea {
                     Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                         button: PointerEventButton::None,
                         kind: PointerEventKind::Cancel,
-                        click_count: 0,
                     },));
                 }
             }
-            MouseEvent::Released { button, click_count, .. } => {
+            MouseEvent::Released { button, .. } => {
                 self.grabbed.set(false);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
                 }
-                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
-                    button,
-                    kind: PointerEventKind::Up,
-                    click_count: click_count as i32,
-                },));
+                Self::FIELD_OFFSETS
+                    .pointer_event
+                    .apply_pin(self)
+                    .call(&(PointerEvent { button, kind: PointerEventKind::Up },));
             }
             MouseEvent::Moved { .. } => {
                 return if self.grabbed.get() {
@@ -1425,5 +1422,4 @@ i_slint_common::for_each_enums!(declare_enums);
 pub struct PointerEvent {
     pub button: PointerEventButton,
     pub kind: PointerEventKind,
-    pub click_count: i32,
 }

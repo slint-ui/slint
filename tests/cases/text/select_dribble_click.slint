@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+TestCase := TextInput {
+    width: 100phx;
+    height: 100phx;
+    property<string> test_text: self.text;
+    property<int> test_cursor_pos: self.cursor_position_byte_offset;
+    property<int> test_anchor_pos: self.anchor_position_byte_offset;
+    property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
+    property<bool> input_focused: self.has_focus;
+}
+
+/*
+```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+let instance = TestCase::new();
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert!(instance.get_input_focused());
+assert_eq!(instance.get_test_text(), "");
+slint_testing::send_keyboard_string_sequence(&instance, "Hello World");
+assert_eq!(instance.get_test_text(), "Hello World");
+assert!(!instance.get_has_selection());
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(6.0, 0.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(6.0, 0.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(6.0, 0.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(6.0, 0.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(6.0, 0.0), button: PointerEventButton::Left });
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_test_cursor_pos(), 11);
+assert_eq!(instance.get_test_anchor_pos(), 0);
+
+slint_testing::send_keyboard_string_sequence(&instance, "-");
+assert_eq!(instance.get_test_text(), "-");
+```
+*/

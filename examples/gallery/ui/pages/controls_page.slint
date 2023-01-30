@@ -18,21 +18,6 @@ export component ControlsPage inherits Page {
             spacing: 8px;
             alignment: start;
 
-            Rectangle {  
-                width: 100px;
-                height: 20px;
-                background: green;
-
-                TouchArea {  
-                    width: 100%;
-                    height: 100%;
-                    clicked => { debug("clicked"); }
-                    pointer-event(e) => {  
-                        debug(e.click_count);
-                    }
-                }
-            }
-
             Button {
                 text: "Regular Button";
                 enabled: !GallerySettings.widgets-disabled;

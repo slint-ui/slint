@@ -4,6 +4,7 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
+use i_slint_core::graphics::euclid::{Point2D, Size2D};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::WindowAdapter;
@@ -92,20 +93,24 @@ impl Renderer for TestingWindow {
         LogicalSize::new(text.len() as f32 * 10., 10.)
     }
 
+    // this works only for single line text
     fn text_input_byte_offset_for_position(
         &self,
-        _text_input: Pin<&i_slint_core::items::TextInput>,
-        _pos: LogicalPoint,
+        text_input: Pin<&i_slint_core::items::TextInput>,
+        pos: LogicalPoint,
     ) -> usize {
-        0
+        let text_len = text_input.text().len();
+        let result = pos.x / 10.;
+        result.min(text_len as f32).max(0.) as usize
     }
 
+    // this works only for single line text
     fn text_input_cursor_rect_for_byte_offset(
         &self,
         _text_input: Pin<&i_slint_core::items::TextInput>,
-        _byte_offset: usize,
+        byte_offset: usize,
     ) -> LogicalRect {
-        Default::default()
+        LogicalRect::new(Point2D::new(byte_offset as f32 * 10., 0.), Size2D::new(1., 10.))
     }
 
     fn register_font_from_memory(

@@ -28,8 +28,14 @@ use core::pin::Pin;
 #[allow(missing_docs)]
 pub enum MouseEvent {
     /// The mouse or finger was pressed
+    /// `position` is the position of the mouse when the event happens.
+    /// `button` describes the button that is pressed when the event happens.
+    /// `click_count` represents the current number of clicks.
     Pressed { position: LogicalPoint, button: PointerEventButton, click_count: u8 },
     /// The mouse or finger was released
+    /// `position` is the position of the mouse when the event happens.
+    /// `button` describes the button that is pressed when the event happens.
+    /// `click_count` represents the current number of clicks.
     Released { position: LogicalPoint, button: PointerEventButton, click_count: u8 },
     /// The position of the pointer has changed
     Moved { position: LogicalPoint },
@@ -483,7 +489,7 @@ pub struct ClickState {
 impl ClickState {
     /// Resets the timer and count.
     pub fn restart(&self) {
-        self.click_count.set(1);
+        self.click_count.set(0);
         self.click_count_time_stamp.set(Some(crate::animations::Instant::now()));
     }
 
