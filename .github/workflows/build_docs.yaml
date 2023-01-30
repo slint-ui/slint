@@ -83,6 +83,9 @@ jobs:
     - name: "C++ Tutorial Docs"
       run: mdbook build
       working-directory: docs/tutorial/cpp
+    - name: "Slint Language Reference"
+      run: mdbook build
+      working-directory: docs/langref
     - name: "Node docs"
       run: |
           npm install --ignore-scripts
@@ -96,6 +99,7 @@ jobs:
               target/doc
               target/cppdocs/html
               api/node/docs
+              docs/langref/book/html
               docs/tutorial/rust/book/html
               docs/tutorial/cpp/book/html
     - name: "Check for docs warnings in internal crates"
