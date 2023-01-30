@@ -12,6 +12,7 @@ pub use crate::software_renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::{thread_local, OnceCell};
 pub use crate::window::WindowAdapter;
+use crate::SharedString;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -191,7 +192,7 @@ pub use crate::input::PointerEventButton;
 ///
 /// All position fields are in logical window coordinates.
 #[allow(missing_docs)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum WindowEvent {
     /// A pointer was pressed.
@@ -220,7 +221,6 @@ pub enum WindowEvent {
     PointerExited,
     /// A key was pressed.
     KeyPressed {
-        // FIXME: use SharedString instead of char (breaking change)
         /// The unicode representation of the key pressed.
         ///
         /// # Example
@@ -228,11 +228,10 @@ pub enum WindowEvent {
         /// ```rust
         /// let _ = slint::platform::WindowEvent::KeyPressed { text: slint::platform::Key::Shift.into() };
         /// ```
-        text: char,
+        text: SharedString,
     },
     /// A key was pressed.
     KeyReleased {
-        // FIXME: use SharedString instead of char (breaking change)
         /// The unicode representation of the key released.
         ///
         /// # Example
@@ -240,7 +239,7 @@ pub enum WindowEvent {
         /// ```rust
         /// let _ = slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Shift.into() };
         /// ```
-        text: char,
+        text: SharedString,
     },
 }
 

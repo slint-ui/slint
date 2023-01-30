@@ -340,10 +340,13 @@ impl slint::platform::Platform for StmBackend {
                 };
 
                 if let Some(event) = event {
+                    let is_pointer_release_event =
+                        matches!(event, slint::platform::WindowEvent::PointerReleased { .. });
+
                     window.dispatch_event(event);
 
                     // removes hover state on widgets
-                    if matches!(event, slint::platform::WindowEvent::PointerReleased { .. }) {
+                    if is_pointer_release_event {
                         window.dispatch_event(slint::platform::WindowEvent::PointerExited);
                     }
                 }
