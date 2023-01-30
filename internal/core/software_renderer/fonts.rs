@@ -60,11 +60,6 @@ pub enum Font {
 }
 
 pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
-    #[cfg(feature = "systemfonts")]
-    if let Some(vectorfont) = systemfonts::match_font(request, scale_factor) {
-        return vectorfont.into();
-    }
-
     let bitmap_font = BITMAP_FONTS.with(|fonts| {
         let fonts = fonts.borrow();
 
@@ -83,11 +78,19 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
         Some(bitmap_font) => bitmap_font,
         None => {
             #[cfg(feature = "systemfonts")]
-            return systemfonts::fallbackfont(request.pixel_size, scale_factor).into();
-            #[cfg(not(feature = "systemfonts"))]
-            BITMAP_FONTS.with(|fonts| {
-                *fonts.borrow().first().expect("The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files.")
-            })
+            if let Some(vectorfont) = systemfonts::match_font(request, scale_factor) {
+                return vectorfont.into();
+            }
+            if let Some(fallback_bitmap_font) =
+                BITMAP_FONTS.with(|fonts| fonts.borrow().first().cloned())
+            {
+                fallback_bitmap_font
+            } else {
+                #[cfg(feature = "systemfonts")]
+                return systemfonts::fallbackfont(request.pixel_size, scale_factor).into();
+                #[cfg(not(feature = "systemfonts"))]
+                panic!("No font fallback found. The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files.")
+            }
         }
     };
 
