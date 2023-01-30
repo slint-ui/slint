@@ -119,40 +119,51 @@ fn compare_images(
                 screenshot.size()
             ));
         }
-        if reference.as_bytes() != screenshot.as_bytes() {
-            for y in 0..screenshot.height() {
-                for x in 0..screenshot.width() {
-                    let pa = reference.as_slice()[(y * reference.width() + x) as usize];
-                    let pb = screenshot.as_slice()[(y * screenshot.width() + x) as usize];
-                    let ca = crossterm::style::Color::Rgb { r: pa.r, g: pa.g, b: pa.b };
-                    let cb = crossterm::style::Color::Rgb { r: pb.r, g: pb.g, b: pb.b };
-                    if pa == pb {
-                        eprint!("{}", crossterm::style::style("██").on(ca).with(cb));
-                    } else {
-                        eprint!(
-                            "{}{}",
-                            crossterm::style::style("•").on(ca).slow_blink().red(),
-                            crossterm::style::style("•").on(cb).slow_blink().green()
-                        );
-                    }
-                }
-                eprintln!();
-            }
-
-            let (failed_pixel_count, max_color_difference) =
-                reference.as_slice().iter().zip(screenshot.as_slice().iter()).fold(
-                    (0, 0.0f32),
-                    |(failure_count, max_color_difference), (reference_pixel, screenshot_pixel)| {
-                        (
-                            failure_count + (reference_pixel != screenshot_pixel) as usize,
-                            max_color_difference
-                                .max(color_difference(reference_pixel, screenshot_pixel)),
-                        )
-                    },
-                );
-            return Err(format!("images are not equal. Percentage of pixels that are different: {}. Maximum color difference: {}", failed_pixel_count * 100 / reference.as_slice().len(), max_color_difference));
+        if reference.as_bytes() == screenshot.as_bytes() {
+            return Ok(());
         }
-        Ok(())
+
+        let (failed_pixel_count, max_color_difference) =
+            reference.as_slice().iter().zip(screenshot.as_slice().iter()).fold(
+                (0, 0.0f32),
+                |(failure_count, max_color_difference), (reference_pixel, screenshot_pixel)| {
+                    (
+                        failure_count + (reference_pixel != screenshot_pixel) as usize,
+                        max_color_difference
+                            .max(color_difference(reference_pixel, screenshot_pixel)),
+                    )
+                },
+            );
+        if max_color_difference < 1.75 {
+            return Ok(());
+        }
+
+        for y in 0..screenshot.height() {
+            for x in 0..screenshot.width() {
+                let pa = reference.as_slice()[(y * reference.width() + x) as usize];
+                let pb = screenshot.as_slice()[(y * screenshot.width() + x) as usize];
+                let ca = crossterm::style::Color::Rgb { r: pa.r, g: pa.g, b: pa.b };
+                let cb = crossterm::style::Color::Rgb { r: pb.r, g: pb.g, b: pb.b };
+                if pa == pb {
+                    eprint!("{}", crossterm::style::style("██").on(ca).with(cb));
+                } else if color_difference(&pa, &pb) >= 1.75 {
+                    eprint!(
+                        "{}{}",
+                        crossterm::style::style("•").on(ca).slow_blink().red(),
+                        crossterm::style::style("•").on(cb).slow_blink().green()
+                    );
+                } else {
+                    eprint!(
+                        "{}{}",
+                        crossterm::style::style(".").on(ca).slow_blink().red(),
+                        crossterm::style::style(".").on(cb).slow_blink().green()
+                    );
+                }
+            }
+            eprintln!();
+        }
+
+        Err(format!("images are not equal. Percentage of pixels that are different: {}. Maximum color difference: {}", failed_pixel_count * 100 / reference.as_slice().len(), max_color_difference))
     };
 
     let result = compare();

@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Slider } from "std-widgets.slint";
+
+export TestCase := Window {
+    width:  64px;
+    height: 64px;
+
+    background: black;
+
+    GridLayout {
+        Row {
+            Rectangle { background: @linear-gradient(90deg, red, blue); }
+            Rectangle { background: @linear-gradient(0deg, green, yellow 20%, cyan); }
+            Rectangle { background: @linear-gradient(30deg, orange 20%, pink); }
+        }
+        Row {
+            Rectangle {
+                horizontal-stretch: 2;
+                //colspan: 2;
+                background: @linear-gradient(45deg, lightblue, red);
+                Rectangle { background: @linear-gradient(-45deg, green, transparent, #ff08); }
+            }
+            Rectangle { background: @linear-gradient(128deg, red, white 0%, transparent); }
+            Rectangle { background: @linear-gradient(242deg, white 10%, #239 35%, red 85%); }
+        }
+    }
+}
