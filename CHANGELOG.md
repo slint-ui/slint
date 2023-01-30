@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file.
  - `PointerEventButton::None` was renamed `PointerEventButton::Other`
  - In the Rust API, a lifetime parameter was added to `slint::ModelPeer`
  - In the C++ API, functions that take a functor as argument are now using concepts
+ - Removed the `stride()` function from `slint::Image` in Rust - use `width()` instead.
 
 ### Added
 

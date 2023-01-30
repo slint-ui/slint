@@ -1060,15 +1060,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
 fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::QPixmap> {
     let (format, bytes_per_line, buffer_ptr) = match buffer {
         SharedImageBuffer::RGBA8(img) => {
-            (qttypes::ImageFormat::RGBA8888, img.stride() * 4, img.as_bytes().as_ptr())
+            (qttypes::ImageFormat::RGBA8888, img.width() * 4, img.as_bytes().as_ptr())
         }
-        SharedImageBuffer::RGBA8Premultiplied(img) => (
-            qttypes::ImageFormat::RGBA8888_Premultiplied,
-            img.stride() * 4,
-            img.as_bytes().as_ptr(),
-        ),
+        SharedImageBuffer::RGBA8Premultiplied(img) => {
+            (qttypes::ImageFormat::RGBA8888_Premultiplied, img.width() * 4, img.as_bytes().as_ptr())
+        }
         SharedImageBuffer::RGB8(img) => {
-            (qttypes::ImageFormat::RGB888, img.stride() * 3, img.as_bytes().as_ptr())
+            (qttypes::ImageFormat::RGB888, img.width() * 3, img.as_bytes().as_ptr())
         }
     };
     let width: i32 = buffer.width() as _;
