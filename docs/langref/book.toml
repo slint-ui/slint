@@ -1,0 +1,12 @@
+[book]
+authors = ["Slint Developers <info@slint-ui.com>"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Slint Language Reference"
+
+[output.html]
+theme = "../tutorial/theme"
+
+[output.linkcheck]  # enable the "mdbook-linkcheck" renderer
+optional = true
