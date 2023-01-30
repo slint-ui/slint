@@ -15,6 +15,7 @@ impl TestCase {
             .with_extension("")
             .to_string_lossy()
             .replace(std::path::MAIN_SEPARATOR, "_")
+            .replace('-', "_")
     }
 }
 
