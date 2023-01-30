@@ -333,11 +333,11 @@ impl Item for TextInput {
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position_byte_offset.set(clicked_offset);
 
-                match click_count {
-                    1 => self.set_cursor_position(clicked_offset, true, window_adapter, self_rc),
-                    2 => self.select_word(window_adapter, self_rc),
-                    3 => self.select_paragraph(window_adapter, self_rc),
-                    _ => {}
+                match click_count % 3 {
+                    0 => self.set_cursor_position(clicked_offset, true, window_adapter, self_rc),
+                    1 => self.select_word(window_adapter, self_rc),
+                    2 => self.select_paragraph(window_adapter, self_rc),
+                    _ => unreachable!()
                 };
 
                 if !self.has_focus() {
