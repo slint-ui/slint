@@ -13,7 +13,7 @@ use vtable::VRef;
 
 #[repr(C)]
 #[cfg(target_pointer_width = "64")]
-pub struct ValueOpaque([usize; 8]);
+pub struct ValueOpaque([usize; 7]);
 #[repr(C)]
 #[cfg(target_pointer_width = "32")]
 #[repr(align(8))]
