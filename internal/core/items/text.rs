@@ -333,7 +333,6 @@ impl Item for TextInput {
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position_byte_offset.set(clicked_offset);
 
-                println!("click count {}", click_count);
                 match click_count {
                     1 => self.set_cursor_position(clicked_offset, true, window_adapter, self_rc),
                     2 => self.select_word(window_adapter, self_rc),
