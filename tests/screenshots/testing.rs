@@ -122,8 +122,8 @@ fn compare_images(
         if reference.as_bytes() != screenshot.as_bytes() {
             for y in 0..screenshot.height() {
                 for x in 0..screenshot.width() {
-                    let pa = reference.as_slice()[(y * reference.stride() + x) as usize];
-                    let pb = screenshot.as_slice()[(y * screenshot.stride() + x) as usize];
+                    let pa = reference.as_slice()[(y * reference.width() + x) as usize];
+                    let pb = screenshot.as_slice()[(y * screenshot.width() + x) as usize];
                     let ca = crossterm::style::Color::Rgb { r: pa.r, g: pa.g, b: pa.b };
                     let cb = crossterm::style::Color::Rgb { r: pb.r, g: pb.g, b: pb.b };
                     if pa == pb {
@@ -192,7 +192,7 @@ pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow<1
     // Try to render a clipped version (to simulate partial rendering) and it should be exactly the same
     let region = euclid::rect(s.width / 4, s.height / 4, s.width / 2, s.height / 2).cast::<usize>();
     for y in region.y_range() {
-        let stride = rendering.stride() as usize;
+        let stride = rendering.width() as usize;
         rendering.make_mut_slice()[y * stride..][region.x_range()].fill(Default::default());
     }
     screenshot_render_by_line(window, Some(region.cast()), &mut rendering);
@@ -218,7 +218,7 @@ pub fn screenshot_render_by_line(
             Some(r) => renderer.mark_dirty_region(DirtyRegion::from_untyped(&r.to_box2d().cast())),
         }
         renderer.render_by_line(TestingLineBuffer {
-            stride: buffer.stride() as usize,
+            stride: buffer.width() as usize,
             buffer: buffer.make_mut_slice(),
             region,
         });

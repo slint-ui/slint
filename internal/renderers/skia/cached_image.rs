@@ -70,7 +70,7 @@ pub(crate) fn as_skia_image(
             skia_safe::image::Image::from_raster_data(
                 &image_info,
                 skia_safe::Data::new_copy(pixels.as_bytes()),
-                pixels.stride() as usize * 4,
+                pixels.width() as usize * 4,
             )
         }
         ImageInner::StaticTextures(_) => todo!(),
@@ -91,7 +91,7 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
                 .collect::<Vec<u8>>();
             (
                 skia_safe::Data::new_copy(&*rgba),
-                pixels.stride() as usize * 4,
+                pixels.width() as usize * 4,
                 pixels.size(),
                 skia_safe::ColorType::RGBA8888,
                 skia_safe::AlphaType::Unpremul,
@@ -99,14 +99,14 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
         }
         SharedImageBuffer::RGBA8(pixels) => (
             skia_safe::Data::new_copy(pixels.as_bytes()),
-            pixels.stride() as usize * 4,
+            pixels.width() as usize * 4,
             pixels.size(),
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Unpremul,
         ),
         SharedImageBuffer::RGBA8Premultiplied(pixels) => (
             skia_safe::Data::new_copy(pixels.as_bytes()),
-            pixels.stride() as usize * 4,
+            pixels.width() as usize * 4,
             pixels.size(),
             skia_safe::ColorType::RGBA8888,
             skia_safe::AlphaType::Premul,

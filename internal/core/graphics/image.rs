@@ -57,7 +57,6 @@ OpaqueImageVTable_static! {
 pub struct SharedPixelBuffer<Pixel> {
     width: u32,
     height: u32,
-    stride: u32,
     data: SharedVector<Pixel>,
 }
 
@@ -75,11 +74,6 @@ impl<Pixel> SharedPixelBuffer<Pixel> {
     /// Returns the size of the image in pixels.
     pub fn size(&self) -> IntSize {
         [self.width, self.height].into()
-    }
-
-    /// Returns the number of pixels per line.
-    pub fn stride(&self) -> u32 {
-        self.stride
     }
 }
 
@@ -121,7 +115,6 @@ impl<Pixel: Clone + Default> SharedPixelBuffer<Pixel> {
         Self {
             width,
             height,
-            stride: width,
             data: core::iter::repeat(Pixel::default())
                 .take(width as usize * height as usize)
                 .collect(),
@@ -142,12 +135,7 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
         [SourcePixelType]: rgb::AsPixels<Pixel>,
     {
         use rgb::AsPixels;
-        Self {
-            width,
-            height,
-            stride: width,
-            data: pixel_slice.as_pixels().iter().cloned().collect(),
-        }
+        Self { width, height, data: pixel_slice.as_pixels().iter().cloned().collect() }
     }
 }
 
@@ -378,7 +366,7 @@ impl ImageInner {
             ImageInner::StaticTextures(ts) => {
                 let mut buffer =
                     SharedPixelBuffer::<Rgba8Pixel>::new(ts.size.width, ts.size.height);
-                let stride = buffer.stride() as usize;
+                let stride = buffer.width() as usize;
                 let slice = buffer.make_mut_slice();
                 for t in ts.textures.iter() {
                     let rect = t.rect.to_usize();

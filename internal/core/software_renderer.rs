@@ -651,7 +651,7 @@ impl SharedBufferCommand {
         match &self.buffer {
             SharedBufferData::SharedImage(SharedImageBuffer::RGB8(b)) => SceneTexture {
                 data: &b.as_bytes()[begin * 3..],
-                stride: 3 * b.stride() as u16,
+                stride: 3 * b.width() as u16,
                 format: PixelFormat::Rgb,
                 source_size: self.source_rect.size,
                 color: self.colorize,
@@ -659,7 +659,7 @@ impl SharedBufferCommand {
             },
             SharedBufferData::SharedImage(SharedImageBuffer::RGBA8(b)) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
-                stride: 4 * b.stride() as u16,
+                stride: 4 * b.width() as u16,
                 format: PixelFormat::Rgba,
                 source_size: self.source_rect.size,
                 color: self.colorize,
@@ -668,7 +668,7 @@ impl SharedBufferCommand {
             SharedBufferData::SharedImage(SharedImageBuffer::RGBA8Premultiplied(b)) => {
                 SceneTexture {
                     data: &b.as_bytes()[begin * 4..],
-                    stride: 4 * b.stride() as u16,
+                    stride: 4 * b.width() as u16,
                     format: PixelFormat::RgbaPremultiplied,
                     source_size: self.source_rect.size,
                     color: self.colorize,
