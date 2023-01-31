@@ -9,8 +9,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");
     let mut tests_file = std::fs::File::create(&tests_file_path)?;
 
-    for entry in std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs"))?
-        .chain(std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/recipes"))?)
+    let prefix = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize()?;
+    for entry in std::fs::read_dir(prefix.join("docs/langref/src"))?
+        .chain(std::fs::read_dir(prefix.join("docs"))?)
+        .chain(std::fs::read_dir(prefix.join("docs/recipes"))?)
     {
         let entry = entry?;
         let path = entry.path();
@@ -18,10 +20,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
         let stem = path
-            .file_stem()
-            .unwrap()
+            .strip_prefix(&prefix)?
             .to_string_lossy()
-            .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
+            .replace(|c: char| !c.is_ascii_alphanumeric(), "_")
+            .to_lowercase();
 
         writeln!(tests_file, "\nmod {} {{", stem)?;
 
