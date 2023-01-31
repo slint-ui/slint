@@ -43,3 +43,13 @@
     -   [`Math` Namespace](math.md)
     -   [`Colors` Namespace](colors.md)
 -   [Font Handling](fonts.md)
+
+# Builtins
+
+- [Elements](builtin_elements.md)
+- [Enums](builtin_enums.md)
+- [Widgets](widgets.md)
+
+# Positioning and Layouting
+
+- [Positioning and Layout of Elements](layouting.md)
