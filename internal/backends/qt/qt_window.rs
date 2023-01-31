@@ -1444,15 +1444,12 @@ impl QtWindow {
 
         let text = qt_key_to_string(key as key_generated::Qt_Key, text);
 
-        for ch in text.chars() {
-            let text = ch.into();
-            let event = if released {
-                WindowEvent::KeyReleased { text }
-            } else {
-                WindowEvent::KeyPressed { text }
-            };
-            self.window.dispatch_event(event)
-        }
+        let event = if released {
+            WindowEvent::KeyReleased { text }
+        } else {
+            WindowEvent::KeyPressed { text }
+        };
+        self.window.dispatch_event(event);
 
         timer_event();
     }
