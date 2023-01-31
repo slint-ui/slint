@@ -16,6 +16,7 @@ use crate::{component::ComponentRc, SharedString};
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
+use core::cell::Cell;
 use core::pin::Pin;
 
 /// A mouse or touch event
@@ -27,9 +28,15 @@ use core::pin::Pin;
 #[allow(missing_docs)]
 pub enum MouseEvent {
     /// The mouse or finger was pressed
-    Pressed { position: LogicalPoint, button: PointerEventButton },
+    /// `position` is the position of the mouse when the event happens.
+    /// `button` describes the button that is pressed when the event happens.
+    /// `click_count` represents the current number of clicks.
+    Pressed { position: LogicalPoint, button: PointerEventButton, click_count: u8 },
     /// The mouse or finger was released
-    Released { position: LogicalPoint, button: PointerEventButton },
+    /// `position` is the position of the mouse when the event happens.
+    /// `button` describes the button that is pressed when the event happens.
+    /// `click_count` represents the current number of clicks.
+    Released { position: LogicalPoint, button: PointerEventButton, click_count: u8 },
     /// The position of the pointer has changed
     Moved { position: LogicalPoint },
     /// Wheel was operated.
@@ -470,6 +477,62 @@ pub enum FocusEvent {
     WindowReceivedFocus,
     /// This event is sent when the window looses the keyboard focus.
     WindowLostFocus,
+}
+
+/// This state is used to count the clicks in the `click_interval` from the `PLATFORM_INSTANCE`.
+#[derive(Default)]
+pub struct ClickState {
+    click_count_time_stamp: Cell<Option<crate::animations::Instant>>,
+    click_count: Cell<u8>,
+}
+
+impl ClickState {
+    /// Resets the timer and count.
+    pub fn restart(&self) {
+        self.click_count.set(0);
+        self.click_count_time_stamp.set(Some(crate::animations::Instant::now()));
+    }
+
+    /// Check if the click is repeated.
+    pub fn check_repeat(&self, mouse_event: MouseEvent) -> MouseEvent {
+        match mouse_event {
+            MouseEvent::Pressed { position, button, .. } => {
+                let instant_now = crate::animations::Instant::now();
+
+                if let Some(click_count_time_stamp) = self.click_count_time_stamp.get() {
+                    if instant_now - click_count_time_stamp
+                        < crate::platform::PLATFORM_INSTANCE
+                            .with(|p| p.get().map(|p| p.click_interval()))
+                            .unwrap_or_default()
+                        && button == PointerEventButton::Left
+                    {
+                        self.click_count.set(self.click_count.get() + 1);
+                        self.click_count_time_stamp.set(Some(instant_now));
+                    } else {
+                        self.restart();
+                    }
+                } else {
+                    self.restart();
+                }
+
+                return MouseEvent::Pressed {
+                    position: position,
+                    button: button,
+                    click_count: self.click_count.get(),
+                };
+            }
+            MouseEvent::Released { position, button, .. } => {
+                return MouseEvent::Released {
+                    position: position,
+                    button: button,
+                    click_count: self.click_count.get(),
+                }
+            }
+            _ => {}
+        };
+
+        mouse_event
+    }
 }
 
 /// The state which a window should hold for the mouse input

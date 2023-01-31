@@ -12,7 +12,7 @@ use crate::api::{
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::Point;
 use crate::input::{
-    key_codes, InternalKeyboardModifierState, KeyEvent, KeyEventType, KeyInputEvent,
+    key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, KeyInputEvent,
     KeyboardModifiers, MouseEvent, MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
@@ -222,6 +222,8 @@ pub struct WindowInner {
     active: Pin<Box<Property<bool>>>,
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
+
+    click_state: ClickState,
     /// This is a cache of the size set by the set_inner_size setter.
     /// It should be mapping with the WindowItem::width and height (only in physical)
     pub(crate) inner_size: Cell<PhysicalSize>,
@@ -270,6 +272,7 @@ impl WindowInner {
             active_popup: Default::default(),
             close_requested: Default::default(),
             inner_size: Default::default(),
+            click_state: ClickState::default(),
         };
 
         window
@@ -320,6 +323,9 @@ impl WindowInner {
     /// * `component`: The Slint compiled component that provides the tree of items.
     pub fn process_mouse_input(&self, mut event: MouseEvent) {
         crate::animations::update_animations();
+
+        // handle multiple press release
+        event = self.click_state.check_repeat(event);
 
         let embedded_popup_component =
             self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {

@@ -64,6 +64,13 @@ pub trait Platform {
         unimplemented!("The platform abstraction must implement `duration_since_start`")
     }
 
+    /// Returns the current interval to internal measure the duration to send a double click event.
+    ///
+    /// A double click event is a series of two pointer clicks.
+    fn click_interval(&self) -> core::time::Duration {
+        core::time::Duration::from_millis(500)
+    }
+
     /// Sends the given text into the system clipboard
     fn set_clipboard_text(&self, _text: &str) {}
     /// Returns a copy of text stored in the system clipboard, if any.

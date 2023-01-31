@@ -422,12 +422,14 @@ impl Window {
                 self.0.process_mouse_input(MouseEvent::Pressed {
                     position: position.to_euclid().cast(),
                     button,
+                    click_count: 0,
                 });
             }
             crate::platform::WindowEvent::PointerReleased { position, button } => {
                 self.0.process_mouse_input(MouseEvent::Released {
                     position: position.to_euclid().cast(),
                     button,
+                    click_count: 0,
                 });
             }
             crate::platform::WindowEvent::PointerMoved { position } => {

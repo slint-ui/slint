@@ -517,7 +517,7 @@ impl Item for TouchArea {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        let result = if let MouseEvent::Released { position, button } = event {
+        let result = if let MouseEvent::Released { position, button, .. } = event {
             if button == PointerEventButton::Left
                 && LogicalRect::new(
                     LogicalPoint::default(),
@@ -533,7 +533,7 @@ impl Item for TouchArea {
         };
 
         match event {
-            MouseEvent::Pressed { position, button } => {
+            MouseEvent::Pressed { position, button, .. } => {
                 self.grabbed.set(true);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(position.x_length());

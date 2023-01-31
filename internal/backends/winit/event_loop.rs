@@ -362,11 +362,11 @@ fn process_window_event(
             let ev = match state {
                 winit::event::ElementState::Pressed => {
                     *pressed = true;
-                    MouseEvent::Pressed { position: *cursor_pos, button }
+                    MouseEvent::Pressed { position: *cursor_pos, button, click_count: 0 }
                 }
                 winit::event::ElementState::Released => {
                     *pressed = false;
-                    MouseEvent::Released { position: *cursor_pos, button }
+                    MouseEvent::Released { position: *cursor_pos, button, click_count: 0 }
                 }
             };
             runtime_window.process_mouse_input(ev);
@@ -377,11 +377,19 @@ fn process_window_event(
             let ev = match touch.phase {
                 winit::event::TouchPhase::Started => {
                     *pressed = true;
-                    MouseEvent::Pressed { position, button: PointerEventButton::Left }
+                    MouseEvent::Pressed {
+                        position,
+                        button: PointerEventButton::Left,
+                        click_count: 0,
+                    }
                 }
                 winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
                     *pressed = false;
-                    MouseEvent::Released { position, button: PointerEventButton::Left }
+                    MouseEvent::Released {
+                        position,
+                        button: PointerEventButton::Left,
+                        click_count: 0,
+                    }
                 }
                 winit::event::TouchPhase::Moved => MouseEvent::Moved { position },
             };
