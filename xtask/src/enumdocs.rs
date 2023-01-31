@@ -7,8 +7,8 @@ use std::io::Write;
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
 
-    let mut file = std::fs::File::create(root.join("docs/builtin_enums.md"))
-        .context("error creating docs/builtin_enums.md")?;
+    let path = root.join("docs/langref/src/builtin_enums.md");
+    let mut file = std::fs::File::create(&path).context(format!("error creating {path:?}"))?;
 
     file.write_all(
         br#"<!-- Generated with `cargo xtask enumdocs` from internal/commons/enums.rs -->
@@ -51,6 +51,11 @@ The default value of each enum type is always the first value.
     {
         i_slint_common::for_each_enums!(gen_enums);
     }
+
+    // Copy out of langref!
+    // TODO: Remove this again.
+    drop(file);
+    std::fs::copy(&path, root.join("docs/builtin_enums.md"))?;
 
     Ok(())
 }
