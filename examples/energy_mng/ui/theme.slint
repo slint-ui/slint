@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export struct Palette {
+    // solid
+    slint-blue: brush,
+    purple-black: brush,
+    dark-deep-blue: brush,
+    shark-gray: brush,
+    limon-green: brush,
+    white: brush,
+
+    // gradients
+    limon-green-gradient: brush,
+    electric-violet-gradient: brush,
+    heliotrope-gradient: brush,
+    dark-left-gradient: brush,
+    dark-right-gradient: brush,
+    ebony-radial-gradient: brush,
+}
+
+export struct Spaces {
+    small: length,
+    medium: length,
+    large: length,
+}
+
+export struct Durations {
+    fast: duration,
+    medium: duration,
+}
+
+export global Theme {
+    in property <Palette> palette: {
+        // solid
+        slint-blue: #0025FF,
+        purple-black: #000000,
+        dark-deep-blue: #040708,
+        shark-gray: #2C2F36,
+        limon-green: #DEFB3A, 
+        white: #FFFFFF,
+
+        // gradients
+        limon-green-gradient: @linear-gradient(135deg, #DEFB3A 0%, #defb3a00 100%),
+        electric-violet-gradient: @linear-gradient(135deg, #6C4BFF 0%, #6C4BFF00 100%),
+        heliotrope-gradient: @linear-gradient(180deg, #896FFF 0%, #39316B 100%),
+        dark-left-gradient: @linear-gradient(90deg, #040708 0%, #04070875 50%, #04070800 100%),
+        dark-right-gradient: @linear-gradient(90deg, #04070800 0%, #04070875 50%, #040708 100%),
+        ebony-radial-gradient: @radial-gradient(circle, #100F23 0%, #1F1946 100%)
+    };
+
+    in property <Spaces> spaces: {
+        small: 5px,
+        medium: 10px,
+        large: 20px,
+    };
+
+    in property <Durations> durations: {
+        fast: 125ms,
+        medium: 200ms,
+    };
+}

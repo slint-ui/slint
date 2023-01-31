@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+import { StateLayer } from "../components/state_layer.slint";
+
+export component FloatButton {
+    in property <image> icon <=> i-icon.source;
+    
+    callback clicked <=> i-state-layer.clicked;
+
+    width: 50px;
+    height: 50px;
+
+    i-container := Rectangle {   
+        background: Theme.palette.heliotrope-gradient;
+        border-radius: 25px;
+
+        i-icon := Image {  
+            width: 24px;
+            height: 24px;
+            colorize: Theme.palette.white;
+        }
+    }
+
+    i-state-layer := StateLayer {
+        border-radius: i-container.border-radius;
+    }
+}

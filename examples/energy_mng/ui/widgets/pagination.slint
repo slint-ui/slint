@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+
+component Bubble inherits Rectangle {
+    in property <bool> selected;
+
+    width: 5px;
+    height: 5px;
+    border-radius: max(self.width, self.height) / 2;
+    background: Theme.palette.slint-blue;
+
+    i-touch-area := TouchArea {}
+
+    states [  
+        selected when selected : {
+            background: Theme.palette.white;
+        }
+    ]
+}
+
+export component Pagination {
+    callback clicked <=> i-touch-area.clicked;
+    
+    in property <int> count;
+    in property <int> selected_index;
+
+    min-height: 11px;
+    vertical-stretch: 0;
+
+    HorizontalLayout {  
+        alignment: center;
+        spacing: Theme.spaces.small;
+
+        for index in count : Bubble {
+            y: (parent.height - self.height) / 2;
+            selected: index == selected-index;
+        }
+    }
+
+    i-touch-area := TouchArea {}
+}

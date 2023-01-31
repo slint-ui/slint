@@ -1,0 +1,28 @@
+import { Theme } from "../theme.slint";
+import { StateLayer } from "../components/state_layer.slint";
+
+export component MenuButton {
+    callback clicked <=> i-state-layer.clicked;
+
+    width: 75px;
+    height: 25px;
+    opacity: root.visible ? 1.0 : 0.0;
+
+    i-container := Rectangle {   
+        background: Theme.palette.heliotrope-gradient;
+        border-radius: 12px;
+        
+        Rectangle {  
+            width: 55px;
+            height: 5px;
+            background: Theme.palette.white;
+            border-radius: 3px;
+        }
+    }
+
+    i-state-layer := StateLayer {
+        border-radius: i-container.border-radius;
+    }
+
+    animate opacity { duration: Theme.durations.fast; }
+}

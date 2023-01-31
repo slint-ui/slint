@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "theme.slint";
+import { Navigation, MenuButton, Menu } from "widgets/widgets.slint";
+import { Balance, Overview, Usage, Weather } from "pages/pages.slint";
+
+export component MainWindow inherits Window {
+    title: "EnergyMNG Demo";
+    min_width: 320px;
+    min_height: 240px;
+    background: Theme.palette.purple-black;
+
+    i-navigation := Navigation {  
+        page-count: 4;
+
+        Overview {
+            index: 0;
+            current-index: i-navigation.current-index;
+        }
+        Usage { 
+            index: 1;
+            current-index: i-navigation.current-index;
+        }
+        Balance {
+            index: 2;
+            current-index: i-navigation.current-index;
+        }
+        Weather {
+            index: 3; 
+            current-index: i-navigation.current-index;
+        }
+
+        pagination-clicked => {  
+            i-menu.show-button();
+        }
+    }
+
+    i-menu := Menu {
+        x: (parent.width - self.width) / 2;
+        start-y: parent.height - 25px;
+        end-y: 9px;
+        width: parent.width - 8px;
+        height: parent.height - 14px;  
+    }
+}
