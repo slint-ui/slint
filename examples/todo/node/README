@@ -1,4 +1,7 @@
 Run with
 
+# pushd ../../../api/node
+# npm install
+# popd
 # npm install
 # npm start
