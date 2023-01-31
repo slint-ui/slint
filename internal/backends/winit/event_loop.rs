@@ -11,6 +11,7 @@ use copypasta::ClipboardProvider;
 use corelib::items::PointerEventButton;
 use corelib::lengths::LogicalPoint;
 use corelib::lengths::LogicalSize;
+use corelib::SharedString;
 use i_slint_core as corelib;
 
 use corelib::api::EventLoopError;
@@ -252,7 +253,7 @@ fn process_window_event(
             //
             // We do not want to change the text to the value of the key press when that was a
             // control key itself: We already sent that event when handling the KeyboardInput.
-            let text: char = if ch.is_control() {
+            let text: SharedString = if ch.is_control() {
                 if let Some(ch) = window
                     .currently_pressed_key_code()
                     .take()
@@ -265,9 +266,12 @@ fn process_window_event(
                 }
             } else {
                 ch
-            };
+            }
+            .into();
 
-            window.window().dispatch_event(corelib::platform::WindowEvent::KeyPressed { text });
+            window
+                .window()
+                .dispatch_event(corelib::platform::WindowEvent::KeyPressed { text: text.clone() });
             window.window().dispatch_event(corelib::platform::WindowEvent::KeyReleased { text });
         }
         WindowEvent::Focused(have_focus) => {
@@ -296,13 +300,14 @@ fn process_window_event(
                 winit::event::ElementState::Pressed => key_code,
                 _ => None,
             });
-            if let Some(ch) = key_code.and_then(key_codes::winit_key_to_char) {
+            if let Some(text) = key_code.and_then(key_codes::winit_key_to_char).map(|ch| ch.into())
+            {
                 window.window().dispatch_event(match input.state {
                     winit::event::ElementState::Pressed => {
-                        corelib::platform::WindowEvent::KeyPressed { text: ch }
+                        corelib::platform::WindowEvent::KeyPressed { text }
                     }
                     winit::event::ElementState::Released => {
-                        corelib::platform::WindowEvent::KeyReleased { text: ch }
+                        corelib::platform::WindowEvent::KeyReleased { text }
                     }
                 });
             };

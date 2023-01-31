@@ -105,16 +105,11 @@ impl WasmInputHelper {
             if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
                 if !e.is_composing() && e.input_type() != "insertCompositionText" {
                     if !shared_state2.borrow_mut().has_key_down {
-                        for ch in data.chars() {
-                            window_adapter
-                                .window()
-                                .dispatch_event(WindowEvent::KeyPressed { text: ch })
-                        }
-                        for ch in data.chars() {
-                            window_adapter
-                                .window()
-                                .dispatch_event(WindowEvent::KeyReleased { text: ch })
-                        }
+                        let text: SharedString = data.into();
+                        window_adapter
+                            .window()
+                            .dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+                        window_adapter.window().dispatch_event(WindowEvent::KeyReleased { text });
                         shared_state2.borrow_mut().has_key_down = false;
                     }
                     input.set_value("");
@@ -196,7 +191,7 @@ impl WasmInputHelper {
     }
 }
 
-fn event_text(e: &web_sys::KeyboardEvent) -> Option<char> {
+fn event_text(e: &web_sys::KeyboardEvent) -> Option<SharedString> {
     if e.is_composing() {
         return None;
     }
@@ -210,7 +205,7 @@ fn event_text(e: &web_sys::KeyboardEvent) -> Option<char> {
             match key.as_str() {
                 "Tab" if e.shift_key() => return Some(Key::Backtab.into()),
                 $(stringify!($name) => {
-                    return Some($char);
+                    return Some($char.into());
                 })*
                 // Why did we diverge from DOM there?
                 "ArrowLeft" => return Some(Key::LeftArrow.into()),
@@ -224,9 +219,5 @@ fn event_text(e: &web_sys::KeyboardEvent) -> Option<char> {
     }
     i_slint_common::for_each_special_keys!(check_non_printable_code);
 
-    let mut chars = key.chars();
-    match chars.next() {
-        Some(first_char) if chars.next().is_none() => Some(first_char),
-        _ => None,
-    }
+    return Some(key.into());
 }

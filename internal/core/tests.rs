@@ -73,9 +73,9 @@ pub extern "C" fn slint_send_keyboard_char(
 ) {
     for ch in string.chars() {
         window_adapter.window().dispatch_event(if pressed {
-            WindowEvent::KeyPressed { text: ch }
+            WindowEvent::KeyPressed { text: ch.into() }
         } else {
-            WindowEvent::KeyReleased { text: ch }
+            WindowEvent::KeyReleased { text: ch.into() }
         })
     }
 }
@@ -93,8 +93,9 @@ pub extern "C" fn send_keyboard_string_sequence(
                 .dispatch_event(WindowEvent::KeyPressed { text: Key::Shift.into() });
         }
 
-        window_adapter.window().dispatch_event(WindowEvent::KeyPressed { text: ch });
-        window_adapter.window().dispatch_event(WindowEvent::KeyReleased { text: ch });
+        let text: crate::SharedString = ch.into();
+        window_adapter.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        window_adapter.window().dispatch_event(WindowEvent::KeyReleased { text });
 
         if ch.is_ascii_uppercase() {
             window_adapter

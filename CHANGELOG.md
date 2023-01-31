@@ -10,6 +10,10 @@ All notable changes to this project are documented in this file.
  - In the Rust API, a lifetime parameter was added to `slint::ModelPeer`
  - In the C++ API, functions that take a functor as argument are now using concepts
  - Removed the `stride()` function from `slint::Image` in Rust - use `width()` instead.
+ - In `slint::platform::WindowEvent::KeyPressed` and `KeyReleased`, the `text` field is now
+   a `slint::SharedString`.
+ - `slint::platform::WindowEvent` does not derive from `Copy` anymore. You must `clone()` it
+   explicitly if you want to create a copy.
 
 ### Added
 
