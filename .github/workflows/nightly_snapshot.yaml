@@ -304,6 +304,8 @@ jobs:
             cp -a ../docs/tutorial/cpp/book/html/* snapshots/$target_branch/docs/tutorial/cpp
             mkdir -p snapshots/$target_branch/docs/node
             cp -a ../api/node/docs/* snapshots/$target_branch/docs/node/
+            mkdir -p snapshots/$target_branch/docs/slint
+            cp -a ../docs/langref/book/html/* snapshots/$target_branch/docs/slint/
             git add snapshots/$target_branch/docs
             git add -u snapshots/$target_branch/docs
 
