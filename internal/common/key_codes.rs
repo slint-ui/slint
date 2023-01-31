@@ -20,7 +20,7 @@ macro_rules! for_each_special_keys {
 
 // The modifier key codes comes from https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode.
 '\u{0010}'  # Shift       # Qt_Key_Key_Shift        # LShift       ;
-'\u{0011}'  # Control     # Qt_Key_Key_Meta         # LControl     ;
+'\u{0011}'  # Control     # Qt_Key_Key_Control      # LControl     ;
 '\u{0012}'  # Alt         # Qt_Key_Key_Alt          # LAlt         ;
 '\u{0013}'  # AltGr       # Qt_Key_Key_AltGr        # RAlt         ;
 '\u{0014}'  # CapsLock    # Qt_Key_Key_CapsLock     #              ;
@@ -30,7 +30,7 @@ macro_rules! for_each_special_keys {
 
 // Use custom codes instead of DOM_VK_META for meta, because the Mozilla defined code is a regular character (E0; LATIN SMALL LETTER A WITH GRAVE)
 // which makes those keys appear as text.
-'\u{0017}'  # Meta        # Qt_Key_Key_Control      # LWin         ;
+'\u{0017}'  # Meta        # Qt_Key_Key_Meta         # LWin         ;
 '\u{0018}'  # MetaR       #                         # RWin         ;
 
 '\u{F700}'	# UpArrow     # Qt_Key_Key_Up           # Up           ;
