@@ -21,6 +21,7 @@ use crate::input::{
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
+use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowInner};
@@ -344,8 +345,20 @@ impl Item for TextInput {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
                 }
             }
+            MouseEvent::Pressed { position, button: PointerEventButton::Middle, .. } => {
+                let clicked_offset =
+                    window_adapter.renderer().text_input_byte_offset_for_position(self, position)
+                        as i32;
+                self.as_ref().anchor_position_byte_offset.set(clicked_offset);
+                self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
+                self.paste(window_adapter, self_rc, Clipboard::SelectionClipboard);
+                if !self.has_focus() {
+                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
+                }
+            }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
-                self.as_ref().pressed.set(false)
+                self.as_ref().pressed.set(false);
+                self.copy(Clipboard::SelectionClipboard);
             }
             MouseEvent::Exit => {
                 window_adapter.set_mouse_cursor(super::MouseCursor::Default);
@@ -457,15 +470,15 @@ impl Item for TextInput {
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Copy => {
-                            self.copy();
+                            self.copy(Clipboard::DefaultClipboard);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Paste if !self.read_only() => {
-                            self.paste(window_adapter, self_rc);
+                            self.paste(window_adapter, self_rc, Clipboard::DefaultClipboard);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Cut if !self.read_only() => {
-                            self.copy();
+                            self.copy(Clipboard::DefaultClipboard);
                             self.delete_selection(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
@@ -969,7 +982,7 @@ impl TextInput {
         );
     }
 
-    fn copy(self: Pin<&Self>) {
+    fn copy(self: Pin<&Self>, clipboard: Clipboard) {
         let (anchor, cursor) = self.selection_anchor_and_cursor();
         if anchor == cursor {
             return;
@@ -977,14 +990,19 @@ impl TextInput {
         let text = self.text();
         crate::platform::PLATFORM_INSTANCE.with(|p| {
             if let Some(backend) = p.get() {
-                backend.set_clipboard_text(&text[anchor..cursor]);
+                backend.set_clipboard_text(&text[anchor..cursor], clipboard);
             }
         });
     }
 
-    fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
-        if let Some(text) =
-            crate::platform::PLATFORM_INSTANCE.with(|p| p.get().and_then(|p| p.clipboard_text()))
+    fn paste(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+        clipboard: Clipboard,
+    ) {
+        if let Some(text) = crate::platform::PLATFORM_INSTANCE
+            .with(|p| p.get().and_then(|p| p.clipboard_text(clipboard)))
         {
             self.insert(&text, window_adapter, self_rc);
         }

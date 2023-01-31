@@ -51,8 +51,11 @@ pub trait WinitWindow: WindowAdapter {
     fn take_pending_redraw(&self) -> bool;
 }
 
+/// The Default, and the selection clippoard
+type ClipboardPair = (Box<dyn copypasta::ClipboardProvider>, Box<dyn copypasta::ClipboardProvider>);
+
 struct NotRunningEventLoop {
-    clipboard: RefCell<Box<dyn copypasta::ClipboardProvider>>,
+    clipboard: RefCell<ClipboardPair>,
     instance: winit::event_loop::EventLoop<CustomEvent>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<CustomEvent>,
 }
@@ -69,13 +72,16 @@ impl NotRunningEventLoop {
 struct RunningEventLoop<'a> {
     event_loop_target: &'a winit::event_loop::EventLoopWindowTarget<CustomEvent>,
     event_loop_proxy: &'a winit::event_loop::EventLoopProxy<CustomEvent>,
-    clipboard: &'a RefCell<Box<dyn copypasta::ClipboardProvider>>,
+    clipboard: &'a RefCell<ClipboardPair>,
 }
 
 pub(crate) trait EventLoopInterface {
     fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<CustomEvent>;
     fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<CustomEvent>;
-    fn clipboard(&self) -> RefMut<'_, dyn ClipboardProvider>;
+    fn clipboard(
+        &self,
+        _: i_slint_core::platform::Clipboard,
+    ) -> Option<RefMut<'_, dyn ClipboardProvider>>;
 }
 
 impl EventLoopInterface for NotRunningEventLoop {
@@ -87,8 +93,19 @@ impl EventLoopInterface for NotRunningEventLoop {
         &self.event_loop_proxy
     }
 
-    fn clipboard(&self) -> RefMut<'_, dyn ClipboardProvider> {
-        RefMut::map(self.clipboard.borrow_mut(), |clipboard_box| clipboard_box.as_mut())
+    fn clipboard(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+    ) -> Option<RefMut<'_, dyn ClipboardProvider>> {
+        match clipboard {
+            corelib::platform::Clipboard::DefaultClipboard => {
+                Some(RefMut::map(self.clipboard.borrow_mut(), |p| p.0.as_mut()))
+            }
+            corelib::platform::Clipboard::SelectionClipboard => {
+                Some(RefMut::map(self.clipboard.borrow_mut(), |p| p.1.as_mut()))
+            }
+            _ => None,
+        }
     }
 }
 
@@ -101,8 +118,19 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
         self.event_loop_proxy
     }
 
-    fn clipboard(&self) -> RefMut<'_, dyn ClipboardProvider> {
-        RefMut::map(self.clipboard.borrow_mut(), |clipboard_box| clipboard_box.as_mut())
+    fn clipboard(
+        &self,
+        clipboard: i_slint_core::platform::Clipboard,
+    ) -> Option<RefMut<'_, dyn ClipboardProvider>> {
+        match clipboard {
+            corelib::platform::Clipboard::DefaultClipboard => {
+                Some(RefMut::map(self.clipboard.borrow_mut(), |p| p.0.as_mut()))
+            }
+            corelib::platform::Clipboard::SelectionClipboard => {
+                Some(RefMut::map(self.clipboard.borrow_mut(), |p| p.1.as_mut()))
+            }
+            _ => None,
+        }
     }
 }
 
@@ -671,26 +699,7 @@ fn winit_key_code_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Op
     })
 }
 
-fn create_clipboard<T>(
-    _event_loop: &winit::event_loop::EventLoopWindowTarget<T>,
-) -> Box<dyn copypasta::ClipboardProvider> {
-    #[allow(unused_mut)]
-    let mut clipboard: Option<Box<dyn copypasta::ClipboardProvider>> = None;
-
-    cfg_if::cfg_if! {
-        if #[cfg(all(any(
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd"
-        ), feature = "wayland", not(feature = "x11")))] {
-            type DefaultClipboard = copypasta::nop_clipboard::NopClipboardContext;
-        } else {
-            type DefaultClipboard = copypasta::ClipboardContext;
-        }
-    }
-
+fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>) -> ClipboardPair {
     #[cfg(any(
         target_os = "linux",
         target_os = "dragonfly",
@@ -698,18 +707,45 @@ fn create_clipboard<T>(
         target_os = "netbsd",
         target_os = "openbsd"
     ))]
-    if cfg!(feature = "wayland") {
-        use winit::platform::unix::EventLoopWindowTargetExtUnix;
+    {
         #[cfg(feature = "wayland")]
-        if let Some(wayland_display) = _event_loop.wayland_display() {
-            clipboard = unsafe {
-                Some(Box::new(
-                    copypasta::wayland_clipboard::create_clipboards_from_external(wayland_display)
-                        .1,
-                ))
+        if let Some(wayland_display) =
+            winit::platform::unix::EventLoopWindowTargetExtUnix::wayland_display(_event_loop)
+        {
+            let clipboard = unsafe {
+                copypasta::wayland_clipboard::create_clipboards_from_external(wayland_display)
             };
+            return (Box::new(clipboard.1), Box::new(clipboard.0));
+        };
+        #[cfg(feature = "x11")]
+        {
+            let prim = copypasta::x11_clipboard::X11ClipboardContext::<
+                copypasta::x11_clipboard::Primary,
+            >::new()
+            .map_or(
+                Box::new(copypasta::nop_clipboard::NopClipboardContext)
+                    as Box<dyn copypasta::ClipboardProvider>,
+                |x| Box::new(x) as Box<dyn copypasta::ClipboardProvider>,
+            );
+            let sec = copypasta::x11_clipboard::X11ClipboardContext::<
+                copypasta::x11_clipboard::Clipboard,
+            >::new()
+            .map_or(
+                Box::new(copypasta::nop_clipboard::NopClipboardContext)
+                    as Box<dyn copypasta::ClipboardProvider>,
+                |x| Box::new(x) as Box<dyn copypasta::ClipboardProvider>,
+            );
+            return (sec, prim);
         }
     }
 
-    clipboard.unwrap_or_else(|| Box::new(DefaultClipboard::new().unwrap()))
+    #[allow(unreachable_code)]
+    (
+        copypasta::ClipboardContext::new().map_or(
+            Box::new(copypasta::nop_clipboard::NopClipboardContext)
+                as Box<dyn copypasta::ClipboardProvider>,
+            |x| Box::new(x) as Box<dyn copypasta::ClipboardProvider>,
+        ),
+        Box::new(copypasta::nop_clipboard::NopClipboardContext),
+    )
 }

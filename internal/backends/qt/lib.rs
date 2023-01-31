@@ -222,26 +222,36 @@ impl i_slint_core::platform::Platform for Backend {
     }
 
     #[cfg(not(no_qt))]
-    fn set_clipboard_text(&self, _text: &str) {
+    fn set_clipboard_text(&self, _text: &str, _clipboard: i_slint_core::platform::Clipboard) {
         use cpp::cpp;
+        let is_selection: bool = match _clipboard {
+            i_slint_core::platform::Clipboard::DefaultClipboard => false,
+            i_slint_core::platform::Clipboard::SelectionClipboard => true,
+            _ => return,
+        };
         let text: qttypes::QString = _text.into();
-        cpp! {unsafe [text as "QString"] {
+        cpp! {unsafe [text as "QString", is_selection as "bool"] {
             ensure_initialized();
-            QGuiApplication::clipboard()->setText(text);
+            QGuiApplication::clipboard()->setText(text, is_selection ? QClipboard::Selection : QClipboard::Clipboard);
         } }
     }
 
     #[cfg(not(no_qt))]
-    fn clipboard_text(&self) -> Option<String> {
+    fn clipboard_text(&self, _clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         use cpp::cpp;
-        let has_text = cpp! {unsafe [] -> bool as "bool" {
+        let is_selection: bool = match _clipboard {
+            i_slint_core::platform::Clipboard::DefaultClipboard => false,
+            i_slint_core::platform::Clipboard::SelectionClipboard => true,
+            _ => return None,
+        };
+        let has_text = cpp! {unsafe [is_selection as "bool"] -> bool as "bool" {
             ensure_initialized();
-            return QGuiApplication::clipboard()->mimeData()->hasText();
+            return QGuiApplication::clipboard()->mimeData(is_selection ? QClipboard::Selection : QClipboard::Clipboard)->hasText();
         } };
         if has_text {
             return Some(
-                cpp! { unsafe [] -> qttypes::QString as "QString" {
-                    return QGuiApplication::clipboard()->text();
+                cpp! { unsafe [is_selection as "bool"] -> qttypes::QString as "QString" {
+                    return QGuiApplication::clipboard()->text(is_selection ? QClipboard::Selection : QClipboard::Clipboard);
                 }}
                 .into(),
             );
