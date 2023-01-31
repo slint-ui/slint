@@ -71,10 +71,15 @@ pub trait Platform {
         core::time::Duration::from_millis(500)
     }
 
-    /// Sends the given text into the system clipboard
-    fn set_clipboard_text(&self, _text: &str) {}
+    /// Sends the given text into the system clipboard.
+    ///
+    /// If the platform doesn't support the specified clipboard, this function should do nothing
+    fn set_clipboard_text(&self, _text: &str, _clipboard: Clipboard) {}
+
     /// Returns a copy of text stored in the system clipboard, if any.
-    fn clipboard_text(&self) -> Option<String> {
+    ///
+    /// If the platform doesn't support the specified clipboard, the function should return None
+    fn clipboard_text(&self, _clipboard: Clipboard) -> Option<String> {
         None
     }
 
@@ -84,6 +89,21 @@ pub trait Platform {
     fn debug_log(&self, _arguments: core::fmt::Arguments) {
         crate::tests::default_debug_log(_arguments);
     }
+}
+
+/// The clip board, used in [`Platform::clipboard_text`] and [Platform::set_clipboard_text`]
+#[non_exhaustive]
+#[derive(PartialEq, Clone, Default)]
+pub enum Clipboard {
+    /// This is the default clipboard used for text action for Ctrl+V,  Ctrl+C.
+    /// Corresponds to the secondary clipboard on X11.
+    #[default]
+    DefaultClipboard,
+
+    /// This is the clipboard that is used when text is selected
+    /// Corresponds to the primary clipboard on X11.
+    /// The Platform implementation should do nothing if copy on select is not supported on that platform.
+    SelectionClipboard,
 }
 
 /// Trait that is returned by the [`Platform::new_event_loop_proxy`]

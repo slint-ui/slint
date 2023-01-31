@@ -32,12 +32,18 @@ impl i_slint_core::platform::Platform for TestingBackend {
         core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
     }
 
-    fn set_clipboard_text(&self, text: &str) {
-        *self.clipboard.lock().unwrap() = Some(text.into());
+    fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
+        if clipboard == i_slint_core::platform::Clipboard::DefaultClipboard {
+            *self.clipboard.lock().unwrap() = Some(text.into());
+        }
     }
 
-    fn clipboard_text(&self) -> Option<String> {
-        self.clipboard.lock().unwrap().clone()
+    fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
+        if clipboard == i_slint_core::platform::Clipboard::DefaultClipboard {
+            self.clipboard.lock().unwrap().clone()
+        } else {
+            None
+        }
     }
 }
 

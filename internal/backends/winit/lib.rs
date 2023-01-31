@@ -182,15 +182,15 @@ impl i_slint_core::platform::Platform for Backend {
         Some(Box::new(Proxy))
     }
 
-    fn set_clipboard_text(&self, text: &str) {
+    fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
         crate::event_loop::with_window_target(|event_loop_target| {
-            event_loop_target.clipboard().set_contents(text.into()).ok()
+            event_loop_target.clipboard(clipboard)?.set_contents(text.into()).ok()
         });
     }
 
-    fn clipboard_text(&self) -> Option<String> {
+    fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
         crate::event_loop::with_window_target(|event_loop_target| {
-            event_loop_target.clipboard().get_contents().ok()
+            event_loop_target.clipboard(clipboard)?.get_contents().ok()
         })
     }
 }
