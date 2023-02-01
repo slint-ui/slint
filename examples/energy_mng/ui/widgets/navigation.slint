@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
 import { Pagination } from "pagination.slint";
 import { FloatButton } from "float_button.slint";
 import { Theme } from "../theme.slint";
@@ -31,45 +34,62 @@ export component Navigation {
         i-pagination := Pagination {}
     }
 
-  
 
-    Rectangle { 
-        visible: current-index > 0 && show-navigation; 
-        opacity: self.visible ? 1 : 0;
-        x: 0px;
-        width: 129px;
-        background: Theme.palette.dark-left-gradient;
+    HorizontalLayout {  
+        Rectangle { 
+            visible: current-index > 0 && show-navigation; 
+            opacity: self.visible ? 1 : 0;
+            // x: 0px;
+            min_width: 129px;
+            background: Theme.palette.dark-left-gradient;
 
-        FloatButton {  
-            x: Theme.spaces.large;
-            
-            icon: @image-url("../assets/arrow-left.png");
-            clicked => {  
-                root.increment();
+            VerticalLayout { 
+                alignment: center;
+    
+                HorizontalLayout {  
+                    padding-left: Theme.spaces.large;
+    
+                    alignment: start;
+                    FloatButton {  
+                        icon: @image-url("../assets/arrow-left.png");
+                        clicked => {  
+                            root.increment();
+                        }
+                    }
+                }
             }
+    
+            animate opacity { duration: Theme.durations.fast; }
         }
 
-        animate opacity { duration: Theme.durations.fast; }
+        Rectangle { }
+    
+        Rectangle {  
+            visible: current-index < page-count - 1 && show-navigation;
+            opacity: self.visible ? 1 : 0;
+            min_width: 129px;
+            background: Theme.palette.dark-right-gradient;
+    
+            VerticalLayout { 
+                alignment: center;
+    
+                HorizontalLayout {  
+                    padding-right: Theme.spaces.large;
+    
+                    alignment: end;
+                    FloatButton {  
+                        icon: @image-url("../assets/arrow-right.png");
+                       
+                        clicked => {  
+                            root.decrement();
+                        }
+                    }
+                }
+            }
+    
+            animate opacity { duration: Theme.durations.fast; }
+        } 
     }
-
-    Rectangle {  
-        visible: current-index < page-count - 1 && show-navigation;
-        opacity: self.visible ? 1 : 0;
-        x: parent.width - self.width;
-        width: 129px;
-        background: Theme.palette.dark-right-gradient;
-
-        FloatButton {  
-            x: parent.width - self.width - Theme.spaces.large;
-            icon: @image-url("../assets/arrow-right.png");
-           
-            clicked => {  
-                root.decrement();
-            }
-        }
-
-        animate opacity { duration: Theme.durations.fast; }
-    } 
 
     function toogle-show-navigation() {
         show-navigation = !self.show-navigation;

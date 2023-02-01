@@ -10,7 +10,6 @@ extern crate alloc;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-#[allow(clippy::all)]
 pub mod ui {
     slint::include_modules!();
 }

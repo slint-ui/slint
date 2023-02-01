@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
 import { Theme } from "../theme.slint";
 import { MenuButton } from "menu_button.slint";
 
@@ -15,12 +18,20 @@ export component Menu  {
         background: Theme.palette.ebony-radial-gradient;
     }
 
-    i-menu-button := MenuButton {  
-        visible: menu-button-visible || container-visibility == 1.0;
+    HorizontalLayout {  
         y: - 5px;
+        alignment: center;
 
-        clicked => { 
-            toggle-open(); 
+        VerticalLayout {  
+            alignment: start;
+
+            i-menu-button := MenuButton {  
+                visible: menu-button-visible || container-visibility == 1.0;
+               
+                clicked => { 
+                    toggle-open(); 
+                }
+            }
         }
     }
 

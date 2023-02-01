@@ -9,16 +9,14 @@ export component FloatButton {
     
     callback clicked <=> i-state-layer.clicked;
 
-    width: 50px;
-    height: 50px;
+    min_width: 50px;
+    min_height: 50px;
 
     i-container := Rectangle {   
         background: Theme.palette.heliotrope-gradient;
-        border-radius: 25px;
+        border-radius: max(self.width, self.height) / 2; 
 
-        i-icon := Image {  
-            width: 24px;
-            height: 24px;
+        i-icon := Image {
             colorize: Theme.palette.white;
         }
     }

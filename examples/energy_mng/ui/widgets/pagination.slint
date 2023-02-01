@@ -6,8 +6,8 @@ import { Theme } from "../theme.slint";
 component Bubble inherits Rectangle {
     in property <bool> selected;
 
-    width: 5px;
-    height: 5px;
+    min_width: 5px;
+    min_height: 5px;
     border-radius: max(self.width, self.height) / 2;
     background: Theme.palette.slint-blue;
 
@@ -29,13 +29,16 @@ export component Pagination {
     min-height: 11px;
     vertical-stretch: 0;
 
-    HorizontalLayout {  
+    VerticalLayout {  
         alignment: center;
-        spacing: Theme.spaces.small;
 
-        for index in count : Bubble {
-            y: (parent.height - self.height) / 2;
-            selected: index == selected-index;
+        HorizontalLayout {  
+            alignment: center;
+            spacing: Theme.spaces.small;
+    
+            for index in count : Bubble {
+                selected: index == selected-index;
+            }
         }
     }
 
