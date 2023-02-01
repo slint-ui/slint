@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- cSpell: ignore Termina liga -->
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="author" content="SixtyFPS GmbH" />
+        <link rel="shortcut icon" href="./favicon.ico" />
+        <link rel="icon" type="image/png" href="./favicon.png" />
+        <!-- fonts-->
+
+        <style>
+            @font-face {
+                font-family: "Overpass";
+                font-style: normal;
+                font-weight: 700;
+                src: url("/fonts/Overpass/Overpass-Bold.woff2");
+            }
+            @font-face {
+                font-family: "Overpass";
+                font-style: normal;
+                font-weight: 400;
+                src: url("/fonts/Overpass/Overpass-Regular.woff2");
+            }
+            @font-face {
+                font-family: "Termina";
+                font-style: normal;
+                font-weight: 700;
+                src: url("/fonts/Termina/Termina-Bold.woff2");
+            }
+        </style>
+
+        <style>
+            :root {
+                --SLINT_blue: #0025ff;
+                --SLINT_black: #000000;
+                --SLINT_white: white;
+                --SLINT_fond_bright: #fbfdff;
+                --SLINT_fond_dark: #e7e9f4;
+                --Gradient_Radial_DARK: radial-gradient(
+                    166.77% 121.81% at 72.08% 71.04%,
+                    #2c2f36 10%,
+                    #202328 33%,
+                    #040708 94%
+                );
+                --SLINT_Dark_Grey1: #2c2f36;
+                --LINK_Yellow_Green: #dbff00;
+                --section-width: 46rem;
+
+                font-size: 24px;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                padding: 0;
+                margin: 0;
+
+                font-family: "Overpass", sans-serif;
+                font-style: normal;
+                font-feature-settings: "liga" off;
+                padding-top: 80px; /* for the nav */
+
+                background: white;
+            }
+
+            :target::before {
+                /* for the nav */
+                content: "";
+                display: block;
+                height: 80px;
+                margin: -80px 0 0 0;
+            }
+
+            section:target::before {
+                /* It is better to have a bigger gap between sections than putting the wrong background */
+                margin-top: -30px;
+                margin-bottom: -30px;
+            }
+
+            a {
+                text-decoration: none;
+                color: var(--SLINT_blue);
+            }
+            a:hover {
+                text-decoration: underline;
+            }
+
+            h1,
+            h2,
+            h3,
+            h4,
+            h5,
+            h6 {
+                font-weight: bold;
+                font-family: "Termina", sans-serif;
+                padding: 0;
+                line-height: 110%;
+            }
+
+            img {
+                border: none;
+                padding: 0;
+                margin: 0;
+            }
+        </style>
+
+        <style>
+            /* Desktop */
+            nav#Nav {
+                top: 0;
+                position: fixed;
+                width: 100vw;
+                height: 80px;
+                margin: 0;
+                padding: 0;
+                border: 0;
+                background: var(--SLINT_black);
+                color: var(--SLINT_white);
+
+                z-index: 10000;
+                white-space: nowrap;
+
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+            }
+
+            nav#Nav > a#main_logo {
+                height: 85%;
+                padding: 6.5px 0px 6.5px 24px;
+            }
+
+            nav#Nav img {
+                height: 100%;
+            }
+
+            nav#Nav ul {
+                flex-grow: 1;
+
+                display: flex;
+                flex-direction: row;
+                align-items: flex-end;
+                justify-content: flex-end;
+                padding: 16px;
+                margin: 0;
+
+                font-weight: bold;
+                color: var(--SLINT_white);
+                font-size: 16px;
+            }
+
+            nav#Nav li {
+                align-self: center;
+                margin: 0px 0px;
+                padding: 16px;
+                list-style-type: none;
+            }
+
+            nav#Nav a {
+                color: inherit;
+            }
+
+            nav#Nav #Hamburger {
+                display: none;
+            }
+
+            #Header {
+                padding: 0px;
+                margin: 0px;
+                width: 100%;
+                background: var(--SLINT_black);
+                background-image: url("./new_images/Header.svg");
+                background-repeat: no-repeat;
+                background-size: cover;
+                background-position: center;
+                color: var(--SLINT_white);
+                padding: 8.5rem 5.3rem 7.5rem 5.3rem;
+            }
+
+            #Header h2,
+            #Header h1 {
+                font-size: 88px;
+                line-height: 110%;
+                max-width: var(--section-width);
+                margin: auto;
+            }
+            #Header small {
+                display: block;
+                max-width: var(--section-width);
+                margin: auto;
+                font-size: 1rem;
+            }
+
+            #Footer {
+                color: var(--SLINT_white);
+                background: radial-gradient(
+                    165.83% 121.13% at 86.81% -12.61%,
+                    #2c2f36 0%,
+                    #040708 53.92%
+                );
+                display: flex;
+                justify-content: space-around;
+                align-items: center;
+                padding: 4vw;
+                clear: both;
+            }
+
+            #Footer > div {
+                font-size: 16px;
+                display: flex;
+                flex-direction: column;
+                align-items: start;
+            }
+
+            #Footer h6 {
+                font-size: inherit;
+                padding: 0;
+                margin: 0 0 1.5ex 0;
+                font-weight: bold;
+            }
+
+            #Footer a {
+                color: white;
+                margin: 0 0 1ex 0;
+            }
+
+            body > section {
+                background: radial-gradient(
+                    94.58% 219.72% at 25.28% -66.56%,
+                    #2c2f36 8.15%,
+                    #040708 59%
+                );
+                padding: 0 0 3em 0;
+                color: var(--SLINT_white);
+                margin: 0;
+            }
+            body > section a {
+                color: var(--LINK_Yellow_Green);
+            }
+            body > section > h2,
+            body > section > h1 {
+                font-weight: bold;
+                font-size: 56px;
+                line-height: 61px;
+                padding: 42px max(42px, (100vw - var(--section-width))/2 + 42px);
+                max-width: none;
+                margin: 0px;
+            }
+            body > section > h3:first-child {
+                padding: 1ex max(42px, (100vw - var(--section-width))/2 + 42px);
+                max-width: none;
+                margin: 0px;
+            }
+
+            body > section > :first-child {
+                padding-top: 2ex;
+                margin-top: 0;
+            }
+
+            body > section > * {
+                padding: 0px 84px;
+                max-width: var(--section-width);
+                margin-left: auto;
+                margin-right: auto;
+            }
+        </style>
+
+        <style>
+            @media (max-width: 800px) {
+                :root {
+                    font-size: 18px;
+                }
+
+                nav#Nav #Hamburger {
+                    display: block;
+                    flex-grow: 1;
+                    text-align: right;
+                    padding-right: 24px;
+                }
+
+                nav#Nav:not(:target) ul {
+                    height: 0;
+                }
+
+                nav#Nav:target a.hamburger-close {
+                    float: right;
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    width: 50%;
+                    height: 100%;
+                }
+
+                nav#Nav ul {
+                    position: fixed;
+                    top: 80px;
+                    background: black;
+                    flex-direction: column;
+                    width: 100vw;
+                    height: calc(100vh - 80px);
+                    padding: 0;
+                    font-size: 37px;
+                    font-family: "Termina";
+                    justify-content: center;
+                    transition: height 150ms ease;
+                    overflow: hidden;
+                }
+
+                #Header {
+                    padding: 64px 26vw 76px 6vw;
+                }
+
+                #Header h2,
+                #Header h1 {
+                    line-height: 110%;
+                    font-size: 24px;
+                }
+
+                #Footer {
+                    background: radial-gradient(
+                        94.58% 219.72% at 25.28% -66.56%,
+                        #2c2f36 8.15%,
+                        #040708 59%
+                    );
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: space-around;
+                    align-items: start;
+                    padding: 40px;
+                    gap: 60px;
+                }
+
+                body > section {
+                    background: radial-gradient(
+                        94.58% 219.72% at 25.28% -66.56%,
+                        #2c2f36 8.15%,
+                        #040708 59%
+                    );
+                    padding: 0 0 3em 0;
+                }
+
+                body > section > h2 {
+                    font-weight: bold;
+                    font-size: 30px;
+                    padding: 34px 3vw;
+                }
+
+                body > section > * {
+                    padding: 0px 3vw;
+                }
+
+                @media (max-height: 700px) {
+                    nav#Nav ul {
+                        font-size: 24px;
+                        flex-wrap: wrap;
+                    }
+                    nav#Nav il {
+                        padding: 0.75ex;
+                    }
+                }
+            }
+        </style>
+
+        <style>
+            a.btn {
+                background: var(--LINK_Yellow_Green);
+                color: black;
+                border-radius: 1000px;
+                padding: 2ex 4ex;
+                text-align: center;
+
+                font-weight: bold;
+                font-size: 0.55rem;
+                text-align: center;
+                letter-spacing: -0.02em;
+            }
+
+            .arrow-link:after {
+                display: inline-block;
+                content: "";
+                background-image: url("./new_images/arrow-link.svg");
+                background-size: 1em 1em;
+                width: 1em;
+                height: 1em;
+                vertical-align: middle;
+                margin-left: 0.3em;
+            }
+
+            .contact-links {
+                flex-wrap: wrap;
+            }
+
+            .contact-links a:before {
+                display: inline-block;
+                background-size: 1em 1em;
+                width: 1em;
+                height: 1em;
+                margin: auto;
+                content: "";
+                vertical-align: middle;
+                margin-right: 0.2em;
+            }
+
+            .contact-links a[href^="mailto:"]:before {
+                background-image: url("./new_images/contact_email.svg");
+            }
+            .contact-links a[href^="https://github.com/"]:before
+            {
+                background-image: url("./new_images/contact_github.svg");
+            }
+            .contact-links a[href^="https://chat.slint-ui.com/"]:before
+            {
+                background-image: url("./new_images/contact_mattermost.svg");
+            }
+            .contact-links a[href^="https://twitter.com/"]:before
+            {
+                background-image: url("./new_images/contact_twitter.svg");
+            }
+            .contact-links a[href^="https://fosstodon.org/"]:before
+            {
+                background-image: url("./new_images/contact_mastodon.svg");
+            }
+
+            .blog-entries > h3 {
+                margin-top: 3.5ex;
+                border-top: 1px solid white;
+                padding: 1ex 0;
+            }
+            .blog-entries > h3 a {
+                font-size: 1.6rem;
+                color: white;
+            }
+
+            .blog-entries > small {
+                display: block;
+                font-size: 0.55rem;
+                color: white;
+            }
+
+            .blog-entries > div {
+                padding: 2ex 0;
+            }
+
+            .blog-header {
+                background: var(--SLINT_blue);
+                color: white;
+                width: 100%;
+                padding: 5rem 1.2rem 1.3rem 2.5rem;
+            }
+            .blog-footer {
+                background: var(--SLINT_blue);
+                color: white;
+                width: 100%;
+                padding: 1ex;
+                text-align: center;
+                vertical-align: middle;
+            }
+            .blog-footer a {
+                color: white;
+                filter: brightness(0) invert(1); /* for the arrow */
+                vertical-align: middle;
+            }
+
+            .blog-content {
+                padding: 2rem 24px;
+                max-width: calc(var(--section-width) + 24px * 2);
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .blog-content h1,
+            .blog-content h2,
+            .blog-content h3,
+            .blog-content h4,
+            .blog-content h5,
+            .blog-content h6 {
+                font-family: inherit;
+                margin: 1ex 0;
+                padding-top: 2rem;
+                font-weight: 600;
+            }
+
+            .blog-content section {
+                padding: 2em 0ex;
+            }
+
+            @media (min-width: 810px) {
+                .blog-content section.columns {
+                    column-count: 2;
+                }
+            }
+
+            .blog-content figure {
+                break-inside: avoid;
+                width: 100%;
+                margin: 0px;
+                padding: 0px;
+            }
+
+            @media (min-width: 800px) {
+                .blog-content figure.floating {
+                    float: right;
+                    width: 50%;
+                    padding-left: 2ex;
+                }
+            }
+
+            .blog-content figure figcaption {
+                font-size: 13.5px;
+                font-weight: bold;
+                display: inline-block;
+            }
+
+            .blog-content figure img {
+                display: inline-block;
+                width: 100%;
+            }
+
+            .blog-content figure.floating img {
+                display: block;
+                padding: 2ex;
+                margin: 0;
+                background-color: var(--SLINT_Dark_Grey1);
+            }
+
+            .blog-content figure video {
+                width: 100%;
+                margin: 0px;
+            }
+
+            .blog-content section.columns figure {
+                margin-bottom: 1ex;
+            }
+
+            .blog-content section.blue {
+                margin: 0 calc((100% - 100vw) / 2);
+                padding-left: calc((100vw - 100%) / 2);
+                padding-right: calc((100vw - 100%) / 2);
+                background: var(--SLINT_blue);
+                color: white;
+            }
+            .blog-content section.blue a {
+                color: white;
+            }
+
+            .blog-content code {
+                background-color: var(--SLINT_fond_dark);
+            }
+        </style>
+
+        <meta name="description" content="Slint UI Toolkit" />
+        <title>Slint Documentation</title>
+    </head>
+
+    <body>
+        <!-- Nav -->
+        <nav id="Nav">
+            <a href="https://slint-ui.com/" id="main_logo"
+                ><img src="/new_images/slint_logo_neg_RGB.svg" alt="Slint logo"
+            /></a>
+        </nav>
+
+        <div id="Header">
+            <h2>Slint - The fast and easy UI Toolkit</h2>
+        </div>
+
+        <style>
+            #docs {
+                background: #2c2f36;
+            }
+            #docs ul {
+                display: flex;
+                flex-direction: row;
+                justify-content: stretch;
+                align-items: stretch;
+            }
+            #docs li {
+                width: 100%;
+                display: grid;
+                grid-template-rows: 1tr 1tr 1tr 1tr;
+                justify-content: center;
+                margin: 0px;
+                padding: 0px 0px;
+                list-style-type: none;
+                text-align: center;
+                font-size: 24px;
+            }
+
+            #docs li:not(:last-child) {
+                border-right: 1px solid white;
+            }
+
+            #docs li img {
+                object-fit: contain;
+                border: none;
+                width: 130px;
+                height: 130px;
+                margin: 44px auto;
+            }
+
+            #docs li strong {
+                padding-bottom: 2ex;
+            }
+
+            #docs li a {
+                display: block;
+                align-self: end;
+                justify-self: center;
+            }
+
+            @media (max-width: 800px) {
+                #docs ul {
+                    flex-wrap: wrap;
+                    row-gap: 24px;
+                }
+                #docs li {
+                    width: 45%;
+                }
+                #docs li:nth-child(2n) {
+                    border-right: none;
+                }
+            }
+        </style>
+
+        <section id="docs">
+            <h2>Documentation</h2>
+
+            <ul>
+                <li>
+                    <img src="/new_images/slint_logo_white.svg" alt="Slint" />
+                    <strong class="card-title"
+                        >Slint UI Description Language</strong
+                    >
+                    <a class="btn" href="slint/index.html"
+                        >Slint Documentation</a
+                    >
+                </li>
+                <li>
+                    <img
+                        src="/new_images/rust_logo_white.svg"
+                        alt="Rust Logo"
+                    />
+                    <strong>Using Slint in a Rust Project</strong>
+                    <a class="btn" href="rust/slint">Rust Documentation</a>
+                </li>
+                <li>
+                    <img src="/new_images/cpp_logo_white.svg" alt="C++ Logo" />
+                    <strong>Using Slint in a C++ Project</strong>
+                    <a class="btn" href="cpp/">C++ Documentation</a>
+                </li>
+                <li>
+                    <img
+                        src="/new_images/node_logo_white.svg"
+                        alt="NodeJS Logo"
+                    />
+                    <strong>Using Slint in a NodeJS Project</strong>
+                    <a class="btn" href="node">NodeJS Documentation</a>
+                </li>
+            </ul>
+        </section>
+
+        <div id="Footer">
+            <div>
+                <a href="https://slint-ui.com/" id="main_logo"
+                    ><img
+                        src="/new_images/slint_logo_neg_RGB.svg"
+                        alt="Slint logo"
+                /></a>
+                <address>Copyright © 2023 SixtyFPS GmbH</address>
+            </div>
+
+            <div>
+                <h6>Company</h6>
+                <a href="https://github.com/slint-ui/slint">GitHub</a>
+                <a href="./imprint.html">Imprint</a>
+                <a href="./imprint.html#privacy">Privacy Policy</a>
+            </div>
+        </div>
+    </body>
+</html>

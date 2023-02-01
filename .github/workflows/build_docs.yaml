@@ -99,6 +99,7 @@ jobs:
               target/doc
               target/cppdocs/html
               api/node/docs
+              docs/site
               docs/langref/book/html
               docs/tutorial/rust/book/html
               docs/tutorial/cpp/book/html
