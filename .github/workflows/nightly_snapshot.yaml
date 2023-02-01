@@ -238,6 +238,17 @@ jobs:
           path: |
               ${{ steps.publishToVSCM.outputs.vsixPath }}
 
+  publish_tree_sitter:
+    if: github.event.inputs.private != 'true'
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+            name: tree-sitter-slint
+            path: editors/tree-sitter-slint
+
   publish_artifacts:
     if: github.event.inputs.private != 'true'
     needs: [docs, wasm_demo, wasm]
