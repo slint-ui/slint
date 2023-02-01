@@ -37,8 +37,6 @@ Welcome to Slint C++'s documentation!
 
    genindex
 
-   language.rst
-
    markdown/debugging_techniques.md
 
 .. image:: https://github.com/slint-ui/slint/workflows/CI/badge.svg
@@ -73,7 +71,7 @@ of elements and property bindings. Here's the obligatory "Hello World":
         }
     }
 
-Check out the `language reference <markdown/langref.html>`_ for more details.
+Check out the `language reference <../slint>`_ for more details.
 
 Architecture
 ============

@@ -52,11 +52,6 @@ The default value of each enum type is always the first value.
         i_slint_common::for_each_enums!(gen_enums);
     }
 
-    // Copy out of langref!
-    // TODO: Remove this again.
-    drop(file);
-    std::fs::copy(&path, root.join("docs/builtin_enums.md"))?;
-
     Ok(())
 }
 

@@ -8,53 +8,13 @@
 
     - The [`generated_code`] module contains an [commented example](generated_code::SampleComponent)
       of what is generated from the `.slint` file
-    - The [`langref`] module is the reference documentation for the `.slint` language.
-    - The [`widgets`] and [`builtin_elements`] modules contains the documentation of elements usable
-      within the `.slint` files
-    - The [`layouting`] module contains the documentation to position the elements.
 */
 
 pub mod recipes {
     #![doc = include_str!("docs/recipes/recipes.md")]
-    //!
-    //! #
-    //! Next: [The `.slint` language reference](super::langref)
 
     // So intra-doc links can refer it as `slint::`
     use crate as slint;
-}
-
-pub mod langref {
-    #![doc = include_str!("docs/langref.md")]
-    //!
-    //! #
-    //! Next: [Builtin Elements](super::builtin_elements)
-}
-
-pub mod builtin_elements {
-    #![doc = include_str!("docs/builtin_elements.md")]
-    //!
-    //! #
-    //! Next: [Builtin Enums](super::builtin_enums)
-}
-
-pub mod builtin_enums {
-    #![doc = include_str!("docs/builtin_enums.md")]
-    //!
-    //! #
-    //! Next: [Widgets](super::widgets)
-}
-
-pub mod widgets {
-    #![doc = include_str!("docs/widgets.md")]
-    //!
-    //! #
-    //! Next: [Layouting](super::layouting)
-}
-
-pub mod layouting {
-    #![doc = include_str!("docs/layouting.md")]
-    #![doc = ""]
 }
 
 /// This module exists only to explain the API of the code generated from `.slint` design markup. Its described structure
