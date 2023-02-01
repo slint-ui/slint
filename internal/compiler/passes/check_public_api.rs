@@ -27,11 +27,19 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
     let mut pa = root_elem.property_analysis.borrow_mut();
     root_elem.property_declarations.iter_mut().for_each(|(n, d)| {
         if d.property_type.ok_for_public_api() {
-            if d.visibility != PropertyVisibility::Private {
-                d.expose_in_public_api = true;
-                if d.visibility != PropertyVisibility::Output {
-                    pa.entry(n.to_string()).or_default().is_set = true;
+            if let Some(visibility) = d.visibility {
+                if visibility != PropertyVisibility::Private {
+                    d.expose_in_public_api = true;
+                    if visibility != PropertyVisibility::Output {
+                        pa.entry(n.to_string()).or_default().is_set = true;
+                    }
                 }
+            } else {
+                diag.push_diagnostic(
+                    format!("Properties in the root component exposed to native code must be annotated with in, out, in-out, or private"),
+                    &d.node,
+                    DiagnosticLevel::Warning
+               );
             }
         } else {
             diag.push_diagnostic(

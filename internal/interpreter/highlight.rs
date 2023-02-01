@@ -147,7 +147,7 @@ pub(crate) fn add_highlight_items(doc: &Document) {
             node: None,
             expose_in_public_api: false,
             is_alias: None,
-            visibility: PropertyVisibility::Input,
+            visibility: Some(PropertyVisibility::Input),
             pure: None,
         },
     );

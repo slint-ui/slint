@@ -384,7 +384,7 @@ pub struct PropertyDeclaration {
     pub expose_in_public_api: bool,
     /// Public API property exposed as an alias: it shouldn't be generated but instead forward to the alias.
     pub is_alias: Option<NamedReference>,
-    pub visibility: PropertyVisibility,
+    pub visibility: Option<PropertyVisibility>,
     /// For function or callback: whether it is declared as `pure` (None for private function for which this has to be deduced)
     pub pure: Option<bool>,
 }
@@ -831,11 +831,11 @@ impl Element {
                     _ => (),
                 }
             }
-            let visibility = visibility.unwrap_or_else(|| {
+            let visibility = visibility.or_else(|| {
                 if is_legacy_syntax {
-                    PropertyVisibility::InOut
+                    Some(PropertyVisibility::InOut)
                 } else {
-                    PropertyVisibility::Private
+                    None
                 }
             });
 
@@ -908,7 +908,7 @@ impl Element {
                     PropertyDeclaration {
                         property_type: Type::InferredCallback,
                         node: Some(sig_decl.into()),
-                        visibility: PropertyVisibility::InOut,
+                        visibility: Some(PropertyVisibility::InOut),
                         pure,
                         ..Default::default()
                     },
@@ -955,7 +955,7 @@ impl Element {
                 PropertyDeclaration {
                     property_type: Type::Callback { return_type, args },
                     node: Some(sig_decl.into()),
-                    visibility: PropertyVisibility::InOut,
+                    visibility: Some(PropertyVisibility::InOut),
                     pure,
                     ..Default::default()
                 },
@@ -1033,7 +1033,7 @@ impl Element {
                 PropertyDeclaration {
                     property_type: Type::Function { return_type, args },
                     node: Some(func.into()),
-                    visibility,
+                    visibility: Some(visibility),
                     pure,
                     ..Default::default()
                 },
@@ -1377,7 +1377,7 @@ impl Element {
             |p| PropertyLookupResult {
                 resolved_name: name.into(),
                 property_type: p.property_type.clone(),
-                property_visibility: p.visibility,
+                property_visibility: p.visibility.unwrap_or_default(),
                 declared_pure: p.pure,
                 is_local_to_component: true,
             },

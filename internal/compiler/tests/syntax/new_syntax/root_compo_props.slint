@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+component Unrelated {
+    property <string> private-by-default;    
+}
+
+export component Compo {
+    property <string> i-forgot;
+//  ^warning{Properties in the root component exposed to native code must be annotated with in, out, in-out, or private}
+
+    in-out property <string> ok;
+
+    Unrelated {  }
+}
+

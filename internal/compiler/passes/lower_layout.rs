@@ -492,7 +492,7 @@ fn lower_dialog_layout(
                                             layout_child,
                                             "clicked",
                                         )),
-                                        visibility: PropertyVisibility::InOut,
+                                        visibility: Some(PropertyVisibility::InOut),
                                         pure: None,
                                     });
                             }

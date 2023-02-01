@@ -723,7 +723,7 @@ fn public_properties(
                 name: p.clone(),
                 ty: c.property_type.clone(),
                 prop: property_reference,
-                read_only: c.visibility == PropertyVisibility::Output,
+                read_only: c.visibility == Some(PropertyVisibility::Output),
             }
         })
         .collect()

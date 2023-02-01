@@ -796,7 +796,8 @@ impl ComponentInstance {
 
         if !decl.expose_in_public_api {
             return Err(SetPropertyError::NoSuchProperty);
-        } else if decl.visibility == i_slint_compiler::object_tree::PropertyVisibility::Output {
+        } else if decl.visibility == Some(i_slint_compiler::object_tree::PropertyVisibility::Output)
+        {
             return Err(SetPropertyError::AccessDenied);
         }
 

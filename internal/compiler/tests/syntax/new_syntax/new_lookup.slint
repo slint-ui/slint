@@ -3,8 +3,8 @@
 
 export component Compo inherits Text {
 
-    property <string> background: text;
-//                                ^error{Unknown unqualified identifier 'text'. Did you mean 'self.text'?}
+    private property <string> background: text;
+//                                        ^error{Unknown unqualified identifier 'text'. Did you mean 'self.text'?}
 
     Rectangle {
         background: background;

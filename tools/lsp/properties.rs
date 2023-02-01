@@ -87,8 +87,10 @@ fn property_is_editable(property: &PropertyDeclaration, is_local_element: bool) 
         // Filter away the callbacks
         return false;
     }
-    if matches!(property.visibility, PropertyVisibility::Output | PropertyVisibility::Private)
-        && !is_local_element
+    if matches!(
+        property.visibility.unwrap_or_default(),
+        PropertyVisibility::Output | PropertyVisibility::Private
+    ) && !is_local_element
     {
         // Skip properties that cannot be set because of visibility rules
         return false;
