@@ -59,7 +59,7 @@ Files: tools/online_editor/*.html tools/online_editor/styles/*.css tools/online_
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Files: editors/vscode/*.json editors/vscode/README.md editors/vscode/css/*.css
+Files: editors/vscode/*.json editors/vscode/README.md editors/vscode/css/*.css editors/tree-sitter-slint/corpus/*.txt
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 

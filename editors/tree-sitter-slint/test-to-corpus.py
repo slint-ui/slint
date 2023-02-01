@@ -97,10 +97,6 @@ corpus_dir = os.path.realpath(args.corpus_dir)
 corpus_file = os.path.join(corpus_dir, os.path.basename(tests_dir) + ".txt")
 
 with open(corpus_file, "w") as corpus:
-    corpus.write(
-        "// Copyright © SixtyFPS GmbH <info@slint-ui.com>\n// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial\n"
-    )
-
     for file in os.listdir(tests_dir):
         filename = os.fsdecode(file)
         if filename.endswith(".slint"):
