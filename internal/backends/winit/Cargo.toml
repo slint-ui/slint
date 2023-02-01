@@ -20,7 +20,7 @@ path = "lib.rs"
 # the C++ crate's CMakeLists.txt
 [features]
 wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland"]
-x11 = ["winit/x11", "glutin/x11", "copypasta/x11", "i-slint-renderer-skia?/x11"]
+x11 = ["winit/x11", "glutin/x11", "glutin/glx", "copypasta/x11", "i-slint-renderer-skia?/x11"]
 renderer-winit-femtovg = ["femtovg", "fontdb", "libc", "yeslogic-fontconfig-sys", "winapi", "dwrote", "imgref", "unicode-script", "ttf-parser", "rgb", "i-slint-core/box-shadow-cache"]
 renderer-winit-skia = ["i-slint-renderer-skia"]
 renderer-winit-skia-opengl = ["renderer-winit-skia", "i-slint-renderer-skia/opengl"]
