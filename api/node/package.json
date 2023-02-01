@@ -17,7 +17,7 @@
     "scripts": {
         "install": "neon build --release && tsc",
         "build": "tsc",
-        "docs": "typedoc lib/index.ts"
+        "docs": "typedoc --hideGenerator --readme cover.md lib/index.ts"
     },
     "devDependencies": {
         "typedoc": "^0.19.2"

@@ -8,20 +8,17 @@
 
 This crate is the main entry point for embedding user interfaces designed with
 [Slint UI](https://slint-ui.com/) in Rust programs.
-
-If you are new to Slint, start with the [Walk-through tutorial](https://slint-ui.com/docs/tutorial/rust).
-If you are already familiar with Slint, the following topics provide related information.
+*/
+#![doc = concat!("If you are new to Slint, start with the [Walk-through tutorial](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/tutorial/rust)")]
+/*! If you are already familiar with Slint, the following topics provide related information.
 
 ## Related topics
 
- * [Examples and Recipes](docs::recipes)
- * [The `.slint` language reference](docs::langref)
- * [Builtin Elements](docs::builtin_elements)
- * [Builtin Enums](docs::builtin_enums)
- * [Widgets](docs::widgets)
- * [Positioning and Layout of Elements](docs::layouting)
- * [Debugging Techniques](docs::debugging_techniques)
+*/
+#![doc = concat!("* [The Slint language reference manual](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/doc/slint)")]
+/*! * [Examples and Recipes](docs::recipes)
  * [Slint on Microcontrollers](docs::mcu)
+ * [Debugging Techniques](docs::debugging_techniques)
 
 ## How to use this crate:
 
@@ -58,9 +55,9 @@ fn main() {
 
 ### The .slint code in external files is compiled with `build.rs`
 
-When your design becomes bigger in terms of markup code, you may want move it to a dedicated
-`.slint` file. It's also possible to split a `.slint` file into multiple files using [modules](docs::langref#modules).
-Use a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile
+When your design becomes bigger in terms of markup code, you may want move it to a dedicated*/
+#![doc = concat!("`.slint` file. It's also possible to split a `.slint` file into multiple files using [modules](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/doc/slint/modules.html).")]
+/*!Use a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile
 your main `.slint` file:
 
 In your Cargo.toml add a `build` assignment and use the `slint-build` crate in `build-dependencies`:
@@ -209,7 +206,7 @@ struct MyStruct {
 
 ## Exported Global singletons
 
-When you export a [global singleton](docs::langref#global-singletons) from the main file,
+When you export a [global singleton](../../slint/globals.html) from the main file,
 it is also generated with the exported name. Like the main component, the generated struct have
 inherent method to access the properties and callback:
 
