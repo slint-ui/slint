@@ -42,6 +42,7 @@ export default defineConfig(({ command, _mode }) => {
         // assume deployment on the main website where the loading file (index.js) is in the assets/
         // sub-directory and the relative path to the interpreter is as below.
         base_config.build.rollupOptions = {
+            makeAbsoluteExternalsRelative: true,
             external: [
                 "../../../../wasm-interpreter/slint_wasm_interpreter.js",
             ],
