@@ -710,7 +710,7 @@ fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>
     {
         #[cfg(feature = "wayland")]
         if let Some(wayland_display) =
-            winit::platform::unix::EventLoopWindowTargetExtUnix::wayland_display(_event_loop)
+            winit::platform::wayland::EventLoopWindowTargetExtWayland::wayland_display(_event_loop)
         {
             let clipboard = unsafe {
                 copypasta::wayland_clipboard::create_clipboards_from_external(wayland_display)
