@@ -6,11 +6,11 @@ import { Theme } from "../theme.slint";
 export component Page inherits Rectangle {
     in property <int> index;
     in property <int> current-index;
+    out property <bool> active: index == current-index;
 
     x: (index - current-index) * self.width;
     width: 100%;
     height: 100%;
-    background: gray;
 
     animate x { duration: Theme.durations.fast; }
 }

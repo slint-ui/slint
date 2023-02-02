@@ -1,0 +1,102 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+
+component ValueDelegate {
+    private property <float> display-value;
+
+    in property <bool> active;
+    in property <string> title <=> i-title.text;
+    in property <string> unit <=> i-unit.text;
+    in property <float> value;
+    in property <bool> alternative-colors;
+
+    HorizontalLayout {  
+        spacing: 15px;
+        Rectangle {  
+            min_width: 1px;
+            background: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.limon-green;
+            horizontal-stretch: 0;
+        }
+
+        VerticalLayout {  
+            alignment: center;
+            horizontal-stretch: 1;
+
+            i-title := Text {  
+                color: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.limon-green;
+                font-size: Theme.typo.label.size;
+                font-weight: Theme.typo.label.weight;
+            }
+
+            HorizontalLayout {  
+                alignment: start;
+                spacing: 5px;
+
+                Text {  
+                    color: Theme.palette.white;
+                    text: round(display-value * 100) / 100;
+                    font-size: Theme.typo.value.size;
+                    font-weight: Theme.typo.value.weight;
+                    vertical-alignment: center;
+                }
+
+                i-unit := Text {  
+                    y: Theme.spaces.small;
+                    vertical-alignment: center;
+                    color: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.limon-green;
+                    font-size: Theme.typo.label-light.size;
+                    font-weight: Theme.typo.label-light.weight;
+                }
+            }
+        }
+    }
+
+    states [  
+        active when active : {
+            display-value: value;
+
+            in {
+                animate display-value { duration: Theme.durations.slow; }
+            }
+        }
+    ]
+}
+
+export struct Value {
+    title: string,
+    value: float,
+    unit: string,
+}
+
+export component ValueDisplay {
+    in property <bool> alternative-colors;
+    in property <[Value]> model;
+    in property <bool> active;
+
+    i-container := Rectangle {  
+        width: 100%;
+        height: 100%;
+        border-radius: 4px;
+        background: alternative-colors ? Theme.palette.slint-blue-gradient : Theme.palette.limon-green-gradient;
+    }
+
+    if(model.length > 0) : HorizontalLayout {  
+        x: 15px;
+        width: parent.width - 30px;
+        height: 100%;
+        padding-top: 12px;
+        padding-bottom: 12px;
+      
+        for value in root.model : ValueDelegate {
+            width: parent.width / model.length;
+            horizontal-stretch: 1;
+            alternative-colors: root.alternative-colors;
+            title: value.title;
+            value: value.value;
+            unit: value.unit;
+            active: root.active;
+        }
+    }
+}

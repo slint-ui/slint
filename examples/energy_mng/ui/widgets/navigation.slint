@@ -7,6 +7,7 @@ import { Theme } from "../theme.slint";
 
 export component Navigation {
     callback pagination-clicked <=> i-pagination.clicked;
+    callback clicked;
 
     private property <bool> show-navigation;
 
@@ -16,6 +17,7 @@ export component Navigation {
     TouchArea {  
         clicked => {  
             toogle-show-navigation();
+            root.clicked();
         }
     }
 

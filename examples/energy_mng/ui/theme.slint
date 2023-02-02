@@ -2,17 +2,41 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 export struct Palette {
-    // solid
+    // primary
     slint-blue: brush,
-    purple-black: brush,
+    pure-black: brush,
     dark-deep-blue: brush,
     shark-gray: brush,
     limon-green: brush,
     white: brush,
 
+    // slint blue
+    slint-blue-50: brush,
+    slint-blue-100: brush,
+    slint-blue-200: brush,
+    slint-blue-300: brush,
+    slint-blue-400: brush,
+    slint-blue-500: brush,
+    slint-blue-600: brush,
+    slint-blue-700: brush,
+    slint-blue-800: brush,
+    slint-blue-900: brush,
+
+    // limon gren
+    lime-green-50: brush,
+    lime-green-100: brush,
+    lime-green-200: brush,
+    lime-green-300: brush,
+    lime-green-400: brush,
+    lime-green-500: brush,
+    lime-green-600: brush,
+    lime-green-700: brush,
+    lime-green-800: brush,
+    lime-green-900: brush,
+
     // gradients
     limon-green-gradient: brush,
-    electric-violet-gradient: brush,
+    slint-blue-gradient: brush,
     heliotrope-gradient: brush,
     dark-left-gradient: brush,
     dark-right-gradient: brush,
@@ -28,22 +52,59 @@ export struct Spaces {
 export struct Durations {
     fast: duration,
     medium: duration,
+    slow: duration,
+}
+
+struct Font {
+    size: length,
+    weight: float,
+}
+
+export struct Typo {
+    label: Font,
+    label-light: Font,
+    header: Font,
+    value: Font,
 }
 
 export global Theme {
     in property <Palette> palette: {
-        // solid
+        // primary
         slint-blue: #0025FF,
-        purple-black: #000000,
+        pure-black: #000000,
         dark-deep-blue: #040708,
         shark-gray: #2C2F36,
         limon-green: #DEFB3A, 
         white: #FFFFFF,
+ 
+        // slint blue
+        slint-blue-50: #EEE6FF,
+        slint-blue-100: #D0C3FF,
+        slint-blue-200: #AF9AFF,
+        slint-blue-300: #896FFF,
+        slint-blue-400: #654EFF,
+        slint-blue-500: #2F2AFF,
+        slint-blue-600: #0025FF,
+        slint-blue-700: #001FF7,
+        slint-blue-800: #0019F2,
+        slint-blue-900: #000AEF,
+
+        // limon gren
+        lime-green-50: #FBFFE6,
+        lime-green-100: #F4FDC0,
+        lime-green-200: #EBFC93,
+        lime-green-300: #E2FA63,
+        lime-green-400: #DEFB3A,
+        lime-green-500: #D6F800,
+        lime-green-600: #CBE600,
+        lime-green-700: #BBCF00,
+        lime-green-800: #ACB700,
+        lime-green-900: #948E00,
 
         // gradients
-        limon-green-gradient: @linear-gradient(135deg, #DEFB3A 0%, #defb3a00 100%),
-        electric-violet-gradient: @linear-gradient(135deg, #6C4BFF 0%, #6C4BFF00 100%),
-        heliotrope-gradient: @linear-gradient(180deg, #896FFF 0%, #39316B 100%),
+        limon-green-gradient: @linear-gradient(135deg, #defb3a75 0%, #defb3a00 100%),
+        slint-blue-gradient: @linear-gradient(135deg, #6c4bff76 0%, #6C4BFF00 100%),
+        heliotrope-gradient: @linear-gradient(180deg, #896fff 0%, #39316B 100%),
         dark-left-gradient: @linear-gradient(90deg, #040708 0%, #04070875 50%, #04070800 100%),
         dark-right-gradient: @linear-gradient(90deg, #04070800 0%, #04070875 50%, #040708 100%),
         ebony-radial-gradient: @radial-gradient(circle, #100F23 0%, #1F1946 100%)
@@ -58,5 +119,25 @@ export global Theme {
     in property <Durations> durations: {
         fast: 125ms,
         medium: 200ms,
+        slow: 1200ms,
+    };
+
+    in property <Typo> typo: {
+        label-light: {
+            size: 12px,
+            weight: 400
+        },
+        label: {
+            size: 12px,
+            weight: 500
+        },
+        header: {
+            size: 16px,
+            weight: 600
+        },
+        value: {
+            size: 26px,
+            weight: 500
+        }
     };
 }
