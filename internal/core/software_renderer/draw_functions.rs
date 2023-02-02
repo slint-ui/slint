@@ -373,17 +373,17 @@ pub(super) fn draw_gradient_line(
     let db = (((color2.blue as i32 - color1.blue as i32) * start) << 15) / (255 * size_x);
     let da = (((color2.alpha as i32 - color1.alpha as i32) * start) << 15) / (255 * size_x);
 
-    let mut r = ((color1.red as u32) << 15).wrapping_add_signed(x * dr as i32);
-    let mut g = ((color1.green as u32) << 15).wrapping_add_signed(x * dg as i32);
-    let mut b = ((color1.blue as u32) << 15).wrapping_add_signed(x * db as i32);
-    let mut a = ((color1.alpha as u32) << 15).wrapping_add_signed(x * da as i32);
+    let mut r = ((color1.red as u32) << 15).wrapping_add((x * dr) as _);
+    let mut g = ((color1.green as u32) << 15).wrapping_add((x * dg) as _);
+    let mut b = ((color1.blue as u32) << 15).wrapping_add((x * db) as _);
+    let mut a = ((color1.alpha as u32) << 15).wrapping_add((x * da) as _);
 
     if color1.alpha == 255 && color2.alpha == 255 {
         buffer.fill_with(|| {
             let pix = TargetPixel::from_rgb((r >> 15) as u8, (g >> 15) as u8, (b >> 15) as u8);
-            r = r.wrapping_add_signed(dr);
-            g = g.wrapping_add_signed(dg);
-            b = b.wrapping_add_signed(db);
+            r = r.wrapping_add(dr as _);
+            g = g.wrapping_add(dg as _);
+            b = b.wrapping_add(db as _);
             pix
         })
     } else {
@@ -394,10 +394,10 @@ pub(super) fn draw_gradient_line(
                 blue: (b >> 15) as u8,
                 alpha: (a >> 15) as u8,
             });
-            r = r.wrapping_add_signed(dr);
-            g = g.wrapping_add_signed(dg);
-            b = b.wrapping_add_signed(db);
-            a = a.wrapping_add_signed(da);
+            r = r.wrapping_add(dr as _);
+            g = g.wrapping_add(dg as _);
+            b = b.wrapping_add(db as _);
+            a = a.wrapping_add(da as _);
         }
     }
 }
