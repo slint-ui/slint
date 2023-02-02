@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+import { MenuButton } from "menu_button.slint";
+
+export component Menu  {
+    private property <bool> menu-button-visible;
+    private property <int> container-visibility;
+    private property <bool> open;
+    in property <length> start-y;
+    in property <length> end-y;
+
+    y: start-y;
+    i-container := Rectangle {
+        visible: container-visibility == 1.0;
+        border-radius: 4px;
+        background: Theme.palette.ebony-radial-gradient;
+    }
+
+    HorizontalLayout {  
+        y: - 5px;
+        alignment: center;
+
+        VerticalLayout {  
+            alignment: start;
+
+            i-menu-button := MenuButton {  
+                visible: menu-button-visible || container-visibility == 1.0;
+               
+                clicked => { 
+                    toggle-open(); 
+                }
+            }
+        }
+    }
+
+    public function show-button() {
+        menu-button-visible = true;
+    }
+
+    function toggle-open() {
+        menu-button-visible = false;
+        open = !open;
+    }
+
+    animate y { duration: Theme.durations.medium; }
+
+    states [  
+        open when root.open : {
+            container-visibility: 1.0;
+            root.y: end-y;
+
+            out {
+                animate container-visibility { duration: Theme.durations.medium; }
+            }
+        }
+    ]
+}

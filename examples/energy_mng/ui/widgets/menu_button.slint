@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+import { StateLayer } from "../components/state_layer.slint";
+
+export component MenuButton {
+    callback clicked <=> i-state-layer.clicked;
+
+    min-width: 75px;
+    min-height: 25px;
+    opacity: root.visible ? 1.0 : 0.0;
+
+    i-container := Rectangle {   
+        background: Theme.palette.heliotrope-gradient;
+        border-radius: root.height / 2;
+        
+        Rectangle {  
+            width: 55px;
+            height: 5px;
+            background: Theme.palette.white;
+            border-radius: 3px;
+        }
+    }
+
+    i-state-layer := StateLayer {
+        border-radius: i-container.border-radius;
+    }
+
+    animate opacity { duration: Theme.durations.fast; }
+}

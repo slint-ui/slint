@@ -1,0 +1,21 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+
+export component StateLayer inherits Rectangle {
+    callback clicked <=> i-touch-area.clicked;
+
+    background: Theme.palette.purple-black;
+    opacity: 0.0;
+
+    i-touch-area := TouchArea {}
+
+    animate background { duration: Theme.durations.medium; }
+
+    states [  
+        pressed when i-touch-area.pressed : {
+            opacity: 0.12;
+        }
+    ]
+}

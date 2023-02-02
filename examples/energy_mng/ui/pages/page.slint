@@ -1,0 +1,16 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+
+export component Page inherits Rectangle {
+    in property <int> index;
+    in property <int> current-index;
+
+    x: (index - current-index) * self.width;
+    width: 100%;
+    height: 100%;
+    background: gray;
+
+    animate x { duration: Theme.durations.fast; }
+}

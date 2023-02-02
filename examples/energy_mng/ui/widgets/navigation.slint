@@ -1,0 +1,105 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Pagination } from "pagination.slint";
+import { FloatButton } from "float_button.slint";
+import { Theme } from "../theme.slint";
+
+export component Navigation {
+    callback pagination-clicked <=> i-pagination.clicked;
+
+    private property <bool> show-navigation;
+
+    in-out property <int> current-index <=> i-pagination.selected-index;
+    in property <int> page-count <=> i-pagination.count;
+
+    TouchArea {  
+        clicked => {  
+            toogle-show-navigation();
+        }
+    }
+
+    VerticalLayout {  
+        padding-left: Theme.spaces.medium;
+        padding-right: Theme.spaces.medium;
+        padding-top: Theme.spaces.small;
+        padding-bottom: Theme.spaces.medium;
+        spacing: Theme.spaces.medium;
+
+        Rectangle {
+            clip: true;
+            @children
+        }
+
+        i-pagination := Pagination {}
+    }
+
+
+    HorizontalLayout {  
+        Rectangle { 
+            visible: current-index > 0 && show-navigation; 
+            opacity: self.visible ? 1 : 0;
+            // x: 0px;
+            min_width: 129px;
+            background: Theme.palette.dark-left-gradient;
+
+            VerticalLayout { 
+                alignment: center;
+    
+                HorizontalLayout {  
+                    padding-left: Theme.spaces.large;
+    
+                    alignment: start;
+                    FloatButton {  
+                        icon: @image-url("../assets/arrow-left.png");
+                        clicked => {  
+                            root.increment();
+                        }
+                    }
+                }
+            }
+    
+            animate opacity { duration: Theme.durations.fast; }
+        }
+
+        Rectangle { }
+    
+        Rectangle {  
+            visible: current-index < page-count - 1 && show-navigation;
+            opacity: self.visible ? 1 : 0;
+            min_width: 129px;
+            background: Theme.palette.dark-right-gradient;
+    
+            VerticalLayout { 
+                alignment: center;
+    
+                HorizontalLayout {  
+                    padding-right: Theme.spaces.large;
+    
+                    alignment: end;
+                    FloatButton {  
+                        icon: @image-url("../assets/arrow-right.png");
+                       
+                        clicked => {  
+                            root.decrement();
+                        }
+                    }
+                }
+            }
+    
+            animate opacity { duration: Theme.durations.fast; }
+        } 
+    }
+
+    function toogle-show-navigation() {
+        show-navigation = !self.show-navigation;
+    }
+
+    function increment() {
+        current-index = max(current-index - 1, 0);
+    }
+
+    function decrement() {
+        current-index = min(current-index + 1, page-count - 1);
+    }
+}
