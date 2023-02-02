@@ -575,7 +575,7 @@
                 display: flex;
                 flex-direction: row;
                 justify-content: stretch;
-                align-items: stretch;
+                align-items: start;
             }
             #docs li {
                 width: 100%;
@@ -583,14 +583,10 @@
                 grid-template-rows: 1tr 1tr 1tr 1tr;
                 justify-content: center;
                 margin: 0px;
-                padding: 0px 0px;
+                padding: 0px 5px;
                 list-style-type: none;
                 text-align: center;
                 font-size: 24px;
-            }
-
-            #docs li:not(:last-child) {
-                border-right: 1px solid white;
             }
 
             #docs li img {
@@ -645,11 +641,15 @@
                     />
                     <strong>Using Slint in a Rust Project</strong>
                     <a class="btn" href="rust/slint">Rust Documentation</a>
+                    <br>
+                    <a class="btn" href="tutorial/rust">Rust Tutorial</a>
                 </li>
                 <li>
                     <img src="/new_images/cpp_logo_white.svg" alt="C++ Logo" />
                     <strong>Using Slint in a C++ Project</strong>
                     <a class="btn" href="cpp/">C++ Documentation</a>
+                    <br>
+                    <a class="btn" href="tutorial/cpp">C++ Tutorial</a>
                 </li>
                 <li>
                     <img
