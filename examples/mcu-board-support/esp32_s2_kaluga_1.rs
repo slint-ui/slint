@@ -14,11 +14,6 @@ use esp_alloc::EspHeap;
 use esp_println::println;
 pub use xtensa_lx_rt::entry;
 
-#[alloc_error_handler]
-fn oom(layout: core::alloc::Layout) -> ! {
-    panic!("Out of memory {:?}", layout);
-}
-
 #[inline(never)]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {

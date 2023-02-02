@@ -28,11 +28,6 @@ use slint::platform::{PointerEventButton, WindowEvent};
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
 
-#[alloc_error_handler]
-fn oom(layout: core::alloc::Layout) -> ! {
-    panic!("Out of memory {:?}", layout);
-}
-
 mod display_interface_spi;
 
 const HEAP_SIZE: usize = 200 * 1024;
