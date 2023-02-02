@@ -20,11 +20,6 @@ use esp_backtrace as _;
 use mipidsi::{Display, DisplayOptions, Orientation};
 pub use xtensa_lx_rt::entry;
 
-#[alloc_error_handler]
-fn oom(layout: core::alloc::Layout) -> ! {
-    panic!("Out of memory {:?}", layout);
-}
-
 #[global_allocator]
 static ALLOCATOR: EspHeap = EspHeap::empty();
 

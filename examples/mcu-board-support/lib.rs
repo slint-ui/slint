@@ -6,15 +6,6 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(
-    any(
-        feature = "pico-st7789",
-        feature = "stm32h735g",
-        feature = "esp32-s2-kaluga-1",
-        feature = "esp32-s3-box"
-    ),
-    feature(alloc_error_handler)
-)]
 
 extern crate alloc;
 

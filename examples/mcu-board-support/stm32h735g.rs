@@ -18,10 +18,6 @@ use stm32h7xx_hal as hal; // global logger
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
 
-#[alloc_error_handler]
-fn oom(layout: core::alloc::Layout) -> ! {
-    panic!("Out of memory {:?}", layout);
-}
 use alloc_cortex_m::CortexMHeap;
 
 const HEAP_SIZE: usize = 200 * 1024;
