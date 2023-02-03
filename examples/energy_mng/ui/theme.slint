@@ -41,6 +41,8 @@ export struct Palette {
     dark-left-gradient: brush,
     dark-right-gradient: brush,
     ebony-radial-gradient: brush,
+    bar-gradient: brush,
+    bar-background-gradient: brush,
 }
 
 export struct Spaces {
@@ -107,7 +109,9 @@ export global Theme {
         heliotrope-gradient: @linear-gradient(180deg, #896fff 0%, #39316B 100%),
         dark-left-gradient: @linear-gradient(90deg, #040708 0%, #04070875 50%, #04070800 100%),
         dark-right-gradient: @linear-gradient(90deg, #04070800 0%, #04070875 50%, #040708 100%),
-        ebony-radial-gradient: @radial-gradient(circle, #100F23 0%, #1F1946 100%)
+        ebony-radial-gradient: @radial-gradient(circle, #100F23 0%, #1F1946 100%),
+        bar-gradient: @linear-gradient(180deg, #6C4BFF 0%, #6c4bff00 100%),
+        bar-background-gradient: @linear-gradient(180deg, #896FFF 0%, #896FFF00 100%),
     };
 
     in property <Spaces> spaces: {

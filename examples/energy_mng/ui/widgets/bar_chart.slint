@@ -1,3 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+
+component Bar {
+    in property <length> bar-height;
+
+    horizontal-stretch: 1;
+
+    Rectangle {  
+        border-radius: 2px;
+        y: parent.height - self.height;
+        height: bar-height;
+        clip: true;
+
+        Rectangle {  
+            height: root.height;
+            y: parent.height - self.height;
+            background: Theme.palette.bar-gradient;
+        }
+    }
+}
+
+component BarBackground inherits Rectangle {
+    border-radius: 2px;
+    background: Theme.palette.bar-background-gradient;
+    opacity: 0.25;
+}
+
 export component BarChart {
-    
+    in property <[float]> model;
+    in property <float> min;
+    in property <float> max;
+
+    HorizontalLayout {  
+        spacing: 1px;
+        for _ in model.length / 2 : BarBackground {}
+    }
+
+    HorizontalLayout {  
+        spacing: 1px;
+
+        for value in model : Bar {
+            height: 100%; 
+            bar-height: parent.height * (value - root.min) / (root.max - root.min);
+        }
+    }
 } 
