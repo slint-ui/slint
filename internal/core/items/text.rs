@@ -29,6 +29,7 @@ use crate::{Callback, Coord, Property, SharedString};
 use alloc::rc::Rc;
 use alloc::string::String;
 use const_field_offset::FieldOffsets;
+use core::cell::Cell;
 use core::pin::Pin;
 #[allow(unused)]
 use euclid::num::Ceil;
@@ -237,7 +238,6 @@ pub struct TextInput {
     pub accepted: Callback<VoidArg>,
     pub cursor_position_changed: Callback<PointArg>,
     pub edited: Callback<VoidArg>,
-    pub pressed: core::cell::Cell<bool>,
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
     pub preedit_text: Property<SharedString>,
@@ -246,7 +246,9 @@ pub struct TextInput {
     pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
-    preferred_x_pos: core::cell::Cell<Coord>,
+    preferred_x_pos: Cell<Coord>,
+    /// 0 = not pressed, 1 = single press, 2 = double clicked+press , ...
+    pressed: Cell<u8>,
 }
 
 impl Item for TextInput {
@@ -331,7 +333,7 @@ impl Item for TextInput {
                 let clicked_offset =
                     window_adapter.renderer().text_input_byte_offset_for_position(self, position)
                         as i32;
-                self.as_ref().pressed.set(true);
+                self.as_ref().pressed.set((click_count % 3) + 1);
                 self.as_ref().anchor_position_byte_offset.set(clicked_offset);
 
                 match click_count % 3 {
@@ -344,6 +346,7 @@ impl Item for TextInput {
                 if !self.has_focus() {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
                 }
+                return InputEventResult::GrabMouse;
             }
             MouseEvent::Pressed { position, button: PointerEventButton::Middle, .. } => {
                 let clicked_offset =
@@ -357,21 +360,30 @@ impl Item for TextInput {
                 }
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
-                self.as_ref().pressed.set(false);
+                self.as_ref().pressed.set(0);
                 self.copy(Clipboard::SelectionClipboard);
             }
             MouseEvent::Exit => {
                 window_adapter.set_mouse_cursor(super::MouseCursor::Default);
-                self.as_ref().pressed.set(false)
+                self.as_ref().pressed.set(0)
             }
             MouseEvent::Moved { position } => {
                 window_adapter.set_mouse_cursor(super::MouseCursor::Text);
-                if self.as_ref().pressed.get() {
+                let pressed = self.as_ref().pressed.get();
+                if pressed > 0 {
                     let clicked_offset = window_adapter
                         .renderer()
                         .text_input_byte_offset_for_position(self, position)
                         as i32;
+
                     self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
+                    match (pressed - 1) % 3 {
+                        0 => (),
+                        1 => self.select_word(window_adapter, self_rc),
+                        2 => self.select_paragraph(window_adapter, self_rc),
+                        _ => unreachable!(),
+                    }
+                    return InputEventResult::GrabMouse;
                 }
             }
             _ => return InputEventResult::EventIgnored,
@@ -739,23 +751,9 @@ impl TextInput {
                 }
             }
             // Currently moving by word behaves like macos: next end of word(forward) or previous beginning of word(backward)
-            TextCursorDirection::ForwardByWord => text
-                .unicode_word_indices()
-                .skip_while(|(offset, slice)| *offset + slice.len() <= last_cursor_pos)
-                .next()
-                .map_or(text.len(), |(offset, slice)| offset + slice.len()),
+            TextCursorDirection::ForwardByWord => next_word_boundary(&text, last_cursor_pos + 1),
             TextCursorDirection::BackwardByWord => {
-                let mut word_offset = 0;
-
-                for (current_word_offset, _) in text.unicode_word_indices() {
-                    if current_word_offset < last_cursor_pos {
-                        word_offset = current_word_offset;
-                    } else {
-                        break;
-                    }
-                }
-
-                word_offset
+                prev_word_boundary(&text, last_cursor_pos.saturating_sub(1))
             }
             TextCursorDirection::StartOfLine => {
                 let cursor_rect =
@@ -773,23 +771,12 @@ impl TextInput {
                 cursor_xy_pos.x = Coord::MAX;
                 renderer.text_input_byte_offset_for_position(self, cursor_xy_pos)
             }
-            TextCursorDirection::StartOfParagraph => text
-                .as_bytes()
-                .iter()
-                .enumerate()
-                .rev()
-                .skip(text.len() - last_cursor_pos + 1)
-                .find(|(_, &c)| c == b'\n')
-                .map(|(new_pos, _)| new_pos + 1)
-                .unwrap_or(0),
-            TextCursorDirection::EndOfParagraph => text
-                .as_bytes()
-                .iter()
-                .enumerate()
-                .skip(last_cursor_pos + 1)
-                .find(|(_, &c)| c == b'\n')
-                .map(|(new_pos, _)| new_pos)
-                .unwrap_or(text.len()),
+            TextCursorDirection::StartOfParagraph => {
+                prev_paragraph_boundary(&text, last_cursor_pos.saturating_sub(1))
+            }
+            TextCursorDirection::EndOfParagraph => {
+                next_paragraph_boundary(&text, last_cursor_pos + 1)
+            }
             TextCursorDirection::StartOfText => 0,
             TextCursorDirection::EndOfText => text.len(),
         };
@@ -949,18 +936,16 @@ impl TextInput {
     }
 
     fn select_word(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
-        self.move_cursor(
-            TextCursorDirection::BackwardByWord,
-            AnchorMode::MoveAnchor,
-            window_adapter,
-            self_rc,
-        );
-        self.move_cursor(
-            TextCursorDirection::ForwardByWord,
-            AnchorMode::KeepAnchor,
-            window_adapter,
-            self_rc,
-        );
+        let text = self.text();
+        let anchor = self.anchor_position(&text);
+        let cursor = self.cursor_position(&text);
+        let (new_a, new_c) = if anchor <= cursor {
+            (prev_word_boundary(&text, anchor), next_word_boundary(&text, cursor))
+        } else {
+            (next_word_boundary(&text, anchor), prev_word_boundary(&text, cursor))
+        };
+        self.as_ref().anchor_position_byte_offset.set(new_a as i32);
+        self.set_cursor_position(new_c as i32, true, window_adapter, self_rc);
     }
 
     fn select_paragraph(
@@ -968,18 +953,16 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) {
-        self.move_cursor(
-            TextCursorDirection::StartOfParagraph,
-            AnchorMode::MoveAnchor,
-            window_adapter,
-            self_rc,
-        );
-        self.move_cursor(
-            TextCursorDirection::EndOfParagraph,
-            AnchorMode::KeepAnchor,
-            window_adapter,
-            self_rc,
-        );
+        let text = self.text();
+        let anchor = self.anchor_position(&text);
+        let cursor = self.cursor_position(&text);
+        let (new_a, new_c) = if anchor <= cursor {
+            (prev_paragraph_boundary(&text, anchor), next_paragraph_boundary(&text, cursor))
+        } else {
+            (next_paragraph_boundary(&text, anchor), prev_paragraph_boundary(&text, cursor))
+        };
+        self.as_ref().anchor_position_byte_offset.set(new_a as i32);
+        self.set_cursor_position(new_c as i32, true, window_adapter, self_rc);
     }
 
     fn copy(self: Pin<&Self>, clipboard: Clipboard) {
@@ -1076,4 +1059,46 @@ impl TextInput {
 
         TextInputVisualRepresentation { text, preedit_range, selection_range, cursor_position }
     }
+}
+
+fn next_paragraph_boundary(text: &str, last_cursor_pos: usize) -> usize {
+    text.as_bytes()
+        .iter()
+        .enumerate()
+        .skip(last_cursor_pos)
+        .find(|(_, &c)| c == b'\n')
+        .map(|(new_pos, _)| new_pos)
+        .unwrap_or(text.len())
+}
+
+fn prev_paragraph_boundary(text: &str, last_cursor_pos: usize) -> usize {
+    text.as_bytes()
+        .iter()
+        .enumerate()
+        .rev()
+        .skip(text.len() - last_cursor_pos)
+        .find(|(_, &c)| c == b'\n')
+        .map(|(new_pos, _)| new_pos + 1)
+        .unwrap_or(0)
+}
+
+fn prev_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
+    let mut word_offset = 0;
+
+    for (current_word_offset, _) in text.unicode_word_indices() {
+        if current_word_offset <= last_cursor_pos {
+            word_offset = current_word_offset;
+        } else {
+            break;
+        }
+    }
+
+    word_offset
+}
+
+fn next_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
+    text.unicode_word_indices()
+        .skip_while(|(offset, slice)| *offset + slice.len() < last_cursor_pos)
+        .next()
+        .map_or(text.len(), |(offset, slice)| offset + slice.len())
 }
