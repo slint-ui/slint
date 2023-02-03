@@ -287,8 +287,6 @@ jobs:
             rm -rf snapshots/$target_branch/editor
             mkdir -p snapshots/$target_branch/editor
             cp -a ../online_editor/* snapshots/$target_branch/editor/
-            mkdir -p snapshots/$target_branch/editor/assets/assets
-            mv snapshots/$target_branch/editor/assets/slint_lsp_wasm* snapshots/$target_branch/editor/assets/assets # work around relative base set in vite"
             git add snapshots/$target_branch/editor
             git add -u snapshots/$target_branch/editor
 
