@@ -3,6 +3,8 @@
 
 import { Theme } from "../theme.slint";
 
+import { ChartPattern } from "chart_pattern.slint";
+
 component Bar {
     in property <length> bar-height;
 
@@ -33,9 +35,8 @@ export component BarChart {
     in property <float> min;
     in property <float> max;
 
-    HorizontalLayout {  
-        spacing: 1px;
-        for _ in model.length / 2 : BarBackground {}
+    ChartPattern {  
+        count: model.length / 2;
     }
 
     HorizontalLayout {  
