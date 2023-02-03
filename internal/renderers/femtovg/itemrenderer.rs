@@ -624,16 +624,20 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             }
         }
 
+        let anti_alias = path.anti_alias();
+
         let fill_paint = self.brush_to_paint(path.fill(), &femtovg_path).map(|mut fill_paint| {
             fill_paint.set_fill_rule(match path.fill_rule() {
                 FillRule::Nonzero => femtovg::FillRule::NonZero,
                 FillRule::Evenodd => femtovg::FillRule::EvenOdd,
             });
+            fill_paint.set_anti_alias(anti_alias);
             fill_paint
         });
 
         let border_paint = self.brush_to_paint(path.stroke(), &femtovg_path).map(|mut paint| {
             paint.set_line_width((path.stroke_width() * self.scale_factor).get());
+            paint.set_anti_alias(anti_alias);
             paint
         });
 

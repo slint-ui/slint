@@ -1018,6 +1018,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
             }
         }
 
+        let anti_alias: bool = path.anti_alias();
+
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [
                 painter as "QPainterPtr*",
@@ -1025,12 +1027,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 mut painter_path as "QPainterPath",
                 fill_brush as "QBrush",
                 stroke_brush as "QBrush",
-                stroke_width as "float"] {
+                stroke_width as "float",
+                anti_alias as "bool"] {
             (*painter)->save();
             auto cleanup = qScopeGuard([&] { (*painter)->restore(); });
             (*painter)->translate(pos);
             (*painter)->setPen(stroke_width > 0 ? QPen(stroke_brush, stroke_width) : Qt::NoPen);
             (*painter)->setBrush(fill_brush);
+            (*painter)->setRenderHint(QPainter::Antialiasing, anti_alias);
             (*painter)->drawPath(painter_path);
         }}
     }
