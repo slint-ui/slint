@@ -497,13 +497,17 @@ pub enum FocusEvent {
 pub struct ClickState {
     click_count_time_stamp: Cell<Option<crate::animations::Instant>>,
     click_count: Cell<u8>,
+    click_position: Cell<LogicalPoint>,
+    click_button: Cell<PointerEventButton>,
 }
 
 impl ClickState {
     /// Resets the timer and count.
-    pub fn restart(&self) {
+    fn restart(&self, position: LogicalPoint, button: PointerEventButton) {
         self.click_count.set(0);
         self.click_count_time_stamp.set(Some(crate::animations::Instant::now()));
+        self.click_position.set(position);
+        self.click_button.set(button);
     }
 
     /// Check if the click is repeated.
@@ -517,15 +521,16 @@ impl ClickState {
                         < crate::platform::PLATFORM_INSTANCE
                             .with(|p| p.get().map(|p| p.click_interval()))
                             .unwrap_or_default()
-                        && button == PointerEventButton::Left
+                        && button == self.click_button.get()
+                        && (position - self.click_position.get()).square_length() < 100 as _
                     {
                         self.click_count.set(self.click_count.get() + 1);
                         self.click_count_time_stamp.set(Some(instant_now));
                     } else {
-                        self.restart();
+                        self.restart(position, button);
                     }
                 } else {
-                    self.restart();
+                    self.restart(position, button);
                 }
 
                 return MouseEvent::Pressed {
