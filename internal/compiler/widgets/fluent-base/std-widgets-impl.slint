@@ -80,7 +80,7 @@ export global StyleMetrics  {
     out property<bool> dark-color-scheme: Palette.dark-color-scheme;
 }
 
-export component Button inherits Rectangle {
+export component Button {
     callback clicked;
     in property<string> text <=> text.text;
     out property<bool> has-focus: fs.has-focus;
@@ -95,13 +95,15 @@ export component Button inherits Rectangle {
     accessible-role: button;
     accessible-label <=> text.text;
 
-    border-width: 1px;
-    border-radius: 2px;
-    border-color: !root.enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
-    background: !root.enabled ? Palette.neutralLighter
-        : (touch.pressed || root.checked) ? Palette.neutralLight
-        : touch.has-hover ? Palette.neutralLighter
-        : Palette.white;
+    Rectangle {
+        border-width: 1px;
+        border-radius: 2px;
+        border-color: !root.enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
+        background: !root.enabled ? Palette.neutralLighter
+            : (touch.pressed || root.checked) ? Palette.neutralLight
+            : touch.has-hover ? Palette.neutralLighter
+            : Palette.white;
+    }
     horizontal-stretch: 0;
     vertical-stretch: 0;
     min-height: max(32px, l.min-height);
@@ -197,7 +199,7 @@ component ScrollBar inherits Rectangle {
     }
 }
 
-export component ScrollView inherits Rectangle {
+export component ScrollView {
     in-out property <length> viewport-width <=> fli.viewport-width;
     in-out property <length> viewport-height <=> fli.viewport-height;
     in-out property <length> viewport-x <=> fli.viewport-x;
@@ -212,11 +214,13 @@ export component ScrollView inherits Rectangle {
     horizontal-stretch: 1;
     vertical-stretch: 1;
 
-    border-radius: 2px;
-    border-width: !root.enabled ? 0px : root.has-focus ? 2px : 1px;
-    border-color: !root.enabled ? Palette.neutralLighter
-        : root.has-focus ? Palette.themeSecondary
-        : Palette.neutralPrimary;
+    Rectangle {
+        border-radius: 2px;
+        border-width: !root.enabled ? 0px : root.has-focus ? 2px : 1px;
+        border-color: !root.enabled ? Palette.neutralLighter
+            : root.has-focus ? Palette.themeSecondary
+            : Palette.neutralPrimary;
+    }
 
     fli := Flickable {
         @children

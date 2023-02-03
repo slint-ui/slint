@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { LineEdit, Button, ComboBox, VerticalBox } from "std-widgets.slint";
+import { LineEdit, Button, ComboBox, GridBox } from "std-widgets.slint";
 
-component Booker inherits Window {
+export component Booker inherits Window {
     // returns true if the string parameter is a valid date
     pure callback validate-date(string) -> bool;
     validate-date(_) => { true }
@@ -11,30 +11,32 @@ component Booker inherits Window {
     pure callback compare-date(string, string) -> bool;
     compare-date(a, b) => { a <= b }
     private property <bool> message-visible;
-    VerticalBox {
+    GridBox {
         combo := ComboBox {
+            row: 0;
             model: ["one-way flight", "return flight"];
             current-value: "one-way flight";
             current-index: 0;
         }
         t1 := LineEdit {
+            row: 1;
             text: "27.03.2014";
-            Rectangle {
-                width: 100%;
-                height: 100%;
-                background: root.validate-date(t1.text) ? transparent : #f008;
-            }
+        }
+        Rectangle {
+            row: 1; // over the previous line edit
+            background: root.validate-date(t1.text) ? transparent : #f008;
         }
         t2 := LineEdit {
+            row: 2;
             text: "27.03.2014";
             enabled: combo.current-index == 1;
-            Rectangle {
-                width: 100%;
-                height: 100%;
-                background: root.validate-date(t2.text) ? transparent : #f008;
-            }
+        }
+        Rectangle {
+            row: 2; // over the previous line edit
+            background: root.validate-date(t2.text) ? transparent : #f008;
         }
         Button {
+            row: 3;
             text: "Book";
             clicked() => { root.message-visible = true; }
             enabled: combo.current-index != 1 ? root.validate-date(t1.text) : root.compare-date(t1.text, t2.text);

@@ -1,15 +1,22 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { Button, VerticalBox } from "std-widgets.slint";
- 
+
+component Button inherits Rectangle {
+    ta := TouchArea {}
+    background: ta.pressed ? blue: red;
+    callback clicked <=> ta.clicked;
+    in property <string> text;
+}
+
+
  export AppWindow := Window {
      property<int> counter: 42;
      callback request-increase-value();
-     VerticalBox { 
+     VerticalLayout {
          Button {
              text: "Increase value";
-             clicked => { 
+             clicked => {
                  request-increase-value();
              }
              states [
