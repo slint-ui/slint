@@ -21,6 +21,9 @@ export default defineConfig(({ command, _mode }) => {
             // We need to enable support for bigint
             target: "safari14",
         },
+        worker: {
+            format: "es",
+        },
     };
 
     let global_aliases = {
