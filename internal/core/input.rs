@@ -201,6 +201,19 @@ impl InternalKeyboardModifierState {
 
         Some(self)
     }
+
+    pub fn shift(&self) -> bool {
+        self.right_shift || self.left_shift
+    }
+    pub fn alt(&self) -> bool {
+        self.right_alt || self.left_alt
+    }
+    pub fn meta(&self) -> bool {
+        self.right_meta || self.left_meta
+    }
+    pub fn control(&self) -> bool {
+        self.right_control || self.left_control
+    }
 }
 
 /// KeyboardModifier provides booleans to indicate possible modifier keys
@@ -225,10 +238,10 @@ pub struct KeyboardModifiers {
 impl From<InternalKeyboardModifierState> for KeyboardModifiers {
     fn from(internal_state: InternalKeyboardModifierState) -> Self {
         Self {
-            alt: internal_state.left_alt | internal_state.right_alt,
-            control: internal_state.left_control | internal_state.right_control,
-            meta: internal_state.left_meta | internal_state.right_meta,
-            shift: internal_state.left_shift | internal_state.right_shift,
+            alt: internal_state.alt(),
+            control: internal_state.control(),
+            meta: internal_state.meta(),
+            shift: internal_state.shift(),
         }
     }
 }
