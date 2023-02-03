@@ -60,7 +60,8 @@ export component MyApp inherits Window {
 }
 ```
 
-You can refer to named elements from other elements.
+Names have to be valid [identifiers](identifiers.md) and are used to reference
+named elements from other elements.
 
 Some Elements have pre-defined names in addition to any you defined yourself:
 
