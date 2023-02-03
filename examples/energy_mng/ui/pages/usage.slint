@@ -2,9 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Page } from "page.slint";
+import { GroupBox } from "../widgets/widgets.slint";
+
+export global GroupBoxAdapter {
+    in property <string> title: "Usage";
+}
 
 export component Usage inherits Page {
-    Text {
-        text: "Usage";
+    in property <string> title <=> GroupBoxAdapter.title;
+
+    GroupBox {  
+        title: root.title;
     }
 }
