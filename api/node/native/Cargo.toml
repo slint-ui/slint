@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-node"
-version = "0.3.4"
+version = "1.0.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 build = "build.rs"
@@ -20,9 +20,9 @@ crate-type = ["cdylib"]
 name = "slint_node_native"
 
 [dependencies]
-i-slint-compiler = { version = "=0.3.4", path="../../../internal/compiler" }
-i-slint-core = { version = "=0.3.4", path="../../../internal/core" }
-slint-interpreter = { version = "=0.3.4", path="../../../internal/interpreter",  features = ["display-diagnostics"] }
+i-slint-compiler = { version = "=1.0.0", path="../../../internal/compiler" }
+i-slint-core = { version = "=1.0.0", path="../../../internal/core" }
+slint-interpreter = { version = "=1.0.0", path="../../../internal/interpreter",  features = ["display-diagnostics"] }
 
 vtable = { version = "0.1.6", path="../../../helper_crates/vtable" }
 

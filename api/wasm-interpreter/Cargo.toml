@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-wasm-interpreter"
-version = "0.3.4"
+version = "1.0.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
