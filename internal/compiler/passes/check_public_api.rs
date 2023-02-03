@@ -36,7 +36,7 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
                 }
             } else {
                 diag.push_diagnostic(
-                    format!("Properties in the root component exposed to native code must be annotated with in, out, in-out, or private"),
+                    format!("Properties are private by default. If you want to use them from native code, use in, out or in-out. Use private to suppress this warning"),
                     &d.node,
                     DiagnosticLevel::Warning
                );

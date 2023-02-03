@@ -7,7 +7,7 @@ component Unrelated {
 
 export component Compo {
     property <string> i-forgot;
-//  ^warning{Properties in the root component exposed to native code must be annotated with in, out, in-out, or private}
+//  ^warning{Properties are private by default. If you want to use them from native code, use in, out or in-out. Use private to suppress this warning}
 
     in-out property <string> ok;
 
