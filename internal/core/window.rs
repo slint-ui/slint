@@ -210,7 +210,7 @@ pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     component: RefCell<ComponentWeak>,
     mouse_input_state: Cell<MouseInputState>,
-    modifiers: Cell<InternalKeyboardModifierState>,
+    pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
     redraw_tracker: Pin<Box<PropertyTracker<WindowRedrawTracker>>>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     window_properties_tracker: Pin<Box<PropertyTracker<WindowPropertiesTracker>>>,

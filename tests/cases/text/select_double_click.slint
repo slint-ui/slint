@@ -13,7 +13,7 @@ TestCase := TextInput {
 
 /*
 ```rust
-use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint::{platform::WindowEvent, platform::Key, platform::PointerEventButton, LogicalPosition};
 
 let instance = TestCase::new();
 // slint_testing::send_mouse_click(&instance, 50., 50.);
@@ -51,8 +51,16 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 assert_eq!(instance.get_test_anchor_pos(), 6);
 assert_eq!(instance.get_test_cursor_pos(), 21);
 
-
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(70.0, 6.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(1000);
+
+slint_testing::send_keyboard_char(&instance, Key::ShiftR.into(), true);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(33.0, 6.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(33.0, 6.0), button: PointerEventButton::Left });
+slint_testing::send_keyboard_char(&instance, Key::ShiftR.into(), false);
+assert_eq!(instance.get_test_anchor_pos(), 6);
+assert_eq!(instance.get_test_cursor_pos(), 3);
+
 
 
 ```

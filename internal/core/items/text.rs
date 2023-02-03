@@ -334,7 +334,10 @@ impl Item for TextInput {
                     window_adapter.renderer().text_input_byte_offset_for_position(self, position)
                         as i32;
                 self.as_ref().pressed.set((click_count % 3) + 1);
-                self.as_ref().anchor_position_byte_offset.set(clicked_offset);
+
+                if !window_adapter.window().0.modifiers.get().shift() {
+                    self.as_ref().anchor_position_byte_offset.set(clicked_offset);
+                }
 
                 match click_count % 3 {
                     0 => self.set_cursor_position(clicked_offset, true, window_adapter, self_rc),
