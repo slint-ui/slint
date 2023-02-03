@@ -2,7 +2,6 @@
 
 -   [Introduction](intro.md)
 -   [`.slint` Files](file_format.md)
-    -   [Legacy Syntax](legacy_syntax.md)
     -   [Container Elements](containers.md)
 -   [Comments](comments.md)
 -   [Identifiers](identifiers.md)
@@ -39,6 +38,7 @@
     -   [Module Syntax](module_syntax.md)
 -   [Focus Handling](focus.md)
 -   [Font Handling](fonts.md)
+-   [Legacy Syntax](legacy_syntax.md)
 
 # Builtins
 
