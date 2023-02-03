@@ -13,7 +13,7 @@ homepage = "https://slint-ui.com"
 
 
 [dependencies]
-i-slint-compiler = { version = "0.3.4", path = "../../internal/compiler", features = ["display-diagnostics"] }
+i-slint-compiler = { version = "=1.0.0", path = "../../internal/compiler", features = ["display-diagnostics"] }
 
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 codemap = "0.1"
