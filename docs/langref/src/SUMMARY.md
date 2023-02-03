@@ -11,7 +11,7 @@
     -   [Two-way Bindings](aliases.md)
 -   [Types](types.md)
     -   [Structs](structs.md)
-    -   [Named Structtures](named_structs.md)
+    -   [Named Structures](named_structs.md)
     -   [Arrays and Models](models.md)
     -   [Conversions](conversions.md)
     -   [Relative Length](rel-length.md)
@@ -38,18 +38,18 @@
 -   [Modules](modules.md)
     -   [Module Syntax](module_syntax.md)
 -   [Focus Handling](focus.md)
--   [Builtin Functions](builtin_functions.md)
--   [Builtin callbacks](builtin_callbacks.md)
-    -   [`Math` Namespace](math.md)
-    -   [`Colors` Namespace](colors.md)
 -   [Font Handling](fonts.md)
 
 # Builtins
 
-- [Elements](builtin_elements.md)
-- [Enums](builtin_enums.md)
-- [Widgets](widgets.md)
+-   [Functions](builtin_functions.md)
+-   [Callbacks](builtin_callbacks.md)
+    -   [`Math` Namespace](math.md)
+    -   [`Colors` Namespace](colors.md)
+-   [Elements](builtin_elements.md)
+-   [Enums](builtin_enums.md)
+-   [Widgets](widgets.md)
 
 # Positioning and Layouting
 
-- [Positioning and Layout of Elements](layouting.md)
+-   [Positioning and Layout of Elements](layouting.md)
