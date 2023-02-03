@@ -4,7 +4,7 @@
 TestCase := TextInput {
     width: 120phx;
     height: 100phx;
-    property<string> test_text: self.text;
+    property<string> test_text <=> self.text;
     property<int> test_cursor_pos: self.cursor_position_byte_offset;
     property<int> test_anchor_pos: self.anchor_position_byte_offset;
     property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
@@ -31,5 +31,29 @@ assert_eq!(instance.get_test_cursor_pos(), 5);
 assert_eq!(instance.get_test_anchor_pos(), 0);
 slint_testing::send_keyboard_string_sequence(&instance, "-");
 assert_eq!(instance.get_test_text(), "- World");
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(10.0, 6.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(1600);
+
+instance.set_test_text("Lorem Ipsum Dolor Sit::amet".into());
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(70.0, 6.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(100);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(70.0, 6.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(100);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(70.0, 6.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_test_anchor_pos(), 6);
+assert_eq!(instance.get_test_cursor_pos(), 11);
+slint_testing::mock_elapsed_time(1000);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(30.0, 6.0) });
+assert_eq!(instance.get_test_anchor_pos(), 11);
+assert_eq!(instance.get_test_cursor_pos(), 0);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(190.0, 6.0) });
+assert_eq!(instance.get_test_anchor_pos(), 6);
+assert_eq!(instance.get_test_cursor_pos(), 21);
+
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(70.0, 6.0), button: PointerEventButton::Left });
+
+
 ```
 */
