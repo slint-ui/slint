@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-backend-testing"
-version = "0.3.4"
+version = "1.0.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -16,6 +16,6 @@ publish = false
 path = "lib.rs"
 
 [dependencies]
-i-slint-core = { version = "=0.3.4", path = "../../../internal/core" }
+i-slint-core = { version = "=1.0.0", path = "../../../internal/core" }
 vtable = { version = "0.1.8", path = "../../../helper_crates/vtable" }
 image = { version = "0.24.0", default-features = false, features = ["png", "jpeg"] }
