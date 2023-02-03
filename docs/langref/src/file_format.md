@@ -1,8 +1,8 @@
-# `.slint` files
+# `.slint` Files
 
-The basic idea is that the `.slint` files contains one or several components.
-These components contain a tree of elements. Each declared component can be
-given a name and re-used under that name as an element later.
+`.slint` files define one or several components.
+These components contain a tree of elements. Each declared component may be named
+and re-used under that name as an element later.
 
 Below is an example of components and elements:
 
@@ -37,7 +37,7 @@ export component MyApp inherits Window {
 Here, both `MyButton` and `MyApp` are components. `Window` and `Rectangle` are built-in elements
 used by `MyApp`. `MyApp` also re-uses the `MyButton` component.
 
-You can assign a name to the elements using the `:=` syntax in front an element:
+You can name an elements by using the `:=` syntax:
 
 ```slint
 component MyButton inherits Text {
@@ -60,7 +60,11 @@ export component MyApp inherits Window {
 }
 ```
 
-The outermost element of a component is always accessible under the name `root`.
-The current element can be referred as `self`.
-The parent element can be referred as `parent`.
-These names are reserved and cannot be used as element names.
+You can refer to named elements from other elements.
+
+Some Elements have pre-defined names in addition to any you defined yourself:
+
+`root` always refers to the outermost element of a component. `self` is the
+current element, while `parent` always refers to the parent element.
+
+These names are reserved and can't be defined by the user.
