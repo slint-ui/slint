@@ -258,4 +258,12 @@ impl i_slint_core::platform::Platform for Backend {
         }
         None
     }
+
+    #[cfg(not(no_qt))]
+    fn click_interval(&self) -> core::time::Duration {
+        let duration_ms = unsafe {
+            cpp::cpp! {[] -> u32 as "int" { return qApp->doubleClickInterval(); }}
+        };
+        core::time::Duration::from_millis(duration_ms as u64)
+    }
 }
