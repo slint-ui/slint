@@ -2,14 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Theme } from "theme.slint";
-import { Navigation, MenuButton, Menu } from "widgets/widgets.slint";
-import { Balance, Overview, Usage, Weather } from "pages/pages.slint";
+import { Navigation, MenuButton, Menu, Value } from "widgets/widgets.slint";
+import { Balance, Overview, OverviewAdapter, Usage, Weather } from "pages/pages.slint";
+
+export { OverviewAdapter, Value }
 
 export component MainWindow inherits Window {
     title: "EnergyMNG Demo";
     min_width: 320px;
     min_height: 240px;
-    background: Theme.palette.purple-black;
+    background: Theme.palette.pure-black;
 
     i-navigation := Navigation {  
         page-count: 4;
@@ -33,6 +35,11 @@ export component MainWindow inherits Window {
 
         pagination-clicked => {  
             i-menu.show-button();
+        }
+
+        clicked => {
+            // if the navigation is clicked and the arrow displayed a open menu button should be hide.
+            i-menu.hide-button();
         }
     }
 
