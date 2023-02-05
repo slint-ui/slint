@@ -21,23 +21,19 @@ pub fn main() {
         InkLevel { color: slint::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
     ]));
 
-    let main_weak = main_window.as_weak();
-    main_window.on_fax_number_erase(move || {
-        let main_window = main_weak.unwrap();
+    main_window.on_fax_number_erase(move |main_window| {
         let mut fax_number = main_window.get_fax_number().to_string();
         fax_number.pop();
         main_window.set_fax_number(fax_number.into());
     });
 
-    let main_weak = main_window.as_weak();
-    main_window.on_fax_send(move || {
-        let main_window = main_weak.upgrade().unwrap();
+    main_window.on_fax_send(move |main_window| {
         let fax_number = main_window.get_fax_number().to_string();
         println!("Sending a fax to {}", fax_number);
         main_window.set_fax_number(slint::SharedString::default());
     });
 
-    main_window.on_quit(move || {
+    main_window.on_quit(move |_| {
         #[cfg(not(target_arch = "wasm32"))]
         std::process::exit(0);
     });

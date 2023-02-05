@@ -185,9 +185,9 @@ pub fn main() {
     main_window.set_pieces(state.borrow().pieces.clone().into());
 
     let state_copy = state.clone();
-    main_window.on_piece_clicked(move |p| {
+    main_window.on_piece_clicked(move |main_window, p| {
         state_copy.borrow().auto_play_timer.stop();
-        state_copy.borrow().main_window.unwrap().set_auto_play(false);
+        main_window.set_auto_play(false);
         if state_copy.borrow().finished {
             return;
         }
@@ -206,14 +206,14 @@ pub fn main() {
     });
 
     let state_copy = state.clone();
-    main_window.on_reset(move || {
+    main_window.on_reset(move |main_window| {
         state_copy.borrow().auto_play_timer.stop();
-        state_copy.borrow().main_window.unwrap().set_auto_play(false);
+        main_window.set_auto_play(false);
         state_copy.borrow_mut().randomize();
     });
 
     let state_copy = state;
-    main_window.on_enable_auto_mode(move |enabled| {
+    main_window.on_enable_auto_mode(move |_, enabled| {
         if enabled {
             let state_weak = Rc::downgrade(&state_copy);
             state_copy.borrow().auto_play_timer.start(

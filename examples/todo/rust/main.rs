@@ -30,11 +30,11 @@ pub fn main() {
     let main_window = MainWindow::new();
     main_window.on_todo_added({
         let todo_model = todo_model.clone();
-        move |text| todo_model.push(TodoItem { checked: false, title: text })
+        move |_, text| todo_model.push(TodoItem { checked: false, title: text })
     });
     main_window.on_remove_done({
         let todo_model = todo_model.clone();
-        move || {
+        move |_| {
             let mut offset = 0;
             for i in 0..todo_model.row_count() {
                 if todo_model.row_data(i - offset).unwrap().checked {
@@ -45,9 +45,7 @@ pub fn main() {
         }
     });
 
-    let weak_window = main_window.as_weak();
-    main_window.on_popup_confirmed(move || {
-        let window = weak_window.unwrap();
+    main_window.on_popup_confirmed(move |window| {
         window.hide();
     });
 
@@ -67,11 +65,9 @@ pub fn main() {
     }
 
     main_window.on_apply_sorting_and_filtering({
-        let weak_window = main_window.as_weak();
         let todo_model = todo_model.clone();
 
-        move || {
-            let window = weak_window.unwrap();
+        move |window| {
             window.set_todo_model(todo_model.clone().into());
 
             if window.get_hide_done_items() {
