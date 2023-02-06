@@ -231,8 +231,13 @@ impl Default for FontCache {
             };
             font_db.set_sans_serif_family(default_sans_serif_family);
         }
-        let available_families =
-            font_db.faces().iter().map(|face_info| face_info.family.as_str().into()).collect();
+        let available_families = font_db
+            .faces()
+            .iter()
+            .flat_map(|face_info| {
+                face_info.families.first().map(|(family_name, _)| family_name.as_str().into())
+            })
+            .collect();
 
         Self {
             loaded_fonts: HashMap::new(),
