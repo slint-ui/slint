@@ -434,6 +434,7 @@ export NativeButton := _ {
     in property <StandardButtonKind> standard-button-kind;
     in property <bool> is-standard-button;
     //-is_internal
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export NativeCheckBox := _ {
@@ -447,6 +448,7 @@ export NativeCheckBox := _ {
     out property <bool> has-focus;
     callback toggled;
     //-is_internal
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export NativeSpinBox := _ {
@@ -460,6 +462,7 @@ export NativeSpinBox := _ {
     in property <int> minimum;
     in property <int> maximum: 100;
     //-is_internal
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export NativeSlider := _ {
@@ -473,6 +476,7 @@ export NativeSlider := _ {
     in property <float> maximum: 100;
     callback changed(float);
     //-is_internal
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export NativeGroupBox := _ {
@@ -502,6 +506,7 @@ export NativeLineEdit := _ {
     in property <bool> has-focus;
     in property <bool> enabled: true;
     //-is_internal
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export NativeScrollView := _ {
@@ -558,6 +563,7 @@ export NativeComboBox := _ {
     in property <bool> enabled: true;
     callback open_popup;
     //-is_internal
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export NativeComboBoxPopup := _ {
