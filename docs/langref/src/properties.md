@@ -1,7 +1,8 @@
 # Properties
 
-The elements can have properties. Built-in elements come with common properties such
-as color or dimensional properties. You can assign values or entire [expressions](#expressions) to them:
+All elements have properties. Built-in elements come with common properties such
+as color or dimensional properties. You can assign values or entire
+[expressions](#expressions) to them:
 
 ```slint,no-preview
 export component Example inherits Window {
@@ -12,9 +13,9 @@ export component Example inherits Window {
 }
 ```
 
-You can also declare your own properties. The properties declared at the top level of a
-component are public and can be accessed by the component using it as an element, or using the
-language bindings:
+In addition to the existing properties, you may define extra properties. In
+additon to the property name you must also specify the type of the property
+and optionally a default value:
 
 ```slint,no-preview
 export component Example {
@@ -26,7 +27,8 @@ export component Example {
 }
 ```
 
-You can annotate the properties with a qualifier that specifies how the property can be read and written:
+You can annotate custom the properties with a qualifier that specifies how the
+property can be read and written:
 
 -   **`private`** (the default): The property can only be accessed from within the component.
 -   **`in`**: The property is an input. It can be set and modified by the user of this component,
@@ -51,4 +53,8 @@ export component Button {
 }
 ```
 
-Note: In the legacy syntax, the default was `in-out`, but this has been changed in the new syntax
+All properties declared at the top level of a component that are not `private` can
+get accessed from the outside when using a component as an element, or via the
+language bindings from the business logic.
+
+Note: In the legacy syntax, the default was `in-out`.
