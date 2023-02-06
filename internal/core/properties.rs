@@ -493,8 +493,8 @@ impl PropertyHandle {
                     (*binding).dependencies.set(0);
                 } else {
                     DependencyListHead::mem_move(
-                        (&mut (*binding).dependencies) as *mut _ as *mut _,
-                        self.handle.as_ptr() as *mut _,
+                        (*binding).dependencies.as_ptr() as *mut DependencyListHead,
+                        self.handle.as_ptr() as *mut DependencyListHead,
                     );
                 }
                 ((*binding).vtable.drop)(binding);
@@ -540,8 +540,8 @@ impl PropertyHandle {
                 (*binding).dependencies.set(const_sentinel);
             } else {
                 DependencyListHead::mem_move(
-                    self.handle.as_ptr() as *mut _,
-                    (&mut (*binding).dependencies) as *mut _ as *mut _,
+                    self.handle.as_ptr() as *mut DependencyListHead,
+                    (*binding).dependencies.as_ptr() as *mut DependencyListHead,
                 );
             }
         }
@@ -657,10 +657,23 @@ impl Drop for PropertyHandle {
 
 /// Safety: the dependency list must be valid and consistent
 unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
+    debug_assert!(!core::ptr::eq(
+        *(dependencies as *mut *const u32),
+        (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
+    ));
     DependencyListHead::for_each(&*dependencies, |binding| {
         let binding: &BindingHolder = &**binding;
         let was_dirty = binding.dirty.replace(true);
         (binding.vtable.mark_dirty)(binding as *const BindingHolder, was_dirty);
+
+        assert!(
+            !core::ptr::eq(
+                binding.dependencies.as_ptr() as *const u32,
+                (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
+            ),
+            "Const property marked as dirty"
+        );
+
         mark_dependencies_dirty(binding.dependencies.as_ptr() as *mut DependencyListHead)
     });
 }
@@ -1247,6 +1260,10 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
         if CURRENT_BINDING.is_set() {
             CURRENT_BINDING.with(|cur_binding| {
                 if let Some(cur_binding) = cur_binding {
+                    debug_assert!(!core::ptr::eq(
+                        self.holder.dependencies.get() as *const u32,
+                        (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
+                    ));
                     cur_binding.register_self_as_dependency(
                         self.holder.dependencies.as_ptr() as *mut DependencyListHead,
                         #[cfg(slint_debug_property)]

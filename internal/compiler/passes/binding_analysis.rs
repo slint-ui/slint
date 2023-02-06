@@ -524,8 +524,8 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>, reverse_aliases: &mut 
     }
 
     fn mark_alias(alias: &NamedReference) {
+        alias.mark_as_set();
         if !alias.is_externally_modified() {
-            alias.mark_as_set();
             if let Some(bind) = alias.element().borrow().bindings.get(alias.name()) {
                 propagate_alias(&bind.borrow())
             }

@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+component Buggy {
+    in-out property<string> magic: "Nope";
+    property<bool> condition: false;
+
+    public function change_condition() {
+        condition = !condition;
+    }
+
+    HorizontalLayout {
+        if root.condition: TouchArea {
+            property <string> innermagic <=> root.magic;
+            clicked => { self.innermagic = "Hello"; }
+            horizontal-stretch: 1;
+        }
+
+        Rectangle {
+            background: red;
+            TouchArea {
+                clicked => { change-condition() }
+            }
+        }
+    }
+}
+
+
+component TestCase {
+    width: 300px;
+    height: 100px;
+
+    public function change_condition() {
+        b.change-condition();
+    }
+
+    b := Buggy {
+        magic: "Hi";
+    }
+
+    out property <string> magic: b.magic;
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_magic(), slint::SharedString::from("Hi"));
+instance.invoke_change_condition();
+instance.invoke_change_condition();
+instance.invoke_change_condition();
+assert_eq!(instance.get_magic(), slint::SharedString::from("Hi"));
+slint_testing::send_mouse_click(&instance, 10., 10.);
+assert_eq!(instance.get_magic(), slint::SharedString::from("Hello"));
+```
+
+
+*/
