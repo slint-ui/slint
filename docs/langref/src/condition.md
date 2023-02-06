@@ -1,6 +1,6 @@
-# Conditional element
+# Conditional Element
 
-Similar to `for`, the `if` construct can instantiate element only if a given condition is true.
+The `if` construct instantiates an element only if a given condition is true.
 The syntax is `if condition : id := Element { ... }`
 
 ```slint
