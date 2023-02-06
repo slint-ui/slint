@@ -1,9 +1,11 @@
 ## Two-way Bindings
 
-Using the `<=>` syntax, one can create two ways binding between properties. These properties are now linked
-together.
+Using the `<=>` syntax, one can create two way binding between properties. These properties are now linked
+together and will always contain the same value.
+
 The right hand side of the `<=>` must be a reference to a property of the same type.
-The type can be omitted in a property declaration to have the type automatically inferred.
+When defining a new property using a two way binding to an existing property, one can
+omit the type of the new property. Slint will infer this type automatically.
 
 ```slint,no-preview
 export component Example  {
