@@ -1,6 +1,6 @@
 # Statements
 
-Inside callback handlers, more complicated statements are allowed:
+Inside callback handlers may contain more complex statements:
 
 Assignment:
 
