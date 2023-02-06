@@ -1,11 +1,12 @@
 ## Images
 
-The `image` type is a reference to an image. It be initialized with the `@image-url("...")` construct.
-The URL within the `@image-url` function need to be known at compile time, and it is looked up
-relative to the file. In addition, it will also be looked in the include path specified to load
-.slint files via import.
+The `image` type is a reference to an image. It's defined using the `@image-url("...")` construct.
+The URL within the `@image-url` function must be known at compile time.
 
-It is possible to access the `width` and `height` of an image.
+The compiler will look for the image relative to the current `.slint` file and will
+finally consult the include path for `.slint` files.
+
+Getters for the image `width` and `height` are provided.
 
 ```slint
 export component Example inherits Window {
