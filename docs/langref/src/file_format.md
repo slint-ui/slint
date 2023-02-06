@@ -1,8 +1,12 @@
 # `.slint` Files
 
-`.slint` files define one or several components.
-These components contain a tree of elements. Each declared component may be named
-and re-used under that name as an element later.
+Each `.slint` file defines one or several components. These components contain
+a tree of elements. Each declared component may be named and re-used under that
+name as an element later.
+
+Components form the basis of composition in Slint. They let you build your own
+re-usable set of UI elements -- and are what drives the built-in elements
+that come with Slint.
 
 Below is an example of components and elements:
 
