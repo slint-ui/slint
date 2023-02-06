@@ -27,7 +27,7 @@ In this first example, you see the basics of the Slint language:
    using the `import` statement. That statement can import widgets or your own components
    declared in different files. Built-in element such as `Window` or `Rectangle` do not
    need to be imported.
- - The `Recipe` component is declared using `:=`. It is a `Window` and it contains
+ - The `Recipe` component is declared using the `component` keyword. It inherits from  `Window` and it contains
    a layout (`VerticalBox`) with one button.
  - The elements are just instantiated with their name and braces; they form a tree.
    They can optionally be named using `:=`
