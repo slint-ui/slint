@@ -33,5 +33,5 @@ export component Example inherits Window {
 ```
 
 In this example, the `active` and `active-hovered` states are defined depending on the value of the `active`
-boolean property and the `TouchArea`'s `has-hover`. So hovering will toggle between blue and green background,
+boolean property and the `TouchArea`'s `has-hover`. Hovering will toggle between blue and green background,
 and adjust the text label accordingly. Clicking toggles the `active` property and thus enters the `inactive` state.
