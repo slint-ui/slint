@@ -10,7 +10,6 @@
     -   [Two-way Bindings](aliases.md)
 -   [Types](types.md)
     -   [Structs](structs.md)
-    -   [Named Structures](named_structs.md)
     -   [Arrays and Models](models.md)
     -   [Conversions](conversions.md)
     -   [Relative Length](rel-length.md)
