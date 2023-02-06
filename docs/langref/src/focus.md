@@ -1,8 +1,8 @@
 # Focus Handling
 
-Certain elements such as ```TextInput``` accept not only input from the mouse/finger but
+Certain elements such as `TextInput` accept not only input from the mouse/finger but
 also key events originating from (virtual) keyboards. In order for an item to receive
-these events, it must have the focus. This is visible through the `has-focus` property.
+these events, it must have the focus. This is visible through the `has-focus` (out) property.
 
 You can manually activate the focus on an element by calling `focus()`:
 
@@ -52,4 +52,4 @@ export component App inherits Window {
 ```
 
 If you use the `forward-focus` property on a `Window`, then the specified element will receive
-the focus the very first time the window receives the focus - it becomes the initial focus element.
+the focus the first time the window receives the focus - it becomes the initial focus element.
