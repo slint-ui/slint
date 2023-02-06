@@ -24,7 +24,6 @@
     -   [Callback Aliases](callback_alias.md)
 -   [Purity](purity.md)
 -   [Expressions](expressions.md)
-    -   [Arrays/Structs](arrays_structs.md)
 -   [Statements](statements.md)
 -   [Repetition](repetition.md)
     -   [Examples](repetition_ex.md)
