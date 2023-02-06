@@ -1,9 +1,10 @@
 # Expressions
 
-Expressions are a powerful way to declare relationships and connections in your user interface. They
-are typically used to combine basic arithmetic with access to properties of other elements. When
-these properties change, the expression is automatically re-evaluated and a new value is assigned
-to the property the expression is associated with:
+Expressions are a powerful way to declare relationships and connections in your
+user interface. They´re typically used to combine basic arithmetic with access
+to properties of other elements. When these properties change, the expression
+is automatically re-evaluated and a new value is assigned to the property the
+expression is associated with:
 
 ```slint,no-preview
 export component Example {
@@ -16,7 +17,7 @@ export component Example {
 }
 ```
 
-If something changes `my-property`, the width will be updated automatically.
+When something changes `my-property`, the width updates automatically.
 
 Arithmetic in expression with numbers works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
@@ -26,12 +27,14 @@ export component Example {
 }
 ```
 
-`+` can also be applied with strings to mean concatenation.
+`+` applied to strings means string concatenation.
 
-There are also the operators `&&` and `||` for logical _and_ and _or_ between booleans. Comparisons of values of the same types can be done with
-`==`, `!=`, `>`, `<`, `=>` and `<=`.
+The operators `&&` and `||` express logical _and_ and _or_ between
+boolean values. The operators `==`, `!=`, `>`, `<`, `=>` and `<=` compare
+values of the same type.
 
-You can access properties by addressing the associated element, followed by a `.` and the property name:
+You can access properties by addressing the associated element, followed by a
+`.` and the property name:
 
 ```slint,no-preview
 export component Example {
