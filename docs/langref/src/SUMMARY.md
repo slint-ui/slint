@@ -26,7 +26,6 @@
 -   [Expressions](expressions.md)
 -   [Statements](statements.md)
 -   [Repetition](repetition.md)
-    -   [Examples](repetition_ex.md)
 -   [Conditional Element](condition.md)
 -   [Animations](animations.md)
 -   [States](states.md)
