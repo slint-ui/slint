@@ -1,6 +1,6 @@
 # Global Singletons
 
-Declare a global singleton with `global Name := { /* .. properties or callbacks .. */ }` when you want to
+Declare a global singleton with `global Name := { /* .. properties or callbacks .. */ }` to
 make properties and callbacks available throughout the entire project. Access them using `Name.property`.
 
 For example, this can be useful for a common color palette:
@@ -18,11 +18,9 @@ export component Example inherits Rectangle {
 }
 ```
 
-A global can be declared in another module file, and imported from many files.
-
-Access properties and callbacks from globals in native code by marking them as exported
-in the file that exports your main application component. In the above example it is
-sufficient to directly export the `Logic` global:
+A global may be exported (see [Modules](modules.md)). Exporting a global from
+the file also exporting the main application component will also make it visible
+to native code in the business logic.
 
 ```slint,ignore
 export global Logic  {
@@ -30,13 +28,6 @@ export global Logic  {
     pure callback magic-operation(int) -> int;
 }
 // ...
-```
-
-It's also possible to export globals from other files:
-
-```slint,ignore
-import { Logic as MathLogic } from "math.slint";
-export { MathLogic } // known as "MathLogic" when using native APIs to access globals
 ```
 
 <details data-snippet-language="rust">
