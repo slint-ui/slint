@@ -11,10 +11,10 @@ component ValueDelegate {
     in property <string> unit <=> i-unit.text;
     in property <float> value;
     in property <bool> alternative-colors;
-
+    
     HorizontalLayout {  
         spacing: 15px;
-        Rectangle {  
+        Rectangle {
             min_width: 1px;
             background: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.limon-green;
             horizontal-stretch: 0;
@@ -74,8 +74,12 @@ export component ValueDisplay {
     in property <bool> alternative-colors;
     in property <[Value]> model;
     in property <bool> active;
+    in property <bool> transparent-background;
+
+    min-height: 70px;
 
     i-container := Rectangle {  
+        visible: !transparent-background;
         width: 100%;
         height: 100%;
         border-radius: 4px;

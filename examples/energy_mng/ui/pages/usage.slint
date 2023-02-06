@@ -2,9 +2,70 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Page } from "page.slint";
+import { GroupBox, Value , ValueDisplay, BarChart } from "../widgets/widgets.slint";
+
+export global UsageAdapter {
+    in property <string> title: "Usage";
+    in property <[Value]> overview-model: [
+        {
+            value: 16.41,
+            title: "Daily",
+            unit: "kWh",
+        },
+        {
+            value: 15.23,
+            title: "Weekly",
+            unit: "kWh",
+        }
+    ];
+    in property <[float]> model: [
+        10.0,
+        9.0,
+        11.0,
+        12.0,
+        8.0,
+        14.0,
+        9.0,
+        16.0,
+        18.0,
+        12.0,
+        11.0,
+        14.0,
+        12.0,
+        16.0
+    ];
+    in property <float> min: 0.0;
+    in property <float> max: 24.0;
+}
 
 export component Usage inherits Page {
-    Text {
-        text: "Usage";
+    in property <string> title <=> UsageAdapter.title;
+    in property <[Value]> overview-model <=> UsageAdapter.overview-model;
+    in property <[float]> model <=> UsageAdapter.model;
+    in property <float> min <=> UsageAdapter.min;
+    in property <float> max <=> UsageAdapter.max;
+
+    GroupBox {  
+        title: root.title;
+
+        Rectangle {  
+            BarChart {  
+                model: root.model;
+                min: root.min;
+                max: root.max;
+            }
+
+            VerticalLayout {  
+                alignment: start;
+
+                ValueDisplay { 
+                    model: overview-model;
+                    transparent-background: true;
+                    alternative-colors: true;
+                    active: root.active;
+                }
+            }
+           
+        }
     }
 }
