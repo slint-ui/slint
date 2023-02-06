@@ -1,10 +1,15 @@
 # Callback
 
-Components may declare callbacks, that allow it to communicate changes of state to the outside. Callbacks are emitted by "calling" them
-and you can react to callback emissions by declaring a handler using the `=>` arrow syntax. The built-in `TouchArea`
-element comes with a `clicked` callback, that's emitted when the user touches the rectangular area covered by the element, or clicks into
-it with the mouse. In the example below, the emission of that callback is forwarded to another custom callback (`hello`) by declaring a
-handler and emitting our custom callback:
+Components may declare callbacks, that communicate changes of state
+to the outside. Callbacks are emitted by "calling" them like you would
+call a function.
+
+You react to callback emissions by declaring a handler using the `=>` arrow syntax.
+The built-in `TouchArea` element comes with a `clicked` callback, that's emitted
+when the user touches the rectangular area covered by the element, or clicks into
+it with the mouse. In the example below, the emission of that callback is forwarded
+to another custom callback (`hello`) by declaring a handler and emitting our
+custom callback:
 
 ```slint,no-preview
 export component Example inherits Rectangle {
@@ -21,7 +26,7 @@ export component Example inherits Rectangle {
 }
 ```
 
-It is also possible to add parameters to the callback.
+It's possible to add parameters to a callback;
 
 ```slint,no-preview
 export component Example inherits Rectangle {
@@ -31,7 +36,7 @@ export component Example inherits Rectangle {
 }
 ```
 
-And return value.
+Callbacks may also return a value.
 
 ```slint,no-preview
 export component Example inherits Rectangle {
