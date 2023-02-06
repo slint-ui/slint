@@ -11,7 +11,7 @@
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
 use crate::langtype::{ElementType, Type};
-use crate::lookup::{LookupCtx, LookupObject, LookupResult};
+use crate::lookup::{LookupCtx, LookupObject, LookupPhase, LookupResult};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
@@ -42,6 +42,7 @@ fn resolve_expression(
             type_register,
             type_loader: Some(type_loader),
             current_token: None,
+            phase: Default::default(),
         };
 
         let new_expr = match node.kind() {
@@ -606,6 +607,16 @@ impl Expression {
                     ctx.diag.push_error("Cannot take reference to an enum".to_string(), &node);
                     Expression::Invalid
                 }
+            }
+            LookupResult::Expression { expression, .. }
+                if matches!(ctx.phase, LookupPhase::ResolvingTwoWayBindings)
+                    && matches!(expression, Expression::RepeaterModelReference { .. }) =>
+            {
+                ctx.diag.push_error(
+                    "Two-way bindings to model data is not supported, yet".to_string(),
+                    &node,
+                );
+                Expression::Invalid
             }
             LookupResult::Expression { expression, .. } => maybe_lookup_object(expression, it, ctx),
             LookupResult::Namespace(_) => {
@@ -1195,6 +1206,7 @@ fn resolve_two_way_bindings(
                             type_register,
                             type_loader: None,
                             current_token: Some(node.clone().into()),
+                            phase: LookupPhase::ResolvingTwoWayBindings,
                         };
 
                         binding.expression = Expression::Invalid;
