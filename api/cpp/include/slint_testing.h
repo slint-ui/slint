@@ -3,6 +3,7 @@
 
 #pragma once
 #include "slint.h"
+#include <concepts>
 #include <iostream>
 
 namespace slint::testing {
@@ -41,11 +42,19 @@ inline void send_keyboard_string_sequence(const Component *component,
     slint::testing::private_api::assert_eq_impl(A, B, #A, #B, __FILE__, __LINE__)
 
 namespace private_api {
-template<typename A, typename B>
+template<typename A, std::equality_comparable_with<A> B>
 void assert_eq_impl(const A &a, const B &b, const char *a_str, const char *b_str, const char *file,
                     int line)
 {
-    if (a != b) {
+    bool nok = true;
+    if constexpr (std::is_integral_v<A> && std::is_integral_v<B>) {
+        // Do a cast to the common type to avoid warning about signed vs. unsigned compare
+        using T = std::common_type_t<A, B>;
+        nok = T(a) != T(b);
+    } else {
+        nok = a != b;
+    }
+    if (nok) {
         std::cerr << file << ":" << line << ": assert_eq FAILED!\n"
                   << a_str << ": " << a << "\n"
                   << b_str << ": " << b << std::endl;

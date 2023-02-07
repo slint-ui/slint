@@ -9,9 +9,12 @@
 
 struct ModelObserver : public slint::private_api::ModelChangeListener
 {
-    void row_added(int index, int count) override { added_rows.push_back(Range { index, count }); }
-    void row_changed(int index) override { changed_rows.push_back(index); }
-    void row_removed(int index, int count) override
+    void row_added(size_t index, size_t count) override
+    {
+        added_rows.push_back(Range { index, count });
+    }
+    void row_changed(size_t index) override { changed_rows.push_back(index); }
+    void row_removed(size_t index, size_t count) override
     {
         removed_rows.push_back(Range { index, count });
     }
@@ -27,13 +30,13 @@ struct ModelObserver : public slint::private_api::ModelChangeListener
 
     struct Range
     {
-        int row_index;
-        int count;
+        size_t row_index;
+        size_t count;
 
         bool operator==(const Range &) const = default;
     };
     std::vector<Range> added_rows;
-    std::vector<int> changed_rows;
+    std::vector<size_t> changed_rows;
     std::vector<Range> removed_rows;
     bool model_reset = false;
 };

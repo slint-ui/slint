@@ -595,15 +595,15 @@ inline float layout_cache_access(const SharedVector<float> &cache, int offset, i
 struct ModelChangeListener
 {
     virtual ~ModelChangeListener() = default;
-    virtual void row_added(int index, int count) = 0;
-    virtual void row_removed(int index, int count) = 0;
-    virtual void row_changed(int index) = 0;
+    virtual void row_added(size_t index, size_t count) = 0;
+    virtual void row_removed(size_t index, size_t count) = 0;
+    virtual void row_changed(size_t index) = 0;
     virtual void reset() = 0;
 };
 using ModelPeer = std::weak_ptr<ModelChangeListener>;
 
 template<typename M>
-auto access_array_index(const M &model, int index)
+auto access_array_index(const M &model, size_t index)
 {
     if (const auto v = model->row_data_tracked(index)) {
         return *v;
@@ -628,10 +628,10 @@ public:
     Model &operator=(const Model &) = delete;
 
     /// The amount of row in the model
-    virtual int row_count() const = 0;
+    virtual size_t row_count() const = 0;
     /// Returns the data for a particular row. This function should be called with `row <
     /// row_count()`.
-    virtual std::optional<ModelData> row_data(int i) const = 0;
+    virtual std::optional<ModelData> row_data(size_t i) const = 0;
     /// Sets the data for a particular row.
     ///
     /// This function should only be called with `row < row_count()`.
@@ -640,7 +640,7 @@ public:
     /// The default implementation will print a warning to stderr.
     ///
     /// If the model can update the data, it should also call `row_changed`
-    virtual void set_row_data(int, const ModelData &)
+    virtual void set_row_data(size_t, const ModelData &)
     {
         std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
     };
@@ -657,7 +657,7 @@ public:
     /// \private
     /// Internal function called from within bindings to register with the currently
     /// evaluating dependency and get notified when this model's row data changes.
-    void track_row_data_changes(int row) const
+    void track_row_data_changes(size_t row) const
     {
         auto it = std::lower_bound(tracked_rows.begin(), tracked_rows.end(), row);
         if (it == tracked_rows.end() || row < *it) {
@@ -668,7 +668,7 @@ public:
 
     /// \private
     /// Convenience function that calls `track_row_data_changes` before returning `row_data`
-    std::optional<ModelData> row_data_tracked(int row) const
+    std::optional<ModelData> row_data_tracked(size_t row) const
     {
         track_row_data_changes(row);
         return row_data(row);
@@ -676,7 +676,7 @@ public:
 
 protected:
     /// Notify the views that a specific row was changed
-    void row_changed(int row)
+    void row_changed(size_t row)
     {
         if (std::binary_search(tracked_rows.begin(), tracked_rows.end(), row)) {
             model_row_data_dirty_property.mark_dirty();
@@ -684,7 +684,7 @@ protected:
         for_each_peers([=](auto peer) { peer->row_changed(row); });
     }
     /// Notify the views that rows were added
-    void row_added(int index, int count)
+    void row_added(size_t index, size_t count)
     {
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
@@ -692,7 +692,7 @@ protected:
         for_each_peers([=](auto peer) { peer->row_added(index, count); });
     }
     /// Notify the views that rows were removed
-    void row_removed(int index, int count)
+    void row_removed(size_t index, size_t count)
     {
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
@@ -727,7 +727,7 @@ private:
     std::vector<private_api::ModelPeer> peers;
     private_api::Property<bool> model_row_count_dirty_property;
     private_api::Property<bool> model_row_data_dirty_property;
-    mutable std::vector<int> tracked_rows;
+    mutable std::vector<size_t> tracked_rows;
 };
 
 namespace private_api {
@@ -744,14 +744,14 @@ public:
     ArrayModel(A &&...a) : data { std::forward<A>(a)... }
     {
     }
-    int row_count() const override { return Count; }
-    std::optional<ModelData> row_data(int i) const override
+    size_t row_count() const override { return Count; }
+    std::optional<ModelData> row_data(size_t i) const override
     {
         if (i >= row_count())
             return {};
         return data[i];
     }
-    void set_row_data(int i, const ModelData &value) override
+    void set_row_data(size_t i, const ModelData &value) override
     {
         if (i < row_count()) {
             data[i] = value;
@@ -768,8 +768,8 @@ struct UIntModel : Model<int>
     /// \private
     uint32_t data;
     /// \copydoc Model::row_count
-    int row_count() const override { return data; }
-    std::optional<int> row_data(int value) const override
+    size_t row_count() const override { return data; }
+    std::optional<int> row_data(size_t value) const override
     {
         if (value >= row_count())
             return {};
@@ -789,14 +789,14 @@ public:
     VectorModel() = default;
     /// Constructs a new VectorModel from \a array.
     VectorModel(std::vector<ModelData> array) : data(std::move(array)) { }
-    int row_count() const override { return int(data.size()); }
-    std::optional<ModelData> row_data(int i) const override
+    size_t row_count() const override { return data.size(); }
+    std::optional<ModelData> row_data(size_t i) const override
     {
         if (i >= row_count())
             return {};
         return std::optional<ModelData> { data[i] };
     }
-    void set_row_data(int i, const ModelData &value) override
+    void set_row_data(size_t i, const ModelData &value) override
     {
         if (i < row_count()) {
             data[i] = value;
@@ -808,11 +808,11 @@ public:
     void push_back(const ModelData &value)
     {
         data.push_back(value);
-        this->row_added(int(data.size()) - 1, 1);
+        this->row_added(data.size() - 1, 1);
     }
 
     /// Remove the row at the given index from the model
-    void erase(int index)
+    void erase(size_t index)
     {
         data.erase(data.begin() + index);
         this->row_removed(index, 1);
@@ -822,7 +822,7 @@ public:
     void insert(size_t index, const ModelData &value)
     {
         data.insert(data.begin() + index, value);
-        this->row_added(int(index), 1);
+        this->row_added(index, 1);
     }
 };
 
@@ -841,14 +841,14 @@ struct FilterModelInner : private_api::ModelChangeListener
         update_mapping();
     }
 
-    void row_added(int index, int count) override
+    void row_added(size_t index, size_t count) override
     {
         if (count == 0) {
             return;
         }
 
         std::vector<int> added_accepted_rows;
-        for (int i = index; i < index + count; ++i) {
+        for (auto i = index; i < index + count; ++i) {
             if (auto data = source_model->row_data(i)) {
                 if (filter_fn(*data)) {
                     added_accepted_rows.push_back(i);
@@ -871,7 +871,7 @@ struct FilterModelInner : private_api::ModelChangeListener
 
         target_model.row_added(insertion_point - accepted_rows.begin(), added_accepted_rows.size());
     }
-    void row_changed(int index) override
+    void row_changed(size_t index) override
     {
         auto existing_row = std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index);
         auto existing_row_index = std::distance(accepted_rows.begin(), existing_row);
@@ -888,7 +888,7 @@ struct FilterModelInner : private_api::ModelChangeListener
             target_model.row_removed(existing_row_index, 1);
         }
     }
-    void row_removed(int index, int count) override
+    void row_removed(size_t index, size_t count) override
     {
         auto mapped_row_start = std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index);
         auto mapped_row_end =
@@ -919,7 +919,7 @@ struct FilterModelInner : private_api::ModelChangeListener
     void update_mapping()
     {
         accepted_rows.clear();
-        for (int i = 0, count = source_model->row_count(); i < count; ++i) {
+        for (size_t i = 0, count = source_model->row_count(); i < count; ++i) {
             if (auto data = source_model->row_data(i)) {
                 if (filter_fn(*data)) {
                     accepted_rows.push_back(i);
@@ -930,7 +930,7 @@ struct FilterModelInner : private_api::ModelChangeListener
 
     std::shared_ptr<slint::Model<ModelData>> source_model;
     std::function<bool(const ModelData &)> filter_fn;
-    std::vector<int> accepted_rows;
+    std::vector<size_t> accepted_rows;
     slint::FilterModel<ModelData> &target_model;
 };
 }
@@ -955,16 +955,16 @@ public:
         inner->source_model->attach_peer(inner);
     }
 
-    int row_count() const override { return inner->accepted_rows.size(); }
+    size_t row_count() const override { return inner->accepted_rows.size(); }
 
-    std::optional<ModelData> row_data(int i) const override
+    std::optional<ModelData> row_data(size_t i) const override
     {
-        if (i < 0 || size_t(i) >= inner->accepted_rows.size())
+        if (i >= inner->accepted_rows.size())
             return {};
         return inner->source_model->row_data(inner->accepted_rows[i]);
     }
 
-    void set_row_data(int i, const ModelData &value) override
+    void set_row_data(size_t i, const ModelData &value) override
     {
         inner->source_model->set_row_data(inner->accepted_rows[i], value);
     }
@@ -996,9 +996,12 @@ struct MapModelInner : private_api::ModelChangeListener
     {
     }
 
-    void row_added(int index, int count) override { target_model.row_added(index, count); }
-    void row_changed(int index) override { target_model.row_changed(index); }
-    void row_removed(int index, int count) override { target_model.row_removed(index, count); }
+    void row_added(size_t index, size_t count) override { target_model.row_added(index, count); }
+    void row_changed(size_t index) override { target_model.row_changed(index); }
+    void row_removed(size_t index, size_t count) override
+    {
+        target_model.row_removed(index, count);
+    }
     void reset() override { target_model.reset(); }
 
     slint::MapModel<SourceModelData, MappedModelData> &target_model;
@@ -1032,9 +1035,9 @@ public:
         model->attach_peer(inner);
     }
 
-    int row_count() const override { return model->row_count(); }
+    size_t row_count() const override { return model->row_count(); }
 
-    std::optional<MappedModelData> row_data(int i) const override
+    std::optional<MappedModelData> row_data(size_t i) const override
     {
         if (auto source_data = model->row_data(i))
             return map_fn(*source_data);
@@ -1065,7 +1068,7 @@ struct SortModelInner : private_api::ModelChangeListener
     {
     }
 
-    void row_added(int first_inserted_row, int count) override
+    void row_added(size_t first_inserted_row, size_t count) override
     {
         if (sorted_rows_dirty) {
             reset();
@@ -1078,7 +1081,7 @@ struct SortModelInner : private_api::ModelChangeListener
                 row += count;
         }
 
-        for (int row = first_inserted_row; row < first_inserted_row + count; ++row) {
+        for (size_t row = first_inserted_row; row < first_inserted_row + count; ++row) {
 
             ModelData inserted_value = *source_model->row_data(row);
             auto insertion_point =
@@ -1092,7 +1095,7 @@ struct SortModelInner : private_api::ModelChangeListener
             target_model.row_added(std::distance(sorted_rows.begin(), insertion_point), 1);
         }
     }
-    void row_changed(int changed_row) override
+    void row_changed(size_t changed_row) override
     {
         if (sorted_rows_dirty) {
             reset();
@@ -1121,7 +1124,7 @@ struct SortModelInner : private_api::ModelChangeListener
             target_model.row_added(inserted_row, 1);
         }
     }
-    void row_removed(int first_removed_row, int count) override
+    void row_removed(size_t first_removed_row, size_t count) override
     {
         if (sorted_rows_dirty) {
             reset();
@@ -1176,7 +1179,7 @@ struct SortModelInner : private_api::ModelChangeListener
     std::shared_ptr<slint::Model<ModelData>> source_model;
     std::function<bool(const ModelData &, const ModelData &)> comp;
     slint::SortModel<ModelData> &target_model;
-    std::vector<int> sorted_rows;
+    std::vector<size_t> sorted_rows;
     bool sorted_rows_dirty = true;
 };
 }
@@ -1200,15 +1203,15 @@ public:
         inner->source_model->attach_peer(inner);
     }
 
-    int row_count() const override { return inner->source_model->row_count(); }
+    size_t row_count() const override { return inner->source_model->row_count(); }
 
-    std::optional<ModelData> row_data(int i) const override
+    std::optional<ModelData> row_data(size_t i) const override
     {
         inner->ensure_sorted();
         return inner->source_model->row_data(inner->sorted_rows[i]);
     }
 
-    void set_row_data(int i, const ModelData &value) override
+    void set_row_data(size_t i, const ModelData &value) override
     {
         inner->source_model->set_row_data(inner->sorted_rows[i], value);
     }
@@ -1249,18 +1252,18 @@ class Repeater
         std::vector<ComponentWithState> data;
         private_api::Property<bool> is_dirty { true };
 
-        void row_added(int index, int count) override
+        void row_added(size_t index, size_t count) override
         {
             is_dirty.set(true);
             data.resize(data.size() + count);
             std::rotate(data.begin() + index, data.end() - count, data.end());
         }
-        void row_changed(int index) override
+        void row_changed(size_t index) override
         {
             is_dirty.set(true);
             data[index].state = State::Dirty;
         }
-        void row_removed(int index, int count) override
+        void row_removed(size_t index, size_t count) override
         {
             is_dirty.set(true);
             data.erase(data.begin() + index, data.begin() + index + count);
@@ -1306,9 +1309,9 @@ public:
         if (inner && inner->is_dirty.get()) {
             inner->is_dirty.set(false);
             if (auto m = model.get()) {
-                int count = m->row_count();
+                auto count = m->row_count();
                 inner->data.resize(count);
-                for (int i = 0; i < count; ++i) {
+                for (size_t i = 0; i < count; ++i) {
                     auto &c = inner->data[i];
                     bool created = false;
                     if (!c.ptr) {
@@ -1349,7 +1352,7 @@ public:
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
-            int index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
+            auto index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
             auto ref = item_at(index);
             if (ref.vtable->visit_children_item(ref, -1, order, visitor)
                 != std::numeric_limits<uint64_t>::max()) {
@@ -1389,7 +1392,7 @@ public:
         return offset;
     }
 
-    void model_set_row_data(int row, const ModelData &data) const
+    void model_set_row_data(size_t row, const ModelData &data) const
     {
         if (model.is_dirty()) {
             std::abort();

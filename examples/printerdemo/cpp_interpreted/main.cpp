@@ -9,8 +9,8 @@ using slint::interpreter::Value;
 
 struct InkLevelModel : slint::Model<Value>
 {
-    int row_count() const override { return m_data.size(); }
-    std::optional<Value> row_data(int i) const override
+    size_t row_count() const override { return m_data.size(); }
+    std::optional<Value> row_data(size_t i) const override
     {
         if (i < m_data.size())
             return { m_data[i] };

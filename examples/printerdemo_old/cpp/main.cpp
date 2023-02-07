@@ -5,8 +5,8 @@
 
 struct InkLevelModel : slint::Model<InkLevel>
 {
-    int row_count() const override { return m_data.size(); }
-    std::optional<InkLevel> row_data(int i) const override
+    size_t row_count() const override { return m_data.size(); }
+    std::optional<InkLevel> row_data(size_t i) const override
     {
         if (i < row_count())
             return { m_data[i] };
