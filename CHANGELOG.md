@@ -9,6 +9,9 @@ All notable changes to this project are documented in this file.
  - `PointerEventButton::None` was renamed `PointerEventButton::Other`
  - In the Rust API, a lifetime parameter was added to `slint::ModelPeer`
  - In the C++ API, functions that take a functor as argument are now using concepts
+ - In the C++ API, the type for row indexes in models was changed from `int` to `size_t`.
+   This includes arguments of virtual functions in `slint::Model` that needs to be adjusted in
+   derived classes.
  - Removed the `stride()` function from `slint::Image` in Rust - use `width()` instead.
  - In `slint::platform::WindowEvent::KeyPressed` and `KeyReleased`, the `text` field is now
    a `slint::SharedString`.

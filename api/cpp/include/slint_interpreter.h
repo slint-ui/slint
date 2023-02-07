@@ -445,15 +445,15 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
         std::shared_ptr<ModelChangeListener> self;
         ~ModelWrapper() { cbindgen_private::slint_interpreter_model_notify_destructor(&notify); }
 
-        void row_added(int index, int count) override
+        void row_added(size_t index, size_t count) override
         {
             cbindgen_private::slint_interpreter_model_notify_row_added(&notify, index, count);
         }
-        void row_changed(int index) override
+        void row_changed(size_t index) override
         {
             cbindgen_private::slint_interpreter_model_notify_row_changed(&notify, index);
         }
-        void row_removed(int index, int count) override
+        void row_removed(size_t index, size_t count) override
         {
             cbindgen_private::slint_interpreter_model_notify_row_removed(&notify, index, count);
         }
