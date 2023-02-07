@@ -2,7 +2,6 @@
 
 The Slint design markup language describes extensible graphical user interfaces.
 
-
 -   Place and compose a tree of visual elements in a window using a textual representation.
 -   Configure the appearance of elements via properties. For example a `Text` element has `text`
     properties, while a `Rectangle` element has a `background` color.

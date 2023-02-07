@@ -16,15 +16,14 @@ Arrays define the following operations:
 -   **`array.length`**: One can query the length of an array and model using the builtin `.length` property.
 -   **`array[index]`**: The index operator retrieves individual elements of an array.
 
-Out of bound access into an array will return default-constructed values or cause
-a compile error (if detectable at compile time).
+Out of bound access into an array will return default-constructed values.
 
 ```slint,no-preview
 export component Example {
     in-out property<[int]> list-of-int: [1,2,3];
 
-    out property list-len: list-of-int.length;
-    out property first-int: list-of-int[0];
+    out property <int> list-len: list-of-int.length;
+    out property <int> first-int: list-of-int[0];
 }
 
 ```
