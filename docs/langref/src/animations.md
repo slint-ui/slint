@@ -1,6 +1,6 @@
 # Animations
 
-Animations may be applied to Properties using the `animate` keyword like this:
+Declare animations for properties with the `animate` keyword like this:
 
 ```slint
 export component Example inherits Window {
@@ -18,7 +18,7 @@ export component Example inherits Window {
 
 This will animate the color property for 100ms whenever it changes.
 
-Animations can fine-tuned using the following parameters:
+Fine-tune animations using the following parameters:
 
 -   `delay`: the amount of time to wait before starting the animation
 -   `duration`: the amount of time it takes for the animation to complete

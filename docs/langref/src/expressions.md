@@ -17,7 +17,7 @@ export component Example {
 }
 ```
 
-When something changes `my-property`, the width updates automatically.
+When`my-property` changes, the width changes automatically, too.
 
 Arithmetic in expression with numbers works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
@@ -27,13 +27,13 @@ export component Example {
 }
 ```
 
-`+` applied to strings means string concatenation.
+Concatenate strings with `+`.
 
 The operators `&&` and `||` express logical _and_ and _or_ between
 boolean values. The operators `==`, `!=`, `>`, `<`, `=>` and `<=` compare
 values of the same type.
 
-You can access properties by addressing the associated element, followed by a
+Access an element's properties by using its name, followed by a
 `.` and the property name:
 
 ```slint,no-preview

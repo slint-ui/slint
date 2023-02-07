@@ -1,9 +1,9 @@
 # Modules
 
-Components declared in a `.slint` file can be shared with components in other
+Components declared in a `.slint` file can be used as elements in other
 `.slint` files, by means of exporting and importing them.
 
-By default, everything declared in a `.slint` file is private. The `export`
+By default, every type declared in a `.slint` file is private. The `export`
 keyword changes this.
 
 ```slint,no-preview
@@ -21,7 +21,7 @@ component Button inherits Rectangle {
 export { Button }
 ```
 
-In the above example, `Button` is usable from other `.slint` files, but
+In the above example, `Button` is accessible from other `.slint` files, but
 `ButtonHelper` isn't.
 
 It's also possible to change the name just for the purpose of exporting, without

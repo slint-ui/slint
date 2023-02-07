@@ -1,6 +1,6 @@
 ## Strings
 
-Any sequence of utf-8 encoded characters surrounded by quote is a `string`: `"foo"`.
+Any sequence of utf-8 encoded characters surrounded by quotes is a `string`: `"foo"`.
 
 Escape sequences may be embedded into strings to insert characters that would
 be hard to insert otherwise:

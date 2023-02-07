@@ -1,8 +1,8 @@
 # Repetition
 
-The `for`-`in` syntax will add an element multiple times.
+Use the `for`-`in` syntax to create an element multiple times.
 
-The syntax look like this: `for name[index] in model : id := Element { ... }`
+The syntax looks like this: `for name[index] in model : id := Element { ... }`
 
 The _model_ can be of the following type:
 

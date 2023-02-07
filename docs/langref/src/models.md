@@ -1,8 +1,8 @@
 ## Arrays and Models
 
-Arrays are created by wrapping `[` and `]` around the type of the array elements.
+Arrays are declared by wrapping `[` and `]` square brackets around the type of the array elements.
 
-In the runtime, arrays are used as models in the `for` expression.
+Array literals as well as properties holding arrays act as models in`for` expressions.
 
 ```slint,no-preview
 export component Example {
@@ -11,7 +11,7 @@ export component Example {
 }
 ```
 
-Arrays define some operations by default:
+Arrays define the following operations:
 
 -   **`array.length`**: One can query the length of an array and model using the builtin `.length` property.
 -   **`array[index]`**: The index operator retrieves individual elements of an array.

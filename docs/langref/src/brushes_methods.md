@@ -1,6 +1,6 @@
 ### Methods
 
-All colors and brushes have the following methods defined:
+All colors and brushes define the following methods:
 
 -   **`brighter(factor: float) -> Brush`**
 

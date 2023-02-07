@@ -1,7 +1,7 @@
 # Legacy Syntax
 
-To keep compatibility with earlier version of Slint, the old syntax that declared
-components and named structs with `:=` is still valid:
+To maintain compatibility with earlier version of Slint, the old syntax that declared
+components and named structs with `:=` remains supported:
 
 ```slint,no-preview
 export MyApp := Window {

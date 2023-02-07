@@ -18,8 +18,8 @@ export component Example inherits Rectangle {
 }
 ```
 
-A global may be exported (see [Modules](modules.md)). Exporting a global from
-the file also exporting the main application component will also make it visible
+Export a global to make it accessible from other files (see [Modules](modules.md)). Export a global from
+the file also exporting the main application component to make it visible
 to native code in the business logic.
 
 ```slint,ignore

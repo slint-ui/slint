@@ -1,10 +1,10 @@
 ## Conversions
 
-Slint supports conversion between different types. It tires to require explicit
-conversions to make the UI description more robust, but allows for implicit
-conversions in some places common in UI descriptions to allow for convenience.
+Slint supports conversions between different types. Explicit
+conversions are required to make the UI description more robust, but implicit
+conversions are allowed between some types for convenience.
 
-The following conversions are possible;
+The following conversions are possible:
 
 -   `int` can be converted implicitly to `float` and vice-versa
 -   `int` and `float` can be converted implicitly to `string`
@@ -16,9 +16,9 @@ The following conversions are possible;
 -   The literal `0` can be converted to any of these types that have associated unit.
 -   Struct types convert with another struct type if they have the same property names and their types can be converted.
     The source struct can have either missing properties, or extra properties. But not both.
--   Array generally do not convert between each other. Array literals can be converted if the type does convert.
+-   Arrays generally do not convert between each other. Array literals can be converted if the element types are convertible.
 -   String can be converted to float by using the `to-float` function. That function returns 0 if the string is not
-    a valid number. You can check with `is-float` if the string contains a valid number
+    a valid number. You can check with `is-float()` if the string contains a valid number
 
 ```slint,no-preview
 export component Example {

@@ -6,7 +6,7 @@ The URL within the `@image-url` function must be known at compile time.
 The compiler will look for the image relative to the current `.slint` file and will
 finally consult the include path for `.slint` files.
 
-Getters for the image `width` and `height` are provided.
+Access an `image`'s dimension using its `width` and `height` properties.
 
 ```slint
 export component Example inherits Window {

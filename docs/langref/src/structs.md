@@ -1,6 +1,6 @@
 ## Structs
 
-One can define named structures using the `struct` keyword,
+Define named structures using the `struct` keyword:
 
 ```slint,no-preview
 export struct Player  {
@@ -15,12 +15,7 @@ export component Example {
 
 ### Anonymous Structures
 
-`{ identifier1: type2, identifier1: type2 }` declares an anonymous structure.
-
-Struct literals like
-`{ identifier1: expression1, identifier2: expression2  }` can initialize anonymous
-structures. You may use a trailing `,` after `expression2` or in the anonymous structure
-definition above after `type2`.
+Declare anonymous structures using `{ identifier1: type2, identifier1: type2 }` syntax, and initialize them using  `{ identifier1: expression1, identifier2: expression2  }`.
 
 ```slint,no-preview
 export component Example {
