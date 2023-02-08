@@ -9,13 +9,11 @@
   function highlight_slint(hljs) {
     const KEYWORDS = {
       keyword:
-        'struct export import signal property animate for in if states transitions parent root self',
-      literal:
-        'true false',
+        "animate callback component export for function global if import in in-out inherits out parent private property public pure root self signal states struct transitions",
+      literal: "false true",
       built_in:
-        'Rectangle Image Text TouchArea Flickable Clip TextInput Window GridLayout Row HorizontalLayout VerticalLayout Path MoveTo LineTo ArcTo CubicTo QuadraticTo Close FocusScope Clip PopupWindow',
-      type:
-        'bool string int float length logical_length duration resource',
+        "ArcTo Clip Close Colors CubicTo Flickable FocusScope GridLayout HorizontalLayout Image LineTo Math MoveTo Path PopupWindow QuadraticTo Rectangle Row Text TextInput TouchArea VerticalLayout Window animation-tick debug",
+      type: "bool duration easing float int length logical_length relative-font-size resource string",
     };
 
     return {
