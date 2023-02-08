@@ -3,11 +3,10 @@
 
 
 export struct Color {
-    Color: string,
+    SharedVector: string,
 }
 
 export struct SharedString {
-    SharedString: string,
     Model: string,
     Component: int,
 }
@@ -21,8 +20,8 @@ export struct Model {
 }
 
 export component TestCase {
-    in-out property<Model> Model: {_self: { Color: "ddd" }};
-    in-out property<SharedString> SharedString: {Model: Model._self.Color };
+    in-out property<Model> Model: {_self: { SharedVector: "ddd" }};
+    in-out property<SharedString> SharedString: {Model: Model._self.SharedVector };
     in-out property<[ComponentHandle]> Rectangle: [{SharedString: SharedString.Model}];
 }
 
