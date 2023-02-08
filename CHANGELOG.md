@@ -24,6 +24,9 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+ - Fixed compilation error in rust generated code if user defined struct have the same name as
+   slint internal struct types
+
 ## [0.3.4] - 2023-01-25
 
 ### Changed
