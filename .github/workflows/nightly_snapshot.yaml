@@ -292,7 +292,7 @@ jobs:
 
             rm -rf snapshots/$target_branch/docs
             mkdir -p snapshots/$target_branch/docs
-            cp -a ../target/docs/site/* snapshots/$target_branch/docs
+            cp -a ../docs/site/* snapshots/$target_branch/docs
             mkdir -p snapshots/$target_branch/docs/cpp
             cp -a ../target/cppdocs/html/* snapshots/$target_branch/docs/cpp/
             mkdir -p snapshots/$target_branch/docs/rust
