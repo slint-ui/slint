@@ -220,6 +220,31 @@ pub struct UsedSubTypes {
     pub sub_components: Vec<Rc<Component>>,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct InitCode {
+    // Code from init callbacks collected from elements
+    pub constructor_code: Vec<Expression>,
+    /// Code to set the initial focus via forward-focus on the Window
+    pub focus_setting_code: Vec<Expression>,
+    /// Code to register embedded fonts.
+    pub font_registration_code: Vec<Expression>,
+}
+
+impl InitCode {
+    pub fn iter(&self) -> impl Iterator<Item = &Expression> {
+        self.font_registration_code
+            .iter()
+            .chain(self.focus_setting_code.iter())
+            .chain(self.constructor_code.iter())
+    }
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
+        self.font_registration_code
+            .iter_mut()
+            .chain(self.focus_setting_code.iter_mut())
+            .chain(self.constructor_code.iter_mut())
+    }
+}
+
 /// A component is a type in the language which can be instantiated,
 /// Or is materialized for repeated expression.
 #[derive(Default, Debug)]
@@ -251,9 +276,7 @@ pub struct Component {
     /// we can preserve the order across multiple inlining passes.
     pub inlined_init_code: RefCell<BTreeMap<usize, Expression>>,
 
-    /// Code to be inserted into the constructor, such as font registration, focus setting or
-    /// init callback code collected from elements.
-    pub init_code: RefCell<Vec<Expression>>,
+    pub init_code: RefCell<InitCode>,
 
     /// The list of used extra types used (recursively) by this root component.
     /// (This only make sense on the root component)
