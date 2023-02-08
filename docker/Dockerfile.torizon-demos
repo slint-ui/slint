@@ -42,7 +42,7 @@ RUN mkdir demos \
 FROM --platform=$IMAGE_ARCH torizon/$BASE_NAME:2
 
 RUN apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install libfontconfig1 \
+    && DEBIAN_FRONTEND=noninteractive apt-get install libfontconfig1 libxkbcommon0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /slint/demos/* /usr/bin/
