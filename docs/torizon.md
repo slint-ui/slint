@@ -1,6 +1,6 @@
 # Running Slint Demos on Torizon
 
-Toradex provides [Toradex](https://developer.toradex.com/torizon/) a Linux based platform for its embedded devices that packages applications in docker containers.
+Toradex provides [TorizonCore](https://developer.toradex.com/torizon/) a Linux based platform for its embedded devices that packages applications in docker containers.
 
 We provide our demos compiled for Toradex as docker containers.
 
