@@ -40,16 +40,16 @@ type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 
 type DirtyRegion = PhysicalRect;
 
-/// This enum describes which parts of the buffer passed to the [`SoftwareRenderer`] may re-use to speed up painting.
+/// This enum describes which parts of the buffer passed to the [`SoftwareRenderer`] may be re-used to speed up painting.
 #[derive(PartialEq, Eq, Debug, Clone, Default)]
 pub enum RepaintBufferType {
     #[default]
-    /// The full window is always redrawn. No attempt at tracking dirty items will be made.
+    /// The full window is always redrawn. No attempt at partial rendering will be made.
     NewBuffer,
-    /// Only redraw the parts that have changed since the previous call to render.
+    /// Only redraw the parts that have changed since the previous call to render().
     ///
-    /// This is assuming that the same buffer is passed on every call to render and
-    /// that it still contains the previously rendered frame
+    /// This variant assumes that the same buffer is passed on every call to render() and
+    /// that it still contains the previously rendered frame.
     ReusedBuffer,
 
     /// Redraw the part that have changed since the last two frames were drawn.
