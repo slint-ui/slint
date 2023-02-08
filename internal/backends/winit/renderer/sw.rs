@@ -10,19 +10,20 @@ use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
-pub struct WinitSoftwareRenderer<const MAX_BUFFER_AGE: usize> {
-    renderer: SoftwareRenderer<MAX_BUFFER_AGE>,
+pub struct WinitSoftwareRenderer {
+    renderer: SoftwareRenderer,
     canvas: RefCell<Option<softbuffer::GraphicsContext>>,
 }
 
-impl<const MAX_BUFFER_AGE: usize> super::WinitCompatibleRenderer
-    for WinitSoftwareRenderer<MAX_BUFFER_AGE>
-{
+impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     const NAME: &'static str = "Software";
 
     fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
         Self {
-            renderer: SoftwareRenderer::new(window_adapter_weak.clone()),
+            renderer: SoftwareRenderer::new(
+                i_slint_core::software_renderer::RepaintBufferType::NewBuffer,
+                window_adapter_weak.clone(),
+            ),
             canvas: Default::default(),
         }
     }

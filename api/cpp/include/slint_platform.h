@@ -194,12 +194,6 @@ public:
 /// To be used as a template parameter of the WindowAdapter.
 ///
 /// Use the render() function to render in a buffer
-///
-/// The MAX_BUFFER_AGE parameter specifies how many buffers are being re-used.
-/// This means that the buffer passed to the render functions still contains a rendering of
-/// the window that was refreshed as least that amount of frame ago.
-/// It will impact how much of the screen needs to be redrawn.
-template<int MAX_BUFFER_AGE = 0>
 class SoftwareRenderer
 {
     mutable cbindgen_private::SoftwareRendererOpaque inner;
@@ -208,7 +202,7 @@ public:
     virtual ~SoftwareRenderer()
     {
         if (inner) {
-            cbindgen_private::slint_software_renderer_drop(MAX_BUFFER_AGE, inner);
+            cbindgen_private::slint_software_renderer_drop(inner);
         }
     };
     SoftwareRenderer(const SoftwareRenderer &) = delete;
@@ -216,18 +210,18 @@ public:
     SoftwareRenderer() = default;
 
     /// \private
-    void init(const cbindgen_private::WindowAdapterRcOpaque *win) const
+    void init(const cbindgen_private::WindowAdapterRcOpaque *win, int max_buffer_age) const
     {
         if (inner) {
-            cbindgen_private::slint_software_renderer_drop(MAX_BUFFER_AGE, inner);
+            cbindgen_private::slint_software_renderer_drop(inner);
         }
-        inner = cbindgen_private::slint_software_renderer_new(MAX_BUFFER_AGE, win);
+        inner = cbindgen_private::slint_software_renderer_new(max_buffer_age, win);
     }
 
     /// \private
     cbindgen_private::RendererPtr renderer_handle() const
     {
-        return cbindgen_private::slint_software_renderer_handle(MAX_BUFFER_AGE, inner);
+        return cbindgen_private::slint_software_renderer_handle(inner);
     }
 
     /// Render the window scene into a pixel buffer
@@ -236,10 +230,11 @@ public:
     ///
     /// The stride is the amount of pixels between two lines in the buffer.
     /// It is must be at least as large as the width of the window.
-    void render(std::span<slint::cbindgen_private::Rgb8Pixel> buffer, std::size_t stride) const
+    void render(std::span<slint::cbindgen_private::Rgb8Pixel> buffer,
+                std::size_t pixel_stride) const
     {
-        cbindgen_private::slint_software_renderer_render_rgb8(MAX_BUFFER_AGE, inner, buffer.data(),
-                                                              buffer.size(), stride);
+        cbindgen_private::slint_software_renderer_render_rgb8(inner, buffer.data(), buffer.size(),
+                                                              pixel_stride);
     }
 };
 

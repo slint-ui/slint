@@ -36,12 +36,14 @@ pub fn init() {
 
 #[derive(Default)]
 struct EspBackend {
-    window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow<1>>>>,
+    window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
 }
 
 impl slint::platform::Platform for EspBackend {
     fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
-        let window = slint::platform::software_renderer::MinimalSoftwareWindow::new();
+        let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
+            slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
+        );
         self.window.replace(Some(window.clone()));
         window
     }

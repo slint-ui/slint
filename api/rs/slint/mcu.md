@@ -131,7 +131,7 @@ slint::include_modules!();
 # */
 
 struct MyPlatform {
-    window: Rc<MinimalSoftwareWindow<2>>,
+    window: Rc<MinimalSoftwareWindow>,
     // optional: some timer device from your device's HAL crate
     timer: hal::Timer,
     // ... maybe more devices
@@ -158,7 +158,7 @@ fn main() {
     // ...
 
     // Initialize a window (we'll need it later).
-    let window = MinimalSoftwareWindow::new();
+    let window = MinimalSoftwareWindow::new(Default::default());
     slint::platform::set_platform(Box::new(MyPlatform {
         window: window.clone(),
         timer: hal::Timer(/*...*/),
@@ -195,8 +195,8 @@ A typical super loop with Slint combines the tasks of querying input drivers, ap
 rendering and possibly putting the device into a low-power sleep state. Below is an example:
 
 ```rust,no_run
-use slint::platform::{software_renderer::MinimalSoftwareWindow};
-let window = MinimalSoftwareWindow::<0>::new();
+use slint::platform::software_renderer::MinimalSoftwareWindow;
+let window = MinimalSoftwareWindow::new(Default::default());
 # fn check_for_touch_event() -> Option<slint::platform::WindowEvent> { todo!() }
 # mod hal { pub fn wfi() {} }
 //...
@@ -260,10 +260,11 @@ the second buffer, the back buffer.
 use slint::platform::software_renderer::Rgb565Pixel;
 # fn is_swap_pending()->bool {false} fn swap_buffers() {}
 
-// Note that we use `2` as the const generic parameter which is our buffer count,
-// since we have two buffer, we always need to refresh what changed in the two
-// previous frames
-let window = slint::platform::software_renderer::MinimalSoftwareWindow::<2>::new();
+// In this example, we have two buffer: one is currently displayed, and we are
+// rendering into the second one. Hence we use `RepaintBufferType::SwappedBuffers`
+let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
+    slint::platform::software_renderer::RepaintBufferType::SwappedBuffers
+);
 
 const DISPLAY_WIDTH: usize = 320;
 const DISPLAY_HEIGHT: usize = 240;
@@ -357,11 +358,13 @@ impl<T: DrawTarget<Color = embedded_graphics_core::pixelcolor::Rgb565>>
     }
 }
 
-// Note that we use `1` as the const generic parameter for MinimalSoftwareWindow to indicate
-// the maximum age of the buffer we provide to `render_fn` inside `process_line`.
+// Note that we use `ReusedBuffer` as parameter for MinimalSoftwareWindow to indicate
+// that we just need to re-render what changed since the last frame.
 // What's shown on the screen buffer is not in our RAM, but actually within the display itself.
-// We just need to re-render what changed since the last frame.
-let window = slint::platform::software_renderer::MinimalSoftwareWindow::<1>::new();
+// Only the changed part of the screen will be updated.
+let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
+    slint::platform::software_renderer::RepaintBufferType::ReusedBuffer
+);
 
 const DISPLAY_WIDTH: usize = 320;
 let mut line_buffer = [slint::platform::software_renderer::Rgb565Pixel(0); DISPLAY_WIDTH];

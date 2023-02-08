@@ -40,6 +40,24 @@ type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 
 type DirtyRegion = PhysicalRect;
 
+/// This enum describes which parts of the buffer passed to the [`SoftwareRenderer`] may be re-used to speed up painting.
+#[derive(PartialEq, Eq, Debug, Clone, Default)]
+pub enum RepaintBufferType {
+    #[default]
+    /// The full window is always redrawn. No attempt at partial rendering will be made.
+    NewBuffer,
+    /// Only redraw the parts that have changed since the previous call to render().
+    ///
+    /// This variant assumes that the same buffer is passed on every call to render() and
+    /// that it still contains the previously rendered frame.
+    ReusedBuffer,
+
+    /// Redraw the part that have changed since the last two frames were drawn.
+    ///
+    /// This is used when using double buffering and swapping of the buffers.
+    SwappedBuffers,
+}
+
 /// This trait defines a bi-directional interface between Slint and your code to send lines to your screen, when using
 /// the [`SoftwareRenderer::render_by_line`] function.
 ///
@@ -76,43 +94,34 @@ pub trait LineBufferProvider {
 ///  2. Using [`render_by_line()`](Self::render()) to render the window line by line. This
 ///     is only useful if the device does not have enough memory to render the whole window
 ///     in one single buffer
-///
-/// ### `MAX_BUFFER_AGE`
-///
-/// The `MAX_BUFFER_AGE` parameter specifies how many buffers are being re-used.
-/// This means that the buffer passed to the render functions still contains a rendering of
-/// the window that was refreshed as least that amount of frame ago.
-/// It will impact how much of the screen needs to be redrawn.
-///
-/// Typical value can be:
-///  - **0:** No attempt at tracking dirty items will be made. The full screen is always redrawn.
-///  - **1:** Only redraw the parts that have changed since the previous call to render.
-///           This is assuming that the same buffer is passed on every call to render.
-///  - **2:** Redraw the part that have changed during the two last frames.
-///           This is assuming double buffering and swapping of the buffers.
-pub struct SoftwareRenderer<const MAX_BUFFER_AGE: usize> {
+pub struct SoftwareRenderer {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
+    repaint_buffer_type: RepaintBufferType,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
     force_dirty: Cell<crate::item_rendering::DirtyRegion>,
-    /// This is the area which was dirty on the previous frames, in case we do double buffering
-    ///
-    /// We really only need MAX_BUFFER_AGE - 1 but that's not allowed because we cannot do operations with
-    /// generic parameters
-    prev_frame_dirty: [Cell<DirtyRegion>; MAX_BUFFER_AGE],
+    /// This is the area which was dirty on the previous frame.
+    /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
+    prev_frame_dirty: Cell<DirtyRegion>,
     window: Weak<dyn crate::window::WindowAdapter>,
 }
 
-impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
+impl SoftwareRenderer {
     /// Create a new Renderer for a given window.
+    ///
+    /// The `repaint_buffer_type` parameter specify what kind of buffer are passed to [`Self::render`]
     ///
     /// The `window` parameter can be coming from [`Rc::new_cyclic()`](alloc::rc::Rc::new_cyclic())
     /// since the `WindowAdapter` most likely own the Renderer
-    pub fn new(window: Weak<dyn crate::window::WindowAdapter>) -> Self {
+    pub fn new(
+        repaint_buffer_type: RepaintBufferType,
+        window: Weak<dyn crate::window::WindowAdapter>,
+    ) -> Self {
         Self {
             window: window.clone(),
+            repaint_buffer_type,
             partial_cache: Default::default(),
             force_dirty: Default::default(),
-            prev_frame_dirty: [DirtyRegion::default(); MAX_BUFFER_AGE].map(|x| x.into()),
+            prev_frame_dirty: Default::default(),
         }
     }
 
@@ -123,20 +132,14 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
         dirty_region: DirtyRegion,
         screen_size: PhysicalSize,
     ) -> DirtyRegion {
-        if MAX_BUFFER_AGE == 0 {
-            PhysicalRect { origin: euclid::point2(0, 0), size: screen_size }
-        } else if MAX_BUFFER_AGE == 1 {
-            dirty_region
-        } else if MAX_BUFFER_AGE == 2 {
-            dirty_region.union(&self.prev_frame_dirty[0].replace(dirty_region))
-        } else {
-            let mut prev = dirty_region;
-            let mut union = dirty_region;
-            for x in self.prev_frame_dirty.iter().skip(1) {
-                prev = x.replace(prev);
-                union = union.union(&prev);
+        match self.repaint_buffer_type {
+            RepaintBufferType::NewBuffer => {
+                PhysicalRect { origin: euclid::point2(0, 0), size: screen_size }
             }
-            union
+            RepaintBufferType::ReusedBuffer => dirty_region,
+            RepaintBufferType::SwappedBuffers => {
+                dirty_region.union(&self.prev_frame_dirty.replace(dirty_region))
+            }
         }
         .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size: screen_size })
         .unwrap_or_default()
@@ -149,7 +152,7 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
     /// be rendered. (eg: the previous dirty region in case of double buffering)
     ///
     /// returns the dirty region for this frame (not including the extra_draw_region)
-    pub fn render(&self, buffer: &mut [impl TargetPixel], buffer_stride: usize) {
+    pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) {
         let window = self.window.upgrade().expect("render() called on a destroyed Window");
         let window_inner = WindowInner::from_pub(window.window());
         let factor = ScaleFactor::new(window_inner.scale_factor());
@@ -163,16 +166,13 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
                 window_item.background(),
             )
         } else {
-            (
-                euclid::size2(buffer_stride as _, (buffer.len() / buffer_stride) as _),
-                Brush::default(),
-            )
+            (euclid::size2(pixel_stride as _, (buffer.len() / pixel_stride) as _), Brush::default())
         };
         let buffer_renderer = SceneBuilder::new(
             size,
             factor,
             window_inner,
-            RenderToBuffer { buffer, stride: buffer_stride },
+            RenderToBuffer { buffer, stride: pixel_stride },
         );
         let mut renderer = crate::item_rendering::PartialRenderer::new(
             &self.partial_cache,
@@ -221,7 +221,7 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
     ///
     /// ```rust
     /// # use i_slint_core::software_renderer::{LineBufferProvider, SoftwareRenderer, Rgb565Pixel};
-    /// # fn xxx<'a>(the_frame_buffer: &'a mut [Rgb565Pixel], display_width: usize, renderer: &SoftwareRenderer<0>) {
+    /// # fn xxx<'a>(the_frame_buffer: &'a mut [Rgb565Pixel], display_width: usize, renderer: &SoftwareRenderer) {
     /// struct FrameBuffer<'a>{ frame_buffer: &'a mut [Rgb565Pixel], stride: usize }
     /// impl<'a> LineBufferProvider for FrameBuffer<'a> {
     ///     type TargetPixel = Rgb565Pixel;
@@ -263,7 +263,7 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
 }
 
 #[doc(hidden)]
-impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> {
+impl Renderer for SoftwareRenderer {
     fn text_size(
         &self,
         font_request: crate::graphics::FontRequest,
@@ -328,11 +328,11 @@ impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> 
     }
 }
 
-fn render_window_frame_by_line<const MAX_BUFFER_AGE: usize>(
+fn render_window_frame_by_line(
     window: &WindowInner,
     background: Brush,
     size: PhysicalSize,
-    renderer: &SoftwareRenderer<MAX_BUFFER_AGE>,
+    renderer: &SoftwareRenderer,
     mut line_buffer: impl LineBufferProvider,
 ) {
     let mut scene = prepare_scene(window, size, renderer);
@@ -749,10 +749,10 @@ struct GradientCommand {
     bottom_clip: PhysicalLength,
 }
 
-fn prepare_scene<const MAX_BUFFER_AGE: usize>(
+fn prepare_scene(
     window: &WindowInner,
     size: PhysicalSize,
-    software_renderer: &SoftwareRenderer<MAX_BUFFER_AGE>,
+    software_renderer: &SoftwareRenderer,
 ) -> Scene {
     let factor = ScaleFactor::new(window.scale_factor());
     let prepare_scene = SceneBuilder::new(size, factor, window, PrepareScene::default());
@@ -1640,21 +1640,20 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
 /// This is a minimal adapter for a Window that doesn't have any other feature than rendering
 /// using the software renderer.
-///
-/// The [`MAX_BUFFER_AGE`](SoftwareRenderer#max_buffer_age) generic parameter is forwarded to
-/// the [`SoftwareRenderer`]
-pub struct MinimalSoftwareWindow<const MAX_BUFFER_AGE: usize> {
+pub struct MinimalSoftwareWindow {
     window: Window,
-    renderer: SoftwareRenderer<MAX_BUFFER_AGE>,
+    renderer: SoftwareRenderer,
     needs_redraw: Cell<bool>,
 }
 
-impl<const MAX_BUFFER_AGE: usize> MinimalSoftwareWindow<MAX_BUFFER_AGE> {
+impl MinimalSoftwareWindow {
     /// Instantiate a new MinimalWindowAdaptor
-    pub fn new() -> Rc<Self> {
+    ///
+    /// The `repaint_buffer_type` parameter specify what kind of buffer are passed to the [`SoftwareRenderer`]
+    pub fn new(repaint_buffer_type: RepaintBufferType) -> Rc<Self> {
         Rc::new_cyclic(|w: &Weak<Self>| Self {
             window: Window::new(w.clone()),
-            renderer: SoftwareRenderer::new(w.clone()),
+            renderer: SoftwareRenderer::new(repaint_buffer_type, w.clone()),
             needs_redraw: Default::default(),
         })
     }
@@ -1665,10 +1664,7 @@ impl<const MAX_BUFFER_AGE: usize> MinimalSoftwareWindow<MAX_BUFFER_AGE> {
     /// in that callback.
     ///
     /// Return true if something was redrawn.
-    pub fn draw_if_needed(
-        &self,
-        render_callback: impl FnOnce(&SoftwareRenderer<MAX_BUFFER_AGE>),
-    ) -> bool {
+    pub fn draw_if_needed(&self, render_callback: impl FnOnce(&SoftwareRenderer)) -> bool {
         if self.needs_redraw.replace(false) {
             render_callback(&self.renderer);
             true
@@ -1678,9 +1674,7 @@ impl<const MAX_BUFFER_AGE: usize> MinimalSoftwareWindow<MAX_BUFFER_AGE> {
     }
 }
 
-impl<const MAX_BUFFER_AGE: usize> crate::window::WindowAdapterSealed
-    for MinimalSoftwareWindow<MAX_BUFFER_AGE>
-{
+impl crate::window::WindowAdapterSealed for MinimalSoftwareWindow {
     fn request_redraw(&self) {
         self.needs_redraw.set(true);
     }
@@ -1696,13 +1690,13 @@ impl<const MAX_BUFFER_AGE: usize> crate::window::WindowAdapterSealed
     }
 }
 
-impl<const MAX_BUFFER_AGE: usize> WindowAdapter for MinimalSoftwareWindow<MAX_BUFFER_AGE> {
+impl WindowAdapter for MinimalSoftwareWindow {
     fn window(&self) -> &Window {
         &self.window
     }
 }
 
-impl<const MAX_BUFFER_AGE: usize> core::ops::Deref for MinimalSoftwareWindow<MAX_BUFFER_AGE> {
+impl core::ops::Deref for MinimalSoftwareWindow {
     type Target = Window;
     fn deref(&self) -> &Self::Target {
         &self.window
