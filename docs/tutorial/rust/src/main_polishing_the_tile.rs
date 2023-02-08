@@ -7,11 +7,11 @@ fn main() {
 }
 slint::slint! {
 // ANCHOR: tile
-MemoryTile := Rectangle {
+component MemoryTile inherits Rectangle {
     callback clicked;
-    property <bool> open_curtain;
-    property <bool> solved;
-    property <image> icon;
+    in property <bool> open_curtain;
+    in property <bool> solved;
+    in property <image> icon;
 
     height: 64px;
     width: 64px;
@@ -49,7 +49,8 @@ MemoryTile := Rectangle {
         }
     }
 }
-MainWindow := Window {
+
+export component MainWindow inherits Window {
     MemoryTile {
         icon: @image-url("icons/bus.png");
         clicked => {

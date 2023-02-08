@@ -13,6 +13,9 @@ We copy the following code into the `memory.slint` file:
 {{#include memory_tile.slint:main_window}}
 ```
 
+Note that we export the <span class="hljs-title">MainWindow</span> component. This is necessary so that we can later access it
+from our business logic.
+
 Inside the <span class="hljs-built_in">Rectangle</span> we place an <span class="hljs-built_in">Image</span> element that
 loads an icon with the <span class="hljs-built_in">@image-url()</span> macro. The path is relative to the folder in which
 the `memory.slint` is located. This icon and others we're going to use later need to be installed first. You can download a

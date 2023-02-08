@@ -26,6 +26,9 @@ Note the use of `root` and `self` in the code. `root` refers to the outermost
 element in the component, that's the <span class="hljs-title">MemoryTile</span> in this case. `self` refers
 to the current element.
 
+Note that we export the <span class="hljs-title">MainWindow</span> component. This is necessary so that we can later access it
+from our business logic.
+
 Running this gives us a window on the screen with a rectangle that opens up to show us the bus icon, when clicking on
 it. Subsequent clicks will close and open the curtain again.
 

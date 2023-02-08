@@ -27,17 +27,17 @@ fn main() {
 
 // ANCHOR_END: tiles
 slint::slint! {
-    struct TileData := {
+    struct TileData {
         image: image,
         image_visible: bool,
         solved: bool,
     }
 
-    MemoryTile := Rectangle {
+    component MemoryTile inherits Rectangle {
         callback clicked;
-        property <bool> open_curtain;
-        property <bool> solved;
-        property <image> icon;
+        in property <bool> open_curtain;
+        in property <bool> solved;
+        in property <image> icon;
 
         height: 64px;
         width: 64px;
@@ -75,11 +75,12 @@ slint::slint! {
             }
         }
     }
-    MainWindow := Window {
+
+    export component MainWindow inherits Window {
         width: 326px;
         height: 326px;
 
-        property <[TileData]> memory_tiles: [
+        in-out property <[TileData]> memory_tiles: [
            { image: @image-url("icons/at.png") },
            { image: @image-url("icons/balance-scale.png") },
            { image: @image-url("icons/bicycle.png") },

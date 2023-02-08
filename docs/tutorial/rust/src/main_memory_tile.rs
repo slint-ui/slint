@@ -7,7 +7,7 @@ fn main() {
 }
 slint::slint! {
 // ANCHOR: tile
-MemoryTile := Rectangle {
+component MemoryTile inherits Rectangle {
     width: 64px;
     height: 64px;
     background: #3960D5;
@@ -19,7 +19,7 @@ MemoryTile := Rectangle {
     }
 }
 
-MainWindow := Window {
+export component MainWindow inherits Window {
     MemoryTile {}
 }
 // ANCHOR_END: tile

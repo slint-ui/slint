@@ -18,7 +18,7 @@ First, we copy the tile data structure definition and paste it at top inside the
 {{#include main_multiple_tiles.rs:tile_data}}
 ```
 
-Next, we replace the *<span class="hljs-title">MainWindow</span> := { ... }* section at the bottom of the `slint!` macro with the following snippet:
+Next, we replace the _export component <span class="hljs-title">MainWindow</span> inherits Window { ... }_ section at the bottom of the `slint!` macro with the following snippet:
 
 ```slint
 {{#include main_multiple_tiles.rs:main_window}}
