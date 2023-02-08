@@ -1,6 +1,6 @@
 # Functions
 
-You can declare helper functions with the function keyword.
+Declare helper functions with the `function` keyword.
 Functions are private by default, but can be made public with the `public` annotation.
 
 ```slint,no-preview

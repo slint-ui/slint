@@ -1,6 +1,7 @@
-## Legacy syntax
+# Legacy Syntax
 
-To keep compatibility with previous version of Slint, the old syntax that declared component with `:=` is still valid
+To maintain compatibility with earlier version of Slint, the pre-1.0 syntax that declared
+components and named structs with `:=` remains supported:
 
 ```slint,no-preview
 export MyApp := Window {
@@ -8,7 +9,13 @@ export MyApp := Window {
 }
 ```
 
-Element position and property lookup is different in the new syntax.
-In the new syntax, only property declared within the component are in scope.
-In the previous syntax, all properties of bases of `self` and `root` were also in scope.
-In the new syntax, elements are centered by default and the constraints are applied to the parent.
+This syntax change also effects property lookup rules and default element placement.
+
+In components defined in the new syntax, only properties declared within the
+component are in scope. By default parent elements render their children centered
+and will apply all layout constraints.
+
+In components defined using old systax, all properties of bases of `self` and
+`root` were in scope in addition to all properties defined inside the component
+itself. Elements are placed at position `x: 0` and `y: 0` and their constraints
+aren't applied.

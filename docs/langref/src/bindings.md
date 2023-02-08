@@ -1,9 +1,10 @@
 ## Bindings
 
-The expression on the right of a binding is automatically re-evaluated when the expression changes.
+The binding expression is automatically re-evaluated when properties accessed in the expression change.
 
-In the following example, the text of the button is automatically changed when the button is pressed, because
-changing the `counter` property automatically changes the text.
+In the following example, the text of the button automatically changes when
+the user presses the button. Incrementing the `counter` property automatically
+invalidates the expression bound to `text` and triggers a re-evaluation.
 
 ```slint
 import { Button } from "std-widgets.slint";
@@ -18,7 +19,10 @@ export component Example inherits Window {
 }
 ```
 
-The re-evaluation happens when the property is queried. Internally, a dependency will be registered
-for any property accessed while evaluating this binding. When the dependent properties are changed,
-all the dependent bindings are marked dirty. Callbacks in native code by default do not depend on
-any properties unless they query a property in the native code.
+The re-evaluation happens lazily when the property is queried.
+
+Internally, a dependency is registered for any property accessed while evaluating a binding.
+When a property changes, the dependencies are notified and all dependent bindings
+are marked as dirty.
+
+Callbacks in native code by default don't depend on any properties unless they query a property in the native code.

@@ -1,6 +1,6 @@
 ## Relative Lengths
 
-Sometimes it is convenient to express the relationships of length properties in terms of relative percentages.
+Sometimes it's convenient to express the relationships of length properties in terms of relative percentages.
 For example the following inner blue rectangle has half the size of the outer green window:
 
 ```slint
@@ -23,7 +23,7 @@ common. For convenience, a short-hand syntax exists for this scenario:
 -   The property is `width` or `height`
 -   A binding expression evaluates to a percentage.
 
-If these conditions are met, then it is not necessary to specify the parent property, instead you can simply
+If these conditions are met, then it's not necessary to specify the parent property, instead you can simply
 use the percentage. The earlier example then looks like this:
 
 ```slint

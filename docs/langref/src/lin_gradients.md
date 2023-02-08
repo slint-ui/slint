@@ -1,6 +1,6 @@
 ### Linear Gradients
 
-Gradients allow creating smooth colorful surfaces. They are specified using an angle and a series of
+Linear gradients describe smooth, colorful surfaces. They're specified using an angle and a series of
 color stops. The colors will be linearly interpolated between the stops, aligned to an imaginary line
 that is rotated by the specified angle. This is called a linear gradient and is specified using the
 `@linear-gradient` macro with the following signature:

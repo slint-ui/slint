@@ -1,8 +1,25 @@
 ## Structs
 
-Anonymous structs type can be declared with curly braces: `{ identifier1: type2, identifier1: type2, }`
-The trailing semicolon is optional.
-They can be initialized with a struct literal: `{ identifier1: expression1, identifier2: expression2  }`
+Define named structures using the `struct` keyword:
+
+```slint,no-preview
+export struct Player  {
+    name: string,
+    score: int,
+}
+
+export component Example {
+    in-out property<Player> player: { name: "Foo", score: 100 };
+}
+```
+
+### Anonymous Structures
+
+Declare anonymous structures using `{ identifier1: type2, identifier1: type2 }`
+syntax, and initialize them using
+`{ identifier1: expression1, identifier2: expression2  }`.
+
+You may have a trailing `,` after the last expression or type.
 
 ```slint,no-preview
 export component Example {

@@ -1,9 +1,10 @@
 ## Two-way Bindings
 
-Using the `<=>` syntax, one can create two ways binding between properties. These properties are now linked
-together.
+Create two-way bindings between properties with the `<=>` syntax. These properties will be linked
+together and always contain the same value.
+
 The right hand side of the `<=>` must be a reference to a property of the same type.
-The type can be omitted in a property declaration to have the type automatically inferred.
+The property type is optional with two-way bindings, it will be inferred if not specified.
 
 ```slint,no-preview
 export component Example  {

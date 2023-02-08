@@ -1,7 +1,8 @@
-## Arrays / Model
+## Arrays and Models
 
-The type array is using square brackets for example `[int]` is an array of `int`. In the runtime, they are
-basically used as models for the `for` expression.
+Arrays are declared by wrapping `[` and `]` square brackets around the type of the array elements.
+
+Array literals as well as properties holding arrays act as models in`for` expressions.
 
 ```slint,no-preview
 export component Example {
@@ -10,5 +11,19 @@ export component Example {
 }
 ```
 
--   **`length`**: One can query the length of an array and model using the builtin `.length` property.
--   **`array[index]`**: Individual elements of an array can be retrieved using the `array[index]` syntax.
+Arrays define the following operations:
+
+-   **`array.length`**: One can query the length of an array and model using the builtin `.length` property.
+-   **`array[index]`**: The index operator retrieves individual elements of an array.
+
+Out of bound access into an array will return default-constructed values.
+
+```slint,no-preview
+export component Example {
+    in-out property<[int]> list-of-int: [1,2,3];
+
+    out property <int> list-len: list-of-int.length;
+    out property <int> first-int: list-of-int[0];
+}
+
+```
