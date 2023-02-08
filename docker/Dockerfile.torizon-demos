@@ -41,6 +41,9 @@ RUN mkdir demos \
 # Create container for target
 FROM --platform=$IMAGE_ARCH torizon/$BASE_NAME:2
 
+LABEL org.opencontainers.image.source=https://github.com/slint-ui/slint
+LABEL org.opencontainers.image.description="Container image providing Slint demos for use on Torizon. Run with 'docker run  --user=torizon -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw'"
+
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get install libfontconfig1 libxkbcommon0 \
     && rm -rf /var/lib/apt/lists/*
