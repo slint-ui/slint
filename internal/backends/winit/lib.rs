@@ -73,7 +73,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(enable_skia_renderer)] {
         type DefaultRenderer = renderer::skia::SkiaRenderer;
     } else if #[cfg(feature = "renderer-winit-software")] {
-        type DefaultRenderer = renderer::sw::WinitSoftwareRenderer<0>;
+        type DefaultRenderer = renderer::sw::WinitSoftwareRenderer;
     } else {
         compile_error!("Please select a feature to build with the winit backend: `renderer-winit-femtovg`, `renderer-winit-skia`, `renderer-winit-skia-opengl` or `renderer-winit-software`");
     }
@@ -102,7 +102,7 @@ impl Backend {
             Some("skia") => window_factory_fn::<renderer::skia::SkiaRenderer>,
             #[cfg(feature = "renderer-winit-software")]
             Some("sw") | Some("software") => {
-                window_factory_fn::<renderer::sw::WinitSoftwareRenderer<0>>
+                window_factory_fn::<renderer::sw::WinitSoftwareRenderer>
             }
             None => window_factory_fn::<DefaultRenderer>,
             Some(renderer_name) => {

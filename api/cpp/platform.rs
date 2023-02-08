@@ -6,7 +6,7 @@ use i_slint_core::api::{PhysicalSize, Window};
 use i_slint_core::graphics::{IntSize, Rgb8Pixel};
 use i_slint_core::platform::Platform;
 use i_slint_core::renderer::Renderer;
-use i_slint_core::software_renderer::SoftwareRenderer;
+use i_slint_core::software_renderer::{RepaintBufferType, SoftwareRenderer};
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
 use i_slint_core::window::{WindowAdapter, WindowAdapterSealed};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
@@ -143,52 +143,35 @@ pub unsafe extern "C" fn slint_software_renderer_new(
 ) -> SoftwareRendererOpaque {
     let window = core::mem::transmute::<&WindowAdapterRcOpaque, &Rc<dyn WindowAdapter>>(window);
     let weak = Rc::downgrade(window);
-    match buffer_age {
-        0 => Box::into_raw(Box::new(SoftwareRenderer::<0>::new(weak))) as SoftwareRendererOpaque,
-        1 => Box::into_raw(Box::new(SoftwareRenderer::<1>::new(weak))) as SoftwareRendererOpaque,
-        2 => Box::into_raw(Box::new(SoftwareRenderer::<2>::new(weak))) as SoftwareRendererOpaque,
+    let repaint_buffer_type = match buffer_age {
+        0 => RepaintBufferType::NewBuffer,
+        1 => RepaintBufferType::ReusedBuffer,
+        2 => RepaintBufferType::SwappedBuffers,
         _ => unreachable!(),
-    }
+    };
+    Box::into_raw(Box::new(SoftwareRenderer::new(repaint_buffer_type, weak)))
+        as SoftwareRendererOpaque
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn slint_software_renderer_drop(buffer_age: u32, r: SoftwareRendererOpaque) {
-    match buffer_age {
-        0 => drop(Box::from_raw(r as *mut SoftwareRenderer<0>)),
-        1 => drop(Box::from_raw(r as *mut SoftwareRenderer<1>)),
-        2 => drop(Box::from_raw(r as *mut SoftwareRenderer<2>)),
-        _ => unreachable!(),
-    }
+pub unsafe extern "C" fn slint_software_renderer_drop(r: SoftwareRendererOpaque) {
+    drop(Box::from_raw(r as *mut SoftwareRenderer));
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_software_renderer_render_rgb8(
-    buffer_age: u32,
     r: SoftwareRendererOpaque,
     buffer: *mut Rgb8Pixel,
     buffer_len: usize,
-    buffer_stride: usize,
+    pixel_stride: usize,
 ) {
     let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
-    match buffer_age {
-        0 => (*(r as *const SoftwareRenderer<0>)).render(buffer, buffer_stride),
-        1 => (*(r as *const SoftwareRenderer<1>)).render(buffer, buffer_stride),
-        2 => (*(r as *const SoftwareRenderer<2>)).render(buffer, buffer_stride),
-        _ => unreachable!(),
-    }
+    (*(r as *const SoftwareRenderer)).render(buffer, pixel_stride)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn slint_software_renderer_handle(
-    buffer_age: u32,
-    r: SoftwareRendererOpaque,
-) -> RendererPtr {
-    let r = match buffer_age {
-        0 => (r as *const SoftwareRenderer<0>) as *const dyn Renderer,
-        1 => (r as *const SoftwareRenderer<1>) as *const dyn Renderer,
-        2 => (r as *const SoftwareRenderer<2>) as *const dyn Renderer,
-        _ => unreachable!(),
-    };
+pub unsafe extern "C" fn slint_software_renderer_handle(r: SoftwareRendererOpaque) -> RendererPtr {
+    let r = (r as *const SoftwareRenderer) as *const dyn Renderer;
     core::mem::transmute(r)
 }
 

@@ -58,12 +58,13 @@ pub fn init() {
 
 #[derive(Default)]
 struct PicoBackend {
-    window: RefCell<Option<Rc<renderer::MinimalSoftwareWindow<1>>>>,
+    window: RefCell<Option<Rc<renderer::MinimalSoftwareWindow>>>,
 }
 
 impl slint::platform::Platform for PicoBackend {
     fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
-        let window = renderer::MinimalSoftwareWindow::new();
+        let window =
+            renderer::MinimalSoftwareWindow::new(renderer::RepaintBufferType::ReusedBuffer);
         self.window.replace(Some(window.clone()));
         window
     }

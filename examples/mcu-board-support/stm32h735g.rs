@@ -40,14 +40,15 @@ pub fn init() {
 
 #[derive(Default)]
 struct StmBackend {
-    window: core::cell::RefCell<
-        Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow<2>>>,
-    >,
+    window:
+        core::cell::RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
     timer: once_cell::unsync::OnceCell<hal::timer::Timer<pac::TIM2>>,
 }
 impl slint::platform::Platform for StmBackend {
     fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
-        let window = slint::platform::software_renderer::MinimalSoftwareWindow::new();
+        let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
+            slint::platform::software_renderer::RepaintBufferType::SwappedBuffers,
+        );
         self.window.replace(Some(window.clone()));
         window
     }

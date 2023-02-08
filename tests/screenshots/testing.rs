@@ -19,7 +19,7 @@ use i_slint_core::{
 };
 
 pub struct SwrTestingBackend {
-    window: Rc<MinimalSoftwareWindow<1>>,
+    window: Rc<MinimalSoftwareWindow>,
 }
 
 impl i_slint_core::platform::Platform for SwrTestingBackend {
@@ -32,8 +32,10 @@ impl i_slint_core::platform::Platform for SwrTestingBackend {
     }
 }
 
-pub fn init_swr() -> Rc<MinimalSoftwareWindow<1>> {
-    let window = MinimalSoftwareWindow::new();
+pub fn init_swr() -> Rc<MinimalSoftwareWindow> {
+    let window = MinimalSoftwareWindow::new(
+        i_slint_core::software_renderer::RepaintBufferType::ReusedBuffer,
+    );
 
     i_slint_core::platform::set_platform(Box::new(SwrTestingBackend { window: window.clone() }))
         .unwrap();
@@ -52,7 +54,7 @@ pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgb8Pixel>, image::I
     })
 }
 
-pub fn screenshot(window: Rc<MinimalSoftwareWindow<1>>) -> SharedPixelBuffer<Rgb8Pixel> {
+pub fn screenshot(window: Rc<MinimalSoftwareWindow>) -> SharedPixelBuffer<Rgb8Pixel> {
     let size = window.size();
     let width = size.width;
     let height = size.height;
@@ -184,14 +186,14 @@ fn compare_images(
     result
 }
 
-pub fn assert_with_render(path: &str, window: Rc<MinimalSoftwareWindow<1>>) {
+pub fn assert_with_render(path: &str, window: Rc<MinimalSoftwareWindow>) {
     let rendering = screenshot(window);
     if let Err(reason) = compare_images(path, &rendering) {
         panic!("Image comparison failure for {path}: {reason}");
     }
 }
 
-pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow<1>>) {
+pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow>) {
     let s = window.size();
     let mut rendering = SharedPixelBuffer::<Rgb8Pixel>::new(s.width, s.height);
 
@@ -213,7 +215,7 @@ pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow<1
 }
 
 pub fn screenshot_render_by_line(
-    window: Rc<MinimalSoftwareWindow<1>>,
+    window: Rc<MinimalSoftwareWindow>,
     region: Option<IntRect>,
     buffer: &mut SharedPixelBuffer<Rgb8Pixel>,
 ) {
@@ -236,7 +238,7 @@ pub fn screenshot_render_by_line(
     });
 }
 
-pub fn save_screenshot(path: &str, window: Rc<MinimalSoftwareWindow<1>>) {
+pub fn save_screenshot(path: &str, window: Rc<MinimalSoftwareWindow>) {
     let buffer = screenshot(window.clone());
     image::save_buffer(
         path,

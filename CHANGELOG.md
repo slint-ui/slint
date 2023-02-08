@@ -17,6 +17,8 @@ All notable changes to this project are documented in this file.
    a `slint::SharedString`.
  - `slint::platform::WindowEvent` does not derive from `Copy` anymore. You must `clone()` it
    explicitly if you want to create a copy.
+ - In Rust, the MAX_BUFFER_AGE const parameter of `slint::platform::software_renderer::MinimalSoftwareWindow`
+   has been removed and replaced by an argument to the `new()` function
 
 ### Added
 
