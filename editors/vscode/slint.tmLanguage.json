@@ -17,7 +17,7 @@
                     "name": "keyword"
                 },
                 {
-                    "match": "\\b(property|callback|animate|states|transitions|private|public|function|in|out|in-out)\\b",
+                    "match": "\\b(property|callback|animate|states|transitions|private|public|pure|function|in|out|in-out)\\b",
                     "name": "keyword.other"
                 },
                 {
@@ -25,7 +25,7 @@
                     "name": "keyword.control"
                 },
                 {
-                    "match": "\\b(root|parent|this)\\b",
+                    "match": "\\b(root|parent|this|self)\\b",
                     "name": "variable.language"
                 },
                 {
