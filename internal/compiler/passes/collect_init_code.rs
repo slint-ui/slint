@@ -19,7 +19,11 @@ pub fn collect_init_code(component: &Rc<Component>) {
         }
 
         if let Some(init_callback) = elem.borrow_mut().bindings.remove("init") {
-            component.init_code.borrow_mut().push(init_callback.into_inner().expression);
+            component
+                .init_code
+                .borrow_mut()
+                .constructor_code
+                .push(init_callback.into_inner().expression);
         }
     });
 }
