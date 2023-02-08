@@ -311,7 +311,7 @@ pub fn generate(doc: &Document) -> TokenStream {
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         pub use #compo_module::{#compo_id #(,#structs_ids)* #(,#globals_ids)* };
-        pub use slint::{ComponentHandle, Global, ModelExt as _};
+        pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     }
 }
 
@@ -585,7 +585,6 @@ fn public_api(
                 #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
                     #[allow(unused_imports)]
-                    use slint::private_unstable_api::re_exports::*;
                     let _self = #self_init;
                     #prop_expression
                 }
@@ -598,7 +597,6 @@ fn public_api(
                     #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {
                         #[allow(unused_imports)]
-                        use slint::private_unstable_api::re_exports::*;
                         let _self = #self_init;
                         #set_value
                     }
@@ -947,7 +945,6 @@ fn generate_sub_component(
                     tree_index: u32, tree_index_of_first_child: u32) {
                 #![allow(unused)]
                 #![allow(unused)]
-                use slint::private_unstable_api::re_exports::*;
                 let _self = self_rc.as_pin_ref();
                 _self.self_weak.set(VRcMapped::downgrade(&self_rc));
                 _self.root.set(VRc::downgrade(root));
@@ -969,7 +966,6 @@ fn generate_sub_component(
                 visitor: slint::private_unstable_api::re_exports::ItemVisitorRefMut
             ) -> slint::private_unstable_api::re_exports::VisitChildrenResult {
                 #![allow(unused)]
-                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match dyn_index {
                     #(#repeated_visit_branch)*
@@ -979,7 +975,6 @@ fn generate_sub_component(
 
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::private_unstable_api::re_exports::Orientation) -> slint::private_unstable_api::re_exports::LayoutInfo {
                 #![allow(unused)]
-                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match orientation {
                     slint::private_unstable_api::re_exports::Orientation::Horizontal => #layout_info_h,
@@ -989,7 +984,6 @@ fn generate_sub_component(
 
             fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: usize) -> slint::private_unstable_api::re_exports::IndexRange {
                 #![allow(unused)]
-                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_ranges)*
@@ -999,7 +993,6 @@ fn generate_sub_component(
 
             fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: usize, subtree_index: usize, result: &mut slint::private_unstable_api::re_exports::ComponentWeak) {
                 #![allow(unused)]
-                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_components)*
@@ -1009,14 +1002,12 @@ fn generate_sub_component(
 
             fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
                 #![allow(unused)]
-                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 #subtree_index_function
             }
 
             fn accessible_role(self: ::core::pin::Pin<&Self>, index: usize) -> slint::private_unstable_api::re_exports::AccessibleRole {
                 #![allow(unused)]
-                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match index {
                     #(#accessible_role_branch)*
@@ -1031,7 +1022,6 @@ fn generate_sub_component(
                 what: slint::private_unstable_api::re_exports::AccessibleStringProperty,
             ) -> slint::private_unstable_api::re_exports::SharedString {
                 #![allow(unused)]
-                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match (index, what) {
                     #(#accessible_string_property_branch)*
@@ -1320,7 +1310,6 @@ fn generate_item_tree(
                 -> vtable::VRc<slint::private_unstable_api::re_exports::ComponentVTable, Self>
             {
                 #![allow(unused)]
-                use slint::private_unstable_api::re_exports::*;
                 #create_window_adapter // We must create the window first to initialize the backend before using the style
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
@@ -1339,8 +1328,6 @@ fn generate_item_tree(
             }
 
             fn item_array() -> &'static [vtable::VOffset<Self, ItemVTable, vtable::AllowPin>] {
-                use slint::private_unstable_api::re_exports::*;
-                ComponentVTable_static!(static VT for #inner_component_id);
                 // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
                 static ITEM_ARRAY : slint::private_unstable_api::re_exports::OnceBox<
                     [vtable::VOffset<#inner_component_id, ItemVTable, vtable::AllowPin>; #item_array_len]
@@ -1352,6 +1339,7 @@ fn generate_item_tree(
         impl slint::private_unstable_api::re_exports::PinnedDrop for #inner_component_id {
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
                 use slint::private_unstable_api::re_exports::*;
+                ComponentVTable_static!(static VT for self::#inner_component_id);
                 new_vref!(let vref : VRef<ComponentVTable> for Component = self.as_ref().get_ref());
                 slint::private_unstable_api::re_exports::unregister_component(self.as_ref(), vref, Self::item_array(), self.window_adapter.get().unwrap());
             }
@@ -1361,7 +1349,6 @@ fn generate_item_tree(
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: slint::private_unstable_api::re_exports::TraversalOrder, visitor: slint::private_unstable_api::re_exports::ItemVisitorRefMut)
                 -> slint::private_unstable_api::re_exports::VisitChildrenResult
             {
-                use slint::private_unstable_api::re_exports::*;
                 return slint::private_unstable_api::re_exports::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
                 #[allow(unused)]
                 fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: slint::private_unstable_api::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
@@ -1466,7 +1453,6 @@ fn generate_repeated_component(
                 offset_y: &mut slint::private_unstable_api::re_exports::LogicalLength,
                 viewport_width: core::pin::Pin<&slint::private_unstable_api::re_exports::Property<slint::private_unstable_api::re_exports::LogicalLength>>,
             ) {
-                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 let vp_w = viewport_width.get();
                 #p_y.set(*offset_y);
@@ -1483,7 +1469,6 @@ fn generate_repeated_component(
             fn box_layout_data(self: ::core::pin::Pin<&Self>, o: slint::private_unstable_api::re_exports::Orientation)
                 -> slint::private_unstable_api::re_exports::BoxLayoutCellData
             {
-                use slint::private_unstable_api::re_exports::*;
                 BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
             }
         }
@@ -2228,7 +2213,7 @@ fn compile_builtin_function_call(
                 let item = access_member(pr, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 quote!(
-                    #item.layout_info(#orient, #window_adapter_tokens)
+                    slint::private_unstable_api::re_exports::Item::layout_info(#item, #orient, #window_adapter_tokens)
                 )
             } else {
                 panic!("internal error: invalid args to ImplicitLayoutInfo {:?}", arguments)
