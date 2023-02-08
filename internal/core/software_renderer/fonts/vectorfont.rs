@@ -104,7 +104,7 @@ impl TextShaper for VectorFont {
             .borrow()
             .with_face_data(self.id, |face_data, font_index| {
                 let face = rustybuzz::ttf_parser::Face::parse(face_data, font_index).unwrap();
-                let rb_face = rustybuzz::Face::from_face(face).unwrap();
+                let rb_face = rustybuzz::Face::from_face(face);
 
                 let glyph_buffer = rustybuzz::shape(&rb_face, &[], buffer);
 

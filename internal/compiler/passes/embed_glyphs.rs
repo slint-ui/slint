@@ -191,7 +191,14 @@ pub fn embed_glyphs<'a>(
     )
     .expect("internal error: fontdb returned a font that ttf-parser/fontdue could not parse");
                 embed_font(
-                    fontdb.face(face_id).unwrap().family.clone(),
+                    fontdb
+                        .face(face_id)
+                        .unwrap()
+                        .families
+                        .first()
+                        .expect("TrueType font without english family name encountered")
+                        .0
+                        .clone(),
                     font,
                     &pixel_sizes,
                     characters_seen.iter().cloned(),

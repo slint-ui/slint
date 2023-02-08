@@ -30,7 +30,11 @@ fn init_fontdb() -> FontDatabase {
             ],
             ..Default::default()
         }) {
-            db.set_sans_serif_family(db.face(fallback_id).unwrap().family.clone());
+            if let Some(family_name) =
+                db.face(fallback_id).unwrap().families.first().map(|(name, _)| name.clone())
+            {
+                db.set_sans_serif_family(family_name);
+            }
         }
     }
 
