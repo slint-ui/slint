@@ -659,7 +659,7 @@ fn generate_struct(file: &mut File, name: &str, fields: &BTreeMap<String, Type>)
         Access::Public,
         Declaration::Function(Function {
             name: "operator==".to_owned(),
-            signature: format!("(const {0} &a, const {0} &b) -> bool = default", name),
+            signature: format!("(const class {0} &a, const class {0} &b) -> bool = default", name),
             is_friend: true,
             statements: None,
             ..Function::default()
