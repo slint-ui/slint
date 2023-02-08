@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 // ANCHOR: main_window
-MemoryTile := Rectangle {
+component MemoryTile inherits Rectangle {
     width: 64px;
     height: 64px;
     background: #3960D5;
@@ -14,7 +14,7 @@ MemoryTile := Rectangle {
     }
 }
 
-MainWindow := Window {
+export component MainWindow inherits Window {
     MemoryTile {}
 }
 // ANCHOR_END: main_window

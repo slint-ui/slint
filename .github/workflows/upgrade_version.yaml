@@ -40,6 +40,9 @@ jobs:
         # Version in the AboutSlint widget
         sed -i "s/Version [0-9]*\.[0-9]*\.[0-9]*\\\\n/Version ${{ github.event.inputs.new_version }}\\\\n/" internal/compiler/widgets/common/common.slint
 
+        # Version in the docs (cargo add slint@<VERSION>):
+        git ls-files | grep "\(^\|/\)docs/.*\.\(md\|rst\)\$" | xargs sed -i 's/slint@[0-9]\+\.[0-9]\+\.[0-9]\+/slint@${{ github.event.inputs.new_version }}/'
+
         echo "Note that the version is not updated in the documentation and README yet"
 
     - name: Commit

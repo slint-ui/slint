@@ -1,12 +1,10 @@
 # Creating The Tiles From Rust
 
 The tiles in the game should have a random placement. We'll need to add the `rand` dependency to
-`Cargo.toml` for the randomization.
+`Cargo.toml` for the randomization, using the `cargo` command.
 
-```toml
-[dependencies]
-slint = "0.3.4"
-rand = "0.8" # Added
+```sh
+cargo add rand@0.8
 ```
 
 What we'll do is take the list of tiles declared in the .slint language, duplicate it, and shuffle it.

@@ -8,7 +8,7 @@ fn main() {
 }
 
 slint::slint! {
-    MainWindow := Window {
+    export component MainWindow inherits Window {
         Text {
             text: "hello world";
             color: green;

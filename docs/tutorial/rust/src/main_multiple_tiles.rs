@@ -9,19 +9,19 @@ slint::slint! {
 // ANCHOR: tile_data
 
 // Added:
-struct TileData := {
+struct TileData {
     image: image,
     image_visible: bool,
     solved: bool,
 }
 
-MemoryTile := Rectangle {
+component MemoryTile inherits Rectangle {
 
 // ANCHOR_END: tile_data
     callback clicked;
-    property <bool> open_curtain;
-    property <bool> solved;
-    property <image> icon;
+    in property <bool> open_curtain;
+    in property <bool> solved;
+    in property <image> icon;
 
     height: 64px;
     width: 64px;
@@ -60,7 +60,7 @@ MemoryTile := Rectangle {
     }
 }
 // ANCHOR: main_window
-MainWindow := Window {
+export component MainWindow inherits Window {
     width: 326px;
     height: 326px;
 
