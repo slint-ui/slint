@@ -6,7 +6,6 @@ src = "src"
 title = "Slint Language Reference"
 
 [output.html]
-theme = "../tutorial/theme"
 
 [output.linkcheck]  # enable the "mdbook-linkcheck" renderer
 optional = true

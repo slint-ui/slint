@@ -279,6 +279,7 @@ lazy_static! {
         // Path prefix matches:
         ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
         ("^api/cpp/docs/_templates/", LicenseLocation::NoLicense),
+        ("^docs/langref/theme/", LicenseLocation::NoLicense),
         ("^docs/tutorial/theme/", LicenseLocation::NoLicense),
         ("^editors/tree-sitter-slint/queries/", LicenseLocation::NoLicense), // liberal license
         ("^helper_crates/const-field-offset/", LicenseLocation::NoLicense), // liberal license
