@@ -54,6 +54,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
         doc.root_component
             .init_code
             .borrow_mut()
+            .constructor_code
             .splice(0..0, doc.root_component.inlined_init_code.borrow().values().cloned());
     }
 }
@@ -177,15 +178,17 @@ fn inline_element(
         .borrow()
         .values()
         .cloned()
-        .chain(inlined_component.init_code.borrow().iter().map(|setup_code_expr| {
-            // Fix up any property references from within already collected init code.
-            let mut new_setup_code = setup_code_expr.clone();
-            visit_named_references_in_expression(&mut new_setup_code, &mut |nr| {
-                fixup_reference(nr, &mapping)
-            });
-            fixup_element_references(&mut new_setup_code, &mapping);
-            new_setup_code
-        }))
+        .chain(inlined_component.init_code.borrow().constructor_code.iter().map(
+            |constructor_code_expr| {
+                // Fix up any property references from within already collected init code.
+                let mut new_constructor_code = constructor_code_expr.clone();
+                visit_named_references_in_expression(&mut new_constructor_code, &mut |nr| {
+                    fixup_reference(nr, &mapping)
+                });
+                fixup_element_references(&mut new_constructor_code, &mapping);
+                new_constructor_code
+            },
+        ))
         .collect();
 
     root_component
