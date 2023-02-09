@@ -934,6 +934,7 @@ fn extract_rust_macro(content: String) -> Option<String> {
             if let Some(x) = content[begin..(begin + m)].rfind(['\\', '\n', '/', '\"']) {
                 if content.as_bytes()[begin + x] != b'\n' {
                     begin += m + 5;
+                    begin += content[begin..].find(['\n']).unwrap_or(0);
                     continue;
                 }
             }
@@ -1023,6 +1024,7 @@ fn test_extract_rust_macro() {
         Some("      \n    \n       \nunterminated\nxxx".into())
     );
     assert_eq!(extract_rust_macro("foo\n/* slint! { hello }\n".into()), None);
+    assert_eq!(extract_rust_macro("foo\n/* slint::slint! { hello }\n".into()), None);
     assert_eq!(
         extract_rust_macro("foo\n// slint! { hello }\nslint!{world}\na".into()),
         Some("   \n                   \n       world \n ".into())
