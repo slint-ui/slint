@@ -1,0 +1,15 @@
+.wy-table-responsive table td,
+.wy-table-responsive table th {
+    white-space: normal;
+}
+
+.wy-table-responsive {
+    margin-bottom: 24px;
+    max-width: 100%;
+    overflow: visible;
+}
+
+img.logo {
+    max-height: 70px;
+    border-radius: 12% !important;
+}

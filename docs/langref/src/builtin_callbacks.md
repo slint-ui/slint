@@ -1,4 +1,6 @@
-# Builtin callbacks
+# Builtin Callbacks
+
+## `init()`
 
 Every element implicitly declares an `init` callback. You can assign a code block to it that will be invoked when the
 element is instantiated and after all properties are initialized with the value of their final binding. The order of
@@ -27,7 +29,7 @@ export component MyWindow inherits Window {
 }
 ```
 
-Do not use this callback to initialize properties, because this violates the the declarative principle.
+Do not use this callback to initialize properties, because this violates the declarative principle.
 Avoid using this callback, unless you need it, for example, in order to notify some native code:
 
 ```slint,no-preview
