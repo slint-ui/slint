@@ -5,6 +5,37 @@ use anyhow::Context;
 use std::io::Write;
 
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
+    let mut enums: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+
+    macro_rules! gen_enums {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+            $(
+                let mut entry = format!("## `{}`\n\n", stringify!($Name));
+                $(entry += &format!("{}\n", $enum_doc);)*
+                entry += "\n";
+                $(
+                    let mut has_val = false;
+                    entry += &format!("* **`{}`**:", to_kebab_case(stringify!($Value)));
+                    $(
+                        if has_val {
+                            entry += "\n   ";
+                        }
+                        entry += &format!("{}", $value_doc);
+                        has_val = true;
+                    )*
+                    entry += "\n";
+                )*
+                entry += "\n";
+                enums.insert(stringify!($Name).to_string(), entry);
+            )*
+        }
+    }
+
+    #[allow(unused)] // for 'has_val'
+    {
+        i_slint_common::for_each_enums!(gen_enums);
+    }
+
     let root = super::root_dir();
 
     let path = root.join("docs/langref/src/builtin_enums.md");
@@ -21,35 +52,13 @@ The name of the enum can be omitted in bindings of the type of that enum, or if 
 return value of a callback is of that enum.
 
 The default value of each enum type is always the first value.
+
 "#,
     )?;
 
-    macro_rules! gen_enums {
-        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
-            $(
-                writeln!(file, "## `{}`\n", stringify!($Name))?;
-                $(writeln!(file, "{}", $enum_doc)?;)*
-                writeln!(file, "")?;
-                $(
-                    let mut has_val = false;
-                    write!(file, "* **`{}`**:", to_kebab_case(stringify!($Value)))?;
-                    $(
-                        if has_val {
-                            write!(file, "\n   ")?;
-                        }
-                        write!(file, "{}", $value_doc)?;
-                        has_val = true;
-                    )*
-                    writeln!(file, "")?;
-                )*
-                writeln!(file, "")?;
-            )*
-        }
-    }
-
-    #[allow(unused)] // for 'has_val'
-    {
-        i_slint_common::for_each_enums!(gen_enums);
+    for (_, v) in enums {
+        // BTreeMap<i64, String>
+        write!(file, "{v}")?;
     }
 
     Ok(())
