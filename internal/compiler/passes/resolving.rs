@@ -42,7 +42,6 @@ fn resolve_expression(
             type_register,
             type_loader: Some(type_loader),
             current_token: None,
-            phase: Default::default(),
         };
 
         let new_expr = match node.kind() {
@@ -233,7 +232,8 @@ impl Expression {
             .or_else(|| node.AtGradient().map(|n| Self::from_at_gradient(n, ctx)))
             .or_else(|| {
                 node.QualifiedName().map(|n| {
-                    let exp = Self::from_qualified_name_node(n.clone(), ctx);
+                    let exp =
+                        Self::from_qualified_name_node(n.clone(), ctx, LookupPhase::default());
                     if matches!(exp.ty(), Type::Function { .. } | Type::Callback { .. }) {
                         ctx.diag.push_error(
                             format!(
@@ -505,7 +505,11 @@ impl Expression {
     }
 
     /// Perform the lookup
-    fn from_qualified_name_node(node: syntax_nodes::QualifiedName, ctx: &mut LookupCtx) -> Self {
+    fn from_qualified_name_node(
+        node: syntax_nodes::QualifiedName,
+        ctx: &mut LookupCtx,
+        phase: LookupPhase,
+    ) -> Self {
         let mut it = node
             .children_with_tokens()
             .filter(|n| n.kind() == SyntaxKind::Identifier)
@@ -608,10 +612,10 @@ impl Expression {
                     Expression::Invalid
                 }
             }
-            LookupResult::Expression { expression, .. }
-                if matches!(ctx.phase, LookupPhase::ResolvingTwoWayBindings)
-                    && matches!(expression, Expression::RepeaterModelReference { .. }) =>
-            {
+            LookupResult::Expression {
+                expression: Expression::RepeaterModelReference { .. },
+                ..
+            } if matches!(phase, LookupPhase::ResolvingTwoWayBindings) => {
                 ctx.diag.push_error(
                     "Two-way bindings to model data is not supported yet".to_string(),
                     &node,
@@ -658,7 +662,7 @@ impl Expression {
         let function = sub_expr.next().map_or(Self::Invalid, |n| {
             // Treat the QualifiedName separately so we can catch the uses of uncalled signal
             n.QualifiedName()
-                .map(|qn| Self::from_qualified_name_node(qn, ctx))
+                .map(|qn| Self::from_qualified_name_node(qn, ctx, LookupPhase::default()))
                 .unwrap_or_else(|| Self::from_expression_node(n, ctx))
         });
 
@@ -1206,7 +1210,6 @@ fn resolve_two_way_bindings(
                             type_register,
                             type_loader: None,
                             current_token: Some(node.clone().into()),
-                            phase: LookupPhase::ResolvingTwoWayBindings,
                         };
 
                         binding.expression = Expression::Invalid;
@@ -1300,7 +1303,7 @@ pub fn resolve_two_way_binding(
     ctx: &mut LookupCtx,
 ) -> Option<NamedReference> {
     let e = if let Some(n) = node.Expression().QualifiedName() {
-        Expression::from_qualified_name_node(n, ctx)
+        Expression::from_qualified_name_node(n, ctx, LookupPhase::ResolvingTwoWayBindings)
     } else {
         ctx.diag.push_error(
             "The expression in a two way binding must be a property reference".into(),

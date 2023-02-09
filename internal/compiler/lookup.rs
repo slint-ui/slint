@@ -50,8 +50,6 @@ pub struct LookupCtx<'a> {
 
     /// The token currently processed
     pub current_token: Option<NodeOrToken>,
-
-    pub phase: LookupPhase,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -66,7 +64,6 @@ impl<'a> LookupCtx<'a> {
             type_register,
             type_loader: None,
             current_token: None,
-            phase: Default::default(),
         }
     }
 
