@@ -9,6 +9,6 @@ export component Testcase  {
     property <[Foo]> model;
     for item in model: Text {
         text <=> item.field;
-//               ^error{Two-way bindings to model data is not supported, yet}
+//               ^error{Two-way bindings to model data is not supported yet}
     }
 }
