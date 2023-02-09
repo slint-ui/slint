@@ -560,7 +560,7 @@ pub extern "C" fn slint_interpreter_component_instance_show(
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
     if is_visible {
-        comp.borrow_instance().window_adapter().show();
+        comp.borrow_instance().window_adapter().show().unwrap();
     } else {
         comp.borrow_instance().window_adapter().hide();
     }
@@ -591,7 +591,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_create(
     def: &ComponentDefinitionOpaque,
     out: *mut ComponentInstance,
 ) {
-    std::ptr::write(out, def.as_component_definition().create())
+    std::ptr::write(out, def.as_component_definition().create().unwrap())
 }
 
 #[vtable::vtable]

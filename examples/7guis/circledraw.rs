@@ -61,7 +61,7 @@ where
 }
 
 pub fn main() {
-    let main_window = MainWindow::new();
+    let main_window = MainWindow::new().unwrap();
 
     let model = Rc::new(VecModel::default());
     main_window.set_model(model.clone().into());
@@ -149,5 +149,5 @@ pub fn main() {
         });
     }
 
-    main_window.run();
+    main_window.run().unwrap();
 }

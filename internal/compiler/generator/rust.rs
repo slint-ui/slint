@@ -344,11 +344,11 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
         pub struct #public_component_id(vtable::VRc<slint::private_unstable_api::re_exports::ComponentVTable, #inner_component_id>);
 
         impl #public_component_id {
-            pub fn new() -> Self {
-                let inner = #inner_component_id::new();
+            pub fn new() -> core::result::Result<Self, slint::PlatformError> {
+                let inner = #inner_component_id::new()?;
                 #(inner.globals.#global_names.clone().init(&inner);)*
                 #inner_component_id::user_init(slint::private_unstable_api::re_exports::VRc::map(inner.clone(), |x| x));
-                Self(inner)
+                core::result::Result::Ok(Self(inner))
             }
 
             #property_and_callback_accessors
@@ -374,17 +374,18 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
                 Self(inner)
             }
 
-            fn run(&self) {
-                self.show();
-                slint::run_event_loop();
+            fn run(&self) -> core::result::Result<(), slint::PlatformError> {
+                self.show()?;
+                slint::run_event_loop()?;
                 self.hide();
+                core::result::Result::Ok(())
             }
 
-            fn show(&self) {
-                self.window().show();
+            fn show(&self) -> core::result::Result<(), slint::PlatformError> {
+                self.window().show()
             }
 
-            fn hide(&self) {
+            fn hide(&self)  {
                 self.window().hide()
             }
 
@@ -1211,29 +1212,39 @@ fn generate_item_tree(
         quote!(&self_rc)
     };
 
-    let (create_window_adapter, init_window, maybe_user_init) = if let Some(parent_ctx) = parent_ctx
+    let (create_window_adapter, init_window, new_result, new_end) = if let Some(parent_ctx) =
+        parent_ctx
     {
         (
             None,
             None,
+            quote!(vtable::VRc<slint::private_unstable_api::re_exports::ComponentVTable, Self>),
             if parent_ctx.repeater_index.is_some() {
-                None // Repeaters run their user_init() code from RepeatedComponent::init() after update() initialized model_data/index.
+                // Repeaters run their user_init() code from RepeatedComponent::init() after update() initialized model_data/index.
+                quote!(self_rc)
             } else {
-                Some(quote! {
+                quote! {
                     Self::user_init(slint::private_unstable_api::re_exports::VRc::map(self_rc.clone(), |x| x));
-                })
+                    self_rc
+                }
             },
         )
     } else {
         (
             Some(
-                quote!(let window_adapter = slint::private_unstable_api::create_window_adapter();),
+                quote!(let window_adapter = slint::private_unstable_api::create_window_adapter()?;),
             ),
             Some(quote! {
                 _self.window_adapter.set(window_adapter);
                 slint::private_unstable_api::re_exports::WindowInner::from_pub(_self.window_adapter.get().unwrap().window()).set_component(&VRc::into_dyn(self_rc.clone()));
             }),
-            None,
+            quote!(
+                core::result::Result<
+                    vtable::VRc<slint::private_unstable_api::re_exports::ComponentVTable, Self>,
+                    slint::PlatformError,
+                >
+            ),
+            quote!(core::result::Result::Ok(self_rc)),
         )
     };
 
@@ -1306,9 +1317,7 @@ fn generate_item_tree(
         #sub_comp
 
         impl #inner_component_id {
-            pub fn new(#(parent: #parent_component_type)*)
-                -> vtable::VRc<slint::private_unstable_api::re_exports::ComponentVTable, Self>
-            {
+            pub fn new(#(parent: #parent_component_type)*) -> #new_result {
                 #![allow(unused)]
                 #create_window_adapter // We must create the window first to initialize the backend before using the style
                 let mut _self = Self::default();
@@ -1318,8 +1327,7 @@ fn generate_item_tree(
                 #init_window
                 slint::private_unstable_api::re_exports::register_component(_self, Self::item_array(), #root_token.window_adapter.get().unwrap());
                 Self::init(slint::private_unstable_api::re_exports::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
-                #maybe_user_init
-                self_rc
+                #new_end
             }
 
             fn item_tree() -> &'static [slint::private_unstable_api::re_exports::ItemTreeNode] {

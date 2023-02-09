@@ -15,7 +15,7 @@ assert(!instance.get_falsevar());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.get_truevar());
 assert!(!instance.get_falsevar());
 ```

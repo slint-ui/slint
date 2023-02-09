@@ -20,11 +20,13 @@ pub struct TestingBackend {
 }
 
 impl i_slint_core::platform::Platform for TestingBackend {
-    fn create_window_adapter(&self) -> Rc<dyn WindowAdapter> {
-        Rc::new_cyclic(|self_weak| TestingWindow {
+    fn create_window_adapter(
+        &self,
+    ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::platform::PlatformError> {
+        Ok(Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             shown: false.into(),
-        })
+        }))
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
@@ -53,8 +55,9 @@ pub struct TestingWindow {
 }
 
 impl WindowAdapterSealed for TestingWindow {
-    fn show(&self) {
+    fn show(&self) -> Result<(), PlatformError> {
         self.shown.set(true);
+        Ok(())
     }
 
     fn hide(&self) {
@@ -216,3 +219,4 @@ mod for_unit_test {
 }
 
 pub use for_unit_test::*;
+use i_slint_core::platform::PlatformError;

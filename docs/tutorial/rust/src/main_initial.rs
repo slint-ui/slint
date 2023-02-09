@@ -4,7 +4,7 @@
 #[allow(dead_code)]
 // ANCHOR: main
 fn main() {
-    MainWindow::new().run();
+    MainWindow::new().unwrap().run().unwrap();
 }
 
 slint::slint! {

@@ -33,7 +33,7 @@
 /*
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_text1_foo(), 85 + 4);
 assert_eq!(instance.get_some_prop(), 5);
 instance.set_active_index(1);

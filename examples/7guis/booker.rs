@@ -7,7 +7,7 @@ use slint::SharedString;
 slint::slint!(import { Booker } from "booker.slint";);
 
 pub fn main() {
-    let booker = Booker::new();
+    let booker = Booker::new().unwrap();
     booker.on_validate_date(|date: SharedString| {
         NaiveDate::parse_from_str(date.as_str(), "%d.%m.%Y").is_ok()
     });
@@ -23,5 +23,5 @@ pub fn main() {
         date1 <= date2
     });
 
-    booker.run();
+    booker.run().unwrap();
 }

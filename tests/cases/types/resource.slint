@@ -27,7 +27,7 @@ assert_eq(instance.get_cat_height(), 480);
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_empty_width(), 0);
 assert_eq!(instance.get_empty_height(), 0);
 assert_eq!(instance.get_cat_width(), 320);

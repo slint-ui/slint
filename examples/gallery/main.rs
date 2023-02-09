@@ -19,7 +19,7 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let app = App::new();
+    let app = App::new().unwrap();
 
     let row_data: Rc<VecModel<slint::ModelRc<StandardListViewItem>>> = Rc::new(VecModel::default());
 
@@ -69,5 +69,5 @@ pub fn main() {
         }
     });
 
-    app.run();
+    app.run().unwrap();
 }

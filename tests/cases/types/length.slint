@@ -66,7 +66,7 @@ assert(instance.get_test());
 
 ```rust
 let ratio = 1.;
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_l1(), 12.);
 assert_eq!(instance.get_l2(), 12. * ratio);
 assert_eq!(instance.get_l3(), 100. + 12. * ratio);

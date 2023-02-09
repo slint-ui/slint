@@ -59,7 +59,7 @@ assert_eq(instance.get_last_clicked(), 1);
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 // aim at the padding
 slint_testing::send_mouse_click(&instance, 5., 100.);

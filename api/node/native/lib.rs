@@ -111,7 +111,7 @@ fn create<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
     component_type: slint_interpreter::ComponentDefinition,
 ) -> JsResult<'cx, JsValue> {
-    let component = component_type.create();
+    let component = component_type.create().unwrap();
     let persistent_context = persistent_context::PersistentContext::new(cx);
 
     if let Some(args) = cx.argument_opt(0).and_then(|arg| arg.downcast::<JsObject>().ok()) {
@@ -341,7 +341,7 @@ declare_types! {
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.run();
+                component.run().unwrap();
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))
@@ -490,7 +490,7 @@ declare_types! {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
             let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            window_adapter.show();
+            window_adapter.show().unwrap();
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 

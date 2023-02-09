@@ -20,7 +20,7 @@ TestCase := Rectangle {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 instance.on_test_func({
     let weak = instance.as_weak();
     move |a| weak.upgrade().unwrap().get_some_value() * a

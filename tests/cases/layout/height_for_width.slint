@@ -63,7 +63,7 @@ assert(instance.get_hfw_rect_ok());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_top_image_height(), 750.);
 assert_eq!(instance.get_second_image_width(), 200.);
 assert_eq!(instance.get_second_image_height(), 300.);

@@ -72,6 +72,8 @@ pub use graphics::RgbaColor;
 #[cfg(feature = "std")]
 #[doc(inline)]
 pub use graphics::PathData;
+
+use api::PlatformError;
 use platform::Platform;
 
 #[cfg(not(slint_int_coord))]
@@ -83,14 +85,13 @@ pub type Coord = i32;
 /// The factory function is called if the platform abstraction is not yet
 /// initialized, and should be given by the platform_selector
 pub fn with_platform<R>(
-    factory: impl FnOnce() -> alloc::boxed::Box<dyn Platform + 'static>,
-    f: impl FnOnce(&dyn Platform) -> R,
-) -> R {
+    factory: impl FnOnce() -> Result<alloc::boxed::Box<dyn Platform + 'static>, PlatformError>,
+    f: impl FnOnce(&dyn Platform) -> Result<R, PlatformError>,
+) -> Result<R, PlatformError> {
     platform::PLATFORM_INSTANCE.with(|p| match p.get() {
         Some(p) => f(&**p),
         None => {
-            platform::set_platform(factory())
-                .expect("platform already initialized in another thread");
+            platform::set_platform(factory()?).map_err(PlatformError::SetPlatformError)?;
             f(&**p.get().unwrap())
         }
     })

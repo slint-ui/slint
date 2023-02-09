@@ -50,7 +50,7 @@ assert(!instance.get_hover());
 
 ```rust
 use slint::Model;
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 let vec_model = std::rc::Rc::new(slint::VecModel::from(vec![1i32, 2i32]));
 instance.set_model(vec_model.clone().into());
 instance.on_clicked(move || { vec_model.remove(vec_model.row_count() - 1); });

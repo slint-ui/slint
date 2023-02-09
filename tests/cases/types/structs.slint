@@ -30,7 +30,7 @@ TestCase := Rectangle {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 assert_eq!(instance.get_player_1().score, 12);
 assert_eq!(instance.get_player_1(), Player{ name: "Player1".into(), score: 12, energy_level: 0.8 });

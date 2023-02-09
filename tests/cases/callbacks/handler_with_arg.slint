@@ -36,7 +36,7 @@ assert_eq(callback_3_string_value, "hello");
 ```
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 let callback_3_emited = std::rc::Rc::new(std::cell::RefCell::new((0, String::new())));
 instance.on_test_callback3({
     let callback_3_emited = callback_3_emited.clone();

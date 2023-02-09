@@ -92,13 +92,13 @@ fn main() -> std::io::Result<()> {
             r"
     #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
     use crate::testing;
-   
+
     let window = testing::init_swr();
     window.set_size(slint::PhysicalSize::new(64, 64));
     let screenshot = {reference_path};
 
-    let instance = TestCase::new();
-    instance.show();
+    let instance = TestCase::new().unwrap();
+    instance.show().unwrap();
 
     testing::assert_with_render(screenshot, window.clone());
 

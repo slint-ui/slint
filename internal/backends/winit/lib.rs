@@ -13,6 +13,7 @@ use std::rc::Rc;
 
 mod glwindow;
 use glwindow::*;
+use i_slint_core::platform::PlatformError;
 pub(crate) mod event_loop;
 
 mod renderer {
@@ -119,8 +120,8 @@ impl Backend {
 }
 
 impl i_slint_core::platform::Platform for Backend {
-    fn create_window_adapter(&self) -> Rc<dyn WindowAdapter> {
-        (self.window_factory_fn)()
+    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        Ok((self.window_factory_fn)())
     }
 
     #[doc(hidden)]
@@ -129,8 +130,8 @@ impl i_slint_core::platform::Platform for Backend {
             .store(quit_on_last_window_closed, std::sync::atomic::Ordering::Relaxed);
     }
 
-    fn run_event_loop(&self) {
-        crate::event_loop::run();
+    fn run_event_loop(&self) -> Result<(), PlatformError> {
+        crate::event_loop::run()
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {

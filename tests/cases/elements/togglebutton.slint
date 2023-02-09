@@ -33,7 +33,7 @@ assert(instance.get_checked());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.get_checked());
 
 // click on button

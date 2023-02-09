@@ -36,7 +36,7 @@
 /*
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_text1_foo(), 89);
 assert_eq!(instance.get_some_prop(), 5);
 assert_eq!(instance.get_other_prop(), 5000);

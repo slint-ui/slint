@@ -42,7 +42,7 @@ pub mod generated_code {
     pub struct SampleComponent {}
     impl SampleComponent {
         /// Creates a new instance that is reference counted and pinned in memory.
-        pub fn new() -> Self {
+        pub fn new() -> Result<Self, crate::PlatformError> {
             unimplemented!()
         }
 
@@ -73,7 +73,7 @@ pub mod generated_code {
         /// [`ComponentHandle::as_weak`]
         /// and then upgrade it to a strong reference when the callback is run:
         /// ```ignore
-        ///     let sample = SampleComponent::new();
+        ///     let sample = SampleComponent::new().unwrap();
         ///     let sample_weak = sample.as_weak();
         ///     sample.as_ref().on_hello(move || {
         ///         let sample = sample_weak.unwrap();
@@ -108,7 +108,7 @@ pub mod generated_code {
         /// the window with the windowing system. In order to react to events from the windowing system,
         /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
         /// using [`crate::run_event_loop`].
-        fn show(&self) {
+        fn show(&self) -> Result<(), crate::PlatformError> {
             unimplemented!();
         }
 
@@ -127,7 +127,7 @@ pub mod generated_code {
 
         /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
         /// and [`Self::hide`].
-        fn run(&self) {
+        fn run(&self) -> Result<(), crate::PlatformError> {
             unimplemented!();
         }
 

@@ -41,7 +41,7 @@ export TestCase := Window {
 /*
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_compo0_foo(), 140);
 assert_eq!(instance.get_compo2_foo(), 130);
 assert_eq!(instance.get_otw_opacity(), 0.5);

@@ -35,7 +35,7 @@ TestCase := Rectangle {
 /*
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 slint_testing::send_mouse_click(&instance, 70., 5.);
 slint_testing::send_mouse_click(&instance, 85., 55.);
 assert_eq!(instance.get_result(), 345);

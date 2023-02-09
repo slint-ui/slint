@@ -68,7 +68,7 @@ assert_eq(uint32_t(instance.get_materialized_rect_max_width()), uint32_t(std::nu
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_materialized_max_height(), 300);
 assert_eq!(instance.get_materialized_min_width(), 50);

@@ -44,7 +44,7 @@ TestCase := Rectangle {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 // This should not crash:
 slint_testing::send_keyboard_string_sequence(&instance, &"\t");

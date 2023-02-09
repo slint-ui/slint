@@ -44,7 +44,7 @@ assert_eq(instance.get_last_clicked(), 31);
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 slint_testing::send_mouse_click(&instance, 5., 95.);
 assert_eq!(instance.get_last_clicked(), 11);

@@ -77,7 +77,7 @@ in real code, you can put the whole slint code in the `slint!` macro, or use a b
 slint::slint!(import { Recipe } from "docs/recipes/button_native.slint";);
 
 fn main() {
-    let recipe = Recipe::new();
+    let recipe = Recipe::new().unwrap();
     let recipe_weak = recipe.as_weak();
     recipe.on_button_pressed(move || {
         let recipe = recipe_weak.upgrade().unwrap();
@@ -85,7 +85,7 @@ fn main() {
         value = value + 1;
         recipe.set_counter(value);
     });
-    recipe.run();
+    recipe.run().unwrap();
 }
 ```
 
@@ -449,7 +449,7 @@ export Recipe := Window {
 }
 
 fn main() {
-    let recipe = Recipe::new();
+    let recipe = Recipe::new().unwrap();
     recipe.global::<Logic>().on_to_upper_case(|string| {
         string.as_str().to_uppercase().into()
     });
@@ -538,7 +538,7 @@ Example := Window {
 }
 
 fn main() {
-    let app = Example::new();
+    let app = Example::new().unwrap();
     app.global::<Tr>().on_gettext(|string, model| {
         use crate::slint::Model;
 #       let mut str = String::from(string.as_str()); /* (we don't depend on gettext-rs just for that)
@@ -551,7 +551,7 @@ fn main() {
     });
     //...
 #   return;
-    app.run()
+    app.run().unwrap();
 }
 ```
 

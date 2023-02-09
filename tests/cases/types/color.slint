@@ -76,7 +76,7 @@ assert_eq(t.get_i1().blue(), 0);
 
 
 ```rust
-let t = Test::new();
+let t = Test::new().unwrap();
 assert_eq!(t.get_r1(), t.get_r2());
 assert_eq!(t.get_r1(), t.get_r3());
 assert_eq!(t.get_r1(), t.get_r4());

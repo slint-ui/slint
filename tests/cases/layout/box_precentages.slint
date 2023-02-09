@@ -69,7 +69,7 @@ assert(instance.get_rect5_pos_ok());
 ```
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 slint_testing::send_mouse_click(&instance, 5., 95.);
 assert!(instance.get_rect1_pos_ok());
 assert!(instance.get_rect2_pos_ok());

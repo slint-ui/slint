@@ -24,7 +24,7 @@ assert(!fuzzy_compare(instance.get_p1(), 1.001));
 ```
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_p1(), 1.);
 assert_eq!(instance.get_p2(), 0.01);
 assert_eq!(instance.get_p3(), 0.055);

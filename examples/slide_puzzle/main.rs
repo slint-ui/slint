@@ -171,7 +171,7 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let main_window = MainWindow::new();
+    let main_window = MainWindow::new().unwrap();
     let state = Rc::new(RefCell::new(AppState {
         pieces: Rc::new(slint::VecModel::<Piece>::from(vec![Piece::default(); 15])),
         main_window: main_window.as_weak(),
@@ -229,5 +229,5 @@ pub fn main() {
             state_copy.borrow().auto_play_timer.stop();
         }
     });
-    main_window.run();
+    main_window.run().unwrap();
 }

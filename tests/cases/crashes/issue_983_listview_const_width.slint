@@ -36,7 +36,7 @@ MainWindow := Window {
 /*
 
 ```rust
-let ui = MainWindow::new();
+let ui = MainWindow::new().unwrap();
 let file_model = vec![
     FileItem { filename: "one".into() },
     FileItem { filename: "two".into() },

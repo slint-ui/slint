@@ -40,7 +40,7 @@ TestCase := Rectangle {
 /*
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_o1_val(), 1000, "o1");
 assert_eq!(instance.get_o2_val(), 1000, "o2");
 assert_eq!(instance.get_o3_val(), 1000, "o3");

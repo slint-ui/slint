@@ -81,7 +81,7 @@ fn main() -> Result<()> {
         None => std::process::exit(-1),
     };
 
-    let component = c.create();
+    let component = c.create().unwrap();
     init_dialog(&component);
 
     if let Some(data_path) = args.load_data {
@@ -93,7 +93,7 @@ fn main() -> Result<()> {
         CURRENT_INSTANCE.with(|current| current.replace(Some(component.clone_strong())));
     }
 
-    component.run();
+    component.run().unwrap();
 
     if let Some(data_path) = args.save_data {
         let mut obj = serde_json::Map::new();
@@ -232,9 +232,9 @@ async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
                 init_dialog(&new_handle);
                 current.replace(new_handle);
             } else {
-                let handle = c.create();
+                let handle = c.create().unwrap();
                 init_dialog(&handle);
-                handle.show();
+                handle.show().unwrap();
                 current.replace(handle);
             }
             if let Some(data_path) = args.load_data {

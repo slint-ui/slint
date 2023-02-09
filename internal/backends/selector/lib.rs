@@ -9,6 +9,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use i_slint_core::platform::Platform;
+use i_slint_core::platform::PlatformError;
 
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))] {
@@ -32,7 +33,7 @@ cfg_if::cfg_if! {
             all(feature = "i-slint-backend-qt", not(no_qt)),
             feature = "i-slint-backend-winit"
         ))] {
-        pub fn create_backend() -> Box<dyn Platform + 'static>  {
+        pub fn create_backend() -> Result<Box<dyn Platform + 'static>, PlatformError>  {
 
             let backend_config = std::env::var("SLINT_BACKEND").unwrap_or_default();
 
@@ -48,23 +49,23 @@ cfg_if::cfg_if! {
 
             match event_loop {
                 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
-                "qt" => return Box::new(i_slint_backend_qt::Backend),
+                "qt" => return Ok(Box::new(i_slint_backend_qt::Backend)),
                 #[cfg(feature = "i-slint-backend-winit")]
-                "winit" => return Box::new(i_slint_backend_winit::Backend::new((!_renderer.is_empty()).then(|| _renderer))),
+                "winit" => return Ok(Box::new(i_slint_backend_winit::Backend::new((!_renderer.is_empty()).then(|| _renderer)))),
                 _ => {},
             }
 
             if !backend_config.is_empty() {
                 eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
             }
-            create_default_backend()
+            Ok(create_default_backend())
         }
         pub use default_backend::{
             native_widgets, Backend, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE,
         };
     } else {
-        pub fn create_backend() -> Box<dyn Platform + 'static> {
-            panic!("no default backend configured, the backend must be initialized manually")
+        pub fn create_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
+            Err(PlatformError::NoPlatform)
         }
         pub mod native_widgets {}
         pub type NativeWidgets = ();
@@ -75,7 +76,9 @@ cfg_if::cfg_if! {
 
 /// Run the callback with the platform abstraction.
 /// Create the backend if it does not exist yet
-pub fn with_platform<R>(f: impl FnOnce(&dyn Platform) -> R) -> R {
+pub fn with_platform<R>(
+    f: impl FnOnce(&dyn Platform) -> Result<R, PlatformError>,
+) -> Result<R, PlatformError> {
     i_slint_core::with_platform(create_backend, f)
 }
 

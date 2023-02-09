@@ -8,7 +8,7 @@ TestCase := Rectangle {
 /*
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 let begin = instance.get_xx();
 assert_eq!(begin, instance.get_xx());
 slint_testing::mock_elapsed_time(600);

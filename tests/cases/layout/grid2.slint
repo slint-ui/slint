@@ -66,7 +66,7 @@ assert(instance.get_y_ok());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.get_size_ok());
 assert!(instance.get_x_ok());
 assert!(instance.get_y_ok());

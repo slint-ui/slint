@@ -25,7 +25,7 @@ TestCase := Rectangle {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_prop_a(), 1);
 assert_eq!(instance.get_prop_b(), 2);
 assert_eq!(instance.get_prop_text(), slint::SharedString::from("world"));

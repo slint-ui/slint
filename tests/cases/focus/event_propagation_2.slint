@@ -54,7 +54,7 @@ TestCase := Window {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 slint_testing::send_mouse_click(&instance, 50., 50.);
 slint_testing::send_keyboard_string_sequence(&instance, "__abcdefghij__");
 assert_eq!(instance.get_r1(), "__afghij__");

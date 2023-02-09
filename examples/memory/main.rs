@@ -19,7 +19,7 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let main_window = MainWindow::new();
+    let main_window = MainWindow::new().unwrap();
 
     let mut tiles: Vec<TileData> = main_window.get_memory_tiles().iter().collect();
     tiles.extend(tiles.clone());
@@ -62,5 +62,5 @@ pub fn main() {
         }
     });
 
-    main_window.run();
+    main_window.run().unwrap();
 }

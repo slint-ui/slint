@@ -21,7 +21,7 @@ assert_eq(instance.get_exp().e.a, 2001);
 ```
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_p1(), 2003);
 assert_eq!(instance.get_exp().e.a, 2001);
 ```

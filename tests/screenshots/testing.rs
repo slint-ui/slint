@@ -13,6 +13,7 @@ use i_slint_core::{
         IntRect, Rgb8Pixel, SharedPixelBuffer,
     },
     item_rendering::DirtyRegion,
+    platform::PlatformError,
     renderer::Renderer,
     software_renderer::{LineBufferProvider, MinimalSoftwareWindow},
     window::WindowAdapterSealed,
@@ -23,8 +24,10 @@ pub struct SwrTestingBackend {
 }
 
 impl i_slint_core::platform::Platform for SwrTestingBackend {
-    fn create_window_adapter(&self) -> Rc<dyn i_slint_core::platform::WindowAdapter> {
-        self.window.clone()
+    fn create_window_adapter(
+        &self,
+    ) -> Result<Rc<dyn i_slint_core::platform::WindowAdapter>, PlatformError> {
+        Ok(self.window.clone())
     }
 
     fn duration_since_start(&self) -> core::time::Duration {

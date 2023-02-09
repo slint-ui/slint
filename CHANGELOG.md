@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file.
 
  - Deprecated functions and enums were removed
  - `PointerEventButton::None` was renamed `PointerEventButton::Other`
+ - In the Rust API, more functions now return Result, and the return value needs to be unwrap()'ed
  - In the Rust API, a lifetime parameter was added to `slint::ModelPeer`
  - In the C++ API, functions that take a functor as argument are now using concepts
  - In the C++ API, the type for row indexes in models was changed from `int` to `size_t`.

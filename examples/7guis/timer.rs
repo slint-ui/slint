@@ -5,7 +5,7 @@ use slint::{Timer, TimerMode};
 slint::slint!(import { MainWindow } from "timer.slint";);
 
 pub fn main() {
-    let main_window = MainWindow::new();
+    let main_window = MainWindow::new().unwrap();
     let timer = Timer::default();
     {
         let main_window_weak = main_window.as_weak();
@@ -14,5 +14,5 @@ pub fn main() {
             main_window.invoke_tick(10);
         });
     }
-    main_window.run();
+    main_window.run().unwrap();
 }

@@ -32,7 +32,7 @@ TestCase := Window {
 ```rust
 use slint::platform::Key;
 
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert!(instance.get_input_focused());
 

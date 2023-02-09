@@ -48,7 +48,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         Some(c) => c,
     };
 
-    let instance = component.create();
+    let instance = component.create().unwrap();
 
     if let Some((_, ty)) = component.properties().find(|x| x.0 == "test") {
         if ty == ValueType::Bool {

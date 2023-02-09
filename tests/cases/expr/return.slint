@@ -44,7 +44,7 @@ assert(!instance.get_signal_handled());
 ```
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_value(), 100);
 assert!(instance.get_test());
 instance.set_toggle(true);

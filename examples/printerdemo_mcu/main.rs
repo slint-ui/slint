@@ -35,7 +35,7 @@ impl PrinterQueueData {
 #[mcu_board_support::entry]
 fn main() -> ! {
     mcu_board_support::init();
-    let main_window = MainWindow::new();
+    let main_window = MainWindow::new().unwrap();
     main_window.set_ink_levels(slint::VecModel::from_slice(&[
         InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
         InkLevel { color: slint::Color::from_rgb_u8(255, 0, 255), level: 0.20 },
@@ -91,7 +91,7 @@ fn main() -> ! {
         },
     );
 
-    main_window.run();
+    main_window.run().unwrap();
 
     panic!("The MCU demo should not quit")
 }

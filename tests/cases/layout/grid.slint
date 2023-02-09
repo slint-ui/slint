@@ -44,7 +44,7 @@ assert_eq(instance.get_layout_width(), 300);
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.get_rect1_pos_ok());
 assert!(instance.get_rect2_pos_ok());
 assert!(instance.get_rect3_pos_ok());

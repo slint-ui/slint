@@ -76,9 +76,9 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let main_window = MainWindow::new();
+    let main_window = MainWindow::new().unwrap();
 
     main_window.on_render_plot(render_plot);
 
-    main_window.run();
+    main_window.run().unwrap();
 }

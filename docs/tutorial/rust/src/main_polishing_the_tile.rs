@@ -3,7 +3,7 @@
 
 #[allow(dead_code)]
 fn main() {
-    MainWindow::new().run();
+    MainWindow::new().unwrap().run().unwrap();
 }
 slint::slint! {
 // ANCHOR: tile

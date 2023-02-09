@@ -41,7 +41,7 @@ assert(instance.get_elem4_ok());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.get_elem1_ok());
 assert!(instance.get_elem2_ok());
 assert!(instance.get_elem3_ok());

@@ -40,7 +40,7 @@ assert_eq(instance.get_creation_count(), 2);
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 assert_eq!(instance.get_creation_count(), 0);
 assert_eq!(instance.get_test_height(), 0.);

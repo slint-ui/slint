@@ -81,7 +81,7 @@ assert(instance.get_c1());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.get_v1());
 assert!(instance.get_v2());
 assert!(instance.get_v3());

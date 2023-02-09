@@ -107,7 +107,7 @@ You need to provide a minimal implementation of this trait and call [`slint::pla
 
 This minimal implementation needs to cover two functions:
 
- * `fn create_window_adapter(&self) -> Rc<dyn WindowAdapter + 'static>;`: Implement this function to return an implementation of the `WindowAdapter`
+ * `fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter + 'static>, PlatformError>;`: Implement this function to return an implementation of the `WindowAdapter`
    trait that will be associated with the Slint components you create. We provide a convenience struct [`slint::platform::software_renderer::MinimalSoftwareWindow`]
    that implements this trait.
  * `fn duration_since_start(&self) -> Duration`: For animations in `.slint` design files to change properties correctly, Slint needs to know
@@ -138,16 +138,16 @@ struct MyPlatform {
 }
 
 impl Platform for MyPlatform {
-    fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
+    fn create_window_adapter(&self) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
         // Since on MCUs, there can be only one window, just return a clone of self.window.
         // We'll also use the same window in the event loop.
-        self.window.clone()
+        Ok(self.window.clone())
     }
     fn duration_since_start(&self) -> core::time::Duration {
         core::time::Duration::from_micros(self.timer.get_time())
     }
     // optional: You can put the event loop there, or in the main function, see later
-    fn run_event_loop(&self) {
+    fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         todo!();
     }
 }

@@ -40,7 +40,7 @@ assert_eq(instance.get_hello_world(), "world");
 
 ```rust
 use slint::Model;
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 assert_eq!(instance.get_num_ints(), 5);
 assert_eq!(instance.get_n(), 4);

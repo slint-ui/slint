@@ -49,7 +49,7 @@ slint::slint!{
 }
 fn main() {
 #   return; // Don't run a window in an example
-    HelloWorld::new().run();
+    HelloWorld::new().unwrap().run().unwrap();
 }
 ```
 
@@ -89,7 +89,7 @@ Finally, use the [`include_modules!`] macro in your `main.rs`:
 ```ignore
 slint::include_modules!();
 fn main() {
-    HelloWorld::new().run();
+    HelloWorld::new().unwrap().run().unwrap();
 }
 ```
 
@@ -256,7 +256,7 @@ pub mod private_unstable_api;
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
-pub fn run_event_loop() {
+pub fn run_event_loop() -> Result<(), PlatformError> {
     i_slint_backend_selector::with_platform(|b| b.run_event_loop())
 }
 

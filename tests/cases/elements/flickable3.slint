@@ -36,7 +36,7 @@ TestCase := Window {
 ```rust
 // Test that mouse exit events are dispatched while scrolling
 use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton};
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 // Vertical
 assert_eq!(instance.get_t1_has_hover(), false);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(25.0, 25.0) });

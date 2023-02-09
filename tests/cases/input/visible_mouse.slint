@@ -80,7 +80,7 @@ assert_eq(instance.get_touch2(), 0);
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 
 assert_eq!(instance.get_test(), true);

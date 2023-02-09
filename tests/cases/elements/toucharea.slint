@@ -94,7 +94,7 @@ assert_eq(instance.get_pointer_event_test(), "downleftclickupleft");
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 // does not click on anything
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_touch1(), 0);

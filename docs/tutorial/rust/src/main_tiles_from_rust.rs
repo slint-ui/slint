@@ -6,7 +6,7 @@
 fn main() {
     use slint::Model;
 
-    let main_window = MainWindow::new();
+    let main_window = MainWindow::new().unwrap();
 
     // Fetch the tiles from the model
     let mut tiles: Vec<TileData> = main_window.get_memory_tiles().iter().collect();
@@ -22,7 +22,7 @@ fn main() {
     let tiles_model = std::rc::Rc::new(slint::VecModel::from(tiles));
     main_window.set_memory_tiles(tiles_model.into());
 
-    main_window.run();
+    main_window.run().unwrap();
 }
 
 // ANCHOR_END: tiles

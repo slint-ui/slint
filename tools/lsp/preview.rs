@@ -87,7 +87,7 @@ pub fn start_ui_event_loop() {
 
         if *state_requested == RequestedGuiEventLoopState::StartLoop {
             // make sure the backend is initialized
-            i_slint_backend_selector::with_platform(|_| {});
+            i_slint_backend_selector::with_platform(|_| Ok(())).unwrap();
             // Send an event so that once the loop is started, we notify the LSP thread that it can send more events
             i_slint_core::api::invoke_from_event_loop(|| {
                 let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
@@ -103,7 +103,8 @@ pub fn start_ui_event_loop() {
     i_slint_backend_selector::with_platform(|b| {
         b.set_event_loop_quit_on_last_window_closed(false);
         b.run_event_loop()
-    });
+    })
+    .unwrap();
 }
 
 pub fn quit_ui_event_loop() {
@@ -262,13 +263,13 @@ async fn reload_preview(
                 let window = handle.window();
                 let handle = compiled.create_with_existing_window(window);
                 match post_load_behavior {
-                    PostLoadBehavior::ShowAfterLoad => handle.show(),
+                    PostLoadBehavior::ShowAfterLoad => handle.show().unwrap(),
                     PostLoadBehavior::DoNothing => {}
                 }
                 handle
             } else {
-                let handle = compiled.create();
-                handle.show();
+                let handle = compiled.create().unwrap();
+                handle.show().unwrap();
                 handle
             };
             if let Some((path, offset)) =

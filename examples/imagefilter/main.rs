@@ -80,7 +80,7 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let main_window = MainWindow::new();
+    let main_window = MainWindow::new().unwrap();
 
     #[cfg(target_arch = "wasm32")]
     let source_image = image::load_from_memory(include_bytes!("cat.jpg")).unwrap().into_rgba8();
@@ -151,5 +151,5 @@ pub fn main() {
         ))
     });
 
-    main_window.run();
+    main_window.run().unwrap();
 }

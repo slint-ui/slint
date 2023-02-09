@@ -583,21 +583,30 @@ pub struct ComponentDefinition {
 
 impl ComponentDefinition {
     /// Creates a new instance of the component and returns a shared handle to it.
-    pub fn create(&self) -> ComponentInstance {
+    pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
         generativity::make_guard!(guard);
-        ComponentInstance {
-            inner: self.inner.unerase(guard).clone().create(
+        self.inner
+            .unerase(guard)
+            .clone()
+            .create(
                 #[cfg(target_arch = "wasm32")]
                 "canvas".into(),
-            ),
-        }
+            )
+            .map(|inner| ComponentInstance { inner })
     }
 
     /// Instantiate the component for wasm using the given canvas id
     #[cfg(target_arch = "wasm32")]
-    pub fn create_with_canvas_id(&self, canvas_id: &str) -> ComponentInstance {
+    pub fn create_with_canvas_id(
+        &self,
+        canvas_id: &str,
+    ) -> Result<ComponentInstance, PlatformError> {
         generativity::make_guard!(guard);
-        ComponentInstance { inner: self.inner.unerase(guard).clone().create(canvas_id.into()) }
+        self.inner
+            .unerase(guard)
+            .clone()
+            .create(canvas_id.into())
+            .map(|inner| ComponentInstance { inner })
     }
 
     /// Instantiate the component using an existing window.
@@ -757,7 +766,7 @@ impl ComponentInstance {
     /// let definition = spin_on::spin_on(
     ///     compiler.build_from_source(code.into(), Default::default()));
     /// assert!(compiler.diagnostics().is_empty(), "{:?}", compiler.diagnostics());
-    /// let instance = definition.unwrap().create();
+    /// let instance = definition.unwrap().create().unwrap();
     /// assert_eq!(instance.get_property("my_property").unwrap(), Value::from(42));
     /// ```
     pub fn get_property(&self, name: &str) -> Result<Value, GetPropertyError> {
@@ -823,7 +832,7 @@ impl ComponentInstance {
     /// "#;
     /// let definition = spin_on::spin_on(
     ///     ComponentCompiler::default().build_from_source(code.into(), Default::default()));
-    /// let instance = definition.unwrap().create();
+    /// let instance = definition.unwrap().create().unwrap();
     ///
     /// let instance_weak = instance.as_weak();
     /// instance.set_callback("foo", move |args: &[Value]| -> Value {
@@ -881,7 +890,7 @@ impl ComponentInstance {
     /// let definition = spin_on::spin_on(
     ///     compiler.build_from_source(code.into(), Default::default()));
     /// assert!(compiler.diagnostics().is_empty(), "{:?}", compiler.diagnostics());
-    /// let instance = definition.unwrap().create();
+    /// let instance = definition.unwrap().create().unwrap();
     /// assert_eq!(instance.get_global_property("TheGlobal", "my_property").unwrap(), Value::from(42));
     /// ```
     pub fn get_global_property(
@@ -934,7 +943,7 @@ impl ComponentInstance {
     /// "#;
     /// let definition = spin_on::spin_on(
     ///     ComponentCompiler::default().build_from_source(code.into(), Default::default()));
-    /// let instance = definition.unwrap().create();
+    /// let instance = definition.unwrap().create().unwrap();
     /// instance.set_global_callback("Logic", "to_uppercase", |args: &[Value]| -> Value {
     ///     let arg: SharedString = args[0].clone().try_into().unwrap();
     ///     Value::from(SharedString::from(arg.to_uppercase()))
@@ -1029,10 +1038,10 @@ impl ComponentHandle for ComponentInstance {
         Self { inner }
     }
 
-    fn show(&self) {
+    fn show(&self) -> Result<(), PlatformError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.borrow_instance().window_adapter().window().show();
+        comp.borrow_instance().window_adapter().window().show()
     }
 
     fn hide(&self) {
@@ -1041,10 +1050,11 @@ impl ComponentHandle for ComponentInstance {
         comp.borrow_instance().window_adapter().window().hide();
     }
 
-    fn run(&self) {
-        self.show();
-        run_event_loop();
+    fn run(&self) -> Result<(), PlatformError> {
+        self.show()?;
+        run_event_loop()?;
         self.hide();
+        Ok(())
     }
 
     fn window(&self) -> &Window {
@@ -1112,8 +1122,8 @@ pub enum InvokeError {
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
-pub fn run_event_loop() {
-    i_slint_backend_selector::with_platform(|b| b.run_event_loop());
+pub fn run_event_loop() -> Result<(), PlatformError> {
+    i_slint_backend_selector::with_platform(|b| b.run_event_loop())
 }
 
 /// This module contains a few functions used by the tests
@@ -1182,7 +1192,7 @@ fn component_definition_properties() {
     assert_eq!(props[1].0, "underscores-and-dashes_preserved");
     assert_eq!(props[1].1, ValueType::Number);
 
-    let instance = comp_def.create();
+    let instance = comp_def.create().unwrap();
     assert_eq!(instance.get_property("underscores_and-dashes-preserved"), Ok(Value::Number(44.)));
     assert_eq!(
         instance.get_property("underscoresanddashespreserved"),
@@ -1235,7 +1245,7 @@ fn component_definition_properties2() {
     assert_eq!(callbacks.len(), 1);
     assert_eq!(callbacks[0], "hello");
 
-    let instance = comp_def.create();
+    let instance = comp_def.create().unwrap();
     assert_eq!(
         instance.set_property("xreadonly", SharedString::from("XXX").into()),
         Err(SetPropertyError::AccessDenied)
@@ -1304,7 +1314,7 @@ fn globals() {
         assert_properties_and_callbacks("AliasedGlobal");
     }
 
-    let instance = definition.create();
+    let instance = definition.create().unwrap();
     assert_eq!(
         instance.set_global_property("My_Super-Global", "the_property", Value::Number(44.)),
         Ok(())
@@ -1398,7 +1408,7 @@ fn call_functions() {
             "".into(),
         ),
     );
-    let instance = definition.unwrap().create();
+    let instance = definition.unwrap().create().unwrap();
 
     assert_eq!(
         instance.invoke("foo_bar", &[Value::Number(3.), Value::Number(4.)]),
@@ -1444,7 +1454,7 @@ fn component_definition_struct_properties() {
     assert_eq!(props[0].0, "test");
     assert_eq!(props[0].1, ValueType::Struct);
 
-    let instance = comp_def.create();
+    let instance = comp_def.create().unwrap();
 
     let valid_struct: Struct =
         [("string_value".to_string(), Value::String("hello".into()))].iter().cloned().collect();
@@ -1485,7 +1495,7 @@ fn component_definition_model_properties() {
     assert_eq!(props[0].0, "prop");
     assert_eq!(props[0].1, ValueType::Model);
 
-    let instance = comp_def.create();
+    let instance = comp_def.create().unwrap();
 
     let int_model = Value::Model(VecModel::from_slice(&[
         Value::Number(14.),

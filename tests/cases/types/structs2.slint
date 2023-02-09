@@ -29,7 +29,7 @@ TestCase := Rectangle {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 assert_eq!(instance.invoke_cb1(Foo2{ a: Foo1{ member: 123 } }).b, 124);
 ```
