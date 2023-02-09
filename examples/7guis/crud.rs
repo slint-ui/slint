@@ -12,7 +12,7 @@ struct Name {
     last: String,
 }
 pub fn main() {
-    let main_window = MainWindow::new();
+    let main_window = MainWindow::new().unwrap();
 
     let prefix = Rc::new(RefCell::new(SharedString::from("")));
     let prefix_for_wrapper = prefix.clone();
@@ -84,5 +84,5 @@ pub fn main() {
         });
     }
 
-    main_window.run();
+    main_window.run().unwrap();
 }

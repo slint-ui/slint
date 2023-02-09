@@ -29,7 +29,7 @@ assert_eq(instance.get_s4(), slint::SharedString("ayoxxx"));
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_s1(), slint::SharedString::from("hello1212"));
 assert_eq!(instance.get_s2(), slint::SharedString::from("10hello5.1"));
 instance.set_a(42);

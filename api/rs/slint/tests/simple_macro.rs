@@ -6,7 +6,7 @@ use ::slint::slint;
 #[test]
 fn simple_window() {
     slint!(X := Window{});
-    X::new();
+    X::new().unwrap();
 }
 #[test]
 fn empty_stuff() {

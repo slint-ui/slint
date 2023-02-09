@@ -87,7 +87,7 @@ TestCase := Window {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 // Forward:
 slint_testing::send_keyboard_string_sequence(&instance, "X");

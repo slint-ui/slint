@@ -25,7 +25,7 @@ TestCase := Window {
 /*
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_checksum(), 55555);
 instance.set_condition(true);
 assert_eq!(instance.get_checksum(), 33333);

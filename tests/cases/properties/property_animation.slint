@@ -25,7 +25,7 @@ TestCase := Rectangle {
 /*
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_hello(), 40);
 assert_eq!(instance.get_binding_dep(), 100);
 instance.set_condition(false);

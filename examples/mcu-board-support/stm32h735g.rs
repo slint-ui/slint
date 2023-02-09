@@ -45,15 +45,17 @@ struct StmBackend {
     timer: once_cell::unsync::OnceCell<hal::timer::Timer<pac::TIM2>>,
 }
 impl slint::platform::Platform for StmBackend {
-    fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
+    fn create_window_adapter(
+        &self,
+    ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
             slint::platform::software_renderer::RepaintBufferType::SwappedBuffers,
         );
         self.window.replace(Some(window.clone()));
-        window
+        Ok(window)
     }
 
-    fn run_event_loop(&self) {
+    fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         let mut cp = cortex_m::Peripherals::take().unwrap();
         let dp = pac::Peripherals::take().unwrap();
 

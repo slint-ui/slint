@@ -442,7 +442,7 @@ fn process_window_event(
 /// Runs the event loop and renders the items in the provided `component` in its
 /// own window.
 #[allow(unused_mut)] // mut need changes for wasm
-pub fn run() {
+pub fn run() -> Result<(), corelib::platform::PlatformError> {
     use winit::event::Event;
     use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 
@@ -617,7 +617,8 @@ pub fn run() {
         // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
         // Winit does not support creating multiple instances of the event loop.
         let nre = NotRunningEventLoop { clipboard, instance: winit_loop, event_loop_proxy };
-        MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre))
+        MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
+        Ok(())
     }
 
     #[cfg(target_arch = "wasm32")]

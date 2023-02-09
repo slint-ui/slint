@@ -62,11 +62,13 @@ struct PicoBackend {
 }
 
 impl slint::platform::Platform for PicoBackend {
-    fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
+    fn create_window_adapter(
+        &self,
+    ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
         let window =
             renderer::MinimalSoftwareWindow::new(renderer::RepaintBufferType::ReusedBuffer);
         self.window.replace(Some(window.clone()));
-        window
+        Ok(window)
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
@@ -76,7 +78,7 @@ impl slint::platform::Platform for PicoBackend {
         core::time::Duration::from_micros(counter)
     }
 
-    fn run_event_loop(&self) {
+    fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         let mut pac = pac::Peripherals::take().unwrap();
         let core = pac::CorePeripherals::take().unwrap();
 

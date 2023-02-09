@@ -20,7 +20,7 @@ assert_eq(t.get_test(), false);
 
 
 ```rust
-let t = Test::new();
+let t = Test::new().unwrap();
 assert_eq!(t.get_angle(), 90.);
 assert_eq!(t.get_test(), true);
 

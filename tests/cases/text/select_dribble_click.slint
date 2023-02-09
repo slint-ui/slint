@@ -15,7 +15,7 @@ TestCase := TextInput {
 ```rust
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
 
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 slint_testing::send_mouse_click(&instance, 50., 50.);
 assert!(instance.get_input_focused());
 assert_eq!(instance.get_test_text(), "");

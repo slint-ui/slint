@@ -44,7 +44,7 @@ assert_eq(t.get_color_brush().color(), green);
 ```
 
 ```rust
-let t = Test::new();
+let t = Test::new().unwrap();
 assert_eq!(t.get_color_brush().color(), slint::Color::from_rgb_u8(0, 0, 0xff));
 assert!(t.get_test());
 

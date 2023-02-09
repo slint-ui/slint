@@ -33,7 +33,7 @@ TestCase := Rectangle {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_value1(), 3 + 13);
 instance.invoke_set_a(4);
 assert_eq!(instance.get_value1(), 4 + 13);

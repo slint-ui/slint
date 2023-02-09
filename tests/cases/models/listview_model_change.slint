@@ -54,7 +54,7 @@ assert_eq(instance.get_viewport_height(), 200.);
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 // Send an initial click to traverse the item tree and force a listview
 // layout.

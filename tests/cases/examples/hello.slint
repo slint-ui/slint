@@ -185,9 +185,9 @@ assert(!instance.window().is_visible());
 
 
 ```rust
-let instance = Hello::new();
+let instance = Hello::new().unwrap();
 assert!(!instance.window().is_visible());
-instance.window().show();
+instance.window().show().unwrap();
 assert!(instance.window().is_visible());
 instance.window().hide();
 assert!(!instance.window().is_visible());

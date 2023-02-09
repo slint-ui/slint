@@ -33,7 +33,7 @@ TestCase := Window {
 
 ```rust
 use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 // First, try to scroll up
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 200.0) });

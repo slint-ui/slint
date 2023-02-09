@@ -21,7 +21,7 @@ use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, ScaleFactor,
 };
-use i_slint_core::platform::WindowEvent;
+use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use i_slint_core::{ImageInner, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
@@ -1466,7 +1466,7 @@ impl WindowAdapter for QtWindow {
 }
 
 impl WindowAdapterSealed for QtWindow {
-    fn show(&self) {
+    fn show(&self) -> Result<(), PlatformError> {
         let component_rc = WindowInner::from_pub(&self.window).component();
         let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
@@ -1496,6 +1496,7 @@ impl WindowAdapterSealed for QtWindow {
             self.self_weak.clone(),
             &format!("Qt backend (platform {})", qt_platform_name),
         );
+        Ok(())
     }
 
     fn hide(&self) {

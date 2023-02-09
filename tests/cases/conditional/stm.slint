@@ -63,7 +63,7 @@ assert_eq(instance.invoke_elseif(3), 43);
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 instance.invoke_action();
 assert_eq!(instance.get_result(), 3);
 instance.set_value(5);

@@ -72,7 +72,7 @@ assert(instance.get_image_with_missing_width_clipped_ok());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.get_fixed_image_default_image_fit_ok());
 assert!(instance.get_fixed_image_image_fit_override_ok());
 assert!(instance.get_image_in_layout_fit_ok());

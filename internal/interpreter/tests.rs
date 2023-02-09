@@ -20,7 +20,7 @@ fn reuse_window() {
         let definition =
             spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
         assert!(compiler.diagnostics().is_empty(), "{:?}", compiler.diagnostics());
-        let instance = definition.unwrap().create();
+        let instance = definition.unwrap().create().unwrap();
         assert_eq!(
             instance.get_property("text_alias").unwrap(),
             Value::from(SharedString::from("foo"))

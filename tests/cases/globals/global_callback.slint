@@ -32,7 +32,7 @@ TestCase := Window {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 instance.on_sum(|a, b| a + b);
 instance.on_mul(|a, b| a * b);
 assert_eq!(instance.get_five(), 5);

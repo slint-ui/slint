@@ -9,6 +9,7 @@
 
 extern crate alloc;
 
+use i_slint_core::platform::PlatformError;
 use std::rc::Rc;
 
 #[cfg(not(no_qt))]
@@ -127,12 +128,14 @@ pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 
 pub struct Backend;
 impl i_slint_core::platform::Platform for Backend {
-    fn create_window_adapter(&self) -> Rc<dyn i_slint_core::window::WindowAdapter> {
+    fn create_window_adapter(
+        &self,
+    ) -> Result<Rc<dyn i_slint_core::window::WindowAdapter>, PlatformError> {
         #[cfg(no_qt)]
-        panic!("The Qt backend needs Qt");
+        return Err("Qt platform requested but Slint is compiled without Qt support".into());
         #[cfg(not(no_qt))]
         {
-            qt_window::QtWindow::new()
+            Ok(qt_window::QtWindow::new())
         }
     }
 
@@ -148,7 +151,7 @@ impl i_slint_core::platform::Platform for Backend {
         };
     }
 
-    fn run_event_loop(&self) {
+    fn run_event_loop(&self) -> Result<(), PlatformError> {
         #[cfg(not(no_qt))]
         {
             // Schedule any timers with Qt that were set up before this event loop start.
@@ -158,7 +161,10 @@ impl i_slint_core::platform::Platform for Backend {
                 ensure_initialized(true);
                 qApp->exec();
             } }
+            return Ok(());
         };
+        #[cfg(no_qt)]
+        Err("Qt platform requested but Slint is compiled without Qt support".into())
     }
 
     #[cfg(not(no_qt))]

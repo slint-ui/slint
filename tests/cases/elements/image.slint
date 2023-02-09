@@ -31,7 +31,7 @@ assert(instance.get_test());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 assert_eq!(instance.get_img_width(), 320.);
 assert_eq!(instance.get_img_height(), 480.);

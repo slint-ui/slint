@@ -8,6 +8,7 @@ The backend is the abstraction for crates that need to do the actual drawing and
 #![warn(missing_docs)]
 
 use crate::api::LogicalPosition;
+pub use crate::api::PlatformError;
 pub use crate::software_renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::{thread_local, OnceCell};
@@ -22,11 +23,11 @@ use once_cell::sync::OnceCell;
 /// This trait defines the interface between Slint and platform APIs typically provided by operating and windowing systems.
 pub trait Platform {
     /// Instantiate a window for a component.
-    fn create_window_adapter(&self) -> Rc<dyn WindowAdapter>;
+    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError>;
 
     /// Spins an event loop and renders the visible windows.
-    fn run_event_loop(&self) {
-        unimplemented!("The backend does not implement running an eventloop")
+    fn run_event_loop(&self) -> Result<(), PlatformError> {
+        Err(PlatformError::NoEventLoopProvider)
     }
 
     /// Specify if the event loop should quit quen the last window is closed.
@@ -151,7 +152,7 @@ pub(crate) fn event_loop_proxy() -> Option<&'static dyn EventLoopProxy> {
 
 /// This enum describes the different error scenarios that may occur when [`set_platform`]
 /// fails.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[repr(C)]
 #[non_exhaustive]
 pub enum SetPlatformError {

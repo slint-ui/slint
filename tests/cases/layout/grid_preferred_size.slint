@@ -45,7 +45,7 @@ assert(instance.get_fake_image_height_ok());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.get_fake_image_width_ok());
 assert!(instance.get_fake_image_height_ok());
 ```

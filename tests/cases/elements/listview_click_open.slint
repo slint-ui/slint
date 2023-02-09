@@ -51,7 +51,7 @@ export TestCase := Window {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 // Open the item 6
 slint_testing::send_mouse_click(&instance, 50., 25. * 6. + 10.);

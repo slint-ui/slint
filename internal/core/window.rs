@@ -7,7 +7,8 @@
 //! Exposed Window API
 
 use crate::api::{
-    CloseRequestResponse, PhysicalPosition, PhysicalSize, Window, WindowPosition, WindowSize,
+    CloseRequestResponse, PhysicalPosition, PhysicalSize, PlatformError, Window, WindowPosition,
+    WindowSize,
 };
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::Point;
@@ -67,7 +68,9 @@ pub trait WindowAdapter: WindowAdapterSealed {
 #[doc(hidden)]
 pub trait WindowAdapterSealed {
     /// Registers the window with the windowing system.
-    fn show(&self) {}
+    fn show(&self) -> Result<(), PlatformError> {
+        Ok(())
+    }
     /// De-registers the window from the windowing system.
     fn hide(&self) {}
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
@@ -617,9 +620,10 @@ impl WindowInner {
 
     /// Registers the window with the windowing system, in order to render the component's items and react
     /// to input events once the event loop spins.
-    pub fn show(&self) {
-        self.window_adapter().show();
+    pub fn show(&self) -> Result<(), PlatformError> {
+        self.window_adapter().show()?;
         self.update_window_properties();
+        Ok(())
     }
 
     /// De-registers the window with the windowing system.
@@ -824,7 +828,7 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.show();
+        window_adapter.show().unwrap();
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.

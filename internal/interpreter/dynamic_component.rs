@@ -26,6 +26,7 @@ use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
 use i_slint_core::lengths::LogicalLength;
 use i_slint_core::model::RepeatedComponent;
 use i_slint_core::model::Repeater;
+use i_slint_core::platform::PlatformError;
 use i_slint_core::properties::InterpolatedPropertyValue;
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
@@ -402,15 +403,15 @@ impl<'id> ComponentDescription<'id> {
     pub fn create(
         self: Rc<Self>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
-    ) -> DynamicComponentVRc {
+    ) -> Result<DynamicComponentVRc, PlatformError> {
         let window_adapter = i_slint_backend_selector::with_platform(|_b| {
             #[cfg(not(target_arch = "wasm32"))]
             return _b.create_window_adapter();
             #[cfg(target_arch = "wasm32")]
-            i_slint_backend_winit::create_gl_window_with_canvas_id(canvas_id)
-        });
+            Ok(i_slint_backend_winit::create_gl_window_with_canvas_id(canvas_id))
+        })?;
 
-        self.create_with_existing_window(&window_adapter)
+        Ok(self.create_with_existing_window(&window_adapter))
     }
 
     #[doc(hidden)]

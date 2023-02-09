@@ -41,7 +41,7 @@ assert_eq(instance.get_controlled_test_length(), 100.);
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_test_length(), 300.);
 assert_eq!(instance.get_test_inner_inner_length(), 300. / 4.);
 

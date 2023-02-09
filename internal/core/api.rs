@@ -8,6 +8,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 #![warn(missing_docs)]
 
 use alloc::boxed::Box;
+use alloc::string::String;
 
 use crate::component::ComponentVTable;
 use crate::input::{KeyEventType, KeyInputEvent, MouseEvent};
@@ -342,8 +343,8 @@ impl Window {
     }
 
     /// Registers the window with the windowing system in order to make it visible on the screen.
-    pub fn show(&self) {
-        self.0.show();
+    pub fn show(&self) -> Result<(), PlatformError> {
+        self.0.show()
     }
 
     /// De-registers the window from the windowing system, therefore hiding it.
@@ -505,7 +506,7 @@ pub use crate::SharedString;
 ///    // ...
 /// }
 /// }
-/// let app = App::new();
+/// let app = App::new().unwrap();
 /// app.global::<Palette>().set_background_color(slint::Color::from_rgb_u8(0, 0, 0));
 ///
 /// // alternate way to access the global singleton:
@@ -547,7 +548,7 @@ pub trait ComponentHandle {
     /// the window with the windowing system. In order to react to events from the windowing system,
     /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
     /// using [`crate::run_event_loop`](fn.run_event_loop.html).
-    fn show(&self);
+    fn show(&self) -> Result<(), PlatformError>;
 
     /// Marks the window of this component to be hidden on the screen. This de-registers
     /// the window from the windowing system and it will not receive any further events.
@@ -560,7 +561,7 @@ pub trait ComponentHandle {
 
     /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`](fn.run_event_loop.html)
     /// and [`Self::hide`].
-    fn run(&self);
+    fn run(&self) -> Result<(), PlatformError>;
 
     /// This function provides access to instances of global singletons exported in `.slint`.
     /// See [`Global`] for an example how to export and access globals from `.slint` markup.
@@ -647,7 +648,7 @@ mod weak_handle {
         /// ```rust
         /// # i_slint_backend_testing::init();
         /// slint::slint! { MyApp := Window { property <int> foo; /* ... */ } }
-        /// let handle = MyApp::new();
+        /// let handle = MyApp::new().unwrap();
         /// let handle_weak = handle.as_weak();
         /// let thread = std::thread::spawn(move || {
         ///     // ... Do some computation in the thread
@@ -658,7 +659,7 @@ mod weak_handle {
         ///     handle_weak.upgrade_in_event_loop(move |handle| handle.set_foo(foo));
         /// });
         /// # thread.join().unwrap(); return; // don't run the event loop in examples
-        /// handle.run();
+        /// handle.run().unwrap();
         /// ```
         #[cfg(feature = "std")]
         pub fn upgrade_in_event_loop(
@@ -702,7 +703,7 @@ pub use weak_handle::*;
 /// ```rust
 /// slint::slint! { MyApp := Window { property <int> foo; /* ... */ } }
 /// # i_slint_backend_testing::init();
-/// let handle = MyApp::new();
+/// let handle = MyApp::new().unwrap();
 /// let handle_weak = handle.as_weak();
 /// # return; // don't run the event loop in examples
 /// let thread = std::thread::spawn(move || {
@@ -712,7 +713,7 @@ pub use weak_handle::*;
 ///     let handle_copy = handle_weak.clone();
 ///     slint::invoke_from_event_loop(move || handle_copy.unwrap().set_foo(foo));
 /// });
-/// handle.run();
+/// handle.run().unwrap();
 /// ```
 pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) -> Result<(), EventLoopError> {
     crate::platform::event_loop_proxy()
@@ -740,6 +741,68 @@ pub enum EventLoopError {
     /// or the platform does not support event loop.
     NoEventLoopProvider,
 }
+
+/// The platform encountered a fatal error.
+///
+/// This error typically indicates an issue with initialization or connecting to the windowing system.
+///
+/// This can be constructed from a `String`:
+/// ```rust
+/// use slint::platform::PlatformError;
+/// PlatformError::from(format!("Could not load resource {}", 1234));
+/// ```
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum PlatformError {
+    /// No default platform was selected, or no platform could be initialized.
+    ///
+    /// If you encounter this error, make sure to either selected trough the `backend-*` cargo features flags,
+    /// or call [`platform::set_platform()`](crate::platform::set_platform)
+    /// before running the event loop
+    NoPlatform,
+    /// The Slint Platform does not provide an event loop.
+    ///
+    /// The [`Platform::run_event_loop`](crate::platform::Platform::run_event_loop)
+    /// is not implemented for the current platform.
+    NoEventLoopProvider,
+
+    /// There is already a platform set from another thread.
+    SetPlatformError(crate::platform::SetPlatformError),
+
+    /// Another platform-specific error occurred
+    Other(String),
+}
+
+impl core::fmt::Display for PlatformError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            PlatformError::NoPlatform => f.write_str(
+                "No default Slint platform was selected, and no Slint platform was initialized",
+            ),
+            PlatformError::NoEventLoopProvider => {
+                f.write_str("The Slint platform do not provide an event loop")
+            }
+            PlatformError::SetPlatformError(_) => {
+                f.write_str("The Slint platform was initialized in another thread")
+            }
+            PlatformError::Other(str) => f.write_str(str),
+        }
+    }
+}
+
+impl From<String> for PlatformError {
+    fn from(value: String) -> Self {
+        Self::Other(value)
+    }
+}
+impl From<&str> for PlatformError {
+    fn from(value: &str) -> Self {
+        Self::Other(value.into())
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for PlatformError {}
 
 #[test]
 fn logical_physical_pos() {

@@ -32,8 +32,8 @@ let definition =
 # #[cfg(feature="print_diagnostics")]
 slint_interpreter::print_diagnostics(&compiler.diagnostics());
 if let Some(definition) = definition {
-    let instance = definition.create();
-    instance.run();
+    let instance = definition.create().unwrap();
+    instance.run().unwrap();
 }
 ```
 
@@ -55,10 +55,10 @@ let mut compiler = ComponentCompiler::default();
 let definition =
     spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
 assert!(compiler.diagnostics().is_empty());
-let instance = definition.unwrap().create();
+let instance = definition.unwrap().create().unwrap();
 instance.set_property("my_name", Value::from(SharedString::from("World"))).unwrap();
 # return; // we don't want to call run in the tests
-instance.run();
+instance.run().unwrap();
 ```
 */
 //! ## Feature flags

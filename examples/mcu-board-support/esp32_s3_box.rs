@@ -37,12 +37,14 @@ struct EspBackend {
 }
 
 impl slint::platform::Platform for EspBackend {
-    fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
+    fn create_window_adapter(
+        &self,
+    ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
         let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
             slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
         );
         self.window.replace(Some(window.clone()));
-        window
+        Ok(window)
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
@@ -51,7 +53,7 @@ impl slint::platform::Platform for EspBackend {
         )
     }
 
-    fn run_event_loop(&self) {
+    fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         let peripherals = Peripherals::take().unwrap();
         let mut system = peripherals.SYSTEM.split();
         let clocks = ClockControl::boot_defaults(system.clock_control).freeze();

@@ -4,7 +4,7 @@
 use core::ffi::c_void;
 use i_slint_core::api::{PhysicalSize, Window};
 use i_slint_core::graphics::{IntSize, Rgb8Pixel};
-use i_slint_core::platform::Platform;
+use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::software_renderer::{RepaintBufferType, SoftwareRenderer};
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
@@ -49,8 +49,9 @@ impl WindowAdapterSealed for CppWindowAdapter {
         unsafe { core::mem::transmute((self.get_renderer_ref)(self.user_data)) }
     }
 
-    fn show(&self) {
-        unsafe { (self.show)(self.user_data) }
+    fn show(&self) -> Result<(), PlatformError> {
+        unsafe { (self.show)(self.user_data) };
+        Ok(())
     }
     fn hide(&self) {
         unsafe { (self.hide)(self.user_data) }
@@ -99,14 +100,14 @@ impl Drop for CppPlatform {
 }
 
 impl Platform for CppPlatform {
-    fn create_window_adapter(&self) -> Rc<dyn WindowAdapter> {
+    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
         let mut uninit = core::mem::MaybeUninit::<Rc<dyn WindowAdapter>>::uninit();
         unsafe {
             (self.window_factory)(
                 self.user_data,
                 uninit.as_mut_ptr() as *mut WindowAdapterRcOpaque,
             );
-            uninit.assume_init()
+            Ok(uninit.assume_init())
         }
     }
 }

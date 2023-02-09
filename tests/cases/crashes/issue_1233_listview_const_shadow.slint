@@ -26,7 +26,7 @@ App := Window {
 /*
 
 ```rust
-let ui = App::new();
+let ui = App::new().unwrap();
 // this should not panic
 slint_testing::send_mouse_click(&ui, 50., 50.);
 ```

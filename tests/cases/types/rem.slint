@@ -40,7 +40,7 @@ assert_eq(instance.get_px_to_rem(), 2.);
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
 
 assert_eq!(instance.get_phx_to_rem(), 2.);

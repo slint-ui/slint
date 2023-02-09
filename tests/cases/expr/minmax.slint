@@ -22,7 +22,7 @@ assert_eq(instance.get_t2(), true);
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_t1(), 98.5);
 assert_eq!(instance.get_t2(), true);
 ```

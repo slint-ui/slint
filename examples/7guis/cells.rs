@@ -238,8 +238,8 @@ impl Model for CellsModel {
 }
 
 pub fn main() {
-    let main_window = MainWindow::new();
+    let main_window = MainWindow::new().unwrap();
     let cells_model = CellsModel::new();
     main_window.set_cells(ModelRc::from(cells_model));
-    main_window.run();
+    main_window.run().unwrap();
 }

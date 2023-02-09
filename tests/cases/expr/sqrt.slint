@@ -14,7 +14,7 @@ assert(std::abs(instance.get_t2() - 1.414214) < 0.0001);
 ```
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_t1(), 10.0);
 assert!((instance.get_t2() - 1.414214).abs() < 0.0001);
 ```

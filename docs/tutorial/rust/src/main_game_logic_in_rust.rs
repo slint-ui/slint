@@ -5,7 +5,7 @@
 fn main() {
     use slint::Model;
 
-    let main_window = MainWindow::new();
+    let main_window = MainWindow::new().unwrap();
 
     // Fetch the tiles from the model
     let mut tiles: Vec<TileData> = main_window.get_memory_tiles().iter().collect();
@@ -51,7 +51,7 @@ fn main() {
         }
     });
 
-    main_window.run();
+    main_window.run().unwrap();
     // ANCHOR_END: game_logic
 }
 

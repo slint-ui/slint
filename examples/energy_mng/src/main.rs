@@ -24,14 +24,14 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    MainWindow::new().run()
+    MainWindow::new().unwrap().run().unwrap()
 }
 
 #[cfg(any(feature = "mcu-board-support", feature = "simulator"))]
 #[mcu_board_support::entry]
 fn main() -> ! {
     mcu_board_support::init();
-    MainWindow::new().run();
+    MainWindow::new().unwrap().run().unwrap();
 
     panic!("The MCU demo should not quit")
 }

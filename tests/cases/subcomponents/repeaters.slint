@@ -35,7 +35,7 @@ TestCase := Rectangle {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 assert!(!instance.get_clicked());
 slint_testing::send_mouse_click(&instance, 20., 5.);

@@ -32,7 +32,7 @@ assert(instance.invoke_do());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.invoke_do());
 ```
 

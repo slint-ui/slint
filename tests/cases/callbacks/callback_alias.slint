@@ -35,7 +35,7 @@ TestCase := Rectangle {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.invoke_foo1_alias(100), 122);
 assert_eq!(instance.invoke_foo2_alias(100), 188);
 assert_eq!(instance.invoke_call_foo2(100), 188);

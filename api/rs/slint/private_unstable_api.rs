@@ -139,7 +139,8 @@ pub fn debug(s: SharedString) {
 }
 
 /// Creates a new window to render components in.
-pub fn create_window_adapter() -> alloc::rc::Rc<dyn i_slint_core::window::WindowAdapter> {
+pub fn create_window_adapter(
+) -> Result<alloc::rc::Rc<dyn i_slint_core::window::WindowAdapter>, crate::PlatformError> {
     i_slint_backend_selector::with_platform(|b| b.create_window_adapter())
 }
 

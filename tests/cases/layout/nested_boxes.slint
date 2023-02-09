@@ -159,7 +159,7 @@ assert(instance.get_rect_black2_ok());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.get_rect_blue_ok());
 assert!(instance.get_rect_orange_ok());
 assert!(instance.get_rect_red_ok());

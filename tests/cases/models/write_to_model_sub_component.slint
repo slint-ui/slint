@@ -25,7 +25,7 @@ TestCase := Rectangle {
 /*
 ```rust
 use slint::Model;
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 
 let the_model = std::rc::Rc::new(slint::VecModel::<i32>::from(vec![1, 2, 3]));
 instance.set_mod(the_model.clone().into());

@@ -36,7 +36,7 @@ assert_eq(instance.get_p2(), 3);
 ```
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_p1(), 51);
 assert_eq!(instance.get_p2(), 3);
 ```

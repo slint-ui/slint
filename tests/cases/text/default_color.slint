@@ -45,7 +45,7 @@ assert_eq(instance.get_color_in_state(), slint::Color::from_rgb_uint8(0, 0, 255)
 ```
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 instance.set_binding_to_default_text_color(slint::Color::from_rgb_u8(0, 0, 133));
 assert_eq!(instance.get_default_text_color(), slint::Color::from_rgb_u8(0, 0, 133));
 assert_eq!(instance.get_color_of_initialized_text(), slint::Color::from_rgb_u8(255, 255, 0));

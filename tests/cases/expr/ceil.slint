@@ -27,7 +27,7 @@ assert_eq(instance.get_n4(), -25);
 ```
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_t1(), 43);
 assert_eq!(instance.get_t2(), 24);
 assert_eq!(instance.get_t3(), 25);

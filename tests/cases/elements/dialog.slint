@@ -24,7 +24,7 @@ TestCase := Dialog {
 
 /*
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 instance.on_help_clicked(|| { dbg!() });
 instance.on_cancel_clicked(|| { dbg!() });
 ```

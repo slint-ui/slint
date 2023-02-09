@@ -45,7 +45,7 @@ component TestCase {
 /*
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_magic(), slint::SharedString::from("Hi"));
 instance.invoke_change_condition();
 instance.invoke_change_condition();

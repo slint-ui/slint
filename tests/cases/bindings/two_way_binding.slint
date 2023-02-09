@@ -56,7 +56,7 @@ TestCase := Rectangle {
 /*
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_text1(), slint::SharedString::from("Hello"));
 assert_eq!(instance.get_text2(), slint::SharedString::from("Blah"));
 assert_eq!(instance.get_ti1_text(), slint::SharedString::from("Hello"));

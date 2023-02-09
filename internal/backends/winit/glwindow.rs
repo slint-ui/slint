@@ -17,6 +17,7 @@ use corelib::graphics::euclid::num::Zero;
 use corelib::items::MouseCursor;
 use corelib::layout::Orientation;
 use corelib::lengths::{LogicalLength, LogicalPoint, LogicalSize};
+use corelib::platform::PlatformError;
 use corelib::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
@@ -381,7 +382,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         });
     }
 
-    fn show(&self) {
+    fn show(&self) -> Result<(), PlatformError> {
         self.call_with_event_loop(|self_| {
             let (requested_position, requested_size) = match &*self_.map_state.borrow() {
                 GraphicsWindowBackendState::Unmapped { requested_position, requested_size } => {
@@ -560,6 +561,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
 
             crate::event_loop::register_window(id, self_.self_weak.upgrade().unwrap());
         });
+        Ok(())
     }
 
     fn hide(&self) {

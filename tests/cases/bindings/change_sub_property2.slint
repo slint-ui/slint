@@ -19,7 +19,7 @@ TestCase := Rectangle {
 /*
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_toplevel(), 56);
 instance.invoke_change();
 assert_eq!(instance.get_toplevel(), 56+44+44);

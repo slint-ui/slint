@@ -148,8 +148,8 @@ impl WrappedCompiledComp {
     /// where the result is gonna be rendered
     #[wasm_bindgen]
     pub fn run(&self, canvas_id: String) {
-        let component = self.0.create_with_canvas_id(&canvas_id);
-        component.run();
+        let component = self.0.create_with_canvas_id(&canvas_id).unwrap();
+        component.run().unwrap();
     }
     /// Creates this compiled component in a canvas.
     /// The HTML must contains a <canvas> element with the given `canvas_id`
@@ -158,7 +158,7 @@ impl WrappedCompiledComp {
     /// `slint.run_event_loop()` loop to make it interactive.
     #[wasm_bindgen]
     pub fn create(&self, canvas_id: String) -> Result<WrappedInstance, JsValue> {
-        Ok(WrappedInstance(self.0.create_with_canvas_id(&canvas_id)))
+        Ok(WrappedInstance(self.0.create_with_canvas_id(&canvas_id).unwrap()))
     }
     /// Creates this compiled component in the canvas of the provided instance.
     /// For this to work, the provided instance needs to be visible (show() must've been

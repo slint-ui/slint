@@ -23,7 +23,7 @@ assert(!instance.get_e2());
 ```
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_p1(), "hello");
 assert_eq!(instance.get_p2(), "fox:🦊");
 assert_eq!(instance.get_p3(), "with\"quote\\\"\u{8}");

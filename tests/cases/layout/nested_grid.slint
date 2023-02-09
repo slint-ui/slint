@@ -51,7 +51,7 @@ assert(instance.get_rect6_pos_ok());
 
 
 ```rust
-let instance = TestCase::new();
+let instance = TestCase::new().unwrap();
 assert!(instance.get_rect1_pos_ok());
 assert!(instance.get_rect2_pos_ok());
 assert!(instance.get_rect3_pos_ok());
