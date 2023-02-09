@@ -25,7 +25,8 @@ git show HEAD:./package.json | jq --arg nightly_version "${nightly_version}" '
 .version = $nightly_version |
 .name += "-nightly" |
 .displayName += " (Nightly)" |
-.description += " (Nightly)"' > package.json
+.description += " (Nightly)" |
+. + {"preview": true}' > package.json
 
 cat >README.md <<EOT
 # Slint for Visual Studio Code Nightly

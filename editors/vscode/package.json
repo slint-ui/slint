@@ -16,7 +16,6 @@
     "categories": [
         "Programming Languages"
     ],
-    "preview": true,
     "activationEvents": [
         "onLanguage:slint",
         "onLanguage:rust",
