@@ -1,4 +1,4 @@
-## Colors and Brushes
+# Colors and Brushes
 
 Color literals follow the syntax of CSS:
 
@@ -17,7 +17,7 @@ draw the outline.
 CSS Color names are only in scope in expressions of type `color` or `brush`. Otherwise, you can access
 colors from the `Colors` namespace.
 
-### Methods
+## Methods
 
 All colors and brushes define the following methods:
 
@@ -33,7 +33,7 @@ All colors and brushes define the following methods:
     For example if the factor is .5 (or for example 50%) the returned color is 50% darker. Negative factors
     increase the brightness.
 
-### Linear Gradients
+## Linear Gradients
 
 Linear gradients describe smooth, colorful surfaces. They're specified using an angle and a series of
 color stops. The colors will be linearly interpolated between the stops, aligned to an imaginary line
@@ -63,7 +63,7 @@ export component Example inherits Window {
 }
 ```
 
-### Radial Gradients
+## Radial Gradients
 
 Linear gradiants are like real gradiant but the colors is interpolated in a circle instead of
 along a line. To describe a readial gradiant, use the `@radial-gradient` macro with the following signature:
