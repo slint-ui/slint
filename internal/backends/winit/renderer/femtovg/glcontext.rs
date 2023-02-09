@@ -69,61 +69,69 @@ impl OpenGLContext {
                 }
             }
 
-            let try_create_surface = |display_api_preference| -> glutin::error::Result<(_, _)> {
-                let gl_display = unsafe {
-                    glutin::display::Display::new(
-                        _display.raw_display_handle(),
-                        display_api_preference,
-                    )?
+            let width: std::num::NonZeroU32 =
+                _size.width.try_into().expect("new context called with zero width window");
+            let height: std::num::NonZeroU32 =
+                _size.height.try_into().expect("new context called with zero height window");
+
+            let try_create_surface =
+                |display_api_preference| -> Result<(_, _), Box<dyn std::error::Error>> {
+                    let gl_display = unsafe {
+                        glutin::display::Display::new(
+                            _display.raw_display_handle(),
+                            display_api_preference,
+                        )?
+                    };
+
+                    let config_template = glutin::config::ConfigTemplateBuilder::new()
+                        .compatible_with_native_window(_window.raw_window_handle())
+                        .build();
+
+                    let config = unsafe {
+                        gl_display
+                            .find_configs(config_template)?
+                            .reduce(|accum, config| {
+                                let transparency_check =
+                                    config.supports_transparency().unwrap_or(false)
+                                        & !accum.supports_transparency().unwrap_or(false);
+
+                                if transparency_check || config.num_samples() < accum.num_samples()
+                                {
+                                    config
+                                } else {
+                                    accum
+                                }
+                            })
+                            .ok_or("Unable to find suitable GL config")?
+                    };
+
+                    let gles_context_attributes = ContextAttributesBuilder::new()
+                        .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
+                            major: 2,
+                            minor: 0,
+                        })))
+                        .build(Some(_window.raw_window_handle()));
+
+                    let fallback_context_attributes =
+                        ContextAttributesBuilder::new().build(Some(_window.raw_window_handle()));
+
+                    let not_current_gl_context = unsafe {
+                        gl_display.create_context(&config, &gles_context_attributes).or_else(
+                            |_| gl_display.create_context(&config, &fallback_context_attributes),
+                        )?
+                    };
+
+                    let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+                        _window.raw_window_handle(),
+                        width,
+                        height,
+                    );
+
+                    let surface =
+                        unsafe { config.display().create_window_surface(&config, &attrs)? };
+
+                    Ok((surface, not_current_gl_context))
                 };
-
-                let config_template = glutin::config::ConfigTemplateBuilder::new()
-                    .compatible_with_native_window(_window.raw_window_handle())
-                    .build();
-
-                let config = unsafe {
-                    gl_display
-                        .find_configs(config_template)?
-                        .reduce(|accum, config| {
-                            let transparency_check =
-                                config.supports_transparency().unwrap_or(false)
-                                    & !accum.supports_transparency().unwrap_or(false);
-
-                            if transparency_check || config.num_samples() < accum.num_samples() {
-                                config
-                            } else {
-                                accum
-                            }
-                        })
-                        .unwrap()
-                };
-
-                let gles_context_attributes = ContextAttributesBuilder::new()
-                    .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
-                        major: 2,
-                        minor: 0,
-                    })))
-                    .build(Some(_window.raw_window_handle()));
-
-                let fallback_context_attributes =
-                    ContextAttributesBuilder::new().build(Some(_window.raw_window_handle()));
-
-                let not_current_gl_context = unsafe {
-                    gl_display.create_context(&config, &gles_context_attributes).or_else(|_| {
-                        gl_display.create_context(&config, &fallback_context_attributes)
-                    })?
-                };
-
-                let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-                    _window.raw_window_handle(),
-                    _size.width.try_into().unwrap(),
-                    _size.height.try_into().unwrap(),
-                );
-
-                let surface = unsafe { config.display().create_window_surface(&config, &attrs)? };
-
-                Ok((surface, not_current_gl_context))
-            };
 
             let num_prefs = prefs.len();
             let (surface, not_current_gl_context) = prefs
