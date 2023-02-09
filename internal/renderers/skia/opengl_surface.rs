@@ -170,8 +170,7 @@ impl OpenGLSurface {
 
             let config = unsafe {
                 gl_display
-                    .find_configs(config_template)
-                    .unwrap()
+                    .find_configs(config_template)?
                     .reduce(|accum, config| {
                         let transparency_check = config.supports_transparency().unwrap_or(false)
                             & !accum.supports_transparency().unwrap_or(false);
