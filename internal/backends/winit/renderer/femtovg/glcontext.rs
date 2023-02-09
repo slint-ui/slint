@@ -83,9 +83,14 @@ impl OpenGLContext {
                         )?
                     };
 
-                    let config_template = glutin::config::ConfigTemplateBuilder::new()
-                        .compatible_with_native_window(_window.raw_window_handle())
-                        .build();
+                    let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
+
+                    // Upstream advises to use this only on Windows.
+                    #[cfg(target_family = "windows")]
+                    let config_template_builder = config_template_builder
+                        .compatible_with_native_window(_window.raw_window_handle());
+
+                    let config_template = config_template_builder.build();
 
                     let config = unsafe {
                         gl_display

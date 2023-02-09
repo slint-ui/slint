@@ -92,8 +92,3 @@ panic = "abort"
 [profile.dev]
 panic = "abort"
 
-
-[patch.crates-io]
-# Pull in https://github.com/rust-windowing/glutin/pull/1567
-glutin = { git = "https://github.com/slint-ui/glutin", branch = "simon/fix-unknown-visual" }
-
