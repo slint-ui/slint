@@ -613,7 +613,7 @@ impl Expression {
                     && matches!(expression, Expression::RepeaterModelReference { .. }) =>
             {
                 ctx.diag.push_error(
-                    "Two-way bindings to model data is not supported, yet".to_string(),
+                    "Two-way bindings to model data is not supported yet".to_string(),
                     &node,
                 );
                 Expression::Invalid
