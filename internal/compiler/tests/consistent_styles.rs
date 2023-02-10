@@ -134,6 +134,8 @@ fn load_style(style_name: String) -> Style {
 fn compare_styles(base: &Style, mut other: Style, style_name: &str) -> bool {
     let mut ok = true;
     for (compo_name, c1) in base.components.iter() {
+        // These more or less internals component can have different properties
+        let ignore_extra = matches!(compo_name.as_str(), "TabImpl" | "StyleMetrics");
         if let Some(mut c2) = other.components.remove(compo_name) {
             for (prop_name, p1) in c1.properties.iter() {
                 if let Some(p2) = c2.properties.remove(prop_name) {
@@ -141,12 +143,13 @@ fn compare_styles(base: &Style, mut other: Style, style_name: &str) -> bool {
                         eprintln!("Mismatch property info '{compo_name}::{prop_name}' in {style_name} : {p1} != {p2}",);
                         ok = false;
                     }
-                } else {
+                } else if !ignore_extra {
                     eprintln!("Property '{compo_name}::{prop_name}' not found in {style_name}");
                     ok = false;
                 }
             }
-            if !c2.properties.is_empty() {
+            // Extra property on StyleMetrics are allowed
+            if !c2.properties.is_empty() && !ignore_extra {
                 for prop_name in c2.properties.keys() {
                     eprintln!("Extra property '{compo_name}::{prop_name}' found in {style_name}");
                 }

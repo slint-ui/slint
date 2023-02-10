@@ -7,26 +7,45 @@ import { LineEditInner, TextEdit, AboutSlint } from "../common/common.slint";
 import { StyleMetrics, ScrollView  } from "std-widgets-impl.slint";
 export { StyleMetrics, ScrollView, TextEdit, AboutSlint }
 
-// FIXME: the font-size should be removed but is required right now to compile the printer-demo
-export component Button inherits NativeButton {
-    // FIXME: remove
-    in-out property<length> font-size;
-    accessible-checkable <=> root.checkable;
-    accessible-checked <=> root.checked;
-    accessible-label <=> root.text;
+export component Button {
+    in property<string> text <=> native.text;
+    out property<bool> has-focus <=> native.has-focus;
+    out property<bool> pressed <=> native.pressed;
+    in property<bool> enabled <=> native.enabled;
+    in property<bool> checkable <=> native.checkable;
+    in-out property<bool> checked <=> native.checked;
+    in property<image> icon <=> native.icon;
+    callback clicked <=> native.clicked;
+
+    accessible-checkable: root.checkable;
+    accessible-checked: root.checked;
+    accessible-label: root.text;
     accessible-role: button;
-    checkable: false;
-    enabled: true;
+
+    HorizontalLayout {
+        native := NativeButton {
+            checkable: false;
+            enabled: true;
+        }
+    }
 }
 
-export component StandardButton inherits NativeButton {
-    in property<StandardButtonKind> kind <=> self.standard-button-kind;
-    accessible-checkable <=> root.checkable;
-    accessible-checked <=> root.checked;
-    accessible-label <=> root.text;
+export component StandardButton {
+    in property<StandardButtonKind> kind <=> native.standard-button-kind;
+    out property<bool> has-focus <=> native.has-focus;
+    out property<bool> pressed <=> native.pressed;
+    in property<bool> enabled <=> native.enabled;
+    callback clicked <=> native.clicked;
+
+    accessible-label: native.text;
     accessible-role: button;
-    is-standard-button: true;
-    checkable: false;
+
+    HorizontalLayout {
+        native := NativeButton {
+            is-standard-button: true;
+            checkable: false;
+        }
+    }
 }
 
 export component CheckBox inherits NativeCheckBox {
@@ -36,15 +55,11 @@ export component CheckBox inherits NativeCheckBox {
     accessible-role: checkbox;
 }
 export component SpinBox inherits NativeSpinBox {
-    // FIXME: remove
-    in-out property<length> font-size;
-
     accessible-role: spinbox;
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
-
 }
 
 export component Slider inherits NativeSlider {
@@ -75,39 +90,50 @@ export component Slider inherits NativeSlider {
 
 }
 
-export component GroupBox inherits NativeGroupBox {
-    GridLayout {
-        padding-left: root.native-padding-left;
-        padding-right: root.native-padding-right;
-        padding-top: root.native-padding-top;
-        padding-bottom: root.native-padding-bottom;
-        @children
+export component GroupBox {
+    in property title <=> native.title;
+    in property enabled <=> native.enabled;
+    native := NativeGroupBox {
+        GridLayout {
+            padding-left: native.native-padding-left;
+            padding-right: native.native-padding-right;
+            padding-top: native.native-padding-top;
+            padding-bottom: native.native-padding-bottom;
+            @children
+        }
     }
 }
 
-export component LineEdit inherits NativeLineEdit {
+export component LineEdit {
     in property <length> font-size <=> inner.font-size;
     in-out property <string> text <=> inner.text;
     in property <string> placeholder-text <=> inner.placeholder-text;
     in property input-type <=> inner.input-type;
     in property horizontal-alignment <=> inner.horizontal-alignment;
     in property read-only <=> inner.read-only;
-    enabled: true;
-    has-focus: inner.has-focus;
+    out property<bool> has-focus <=> inner.has-focus;
+    in property<bool> enabled: true;
     forward-focus: inner;
     callback accepted <=> inner.accepted;
     callback edited <=> inner.edited;
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
+    native := NativeLineEdit {
+        has-focus <=> root.has-focus;
+        enabled: root.enabled;
+        width: 100%;
+        height: 100%;
+    }
+
     HorizontalLayout {
-        padding-left: root.native-padding-left;
-        padding-right: root.native-padding-right;
-        padding-top: root.native-padding-top;
-        padding-bottom: root.native-padding-bottom;
+        padding-left: native.native-padding-left;
+        padding-right: native.native-padding-right;
+        padding-top: native.native-padding-top;
+        padding-bottom: native.native-padding-bottom;
         inner := LineEditInner {
             placeholder-color: self.enabled ? StyleMetrics.placeholder-color : StyleMetrics.placeholder-color-disabled;
-            enabled <=> root.enabled;
+            enabled: root.enabled;
         }
     }
 }
@@ -149,9 +175,10 @@ export component StandardListView inherits StandardListViewBase {
 export component ComboBox inherits NativeComboBox {
     in property <[string]> model;
     in-out property <int> current-index : -1;
+    out property has-focus <=> fs.has-focus;
     enabled: true;
-    open-popup => { popup.show(); }
     callback selected(string);
+    forward-focus: fs;
 
     accessible-role: combobox;
     accessible-value <=> root.current-value;
@@ -202,6 +229,14 @@ export component ComboBox inherits NativeComboBox {
             }
             return reject;
         }
+
+        touch := TouchArea {
+            enabled <=> root.enabled;
+            clicked => {
+                root.focus();
+                popup.show();
+            }
+        }
     }
 }
 
@@ -212,7 +247,7 @@ export component TabImpl inherits NativeTab {
     accessible-label <=> root.title;
 }
 
-export component TabBarImpl inherits Rectangle {
+export component TabBarImpl {
     // injected properties:
     in-out property<int> current; // The currently selected tab
     in-out property<int> current-focused: fs.has-focus ? root.current : -1; // The currently focused tab

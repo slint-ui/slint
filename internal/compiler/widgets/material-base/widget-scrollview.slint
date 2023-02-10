@@ -73,7 +73,7 @@ component ScrollBar inherits Rectangle {
 }
 
 // Scrollview contains a viewport that is bigger than the view and can be scrolled.
-export component ScrollView inherits Rectangle {
+export component ScrollView {
     in-out property <length> viewport-width <=> fli.viewport-width;
     in-out property <length> viewport-height <=> fli.viewport-height;
     in-out property <length> viewport-x <=> fli.viewport-x;
@@ -83,11 +83,14 @@ export component ScrollView inherits Rectangle {
     in property <bool> enabled: true;
     in-out property <bool> has-focus;
 
-    background: md.sys.color.surface;
     min-height: 50px;
     min-width: 50px;
     horizontal-stretch: 1;
     vertical-stretch: 1;
+
+    Rectangle {
+        background: md.sys.color.surface;
+    }
 
     fli := Flickable {
         x:0;y:0;

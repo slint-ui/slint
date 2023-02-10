@@ -55,13 +55,13 @@ component SpinBoxButton inherits Rectangle {
 }
 
 // Increment and decrement a value in the given range.
-export component SpinBox inherits FocusScope {
-    in-out property <bool> checked;
+export component SpinBox {
     in-out property <int> value;
     in property <int> minimum;
     in property <int> maximum: 100;
-    in property <image> icon;
-    in property <length> font-size <=> label.font-size;
+    in property <bool> enabled <=> fs.enabled;
+    out property <bool> has-focus <=> fs.has-focus;
+    forward-focus: fs;
 
     horizontal-stretch: 1;
     vertical-stretch: 0;
@@ -73,6 +73,20 @@ export component SpinBox inherits FocusScope {
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
+
+    fs := FocusScope {
+        key-pressed(event) => {
+            if (root.enabled && event.text == Key.UpArrow && root.value < root.maximum) {
+                root.value += 1;
+                accept
+            } else if (root.enabled && event.text == Key.DownArrow && root.value > root.minimum) {
+                root.value -= 1;
+                accept
+            } else {
+                reject
+            }
+        }
+    }
 
     container := Rectangle {
         width: 100%;
@@ -146,18 +160,6 @@ export component SpinBox inherits FocusScope {
                     root.focus();
                 }
             }
-        }
-    }
-
-    key-pressed(event) => {
-        if (root.enabled && event.text == Key.UpArrow && root.value < root.maximum) {
-            root.value += 1;
-            accept
-        } else if (root.enabled && event.text == Key.DownArrow && root.value > root.minimum) {
-            root.value -= 1;
-            accept
-        } else {
-            reject
         }
     }
 

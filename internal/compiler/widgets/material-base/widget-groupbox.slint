@@ -4,7 +4,7 @@
 import { md } from "md.slint";
 
 // A container widget with a title.
-export component GroupBox inherits Rectangle {
+export component GroupBox {
     in property <string> title <=> label.text;
     in property<bool> enabled: true;
 

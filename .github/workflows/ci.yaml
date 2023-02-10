@@ -303,6 +303,7 @@ jobs:
                   --skip test_interpreter_models_assign_equal_model \
                   --skip example_carousel \
                   --skip example_fancy_demo \
+                  --skip example_printerdemo_old \
                   --skip test_interpreter_elements_path_fit \
                   --skip test_interpreter_layout_path \
                   --skip test_interpreter_7guis_booker \

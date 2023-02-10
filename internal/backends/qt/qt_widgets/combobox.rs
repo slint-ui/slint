@@ -18,7 +18,6 @@ pub struct NativeComboBox {
     pub is_open: Property<bool>,
     pub current_value: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
-    pub open_popup: Callback<VoidArg>,
 }
 
 impl Item for NativeComboBox {
@@ -59,40 +58,16 @@ impl Item for NativeComboBox {
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
-        InputEventFilterResult::ForwardEvent
+        InputEventFilterResult::ForwardAndIgnore
     }
 
     fn input_event(
         self: Pin<&Self>,
-        event: MouseEvent,
+        _event: MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
-        let enabled = self.enabled();
-        if !enabled {
-            return InputEventResult::EventIgnored;
-        }
-        // FIXME: this is the input event of a button, but we need to do the proper hit test
-
-        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
-            MouseEvent::Pressed { .. } => true,
-            MouseEvent::Exit | MouseEvent::Released { .. } => false,
-            MouseEvent::Moved { .. } => {
-                return if self.pressed() {
-                    InputEventResult::GrabMouse
-                } else {
-                    InputEventResult::EventIgnored
-                }
-            }
-            MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
-        });
-        if matches!(event, MouseEvent::Released { .. }) {
-            Self::FIELD_OFFSETS.is_open.apply_pin(self).set(true);
-            Self::FIELD_OFFSETS.open_popup.apply_pin(self).call(&());
-            InputEventResult::EventAccepted
-        } else {
-            InputEventResult::GrabMouse
-        }
+        InputEventResult::EventIgnored
     }
 
     fn key_event(
@@ -144,8 +119,8 @@ impl Item for NativeComboBox {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            if (is_open) {
             // FIXME: This is commented out to workaround #456
+            if (is_open) {
             //    option.state |= QStyle::State_On;
             }
             option.subControls = QStyle::SC_All;
