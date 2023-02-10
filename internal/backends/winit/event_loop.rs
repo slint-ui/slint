@@ -52,7 +52,7 @@ pub trait WinitWindow: WindowAdapter {
 }
 
 /// The Default, and the selection clippoard
-type ClipboardPair = (Box<dyn copypasta::ClipboardProvider>, Box<dyn copypasta::ClipboardProvider>);
+type ClipboardPair = (Box<dyn ClipboardProvider>, Box<dyn ClipboardProvider>);
 
 struct NotRunningEventLoop {
     clipboard: RefCell<ClipboardPair>,
@@ -701,52 +701,52 @@ fn winit_key_code_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Op
 }
 
 fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>) -> ClipboardPair {
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "dragonfly",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd"
-    ))]
-    {
-        #[cfg(feature = "wayland")]
-        if let Some(wayland_display) =
-            winit::platform::wayland::EventLoopWindowTargetExtWayland::wayland_display(_event_loop)
+    use copypasta::nop_clipboard::NopClipboardContext;
+    cfg_if::cfg_if! {
+        if #[cfg(all(
+            unix,
+            not(any(
+                target_os = "macos",
+                target_os = "android",
+                target_os = "ios",
+                target_os = "emscripten"
+            ))
+        ))]
         {
-            let clipboard = unsafe {
-                copypasta::wayland_clipboard::create_clipboards_from_external(wayland_display)
+            #[cfg(feature = "wayland")]
+            if let Some(wayland_display) =
+                winit::platform::wayland::EventLoopWindowTargetExtWayland::wayland_display(_event_loop)
+            {
+                let clipboard = unsafe {
+                    copypasta::wayland_clipboard::create_clipboards_from_external(wayland_display)
+                };
+                return (Box::new(clipboard.1), Box::new(clipboard.0));
             };
-            return (Box::new(clipboard.1), Box::new(clipboard.0));
-        };
-        #[cfg(feature = "x11")]
-        {
-            let prim = copypasta::x11_clipboard::X11ClipboardContext::<
-                copypasta::x11_clipboard::Primary,
-            >::new()
-            .map_or(
-                Box::new(copypasta::nop_clipboard::NopClipboardContext)
-                    as Box<dyn copypasta::ClipboardProvider>,
-                |x| Box::new(x) as Box<dyn copypasta::ClipboardProvider>,
-            );
-            let sec = copypasta::x11_clipboard::X11ClipboardContext::<
-                copypasta::x11_clipboard::Clipboard,
-            >::new()
-            .map_or(
-                Box::new(copypasta::nop_clipboard::NopClipboardContext)
-                    as Box<dyn copypasta::ClipboardProvider>,
-                |x| Box::new(x) as Box<dyn copypasta::ClipboardProvider>,
-            );
-            return (sec, prim);
+            #[cfg(feature = "x11")]
+            {
+                use copypasta::x11_clipboard::{X11ClipboardContext, Primary, Clipboard};
+                let prim = X11ClipboardContext::<Primary>::new()
+                    .map_or(
+                        Box::new(NopClipboardContext) as Box<dyn ClipboardProvider>,
+                        |x| Box::new(x) as Box<dyn ClipboardProvider>,
+                    );
+                let sec = X11ClipboardContext::<Clipboard>::new()
+                    .map_or(
+                        Box::new(NopClipboardContext) as Box<dyn ClipboardProvider>,
+                        |x| Box::new(x) as Box<dyn ClipboardProvider>,
+                    );
+                (sec, prim)
+            }
+            #[cfg(not(feature = "x11"))]
+            (Box::new(NopClipboardContext), Box::new(NopClipboardContext))
+        } else {
+            (
+                copypasta::ClipboardContext::new().map_or(
+                    Box::new(NopClipboardContext) as Box<dyn ClipboardProvider>,
+                    |x| Box::new(x) as Box<dyn ClipboardProvider>,
+                ),
+                Box::new(NopClipboardContext),
+            )
         }
     }
-
-    #[allow(unreachable_code)]
-    (
-        copypasta::ClipboardContext::new().map_or(
-            Box::new(copypasta::nop_clipboard::NopClipboardContext)
-                as Box<dyn copypasta::ClipboardProvider>,
-            |x| Box::new(x) as Box<dyn copypasta::ClipboardProvider>,
-        ),
-        Box::new(copypasta::nop_clipboard::NopClipboardContext),
-    )
 }
