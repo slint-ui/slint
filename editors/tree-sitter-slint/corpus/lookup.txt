@@ -1,0 +1,257 @@
+================================================================================
+global_lookup
+================================================================================
+
+global MyGlobal := {
+    property<int> bar: 5;
+    property<int> foo: 3;
+    callback glob_callback;
+}
+
+Foo := Rectangle {
+    property<int> foo_prop: MyGlobal.foo;
+    for ha in 3: Rectangle {
+        x: (ha + MyGlobal.bar) * 1px;
+    }
+}
+
+TestCase := Rectangle {
+
+    callback invoke_glob;
+    invoke_glob => {
+        MyGlobal.glob_callback();
+    }
+    Foo {}
+    foo := Foo {}
+    Foo {}
+    property<int> p1: 10 * MyGlobal.bar + 1;
+    property<int> p2: foo.foo_prop;
+
+}
+--------------------------------------------------------------------------------
+
+(document
+  (global_definition
+    (type_identifier
+      (user_type_identifier))
+    (property
+      (type
+        (type_identifier
+          (user_type_identifier)))
+      (var_identifier)
+      (value
+        (int_value)))
+    (property
+      (type
+        (type_identifier
+          (user_type_identifier)))
+      (var_identifier)
+      (value
+        (int_value)))
+    (callback
+      (function_identifier)))
+  (component_definition
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
+    (block
+      (property
+        (type
+          (type_identifier
+            (user_type_identifier)))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (for_loop
+        (var_identifier)
+        (for_range)
+        (component
+          (type_identifier
+            (user_type_identifier))
+          (block
+            (assignment_expr
+              (var_identifier)
+              (assignment_prec_operator)
+              (mult_binary_expression
+                (add_binary_expression
+                  (var_identifier)
+                  (add_prec_operator)
+                  (var_identifier
+                    (post_identifier)))
+                (mult_prec_operator)
+                (value
+                  (length_value)))))))))
+  (component_definition
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
+    (block
+      (callback
+        (function_identifier))
+      (callback_event
+        (function_identifier)
+        (block
+          (var_identifier
+            (post_identifier
+              (function_call
+                (function_identifier)
+                (call_signature))))))
+      (component
+        (type_identifier
+          (user_type_identifier))
+        (block))
+      (component
+        (var_identifier)
+        (type_identifier
+          (user_type_identifier))
+        (block))
+      (component
+        (type_identifier
+          (user_type_identifier))
+        (block))
+      (property
+        (type
+          (type_identifier
+            (user_type_identifier)))
+        (var_identifier)
+        (add_binary_expression
+          (mult_binary_expression
+            (value
+              (int_value))
+            (mult_prec_operator)
+            (var_identifier
+              (post_identifier)))
+          (add_prec_operator)
+          (value
+            (int_value))))
+      (property
+        (type
+          (type_identifier
+            (user_type_identifier)))
+        (var_identifier)
+        (var_identifier
+          (post_identifier))))))
+
+================================================================================
+id_lookup
+================================================================================
+
+ TestCase := Rectangle {
+
+    property<int> bar: 5;
+    property<int> foo: 3;
+    foo := Rectangle {
+        property<int> bar: 7;
+        property<int> foo: 9;
+        property<int> inner: bar * 10 + self.bar * 100 + parent.bar * 1000;
+    }
+
+    property<int> p1: foo.inner;
+    property<int> p2: self.foo *10 + foo.foo * 100 + bar *1000;
+}
+--------------------------------------------------------------------------------
+
+(document
+  (component_definition
+    (type_identifier
+      (user_type_identifier))
+    (type_identifier
+      (user_type_identifier))
+    (block
+      (property
+        (type
+          (type_identifier
+            (user_type_identifier)))
+        (var_identifier)
+        (value
+          (int_value)))
+      (property
+        (type
+          (type_identifier
+            (user_type_identifier)))
+        (var_identifier)
+        (value
+          (int_value)))
+      (component
+        (var_identifier)
+        (type_identifier
+          (user_type_identifier))
+        (block
+          (property
+            (type
+              (type_identifier
+                (user_type_identifier)))
+            (var_identifier)
+            (value
+              (int_value)))
+          (property
+            (type
+              (type_identifier
+                (user_type_identifier)))
+            (var_identifier)
+            (value
+              (int_value)))
+          (property
+            (type
+              (type_identifier
+                (user_type_identifier)))
+            (var_identifier)
+            (add_binary_expression
+              (add_binary_expression
+                (mult_binary_expression
+                  (var_identifier)
+                  (mult_prec_operator)
+                  (value
+                    (int_value)))
+                (add_prec_operator)
+                (mult_binary_expression
+                  (var_identifier
+                    (reference_identifier)
+                    (post_identifier))
+                  (mult_prec_operator)
+                  (value
+                    (int_value))))
+              (add_prec_operator)
+              (mult_binary_expression
+                (var_identifier
+                  (reference_identifier)
+                  (post_identifier))
+                (mult_prec_operator)
+                (value
+                  (int_value)))))))
+      (property
+        (type
+          (type_identifier
+            (user_type_identifier)))
+        (var_identifier)
+        (var_identifier
+          (post_identifier)))
+      (property
+        (type
+          (type_identifier
+            (user_type_identifier)))
+        (var_identifier)
+        (add_binary_expression
+          (add_binary_expression
+            (mult_binary_expression
+              (var_identifier
+                (reference_identifier)
+                (post_identifier))
+              (mult_prec_operator)
+              (value
+                (int_value)))
+            (add_prec_operator)
+            (mult_binary_expression
+              (var_identifier
+                (post_identifier))
+              (mult_prec_operator)
+              (value
+                (int_value))))
+          (add_prec_operator)
+          (mult_binary_expression
+            (var_identifier)
+            (mult_prec_operator)
+            (value
+              (int_value))))))))

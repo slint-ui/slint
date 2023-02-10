@@ -5,8 +5,6 @@
 
 (var_identifier) @variable
 
-(state_identifier) @field
-
 (var_identifier
   (post_identifier) @variable)
 
@@ -18,7 +16,6 @@
 (comment) @comment
 
 (value) @number
-(string) @string
 
 [
 "in"
@@ -28,7 +25,7 @@
 "@" @keyword
 
 [
-"import" 
+"import"
 "from"
 ] @include
 
@@ -40,7 +37,7 @@
 [
 "root"
 "parent"
-"this"
+"self"
 ] @variable.builtin
 
 [
@@ -62,26 +59,6 @@
 "global"
 ] @keyword
 
-[
- "black"
- "transparent"
- "blue"
- "ease"
- "ease_in"
- "ease-in"
- "ease_in_out"
- "ease-in-out"
- "ease_out"
- "ease-out"
- "end"
- "green"
- "red"
- "red"
- "start"
- "yellow"
- ] @constant.builtin
-
-
 ; Punctuation
 [
 ","
@@ -97,22 +74,3 @@
 "{"
 "}"
 ] @punctuation.bracket
-
-[
-"angle"
-"bool"
-"brush"
-; "color" // This causes problems
-"duration"
-"easing"
-"float"
-"image"
-"int"
-"length"
-"percent"
-"physical-length"
-"physical_length"
-"relative-font-size"
-"string"
-] @type.builtin
-

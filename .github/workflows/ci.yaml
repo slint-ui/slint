@@ -242,6 +242,37 @@ jobs:
   wasm_demo:
     uses: ./.github/workflows/wasm_demos.yaml
 
+  tree-sitter:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - uses: robinraju/release-downloader@v1.7
+      with:
+        repository: "tree-sitter/tree-sitter"
+        latest: true
+        fileName: "tree-sitter-linux-x64.gz"
+        out-file-path: ${{ runner.workspace }}
+    - name: Extract tree-sitter-cli
+      run: |
+        gunzip tree-sitter-linux-x64.gz
+        chmod 755 tree-sitter-linux-x64
+        mv tree-sitter-linux-x64 tree-sitter
+      working-directory: ${{ runner.workspace }}
+    - name: Generate tree-sitter corpus
+      run: find ../../tests/cases -type d -exec ./test-to-corpus.py --tests-directory {} \;
+      working-directory: editors/tree-sitter-slint
+    - name: Generate tree-sitter parser
+      run: ${{ runner.workspace }}/tree-sitter generate
+      working-directory: editors/tree-sitter-slint
+    - name: Run tree-sitter tests
+      run: ${{ runner.workspace }}/tree-sitter test -u
+      working-directory: editors/tree-sitter-slint
+    - name: Check for parse ERRORs from tree-sitter
+      run: sh -c "! grep -q ERROR corpus/*.txt"
+      working-directory: editors/tree-sitter-slint
+
   # Checkout a old version of the tests and example, then run the slint-updater on them
   # and check that it worked with the interpreter test.
   updater_test:
