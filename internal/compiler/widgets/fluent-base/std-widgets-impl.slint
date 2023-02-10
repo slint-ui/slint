@@ -71,11 +71,11 @@ export global StyleMetrics  {
     out property<length> layout-spacing: 8px;
     out property<length> layout-padding: 8px;
     out property<length> text-cursor-width: 2px;
-    out property<brush> window-background: Palette.white;
+    out property<color> window-background: Palette.white;
     out property<color> default-text-color: Palette.neutralDark;
-    out property<brush> textedit-background: Palette.white;
+    out property<color> textedit-background: Palette.white;
     out property<color> textedit-text-color: Palette.neutralPrimary;
-    out property<brush> textedit-background-disabled: Palette.neutralLighter;
+    out property<color> textedit-background-disabled: Palette.neutralLighter;
     out property<color> textedit-text-color-disabled: Palette.neutralTertiary;
     out property<bool> dark-color-scheme: Palette.dark-color-scheme;
 }
@@ -89,8 +89,6 @@ export component Button {
     in property<bool> checkable;
     in-out property<bool> checked;
     in property<image> icon;
-    // FIXME: remove
-    in property<length> font-size <=> text.font-size;
 
     accessible-role: button;
     accessible-label <=> text.text;

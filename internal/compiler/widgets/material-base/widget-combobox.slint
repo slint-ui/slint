@@ -5,11 +5,13 @@
 import { md } from "md.slint";
 import { Item } from "widget-item.slint";
 
-export component ComboBox inherits FocusScope {
+export component ComboBox {
     in property <[string]> model;
     in-out property <int> current-index : 0;
     in-out property <string> current-value: root.model[root.current-index];
     callback selected(string);
+    out property has-focus <=> fs.has-focus;
+    in property enabled <=> fs.enabled;
 
     accessible-role: combobox;
     accessible-value <=> root.current-value;
@@ -18,6 +20,24 @@ export component ComboBox inherits FocusScope {
     vertical-stretch: 0;
     min-width: 160px;
     height: 56px;
+
+    forward-focus: fs;
+
+    fs := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.UpArrow) {
+                root.current-index = Math.max(root.current-index - 1, 0);
+                root.current-value = root.model[root.current-index];
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+                root.current-index = Math.min(root.current-index + 1, root.model.length - 1);
+                root.current-value = root.model[root.current-index];
+                return accept;
+            }
+            return reject;
+        }
+    }
+
 
     container := Rectangle {
         width: 100%;
@@ -86,19 +106,6 @@ export component ComboBox inherits FocusScope {
                 }
             }
         }
-    }
-
-    key-pressed(event) => {
-        if (event.text == Key.UpArrow) {
-            root.current-index = Math.max(root.current-index - 1, 0);
-            root.current-value = root.model[root.current-index];
-            return accept;
-        } else if (event.text == Key.DownArrow) {
-            root.current-index = Math.min(root.current-index + 1, root.model.length - 1);
-            root.current-value = root.model[root.current-index];
-            return accept;
-        }
-        return reject;
     }
 
     states [

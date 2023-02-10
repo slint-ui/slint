@@ -4,7 +4,7 @@
 
 import { md } from "md.slint";
 
-export component TabWidgetImpl inherits Rectangle {
+export component TabWidgetImpl {
     out property <length> content-x: 0;
     out property <length> content-y: root.tabbar-preferred-height;
     out property <length> content-height: root.height - root.tabbar-preferred-height;
@@ -88,7 +88,7 @@ export component TabImpl inherits Rectangle {
     }
 }
 
-export component TabBarImpl inherits Rectangle {
+export component TabBarImpl {
     // injected properties:
     in-out property<int> current; // The currently selected tab
     in-out property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab

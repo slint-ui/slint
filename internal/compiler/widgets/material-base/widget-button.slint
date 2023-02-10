@@ -5,7 +5,7 @@ import { StateLayer } from "comp-state-layer.slint";
 import { md } from "md.slint";
 
 // Default button widget with Material Design Filled Button look and feel.
-export component Button inherits Rectangle {
+export component Button {
     callback clicked;
 
     in property<string> text <=> label.text;
@@ -15,7 +15,6 @@ export component Button inherits Rectangle {
     in property<bool> checkable;
     in-out property<bool> checked;
     in property<image> icon;
-    in property<length> font-size <=> label.font-size;
 
     accessible-label <=> label.text;
     accessible-role: button;

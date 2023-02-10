@@ -5,7 +5,7 @@
 import { md } from "md.slint";
 
 // Single line text input field with Material Design Outline TextField look and feel.
-export component LineEdit inherits Rectangle {
+export component LineEdit {
     in property <length> font-size <=> input.font-size;
     in-out property <string> text <=> input.text;
     in property <string> placeholder-text <=> placeholder.text;
