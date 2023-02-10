@@ -1,76 +1,49 @@
 ; Copyright © SixtyFPS GmbH <info@slint-ui.com>
 ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-(user_type_identifier) @type
+(comment) @comment @spell
 
-(var_identifier) @variable
+; Different types:
+(string_value) @string @spell
+(bool_value) @boolean
+(int_value) @number
+[(float_value) (percent_value)] @float
 
-(var_identifier
-  (post_identifier) @variable)
+(builtin_type_identifier) @type.builtin
+(reference_identifier) @variable.builtin
+(user_type_identifier) @spell
+(type [(type_list) (user_type_identifier) (type_anon_struct)]) @type
+[(comparison_operator) (mult_prec_operator) (add_prec_operator) (unary_prec_operator) (assignment_prec_operator)] @operator
 
-(function_identifier) @function
+; Functions and callbacks
+(function_call) @function.call
+(parameter) @parameter
+(function ("function" @keyword))
+(callback ("callback" @keyword))
+(block ("return" @keyword.return))
 
-(reference_identifier) @keyword
-(visibility_modifier) @include
+; definitions
+(callback name: ((_) @spell))
+(function name: ((_) @spell))
+(property name: ((_) @property @spell))
+(component id: ((_) @variable @spell))
+(struct_definition (type_anon_struct name: ((_) @field)))
+(global_definition (["global" ":="] @include @keyword))
+(struct_definition (["struct" ":="] @include @keyword))
+(property (["property" "<" ">"] @keyword))
+(visibility_modifier) @type.qualifier
 
-(comment) @comment
+; Keywords:
+[ ";" "." "," ] @punctuation.delimiter
+[ "(" ")" "[" "]" "{" "}" ] @punctuation.bracket
 
-(value) @number
+(ternary_expression (["?" ":"] @conditional.ternary))
+(if_statement (["if" ":" "else"] @conditional))
+(for_loop (["for" "in" ":"] @repeat @keyword))
 
-[
-"in"
-"for"
-] @repeat
-
-"@" @keyword
-
-[
-"import"
-"from"
-] @include
-
-[
-"if"
-"else"
-] @conditional
-
-[
-"root"
-"parent"
-"self"
-] @variable.builtin
-
-[
-"true"
-"false"
-] @boolean
-
-
-[
-"struct"
-"property"
-"callback"
-"in"
-"animate"
-"states"
-"when"
-"out"
-"transitions"
-"global"
-] @keyword
-
-; Punctuation
-[
-","
-"."
-] @punctuation.delimiter
-
-; Brackets
-[
-"("
-")"
-"["
-"]"
-"{"
-"}"
-] @punctuation.bracket
+(animate_statement (["animate"] @keyword))
+(component_definition (["component" "inherits" ":="] @keyword))
+(export_statement (["export" "as"] @include @keyword))
+(import_statement (["import" "from" "as"] @include @keyword))
+(states_definition (["states" "when"] @keyword))
+(transitions_definition (["transitions" "in" "out"] @keyword))

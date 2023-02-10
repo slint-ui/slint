@@ -49,8 +49,8 @@ module.exports = grammar({
                         "{",
                         commaSep(
                             seq(
-                                $.type_identifier,
-                                optional(seq("as", $.type_identifier)),
+                                $._type_identifier,
+                                optional(seq("as", $._type_identifier)),
                             ),
                         ),
                         "}",
@@ -66,8 +66,8 @@ module.exports = grammar({
                         "{",
                         commaSep(
                             seq(
-                                $.type_identifier,
-                                optional(seq("as", $.type_identifier)),
+                                $._type_identifier,
+                                optional(seq("as", $._type_identifier)),
                             ),
                         ),
                         "}",
@@ -83,7 +83,7 @@ module.exports = grammar({
         component: ($) =>
             seq(
                 optional(seq(field("id", $.var_identifier), ":=")),
-                field("type", $.type_identifier),
+                field("type", $.user_type_identifier),
                 $.block,
             ),
 
@@ -92,17 +92,17 @@ module.exports = grammar({
                 seq(
                     // new syntax
                     "component",
-                    field("name", $.type_identifier),
+                    field("name", $._type_identifier),
                     optional(
-                        seq("inherits", field("base_type", $.type_identifier)),
+                        seq("inherits", field("base_type", $._type_identifier)),
                     ),
                     $.block,
                 ),
                 seq(
                     // old syntax
-                    field("name", $.type_identifier),
+                    field("name", $._type_identifier),
                     ":=",
-                    field("base_type", $.type_identifier),
+                    field("base_type", $._type_identifier),
                     $.block,
                 ),
             ),
@@ -183,7 +183,7 @@ module.exports = grammar({
         global_definition: ($) =>
             seq(
                 "global",
-                field("name", $.type_identifier),
+                field("name", $._type_identifier),
                 optional(":="), // old syntax!
                 "{",
                 repeat(
@@ -200,7 +200,7 @@ module.exports = grammar({
         struct_definition: ($) =>
             seq(
                 "struct",
-                field("name", $.type_identifier),
+                field("name", $._type_identifier),
                 optional(":="), // old syntax!
                 $.type_anon_struct,
             ),
@@ -339,7 +339,8 @@ module.exports = grammar({
             ),
         type_list: ($) => seq("[", commaSep($.type), optional(","), "]"),
 
-        type: ($) => choice($.type_identifier, $.type_list, $.type_anon_struct),
+        type: ($) =>
+            choice($._type_identifier, $.type_list, $.type_anon_struct),
 
         for_range: ($) => choice($._int_number, $.value_list, $.var_identifier),
 
@@ -429,7 +430,7 @@ module.exports = grammar({
                 "callback",
                 field("name", $.function_identifier),
                 optional($.call_signature),
-                optional(seq("->", field("return_type", $.type_identifier))),
+                optional(seq("->", field("return_type", $._type_identifier))),
                 ";",
             ),
 
@@ -481,27 +482,27 @@ module.exports = grammar({
                 ";",
             ),
 
+        typed_identifier: ($) =>
+            seq(field("name", $.simple_identifier), ":", field("type", $.type)),
+
         function_signature: ($) =>
             seq(
                 "(",
                 field(
                     "parameters",
-                    optional(
-                        seq(
-                            commaSep1(seq($._identifier, ":", $.type)),
-                            optional(","),
-                        ),
-                    ),
+                    optional(seq(commaSep1($.typed_identifier), optional(","))),
                 ),
                 ")",
             ),
+
+        parameter: ($) => $._expression,
 
         call_signature: ($) =>
             seq(
                 "(",
                 field(
                     "parameters",
-                    optional(seq(commaSep1($._expression), optional(","))),
+                    optional(seq(commaSep1($.parameter), optional(","))),
                 ),
                 ")",
             ),
@@ -558,35 +559,31 @@ module.exports = grammar({
         visibility_modifier: (_) => choice("private", "in", "out", "in-out"),
 
         _identifier: (_) => /[a-zA-Z_][a-zA-Z0-9_-]*/,
+        simple_identifier: ($) => $._identifier,
         // prefix_identifier: ($) => $._identifier,
         post_identifier: ($) => choice($._identifier, $.function_call),
 
-        // Do not use strings here: Otherwise you can not assign to variables
-        // with one of these names
-        _builtin_type_identifier: (_) =>
-            prec(
-                2,
-                choice(
-                    /int/,
-                    /float/,
-                    /bool/,
-                    /string/,
-                    /color/,
-                    /brush/,
-                    /physical-length/,
-                    /length/,
-                    /duration/,
-                    /angle/,
-                    /easing/,
-                    /percent/,
-                    /image/,
-                    /relative-font-size/,
-                ),
+        builtin_type_identifier: (_) =>
+            choice(
+                "int",
+                "float",
+                "bool",
+                "string",
+                "color",
+                "brush",
+                "physical-length",
+                "length",
+                "duration",
+                "angle",
+                "easing",
+                "percent",
+                "image",
+                "relative-font-size",
             ),
 
         user_type_identifier: ($) => prec(1, $._identifier),
-        type_identifier: ($) =>
-            choice($.user_type_identifier, $._builtin_type_identifier),
+        _type_identifier: ($) =>
+            choice($.builtin_type_identifier, $.user_type_identifier),
 
         value_list: ($) =>
             seq("[", commaSep($._expression), optional(","), "]"),
