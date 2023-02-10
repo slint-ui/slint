@@ -758,8 +758,8 @@ impl ComponentInstance {
     /// ```
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
-    ///     export MyWin := Window {
-    ///         property <int> my_property: 42;
+    ///     export component MyWin inherits Window {
+    ///         in-out property <int> my_property: 42;
     ///     }
     /// "#;
     /// let mut compiler = ComponentCompiler::default();
@@ -825,9 +825,9 @@ impl ComponentInstance {
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
     /// use core::convert::TryInto;
     /// let code = r#"
-    ///     MyWin := Window {
+    ///     component MyWin inherits Window {
     ///         callback foo(int) -> int;
-    ///         property <int> my_prop: 12;
+    ///         in-out property <int> my_prop: 12;
     ///     }
     /// "#;
     /// let definition = spin_on::spin_on(
@@ -879,11 +879,11 @@ impl ComponentInstance {
     /// ```
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
-    ///     global Glob := {
-    ///         property <int> my_property: 42;
+    ///     global Glob {
+    ///         in-out property <int> my_property: 42;
     ///     }
     ///     export { Glob as TheGlobal }
-    ///     MyWin := Window {
+    ///     component MyWin inherits Window {
     ///     }
     /// "#;
     /// let mut compiler = ComponentCompiler::default();
@@ -934,11 +934,11 @@ impl ComponentInstance {
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// use core::convert::TryInto;
     /// let code = r#"
-    ///     export global Logic := {
-    ///         callback to_uppercase(string) -> string;
+    ///     export global Logic {
+    ///         pure callback to_uppercase(string) -> string;
     ///     }
-    ///     MyWin := Window {
-    ///         property <string> hello: Logic.to_uppercase("world");
+    ///     component MyWin inherits Window {
+    ///         out property <string> hello: Logic.to_uppercase("world");
     ///     }
     /// "#;
     /// let definition = spin_on::spin_on(
@@ -1173,9 +1173,9 @@ fn component_definition_properties() {
     let comp_def = spin_on::spin_on(
         compiler.build_from_source(
             r#"
-    export Dummy := Rectangle {
-        property <string> test;
-        property <int> underscores-and-dashes_preserved: 44;
+    export component Dummy {
+        in-out property <string> test;
+        in-out property <int> underscores-and-dashes_preserved: 44;
         callback hello;
     }"#
             .into(),
@@ -1221,8 +1221,8 @@ fn component_definition_properties2() {
     let comp_def = spin_on::spin_on(
         compiler.build_from_source(
             r#"
-    export Dummy := Rectangle {
-        property <string> sub-text <=> sub.text;
+    export component Dummy {
+        in-out property <string> sub-text <=> sub.text;
         sub := Text { property <int> private-not-exported; }
         out property <string> xreadonly: "the value";
         private property <string> xx: sub.text;
@@ -1272,12 +1272,12 @@ fn globals() {
     let definition = spin_on::spin_on(
         compiler.build_from_source(
             r#"
-    export global My-Super_Global := {
-        property <int> the-property : 21;
+    export global My-Super_Global {
+        in-out property <int> the-property : 21;
         callback my-callback();
     }
     export { My-Super_Global as AliasedGlobal }
-    export Dummy := Rectangle {
+    export component Dummy {
     }"#
             .into(),
             "".into(),
