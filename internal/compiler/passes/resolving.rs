@@ -11,7 +11,7 @@
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
 use crate::langtype::{ElementType, Type};
-use crate::lookup::{LookupCtx, LookupObject, LookupPhase, LookupResult};
+use crate::lookup::{LookupCtx, LookupObject, LookupResult};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
@@ -114,6 +114,16 @@ pub fn resolve_expressions(
             new_scope
         })
     }
+}
+
+/// To be used in [`Expression::from_qualified_name_node`] to specify if the lookup is performed
+/// for two ways binding (which happens before the models and other expressions are resolved),
+/// or after that.
+#[derive(Default)]
+enum LookupPhase {
+    #[default]
+    UnspecifiedPhase,
+    ResolvingTwoWayBindings,
 }
 
 impl Expression {

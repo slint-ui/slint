@@ -16,13 +16,6 @@ use crate::parser::NodeOrToken;
 use crate::typeregister::TypeRegister;
 use std::cell::RefCell;
 
-#[derive(Default)]
-pub enum LookupPhase {
-    #[default]
-    UnspecifiedPhase,
-    ResolvingTwoWayBindings,
-}
-
 /// Contains information which allow to lookup identifier in expressions
 pub struct LookupCtx<'a> {
     /// the name of the property for which this expression refers.
