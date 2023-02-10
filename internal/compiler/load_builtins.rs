@@ -157,17 +157,15 @@ pub fn load_builtins(register: &mut TypeRegister) {
             Global,
             NativeParent(Rc<BuiltinElement>),
         }
-        let base = if let Some(base) = e.QualifiedName() {
-            let base = QualifiedTypeName::from_node(base).to_string();
-            if base != "-" {
-                let base = natives.get(&base).unwrap().clone();
-                n.parent = Some(base.native_class.clone());
-                Base::NativeParent(base)
-            } else {
-                Base::None
-            }
-        } else {
+        let base = if c.child_text(SyntaxKind::Identifier).map_or(false, |t| t == "global") {
             Base::Global
+        } else if let Some(base) = e.QualifiedName() {
+            let base = QualifiedTypeName::from_node(base).to_string();
+            let base = natives.get(&base).unwrap().clone();
+            n.parent = Some(base.native_class.clone());
+            Base::NativeParent(base)
+        } else {
+            Base::None
         };
         let mut builtin = BuiltinElement::new(Rc::new(n));
         builtin.is_global = matches!(base, Base::Global);
