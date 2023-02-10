@@ -11,6 +11,7 @@ mod enumdocs;
 mod license_headers_check;
 mod nodepackage;
 mod reuse_compliance_check;
+mod slintdocs;
 
 #[derive(Debug, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -25,6 +26,8 @@ pub enum TaskCommand {
     ReuseComplianceCheck(reuse_compliance_check::ReuseComplianceCheck),
     #[command(name = "enumdocs")]
     EnumDocs,
+    #[command(name = "slintdocs")]
+    SlintDocs(SlintDocsCommand),
 }
 
 #[derive(Debug, clap::Parser)]
@@ -36,6 +39,12 @@ pub struct ApplicationArguments {
 
 #[derive(Debug, clap::Parser)]
 pub struct CppDocsCommand {
+    #[arg(long, action)]
+    show_warnings: bool,
+}
+
+#[derive(Debug, clap::Parser)]
+pub struct SlintDocsCommand {
     #[arg(long, action)]
     show_warnings: bool,
 }
@@ -86,6 +95,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::parse().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
         TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings)?,
+        TaskCommand::SlintDocs(cmd) => slintdocs::generate(cmd.show_warnings)?,
         TaskCommand::NodePackage => nodepackage::generate()?,
         TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
         TaskCommand::EnumDocs => enumdocs::generate()?,

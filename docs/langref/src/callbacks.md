@@ -1,4 +1,4 @@
-# Callback
+# Callbacks
 
 Components may declare callbacks, that communicate changes of state
 to the outside. Callbacks are invoked by "calling" them like you would
@@ -43,5 +43,16 @@ export component Example inherits Rectangle {
     // declares a callback with a return value
     callback hello(int, int) -> int;
     hello(aa, bb) => { aa + bb }
+}
+```
+
+## Callback aliases
+
+It is possible to declare callback aliases in a similar way to two-way bindings:
+
+```slint,no-preview
+export component Example inherits Rectangle {
+    callback clicked <=> area.clicked;
+    area := TouchArea {}
 }
 ```

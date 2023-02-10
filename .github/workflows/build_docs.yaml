@@ -84,8 +84,7 @@ jobs:
       run: mdbook build
       working-directory: docs/tutorial/cpp
     - name: "Slint Language Reference"
-      run: mdbook build
-      working-directory: docs/langref
+      run: cargo xtask slintdocs --show-warnings
     - name: "Node docs"
       run: |
           npm install --ignore-scripts
@@ -98,13 +97,13 @@ jobs:
           path: |
               target/doc
               target/cppdocs/html
+              target/slintdocs/html
               api/node/docs
               docs/site
-              docs/langref/book/html
               docs/tutorial/rust/book/html
               docs/tutorial/cpp/book/html
     - name: "Check for docs warnings in internal crates"
       run: cargo +nightly doc --workspace --no-deps --all-features --exclude slint-node --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter
     - name: Clean cache # Don't cache docs to avoid them including removed classes being published
       run: |
-          rm -rf target/doc target/cppdocs api/node/docs docs/tutorial/rust/book docs/tutorial/cpp/book
+          rm -rf target/doc target/cppdocs target/slintdocs api/node/docs docs/tutorial/rust/book docs/tutorial/cpp/book

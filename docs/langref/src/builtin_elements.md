@@ -4,56 +4,56 @@
 
 These properties are valid on all visible items
 
-* **`x`** and **`y`** (*length*): the position of the element relative to its parent
-* **`z`** (*float*): Allows to specify a different order to stack the items with its siblings. (default: 0)
-* **`width`** and **`height`** (*length*): The size of the element. When set, this overrides the default size.
-* **`max-width`** and **`max-height`** (*length*): The maximum size of an element when used in a layout.
-* **`min-width`** and **`min-height`** (*length*): The minimum size of an element when used in a layout.
-* **`preferred-width`** and **`preferred-height`** (*length*): The preferred size of an element when used in a layout.
-* **`col`**, **`row`**, **`colspan`**, **`rowspan`** (*int*): See [`GridLayout`](#gridlayout).
-* **`horizontal-stretch`** and **`vertical-stretch`** (*float*): Specify how much relative space these elements are stretching in a layout.
-  When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
-* **`opacity`** (*float*): A value between 0 and 1 (or a percentage) that is used to draw the element and its
-  children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
-* **`visible`** (*bool*): When set to `false`, the element and all his children will not be drawn
-  and not react to mouse input (default: `true`)
-* **`cache-rendering-hint`** (*bool*): When set to `true`, this provides a hint
-  to the renderer to cache the contents of the element and all the children into an intermediate
-  cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the
-  expense of increased memory consumption. Not all rendering backends support this, so this is
-  merely a hint. (default: `false`)
-* **`dialog-button-role`** (*enum DialogButtonRole*): Specify that this is a button in a `Dialog`.
+-   **`x`** and **`y`** (_length_): the position of the element relative to its parent
+-   **`z`** (_float_): Allows to specify a different order to stack the items with its siblings. (default: 0)
+-   **`width`** and **`height`** (_length_): The size of the element. When set, this overrides the default size.
+-   **`max-width`** and **`max-height`** (_length_): The maximum size of an element when used in a layout.
+-   **`min-width`** and **`min-height`** (_length_): The minimum size of an element when used in a layout.
+-   **`preferred-width`** and **`preferred-height`** (_length_): The preferred size of an element when used in a layout.
+-   **`col`**, **`row`**, **`colspan`**, **`rowspan`** (_int_): See [`GridLayout`](#gridlayout).
+-   **`horizontal-stretch`** and **`vertical-stretch`** (_float_): Specify how much relative space these elements are stretching in a layout.
+    When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
+-   **`opacity`** (_float_): A value between 0 and 1 (or a percentage) that is used to draw the element and its
+    children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
+-   **`visible`** (_bool_): When set to `false`, the element and all his children will not be drawn
+    and not react to mouse input (default: `true`)
+-   **`cache-rendering-hint`** (_bool_): When set to `true`, this provides a hint
+    to the renderer to cache the contents of the element and all the children into an intermediate
+    cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the
+    expense of increased memory consumption. Not all rendering backends support this, so this is
+    merely a hint. (default: `false`)
+-   **`dialog-button-role`** (_enum DialogButtonRole_): Specify that this is a button in a `Dialog`.
 
 ### Accessibility
 
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
 
-* **`accessible-role`** (*enum [`AccessibleRole`](builtin_enums.md#accessiblerole)*): The accessibility role of the element. This property is
-  mandatory to be able to use any other accessible properties. It should be set to a constant value.
-  The default value is `none` for most elements, but is `text` for the Text element.
-* **`accessible-label`** (*string*): The label for an interactive element.
-  The  default value is empty for most elements, or is the value of the `text` property for Text
-  elements.
-* **`accessible-description`** (*string*): The description for the current element.
-* **`accessible-checkable`** (*bool*): Whether the element is can be checked or not.
-* **`accessible-checked`** (*bool*): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
-* **`accessible-has-focus`** (*bool*): Set to true when the current element currently has the focus.
-* **`accessible-value`** (*string*): The current value of the item.
-* **`accessible-value-maximum`** (*float*): The maximum value of the item. This is used for example by spin boxes.
-* **`accessible-value-minimum`** (*float*): The minimum value of the item.
-* **`accessible-value-step`** (*float*) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
+-   **`accessible-role`** (_enum [`AccessibleRole`](builtin_enums.md#accessiblerole)_): The accessibility role of the element. This property is
+    mandatory to be able to use any other accessible properties. It should be set to a constant value.
+    The default value is `none` for most elements, but is `text` for the Text element.
+-   **`accessible-label`** (_string_): The label for an interactive element.
+    The default value is empty for most elements, or is the value of the `text` property for Text
+    elements.
+-   **`accessible-description`** (_string_): The description for the current element.
+-   **`accessible-checkable`** (_bool_): Whether the element is can be checked or not.
+-   **`accessible-checked`** (_bool_): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
+-   **`accessible-has-focus`** (_bool_): Set to true when the current element currently has the focus.
+-   **`accessible-value`** (_string_): The current value of the item.
+-   **`accessible-value-maximum`** (_float_): The maximum value of the item. This is used for example by spin boxes.
+-   **`accessible-value-minimum`** (_float_): The minimum value of the item.
+-   **`accessible-value-step`** (_float_) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
 
 ### Drop Shadows
 
 To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
 an element, it is possible to set the following `drop-shadow` properties:
 
-* **`drop-shadow-offset-x`** and **`drop-shadow-offset-y`** (*length*): The horizontal and vertical distance
-  of the shadow from the element's frame. A negative value places the shadow left / above of the element.
-* **`drop-shadow-color`** (*color*): The base color of the shadow to use. Typically that color is the starting color
-  of a gradient that fades into transparency.
-* **`drop-shadow-blur`** (*length*): The radius of the shadow that also describes the level of blur applied to the shadow.
-  Negative values are ignored and zero means no blur (default).
+-   **`drop-shadow-offset-x`** and **`drop-shadow-offset-y`** (_length_): The horizontal and vertical distance
+    of the shadow from the element's frame. A negative value places the shadow left / above of the element.
+-   **`drop-shadow-color`** (_color_): The base color of the shadow to use. Typically that color is the starting color
+    of a gradient that fades into transparency.
+-   **`drop-shadow-blur`** (_length_): The radius of the shadow that also describes the level of blur applied to the shadow.
+    Negative values are ignored and zero means no blur (default).
 
 The `drop-shadow` effect is supported for `Rectangle` elements.
 
@@ -67,16 +67,16 @@ or smaller. The initial width can be controlled with the `preferred-width` prope
 
 ### Properties
 
-* **`title`** (*string*): The window title that is shown in the title bar.
-* **`icon`** (*image*): The window icon shown in the title bar or the task bar on window managers supporting it.
-* **`no-frame`** (*bool*): Whether the window should be borderless/frameless or not.
-* **`background`** (*color*): The background color of the Window. (default value: depends on the style)
-* **`default-font-family`** (*string*): The font family to use as default in text elements inside this window, that don't
-  have their family set.
-* **`default-font-size`** (*length*): The font size to use as default in text elements inside this window, that don't
-  have their size set.
-* **`default-font-weight`** (*int*): The font weight to use as default in text elements inside this window, that don't
-  have their weight set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+-   **`title`** (_string_): The window title that is shown in the title bar.
+-   **`icon`** (_image_): The window icon shown in the title bar or the task bar on window managers supporting it.
+-   **`no-frame`** (_bool_): Whether the window should be borderless/frameless or not.
+-   **`background`** (_color_): The background color of the Window. (default value: depends on the style)
+-   **`default-font-family`** (_string_): The font family to use as default in text elements inside this window, that don't
+    have their family set.
+-   **`default-font-size`** (_length_): The font size to use as default in text elements inside this window, that don't
+    have their size set.
+-   **`default-font-weight`** (_int_): The font weight to use as default in text elements inside this window, that don't
+    have their weight set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 
 ## `Rectangle`
 
@@ -87,13 +87,13 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ### Properties
 
-* **`background`** (*brush*): The background brush of the Rectangle, typically a color. (default value: transparent)
-* **`border-width`** (*length*): The width of the border. (default value: 0)
-* **`border-color`** (*brush*): The color of the border. (default value: transparent)
-* **`border-radius`** (*length*): The size of the radius. (default value: 0)
-* **`clip`** (*bool*): By default, when an item is bigger or outside another item, it is still shown.
-  But when this property is set to `true`, then the children element of this Rectangle are going
-  to be clipped. (default: `false`)
+-   **`background`** (_brush_): The background brush of the Rectangle, typically a color. (default value: transparent)
+-   **`border-width`** (_length_): The width of the border. (default value: 0)
+-   **`border-color`** (_brush_): The color of the border. (default value: transparent)
+-   **`border-radius`** (_length_): The size of the radius. (default value: 0)
+-   **`clip`** (_bool_): By default, when an item is bigger or outside another item, it is still shown.
+    But when this property is set to `true`, then the children element of this Rectangle are going
+    to be clipped. (default: `false`)
 
 ### Example
 
@@ -152,37 +152,39 @@ An Image can be used to represent an image loaded from an image file.
 
 ### Properties
 
-* **`source`** (*image*): The image to load. In order to reference image, one uses the `@image-url("...")` macro
-  which loads the file relative to the directory containing the .slint file.
-* **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (*int*): Properties in source
-  image coordinates that define the region of the source image that is rendered. By default the entire source image is visible:
-  | Property | Default Binding |
-  |----------|---------------|
-  | `source-clip-x` | `0` |
-  | `source-clip-y` | `0` |
-  | `source-clip-width` | `source.width - source-clip-x` |
-  | `source-clip-height` | `source.height - source-clip-y` |
-* **`image-fit`** (*enum*): Specifies how the source image shall be fit into the image element. Possible values are:
-  * `fill`: Scales and stretches the image to fit the width and height of the element.
-  * `contain`: The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
-  * `cover`: The source image is scaled to cover into the image element's dimension while preserving the aspect ratio.
+-   **`source`** (_image_): The image to load. In order to reference image, one uses the `@image-url("...")` macro
+    which loads the file relative to the directory containing the .slint file.
+-   **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (_int_): Properties in source
+    image coordinates that define the region of the source image that is rendered. By default the entire source image is visible:
+    | Property | Default Binding |
+    |----------|---------------|
+    | `source-clip-x` | `0` |
+    | `source-clip-y` | `0` |
+    | `source-clip-width` | `source.width - source-clip-x` |
+    | `source-clip-height` | `source.height - source-clip-y` |
+-   **`image-fit`** (_enum_): Specifies how the source image shall be fit into the image element. Possible values are:
 
-  When the `Image` element is part of a layout, the default value for **`image-fit`** is `contain`. Otherwise it is `fill`.
+    -   `fill`: Scales and stretches the image to fit the width and height of the element.
+    -   `contain`: The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
+    -   `cover`: The source image is scaled to cover into the image element's dimension while preserving the aspect ratio.
 
-* **`image-rendering`** (*enum*): Specifies how the source image will be scaled. Possible values are:
-  * `smooth`: The image is scaled with a linear interpolation algorithm.
-  * `pixelated`: The image is scaled with the nearest neighbor algorithm.
+    When the `Image` element is part of a layout, the default value for **`image-fit`** is `contain`. Otherwise it is `fill`.
 
-  The default value is `smooth`.
+-   **`image-rendering`** (_enum_): Specifies how the source image will be scaled. Possible values are:
 
-* **`colorize`** (*brush*): When set, the image is used as an alpha mask and is drown in the given color (or with the gradient)
-* **`width`**, **`height`** (*length*): The width and height of the image as it appears on the screen.The default values are
-  the sizes provided by the **`source`** image. If the `Image` is **not** in a layout and only **one** of the two sizes are
-  specified, then the other defaults to the specified value scaled according to the aspect ratio of the **`source`** image.
+    -   `smooth`: The image is scaled with a linear interpolation algorithm.
+    -   `pixelated`: The image is scaled with the nearest neighbor algorithm.
 
-* **`rotation-angle`** (*angle*), **`rotation-origin-x`** (*length*), **`rotation-origin-y`** (*length*):
-  Rotate the image by the given angle around the specified origin point. The default origin point is the center of the element.
-  When these properties are present, the Image cannot have any children elements.
+    The default value is `smooth`.
+
+-   **`colorize`** (_brush_): When set, the image is used as an alpha mask and is drown in the given color (or with the gradient)
+-   **`width`**, **`height`** (_length_): The width and height of the image as it appears on the screen.The default values are
+    the sizes provided by the **`source`** image. If the `Image` is **not** in a layout and only **one** of the two sizes are
+    specified, then the other defaults to the specified value scaled according to the aspect ratio of the **`source`** image.
+
+-   **`rotation-angle`** (_angle_), **`rotation-origin-x`** (_length_), **`rotation-origin-y`** (_length_):
+    Rotate the image by the given angle around the specified origin point. The default origin point is the center of the element.
+    When these properties are present, the Image cannot have any children elements.
 
 ### Example
 
@@ -233,17 +235,17 @@ and the text itself.
 
 ### Properties
 
-* **`text`** (*string*): The actual text.
-* **`font-family`** (*string*): The font name
-* **`font-size`** (*length*): The font size of the text
-* **`font-weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
-* **`color`** (*brush*): The color of the text (default value: depends on the style)
-* **`horizontal-alignment`** (*enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)*): The horizontal alignment of the text.
-* **`vertical-alignment`** (*enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)*): The vertical alignment of the text.
-* **`wrap`** (*enum [`TextWrap`](builtin_enums.md#textwrap)*): The way the text wraps (default: no-wrap).
-* **`overflow`** (*enum [`TextOverflow`](builtin_enums.md#textoverflow)*): What happens when the text overflows (default: clip).
-* **`letter-spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
-  and a negative value decreases the distance. The default value is 0.
+-   **`text`** (_string_): The actual text.
+-   **`font-family`** (_string_): The font name
+-   **`font-size`** (_length_): The font size of the text
+-   **`font-weight`** (_int_): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+-   **`color`** (_brush_): The color of the text (default value: depends on the style)
+-   **`horizontal-alignment`** (_enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
+-   **`vertical-alignment`** (_enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)_): The vertical alignment of the text.
+-   **`wrap`** (_enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text wraps (default: no-wrap).
+-   **`overflow`** (_enum [`TextOverflow`](builtin_enums.md#textoverflow)_): What happens when the text overflows (default: clip).
+-   **`letter-spacing`** (_length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
+    and a negative value decreases the distance. The default value is 0.
 
 ### Example
 
@@ -289,8 +291,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 A path can be defined in two different ways:
 
-* Using SVG path commands as a string
-* Using path command elements in `.slint` markup.
+-   Using SVG path commands as a string
+-   Using path command elements in `.slint` markup.
 
 The coordinates used in the geometric commands are within the imaginary coordinate system of the path.
 When rendering on the screen, the shape is drawn relative to the `x` and `y` properties. If the `width`
@@ -299,21 +301,22 @@ accordingly.
 
 ### Common Path Properties
 
-* **`fill`** (*brush*): The color for filling the shape of the path.
-* **`fill-rule`** (*enum [`FillRule`](builtin_enums.md#fillrule)*): The fill rule to use for the path. (default value: `nonzero`)
-* **`stroke`** (*brush*): The color for drawing the outline of the path.
-* **`stroke-width`** (*length*): The width of the outline.
-* **`width`** (*length*): If non-zero, the path will be scaled to fit into the specified width.
-* **`height`** (*length*): If non-zero, the path will be scaled to fit into the specified height.
-* **`viewbox-x`**/**`viewbox-y`**/**`viewbox-width`**/**`viewbox-height`** (*float*) These four
-  properties allow defining the position and size of the viewport of the path in path coordinates.
+-   **`fill`** (_brush_): The color for filling the shape of the path.
+-   **`fill-rule`** (_enum [`FillRule`](builtin_enums.md#fillrule)_): The fill rule to use for the path. (default value: `nonzero`)
+-   **`stroke`** (_brush_): The color for drawing the outline of the path.
+-   **`stroke-width`** (_length_): The width of the outline.
+-   **`width`** (_length_): If non-zero, the path will be scaled to fit into the specified width.
+-   **`height`** (_length_): If non-zero, the path will be scaled to fit into the specified height.
+-   **`viewbox-x`**/**`viewbox-y`**/**`viewbox-width`**/**`viewbox-height`** (_float_) These four
+    properties allow defining the position and size of the viewport of the path in path coordinates.
 
-  If the `viewbox-width` or `viewbox-height` is less or equal than zero, the viewbox properties are
-  ignored and instead the bounding rectangle of all path elements is used to define the view port.
-* **`clip`** (*bool*): By default, when a path has a view box defined and the elements render
-  outside of it, they are still rendered. When this property is set to `true`, then rendering will be
-  clipped at the boundaries of the view box.
-  This property must be a literal `true` or `false` (default: `false`)
+    If the `viewbox-width` or `viewbox-height` is less or equal than zero, the viewbox properties are
+    ignored and instead the bounding rectangle of all path elements is used to define the view port.
+
+-   **`clip`** (_bool_): By default, when a path has a view box defined and the elements render
+    outside of it, they are still rendered. When this property is set to `true`, then rendering will be
+    clipped at the boundaries of the view box.
+    This property must be a literal `true` or `false` (default: `false`)
 
 #### Path Using SVG commands
 
@@ -335,7 +338,7 @@ export component Example inherits Path {
 
 The commands are provided in a property:
 
-* **`commands`** (*string): A string providing the commands according to the SVG path specification.
+-   **`commands`** (\*string): A string providing the commands according to the SVG path specification.
 
 #### Path Using SVG Path Elements
 
@@ -383,8 +386,8 @@ will use this new position as their starting point, therefore this starts a new 
 
 ###### Properties
 
-* **`x`** (*float*): The x position of the new current point.
-* **`y`** (*float*): The y position of the new current point.
+-   **`x`** (_float_): The x position of the new current point.
+-   **`y`** (_float_): The y position of the new current point.
 
 ##### `LineTo` Sub-element for `Path`
 
@@ -393,8 +396,8 @@ location specified by the `x` and `y` properties.
 
 ###### Properties
 
-* **`x`** (*float*): The target x position of the line.
-* **`y`** (*float*): The target y position of the line.
+-   **`x`** (_float_): The target x position of the line.
+-   **`y`** (_float_): The target y position of the line.
 
 ##### `ArcTo` Sub-element for `Path`
 
@@ -405,16 +408,16 @@ or angle.
 
 ###### Properties
 
-* **`x`** (*float*): The target x position of the line.
-* **`y`** (*float*): The target y position of the line.
-* **`radius-x`** (*float*): The x-radius of the ellipse.
-* **`radius-y`** (*float*): The y-radius of the ellipse.
-* **`x-rotation`** (*float*): The x-axis of the ellipse will be rotated by the value of this
-  properties, specified in as angle in degrees from 0 to 360.
-* **`large-arc`** (*bool*): Out of the two arcs of a closed ellipse, this flag selects that the
-  larger arc is to be rendered. If the property is `false`, the shorter arc is rendered instead.
-* **`sweep`** (*bool*): If the property is `true`, the arc will be drawn as a clockwise turning arc;
-  anti-clockwise otherwise.
+-   **`x`** (_float_): The target x position of the line.
+-   **`y`** (_float_): The target y position of the line.
+-   **`radius-x`** (_float_): The x-radius of the ellipse.
+-   **`radius-y`** (_float_): The y-radius of the ellipse.
+-   **`x-rotation`** (_float_): The x-axis of the ellipse will be rotated by the value of this
+    properties, specified in as angle in degrees from 0 to 360.
+-   **`large-arc`** (_bool_): Out of the two arcs of a closed ellipse, this flag selects that the
+    larger arc is to be rendered. If the property is `false`, the shorter arc is rendered instead.
+-   **`sweep`** (_bool_): If the property is `true`, the arc will be drawn as a clockwise turning arc;
+    anti-clockwise otherwise.
 
 ##### `CubicTo` Sub-element for `Path`
 
@@ -424,12 +427,12 @@ respective properties.
 
 ###### Properties
 
-* **`x`** (*float*): The target x position of the curve.
-* **`y`** (*float*): The target y position of the curve.
-* **`control-1-x`** (*float*): The x coordinate of the curve's first control point.
-* **`control-1-y`** (*float*): The y coordinate of the curve's first control point.
-* **`control-2-x`** (*float*): The x coordinate of the curve's second control point.
-* **`control-2-y`** (*float*): The y coordinate of the curve's second control point.
+-   **`x`** (_float_): The target x position of the curve.
+-   **`y`** (_float_): The target y position of the curve.
+-   **`control-1-x`** (_float_): The x coordinate of the curve's first control point.
+-   **`control-1-y`** (_float_): The y coordinate of the curve's first control point.
+-   **`control-2-x`** (_float_): The x coordinate of the curve's second control point.
+-   **`control-2-y`** (_float_): The y coordinate of the curve's second control point.
 
 ##### `QuadraticTo` Sub-element for `Path`
 
@@ -439,10 +442,10 @@ location specified by the `x` and `y` properties, using the control points speci
 
 ###### Properties
 
-* **`x`** (*float*): The target x position of the curve.
-* **`y`** (*float*): The target y position of the curve.
-* **`control-x`** (*float*): The x coordinate of the curve's control point.
-* **`control-y`** (*float*): The y coordinate of the curve's control point.
+-   **`x`** (_float_): The target x position of the curve.
+-   **`y`** (_float_): The target y position of the curve.
+-   **`control-x`** (_float_): The x coordinate of the curve's control point.
+-   **`control-y`** (_float_): The y coordinate of the curve's control point.
 
 ##### `Close` Sub-element for `Path`
 
@@ -458,17 +461,17 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 ### Properties
 
-* **`pressed`** (*bool*): Set to `true` by the TouchArea when the mouse is pressed over it.
-* **`has-hover`** (*bool*): Set to `true` by the TouchArea when the mouse is over it.
-* **`mouse-x`**, **`mouse-y`** (*length*): Set by the TouchArea to the position of the mouse within it.
-* **`pressed-x`**, **`pressed-y`** (*length*): Set to `true` by the TouchArea to the position of the mouse at the moment it was last pressed.
-* **`mouse-cursor`** (*enum [`MouseCursor`](builtin_enums.md#mousecursor)*): The mouse cursor type when the mouse is hovering the TouchArea.
+-   **`pressed`** (_bool_): Set to `true` by the TouchArea when the mouse is pressed over it.
+-   **`has-hover`** (_bool_): Set to `true` by the TouchArea when the mouse is over it.
+-   **`mouse-x`**, **`mouse-y`** (_length_): Set by the TouchArea to the position of the mouse within it.
+-   **`pressed-x`**, **`pressed-y`** (_length_): Set to `true` by the TouchArea to the position of the mouse at the moment it was last pressed.
+-   **`mouse-cursor`** (_enum [`MouseCursor`](builtin_enums.md#mousecursor)_): The mouse cursor type when the mouse is hovering the TouchArea.
 
 ### Callbacks
 
-* **`clicked`**: Emitted when clicked (the mouse is pressed, then released on this element)
-* **`moved`**: The mouse has been moved. This will only be called if the mouse is also pressed.
-* **`pointer-event(PointerEvent)`**: Received when a button was pressed or released.
+-   **`clicked`**: Emitted when clicked (the mouse is pressed, then released on this element)
+-   **`moved`**: The mouse has been moved. This will only be called if the mouse is also pressed.
+-   **`pointer-event(PointerEvent)`**: Received when a button was pressed or released.
 
 ### Example
 
@@ -507,16 +510,16 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 
 ### Properties
 
-* **`has-focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
+-   **`has-focus`** (_bool_): Set to `true` when item is focused and receives keyboard events.
 
 ### Methods
 
-* **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
+-   **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
 
 ### Callbacks
 
-* **`key-pressed(KeyEvent) -> EventResult`**: Emitted when a key is pressed, the argument is a `KeyEvent` struct
-* **`key-released(KeyEvent) -> EventResult`**: Emitted when a key is released, the argument is a `KeyEvent` struct
+-   **`key-pressed(KeyEvent) -> EventResult`**: Emitted when a key is pressed, the argument is a `KeyEvent` struct
+-   **`key-released(KeyEvent) -> EventResult`**: Emitted when a key is released, the argument is a `KeyEvent` struct
 
 ### Example
 
@@ -546,16 +549,16 @@ These layouts place their children next to each other vertically or horizontally
 The size of elements can either be fixed with the `width` or `height` property, or if they are not set
 they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
 
-## Properties
+### Properties
 
-* **`spacing`** (*length*): The distance between the elements in the layout.
-* **`padding`** (*length*): the padding within the layout.
-* **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (*length*):
-  override the padding in specific sides.
-* **`alignment`** (*FIXME enum*): Can be one of  `stretch`, `center`, `start`, `end`,
-  `space-between`, `space-around`. Defaults to `stretch`. Matches the CSS flex.
+-   **`spacing`** (_length_): The distance between the elements in the layout.
+-   **`padding`** (_length_): the padding within the layout.
+-   **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (_length_):
+    override the padding in specific sides.
+-   **`alignment`** (_FIXME enum_): Can be one of `stretch`, `center`, `start`, `end`,
+    `space-between`, `space-around`. Defaults to `stretch`. Matches the CSS flex.
 
-## Example
+### Example
 
 ```slint
 export component Foo inherits Window {
@@ -580,10 +583,10 @@ Alternatively, the item can be put in a `Row` element.
 
 ### Properties
 
-* **`spacing`** (*length*): The distance between the elements in the layout.
-* **`padding`** (*length*): the padding within the layout.
-* **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (*length*):
-  override the padding in specific sides.
+-   **`spacing`** (_length_): The distance between the elements in the layout.
+-   **`padding`** (_length_): the padding within the layout.
+-   **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (_length_):
+    override the padding in specific sides.
 
 ### Examples
 
@@ -638,9 +641,9 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ### Properties
 
-* **`viewport-height`**, **`viewport-width`** (*length*): The total size of the scrollable element
-* **`viewport-x`**, **`viewport-y`** (*length*): The position of the scrollable element relative to the Flickable.  This is usually a negative value.
-* **`interactive`** (*bool*): When true, the viewport can be scrolled by clicking on it and dragging it with the cursor. (default: true)
+-   **`viewport-height`**, **`viewport-width`** (_length_): The total size of the scrollable element
+-   **`viewport-x`**, **`viewport-y`** (_length_): The position of the scrollable element relative to the Flickable. This is usually a negative value.
+-   **`interactive`** (_bool_): When true, the viewport can be scrolled by clicking on it and dragging it with the cursor. (default: true)
 
 ### Example
 
@@ -668,31 +671,31 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ### Properties
 
-* **`text`** (*string*): The actual text.
-* **`font-family`** (*string*): The font name
-* **`font-size`** (*length*): The font size of the text
-* **`font-weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
-* **`color`** (*brush*): The color of the text (default value: depends on the style)
-* **`horizontal-alignment`** (*enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)*): The horizontal alignment of the text.
-* **`vertical-alignment`** (*enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)*): The vertical alignment of the text.
-* **`has-focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
-* **`letter-spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
-  and a negative value decreases the distance. The default value is 0.
-* **`single-line`** (*bool*): When set to `true`, no newlines are allowed (default value: `true`)
-* **`read-only`** (*bool*): When set to `true`, text editing via keyboard and mouse is disabled but
-  selecting text is still enabled as well as editing text programatically (default value: `false`)
-* **`wrap`** (*enum [`TextWrap`](builtin_enums.md#textwrap)*): The way the text input wraps.  Only makes sense when `single-line` is false. (default: no-wrap)
-* **`input-type`** (*enum [`InputType`](builtin_enums.md#InputType)*): The way to allow special input viewing properties such as password fields (default value: `text`).
+-   **`text`** (_string_): The actual text.
+-   **`font-family`** (_string_): The font name
+-   **`font-size`** (_length_): The font size of the text
+-   **`font-weight`** (_int_): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+-   **`color`** (_brush_): The color of the text (default value: depends on the style)
+-   **`horizontal-alignment`** (_enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
+-   **`vertical-alignment`** (_enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)_): The vertical alignment of the text.
+-   **`has-focus`** (_bool_): Set to `true` when item is focused and receives keyboard events.
+-   **`letter-spacing`** (_length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
+    and a negative value decreases the distance. The default value is 0.
+-   **`single-line`** (_bool_): When set to `true`, no newlines are allowed (default value: `true`)
+-   **`read-only`** (_bool_): When set to `true`, text editing via keyboard and mouse is disabled but
+    selecting text is still enabled as well as editing text programatically (default value: `false`)
+-   **`wrap`** (_enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text input wraps. Only makes sense when `single-line` is false. (default: no-wrap)
+-   **`input-type`** (_enum [`InputType`](builtin_enums.md#InputType)_): The way to allow special input viewing properties such as password fields (default value: `text`).
 
 ### Methods
 
-* **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
+-   **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
 
 ### Callbacks
 
-* **`accepted()`**: Emitted when enter key is pressed
-* **`edited()`**: Emitted when the text has changed because the user modified it
-* **`cursor-position-changed(Point)`**: The cursor was moved to the new (x, y) position
+-   **`accepted()`**: Emitted when enter key is pressed
+-   **`edited()`**: Emitted when the text has changed because the user modified it
+-   **`cursor-position-changed(Point)`**: The cursor was moved to the new (x, y) position
 
 ### Example
 
@@ -715,7 +718,7 @@ Note: It is not allowed to access properties of elements within the popup from o
 
 ### Methods
 
-* **`show()`** Call this function to show the popup.
+-   **`show()`** Call this function to show the popup.
 
 ### Example
 
@@ -757,8 +760,8 @@ When viewed with the `slint-viewer` program, the `ok`, `cancel`, and `close` but
 
 ### Properties
 
-* **`title`** (*string*): The window title that is shown in the title bar.
-* **`icon`** (*image*): The window icon shown in the title bar or the task bar on window managers supporting it.
+-   **`title`** (_string_): The window title that is shown in the title bar.
+-   **`icon`** (_image_): The window icon shown in the title bar or the task bar on window managers supporting it.
 
 ### Example
 
@@ -776,116 +779,3 @@ export component Example inherits Dialog {
     }
 }
 ```
-
-# Builtin Structures
-
-## `Point`
-
-This structure represents a point with x and y coordinate
-
-### Fields
-
-* **`x`** (*length*)
-* **`y`** (*length*)
-
-## `KeyEvent`
-
-This structure is generated and passed to the key press and release
-callbacks of the `FocusScope` element.
-
-### Fields
-
-* **`text`** (*string*): The string representation of the key
-* **`modifiers`** (*KeyboardModifiers*): The keyboard modifiers pressed during the event
-
-## `KeyboardModifiers`
-
-This structure is generated as part of `KeyEvent`, to indicate which modifier keys
-are pressed during the generation of a key event.
-
-### Fields
-
-* **`control`** (*bool*): `true` if the control key is pressed. On macOS this corresponds to the command key.
-* **`alt`** (*bool*): `true` if alt key is pressed.
-* **`shift`** (*bool*): `true` if the shift key is pressed.
-* **`meta`** (*bool*): `true` if the windows key is pressed on Windows, or the control key on macOS.
-
-## `PointerEvent`
-
-This structure is generated and passed to the `pointer-event` callback of the `TouchArea` element.
-
-### Fields
-
-* **`kind`** (*enum PointerEventKind*): The kind of the event: one of the following
-   - `down`: The button was pressed.
-   - `up`: The button was released.
-   - `cancel`: Another element or window took hold of the grab. This applies to all pressed button and the `button` is not relevent.
-* **`button`** (*enum PointerEventButton*): The button that was pressed or released. `left`, `right`, `middle`, or `none`.
-
-# Namespaces
-
-The following namespaces provide access to common constants such as special keys or named colors.
-
-## `Key`
-
-Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character. Check the value of [`KeyEvent`](#keyevent)'s `text` property
-against the constants below.
-
-* **`Backspace`**
-* **`Tab`**
-* **`Return`**
-* **`Escape`**
-* **`Backtab`**
-* **`Delete`**
-* **`Shift`**
-* **`Control`**
-* **`Alt`**
-* **`AltGr`**
-* **`CapsLock`**
-* **`ShiftR`**
-* **`ControlR`**
-* **`Meta`**
-* **`MetaR`**
-* **`UpArrow`**
-* **`DownArrow`**
-* **`LeftArrow`**
-* **`RightArrow`**
-* **`F1`**
-* **`F2`**
-* **`F3`**
-* **`F4`**
-* **`F5`**
-* **`F6`**
-* **`F7`**
-* **`F8`**
-* **`F9`**
-* **`F10`**
-* **`F11`**
-* **`F12`**
-* **`F13`**
-* **`F14`**
-* **`F15`**
-* **`F16`**
-* **`F17`**
-* **`F18`**
-* **`F19`**
-* **`F20`**
-* **`F21`**
-* **`F22`**
-* **`F23`**
-* **`F24`**
-* **`Insert`**
-* **`Home`**
-* **`End`**
-* **`PageUp`**
-* **`PageDown`**
-* **`ScrollLock`**
-* **`Pause`**
-* **`SysReq`**
-* **`Stop`**
-* **`Menu`**
-
-## `Colors`
-
-Use the colors namespace to select colors by their name. For example you can use `Colors.aquamarine` or `Colors.bisque`.
-The entire list of names is very long. You can find a complete list in the [CSS Specification](https://www.w3.org/TR/css-color-3/#svg-color).
