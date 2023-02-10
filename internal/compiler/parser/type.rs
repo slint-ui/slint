@@ -76,7 +76,11 @@ pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
     }
-    p.test(SyntaxKind::ColonEqual);
+
+    if p.peek().kind() == SyntaxKind::ColonEqual {
+        p.warning("':=' to declare a struct is deprecated. Remove the ':='");
+        p.consume();
+    }
 
     parse_type_object(&mut *p);
     true

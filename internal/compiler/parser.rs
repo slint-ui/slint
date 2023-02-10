@@ -505,6 +505,7 @@ mod parser_trait {
         fn nth(&mut self, n: usize) -> Token;
         fn consume(&mut self);
         fn error(&mut self, e: impl Into<String>);
+        fn warning(&mut self, e: impl Into<String>);
 
         /// Consume the token if it has the right kind, otherwise report a syntax error.
         /// Returns true if the token was consumed.
@@ -649,6 +650,25 @@ impl Parser for DefaultParser<'_> {
         }
 
         self.diags.push_error_with_span(
+            e.into(),
+            crate::diagnostics::SourceLocation {
+                source_file: Some(self.source_file.clone()),
+                span,
+            },
+        );
+    }
+
+    /// Reports an error at the current token location
+    fn warning(&mut self, e: impl Into<String>) {
+        let current_token = self.current_token();
+        #[allow(unused_mut)]
+        let mut span = crate::diagnostics::Span::new(current_token.offset);
+        #[cfg(feature = "proc_macro_span")]
+        {
+            span.span = current_token.span;
+        }
+
+        self.diags.push_warning_with_span(
             e.into(),
             crate::diagnostics::SourceLocation {
                 source_file: Some(self.source_file.clone()),
