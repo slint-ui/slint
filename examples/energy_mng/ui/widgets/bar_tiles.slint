@@ -1,0 +1,126 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+import { BarBackground } from "bar_chart.slint";
+
+export struct BarTileModel {
+    title: string,
+    icon: image,
+    max: int,
+    min: int,
+    absolute-min: int,
+    absolute-max: int,
+    unit: string,
+}
+
+component ValueLabel {
+    in property <string> text;
+    in property <string> unit;
+
+    HorizontalLayout {  
+        Text {
+            vertical-stretch: 0;
+            horizontal-alignment: center;
+            text: root.text;
+            font-size: Theme.typo.desciption-light.size;
+            font-weight: Theme.typo.desciption-light.weight;
+        }
+
+        Text {
+            vertical-stretch: 0;
+            horizontal-alignment: center;
+            text: "°";
+            font-size: Theme.typo.desciption-light.size;
+            font-weight: Theme.typo.desciption-light.weight;
+        }
+    }
+}
+
+component BarTile {
+    in property <string> title <=> i-tiitle.text;
+    in property <image> icon <=> i-icon.source;
+    in property <int> max;
+    in property <int> min;
+    in property <string> unit;
+    in property <int> absolute-min;
+    in property <int> absolute-max;
+
+    HorizontalLayout {  
+        alignment: center;
+
+        VerticalLayout {  
+            spacing: 7px;
+    
+            i-tiitle := Text {
+                vertical-stretch: 0;
+                horizontal-alignment: center;
+                font-size: Theme.typo.desciption.size;
+                font-weight: Theme.typo.desciption.weight;
+            }
+    
+            i-icon := Image {
+                height: 20px;
+                vertical-stretch: 0;
+            }
+
+            ValueLabel {  
+                text: max;
+                unit: unit;
+            }
+    
+            Rectangle {  
+                private property <int> range: root.absolute-max - root.absolute-min;
+                private property <length> max-y: self.height * (root.max - root.absolute-min) / range;
+                private property <length> min-y: self.height * (root.min - root.absolute-min) / range;
+                
+                vertical-stretch: 1;
+              
+                HorizontalLayout {  
+                    alignment: center;
+                    y: parent.height - max-y;
+                    height: max-y - min-y;
+
+                    Rectangle {  
+                        min_width: 12px;
+                        border-radius: 6px;
+                       
+                        background: Theme.palette.limon-green-light-gradient;
+                    }
+                }
+            }
+    
+            ValueLabel {  
+                text: min;
+                unit: unit;
+            }
+        }
+    }
+}
+
+export component BarTiles {
+    in property <[BarTileModel]> model;
+
+    horizontal-stretch: 1; 
+    vertical-stretch: 1;
+
+    BarBackground {}
+
+    HorizontalLayout { 
+        padding-right: 18px;
+        padding-left: 18px;
+        padding-top: 11px;
+        padding-bottom: 11px;
+      
+        for tile in model : BarTile {
+            horizontal-stretch: 1;
+            title: tile.title;
+            icon: tile.icon;
+            max: tile.max;
+            min: tile.min;
+            absolute-min: tile.absolute-min;
+            absolute-max: tile.absolute-max;
+            unit: tile.unit;
+        }
+    }
+}

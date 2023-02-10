@@ -36,6 +36,7 @@ export struct Palette {
 
     // gradients
     limon-green-gradient: brush,
+    limon-green-light-gradient: brush,
     slint-blue-gradient: brush,
     heliotrope-gradient: brush,
     dark-left-gradient: brush,
@@ -67,6 +68,9 @@ export struct Typo {
     label-light: Font,
     header: Font,
     value: Font,
+    desciption: Font,
+    desciption-light: Font,
+    value-big: Font,
 }
 
 export global Theme {
@@ -105,6 +109,7 @@ export global Theme {
 
         // gradients
         limon-green-gradient: @linear-gradient(135deg, #defb3a75 0%, #defb3a00 100%),
+        limon-green-light-gradient: @linear-gradient(135deg, #DEFB3A 0%, #defb3a33 100%),
         slint-blue-gradient: @linear-gradient(135deg, #6c4bff76 0%, #6C4BFF00 100%),
         heliotrope-gradient: @linear-gradient(180deg, #896fff 0%, #39316B 100%),
         dark-left-gradient: @linear-gradient(90deg, #040708 0%, #04070875 50%, #04070800 100%),
@@ -142,6 +147,18 @@ export global Theme {
         value: {
             size: 26px,
             weight: 500
-        }
+        },
+        desciption: {
+            size: 14px,
+            weight: 400
+        },
+        desciption-light: {
+            size: 14px,
+            weight: 200
+        },
+        value-big: {
+            size: 40px,
+            weight: 200
+        },
     };
 }

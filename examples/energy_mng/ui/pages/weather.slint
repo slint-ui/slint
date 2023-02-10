@@ -2,9 +2,69 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Page } from "page.slint";
+import { GroupBox, Tile, BarTiles, BarTileModel } from "../widgets/widgets.slint";
+
+export global WeatherAdapter {
+    in property <string> title: "Weather";
+    in property <image> current-temperature-icon: @image-url("../assets/cloud.svg");
+    in property <string> current-temperature: "22°";
+    in property <string> current-day: "May 6th 2023";
+    in property <string> current-weather-desciption: "Very cloudy";
+    in property <[BarTileModel]> week-model: [
+        {
+            title: "Thu",
+            icon: @image-url("../assets/cloudy.svg"),
+            max: 21,
+            min: 18,
+            absolute-max: 21,
+            absolute-min: 15,
+            unit: "°"
+        },
+        {
+            title: "Fri",
+            icon: @image-url("../assets/cloudy.svg"),
+            max: 20,
+            min: 17,
+            absolute-max: 21,
+            absolute-min: 15,
+            unit: "°"
+        },
+        {
+            title: "Sat",
+            icon: @image-url("../assets/cloudy.svg"),
+            max: 18,
+            min: 15,
+            absolute-max: 21,
+            absolute-min: 15,
+            unit: "°"
+        }
+    ];
+}
 
 export component Weather inherits Page {
-    Text {
-        text: "Weather";
+    in property <string> tile <=> WeatherAdapter.title;
+    in property <image> current-temperature-icon <=> WeatherAdapter.current-temperature-icon;
+    in property <string> current-temperature <=> WeatherAdapter.current-temperature;
+    in property <string> current-day <=> WeatherAdapter.current-day;
+    in property <string> current-weather-desciption <=> WeatherAdapter.current-weather-desciption;
+    in property <[BarTileModel]> week-model <=> WeatherAdapter.week-model;
+
+    GroupBox {
+        title: root.tile;
+
+        HorizontalLayout {  
+            spacing: 1px; 
+
+            Tile {
+                value: current-temperature;
+                text: current-day;
+                sub-text: current-weather-desciption;
+                icon: current-temperature-icon;
+            }
+
+            BarTiles {
+                model: week-model;
+            }
+        }
     }
 }
