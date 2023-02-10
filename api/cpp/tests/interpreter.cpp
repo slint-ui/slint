@@ -292,7 +292,7 @@ SCENARIO("Component Compiler")
 
     SECTION("Compile from source")
     {
-        auto result = compiler.build_from_source("export Dummy := Rectangle {}", "");
+        auto result = compiler.build_from_source("export component Dummy {}", "");
         REQUIRE(result.has_value());
     }
 
@@ -320,7 +320,7 @@ SCENARIO("Component Definition Properties")
 
     ComponentCompiler compiler;
     auto comp_def = *compiler.build_from_source(
-            "export Dummy := Rectangle { property <string> test; callback dummy; }", "");
+            "export component Dummy { in property <string> test; callback dummy; }", "");
     auto properties = comp_def.properties();
     REQUIRE(properties.size() == 1);
     REQUIRE(properties[0].property_name == "test");
@@ -338,7 +338,7 @@ SCENARIO("Component Definition Properties / Two-way bindings")
 
     ComponentCompiler compiler;
     auto comp_def = *compiler.build_from_source(
-            "export Dummy := Rectangle { property <string> test <=> sub_object.test; "
+            "export component Dummy { in-out property <string> test <=> sub_object.test; "
             "    sub_object := Rectangle { property <string> test; }"
             "}",
             "");
@@ -358,7 +358,7 @@ SCENARIO("Invoke callback")
     SECTION("valid")
     {
         auto result = compiler.build_from_source(
-                "export Dummy := Rectangle { callback some_callback(string, int) -> string; }", "");
+                "export component Dummy  { callback some_callback(string, int) -> string; }", "");
         REQUIRE(result.has_value());
         auto instance = result->create();
         std::string local_string = "_string_on_the_stack_";
@@ -377,7 +377,7 @@ SCENARIO("Invoke callback")
     SECTION("invalid")
     {
         auto result = compiler.build_from_source(
-                "export Dummy := Rectangle { callback foo(string, int) -> string; }", "");
+                "export component Dummy { callback foo(string, int) -> string; }", "");
         REQUIRE(result.has_value());
         auto instance = result->create();
         REQUIRE(!instance->set_callback("bar", [](auto) { return Value(); }));
@@ -395,7 +395,7 @@ SCENARIO("Array between .slint and C++")
     ComponentCompiler compiler;
 
     auto result = compiler.build_from_source(
-            "export Dummy := Rectangle { property <[int]> array: [1, 2, 3]; }", "");
+            "export component Dummy { in-out property <[int]> array: [1, 2, 3]; }", "");
     REQUIRE(result.has_value());
     auto instance = result->create();
 
@@ -430,10 +430,10 @@ SCENARIO("Angle between .slint and C++")
 
     ComponentCompiler compiler;
 
-    auto result =
-            compiler.build_from_source("export Dummy := Rectangle { property <angle> the_angle: "
-                                       "0.25turn;  property <bool> test: the_angle == 0.5turn; }",
-                                       "");
+    auto result = compiler.build_from_source(
+            "export component Dummy { in-out property <angle> the_angle: "
+            "0.25turn;  out property <bool> test: the_angle == 0.5turn; }",
+            "");
     REQUIRE(result.has_value());
     auto instance = result->create();
 
@@ -462,7 +462,7 @@ SCENARIO("Component Definition Name")
     using namespace slint;
 
     ComponentCompiler compiler;
-    auto comp_def = *compiler.build_from_source("export IHaveAName := Rectangle { }", "");
+    auto comp_def = *compiler.build_from_source("export component IHaveAName { }", "");
     REQUIRE(comp_def.name() == "IHaveAName");
 }
 
@@ -473,9 +473,9 @@ SCENARIO("Send key events")
 
     ComponentCompiler compiler;
     auto comp_def = compiler.build_from_source(R"(
-        export Dummy := Rectangle {
+        export component Dummy {
             forward-focus: scope;
-            property <string> result;
+            out property <string> result;
             scope := FocusScope {
                 key-pressed(event) => {
                     if (event.text != Key.Shift && event.text != Key.Control) {
@@ -502,13 +502,13 @@ SCENARIO("Global properties")
 
     auto result = compiler.build_from_source(
             R"(
-        export global The-Global := {
-            property <string> the-property: "€€€";
-            callback to_uppercase(string)->string;
+        export global The-Global {
+            in-out property <string> the-property: "€€€";
+            pure callback to_uppercase(string)->string;
             public function ff() -> string { return the-property; }
         }
-        export Dummy := Rectangle {
-            property <string> result: The-Global.to_uppercase("abc");
+        export component Dummy {
+            out property <string> result: The-Global.to_uppercase("abc");
         }
     )",
             "");
