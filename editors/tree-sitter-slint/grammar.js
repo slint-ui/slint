@@ -20,7 +20,7 @@ module.exports = grammar({
     ],
 
     rules: {
-        document: ($) => repeat($._definition),
+        sourcefile: ($) => repeat($._definition),
 
         _definition: ($) =>
             choice(
