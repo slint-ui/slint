@@ -20,9 +20,7 @@
    otherwise it is assumed the native item don't write to that property.
  */
 
-import { _ } from ""; // just to silence many errors in the LSP
-
-Empty := _ {
+component Empty {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -32,12 +30,12 @@ Empty := _ {
 
 }
 
-Rectangle := Empty {
+component Rectangle inherits Empty {
     in property <brush> background;
     in property <brush> color <=> background;
 }
 
-BorderRectangle := Rectangle {
+component BorderRectangle inherits Rectangle {
     in property <length> border-width;
     in property <length> border-radius;
     in property <brush> border-color;
@@ -46,14 +44,14 @@ BorderRectangle := Rectangle {
 
 export { BorderRectangle as Rectangle }
 
-ImageItem := Empty {
+component ImageItem inherits Empty {
     in property <image> source;
     in property <ImageFit> image-fit;
     in property <ImageRendering> image-rendering;
     in property <brush> colorize;
 }
 
-export ClippedImage := ImageItem {
+export component ClippedImage inherits ImageItem {
     in property <int> source-clip-x;
     in property <int> source-clip-y;
     in property <int> source-clip-width;
@@ -63,7 +61,7 @@ export ClippedImage := ImageItem {
 
 export { ClippedImage as Image }
 
-export Rotate := Empty {
+export component Rotate inherits Empty {
     in property <angle> rotation-angle;
     in property <length> rotation-origin-x;
     in property <length> rotation-origin-y;
@@ -71,7 +69,7 @@ export Rotate := Empty {
     //-is_internal
 }
 
-export Text := Empty {
+export component Text inherits Empty {
     in property <string> text;
     in property <string> font-family;
     in property <length> font-size;
@@ -86,13 +84,13 @@ export Text := Empty {
 }
 
 
-export struct PointerEvent := {
+export struct PointerEvent {
     //-name:slint::private_api::PointerEvent
     button: PointerEventButton,
     kind: PointerEventKind,
 }
 
-export TouchArea := _ {
+export component TouchArea {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -111,7 +109,7 @@ export TouchArea := _ {
     //-default_size_binding:expands_to_parent_geometry
 }
 
-export struct KeyboardModifiers := {
+export struct KeyboardModifiers {
     //-name:slint::private_api::KeyboardModifiers
     alt: bool,
     control: bool,
@@ -119,13 +117,13 @@ export struct KeyboardModifiers := {
     meta: bool,
 }
 
-export struct KeyEvent := {
+export struct KeyEvent {
     //-name:slint::private_api::KeyEvent
     text: string,
     modifiers: KeyboardModifiers,
 }
 
-export FocusScope := _ {
+export component FocusScope {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -138,7 +136,7 @@ export FocusScope := _ {
     //-accepts_focus
 }
 
-export Flickable := Empty {
+export component Flickable inherits Empty {
                 // These properties are actually going to be forwarded to the viewport by the
                 // code generator
     in property <length> viewport-height;
@@ -149,7 +147,7 @@ export Flickable := Empty {
     //-default_size_binding:expands_to_parent_geometry
 }
 
-WindowItem := _ {
+component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
     in property <brush> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
@@ -162,9 +160,9 @@ WindowItem := _ {
     in property <image> icon;
 }
 
-export Window := WindowItem {}
+export component Window inherits WindowItem {}
 
-export BoxShadow := Empty {
+export component BoxShadow inherits Empty {
     in property <length> border_radius;
     in property <length> offset_x;
     in property <length> offset_y;
@@ -174,13 +172,13 @@ export BoxShadow := Empty {
     //-is_internal
 }
 
-export struct Point := {
+export struct Point {
     //-name:slint::private_api::Point
     x: length,
     y: length,
 }
 
-export TextInput := _ {
+export component TextInput {
     in-out property <string> text;
     in property <string> font-family;
     in property <length> font-size;
@@ -214,7 +212,7 @@ export TextInput := _ {
     //-accepts_focus
 }
 
-export Clip := _ {
+export component Clip {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -226,7 +224,7 @@ export Clip := _ {
     //-is_internal
 }
 
-export Opacity := _ {
+export component Opacity {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -236,35 +234,35 @@ export Opacity := _ {
     //-is_internal
 }
 
-export Layer := Empty {
+export component Layer inherits Empty {
     in property <bool> cache-rendering-hint;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
 
-Row := _ {
+component Row {
     //-is_non_item_type
 }
 
 // Note: layouts are not NativeClass, but this is lowered in lower_layout
-export GridLayout := _ {
+export component GridLayout {
     in property <length> spacing;
 
     // Additional accepted child
     Row { }
 }
 
-export VerticalLayout := _ {
+export component VerticalLayout {
     in property <length> spacing;
     in property <LayoutAlignment> alignment;
 }
 
-export HorizontalLayout := _ {
+export component HorizontalLayout {
     in property <length> spacing;
     in property <LayoutAlignment> alignment;
 }
 
-MoveTo := _ {
+component MoveTo {
     in property <float> x;
     in property <float> y;
 
@@ -273,7 +271,7 @@ MoveTo := _ {
     //-is_non_item_type
 }
 
-LineTo := _ {
+component LineTo {
     in property <float> x;
     in property <float> y;
 
@@ -282,7 +280,7 @@ LineTo := _ {
     //-is_non_item_type
 }
 
-ArcTo := _ {
+component ArcTo {
     in property <float> x;
     in property <float> y;
     in property <float> radius-x;
@@ -296,7 +294,7 @@ ArcTo := _ {
     //-is_non_item_type
 }
 
-CubicTo := _ {
+component CubicTo {
     in property <float> control-1-x;
     in property <float> control-1-y;
     in property <float> control-2-x;
@@ -309,7 +307,7 @@ CubicTo := _ {
     //-is_non_item_type
 }
 
-QuadraticTo := _ {
+component QuadraticTo {
     in property <float> control-x;
     in property <float> control-y;
     in property <float> x;
@@ -320,14 +318,14 @@ QuadraticTo := _ {
     //-is_non_item_type
 }
 
-Close := _ {
+component Close {
     //-rust_type_constructor:slint::re_exports::PathElement::Close
     //-cpp_type:slint::private_api::PathClose
     //-is_non_item_type
     //-is_non_item_type
 }
 
-export Path := _ {
+export component Path {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -354,12 +352,12 @@ export Path := _ {
     //-default_size_binding:expands_to_parent_geometry
 }
 
-Tab := _ {
+component Tab {
     in property <string> title;
 }
 
 // Note: not a native class, handled in the lower_tabs pass
-export TabWidget := _ {
+export component TabWidget {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -374,7 +372,7 @@ export TabWidget := _ {
 }
 
 // Note: not a native class, handled in the lower_popups pass
-export PopupWindow := _ {
+export component PopupWindow {
     //property <length> x;
     //property <length> y;
     in property <length> width;
@@ -386,9 +384,9 @@ export PopupWindow := _ {
     //show() is hardcoded in typeregister.rs
 }
 
-export Dialog := WindowItem {}
+export component Dialog inherits WindowItem {}
 
-PropertyAnimation := _ {
+component PropertyAnimation {
     in property <duration> delay;
     in property <duration> duration;
     in property <easing> easing;
@@ -396,12 +394,12 @@ PropertyAnimation := _ {
     //-is_non_item_type
 }
 
-export struct StandardListViewItem := {
+export struct StandardListViewItem {
     //-name:slint::StandardListViewItem
     text: string,
 }
 
-export struct TableColumn := {
+export struct TableColumn {
     //-name:slint::private_api::TableColumn
     title: string,
     min-width: length,
@@ -410,7 +408,7 @@ export struct TableColumn := {
     width: length,
 }
 
-export struct StateInfo := {
+export struct StateInfo {
     //-name:slint::private_api::StateInfo
     current_state: int,
     previous_state: int,
@@ -418,7 +416,7 @@ export struct StateInfo := {
     //-is_internal
 }
 
-export NativeButton := _ {
+export component NativeButton {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -436,7 +434,7 @@ export NativeButton := _ {
     //-is_internal
 }
 
-export NativeCheckBox := _ {
+export component NativeCheckBox {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -449,7 +447,7 @@ export NativeCheckBox := _ {
     //-is_internal
 }
 
-export NativeSpinBox := _ {
+export component NativeSpinBox {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -462,7 +460,7 @@ export NativeSpinBox := _ {
     //-is_internal
 }
 
-export NativeSlider := _ {
+export component NativeSlider {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -475,7 +473,7 @@ export NativeSlider := _ {
     //-is_internal
 }
 
-export NativeGroupBox := _ {
+export component NativeGroupBox {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -490,7 +488,7 @@ export NativeGroupBox := _ {
     //-is_internal
 }
 
-export NativeLineEdit := _ {
+export component NativeLineEdit {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -504,7 +502,7 @@ export NativeLineEdit := _ {
     //-is_internal
 }
 
-export NativeScrollView := _ {
+export component NativeScrollView {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -525,7 +523,7 @@ export NativeScrollView := _ {
     //-is_internal
 }
 
-export NativeStandardListViewItem := _ {
+export component NativeStandardListViewItem {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -537,7 +535,7 @@ export NativeStandardListViewItem := _ {
     //-is_internal
 }
 
-export NativeTableHeaderSection := _ {
+export component NativeTableHeaderSection {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -548,7 +546,7 @@ export NativeTableHeaderSection := _ {
     //-is_internal
 }
 
-export NativeComboBox := _ {
+export component NativeComboBox {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -560,7 +558,7 @@ export NativeComboBox := _ {
     //-is_internal
 }
 
-export NativeComboBoxPopup := _ {
+export component NativeComboBoxPopup {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -568,7 +566,7 @@ export NativeComboBoxPopup := _ {
     //-is_internal
 }
 
-export NativeTabWidget := _ {
+export component NativeTabWidget {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -593,7 +591,7 @@ export NativeTabWidget := _ {
     //-is_internal
 }
 
-export NativeTab := _ {
+export component NativeTab {
     in property <length> x;
     in property <length> y;
     in property <length> width;
@@ -609,7 +607,7 @@ export NativeTab := _ {
     //-is_internal
 }
 
-export global NativeStyleMetrics := {
+export global NativeStyleMetrics {
     out property <length> layout-spacing;
     out property <length> layout-padding;
     out property <length> text-cursor-width;
