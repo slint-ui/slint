@@ -71,9 +71,14 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
         return false;
     }
     if is_global {
-        // ignore the `:=` (compatibility)
-        p.test(SyntaxKind::ColonEqual);
+        if p.peek().kind() == SyntaxKind::ColonEqual {
+            p.warning("':=' to declare a global is deprecated. Remove the ':='");
+            p.consume();
+        }
     } else if !is_new_component {
+        if p.peek().kind() == SyntaxKind::ColonEqual {
+            p.warning("':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info");
+        }
         if !p.expect(SyntaxKind::ColonEqual) {
             drop(p.start_node(SyntaxKind::Element));
             return false;

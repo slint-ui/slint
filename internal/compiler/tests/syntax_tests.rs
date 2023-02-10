@@ -152,6 +152,9 @@ fn process_diagnostics(
         }
     }
 
+    // Ignore deprecated warning about old syntax, because our tests still use the old syntax a lot
+    diags.retain(|d| !(d.message().contains("':='") && d.message().contains("deprecated")));
+
     if !diags.is_empty() {
         println!("{:?}: Unexpected errors/warnings: {:#?}", path, diags);
 
