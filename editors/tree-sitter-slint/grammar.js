@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore mult prec
+
 module.exports = grammar({
     name: "slint",
 
