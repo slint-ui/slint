@@ -23,6 +23,9 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+ - The TextEdit and LineEdit now correctly handle double click and tripple click to select words or lines,
+   as well as support for the "primary" clipboard on X11 and wayland (select to copy, and middle click to paste)
+
 ### Fixed
 
  - Fixed compilation error in rust generated code if user defined struct have the same name as
