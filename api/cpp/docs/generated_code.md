@@ -1,39 +1,47 @@
 # Generated code
 
 The Slint compiler called by the build system will generate a header file for the root `.slint`
-file. This header file will contain a `class` with the same name as the component.
+file. This header file will contain a `class` with the same name as the root
+component.
 
 This class will have the following public member functions:
 
 * A `create` constructor function and a destructor.
-* A `show` function, which will show the component on the screen. Note that in order to render
-  and react to user input, it's still necessary to spin the event loop, by calling {cpp:func}`slint::run_event_loop()`
-  or using the convenience `fun` function in this class.
+* A `show` function, which will show the component on the screen.
+  You still need to spin the event loop by {cpp:func}`slint::run_event_loop()`
+  or using the convenience `run` function in this class to render and react to
+  user input!
 * A `hide` function, which de-registers the component from the windowing system.
-* A `window` function that provides access to the {cpp:class}`slint::Window`, allow for further customization
-  towards the windowing system.
-* A `run` convenience function, which will show the component and starts the event loop.
-* for each properties:
+* A `window` function that provides access to the {cpp:class}`slint::Window`,
+  to allow for further customization towards the windowing system.
+* A `run` convenience function, which will show the component and starts the
+  event loop.
+* For each property:
   * A getter `get_<property_name>` returning the property type.
-  * A setter `set_<property_name>` taking the new value of the property by const reference
-* for each callbacks:
+  * A setter `set_<property_name>` taking the new value of the property by
+    const reference
+* For each callback:
   * `invoke_<callback_name>` function which takes the callback argument as parameter and call the callback.
   * `on_<callback_name>` function which takes a functor as an argument and sets the callback handler
      for this callback. the functor must accept the type parameter of the callback
-* A `global` function, to provide access to any exported global singletons.
+* A `global` function to access exported global singletons.
 
-The class is instantiated with the `create` function, which returns the type wrapped in {cpp:class}`slint::ComponentHandle`.
-This is a smart pointer that owns the actual instance and keeps it alive as long as at least one {cpp:class}`slint::ComponentHandle`
-is in scope, similar to `std::shared_ptr<T>`.
+The `create` function creates a new instance of the component, which is wrapped
+in {cpp:class}`slint::ComponentHandle`. This is a smart pointer that owns the
+actual instance and keeps it alive as long as at least one
+{cpp:class}`slint::ComponentHandle` is in scope, similar to `std::shared_ptr<T>`.
 
-For more complex UIs it is common to supply data in the form of an abstract data model, that is used with
-[`for` - `in`](markdown/langref.md#repetition) repetitions or [`ListView`](markdown/widgets.md#listview) elements in the `.slint` language.
-All models in C++ are sub-classes of the {cpp:class}`slint::Model` and you can sub-class it yourself. For convenience,
-the {cpp:class}`slint::VectorModel` provides an implementation that is backed by a `std::vector<T>`.
+For more complex user interfaces it's common to supply data in the form of an
+abstract data model, that is used with [`for` - `in`](../slint/repetition.html)
+repetitions or [`ListView`](../slint/widgets.md#listview) elements in the
+`.slint` language. All models in C++ are sub-classes of the
+{cpp:class}`slint::Model` and you can sub-class it yourself. For convenience,
+the {cpp:class}`slint::VectorModel` provides an implementation that's backed
+by a `std::vector<T>`.
 
 ## Example
 
-Let's assume we have this code in our `.slint` file
+Let's assume we've this code in our `.slint` file:
 
 ```slint,no-preview
 SampleComponent := Window {
@@ -44,7 +52,7 @@ SampleComponent := Window {
 }
 ```
 
-This will generate a header with the following contents (edited for documentation purpose)
+This generates a header with the following contents (edited for documentation purpose)
 
 ```cpp
 #include <array>
@@ -98,10 +106,11 @@ private:
 
 ## Global Singletons
 
-In `.slint` files it is possible to declare [singletons that are globally available](markdown/langref.md#global-singletons).
-You can access them from to your C++ code by exporting them and using the `global()` getter function in the
-C++ class generated for your entry component. Each global singleton creates a class that has getter/setter functions
-for properties and callbacks, similar to API that's created for your `.slint` component, as demonstrated in the previous section.
+You can declare [globally available singletons](../slint/globals.html) in your
+`.slint` files. If exported, these singletons are available via the
+`global()` getter function on the generated C++ class. Each global singleton
+maps to a class iwith getter/setter functions for properties and callbacks,
+similar to API that's created for your `.slint` component.
 
 For example the following `.slint` markup defines a global `Logic` singleton that's also exported:
 
@@ -111,8 +120,8 @@ export global Logic := {
 }
 ```
 
-If this were used together with the `SampleComponent` from the previous section, then you can access it
-like this:
+Assuming this global is used together with the `SampleComponent` from the
+previous section, you can access `Logic` like this:
 
 ```cpp
     auto app = SampleComponent::create();

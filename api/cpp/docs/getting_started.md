@@ -1,14 +1,18 @@
 # Getting Started
 
-Once Slint is built, you can use it in your CMake application or library target in two steps:
+Once Slint is built, you can use it in your CMake application or library
+target in two steps:
 
-1. Associate the `.slint` files that you'd like to use by calling the `slint_target_sources` cmake command. The first parameter is
-   your application (or library) CMake target, and the parameters following are the names of the `.slint` files. This will result in the
-   `.slint` files to be compiled into C++ source code.
-2. The generated C++ source code also needs the Slint run-time library. This dependency is satisfied by linking `Slint::Slint`
-   into your target with the `target_link_libraries` command.
+1. Associate the `.slint` files that you'd like to use by calling the
+   `slint_target_sources` cmake command. The first parameter is
+   your application (or library) build target, and the parameters following are
+   the names of the `.slint` files you want to include. This will compile
+   the `.slint` files to C++ source code and included that into your
+   built target.
+2. The generated C++ source code needs the Slint run-time library. Use
+   `target_link_libraries` to link your build target to `Slint::Slint`.
 
-A typical example looks like this:
+A minimal CMake `CMakeLists.txt` file looks like this:
 
 ```cmake
 cmake_minimum_required(VERSION 3.19)
@@ -53,7 +57,7 @@ export component HelloWorld inherits Window {
 }
 ```
 
-then you can use the following code in you `main` function to show the [`Window`](markdown/builtin_elements.md#window)
+then you can use the following code in you `main` function to show the [`Window`](../slint/builtin_elements.html#window)
 and change the text:
 
 ```cpp
@@ -70,16 +74,20 @@ int main(int argc, char **argv)
 ```
 
 This works because the Slint compiler translated `my_application_ui.slint` to C++ code, in the `my_application_ui.h`
-header file. That generated code has a C++ class that corresponds to the `HelloWorld` element and has API to create
-the ui, read or write properties or set callbacks. You can learn more about how this API looks like in general in the
+header file. That generated code contains a C++ class that corresponds to the `HelloWorld` element and has API to create
+the UI, read or write properties, and set callbacks. You can learn more about how this API looks like in general in the
 [](generated_code.md) section.
 
 ## Tutorial
 
-For an in-depth walk-through, you may be interested in reading our walk-through <a href="../tutorial/cpp">Slint Memory Game Tutorial Tutorial</a>.
-It will guide you through the `.slint` mark-up language and the C++ API by building a little memory game.
+For an in-depth walk-through, read our <a href="../tutorial/cpp">Slint Memory Game Tutorial</a>.
+It will guide you through the `.slint` mark-up language and the C++ API by building a simple memory
+game.
 
 ## Template
 
 You can clone the [Template Repository](https://github.com/slint-ui/slint-cpp-template) repository with
-the code of a minimal C++ application using Slint that can be used as a starting point to your program.
+the code of a minimal C++ application using Slint. It provides a convenient starting point to a new program.
+
+Of course you can also read on: We will cover some recipes to handle common
+use-cases next.

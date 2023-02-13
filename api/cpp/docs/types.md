@@ -24,10 +24,11 @@ The follow table summarizes the entire mapping:
 ```
 ## Structures
 
-For user-defined structures in the .slint code, a `class` of the same name is generated with data member
-in lexicographic order.
+The Slint compiler generates a `class` with all data members in
+lexicographic order for any user-defined, exported `struct` in the `.slint`
+code.
 
-For example, if you have this structure in the .slint file
+For example, this `struct` in a `.slint` file
 
 ```slint,ignore
 export struct MyStruct := {
@@ -36,7 +37,7 @@ export struct MyStruct := {
 }
 ```
 
-It would result in the following type being generated:
+will generate the following type in C++:
 
 ```cpp
 class MyStruct {
