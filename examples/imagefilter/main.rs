@@ -10,13 +10,13 @@ use wasm_bindgen::prelude::*;
 slint::slint! {
     import { Slider, HorizontalBox, VerticalBox, GroupBox, ComboBox } from "std-widgets.slint";
 
-    export MainWindow := Window {
+    export component MainWindow inherits Window {
         title: "Slint Image Filter Integration Example";
         preferred-width: 800px;
         preferred-height: 600px;
 
-        property original-image <=> original.source;
-        property filters <=> filter-combo.model;
+        in property original-image <=> original.source;
+        in property filters <=> filter-combo.model;
         pure callback filter-image(int) -> image;
 
         HorizontalBox {

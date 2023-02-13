@@ -113,12 +113,13 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
             std::string forwarded_property_name = properties_prefix;
             forwarded_property_name.append(property.name);
 
-            main_content_properties.append(fmt::format("    property <{0}> {1} <=> {2}.{3};\n",
-                                                       property.type_name, forwarded_property_name,
-                                                       widget_name, property.name));
+            main_content_properties.append(
+                    fmt::format("    in-out property <{0}> {1} <=> {2}.{3};\n", property.type_name,
+                                forwarded_property_name, widget_name, property.name));
 
-            exposed_properties.append(fmt::format("    property <{0}> {1} <=> main_content.{1};\n",
-                                                  property.type_name, forwarded_property_name));
+            exposed_properties.append(
+                    fmt::format("    in-out property <{0}> {1} <=> main_content.{1};\n",
+                                property.type_name, forwarded_property_name));
         }
     }
 
@@ -139,7 +140,7 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
             std::string forwarded_property_name = properties_prefix;
             forwarded_property_name.append(property.name);
 
-            exposed_properties.append(fmt::format("    property <{0}> {1} <=> {2}.{3};\n",
+            exposed_properties.append(fmt::format("    in-out property <{0}> {1} <=> {2}.{3};\n",
                                                   property.type_name, forwarded_property_name,
                                                   widget_name, property.name));
         }
@@ -150,7 +151,7 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
 
 {0}
 
-MainContent := VerticalLayout {{
+component MainContent inherits VerticalLayout {{
 {4}
 
     spacing: 24px;
@@ -169,7 +170,7 @@ MainContent := VerticalLayout {{
     }}
 }}
 
-MainWindow := Window {{
+export component MainWindow inherits Window {{
     title: "IOT dashboard";
 
 {3}

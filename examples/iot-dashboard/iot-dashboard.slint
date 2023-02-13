@@ -403,7 +403,7 @@ component BoxWithButtons inherits Box {
 }
 
 export component IndoorTemperature inherits BoxWithButtons {
-    out property <int> temperature: 24;
+    in-out property <int> temperature: 24;
     title-: "Indoor Temperature";
     iconFile: @image-url("images/indoor-temperature.png");
     value: (root.temperature < 0 ? "" : "+") + root.temperature;
@@ -411,7 +411,7 @@ export component IndoorTemperature inherits BoxWithButtons {
     changed(delta) => { root.temperature += delta; }
 }
 export component Humidity inherits BoxWithButtons {
-    out property <int> humidity-percent : 30;
+    in-out property <int> humidity-percent : 30;
     title-: "Humidity";
     iconFile: @image-url("images/humidity.png");
     value: root.humidity-percent + "%";
