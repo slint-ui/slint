@@ -16,7 +16,10 @@ export component Tile {
     BarBackground {}
 
     VerticalLayout { 
-        padding: 20px;
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 10px;
+        padding-bottom: 10px;
         spacing: 11px;
         alignment: center;
 
@@ -36,7 +39,6 @@ export component Tile {
         }
 
         VerticalLayout { 
-
             i-text := Text {
                 horizontal-alignment: center;
                 color: Theme.palette.white;
@@ -51,6 +53,5 @@ export component Tile {
                 font-weight: Theme.typo.desciption-light.weight;
             }
         }
-    }
-    
+    }  
 }
