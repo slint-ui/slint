@@ -6,12 +6,25 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::{ElementType, NativeClass, Type};
 use crate::object_tree::{self, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
-pub fn handle_visible(component: &Rc<Component>, type_register: &TypeRegister) {
+pub fn handle_visible(
+    component: &Rc<Component>,
+    type_register: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) {
+    if let Some(b) = component.root_element.borrow().bindings.get("visible") {
+        diag.push_warning(
+            "The visible property cannot be used on the root element, it will not be applied"
+                .into(),
+            &*b.borrow(),
+        );
+    }
+
     let native_clip =
         type_register.lookup_element("Clip").unwrap().as_builtin().native_class.clone();
 
