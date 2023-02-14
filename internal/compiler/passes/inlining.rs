@@ -35,7 +35,10 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
                 if match inline_selection {
                     InlineSelection::InlineAllComponents => true,
                     InlineSelection::InlineOnlyRequiredComponents => {
-                        component_requires_inlining(&c) || element_require_inlining(elem)
+                        component_requires_inlining(&c)
+                            || element_require_inlining(elem)
+                            // We always inline the root in case the element that instantiate this component needs full inlining
+                            || Rc::ptr_eq(elem, &component.root_element)
                     }
                 } {
                     inline_element(elem, &c, component);
