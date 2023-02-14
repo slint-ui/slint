@@ -18,6 +18,10 @@ MaybeVisible := Rectangle {
     }
 }
 
+Invisible := TouchArea {
+    visible: false;
+}
+
 TestCase := Rectangle {
     height: 100phx;
     width: 100phx;
@@ -36,6 +40,8 @@ TestCase := Rectangle {
         x: 30phx;
         y: 30phx;
     }
+
+    Invisible {  }
 
     test_rect := Rectangle { }
     property <bool> test: test_rect.visible && !el2.visible && el1.visible;
