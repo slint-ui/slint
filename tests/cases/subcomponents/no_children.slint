@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// Verify that two repeaters (if and for) are placed correctly in the item tree
+// and matched in the dyn_visit closure.
+// The two repeaters ended up being swapped and sub-component's repeater was
+// visisted when the Text's child's repeater should have been, resulting in
+// wrong rendering order. This is tested by clicking into the left half and
+// verifying that it did not hit the sub-component's repeater.
+
+component A inherits Rectangle {
+}
+component B inherits A {
+}
+
+
+export component TestCase  {
+    width: 300phx;
+    height: 300phx;
+    out property <bool> clicked;
+    B {
+        TouchArea { clicked => {root.clicked = true;} }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert!(!instance.get_clicked());
+slint_testing::send_mouse_click(&instance, 20., 5.);
+assert!(instance.get_clicked());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_clicked());
+slint_testing::send_mouse_click(&instance, 20., 5.);
+assert(instance.get_clicked());
+```
+
+
+```js
+var instance = new slint.TestCase({});
+assert(!instance.clicked);
+instance.send_mouse_click(20., 5.);
+assert(instance.clicked);
+```
+
+
+*/
