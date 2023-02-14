@@ -1,0 +1,104 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+
+component Tab {
+    private property <angle> angle: Math.atan(self.height / 2 / self.width);
+    callback clicked <=> i-touch-area.clicked;
+
+    in property <string> title;
+    in property <bool> selected;
+
+    preferred-width: 200px;
+   
+    GridLayout {  
+        padding: 25px;
+
+        i-title := Text {  
+            text: title;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            font-size: Theme.typo.header-item-light.size;
+            font-weight: Theme.typo.header-item-light.weight;
+
+            animate color { duration: Theme.durations.medium; }
+        }
+    }
+
+    i-gradient := Rectangle {  
+        opacity: 0;
+        Rectangle { 
+            y: 0;
+            width: 50%;
+            height: 50%;
+            x: 0;
+            background: @linear-gradient(angle, rgba(222, 251, 58, 0) , rgba(222, 251, 58, 0.2));
+        }
+        Rectangle { 
+           
+            y: 0;
+            width: 50%;
+            height: 50%;
+            x: self.width;
+            background: @linear-gradient(-angle, rgba(222, 251, 58, 0) , rgba(222, 251, 58, 0.2));
+        }
+
+        animate opacity { duration: Theme.durations.medium; }
+    }
+
+    i-inidator := Rectangle {  
+        width: 0;
+        y: 0;
+        height: 1px;
+        background: Theme.palette.limon-green;
+        visible: selected;
+
+        animate width { duration: Theme.durations.medium; }
+    }
+
+    i-touch-area := TouchArea {}
+
+    states [  
+        selected when selected : {
+            i-inidator.width: root.width;
+            i-title.color: Theme.palette.limon-green;
+            i-gradient.opacity: 1.0;
+        }
+    ]
+}
+
+export component TabWidget {
+    in property <[string]> tabs;
+    in-out property <int> selected-tab;
+
+    vertical-stretch: 1;
+
+    VerticalLayout {  
+        Rectangle { 
+            vertical-stretch: 1; 
+
+            @children
+        }
+
+        Rectangle {  
+            vertical-stretch: 0; 
+            background: Theme.palette.tab-gradient;
+
+            HorizontalLayout { 
+                alignment: center;
+                min-height: 80px;
+                vertical-stretch: 0;
+
+                for tab[index] in tabs : Tab {
+                    title: tab;
+                    selected: index == selected-tab;
+
+                    clicked => {  
+                        selected-tab = index;
+                    }
+                }
+            }
+        }
+    }
+}

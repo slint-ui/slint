@@ -14,6 +14,7 @@ component ValueDelegate {
     
     HorizontalLayout {  
         spacing: 15px;
+        
         Rectangle {
             min_width: 1px;
             background: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.limon-green;
@@ -75,6 +76,7 @@ export component ValueDisplay {
     in property <[Value]> model;
     in property <bool> active;
     in property <bool> transparent-background;
+    in property <bool> vertical;
 
     min-height: 70px;
 
@@ -86,7 +88,7 @@ export component ValueDisplay {
         background: alternative-colors ? Theme.palette.slint-blue-gradient : Theme.palette.limon-green-gradient;
     }
 
-    if(model.length > 0) : HorizontalLayout {  
+    if(model.length > 0 && !vertical) : HorizontalLayout {  
         x: 15px;
         width: parent.width - 30px;
         height: 100%;
@@ -96,6 +98,17 @@ export component ValueDisplay {
         for value in root.model : ValueDelegate {
             width: parent.width / model.length;
             horizontal-stretch: 1;
+            alternative-colors: root.alternative-colors;
+            title: value.title;
+            value: value.value;
+            unit: value.unit;
+            active: root.active;
+        }
+    }
+
+    if(model.length > 0 && vertical) : VerticalLayout {
+        for value in root.model : ValueDelegate {
+            vertical-stretch: 1;
             alternative-colors: root.alternative-colors;
             title: value.title;
             value: value.value;

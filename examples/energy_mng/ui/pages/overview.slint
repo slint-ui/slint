@@ -5,7 +5,7 @@ import { Page } from "page.slint";
 import { GroupBox, ValueDisplay, Value } from "../widgets/widgets.slint";
 
 export global OverviewAdapter {
-    in property <string> production-tile: "Production";
+    in property <string> production-title: "Production";
     in property <string> self-consumption-title: "Self-consumption";
     in property <[Value]> production-model: [
         {
@@ -34,7 +34,7 @@ export global OverviewAdapter {
 }
 
 export component Overview inherits Page {
-    in property <string> production-tile <=> OverviewAdapter.production-tile;
+    in property <string> production-title <=> OverviewAdapter.production-title;
     in property <string> self-consumption-title <=>  OverviewAdapter.self-consumption-title;
     in property <[Value]> production-model <=> OverviewAdapter.production-model;
     in property <[Value]> self-consumption-model <=> OverviewAdapter.self-consumption-model;
@@ -46,7 +46,7 @@ export component Overview inherits Page {
         spacing: 12px;
 
         i-production-group := GroupBox {  
-            title: root.production-tile;
+            title: root.production-title;
 
             ValueDisplay {  
                 active: root.active;

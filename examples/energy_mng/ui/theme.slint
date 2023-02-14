@@ -37,6 +37,7 @@ export struct Palette {
     // gradients
     limon-green-gradient: brush,
     limon-green-light-gradient: brush,
+    limon-green-radial-gradient: brush,
     slint-blue-gradient: brush,
     heliotrope-gradient: brush,
     dark-left-gradient: brush,
@@ -48,6 +49,7 @@ export struct Palette {
     inverted-bar-gradient: brush,
     inverted-alternative-bar-gradient: brush,
     bar-background-gradient: brush,
+    tab-gradient: brush,
 }
 
 export struct Spaces {
@@ -71,6 +73,8 @@ export struct Typo {
     label: Font,
     label-light: Font,
     header: Font,
+    header-item: Font,
+    header-item-light: Font,
     value: Font,
     desciption: Font,
     desciption-light: Font,
@@ -114,6 +118,7 @@ export global Theme {
         // gradients
         limon-green-gradient: @linear-gradient(135deg, #defb3a75 0%, #defb3a00 100%),
         limon-green-light-gradient: @linear-gradient(135deg, #DEFB3A 0%, #defb3a33 100%),
+        limon-green-radial-gradient: @radial-gradient(circle, #DEFB3A20 0%, #DEFB3A00 100%),
         slint-blue-gradient: @linear-gradient(135deg, #6c4bff76 0%, #6C4BFF00 100%),
         heliotrope-gradient: @linear-gradient(180deg, #896fff 0%, #39316B 100%),
         dark-left-gradient: @linear-gradient(90deg, #040708 0%, #04070875 50%, #04070800 100%),
@@ -125,6 +130,7 @@ export global Theme {
         inverted-bar-gradient: @linear-gradient(180deg, #6c4bff00 0%, #6C4BFF 100%),
         inverted-alternative-bar-gradient: @linear-gradient(180deg, #CBE60000 0%, #CBE600 100%),
         bar-background-gradient: @linear-gradient(180deg, #896FFF 0%, #896FFF00 100%),
+        tab-gradient: @linear-gradient(180deg, #0026ff21 0%, #0026ff01 100%),
     };
 
     in property <Spaces> spaces: {
@@ -151,6 +157,14 @@ export global Theme {
         header: {
             size: 16px,
             weight: 600
+        },
+        header-item: {
+            size: 18px,
+            weight: 400
+        },
+        header-item-light: {
+            size: 18px,
+            weight: 200
         },
         value: {
             size: 26px,

@@ -5,6 +5,7 @@ import { Theme } from "../theme.slint";
 
 export component GroupBox {
     in property <string> title <=> i-title.text;
+    in property <length> spacing;
 
     VerticalLayout {  
         spacing: Theme.spaces.medium;
@@ -16,7 +17,9 @@ export component GroupBox {
             font-weight: Theme.typo.header.weight;
         }
 
-        HorizontalLayout {  
+        i-layout := HorizontalLayout {  
+            spacing: root.spacing;
+            
             @children
         }    
     }
