@@ -231,9 +231,9 @@ See the [documentation of the `Global` trait](Global) for an example.
 
 extern crate alloc;
 
-#[cfg(not(feature = "compat-0-3-0"))]
+#[cfg(not(feature = "compat-1-0"))]
 compile_error!(
-    "The feature `compat-0-3-0` must be enabled to ensure \
+    "The feature `compat-1-0` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 

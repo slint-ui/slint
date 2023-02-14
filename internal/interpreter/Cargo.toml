@@ -19,15 +19,13 @@ path = "lib.rs"
 
 [features]
 
-default = ["std", "backend-winit", "renderer-winit-femtovg", "backend-qt", "compat-0-3-0"]
+default = ["std", "backend-winit", "renderer-winit-femtovg", "backend-qt", "compat-1-0"]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 0.3.0
+## This feature is required to keep the compatibility with Slint 1.0
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added
-"compat-0-3-0" = []
-# For compatibility with 0.2
-compat-0-2-0 = ["compat-0-3-0"]
+"compat-1-0" = []
 
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
 display-diagnostics = ["i-slint-compiler/display-diagnostics"]

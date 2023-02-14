@@ -35,7 +35,7 @@ default = ["backend-qt", "backend-winit", "renderer-winit-femtovg"]
 
 [dependencies]
 i-slint-core = { version = "=1.0.0", path="../../internal/core" }
-slint-interpreter = { version = "=1.0.0", path = "../../internal/interpreter", default-features = false, features = ["display-diagnostics", "compat-0-3-0"] }
+slint-interpreter = { version = "=1.0.0", path = "../../internal/interpreter", default-features = false, features = ["display-diagnostics", "compat-1-0"] }
 i-slint-backend-selector = { version = "=1.0.0", path="../../internal/backends/selector" }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }

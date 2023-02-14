@@ -67,7 +67,7 @@ rowan = "0.15.5"
 
 # for the preview
 i-slint-core = { version = "=1.0.0", path = "../../internal/core", optional = true }
-slint-interpreter = { version = "=1.0.0", path = "../../internal/interpreter", default-features = false, features = ["compat-0-3-0", "highlight"], optional = true  }
+slint-interpreter = { version = "=1.0.0", path = "../../internal/interpreter", default-features = false, features = ["compat-1-0", "highlight"], optional = true  }
 i-slint-backend-selector = { version = "=1.0.0", path="../../internal/backends/selector", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

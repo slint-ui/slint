@@ -15,7 +15,7 @@ path = "main.rs"
 name = "carousel"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-0-3-0"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-0"] }
 mcu-board-support = { path = "../../mcu-board-support", optional = true }
 
 [build-dependencies]
