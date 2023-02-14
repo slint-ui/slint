@@ -22,7 +22,7 @@ export default defineConfig(({ command, _mode }) => {
             target: "safari14",
         },
         worker: {
-            format: "es",
+            format: "iife",
         },
     };
 

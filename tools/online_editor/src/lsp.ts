@@ -66,7 +66,7 @@ export class LspWaiter {
 
         const worker = new Worker(
             new URL("worker/lsp_worker.ts", import.meta.url),
-            { type: "module" },
+            // { type: "module" }, // Do not force ES modules in web worker!
         );
         this.#lsp_promise = new Promise<Worker>((resolve) => {
             worker.onmessage = (m) => {
