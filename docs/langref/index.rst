@@ -30,11 +30,11 @@ is compiled to native code.
    :maxdepth: 2
    :caption: Slint Language Concepts
 
-   src/concepts.md
-   src/purity.md
-   src/layouting.md
-   src/focus.md
-   src/fonts.md
+   src/concepts/intro.md
+   src/concepts/purity.md
+   src/concepts/layouting.md
+   src/concepts/focus.md
+   src/concepts/fonts.md
 
 .. toctree::
    :maxdepth: 2
