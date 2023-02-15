@@ -31,8 +31,10 @@ is compiled to native code.
    :caption: Slint Language Concepts
 
    src/concepts/intro.md
-   src/concepts/purity.md
+   src/concepts/file.md
    src/concepts/layouting.md
+   src/concepts/container.md
+   src/concepts/purity.md
    src/concepts/focus.md
    src/concepts/fonts.md
 
