@@ -4,6 +4,7 @@
 import { Pagination } from "pagination.slint";
 import { FloatButton } from "float_button.slint";
 import { Theme } from "../theme.slint";
+import { Images } from "../images.slint";
 
 export component Navigation {
     callback pagination-clicked <=> i-pagination.clicked;
@@ -51,7 +52,8 @@ export component Navigation {
     
                     alignment: start;
                     FloatButton {  
-                        icon: @image-url("../assets/arrow-left.svg");
+                        icon: Images.arrow-left;
+                        
                         clicked => {  
                             root.increment();
                         }
@@ -78,7 +80,7 @@ export component Navigation {
     
                     alignment: end;
                     FloatButton {  
-                        icon: @image-url("../assets/arrow-right.svg");
+                        icon: Images.arrow-right;
                        
                         clicked => {  
                             root.decrement();

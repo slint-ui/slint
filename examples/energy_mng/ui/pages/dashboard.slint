@@ -12,10 +12,11 @@ export component ValueTile {
     in property <string> title <=> i-group-box.title;
     in property <[Value]> model <=> i-value-display.model;
     in property <bool> alternative-colors <=> i-value-display.alternative-colors;
+    in property <bool> active;
 
     i-group-box := GroupBox {
         i-value-display := ValueDisplay {  
-            active: true;
+            active: root.active;
         }
     }
 }
@@ -26,13 +27,14 @@ export component BarChartTile {
     in property <[float]> model <=> i-bar-chart.model;
     in property <float> min <=> i-bar-chart.min;
     in property <float> max <=> i-bar-chart.max;
+    in property <bool> active;
  
     i-group-box := GroupBox {  
         i-value-display := ValueDisplay { 
             min-width: 216px;
             horizontal-stretch: 0;
             alternative-colors: true;
-            active: true;
+            active: root.active;
             vertical: true;
         }
 
@@ -47,7 +49,7 @@ export component WeatherTile {
     in property <image> current-temperature-icon <=> i-tile.icon;
     in property <string> current-temperature <=> i-tile.value;
     in property <string> current-day <=> i-tile.text;
-    in property <string> current-weather-desciption <=> i-tile.sub-text;
+    in property <string> current-weather-description <=> i-tile.sub-text;
     in property <[BarTileModel]> week-model <=> i-bar-tiles.model;
 
     i-group-box := GroupBox {  
@@ -92,12 +94,14 @@ export component Dashboard inherits Page {
             ValueTile {
                 title: OverviewAdapter.production-title; 
                 model: OverviewAdapter.production-model;
+                active: root.active;
              }
 
              ValueTile {
                 title: OverviewAdapter.self-consumption-title;
                 model: OverviewAdapter.self-consumption-model;
                 alternative-colors: true;
+                active: root.active;
              }
         }
 
@@ -117,7 +121,7 @@ export component Dashboard inherits Page {
                 current-temperature-icon <=> WeatherAdapter.current-temperature-icon;
                 current-temperature <=> WeatherAdapter.current-temperature;
                 current-day <=> WeatherAdapter.current-day;
-                current-weather-desciption <=> WeatherAdapter.current-weather-desciption;
+                current-weather-description <=> WeatherAdapter.current-weather-description;
                 week-model <=> WeatherAdapter.week-model;
             }
         }
@@ -130,8 +134,8 @@ export component Dashboard inherits Page {
                 min: UsageAdapter.min;
                 max: UsageAdapter.max;
                 value-model: UsageAdapter.overview-model;
+                active: root.active;
             }
         } 
-        
     }
 }

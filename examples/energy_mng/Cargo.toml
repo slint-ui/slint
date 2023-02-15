@@ -17,14 +17,15 @@ name = "energy_mng"
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-0"] }
 mcu-board-support = { path = "../mcu-board-support", optional = true }
+chrono = "0.4.23"
+weer_api = { version = "0.1", optional = true }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
 
 [features]
-default = ["slint/default"]
+default = ["slint/default", "weer_api"]
 simulator = ["mcu-board-support", "slint/renderer-winit-software", "slint/backend-winit", "slint/std"]
-
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default
