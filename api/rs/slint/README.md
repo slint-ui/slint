@@ -63,4 +63,4 @@ cargo run --release --bin printerdemo
 
 ### Minimum Supported Rust Version
 
- This crate's minimum supported `rustc` version is 1.64.
+ This crate's minimum supported `rustc` version is 1.66.

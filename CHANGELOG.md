@@ -5,6 +5,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+ - Minimum Rust version is now 1.66.
  - Deprecated functions and enums were removed
  - `PointerEventButton::None` was renamed `PointerEventButton::Other`
  - In the Rust API, more functions now return Result, and the return value needs to be unwrap()'ed
