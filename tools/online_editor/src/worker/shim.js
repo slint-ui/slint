@@ -10,8 +10,6 @@
 // on a web worker. So we just add one with all the needed values for this to
 // work and make sure it gets imported before its needed...
 
-let assets = new URL("assets/", location.origin);
-
 self.document = {
-    baseURI: assets,
+    baseURI: new URL("./", location),
 };
