@@ -3,8 +3,9 @@
 
 import { Theme } from "theme.slint";
 import { Navigation, MenuButton, Menu, Value } from "widgets/widgets.slint";
-import { Balance, BalanceAdapter, Overview, OverviewAdapter, Usage, UsageAdapter, Weather, WeatherAdapter } from "pages/pages.slint";
-export { OverviewAdapter, UsageAdapter, Value, WeatherAdapter }
+import { Balance, BalanceAdapter, Overview, OverviewAdapter, Usage, UsageAdapter, Weather, WeatherAdapter,
+    SettingsMain, SettingsOverviewAdapter, SettingsAdapter } from "pages/pages.slint";
+export { OverviewAdapter, UsageAdapter, Value, WeatherAdapter, SettingsOverviewAdapter, SettingsAdapter }
 
 export component MainWindow inherits Window {
     title: "EnergyMNG Demo";
@@ -14,7 +15,6 @@ export component MainWindow inherits Window {
 
     i-navigation := Navigation { 
         page-count: 4;
-        current-index: 2;
 
         Overview {
             index: 0;
@@ -35,6 +35,7 @@ export component MainWindow inherits Window {
 
         pagination-clicked => {  
             i-menu.show-button();
+            i-navigation.hide();
         }
 
         clicked => {
@@ -49,5 +50,7 @@ export component MainWindow inherits Window {
         end-y: 9px;
         width: parent.width - 8px;
         height: parent.height - 14px;  
+
+        SettingsMain {}
     }
 }

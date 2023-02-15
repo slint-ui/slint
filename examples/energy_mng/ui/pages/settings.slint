@@ -1,0 +1,330 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+import { Page } from "page.slint";
+import { IconButton, ListView, ScrollView, Item, ItemGroupBox, CheckBox, RadioButton, Switch } from "../widgets/widgets.slint";
+import { Switch } from "../widgets/switch.slint";
+
+export global SettingsAdapter {
+    callback check-radio-option(int /* index */);
+    // fuctions
+    in-out property <bool> fuction-one-checked: true;
+    in-out property <bool> fuction-two-checked;
+    in-out property <bool> fuction-three-checked;
+
+    // radio options
+    in-out property <bool> radio-option-one-checked: true;
+    in-out property <bool> radio-option-two-checked: false;
+
+    // check options
+    in-out property <bool> check-option-one-checked: true;
+    in-out property <bool> check-option-two-checked;
+    in-out property <bool> check-option-three-checked;
+
+    check-radio-option(index) => {
+        if(index == 0) {
+            radio-option-one-checked = true;
+            radio-option-two-checked = false;
+            return;
+        } 
+
+        radio-option-one-checked = false;
+        radio-option-two-checked = true;
+    }
+}
+
+export component Settings inherits Page {
+    callback back <=> i-back-button.clicked;
+    callback check-radio-option <=> SettingsAdapter.check-radio-option;
+
+    // fuctions
+    in-out property <bool> fuction-one-checked <=> SettingsAdapter.fuction-one-checked;
+    in-out property <bool> fuction-two-checked <=> SettingsAdapter.fuction-two-checked;
+    in-out property <bool> fuction-three-checked <=> SettingsAdapter.fuction-three-checked;
+
+    // radio options
+    in-out property <bool> radio-option-one-checked <=> SettingsAdapter.radio-option-one-checked;
+    in-out property <bool> radio-option-two-checked <=> SettingsAdapter.radio-option-two-checked;
+
+    // check options
+    in-out property <bool> check-option-one-checked <=> SettingsAdapter.check-option-one-checked;
+    in-out property <bool> check-option-two-checked <=> SettingsAdapter.check-option-two-checked;
+    in-out property <bool> check-option-three-checked <=> SettingsAdapter.check-option-three-checked;
+
+    padding-left: 0;
+    padding-right: 0;
+
+    VerticalLayout {  
+        padding-left: Theme.spaces.medium;
+        padding-right: Theme.spaces.medium;
+        padding-top: Theme.spaces.medium;
+        padding-bottom: Theme.spaces.large;
+        spacing: Theme.spaces.medium;
+
+        HorizontalLayout {  
+            vertical-stretch: 0;
+            alignment: start;
+
+            i-back-button := IconButton {
+                horizontal-stretch: 0;
+                icon: @image-url("../assets/arrow-left.svg");
+            }
+        }
+
+        // spacer
+        ScrollView {  
+            vertical-stretch: 1;
+
+            VerticalLayout {  
+                alignment: start;
+                spacing: Theme.spaces.medium;
+
+                Item {
+                    text: "Function One";
+
+                    CheckBox {
+                        checked <=> root.fuction-one-checked;
+                    }
+                }
+
+                ItemGroupBox {  
+                    title: "Subtitle";
+ 
+                    Item {
+                        text: "Option One";
+                        has-separator: true;
+
+                        RadioButton {  
+                            checked: root.radio-option-one-checked;
+                            
+                            clicked => {  
+                                root.check-radio-option(0);
+                            }
+                        }
+                    }
+
+                    Item {
+                        text: "Option Two";
+
+                        RadioButton {  
+                            checked: root.radio-option-two-checked;
+
+                            clicked => {  
+                                root.check-radio-option(1);
+                            }
+                        }
+                    }
+                }
+
+                ItemGroupBox {  
+                    title: "Subtitle";
+ 
+                    Item {
+                        text: "Option One";
+                        has-separator: true;
+
+                        CheckBox {
+                            checked <=> root.check-option-one-checked;
+                        }
+                    }
+
+                    Item {
+                        text: "Option Two";
+                        has-separator: true;
+
+                        CheckBox {
+                            checked <=> root.check-option-two-checked;
+                        }
+                    }
+
+                    Item {
+                        text: "Option Three";
+
+                        CheckBox {
+                            checked <=> root.check-option-three-checked;
+                        }
+                    }
+                }
+
+                Item {
+                    text: "Function Two";
+
+                    Switch { 
+                        checked <=> root.fuction-two-checked;
+                    }
+                }
+
+                Item {
+                    text: "Function Three";
+
+                    Switch {  
+                        checked <=> root.fuction-three-checked;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component About inherits Page {
+    callback back <=> i-back-button.clicked;
+
+    padding-left: 0;
+    padding-right: 0;
+
+    VerticalLayout {  
+        padding-left: Theme.spaces.medium;
+        padding-right: Theme.spaces.medium;
+        padding-top: Theme.spaces.medium;
+        padding-bottom: Theme.spaces.large;
+        spacing: Theme.spaces.medium;
+
+        HorizontalLayout {  
+            vertical-stretch: 0;
+            alignment: start;
+
+            i-back-button := IconButton {
+                horizontal-stretch: 0;
+                icon: @image-url("../assets/arrow-left.svg");
+            }
+        }
+
+        Text {  
+            vertical-stretch: 0;
+            horizontal-alignment: center;
+            text: "Developed by";
+            color: Theme.palette.slint-blue-100;
+            font-size: Theme.typo.desciption.size;
+            font-weight: Theme.typo.desciption.weight;
+        }
+
+        Image {  
+            preferred-height: 45px;
+            source: @image-url("../../../../logo/slint-logo-simple-white.svg");
+        }
+
+        // spacer
+        Rectangle { 
+            vertical-stretch: 1;
+        }
+
+        Text {  
+            vertical-stretch: 0;
+            horizontal-alignment: center;
+            text: "Designed by";
+            color: Theme.palette.slint-blue-100;
+            font-size: Theme.typo.desciption.size;
+            font-weight: Theme.typo.desciption.weight;
+        }
+       
+        Text {  
+            vertical-stretch: 0;
+            horizontal-alignment: center;
+            text: "Spyrosoft";
+            color: Theme.palette.white;
+            font-size: Theme.typo.header-item.size;
+            font-weight: Theme.typo.header-item.weight;
+        }
+
+        // Image {  
+        //     preferred-height: 32px;
+        //     source: @image-url("../assets/logo-spyrosoft.svg");
+        // }
+    }
+}
+
+export global SettingsOverviewAdapter {
+    in property <[StandardListViewItem]> model: [
+        { text: "Production & Self-consumption"},
+        { text: "Phases"},
+        { text: "Usage"},
+        { text: "Heater"},
+        { text: "Weather"},
+        { text: "Balance"},
+        { text: "Common"},
+    ];
+    in-out property <int> selected-index;
+}
+
+component SettingsOverview inherits Page {
+    callback show-settings <=> i-settings-button.clicked;
+    callback show-about <=> i-about-button.clicked;
+
+    in property <[StandardListViewItem]> model <=> SettingsOverviewAdapter.model;
+    in-out property <int> selected-index <=> SettingsOverviewAdapter.selected-index;
+
+    padding-left: 0;
+    padding-right: 0;
+
+    VerticalLayout {  
+        padding: Theme.spaces.medium;
+        spacing: Theme.spaces.small;
+
+        HorizontalLayout {  
+            vertical-stretch: 0;
+
+            i-settings-button := IconButton {  
+                icon: @image-url("../assets/settings.svg");
+            }
+
+            // spacer
+            Rectangle {  
+                horizontal-stretch: 1;
+            }
+
+            i-about-button := IconButton { 
+                icon: @image-url("../assets/information.svg");
+            }
+        }
+
+        ListView {  
+            model: root.model;
+            selected-index <=> root.selected-index;
+        }
+    }
+}
+ 
+export component SettingsMain {
+   private property <int> current-index;
+   private property <bool> show-settings;
+
+    SettingsOverview {  
+        index: 0;
+        current-index: root.current-index;
+
+        show-settings => {  
+            show-settings = true;
+            current-index = 1;
+            
+        }
+        show-about => {  
+            show-settings = false;
+            current-index = 1;
+        }
+   }
+
+   About {
+        visible: !show-settings;
+        index: 1;
+        current-index: root.current-index;
+        
+        back => { 
+            back();
+        }
+    }
+
+   Settings {
+        visible: show-settings;
+        index: 1;
+        current-index: root.current-index;
+
+        back => {  
+            back();
+        }
+   }
+
+   function back() {
+        current-index = 0;
+   }
+}

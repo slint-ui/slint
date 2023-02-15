@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { StateLayer } from "../components/state_layer.slint"; 
+import { ScrollView } from "scroll_view.slint"; 
+import { Theme } from "../theme.slint"; 
+import { StateLayer } from "../components/state_layer.slint";
+
+export component Item {
+    in property <string> text <=> i-text.text;
+    in property <bool> has-separator;
+
+    min-height: 40px;
+
+    i-container := Rectangle {
+        background: Theme.palette.dark-deep-blue;
+        border-radius: 4px;
+    }
+
+    HorizontalLayout { 
+        padding-left: Theme.spaces.medium;
+        padding-top: Theme.spaces.medium;
+        padding-bottom: Theme.spaces.medium;
+        padding-right: Theme.spaces.medium;
+        spacing: Theme.spaces.medium;
+
+        i-text := Text {  
+            horizontal-stretch: 1;
+            color: Theme.palette.white;
+            font-size: Theme.typo.desciption.size;
+            font-weight: Theme.typo.desciption.weight;
+            vertical-alignment: center;
+        }
+
+        @children
+    }
+
+    if(has-separator) : Rectangle {  
+        width: parent.width - 2 * Theme.spaces.medium;
+        height: 1px;
+        x: Theme.spaces.medium;
+        y: parent.height - self.height;
+        background: Theme.palette.slint-blue-300;
+        opacity: 0.25;
+    }
+}
+export component ItemGroupBox {
+    in property <string> title <=> i-title.text;
+
+    VerticalLayout {  
+        HorizontalLayout {  
+            padding: Theme.spaces.medium;
+
+            i-title := Text {
+                color: Theme.palette.white;
+                font-size: Theme.typo.header.size;
+                font-weight: Theme.typo.header.weight;
+            }
+        }
+
+       Rectangle {
+            background: Theme.palette.dark-deep-blue;
+            border-radius: 4px;
+
+            VerticalLayout {  
+                @children
+            }
+        }
+    }
+}
