@@ -21,13 +21,13 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-11, windows-2022]
-        rust_version: [stable, "1.64"]
+        rust_version: [stable, "1.66"]
         include:
           - os: windows-2022
             extra_args: "--exclude slint-node --exclude test-driver-nodejs"
         exclude:
           - os: macos-11
-            rust_version: "1.64"
+            rust_version: "1.66"
 
     runs-on: ${{ matrix.os }}
 

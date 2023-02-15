@@ -83,7 +83,7 @@ default-members = [
 resolver="2"
 
 [workspace.package]
-rust-version = "1.64"
+rust-version = "1.66"
 
 [profile.release]
 lto = true
