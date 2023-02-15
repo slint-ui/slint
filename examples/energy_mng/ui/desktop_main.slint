@@ -9,7 +9,7 @@ export global HeaderAdapter {
     in property <string> date: "Sunday 8th, January 2023";
     in property <string> time: "5:20";
     in property <string> time-suffix: "PM";
-    in property <image> logo: @image-url("assets/slint-header-logo.svg");
+    in property <image> logo: @image-url("../../../logo/slint-logo-simple-white.svg");
 }
 
 export component Header {
@@ -42,9 +42,7 @@ export component Header {
             
             Image {
                 height: 30px;
-               
                 source: logo;
-                colorize: Theme.palette.white;
             }
         }
       
