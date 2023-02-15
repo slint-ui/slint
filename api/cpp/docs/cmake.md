@@ -45,15 +45,18 @@ First you need to install the prerequisites:
 * **[cmake](https://cmake.org/download/)** (3.21 or newer)
 * A C++ compiler that supports C++20 (e.g., **MSVC 2019 16.6** on Windows)
 
-You can include Slint into your CMake project using CMake's [`FetchContent`](https://cmake.org/cmake/help/latest/module/FetchContent.html) feature.
-Insert the following snippet into your `CMakeLists.txt` to make CMake download the latest 1.x release, compile it and make the CMake integration available:
+You can include Slint into your CMake project using CMake's
+[`FetchContent`](https://cmake.org/cmake/help/latest/module/FetchContent.html)
+feature. Insert the following snippet into your `CMakeLists.txt` to make CMake
+download the v1.0.0 git tag, compile it and make the CMake integration
+available:
 
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
     Slint
     GIT_REPOSITORY https://github.com/slint-ui/slint.git
-    GIT_TAG release/1
+    GIT_TAG v1.0.0
     SOURCE_SUBDIR api/cpp
 )
 FetchContent_MakeAvailable(Slint)
@@ -104,7 +107,7 @@ the only stable renderer, the other ones are experimental. If you disable the
 #### Run Time Back-End Selection
 
 It's also possible to select any of the compiled in back-ends and renderer at
-runtime, using the `SLINT_BACKEND`  environment variable.
+runtime, using the `SLINT_BACKEND` environment variable.
 
  * `SLINT_BACKEND=Qt` selects the Qt back-end
  * `SLINT_BACKEND=winit` selects the winit back-end

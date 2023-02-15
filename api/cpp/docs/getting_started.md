@@ -15,7 +15,7 @@ target in two steps:
 A minimal CMake `CMakeLists.txt` file looks like this:
 
 ```cmake
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.21)
 project(my_application LANGUAGES CXX)
 
 # Note: Use find_package(Slint) instead of the following three commands,
@@ -24,7 +24,7 @@ include(FetchContent)
 FetchContent_Declare(
     Slint
     GIT_REPOSITORY https://github.com/slint-ui/slint.git
-    GIT_TAG release/0.3
+    GIT_TAG v1.0.0
     SOURCE_SUBDIR api/cpp
 )
 FetchContent_MakeAvailable(Slint)

@@ -30,6 +30,8 @@ jobs:
 
         # The version is also in these files
         sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${{ github.event.inputs.new_version }}\"/" api/cpp/docs/conf.py
+        sed -i "s/GIT_TAG v[0-9]*\.[0-9]*\.[0-9]*/GIT_TAG v${{ github.event.inputs.new_version }}/" api/cpp/docs/*.md docs/tutorial/cpp/src/*.md
+        sed -i "s/ v[0-9]*\.[0-9]*\.[0-9]* git tag/ v${{ github.event.inputs.new_version }} git tag/" api/cpp/docs/*.md docs/tutorial/cpp/src/*.md
 
         # Version in package.json files
         git ls-files | grep package.json | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'
