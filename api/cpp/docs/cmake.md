@@ -48,15 +48,15 @@ First you need to install the prerequisites:
 You can include Slint into your CMake project using CMake's
 [`FetchContent`](https://cmake.org/cmake/help/latest/module/FetchContent.html)
 feature. Insert the following snippet into your `CMakeLists.txt` to make CMake
-download the v1.0.0 git tag, compile it and make the CMake integration
-available:
+download the latest released 1.x version, compile it, and make the CMake
+integration available:
 
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
     Slint
     GIT_REPOSITORY https://github.com/slint-ui/slint.git
-    GIT_TAG v1.0.0
+    GIT_TAG release/1
     SOURCE_SUBDIR api/cpp
 )
 FetchContent_MakeAvailable(Slint)
