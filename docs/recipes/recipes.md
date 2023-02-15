@@ -1,10 +1,12 @@
+<!-- cSpell: ignore dgettext ngettext xgettext -->
 # Recipes and Examples
 
-This page provides a collection of common use-cases and how to implement them using Slint.
+This page provides a collection of common use-cases and how to implement them
+using Slint.
 
 ## Get Started
 
-### A clickable Button
+### A Clickable Button
 
 ```slint,no-auto-preview
 import { VerticalBox, Button } from "std-widgets.slint";
@@ -23,28 +25,31 @@ export component Recipe inherits Window {
 
 In this first example, you see the basics of the Slint language:
 
- - The `VerticalBox` layout and the `Button` widget is imported from the standard library
-   using the `import` statement. That statement can import widgets or your own components
-   declared in different files. Built-in element such as `Window` or `Rectangle` do not
-   need to be imported.
- - The `Recipe` component is declared using the `component` keyword. It inherits from  `Window` and it contains
-   a layout (`VerticalBox`) with one button.
- - The elements are just instantiated with their name and braces; they form a tree.
-   They can optionally be named using `:=`
- - Elements can have properties and can be set with `:`. In this case the `Button` has a `text`
-   property and it is assigned a binding that computes a string by concatenating some string
-   literals, and the `counter` property.
- - You can declare custom properties with `property <...>`. A property needs to have a type and can have
-   a default value. This is how the `counter` property is declared in this example.
- - In addition to properties, elements can also have callback. In this case we assign a callback
-   handler to the `clicked` callback of the button with `=> { ... }`
- - Property bindings are automatically re-evaluated if any of the properties the binding depends on changes. The `text` binding of
-   the button is going to be automatically re-computed when the `counter` is changed.
+ - We import the `VerticalBox` layout and the `Button` widget from the standard library
+   using the `import` statement. This statement can import widgets or your own components
+   declared in different files. You don't need to import built-in element such as `Window` or `Rectangle`.
+ - We declare the `Recipe` component using the `component` keyword. `Recipe` inherits from `Window`
+   and has elements: A layout (`VerticalBox`) with one button.
+ - You instantiate elements using their name followed by a pair of braces (with optional contents.
+   You can assign a name to a specific element using `:=`
+ - Elements have properties. Use `:` to set property values. Here we assign a
+   binding that computes a string by concatenating some string literals, and the
+   `counter` property to the `Button`'s `text` property.
+ - You can declare custom properties for any element with `property <...>`. A
+   property needs to have a type, and can have a default value and an access
+   specifier. Access specifiers like `private`, `in`, `out` or `in-out` defines
+   how outside elements can interact with the property. `Private` is the default
+   value and stops any outside element from accessing the property.
+   The `counter` property is custom in this example.
+ - Elements can also have callback. In this case we assign a callback
+   handler to the `clicked` callback of the `button` with `=> { ... }`.
+ - Property bindings are automatically re-evaluated if any of the properties the
+   binding depends on changes. The `text` binding of the button is
+   automatically re-computed whenever the `counter` changes.
 
+### React to a Button Click in Native Code
 
-### React to a Button in native code
-
-This example increments the counter using native code, instead with the slint language.
+This example increments the `counter` using native code:
 
 ```slint,no-preview
 import { VerticalBox, Button } from "std-widgets.slint";
@@ -59,18 +64,22 @@ export component Recipe inherits Window {
 }
 ```
 
-The `button-pressed` callback is declared using the `<=>` syntax, which binds it to the `button.clicked` signal.
+The `<=>` syntax binds two callbacks together. Here the new `button-pressed`
+callback binds to `button.clicked`.
 
-Properties and callbacks declared on the root element of the main component will be exposed to the
-native code.
+The root element of the main component exposes all non-`private` properties and
+callbacks to native code.
 
-Note that `-` is replaced by `_`. In slint, `-` and `_` are equivalent and interchangable. But this since `-` is not valid in identifier in native code, they are replaced by `_`.
+In Slint, `-` and `_` are equivalent and interchangable in all identifiers.
+This is different in native code: Most programming languages forbid `-` in
+identifiers, so `-` is replaced with `_`.
 
 <details data-snippet-language="rust">
 <summary>Rust code</summary>
 
-For technical reasons, this example uses `import {Recipe}` in the `slint!` macro, but
-in real code, you can put the whole slint code in the `slint!` macro, or use a build script.
+For technical reasons, this example uses `import {Recipe}` in the `slint!` macro.
+In real code, you can put the whole Slint code in the `slint!` macro, or use
+an external `.slint` file together with a build script.
 
 
 ```rust,no_run
@@ -89,13 +98,19 @@ fn main() {
 }
 ```
 
-A `struct Recipe` is generated by Slint. For each property, a getter (`get_counter`) and a setter (`set_counter`)
-is generated. For the callback, a function to set the callback is generated (`on_button_pressed`).
+The Slint compiler generates a `struct Recipe` with a getter (`get_counter`) and
+a setter (`set_counter`) for each accessible property of the root element of the
+`Recipe` component. It also generates a function for each accessible callback,
+like in this case `on_button_pressed`.
 
-The `Recipe` struct implements the [`slint::ComponentHandle`] trait. A component handle is an equivalent of `Rc`.
-It is a handle to a component with a strong and a weak reference count. We call the `as_weak` function to
-get a weak handle to the component, which we can move into the callback.
-We can't move a strong handle because that would form a cycle: The component handle has ownership of the callback, which itself has ownership of the closure's captured variables.
+The `Recipe` struct implements the [`slint::ComponentHandle`] trait. A component
+manages a strong and a weak reference count, similar to an `Rc`.
+We call the `as_weak` function to get a weak handle to the component, which we
+can move into the callback.
+
+We can't use a strong handle here, because that would form a cycle: The component
+handle has ownership of the callback, which itself has ownership of the
+closure's captured variables.
 </details>
 
 <details data-snippet-language="cpp">
@@ -117,15 +132,18 @@ int main(int argc, char **argv)
 }
 ```
 
-Some simple boiler plate needs to be done with cmake for the integration, so that the Slint compiler
-generates the button_native.h header file from the Slint file. It contains the generated class `Recipe`.
+The CMake integration handles the Slint compiler invocations as needed,
+which will parse the `.slint` file and generate the `button_native.h` header.
 
-For each property, a getter (`get_counter`) and a setter (`set_counter`)
-is generated. For the callback, a function to set the callback is generated (`on_button_pressed`)
+This header file contains a `Recipe` class with a getter and setter for each
+accessible property, as well as a function to set up a callback
+for each accessible callback in `Recipe`. In this case we will have `get_counter`,
+`set_counter` to access the `counter` property and `on_button_pressed` to
+set up the callback.
 
 </details>
 
-### Use property bindings to synchronize controls
+### Use Property Bindings to Synchronize Controls
 
 ```slint,no-auto-preview
 import { VerticalBox, Slider } from "std-widgets.slint";
@@ -142,13 +160,13 @@ export component Recipe inherits Window {
 ```
 
 This example introduces the `Slider` widget.
-It also introduces interpolation in string literal: Use `\{...}` in strings to render
-code between the curly braces to a string.
+
+It also introduces interpolation in string literals: Use `\{...}` to render
+the result of code between the curly braces as a string.
 
 ## Animations
 
-### Animate the position of an element
-
+### Animate the Position of an Element
 
 ```slint,no-auto-preview
 import { CheckBox } from "std-widgets.slint";
@@ -183,11 +201,12 @@ export component Recipe inherits Window {
 }
 ```
 
-Layouts are typically used to position elements automatically. In this example they are positioned
-manually using the `x`, `y`, `width`, `height` properties.
+Layouts position elements automatically. In this example we manually position
+elements instead, using the `x`, `y`, `width`, `height` properties.
 
-Notice the `animate x` block that specifies an animation. It is run when the property
-changes: Either because the property is set in a callback, or if its binding value changes.
+Notice the `animate x` block that specifies an animation. It's run whenever the
+property changes: Either because a callback sets the property, or because
+its binding value changes.
 
 ### Animation Sequence
 
@@ -235,7 +254,7 @@ This example uses the `delay` property to make one animation run after another.
 
 ## States
 
-### Associate multiple property values with states
+### Associate Property Values With States
 
 ```slint,no-auto-preview
 import { HorizontalBox, VerticalBox, Button } from "std-widgets.slint";
@@ -384,12 +403,12 @@ export component Recipe inherits Window {
 
 ## Global Callbacks
 
-### Invoke a globally registered native callback from Slint
+### Invoke a Globally Registered Native Callback from Slint
 
-This example uses a global singleton to implement common logic in native code. It can also be used to store properties and they can be set by native code.
+This example uses a global singleton to implement common logic in native code.
+This singleton may also store properties that are accessible to native code.
 
-Please note that in the preview only visualize the slint code, but is not
-connected to the native code.
+Note: The preview visualize the Slint code only. It's not connected to the native code.
 
 ```slint,no-preview
 import { HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint";
@@ -478,8 +497,12 @@ int main(int argc, char **argv)
 
 ### Translations
 
-Slint doesn't currently provide built-in support for translations. We're tracking this feature in [our issue tracker](https://github.com/slint-ui/slint/issues/33).
-Meanwhile, you can make your design translatable with a global callback, some native code, and a translation library such as [gettext](https://en.wikipedia.org/wiki/Gettext) or [fluent](https://projectfluent.org/).
+Slint doesn't currently offer built-in support for translations. We're tracking
+this feature in [our issue tracker](https://github.com/slint-ui/slint/issues/33).
+
+Meanwhile, you can make your design translatable with a global callback, some
+native code, and a translation library such as
+[gettext](https://en.wikipedia.org/wiki/Gettext) or [fluent](https://projectfluent.org/).
 
 Example using gettext:
 
@@ -504,13 +527,15 @@ export component Example inherits Window {
 }
 ```
 
-Then the translatable text can be extracted with `xgettext` and tranlated using gettext tools:
+`xgettext` can extract the translatable text, which can then get translated
+using gettext tools:
 
 ```sh
 xgettext -o example.pot example.slint
 ```
 
-Set this callback in your native code and call gettext behind the scenes. A similar approach should be used for `ngettext`,`dgettext`, and other gettext functions.
+Set this callback in your native code and call gettext behind the scenes. Use a
+similar approach for `ngettext`,`dgettext`, and other gettext functions.
 
 
 <details  data-snippet-language="rust">
@@ -557,7 +582,7 @@ fn main() {
 
 </details>
 
-## Custom widgets
+## Custom Widgets
 
 ### Custom Button
 
@@ -653,8 +678,8 @@ export component Recipe inherits Window {
 
 ### CustomSlider
 
-This slider can be dragged from any point within itself, because the TouchArea is covering
-the whole widget.
+The `TouchArea` is covering the entire widget, so you can drag this slider from
+any point within itself.
 
 ```slint,no-auto-preview
 import { VerticalBox } from "std-widgets.slint";
@@ -713,7 +738,7 @@ export component Recipe inherits Window {
 }
 ```
 
-This example show another implementation that has a draggable handle:
+This example show another implementation that has a drag-able handle:
 The handle only moves when we click on that handle.
 The TouchArea is within the handle and moves with the handle.
 
@@ -771,6 +796,7 @@ export component Recipe inherits Window {
 ### Custom Tabs
 
 Use this recipe as a basis to when you want to create your own custom tab widget.
+
 ```slint,no-auto-preview
 import { Button } from "std-widgets.slint";
 
@@ -815,9 +841,10 @@ export component Recipe inherits Window {
 }
 ```
 
-### Table view
+### Custom Table View
 
-Slint doesn't currently provide a table widget. It's possible to emulate it with a ListView:
+Slint provides a table widget, but you can also do something custom based on a
+`ListView`.
 
 ```slint,no-auto-preview
 import { VerticalBox, ListView } from "std-widgets.slint";
@@ -891,9 +918,11 @@ export component Example inherits Window {
 }
 ```
 
-### Breakpoints for responsive ui
+### Breakpoints for Responsive User Interfaces
 
-Use this recipe to implement a responsive SideBar that collapses when the parent width is smaller than the given break-point. When the button is clicked, the SideBar expands if collapsed on break-point.
+Use recipe implements a responsive SideBar that collapses when the parent
+width is smaller than the given break-point. When clicking the Button, the
+SideBar expands again.
 
 ```slint,no-auto-preview
 import { Button, StyleMetrics } from "std-widgets.slint";
