@@ -13,4 +13,11 @@ export component Page inherits Rectangle {
     height: 100%;
 
     animate x { duration: Theme.durations.fast; }
+
+    GridLayout {   
+        padding-left: 14px;
+        padding-right: 14px;
+
+        @children
+    }
 }

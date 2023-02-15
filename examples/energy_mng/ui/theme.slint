@@ -43,6 +43,10 @@ export struct Palette {
     dark-right-gradient: brush,
     ebony-radial-gradient: brush,
     bar-gradient: brush,
+    alternative-bar-gradient: brush,
+    alternative-light-bar-gradient: brush,
+    inverted-bar-gradient: brush,
+    inverted-alternative-bar-gradient: brush,
     bar-background-gradient: brush,
 }
 
@@ -116,13 +120,17 @@ export global Theme {
         dark-right-gradient: @linear-gradient(90deg, #04070800 0%, #04070875 50%, #040708 100%),
         ebony-radial-gradient: @radial-gradient(circle, #100F23 0%, #1F1946 100%),
         bar-gradient: @linear-gradient(180deg, #6C4BFF 0%, #6c4bff00 100%),
+        alternative-bar-gradient: @linear-gradient(180deg, #CBE600 0%, #CBE60000 100%),
+        alternative-light-bar-gradient: @linear-gradient(180deg, #EBFC93 0%, #EBFC9300 100%),
+        inverted-bar-gradient: @linear-gradient(180deg, #6c4bff00 0%, #6C4BFF 100%),
+        inverted-alternative-bar-gradient: @linear-gradient(180deg, #CBE60000 0%, #CBE600 100%),
         bar-background-gradient: @linear-gradient(180deg, #896FFF 0%, #896FFF00 100%),
     };
 
     in property <Spaces> spaces: {
         small: 5px,
         medium: 10px,
-        large: 20px,
+        large: 20px, 
     };
 
     in property <Durations> durations: {

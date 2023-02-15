@@ -3,8 +3,7 @@
 
 import { Theme } from "theme.slint";
 import { Navigation, MenuButton, Menu, Value } from "widgets/widgets.slint";
-import { Balance, Overview, OverviewAdapter, Usage, UsageAdapter, Weather, WeatherAdapter } from "pages/pages.slint";
-
+import { Balance, BalanceAdapter, Overview, OverviewAdapter, Usage, UsageAdapter, Weather, WeatherAdapter } from "pages/pages.slint";
 export { OverviewAdapter, UsageAdapter, Value, WeatherAdapter }
 
 export component MainWindow inherits Window {
@@ -13,9 +12,9 @@ export component MainWindow inherits Window {
     min_height: 240px;
     background: Theme.palette.pure-black;
 
-    i-navigation := Navigation {  
+    i-navigation := Navigation { 
         page-count: 4;
-        current-index: 3;
+        current-index: 2;
 
         Overview {
             index: 0;

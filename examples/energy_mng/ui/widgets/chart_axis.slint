@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+
+export component AxisLabel inherits Text {
+    font-size: Theme.typo.label.size;
+    font-weight: Theme.typo.label.weight;
+    color: Theme.palette.white;
+    horizontal-alignment: center;
+}
+
+export struct AxisValue {
+    value: int,
+    unit: string
+}
+
+export component ChartAxis {
+    private property <length> y-zero: root.height * (1 - (0 - y-min) / (y-max - y-min));
+    in property <[string]> x-model;
+    in property <[int]> y-model;
+    in property <int> y-min;
+    in property <int> y-max;
+    in property <string> y-unit;
+
+    VerticalLayout { 
+        horizontal-stretch: 1;
+        alignment: end;
+       
+        HorizontalLayout {  
+            spacing: 1px;
+
+            for text in  x-model : Rectangle {
+                if(text != "") : AxisLabel {
+                    text: text;
+                    y: parent.height - self.height - 3px;
+                }
+            }
+        }
+    }   
+
+    HorizontalLayout { 
+        alignment: end;
+        
+        Rectangle {  
+            background: green;
+            
+            for value in  y-model : AxisLabel {
+                y: (value >= 0 ? parent.height * (1 - (value - y-min) / (y-max - y-min)) : 
+                    y-zero + parent.height * (-1 * value / (y-max - y-min))) - self.height  / 2;
+                text: "\{value}\{y-unit}";
+            }
+        }
+     }
+}

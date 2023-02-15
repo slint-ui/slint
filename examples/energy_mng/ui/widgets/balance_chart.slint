@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+import { ChartAxis, AxisLabel, AxisValue } from "chart_axis.slint";
+import { ChartPattern, BarBackground } from "chart_pattern.slint";
+
+component UpBar {
+    VerticalLayout {  
+        Rectangle {  
+            height: 0.6 * root.height;
+            background: Theme.palette.alternative-bar-gradient;
+        }
+ 
+        Rectangle {  
+            height: 0.4 * root.height;
+            background: Theme.palette.alternative-light-bar-gradient;
+        }
+    }
+}
+
+component DownBar {
+    VerticalLayout {  
+        Rectangle {  
+            height: 0.37 * root.height;
+            background: Theme.palette.inverted-bar-gradient;
+        }
+ 
+        Rectangle {  
+            height: 0.26 * root.height;
+            background: Theme.palette.inverted-alternative-bar-gradient;
+        }
+
+        Rectangle {  
+            height: 0.37 * root.height;
+            background: Theme.palette.inverted-alternative-bar-gradient;
+        }
+    }
+}
+
+export component BalanceChart {
+    private property <length> zero: root.height * (1 - (0. - min) / (max - min));
+    
+    in property <float> min;
+    in property <float> max;
+    in property <[string]> x-axis-model;
+    in property <[int]> y-axis-model;
+    in property <string> y-unit;
+    in property <[float]> model;
+
+    i-zero-pattern := ChartPattern {  
+        y: 0px;
+        count: x-axis-model.length;
+        height: root.zero;
+    }
+
+    ChartPattern {  
+        y: i-zero-pattern.height;
+        count: x-axis-model.length;
+        height: root.height - i_zero_pattern.height;
+    }
+
+    ChartAxis {  
+        x-model: x-axis-model;
+        y-model: y-axis-model;
+        vertical-stretch: 1;
+        y-min: min;
+        y-max: max;
+        y-unit: root.y-unit;
+    }
+
+    HorizontalLayout {  
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 10px;
+
+        for value[index] in model : Rectangle {
+            if(value > 0.0) : UpBar {
+                y: zero - self.height;
+                height: parent.height * (value / (root.max - root.min));
+            }
+
+            if(value < 0.0) : DownBar {
+                y: zero;
+                height: parent.height * (-1 * value / (root.max - root.min));
+            }
+        }
+    }
+}

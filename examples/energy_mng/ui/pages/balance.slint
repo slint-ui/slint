@@ -2,9 +2,52 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Page } from "page.slint";
+import { GroupBox, BalanceChart } from "../widgets/widgets.slint";
+
+export global BalanceAdapter {
+    in property <string> title: "Balance";
+    in property <[string]> x-axis-model: [
+        "12:00",
+        "",
+        "",
+        "16:00",
+        "",
+        "",
+        "20:00"
+    ];
+    in property <[int]> y-axis-model: [
+       1.0,
+       0,
+       -2,
+       -4,
+       -6
+    ];
+    in property <[float]> model: [ 0.2, 0.5, -1.7, -2.0, -4.0, -5.0, -5.5, -6.0, -6.2, -6.4, -4.5, -3.0, 0.25, 0.5 ];
+    in property <float> min: -7.8;
+    in property <float> max: 2;
+    in property <string> y-unit: "K";
+}
 
 export component Balance inherits Page {
-    Text {
-        text: "Balance";
+    in property <[string]> x-axis-model <=> BalanceAdapter.x-axis-model;
+    in property <[int]> y-axis-model <=> BalanceAdapter.y-axis-model;
+    in property <[float]> model <=> BalanceAdapter.model;
+    in property <float> min <=> BalanceAdapter.min;
+    in property <float> max <=> BalanceAdapter.max;
+    in property <string> y-unit <=> BalanceAdapter.y-unit;
+    
+    in property <string> title <=> BalanceAdapter.title;
+
+    GroupBox {  
+        title: root.title;
+
+        BalanceChart {  
+            x-axis-model: root.x-axis-model;
+            y-axis-model: root.y-axis-model;
+            model: root.model;
+            min: root.min;
+            max: root.max;
+            y-unit: root.y-unit;
+        }
     }
 }
