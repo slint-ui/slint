@@ -30,17 +30,32 @@ component TestCase {
         Text { text: "foo"; }
         Text { text: "foo"; }
     }
+    r7 := Rectangle {
+        Rectangle {
+            preferred-height: 300px;
+            min-width: 200px;
+        }
+    r8 := Rectangle {
+            Text {
+                text: "foo";
+                preferred-height: 300px;
+                min-width: 200px;
+            }
+        }
+    }
     broken := Rectangle { // #407
         for ax in 5 : HorizontalLayout { Text { text: "foo"; } }
         for ay in 5 : Text { text: "foo"; }
     }
     foo := Text { text: "foo"; }
-    out property <bool> test: foo.min-height > 1px && t2 && t3 && t4 && t5 && t6;
+    out property <bool> test: foo.min-height > 1px && t2 && t3 && t4 && t5 && t6 && t7 && t8;
     out property <bool> t2: r2.min-height == foo.min-height && r2.preferred-width == foo.preferred-width;
     out property <bool> t3: r3.min-height == foo.min-height && r3.preferred-width == foo.preferred-width;
     out property <bool> t4: r4.min-height == foo.min-height && r4.preferred-width == foo.preferred-width;
     out property <bool> t5: r5.min-height == foo.min-height && r5.preferred-width == foo.preferred-width;
     out property <bool> t6: r6.min-height == foo.min-height && r6.preferred-width == foo.preferred-width;
+    out property <bool> t7: r7.min-width == 200px && r7.preferred-height == 300px;
+    out property <bool> t8: r8.min-height == foo.min-height && r8.preferred-width == foo.preferred-width && r8.min-width == 200px && r8.preferred-height == 300px;
 }
 
 /*

@@ -12,15 +12,14 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::diagnostics::BuildDiagnostics;
-use crate::diagnostics::Spanned;
-use crate::expression_tree::Unit;
-use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, NamedReference};
-use crate::langtype::BuiltinElement;
-use crate::langtype::{DefaultSizeBinding, PropertyLookupResult, Type};
-use crate::layout::implicit_layout_info_call;
-use crate::layout::Orientation;
+use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::expression_tree::{
+    BindingExpression, BuiltinFunction, Expression, NamedReference, Unit,
+};
+use crate::langtype::{BuiltinElement, DefaultSizeBinding, PropertyLookupResult, Type};
+use crate::layout::{implicit_layout_info_call, LayoutConstraints, Orientation};
 use crate::object_tree::{Component, ElementRc};
+use std::collections::HashMap;
 
 pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     crate::object_tree::recurse_elem_including_sub_components(
@@ -37,7 +36,7 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
             w100 |= fix_percent_size(elem, parent, "width", diag);
             h100 |= fix_percent_size(elem, parent, "height", diag);
 
-            gen_layout_info_prop(elem);
+            gen_layout_info_prop(elem, diag);
 
             let builtin_type = match elem.borrow().builtin_type() {
                 Some(b) => b,
@@ -125,7 +124,7 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
 }
 
 /// Generate a layout_info_prop based on the children layouts
-fn gen_layout_info_prop(elem: &ElementRc) {
+fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     if elem.borrow().layout_info_prop.is_some() || elem.borrow().is_flickable_viewport {
         return;
     }
@@ -138,7 +137,7 @@ fn gen_layout_info_prop(elem: &ElementRc) {
             !c.borrow().bindings.contains_key("x") && !c.borrow().bindings.contains_key("y")
         })
         .filter_map(|c| {
-            gen_layout_info_prop(c);
+            gen_layout_info_prop(c, diag);
             c.borrow()
                 .layout_info_prop
                 .clone()
@@ -151,17 +150,25 @@ fn gen_layout_info_prop(elem: &ElementRc) {
                         // FIXME: we should ideally add runtime code to merge layout info of all elements that are repeated (same as #407)
                         return None;
                     }
-                    c.borrow()
-                        .builtin_type()
-                        .map_or(false, |b| {
-                            b.default_size_binding == DefaultSizeBinding::ImplicitSize
-                        })
-                        .then(|| {
-                            (
-                                implicit_layout_info_call(c, Orientation::Horizontal),
-                                implicit_layout_info_call(c, Orientation::Vertical),
-                            )
-                        })
+                    let explicit_constraints = LayoutConstraints::new(c, diag);
+                    if !explicit_constraints.has_explicit_restrictions() {
+                        c.borrow()
+                            .builtin_type()
+                            .map_or(false, |b| {
+                                b.default_size_binding == DefaultSizeBinding::ImplicitSize
+                            })
+                            .then(|| {
+                                (
+                                    implicit_layout_info_call(c, Orientation::Horizontal),
+                                    implicit_layout_info_call(c, Orientation::Vertical),
+                                )
+                            })
+                    } else {
+                        Some((
+                            explicit_layout_info(c, Orientation::Horizontal),
+                            explicit_layout_info(c, Orientation::Vertical),
+                        ))
+                    }
                 })
         })
         .collect::<Vec<_>>();
@@ -201,6 +208,25 @@ fn gen_layout_info_prop(elem: &ElementRc) {
     li_v.element().borrow_mut().bindings.insert(li_v.name().into(), expr_v.into());
     let expr_h = BindingExpression::new_with_span(expr_h, elem.borrow().to_source_location());
     li_h.element().borrow_mut().bindings.insert(li_h.name().into(), expr_h.into());
+}
+
+fn explicit_layout_info(e: &ElementRc, orientation: Orientation) -> Expression {
+    let mut values = HashMap::new();
+    let (size, orient) = match orientation {
+        Orientation::Horizontal => ("width", "horizontal"),
+        Orientation::Vertical => ("height", "vertical"),
+    };
+    for (k, v) in [
+        ("min", format!("min-{size}")),
+        ("max", format!("max-{size}")),
+        ("preferred", format!("preferred-{size}")),
+        ("stretch", format!("{orient}-stretch")),
+    ] {
+        values.insert(k.into(), Expression::PropertyReference(NamedReference::new(e, &v)));
+    }
+    values.insert("min_percent".into(), Expression::NumberLiteral(0., Unit::None));
+    values.insert("max_percent".into(), Expression::NumberLiteral(100., Unit::None));
+    Expression::Struct { ty: crate::layout::layout_info_type(), values }
 }
 
 /// Replace expression such as  `"width: 30%;` with `width: 0.3 * parent.width;`
