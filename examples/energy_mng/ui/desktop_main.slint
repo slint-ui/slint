@@ -1,0 +1,96 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "theme.slint";
+import { TabWidget } from "widgets/widgets.slint";
+import { Dashboard } from "pages/dashboard.slint";
+
+export global HeaderAdapter {
+    in property <string> date: "Sunday 8th, January 2023";
+    in property <string> time: "5:20";
+    in property <string> time-suffix: "PM";
+    in property <image> logo: @image-url("../../../logo/slint-logo-simple-white.svg");
+}
+
+export component Header {
+    in property <string> date <=> HeaderAdapter.date;
+    in property <string> time <=> HeaderAdapter.time;
+    in property <string> time-suffix <=> HeaderAdapter.time-suffix;
+    in property <image> logo <=> HeaderAdapter.logo;
+
+    min-height: 50px;
+    vertical-stretch: 0;
+
+    HorizontalLayout {  
+        padding: 20px;
+        spacing: 5px;
+
+        Rectangle {  
+            horizontal-stretch: 1;
+
+            Text {  
+                x: 0px;
+                color: Theme.palette.white;
+                text: date;
+                font-size: Theme.typo.header-item.size;
+                font-weight: Theme.typo.header-item.weight;
+            }
+        }
+
+        Rectangle {  
+            horizontal-stretch: 1;
+            
+            Image {
+                height: 30px;
+                source: logo;
+            }
+        }
+      
+        Rectangle { 
+            horizontal-stretch: 1;
+
+            Text {  
+                x:  i-time-suffix.x - 5px - self.width;
+                horizontal-alignment: right;
+                color: Theme.palette.white;
+                text: time;
+                font-size: Theme.typo.header-item.size;
+                font-weight: Theme.typo.header-item.weight;
+            }
+
+            i-time-suffix := Text {  
+                x: parent.width - self.width;   
+                horizontal-stretch: 0;
+                color: Theme.palette.shark-gray;
+                text: time-suffix;
+                font-size: Theme.typo.header-item.size;
+                font-weight: Theme.typo.header-item.weight;
+            }
+         }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "EnergyMNG Demo";
+    min_width: 1366px;
+    min_height: 1024px;
+    background: Theme.palette.pure-black;
+
+    VerticalLayout {  
+        Header {}
+        i-tab-widget := TabWidget {  
+            tabs: [
+                "Dashboard",
+                "Energy Flow",
+                "Weather",
+                "Statistics",
+                "Settings",
+            ];
+
+            Dashboard {  
+                index: 0;
+                current-index: i-tab-widget.selected-tab;
+            }
+        }
+    }
+}

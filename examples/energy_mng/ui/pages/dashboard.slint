@@ -1,0 +1,137 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Page } from "page.slint";
+import { OverviewAdapter } from "overview.slint";
+import { UsageAdapter } from "usage.slint";
+import { WeatherAdapter } from "weather.slint";
+import { BalanceAdapter } from "balance.slint";
+import { GroupBox, Value, ValueDisplay, BarChart, BarTileModel, Tile, BarTiles, BalanceChart } from "../widgets/widgets.slint";
+
+export component ValueTile {
+    in property <string> title <=> i-group-box.title;
+    in property <[Value]> model <=> i-value-display.model;
+    in property <bool> alternative-colors <=> i-value-display.alternative-colors;
+
+    i-group-box := GroupBox {
+        i-value-display := ValueDisplay {  
+            active: true;
+        }
+    }
+}
+
+export component BarChartTile {
+    in property <string> title <=> i-group-box.title;
+    in property <[Value]> value-model <=> i-value-display.model;
+    in property <[float]> model <=> i-bar-chart.model;
+    in property <float> min <=> i-bar-chart.min;
+    in property <float> max <=> i-bar-chart.max;
+ 
+    i-group-box := GroupBox {  
+        i-value-display := ValueDisplay { 
+            min-width: 216px;
+            horizontal-stretch: 0;
+            alternative-colors: true;
+            active: true;
+            vertical: true;
+        }
+
+        i-bar-chart := BarChart {  
+            horizontal-stretch: 1;
+        }  
+    }  
+}
+
+export component WeatherTile {
+    in property <string> title <=> i-group-box.title;
+    in property <image> current-temperature-icon <=> i-tile.icon;
+    in property <string> current-temperature <=> i-tile.value;
+    in property <string> current-day <=> i-tile.text;
+    in property <string> current-weather-desciption <=> i-tile.sub-text;
+    in property <[BarTileModel]> week-model <=> i-bar-tiles.model;
+
+    i-group-box := GroupBox {  
+        spacing: 1px;
+        i-tile := Tile {}
+        i-bar-tiles := BarTiles {}
+    }
+}
+
+export component BalanceTile {
+    in property <[string]> x-axis-model;
+    in property <[int]> y-axis-model;
+    in property <[float]> model;
+    in property <float> min;
+    in property <float> max;
+    in property <string> y-unit;
+    in property <string> title;
+
+    GroupBox {  
+        title: root.title;
+
+        BalanceChart {  
+            x-axis-model: root.x-axis-model;
+            y-axis-model: root.y-axis-model;
+            model: root.model;
+            min: root.min;
+            max: root.max;
+            y-unit: root.y-unit;
+        }
+    }
+}
+
+export component Dashboard inherits Page {
+    GridLayout {  
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 20px;
+        padding-bottom: 60px;
+        spacing: 20px;
+
+        Row {
+            ValueTile {
+                title: OverviewAdapter.production-title; 
+                model: OverviewAdapter.production-model;
+             }
+
+             ValueTile {
+                title: OverviewAdapter.self-consumption-title;
+                model: OverviewAdapter.self-consumption-model;
+                alternative-colors: true;
+             }
+        }
+
+        Row {
+            BalanceTile {  
+                x-axis-model <=> BalanceAdapter.x-axis-model;
+                y-axis-model <=> BalanceAdapter.y-axis-model;
+                model <=> BalanceAdapter.model;
+                min <=> BalanceAdapter.min;
+                max <=> BalanceAdapter.max;
+                y-unit <=> BalanceAdapter.y-unit;
+                title <=> BalanceAdapter.title;
+            }
+
+            WeatherTile {  
+                title <=> WeatherAdapter.title;
+                current-temperature-icon <=> WeatherAdapter.current-temperature-icon;
+                current-temperature <=> WeatherAdapter.current-temperature;
+                current-day <=> WeatherAdapter.current-day;
+                current-weather-desciption <=> WeatherAdapter.current-weather-desciption;
+                week-model <=> WeatherAdapter.week-model;
+            }
+        }
+
+        Row {
+            BarChartTile {
+                colspan: 2;
+                title: UsageAdapter.title;
+                model: UsageAdapter.model;
+                min: UsageAdapter.min;
+                max: UsageAdapter.max;
+                value-model: UsageAdapter.overview-model;
+            }
+        } 
+        
+    }
+}

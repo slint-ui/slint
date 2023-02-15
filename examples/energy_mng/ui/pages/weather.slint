@@ -42,7 +42,7 @@ export global WeatherAdapter {
 }
 
 export component Weather inherits Page {
-    in property <string> tile <=> WeatherAdapter.title;
+    in property <string> title <=> WeatherAdapter.title;
     in property <image> current-temperature-icon <=> WeatherAdapter.current-temperature-icon;
     in property <string> current-temperature <=> WeatherAdapter.current-temperature;
     in property <string> current-day <=> WeatherAdapter.current-day;
@@ -50,21 +50,18 @@ export component Weather inherits Page {
     in property <[BarTileModel]> week-model <=> WeatherAdapter.week-model;
 
     GroupBox {
-        title: root.tile;
+        title: root.title;
+        spacing: 1px; 
 
-        HorizontalLayout {  
-            spacing: 1px; 
-          
-            Tile {
-                value: current-temperature;
-                text: current-day;
-                sub-text: current-weather-desciption;
-                icon: current-temperature-icon;
-            }
+        Tile {
+            value: current-temperature;
+            text: current-day;
+            sub-text: current-weather-desciption;
+            icon: current-temperature-icon;
+        }
 
-            BarTiles {
-                model: week-model;
-            }
+        BarTiles {
+            model: week-model;
         }
     }
 }
