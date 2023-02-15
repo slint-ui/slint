@@ -4,7 +4,7 @@ Once Slint is built, you can use it in your CMake application or library
 target in two steps:
 
 1. Associate the `.slint` files that you'd like to use by calling the
-   `slint_target_sources` cmake command. The first parameter is
+   `slint_target_sources` CMake command. The first parameter is
    your application (or library) build target, and the parameters following are
    the names of the `.slint` files you want to include. This will compile
    the `.slint` files to C++ source code and included that into your

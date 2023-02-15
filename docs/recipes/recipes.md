@@ -6,7 +6,7 @@ using Slint.
 
 ## Get Started
 
-### A Click-Able Button
+### A Clickable Button
 
 ```slint,no-auto-preview
 import { VerticalBox, Button } from "std-widgets.slint";
