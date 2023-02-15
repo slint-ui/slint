@@ -182,8 +182,8 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
 /// This function should be called before rendering or processing input event, at the
 /// beginning of each event loop iteration.
 pub fn update_timers_and_animations() {
-    crate::timers::TimerList::maybe_activate_timers(crate::animations::Instant::now());
     crate::animations::update_animations();
+    crate::timers::TimerList::maybe_activate_timers(crate::animations::Instant::now());
 }
 
 /// Returns the duration before the next timer is expected to be activated. This is the
