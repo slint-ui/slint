@@ -13,36 +13,26 @@ Writing an application in Rust that runs on a MCU requires several prerequisites
 * Install tools for flashing and debugging your code on the device.
 
 We recommend reading the [Rust Embedded Book](https://docs.rust-embedded.org/book/),
-as well as the curated list of [Awesome Embedded Rust](https://github.com/rust-embedded/awesome-embedded-rust) for a wide range of different
-crates, tools and training materials. These resources should guide you through the initial setup and often come with "hello world" examples
+and the curated list of [Awesome Embedded Rust](https://github.com/rust-embedded/awesome-embedded-rust) for a wide range of
+crates, tools and training materials. These resources should guide you through the initial setup. Many include a "hello world" example
 to get started with your device.
 
-Slint requires a global memory allocator. That is currently only possible in the nightly version of Rust, because the support for using a custom global
-allocator in a bare metal environment with `#![no_std]` has not been stabilized yet (see [#51540](https://github.com/rust-lang/rust/issues/51540) or
-[#66741](https://github.com/rust-lang/rust/issues/66741) for tracking issues).
+Slint requires a custom global memory allocator in a bare metal environment with `#![no_std]`.
+The rust team hasn't yet stabilized this feature, so only the nightly version
+of the Rust compiler will support it. See
+[#51540](https://github.com/rust-lang/rust/issues/51540) or
+[#66741](https://github.com/rust-lang/rust/issues/66741) for tracking issues.
 
 The following sections assume that your setup is complete and you have a non-graphical skeleton Rust program running on your MCU.
 
 ## Changes to `Cargo.toml`
 
-Start by adding a dependency to the `slint` and the `slint-build` crates to your `Cargo.toml`:
+Start by adding a dependency to the `slint` and the `slint-build` crates to your `Cargo.toml` using the `cargo` command:
 
-```toml
-[package]
-## ...
-## Edition 2021 or later enables the feature resolver version 2.
-edition = "2021"
+Start with the `slint` crate like this:
 
-[dependencies]
-## ... your other dependencies
-
-[dependencies.slint]
-version = "0.3.4"
-default-features = false
-features = ["compat-1-0", "unsafe-single-threaded", "libm"]
-
-[build-dependencies]
-slint-build = "0.3.4"
+```sh
+cargo add slint@1.0.0 --no-default-features --features "compat-1-0-0 unsafe-single-threaded libm"
 ```
 
 The default features of the `slint` crate are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
@@ -55,11 +45,17 @@ In the snippet above, three features are selected:
    This macro is only available in the Rust Standard Library (std), but not in bare metal environments. As a fallback, the `unsafe-single-threaded`
    feature changes Slint to use unsafe static for storage. This way, you guarantee to use Slint API only from a single thread, and not from interrupt handlers.
  * `libm`: We select this feature to enable the use of the [libm](https://crates.io/crates/libm) crate to provide traits and functions for floating point arithmetic.
-   They are typically provided by the Rust Standard Library (std), but that is not available in bare metal environments.
+   They're typically provided by the Rust Standard Library (std), but that's not available in bare metal environments.
 
 It might be necessary to enable the [Feature resolver version 2](https://doc.rust-lang.org/cargo/reference/features.html#feature-resolver-version-2)
-in your Cargo.toml if you notice that your dependencies are attempting to build with `std` support even if it was disabled.
+in your Cargo.toml if you notice that your dependencies are attempting to build with `std` support even when disabled.
 This is the default when using the Rust 2021 Edition or later.
+
+Then add the `slint-build` crate as a build dependency:
+
+```sh
+cargo add slint-build@1.0.0 --build
+```
 
 ## Changes to `build.rs`
 
@@ -80,42 +76,42 @@ in a format that's suitable for the software based renderer we're going to use.
 
 ## Application Structure
 
-Typically, a graphical application in hosted environments is comprised of at least three different tasks:
+Typically, a graphical application in hosted environments has at least three different tasks:
 
- * Receives user input from operation system APIs.
- * Reacts to the input by performing application specific computations.
- * Renders an updated user interface and presents it on the screen using device-independent operating system APIs.
+ * Receive user input from operation system APIs.
+ * React to the input by performing application specific computations.
+ * Render an updated user interface and presents it on the screen using device-independent operating system APIs.
 
 The operating system provides an event loop to connect and schedule these tasks. Slint implements the
-task of receiving user input and forwarding it to the user interface layer, as well as rendering the user interface to the screen.
+task of receiving user input and forwarding it to the user interface layer, and rendering the user interface to the screen.
 
-In bare metal environments it is your responsibility to substitute and connect functionality that is otherwise provided by the operating system:
+In bare metal environments it's your responsibility to substitute and connect functionality that's otherwise provided by the operating system:
 
- * Select crates that allow you to initialize the chips that operate peripherals, such as a touch input or display controller.
-   If there are no crates, you may have to to develop your own drivers.
- * Drive the event loop yourself by querying peripherals for input, forwarding that input into computational modules of your
+ * Select crates that initialize the chips that operate peripherals, such as a touch input or display controller.
+   If there are no crates, you may have to develop your own drivers.
+ * Drive the event loop by querying peripherals for input, forwarding that input into computational modules of your
    application and instructing Slint to render the user interface.
 
-In Slint, the two primary APIs you need to use to accomplish these tasks are the [`slint::platform::Platform`] trait as well as the [`slint::Window`] struct.
+In Slint, the two primary APIs you need are the [`slint::platform::Platform`] trait and the [`slint::Window`] struct.
 In the following sections we're going to cover how to use them and how they integrate into your event loop.
 
 ### The `Platform` Trait
 
 The [`slint::platform::Platform`] trait defines the interface between Slint and platform APIs typically provided by operating and windowing systems.
 
-You need to provide a minimal implementation of this trait and call [`slint::platform::set_platform`] before constructing your Slint application.
+You need to write a minimal implementation of this trait and call [`slint::platform::set_platform`] before constructing your Slint application.
 
 This minimal implementation needs to cover two functions:
 
- * `fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter + 'static>, PlatformError>;`: Implement this function to return an implementation of the `WindowAdapter`
-   trait that will be associated with the Slint components you create. We provide a convenience struct [`slint::platform::software_renderer::MinimalSoftwareWindow`]
+ * `fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter + 'static>, PlatformError>;`: This function returns an implementation of the `WindowAdapter`
+   trait that will be associated with the Slint components you create. Slint has a convenience struct [`slint::platform::software_renderer::MinimalSoftwareWindow`]
    that implements this trait.
  * `fn duration_since_start(&self) -> Duration`: For animations in `.slint` design files to change properties correctly, Slint needs to know
-   how much time has elapsed between two rendered frames. In a bare metal environment you need to provide a source of time. Often the HAL crate of your
-   device provides a system timer API for this, which you can query in your impementation.
+   how much time has elapsed between two rendered frames. In a bare metal environment you need to have a source of time. Often the HAL crate of your
+   device includes a system timer API, which you can query in your implementation.
 
-There are additional functions in the trait that you can implement, for example to handle debug output, to delegate the event loop or to implement
-the interface to safely deliver events in multi-threaded environments.
+You may override more functions of this trait, for example to handle debug output, to delegate the event loop,
+or to deliver events in multi-threaded environments.
 
 A typical minimal implementation of the [`Platform`] trait that uses the [`MinimalSoftwareWindow`] looks like this:
 
@@ -183,13 +179,13 @@ With a `Platform` in place, you can write the main event loop to drive all the d
 
 You can choose between two options:
 
- * You can implement [`slint::platform::Platform::run_event_loop`]: Use this if you want to start the
-   event loop in a way similar to desktop platforms, using the [`run()`](slint::ComponentHandle::run) function
-   of your component, or use [`slint::run_event_loop()`]. Both of these functions will call your implementation
-   of [`slint::platform::Platform::run_event_loop`].
- * Implement a `loop { ... }` directly in your main function: This is called a super loop architecture and common
-   for programs running in bare metal environments on MCUs. It allows you to initialize you device peripherals
-   and access them without the need to move them into your `Platform` implementation.
+ * Use [`slint::platform::Platform::run_event_loop`] if you want to start the
+   event loop in a way similar to desktop platforms. The
+   [`run()`](slint::ComponentHandle::run) function of your component, and [`slint::run_event_loop()`]
+   will both call [`slint::platform::Platform::run_event_loop`].
+ * Put a `loop { ... }` into your main function: This so called super loop architecture is common
+   for programs running in bare metal environments on MCUs. It allows to initialize device peripherals
+   and access them without the need to move them into the `Platform` implementation.
 
 A typical super loop with Slint combines the tasks of querying input drivers, application specific computations,
 rendering and possibly putting the device into a low-power sleep state. Below is an example:
@@ -233,28 +229,33 @@ loop {
 ### The Renderer
 
 In desktop and embedded environments, Slint typically uses operating system provided APIs to render the user interface using the GPU.
-In contrast, most MCUs don't have GPUs. Instead, the all the rendering is done by software on the CPU. This is called software rendering, and Slint provides a SoftwareRenderer for this task.
+In contrast, most MCUs don't have GPUs. Instead, software rendering is used where all rendering is done by software on the CPU.
+Slint provides a SoftwareRenderer for this task.
 
-In the previous example, we've instantiated a [`slint::platform::software_renderer::MinimalSoftwareWindow`]. This struct implements the
-`slint::platform::WindowAdapter` trait and also holds an instance of a [`slint::platform::software_renderer::SoftwareRenderer`]. You obtain access to it
+In the earlier example, we've instantiated a [`slint::platform::software_renderer::MinimalSoftwareWindow`]. This struct implements the
+`slint::platform::WindowAdapter` trait and also holds an instance of a [`slint::platform::software_renderer::SoftwareRenderer`]. You access it
 through the callback parameter of the [`draw_if_needed()`](MinimalSoftwareWindow::draw_if_needed) function.
 
-Depending on the amount of RAM your MCU is equipped with, and the kind of screen that is attached, you can choose between two different ways of using the renderer:
+Depending on the amount of RAM your MCU has, and the kind of screen attached, you can choose between two different ways of using the renderer:
 
- * Use the [`SoftwareRenderer::render()`] function if you have enough RAM to allocate one, or even two, copies of the entire screen (also known as
+ * Use the [`SoftwareRenderer::render()`] function if you have enough RAM to hold one, or even two, copies of the entire screen (also known as
    frame buffer).
- * Use the [`SoftwareRenderer::render_by_line()`] function to render the entire user interface line by line and send each line of pixels to the screen,
-   typically via the SPI. This requires allocating at least enough RAM to store one single line of pixels.
+ * Use the [`SoftwareRenderer::render_by_line()`] function to render the entire user interface line
+   by line. This requires enough RAM to hold an entire line of pixels in memory.
+   After rendering a line, its data is transfered to the screen, typically via
+   the SPI.
 
 With both methods Slint renders into a provided buffer, which is a slice of a type that implements the [`slint::platform::software_renderer::TargetPixel`] trait.
-For convenience, Slint provides an implementation for [`slint::Rgb8Pixel`] as well as [`slint::platform::software_renderer::Rgb565Pixel`].
+For convenience, Slint provides an implementation for [`slint::Rgb8Pixel`] and [`slint::platform::software_renderer::Rgb565Pixel`].
 
-#### Rendering into a Buffer
+#### Rendering Into a Buffer
 
-The following example uses double buffering and swaps between them. This requires a graphics driver that can be provided
-with the address of what should be the currently displayed frame buffer, also known as front buffer. A dedicated chip is then responsible for
-reading from RAM and transferring the contents to the attached screen, without any interference of the CPU. Meanwhile, Slint can render into
-the second buffer, the back buffer.
+The following example uses double buffering and swaps between two buffers. Thisi
+requires a graphics driver that takes the address of the currently displayed
+frame buffer, also known as front buffer. A dedicated chip is then responsible
+for reading from RAM and transferring the contents to the attached screen,
+without any interference of the CPU. Meanwhile, Slint renders into the second
+buffer, the back buffer.
 
 ```rust,no_run
 use slint::platform::software_renderer::Rgb565Pixel;
@@ -387,9 +388,9 @@ loop {
 ```
 
 Note: In our experience, using the synchronous `DrawTarget::fill_contiguous` function is slow. If
-your device is capable of using DMA, you may be able to achieve better performance by using
-two line buffers: One buffer to render into with the CPU, while the other buffer is transferred to
-the screen using DMA asynchronously.
+your device is capable of DMA, you can improve performance by switching between
+two line buffers. Use one buffer to render into using the CPU. The other buffer
+can transfer data to the screen using DMA in the meantime.
 
 ## Example Implementations
 
