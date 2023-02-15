@@ -171,7 +171,7 @@ CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo
 
 #### Prerequisites
 
- * ESP Rust Toolchain: https://esp-rs.github.io/book/dependencies/installing-rust.html#xtensa-esp32-esp32-s2-esp32-s3
+ * ESP Rust Toolchain: https://esp-rs.github.io/book/installation/installation.html
  * `espflash`: Install via `cargo install espflash`.
 
 When flashing, with `esplash`, you will be prompted to select a USB port. If this port is always the same, then you can also pass it as a parameter on the command line to avoid the prompt. For example if

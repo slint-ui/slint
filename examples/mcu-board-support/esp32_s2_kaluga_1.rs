@@ -7,7 +7,7 @@ use core::{cell::RefCell, convert::Infallible};
 use display_interface_spi::SPIInterfaceNoCS;
 use embedded_hal::digital::v2::OutputPin;
 use esp32s2_hal::{
-    clock::ClockControl, pac::Peripherals, prelude::*, spi, systimer::SystemTimer,
+    clock::ClockControl, peripherals::Peripherals, prelude::*, spi, systimer::SystemTimer,
     timer::TimerGroup, Delay, Rtc, IO,
 };
 use esp_alloc::EspHeap;
@@ -57,7 +57,7 @@ impl slint::platform::Platform for EspBackend {
     }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        let peripherals = Peripherals::take().unwrap();
+        let peripherals = Peripherals::take();
         let mut system = peripherals.SYSTEM.split();
         let mut clocks = ClockControl::boot_defaults(system.clock_control).freeze();
 

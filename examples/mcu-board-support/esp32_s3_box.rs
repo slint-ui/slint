@@ -8,7 +8,7 @@ use display_interface_spi::SPIInterfaceNoCS;
 use embedded_hal::digital::v2::OutputPin;
 use esp32s3_hal::{
     clock::ClockControl,
-    pac::Peripherals,
+    peripherals::Peripherals,
     prelude::*,
     spi::{Spi, SpiMode},
     systimer::SystemTimer,
@@ -17,7 +17,7 @@ use esp32s3_hal::{
 };
 use esp_alloc::EspHeap;
 use esp_backtrace as _;
-use mipidsi::{Display, DisplayOptions, Orientation};
+use mipidsi::{Display, Orientation};
 pub use xtensa_lx_rt::entry;
 
 #[global_allocator]
@@ -54,7 +54,7 @@ impl slint::platform::Platform for EspBackend {
     }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        let peripherals = Peripherals::take().unwrap();
+        let peripherals = Peripherals::take();
         let mut system = peripherals.SYSTEM.split();
         let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
 
@@ -88,16 +88,9 @@ impl slint::platform::Platform for EspBackend {
         let rst = io.pins.gpio48.into_push_pull_output();
 
         let di = SPIInterfaceNoCS::new(spi, dc);
-        let mut display = Display::ili9342c_rgb565(di, rst);
-
-        display
-            .init(
-                &mut delay,
-                DisplayOptions {
-                    orientation: Orientation::PortraitInverted(false),
-                    ..DisplayOptions::default()
-                },
-            )
+        let display = mipidsi::Builder::ili9342c_rgb565(di)
+            .with_orientation(Orientation::PortraitInverted(false))
+            .init(&mut delay, Some(rst))
             .unwrap();
 
         let mut backlight = io.pins.gpio45.into_push_pull_output();
@@ -140,7 +133,7 @@ impl<
         RST: OutputPin<Error = core::convert::Infallible>,
         MODEL: mipidsi::models::Model<ColorFormat = embedded_graphics::pixelcolor::Rgb565>,
     > slint::platform::software_renderer::LineBufferProvider
-    for &mut DrawBuffer<'_, Display<DI, RST, MODEL>>
+    for &mut DrawBuffer<'_, Display<DI, MODEL, RST>>
 {
     type TargetPixel = slint::platform::software_renderer::Rgb565Pixel;
 
