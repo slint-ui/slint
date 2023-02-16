@@ -151,5 +151,23 @@ assert!((instance.get_offset_y() - 55.).abs() < 5.);
 
 ```
 
+```rust
+// Test wheel events
+use slint::{LogicalPosition, platform::{WindowEvent, Key} };
+let instance = TestCase::new().unwrap();
+instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
+assert_eq!(instance.get_offset_x(), 30.);
+assert_eq!(instance.get_offset_y(), 50.);
+
+// When shift is pressed, it invert the direction
+// (this test don't work on macos because on macos the backend does the inversion, not the core lib)
+if !cfg!(target_os = "macos") {
+    slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+    instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: 15.0, delta_y: -60.0 });
+    slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
+    assert_eq!(instance.get_offset_x(), 30. + 60.);
+    assert_eq!(instance.get_offset_y(), 50. - 15.);
+}
+```
 
 */

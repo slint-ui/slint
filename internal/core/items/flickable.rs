@@ -98,7 +98,7 @@ impl Item for Flickable {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window_adapter: &Rc<dyn WindowAdapter>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
@@ -115,7 +115,7 @@ impl Item for Flickable {
             }
         }
 
-        self.data.handle_mouse(self, event)
+        self.data.handle_mouse(self, event, window_adapter)
     }
 
     fn key_event(
@@ -284,7 +284,12 @@ impl FlickableData {
         }
     }
 
-    pub fn handle_mouse(&self, flick: Pin<&Flickable>, event: MouseEvent) -> InputEventResult {
+    pub fn handle_mouse(
+        &self,
+        flick: Pin<&Flickable>,
+        event: MouseEvent,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> InputEventResult {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { .. } => {
@@ -335,10 +340,15 @@ impl FlickableData {
                         .apply_pin(flick)
                         .get(),
                 );
-                let new_pos = ensure_in_bound(
-                    flick,
-                    old_pos + LogicalVector::new(delta_x as _, delta_y as _),
-                );
+                let delta = if window_adapter.window().0.modifiers.get().shift()
+                    && !cfg!(target_os = "macos")
+                {
+                    // Shift invert coordinate for the purpose of scrolling. But not on macOs because there the OS already take care of the change
+                    LogicalVector::new(delta_y as _, delta_x as _)
+                } else {
+                    LogicalVector::new(delta_x as _, delta_y as _)
+                };
+                let new_pos = ensure_in_bound(flick, old_pos + delta);
                 (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.x)
                     .apply_pin(flick)
                     .set(new_pos.x_length());
