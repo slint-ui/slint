@@ -20,7 +20,7 @@ All notable changes to this project are documented in this file.
    explicitly if you want to create a copy.
  - In Rust, the MAX_BUFFER_AGE const parameter of `slint::platform::software_renderer::MinimalSoftwareWindow`
    has been removed and replaced by an argument to the `new()` function
- - the `compat-0-3-0` mandatory cargo feature flag was renamed `compat-1-0`
+ - the `compat-0-3-0` mandatory cargo feature flag was renamed to `compat-1-0`
 
 ### Added
 
