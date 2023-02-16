@@ -251,14 +251,6 @@ install(FILES $<TARGET_FILE:slint-cpp-shared> TYPE LIB)
 
 if(WIN32)
     install(FILES $<TARGET_LINKER_FILE:slint-cpp-shared> TYPE LIB)
-
-    # Copy the dll to the top-level bin directory, where the examples will
-    # will also be located, so that they can find the dll.
-    get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-
-    if(GENERATOR_IS_MULTI_CONFIG)
-        set(config_subdir_genex "$<CONFIG>/")
-    endif()
 endif()
 
 if(SLINT_FEATURE_COMPILER)
