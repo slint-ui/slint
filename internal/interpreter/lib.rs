@@ -66,9 +66,9 @@ instance.run().unwrap();
 #![warn(missing_docs)]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
-#[cfg(not(feature = "compat-0-3-0"))]
+#[cfg(not(feature = "compat-1-0"))]
 compile_error!(
-    "The feature `compat-0-3-0` must be enabled to ensure \
+    "The feature `compat-1-0` must be enabled to ensure \
     forward compatibility with future version of this crate"
 );
 

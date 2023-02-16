@@ -24,17 +24,15 @@ default = [
   "backend-winit",
   "renderer-winit-femtovg",
   "backend-qt",
-  "compat-0-3-0",
+  "compat-1-0",
 ]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 0.3.0
+## This feature is required to keep the compatibility with Slint 1.0
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added.
 ## [More info in this blog post](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html)
-"compat-0-3-0" = []
-# For compatibility with 0.2
-compat-0-2-0 = ["compat-0-3-0"]
+"compat-1-0" = []
 
 ## Enable use of the Rust standard library.
 std = ["i-slint-core/std"]
