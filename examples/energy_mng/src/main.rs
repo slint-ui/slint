@@ -32,11 +32,16 @@ pub fn main() {
 
     let window = MainWindow::new().unwrap();
 
-    let header_timer = header::setup(&window);
-    weather::setup(&window);
+    // let _ to keep the timer alive.
+    let _timer = header::setup(&window);
+
+    #[cfg(feature = "network")]
+    let weather_join = weather::setup(&window);
 
     window.run().unwrap();
-    header_timer.stop()
+
+    #[cfg(feature = "network")]
+    weather_join.join().unwrap();
 }
 
 #[cfg(any(feature = "mcu-board-support", feature = "simulator"))]

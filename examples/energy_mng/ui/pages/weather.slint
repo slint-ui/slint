@@ -64,5 +64,8 @@ export component Weather inherits Page {
         BarTiles {
             model: week-model;
         }
+
+        // stretches the empty element
+        if(week-model.length == 0) : Rectangle {}
     }
 }

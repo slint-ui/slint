@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Theme } from "../../theme.slint";
+import { Images } from "../../images.slint";
 import { Page } from "../page.slint";
 import { IconButton } from "../../widgets/widgets.slint";
 
@@ -24,7 +25,7 @@ export component About inherits Page {
 
             i-back-button := IconButton {
                 horizontal-stretch: 0;
-                icon: @image-url("../../assets/arrow-left.svg");
+                icon: Images.arrow-left;
             }
         }
 
@@ -39,7 +40,7 @@ export component About inherits Page {
 
         Image {  
             preferred-height: 45px;
-            source: @image-url("../../../../../logo/slint-logo-simple-white.svg");
+            source: Images.slint-logo;
         }
 
         // spacer

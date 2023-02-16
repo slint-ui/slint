@@ -20,7 +20,8 @@ pub fn setup(window: &MainWindow) -> Timer {
 
 fn update(header_adapter: &HeaderAdapter) {
     let now = Local::now();
-    header_adapter.set_date(SharedString::from(now.format("%A %e %B %Y").to_string()));
-    header_adapter.set_time(SharedString::from(now.format("%I:%M").to_string()));
-    header_adapter.set_time_suffix(SharedString::from(now.format("%p").to_string()));
+
+    header_adapter.set_date(slint::format!("{}", now.format("%A %e %B %Y")));
+    header_adapter.set_time(slint::format!("{}", now.format("%I:%M")));
+    header_adapter.set_time_suffix(slint::format!("{}", now.format("%p")));
 }

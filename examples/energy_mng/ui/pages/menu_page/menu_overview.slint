@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Theme } from "../../theme.slint";
+import { Images } from "../../images.slint";
 import { About } from "about.slint";
 import { Page } from "../page.slint";
 import { IconButton, ListView } from "../../widgets/widgets.slint";
@@ -35,7 +36,7 @@ export component MenuOverview inherits Page {
             vertical-stretch: 0;
 
             i-settings-button := IconButton {  
-                icon: @image-url("../../assets/settings.svg");
+                icon: Images.settings;
             }
 
             // spacer
@@ -44,7 +45,7 @@ export component MenuOverview inherits Page {
             }
 
             i-about-button := IconButton { 
-                icon: @image-url("../../assets/information.svg");
+                icon: Images.information;
             }
         }
 

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Theme } from "../theme.slint";
+import { Images } from "../images.slint";
 
 export component CheckBox {
     callback clicked <=> i-touch-area.clicked;
@@ -18,7 +19,7 @@ export component CheckBox {
         i-check-icon := Image {  
             opacity: 0.0;
             colorize: Theme.palette.pure-black;
-            source: @image-url("../assets/check.svg");
+            source: Images.check;
 
             animate opacity { duration: Theme.durations.fast; }
         }
