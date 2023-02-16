@@ -701,7 +701,24 @@ fn winit_key_code_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Op
 }
 
 fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>) -> ClipboardPair {
-    use copypasta::nop_clipboard::NopClipboardContext;
+    // Provide a truly silent no-op clipboard context, as copypasta's NoopClipboard spams stdout with
+    // println.
+    struct SilentClipboardContext;
+    impl copypasta::ClipboardProvider for SilentClipboardContext {
+        fn get_contents(
+            &mut self,
+        ) -> Result<String, Box<dyn std::error::Error + Send + Sync + 'static>> {
+            Ok(Default::default())
+        }
+
+        fn set_contents(
+            &mut self,
+            _: String,
+        ) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+            Ok(())
+        }
+    }
+
     cfg_if::cfg_if! {
         if #[cfg(all(
             unix,
@@ -727,12 +744,12 @@ fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>
                 use copypasta::x11_clipboard::{X11ClipboardContext, Primary, Clipboard};
                 let prim = X11ClipboardContext::<Primary>::new()
                     .map_or(
-                        Box::new(NopClipboardContext) as Box<dyn ClipboardProvider>,
+                        Box::new(SilentClipboardContext) as Box<dyn ClipboardProvider>,
                         |x| Box::new(x) as Box<dyn ClipboardProvider>,
                     );
                 let sec = X11ClipboardContext::<Clipboard>::new()
                     .map_or(
-                        Box::new(NopClipboardContext) as Box<dyn ClipboardProvider>,
+                        Box::new(SilentClipboardContext) as Box<dyn ClipboardProvider>,
                         |x| Box::new(x) as Box<dyn ClipboardProvider>,
                     );
                 (sec, prim)
@@ -742,10 +759,10 @@ fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>
         } else {
             (
                 copypasta::ClipboardContext::new().map_or(
-                    Box::new(NopClipboardContext) as Box<dyn ClipboardProvider>,
+                    Box::new(SilentClipboardContext) as Box<dyn ClipboardProvider>,
                     |x| Box::new(x) as Box<dyn ClipboardProvider>,
                 ),
-                Box::new(NopClipboardContext),
+                Box::new(SilentClipboardContext),
             )
         }
     }
