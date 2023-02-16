@@ -35,7 +35,7 @@ pub mod generated_code {
     /// export component SampleComponent inherits Window {
     ///     in-out property<int> counter;
     ///     // note that dashes will be replaced by underscores in the generated code
-    ///     in property<string> user-name;
+    ///     in-out property<string> user-name;
     ///     callback hello();
     ///     // ... maybe more elements here
     /// }
@@ -62,7 +62,8 @@ pub mod generated_code {
         pub fn get_user_name(&self) -> crate::SharedString {
             unimplemented!()
         }
-        /// No setter for `user_name`, as that is an `out` property.
+        /// Assigns a new value to the `user_name` property.
+        pub fn set_user_name(&self, value: crate::SharedString) {}
 
         /// For each callback declared at the root of the component, a function to call that
         /// callback is generated. This is the function that calls the `hello` callback declared

@@ -45,8 +45,8 @@ Let's assume we've this code in our `.slint` file:
 
 ```slint,no-preview
 component SampleComponent inherits Window {
-    in-oit property<int> counter;
-    out property<string> user_name;
+    in-out property<int> counter;
+    in-out property<string> user_name;
     callback hello;
     // ... maybe more elements here
 }
@@ -84,7 +84,8 @@ public:
 
     /// Getter for the `user_name` property
     inline slint::SharedString get_user_name () const;
-    /// No setter for the `user_name` property: This is a `out` property
+    /// Setter for the `user_name` property
+    inline void set_user_name (const slint::SharedString &value) const;
 
     /// Call this function to call the `hello` callback
     inline void invoke_hello () const;
