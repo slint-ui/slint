@@ -774,28 +774,34 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
 
     component_struct.friends.push("slint::private_api::WindowAdapterRc".into());
 
-    component_struct
-        .friends
-        .extend(component.sub_components.iter().map(|sub_compo| ident(&sub_compo.name)));
+    add_friends(&mut component_struct.friends, &component.item_tree.root, true);
+    for sc in &component.sub_components {
+        add_friends(&mut component_struct.friends, sc, false);
+    }
 
-    component_struct.friends.extend(
-        component
-            .item_tree
-            .root
-            .repeated
-            .iter()
-            .map(|repeater| ident(&repeater.sub_tree.root.name)),
-    );
+    fn add_friends(friends: &mut Vec<String>, sc: &llr::SubComponent, is_root: bool) {
+        if !is_root {
+            friends.push(ident(&sc.name));
+        }
+        for repeater in &sc.repeated {
+            add_friends(friends, &repeater.sub_tree.root, false)
+        }
+        for popup in &sc.popup_windows {
+            add_friends(friends, &popup.root, false)
+        }
+    }
 
     for glob in &component.globals {
         let ty = if glob.is_builtin {
             format!("slint::cbindgen_private::{}", glob.name)
         } else {
-            ident(&glob.name)
+            let ty = ident(&glob.name);
+            component_struct.friends.push(ty.clone());
+            ty
         };
 
         component_struct.members.push((
-            Access::Public, // FIXME
+            Access::Private,
             Declaration::Var(Var {
                 ty: format!("std::shared_ptr<{}>", ty),
                 name: format!("global_{}", ident(&glob.name)),
