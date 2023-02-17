@@ -7,6 +7,5 @@ fn main() {
     // Setup cfg aliases
     cfg_aliases! {
        enable_skia_renderer: { any(feature = "renderer-winit-skia", feature = "renderer-winit-skia-opengl")},
-       use_winit_theme: { any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32") },
     }
 }

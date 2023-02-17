@@ -71,7 +71,6 @@ i-slint-renderer-femtovg = { version = "=1.0.0", path = "../../renderers/femtovg
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 i-slint-renderer-femtovg = { version = "=1.0.0", path = "../../renderers/femtovg", optional = true, features = ["fontconfig"] }
-dark-light = "1.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # For GL rendering

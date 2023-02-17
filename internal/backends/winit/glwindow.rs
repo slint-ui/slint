@@ -729,19 +729,14 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         self.dark_color_scheme
             .get_or_init(|| {
                 Box::pin(Property::new({
-                    cfg_if::cfg_if! {
-                        if #[cfg(use_winit_theme)] {
-                            self.borrow_mapped_window().and_then(|mapped_window| {
-                                mapped_window
-                                    .winit_window
-                                    .theme()
-                                    .map(|theme| theme == winit::window::Theme::Dark)
-                            })
-                            .unwrap_or_default()
-                        } else {
-                            dark_light::detect() == dark_light::Mode::Dark
-                        }
-                    }
+                    self.borrow_mapped_window()
+                        .and_then(|mapped_window| {
+                            mapped_window
+                                .winit_window
+                                .theme()
+                                .map(|theme| theme == winit::window::Theme::Dark)
+                        })
+                        .unwrap_or_default()
                 }))
             })
             .as_ref()
