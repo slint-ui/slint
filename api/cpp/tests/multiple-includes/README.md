@@ -1,0 +1,1 @@
+This is a test making sure that the header can be included in several file without causing multiple definitions
