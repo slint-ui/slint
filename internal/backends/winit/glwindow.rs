@@ -239,9 +239,14 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
         self.in_resize_event.set(true);
         scopeguard::defer! { self.in_resize_event.set(false); }
 
-        let physical_size = physical_size_to_slint(&size);
-        self.window.set_size(physical_size);
-        self.renderer.resize_event(physical_size);
+        // When a window is minimized on Windows, we get a move event to an off-screen position
+        // and a resize even with a zero size. Don't forward that, especially not to the renderer,
+        // which might panic when trying to create a zero-sized surface.
+        if size.width > 0 && size.height > 0 {
+            let physical_size = physical_size_to_slint(&size);
+            self.window.set_size(physical_size);
+            self.renderer.resize_event(physical_size);
+        }
     }
 }
 
