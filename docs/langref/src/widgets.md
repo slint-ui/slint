@@ -339,6 +339,10 @@ Same as ListView, and in addition:
 -   **`model`** (_`[StandardListViewItem]`_): The model
 -   **`current-item`** (_int_): The index of the currently active item. -1 mean none is selected, which is the default
 
+### Functions
+
+-   **`set-current-item(index: int)`**: Sets the current item and brings it into view
+
 ### Example
 
 ```slint

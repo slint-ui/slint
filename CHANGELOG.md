@@ -27,6 +27,7 @@ All notable changes to this project are documented in this file.
 
  - The TextEdit and LineEdit now correctly handle double click and tripple click to select words or lines,
    as well as support for the "primary" clipboard on X11 and wayland (select to copy, and middle click to paste)
+- The StandardListView provides now a set-current-item function to set the selected item and bring it into view.
 
 ### Fixed
 
