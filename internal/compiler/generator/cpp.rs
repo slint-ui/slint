@@ -1136,7 +1136,7 @@ fn generate_item_tree(
     ));
 
     file.definitions.push(Declaration::Var(Var {
-        ty: "const slint::private_api::ComponentVTable".to_owned(),
+        ty: "inline const slint::private_api::ComponentVTable".to_owned(),
         name: format!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
             "{{ visit_children, get_item_ref, get_subtree_range, get_subtree_component, \
