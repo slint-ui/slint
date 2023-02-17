@@ -49,6 +49,8 @@ target_link_libraries(test_eventloop PRIVATE Threads::Threads)
 slint_test(models)
 slint_test(window)
 
+add_subdirectory(multiple-includes)
+
 if(SLINT_FEATURE_EXPERIMENTAL)
     if(Qt6_FOUND)
         add_subdirectory(manual/platform_qt)
