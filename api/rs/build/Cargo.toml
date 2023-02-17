@@ -9,7 +9,7 @@ edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 description = "Helper for Slint build script"
 repository = "https://github.com/slint-ui/slint"
-homepage = "https://slint-ui.com"
+homepage = "https://slint.rs"
 rust-version.workspace = true
 
 [lib]
