@@ -397,8 +397,11 @@ impl Renderer for FemtoVGRenderer {
                         }
                     }
                     if let Some(last) = metrics.glyphs.last() {
-                        result = line_pos
-                            + PhysicalPoint::new(last.x + last.advance_x, last.y).to_vector();
+                        if line_text.ends_with('\n') {
+                            result = line_pos + euclid::vec2(0.0, last.y);
+                        } else {
+                            result = line_pos + euclid::vec2(last.x + last.advance_x, 0.0);
+                        }
                     }
                 }
             },
