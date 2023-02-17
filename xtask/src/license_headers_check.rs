@@ -363,6 +363,7 @@ const EXPECTED_HEADER: LicenseHeader<'static> =
     LicenseHeader(&["Copyright © SixtyFPS GmbH <info@slint-ui.com>", EXPECTED_SPDX_ID]);
 
 const EXPECTED_HOMEPAGE: &str = "https://slint-ui.com";
+const ALLOWED_HOMEPAGE: &str = "https://slint.rs";
 const EXPECTED_REPOSITORY: &str = "https://github.com/slint-ui/slint";
 
 fn collect_files() -> Result<Vec<PathBuf>> {
@@ -591,7 +592,9 @@ impl LicenseHeaderCheck {
             return Ok(());
         }
 
-        doc.check_and_fix_package_string_field(self.fix_it, "homepage", EXPECTED_HOMEPAGE)?;
+        if doc.check_and_fix_package_string_field(false, "homepage", ALLOWED_HOMEPAGE).is_err() {
+            doc.check_and_fix_package_string_field(self.fix_it, "homepage", EXPECTED_HOMEPAGE)?;
+        }
         doc.check_and_fix_package_string_field(self.fix_it, "repository", EXPECTED_REPOSITORY)?;
 
         if doc.package()?["description"].is_none() {

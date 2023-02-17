@@ -7,7 +7,7 @@
 # Slint
 
 This crate is the main entry point for embedding user interfaces designed with
-[Slint UI](https://slint-ui.com/) in Rust programs.
+[Slint](https://slint.rs/) in Rust programs.
 
 If you are new to Slint, start with the [Walk-through tutorial](https://slint-ui.com/docs/tutorial/rust).
 If you are already familiar with Slint, the following topics provide related information.
