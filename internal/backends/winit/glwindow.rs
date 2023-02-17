@@ -90,6 +90,7 @@ pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     pending_redraw: Cell<bool>,
     in_resize_event: Cell<bool>,
+    dark_color_scheme: once_cell::unsync::OnceCell<Pin<Box<Property<bool>>>>,
 
     renderer: Renderer,
     #[cfg(target_arch = "wasm32")]
@@ -117,6 +118,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
             currently_pressed_key_code: Default::default(),
             pending_redraw: Cell::new(false),
             in_resize_event: Cell::new(false),
+            dark_color_scheme: Default::default(),
             renderer: Renderer::new(&(self_weak.clone() as _)),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
@@ -243,6 +245,13 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
         let physical_size = physical_size_to_slint(&size);
         self.window.set_size(physical_size);
         self.renderer.resize_event(physical_size);
+    }
+
+    fn set_dark_color_scheme(&self, dark_mode: bool) {
+        self.dark_color_scheme
+            .get_or_init(|| Box::pin(Property::new(false)))
+            .as_ref()
+            .set(dark_mode)
     }
 }
 
@@ -703,7 +712,26 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
     }
 
     fn dark_color_scheme(&self) -> bool {
-        dark_light::detect() == dark_light::Mode::Dark
+        self.dark_color_scheme
+            .get_or_init(|| {
+                Box::pin(Property::new({
+                    cfg_if::cfg_if! {
+                        if #[cfg(use_winit_theme)] {
+                            self.borrow_mapped_window().and_then(|mapped_window| {
+                                mapped_window
+                                    .winit_window
+                                    .theme()
+                                    .map(|theme| theme == winit::window::Theme::Dark)
+                            })
+                            .unwrap_or_default()
+                        } else {
+                            dark_light::detect() == dark_light::Mode::Dark
+                        }
+                    }
+                }))
+            })
+            .as_ref()
+            .get()
     }
 
     fn is_visible(&self) -> bool {

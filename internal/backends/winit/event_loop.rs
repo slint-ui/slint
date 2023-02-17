@@ -49,6 +49,9 @@ pub trait WinitWindow: WindowAdapter {
     /// Returns true if request_redraw() was called since the last event loop iteration
     /// and resets the state back to false.
     fn take_pending_redraw(&self) -> bool;
+
+    /// Notify the window if the system theme has changed from light to dark mode
+    fn set_dark_color_scheme(&self, dark_mode: bool);
 }
 
 /// The Default, and the selection clippoard
@@ -434,6 +437,9 @@ fn process_window_event(
                 runtime_window.set_window_item_geometry(LogicalSize::new(size.width, size.height));
                 runtime_window.set_scale_factor(scale_factor as f32);
             }
+        }
+        WindowEvent::ThemeChanged(theme) => {
+            window.set_dark_color_scheme(theme == winit::window::Theme::Dark)
         }
         _ => {}
     }

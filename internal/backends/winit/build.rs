@@ -7,6 +7,8 @@ fn main() {
     // Setup cfg aliases
     cfg_aliases! {
        enable_skia_renderer: { any(feature = "renderer-winit-skia", feature = "renderer-winit-skia-opengl")},
+       // Upgrade to wasm once https://github.com/rust-windowing/winit/pull/2687 is merged & released.
+       use_winit_theme: { any(target_family = "windows", target_os = "macos", target_os = "ios") },
     }
 
     println!("cargo:rerun-if-env-changed=RUST_FONTCONFIG_DLOPEN");
