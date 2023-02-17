@@ -143,15 +143,38 @@ export component ListView inherits ScrollView {
 }
 
 component StandardListViewBase inherits ListView {
+    private property <length> item-height: self.viewport-height / self.model.length;
+    private property <length> current-item-y: self.viewport-y + current-item * item-height;
+
     in property<[StandardListViewItem]> model;
     in-out property<int> current-item: -1;
+
     for item[i] in root.model : NativeStandardListViewItem {
         item: item;
         index: i;
         is-selected: root.current-item == i;
         has-hover: ta.has-hover;
+
         ta := TouchArea {
-            clicked => { root.current-item = i; }
+            clicked => { 
+                set-current-item(i);    
+            }
+        }
+    }
+
+    public function set-current-item(index: int) {
+        if(index < 0 || index >= model.length) {
+            return;
+        }
+
+        root.current-item = index;
+
+        if(current-item-y < 0) {
+            self.viewport-y += 0 - current-item-y;
+        }
+        
+        if(current-item-y + item-height > self.visible-height) {
+            self.viewport-y -= current-item-y + item-height - self.visible-height;
         }
     }
 }
@@ -159,15 +182,14 @@ component StandardListViewBase inherits ListView {
 export component StandardListView inherits StandardListViewBase {
     FocusScope {
         key-pressed(event) => {
-            if (event.text == Key.UpArrow && root.current-item > 0) {
-                root.current-item -= 1;
-                accept
-            } else if (event.text == Key.DownArrow && root.current-item + 1 < root.model.length) {
-                root.current-item += 1;
-                accept
-            } else {
-                reject
+            if (event.text == Key.UpArrow) {
+                root.set-current-item(root.current-item - 1);
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+                root.set-current-item(root.current-item + 1);
+                return accept;
             }
+            reject
         }
     }
 }
