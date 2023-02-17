@@ -5,10 +5,10 @@
 
 # A Rust UI toolkit
 
-[Slint](https://slint-ui.com/) is a UI toolkit that supports different programming languages.
-Slint is the Rust API to interact with a Slint UI design from Rust.
+[Slint](https://slint.rs) is a Rust based UI toolkit to build native user interfaces on desktop platforms and for embedded devices.
+This crate provides the Rust APIs to interact with the user interface implemented in Slint.
 
-The complete Rust documentation can be viewed online at https://slint-ui.com/docs/rust/slint/.
+The complete Rust documentation for Slint can be viewed online at https://slint.rs/docs/rust/slint/.
 
 ## Getting Started
 
