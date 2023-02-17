@@ -410,6 +410,10 @@ public:
 
     /// This function allows registering a callback that's invoked during the different phases of
     /// rendering. This allows custom rendering on top or below of the scene.
+    ///
+    /// The provided callback must be callable with a slint::RenderingState and the
+    /// slint::GraphicsAPI argument.
+    ///
     /// On success, the function returns a std::optional without value. On error, the function
     /// returns the error code as value in the std::optional.
     template<typename F>
