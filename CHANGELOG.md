@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- The StandardListView provides now a set-current-item function to set the selected item and bring it into view.
 ### Fixed
 
  - Fixed compilation error in rust generated code if user defined struct have the same name as
