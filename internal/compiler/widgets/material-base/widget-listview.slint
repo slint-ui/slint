@@ -31,7 +31,7 @@ component StandardListViewBase inherits ListView {
             return;
         }
 
-        root.current-item = index;
+        current-item = index;
 
         if(current-item-y < 0) {
             self.viewport-y += 0 - current-item-y;

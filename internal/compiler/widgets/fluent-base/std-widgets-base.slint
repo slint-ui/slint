@@ -538,11 +538,11 @@ component StandardListViewBase inherits ListView {
         current-item = index;
 
         if(current-item-y < 0) {
-            viewport-y += 0 - current-item-y;
+            self.viewport-y += 0 - current-item-y;
         }
         
-        if(current-item-y + item-height > visible-height) {
-            viewport-y -= current-item-y + item-height - visible-height;
+        if(current-item-y + item-height > self.visible-height) {
+            self.viewport-y -= current-item-y + item-height - self.visible-height;
         }
     }
 }
