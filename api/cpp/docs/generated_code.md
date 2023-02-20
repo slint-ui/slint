@@ -32,7 +32,7 @@ actual instance and keeps it alive as long as at least one
 {cpp:class}`slint::ComponentHandle` is in scope, similar to `std::shared_ptr<T>`.
 
 For more complex user interfaces it's common to supply data in the form of an
-abstract data model, that is used with [`for` - `in`](../slint/repetition.html)
+abstract data model, that's used with [`for` - `in`](../slint/repetition.html)
 repetitions or [`ListView`](../slint/widgets.md#listview) elements in the
 `.slint` language. All models in C++ are sub-classes of the
 {cpp:class}`slint::Model` and you can sub-class it yourself. For convenience,
@@ -44,9 +44,9 @@ by a `std::vector<T>`.
 Let's assume we've this code in our `.slint` file:
 
 ```slint,no-preview
-SampleComponent := Window {
-    property<int> counter;
-    property<string> user_name;
+component SampleComponent inherits Window {
+    in-out property<int> counter;
+    in-out property<string> user_name;
     callback hello;
     // ... maybe more elements here
 }
