@@ -28,11 +28,6 @@ All notable changes to this project are documented in this file.
  - The TextEdit and LineEdit now correctly handle double click and tripple click to select words or lines,
    as well as support for the "primary" clipboard on X11 and wayland (select to copy, and middle click to paste)
 
-### Fixed
-
- - Fixed compilation error in rust generated code if user defined struct have the same name as
-   slint internal struct types
-
 ## [0.3.5] - 2023-02-20
 
 ### Fixed
