@@ -60,8 +60,8 @@ jobs:
         toolchain: ${{ matrix.rust_version }}
         key: x-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
     - name: Debug - Show disk space before build
+      if: matrix.os == 'ubuntu-20.04'
       run: |
-          du -sh target/*
           df -h
     - name: Build
       run: cargo build --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel  # mcu backend requires nightly
@@ -73,7 +73,7 @@ jobs:
         command: test
         args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel   # mcu backend requires nightly
     - name: Debug - Show disk space
-      if: ${{ failure() }}
+      if: ${{ failure() }} && matrix.os == 'ubuntu-20.04'
       run: |
           du -sh target/*
           df -h
