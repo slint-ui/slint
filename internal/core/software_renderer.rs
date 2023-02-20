@@ -344,7 +344,7 @@ impl Renderer for SoftwareRenderer {
         fonts::register_bitmap_font(font_data);
     }
 
-    #[cfg(feature = "systemfonts")]
+    #[cfg(feature = "software-renderer-systemfonts")]
     fn register_font_from_memory(
         &self,
         data: &'static [u8],
@@ -352,7 +352,7 @@ impl Renderer for SoftwareRenderer {
         self::fonts::systemfonts::register_font_from_memory(data)
     }
 
-    #[cfg(feature = "systemfonts")]
+    #[cfg(feature = "software-renderer-systemfonts")]
     fn register_font_from_path(
         &self,
         path: &std::path::Path,
@@ -1569,7 +1569,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
                 self.draw_text_paragraph(paragraph, physical_clip, offset, color);
             }
-            #[cfg(feature = "systemfonts")]
+            #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
 

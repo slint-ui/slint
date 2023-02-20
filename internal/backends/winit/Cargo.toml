@@ -24,7 +24,7 @@ x11 = ["winit/x11", "glutin/x11", "glutin/glx", "glutin-winit/x11", "glutin-wini
 renderer-winit-femtovg = ["i-slint-renderer-femtovg"]
 renderer-winit-skia = ["i-slint-renderer-skia"]
 renderer-winit-skia-opengl = ["renderer-winit-skia", "i-slint-renderer-skia/opengl"]
-renderer-winit-software = ["softbuffer", "imgref", "rgb", "i-slint-core/systemfonts"]
+renderer-winit-software = ["softbuffer", "imgref", "rgb", "i-slint-core/software-renderer-systemfonts"]
 rtti = ["i-slint-core/rtti"]
 default = []
 

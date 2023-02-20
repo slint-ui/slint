@@ -34,6 +34,8 @@ All notable changes to this project are documented in this file.
    as well as support for the "primary" clipboard on X11 and wayland (select to copy, and middle click to paste)
  - C++ API to create `slint::Image` from raw pixel data
  - Software renderer: support for linear-gradients
+ - Added a `software-renderer-systemfonts` feature to the Rust crate, to enable the use of fonts from the operating system
+   for text rendering with the software renderer.
 
 ### Fixed
 
