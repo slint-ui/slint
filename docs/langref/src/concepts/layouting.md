@@ -1,9 +1,9 @@
 # Positioning and Layout of Elements
 
 All visual elements are shown in a window. The `x` and `y` properties store
-the elements coordinates relative to their parent element. You calculate the
-absolute position of an element in a window by adding the parent's position to
-the element's position. If the parent has a grandparent element, then that one
+the elements coordinates relative to their parent element. Slint determines the
+absolute position of an element by adding the parent's position to
+the element's position. If the parent has a parent element itself, then that one
 is added as well. This calculation continues until the top-level element
 is reached.
 
@@ -12,13 +12,12 @@ The `width` and `height` properties store the size of visual elements.
 You can create an entire graphical user interface by placing the elements in
 two ways:
 
-* Explicitly - by setting the `x`, `y`, `width`, and `height` properties.
-* Automatically - by using layout elements.
+-   Explicitly - by setting the `x`, `y`, `width`, and `height` properties.
+-   Automatically - by using layout elements.
 
 Explicit placement is great for static scenes with few elements. Layouts are
-suitable for complex user interfaces as they handle many elements at one in
-an automated way. Layouts express geometric relationship between elements in
-dedicated layout elements.
+suitable for complex user interfaces and help create scalable user interfaces.
+Layout elements express geometric relationships between elements.
 
 ## Explicit Placement
 
@@ -47,7 +46,7 @@ export component Example inherits Window {
 }
 ```
 
-The positions of both rectangles and the size of the inner green one are hard-coded.
+The positions of both rectangles and the size of the inner green one are fixed.
 The outer blue rectangle has a size that's automatically calculated using binding
 expressions for the `width` and `height` properties. The calculation results in the
 bottom left corner aligning with the corner of the window - it updates whenever
@@ -56,8 +55,8 @@ the `width` and `height` of the window changes.
 When specifying explicit values for any of the geometric properties, Slint requires
 you to attach a unit to the number. You can choose between two different units:
 
-* Logical pixels, using the `px` unit suffix. This is the recommended unit.
-* Physical pixels, using the `phx` unit suffix
+-   Logical pixels, using the `px` unit suffix. This is the recommended unit.
+-   Physical pixels, using the `phx` unit suffix
 
 Logical pixels scale automatically with the device pixel ratio that your system is
 configured with. For example, on a modern High-DPI display the device pixel ratio can be 2,
@@ -75,17 +74,17 @@ The default values for `width` and `height` depend on the element. Some elements
 automatically based on their content, such as `Image`, `Text`, and most widgets. The following elements
 don't have content and default to fill their parent element:
 
-* `Rectangle`
-* `TouchArea`
-* `FocusScope`
-* `Flickable`
+-   `Rectangle`
+-   `TouchArea`
+-   `FocusScope`
+-   `Flickable`
 
 ## Automatic Placement Using Layouts
 
 Slint comes with different layout elements that automatically calculate the position and size of their children:
 
-* `VerticalLayout` / `HorizontalLayout`: The children are placed along the vertical or horizontal axis.
-* `GridLayout`: The children are placed in a grid of columns and rows.
+-   `VerticalLayout` / `HorizontalLayout`: The children are placed along the vertical or horizontal axis.
+-   `GridLayout`: The children are placed in a grid of columns and rows.
 
 You can also nest layouts, making it possible to create complex user interfaces.
 
@@ -93,10 +92,10 @@ You can tune the automatic placement using different constraints, to accommodate
 interface. For example each element has a minimum and a maximum size. Set these explicitly using the
 following properties:
 
-* `min-width`
-* `min-height`
-* `max-width`
-* `max-height`
+-   `min-width`
+-   `min-height`
+-   `max-width`
+-   `max-height`
 
 A layout element also affects the minimum and maximum size of its parent.
 
@@ -105,36 +104,36 @@ Any element with a specified `width` and `height` has a fixed size in a layout.
 When there is extra space in a layout, elements can stretch along the layout axis. You can control this stretch
 factor between the element and its siblings with these properties:
 
-* `horizontal-stretch`
-* `vertical-stretch`
+-   `horizontal-stretch`
+-   `vertical-stretch`
 
 A value of `0` means that the element won't stretch at all, unless all siblings
 also have a stretch factor of `0`. In this case all elements stretch equally.
 
 The default value of these constraint properties may depends on the content of the element.
-If the element doesn#t set a `x` or a `y` property, these constraints are also automatically applied to the parent element.
-When using the legacy syntax, only the layout elements apply their constraints to the parent.
+If the element's `x` or `y` isn't set, these constraints are also automatically
+applied to the parent element.
 
 ## Common Properties on Layout Elements
 
 All layout elements have the following properties in common:
 
-* `spacing`: This controls the spacing between the children.
-* `padding`: This specifies the padding within the layout, the space between the elements and the border of the
+-   `spacing`: This controls the spacing between the children.
+-   `padding`: This specifies the padding within the layout, the space between the elements and the border of the
     layout.
 
 For more fine grained control, the `padding` property can be split into properties for each side of the layout:
 
-* `padding-left`
-* `padding-right`
-* `padding-top`
-* `padding-bottom`
+-   `padding-left`
+-   `padding-right`
+-   `padding-top`
+-   `padding-bottom`
 
 ## `VerticalLayout` and `HorizontalLayout`
 
-The `VerticalLayout` and `HorizontalLayout` elements place elements in a column or a row.
-By default, they will be stretch or shrink so that they take the whole space. You
-can adjust the element's alignmnet as needed.
+The `VerticalLayout` and `HorizontalLayout` elements place their children in a
+column or a row. By default, they stretch or shrink to take the whole space. You
+can adjust the element's alignment as needed.
 
 The following example places the blue and yellow rectangle in a row and evenly stretched
 across the 200 logical pixels of `width`:
@@ -151,7 +150,7 @@ export component Example inherits Window {
 }
 ```
 
-The example below, on the other hand, specifies that the rectangles shall be aligned
+The example below, on the other hand, specifies that the rectangles shall align
 to the start of the layout (the visual left). That results in no stretching but instead
 the rectangles retain their specified minimum width:
 
@@ -204,7 +203,7 @@ export component Example inherits Window {
 
 ### Alignment
 
-Each elements is sized according to their `width` or `height` if specified, otherwise it is
+Each element is sized according to their `width` or `height` if specified, otherwise it is
 set to the minimum size which is set with the min-width or min-height property, or
 the minimum size of an inner layout, whatever is bigger.
 

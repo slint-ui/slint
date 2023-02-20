@@ -7,7 +7,7 @@ result of the evaluation. When a property changes, all dependent properties get
 notified, so that the next time their value is read, their binding is re-evaluated.
 
 For any reactive system to work well, bindings evaluation should be "pure":
-Evaluating a property shouldn't have side-effects on other properties or change
+Evaluating a property shouldn't have side-effects nor change
 any observable state but the property itself. Side effects are problematic
 because it's not always clear when they will happen: Lazy evaluation may change
 their order or affect whether they happen at all. In addition, changes to
@@ -23,8 +23,8 @@ callback or function.
 Annotate callbacks and public functions with the `pure` keyword to make them
 accessible from property bindings and other pure callbacks and functions.
 
-The purity of private functions is automatically inferred. Annotated them
-explicitly with `pure` to enforce their purity.
+The purity of private functions is automatically inferred. You may declare
+private functions explicitly "pure" to have the compiler enforce their purity.
 
 ```slint,no-preview
 export component Example {

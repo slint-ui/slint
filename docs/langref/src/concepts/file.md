@@ -40,11 +40,10 @@ export component MyApp inherits Window {
 Both `MyButton` and `MyApp` are components. `Window` and `Rectangle` are built-in elements
 used by `MyApp`. `MyApp` also re-uses the `MyButton` component as two separate elements.
 
-Elements have properties, which you can assign values to. Here the first `MyButton`
-element has a property `text` that we assign a string constant "hello" to. You
-can assign expressions using other properties as well. Slint will re-evaluate
-properties when any of the properties they depend on change, which makes the
-user-interface reactive.
+Elements have properties, which you can assign values to. Here we assign a string
+constant "hello" to the first `MyButton`'s `text` property. You
+can also assign entire expressions. Slint will re-evaluate the expressions when any
+of the properties they depend on change, which makes the user-interface reactive.
 
 You can name elements using the `:=` syntax:
 
@@ -77,4 +76,4 @@ Some elements are also accessible under pre-defined names:
 -   `self` refers to the current element.
 -   `parent` refers to the parent element of the current element.
 
-Users can not redefine these names to refer to something else.
+These names are reserved any you can't re-define them.
