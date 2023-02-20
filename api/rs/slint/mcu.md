@@ -18,7 +18,7 @@ crates, tools, and training materials. These resources should guide you through 
 to get started with your device.
 
 Slint requires a custom global memory allocator in a bare metal environment with `#![no_std]`.
-The rust team hasn't yet stabilized this feature, so only the nightly version
+The Rust team hasn't yet stabilized this feature, so only the nightly version
 of the Rust compiler will support it. See
 [#51540](https://github.com/rust-lang/rust/issues/51540) or
 [#66741](https://github.com/rust-lang/rust/issues/66741) for tracking issues.
