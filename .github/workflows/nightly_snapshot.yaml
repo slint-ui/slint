@@ -23,21 +23,21 @@ on:
 
 jobs:
   slint-viewer-binary:
-    uses: slint-ui/slint/.github/workflows/slint_tool_binary.yaml@master
+    uses: slint-ui/slint/.github/workflows/slint_tool_binary.yaml@0.3.5
     with:
       program: "slint-viewer"
   slint-lsp-binary:
-    uses: slint-ui/slint/.github/workflows/slint_tool_binary.yaml@master
+    uses: slint-ui/slint/.github/workflows/slint_tool_binary.yaml@0.3.5
     with:
       program: "slint-lsp"
   docs:
-    uses: slint-ui/slint/.github/workflows/build_docs.yaml@master
+    uses: slint-ui/slint/.github/workflows/build_docs.yaml@0.3.5
   wasm_demo:
-    uses: slint-ui/slint/.github/workflows/wasm_demos.yaml@master
+    uses: slint-ui/slint/.github/workflows/wasm_demos.yaml@0.3.5
   wasm:
-    uses: slint-ui/slint/.github/workflows/wasm_editor_and_interpreter.yaml@master
+    uses: slint-ui/slint/.github/workflows/wasm_editor_and_interpreter.yaml@0.3.5
   cpp_package:
-    uses: slint-ui/slint/.github/workflows/cpp_package.yaml@master
+    uses: slint-ui/slint/.github/workflows/cpp_package.yaml@0.3.5
 
   build_vscode_lsp_linux_windows:
     env:
