@@ -85,7 +85,7 @@ impl<'a> LineBufferProvider for TestingLineBuffer<'a> {
     ) {
         let start = line * range.len();
         let end = start + range.len();
-        render_fn(&mut self.buffer[(start..end)]);
+        render_fn(&mut self.buffer[start..end]);
     }
 }
 
