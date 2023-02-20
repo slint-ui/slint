@@ -45,6 +45,9 @@ libm = ["i-slint-core/libm"]
 ## of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
 log = ["dep:log"]
 
+## This feature enables the software renderer to pick up fonts from the operating system for text rendering.
+software-renderer-systemfonts = ["i-slint-core/software-renderer-systemfonts"]
+
 ## Slint uses internally some `thread_local` state.
 ##
 ## When the `std` feature is enabled, Slint can use [`std::thread_local!`], but when in a `#![no_std]`
