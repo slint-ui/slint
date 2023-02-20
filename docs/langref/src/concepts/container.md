@@ -19,7 +19,7 @@ export component MyApp inherits Window {
 
 One way to implement such a `BoxWithLabel` uses a layout. By default child elements like
 the `Text` element become children of the `BoxWithLabel`, but we need them to become
-layout instead! For this purpose, you can change the default child placement by using
+children of a layout instead. For this purpose, you can change the default child placement by using
 the `@children` expression inside the element hierarchy of a component:
 
 ```slint
