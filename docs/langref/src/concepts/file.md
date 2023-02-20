@@ -76,4 +76,4 @@ Some elements are also accessible under pre-defined names:
 -   `self` refers to the current element.
 -   `parent` refers to the parent element of the current element.
 
-These names are reserved any you can't re-define them.
+These names are reserved and you can't re-define them.

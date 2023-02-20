@@ -70,7 +70,7 @@ of the parent's `width`.
 The default values for `x` and `y` properties are such that elements are centered within their
 parent.
 
-The default values for `width` and `height` depend on the element. Some elements are sized
+The default values for `width` and `height` depend on the type of element. Some elements are sized
 automatically based on their content, such as `Image`, `Text`, and most widgets. The following elements
 don't have content and default to fill their parent element:
 
@@ -86,7 +86,7 @@ Slint comes with different layout elements that automatically calculate the posi
 -   `VerticalLayout` / `HorizontalLayout`: The children are placed along the vertical or horizontal axis.
 -   `GridLayout`: The children are placed in a grid of columns and rows.
 
-You can also nest layouts, making it possible to create complex user interfaces.
+You can also nest layouts to create complex user interfaces.
 
 You can tune the automatic placement using different constraints, to accommodate the design of your user
 interface. For example each element has a minimum and a maximum size. Set these explicitly using the
@@ -107,8 +107,8 @@ factor between the element and its siblings with these properties:
 -   `horizontal-stretch`
 -   `vertical-stretch`
 
-A value of `0` means that the element won't stretch at all, unless all siblings
-also have a stretch factor of `0`. In this case all elements stretch equally.
+A value of `0` means that the element won't stretch at all. All elements stretch
+equally if they all have a stretch factor of `0`.
 
 The default value of these constraint properties may depends on the content of the element.
 If the element's `x` or `y` isn't set, these constraints are also automatically

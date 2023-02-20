@@ -6,9 +6,9 @@ automatically discovered during property evaluation. The property stores the
 result of the evaluation. When a property changes, all dependent properties get
 notified, so that the next time their value is read, their binding is re-evaluated.
 
-For any reactive system to work well, bindings evaluation should be "pure":
-Evaluating a property shouldn't have side-effects nor change
-any observable state but the property itself. Side effects are problematic
+For any reactive system to work well, evaluating a property shouldn't change any
+observable state but the property itself. If this is the case, then the expression
+is "pure", otherwise it's said to have side-effects. Side-effects are problematic
 because it's not always clear when they will happen: Lazy evaluation may change
 their order or affect whether they happen at all. In addition, changes to
 properties during their binding evaluation due to a side-effect may result in
