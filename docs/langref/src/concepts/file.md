@@ -6,7 +6,7 @@ interface description written in the Slint language.
 Each `.slint` file defines one or several components. These components declare
 a tree of elements. Components form the basis of composition in Slint. Use them
 to build your own re-usable set of UI controls. You can use each declared
-component under its name as an element n another component later.
+component under its name as an element in another component.
 
 Below is an example of components and elements:
 
