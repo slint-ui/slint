@@ -98,7 +98,7 @@ impl<'a> LineBufferProvider for TestingLineBuffer<'a> {
         }
         let start = line * self.stride + range.start;
         let end = line * self.stride + range.end;
-        render_fn(&mut self.buffer[(start..end)]);
+        render_fn(&mut self.buffer[start..end]);
     }
 }
 
@@ -213,7 +213,7 @@ pub fn assert_with_render_by_line(path: &str, window: Rc<MinimalSoftwareWindow>)
     }
     screenshot_render_by_line(window, Some(region.cast()), &mut rendering);
     if let Err(reason) = compare_images(path, &rendering) {
-        panic!("Partial rendeing image comparison failure for line-by-line rendering for {path}: {reason}");
+        panic!("Partial rendering image comparison failure for line-by-line rendering for {path}: {reason}");
     }
 }
 
