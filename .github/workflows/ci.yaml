@@ -68,6 +68,11 @@ jobs:
       with:
         command: test
         args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel   # mcu backend requires nightly
+    - name: Debug: Show disk space
+      if: ${{ failure() }}
+      run: |
+          du -sh target/*
+          df -h
     - name: Archive screenshots after failed tests
       if: ${{ failure() }}
       uses: actions/upload-artifact@v3
