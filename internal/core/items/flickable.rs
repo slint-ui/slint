@@ -243,28 +243,23 @@ impl FlickableData {
                         // Check if the mouse was moved more than the DISTANCE_THRESHEOLD in a
                         // direction in which the flickable can flick
                         let diff = position - inner.pressed_pos;
-                        let vp = Flickable::FIELD_OFFSETS.viewport;
-                        let check_horizontal = {
-                            let gap_h = (vp + Empty::FIELD_OFFSETS.width).apply_pin(flick).get()
-                                - flick.width();
-                            gap_h > LogicalLength::default() && {
-                                let x = (vp + Empty::FIELD_OFFSETS.x).apply_pin(flick).get();
-                                (x < LogicalLength::default()
-                                    && diff.x_length() > DISTANCE_THRESHOLD)
-                                    || (x > -gap_h && diff.x_length() < -DISTANCE_THRESHOLD)
-                            }
-                        };
-                        let check_vertical = {
-                            let gap_v = (vp + Empty::FIELD_OFFSETS.height).apply_pin(flick).get()
-                                - flick.height();
-                            gap_v > LogicalLength::default() && {
-                                let y = (vp + Empty::FIELD_OFFSETS.y).apply_pin(flick).get();
-                                (y < LogicalLength::default()
-                                    && diff.y_length() > DISTANCE_THRESHOLD)
-                                    || (y > -gap_v && diff.y_length() < -DISTANCE_THRESHOLD)
-                            }
-                        };
-                        check_horizontal || check_vertical
+                        let w = flick.width();
+                        let h = flick.height();
+                        let vw = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.width)
+                            .apply_pin(flick)
+                            .get();
+                        let vh = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.height)
+                            .apply_pin(flick)
+                            .get();
+                        let x = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.x)
+                            .apply_pin(flick)
+                            .get();
+                        let y = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.y)
+                            .apply_pin(flick)
+                            .get();
+                        let zero = LogicalLength::zero();
+                        ((vw > w || x != zero) && abs(diff.x_length()) > DISTANCE_THRESHOLD)
+                            || ((vh > h || y != zero) && abs(diff.y_length()) > DISTANCE_THRESHOLD)
                     });
                 if do_intercept {
                     InputEventFilterResult::Intercept
@@ -307,18 +302,29 @@ impl FlickableData {
             }
             MouseEvent::Moved { position } => {
                 if inner.pressed_time.is_some() {
-                    let new_pos = ensure_in_bound(
-                        flick,
-                        inner.pressed_viewport_pos + (position - inner.pressed_pos),
-                    );
+                    let new_pos = inner.pressed_viewport_pos + (position - inner.pressed_pos);
                     let x = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.x)
                         .apply_pin(flick);
                     let y = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.y)
                         .apply_pin(flick);
-                    if inner.capture_events
-                        || (new_pos - LogicalPoint::from_lengths(x.get(), y.get())).square_length()
-                            >= (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
-                    {
+                    let should_capture = || {
+                        let w = flick.width();
+                        let h = flick.height();
+                        let vw = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.width)
+                            .apply_pin(flick)
+                            .get();
+                        let vh = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.height)
+                            .apply_pin(flick)
+                            .get();
+                        let zero = LogicalLength::zero();
+                        ((vw > w || x.get() != zero)
+                            && abs(x.get() - new_pos.x_length()) > DISTANCE_THRESHOLD)
+                            || ((vh > h || y.get() != zero)
+                                && abs(y.get() - new_pos.y_length()) > DISTANCE_THRESHOLD)
+                    };
+
+                    if inner.capture_events || should_capture() {
+                        let new_pos = ensure_in_bound(flick, new_pos);
                         x.set(new_pos.x_length());
                         y.set(new_pos.y_length());
                         inner.capture_events = true;
@@ -392,6 +398,10 @@ impl FlickableData {
         inner.capture_events = false; // FIXME: should only be set to false once the flick animation is over
         inner.pressed_time = None;
     }
+}
+
+fn abs(l: LogicalLength) -> LogicalLength {
+    LogicalLength::new(l.get().abs())
 }
 
 /// Make sure that the point is within the bounds
