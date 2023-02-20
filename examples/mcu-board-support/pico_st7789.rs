@@ -274,7 +274,7 @@ impl slint::platform::Platform for PicoBackend {
 
 enum PioTransfer<TO: WriteTarget, CH: SingleChannel> {
     Idle(CH, &'static mut [TargetPixel], TO),
-    Running(hal::dma::SingleBuffering<CH, PartialReadBuffer, TO>),
+    Running(hal::dma::single_buffer::Transfer<CH, PartialReadBuffer, TO>),
 }
 
 impl<TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>, CH: SingleChannel>
@@ -355,7 +355,7 @@ impl<
 
         self.stolen_pin.1.set_low().unwrap();
         self.stolen_pin.0.set_high().unwrap();
-        let mut dma = hal::dma::SingleBufferingConfig::new(ch, PartialReadBuffer(b, range), spi);
+        let mut dma = hal::dma::single_buffer::Config::new(ch, PartialReadBuffer(b, range), spi);
         dma.pace(hal::dma::Pace::PreferSink);
         self.pio = Some(PioTransfer::Running(dma.start()));
         /*let (a, b, c) = dma.start().wait();
