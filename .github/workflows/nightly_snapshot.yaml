@@ -221,11 +221,11 @@ jobs:
       with:
         pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         registryUrl: https://marketplace.visualstudio.com
-        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' }}
+        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/0.3.5' }}
         packagePath: editors/vscode
     - name: Publish to Open VSX Registry
       continue-on-error: true
-      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' }}
+      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/0.3.5' }}
       uses: HaaLeo/publish-vscode-extension@v1
       with:
         pat: ${{ secrets.OPENVSX_PAT }}
