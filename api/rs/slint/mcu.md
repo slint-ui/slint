@@ -258,7 +258,6 @@ Slint provides a SoftwareRenderer for this task.
 In the earlier example, we've instantiated a [`slint::platform::software_renderer::MinimalSoftwareWindow`]. This struct implements the
 `slint::platform::WindowAdapter` trait and also holds an instance of a [`slint::platform::software_renderer::SoftwareRenderer`]. You access it
 through the callback parameter of the [`draw_if_needed()`](MinimalSoftwareWindow::draw_if_needed) function.
- * Use the [`SoftwareRenderer::render()`] function if you have enough RAM to hold one, or even two, copies of the entire screen (also known as
 Depending on the amount of RAM your MCU has, and the kind of screen attached, you can choose between two different ways of using the renderer:
 
  * Use the [`SoftwareRenderer::render()`] function if you have enough RAM to allocate one, or even two, copies of the entire screen (also known as
