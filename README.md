@@ -118,7 +118,7 @@ export component HelloWorld inherits Window {
 }
 ```
 
-Check out the [language reference](https://slint-ui.com/docs/cpp/language.html) for more details.
+Check out the [language reference](https://slint-ui.com/docs/slint) for more details.
 
 ## Architecture
 
