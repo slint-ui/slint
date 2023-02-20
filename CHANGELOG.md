@@ -27,12 +27,34 @@ All notable changes to this project are documented in this file.
 
  - The TextEdit and LineEdit now correctly handle double click and tripple click to select words or lines,
    as well as support for the "primary" clipboard on X11 and wayland (select to copy, and middle click to paste)
-- The StandardListView provides now a set-current-item function to set the selected item and bring it into view.
 
 ### Fixed
 
  - Fixed compilation error in rust generated code if user defined struct have the same name as
    slint internal struct types
+
+## [0.3.5] - 2023-02-20
+
+### Fixed
+
+ - FemtoVG: Fix cursor placement at end of lines
+ - Windows: Fix panic when minimizing windows
+ - Fixed some panics in the software renderer when using text
+ - Fixed panic when parsing invalid linear gradient syntax
+ - Qt: Fixed mapping of the control key
+ - Linux: Fix panic when using GLX
+ - Fixed const detection when using two-way bindings
+ - Fix run-time panic when combining forward-focus with text rendering in no_std environments
+ - Rust: Fix compile issues when generated code clashes with user types
+ - C++: Fix compilation with structs that have a field with the same name as the struct
+ - Fix visible property on the root of a component
+ - Fix compiler panic when an component's base is not inlined
+ - C++: fix including the generated file in several translation units
+ - C++: Fix "make install" on Windows
+
+### Added
+
+ - The StandardListView provides now a set-current-item function to set the selected item and bring it into view.
 
 ## [0.3.4] - 2023-01-25
 
