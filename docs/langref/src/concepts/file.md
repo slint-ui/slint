@@ -1,7 +1,6 @@
 # The `.slint` File
 
-`.slint` is the file extension typically used for files containing a user
-interface description written in the Slint language.
+User interfaces are written in the Slint language and saved in files with the `.slint` extension.
 
 Each `.slint` file defines one or several components. These components declare
 a tree of elements. Components form the basis of composition in Slint. Use them
