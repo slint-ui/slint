@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-common"
-version = "0.3.4"
+version = "0.3.5"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
