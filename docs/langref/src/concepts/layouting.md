@@ -207,8 +207,8 @@ Each element is sized according to their `width` or `height` if specified, other
 set to the minimum size which is set with the min-width or min-height property, or
 the minimum size of an inner layout, whatever is bigger.
 
-Then, the elements are placed according to the alignment. The size of elements
-is bigger than the minimum size only if the alignment is stretch
+The elements are placed according to the alignment. The size of elements
+is bigger than the minimum size only if the `alignment` property of the layout is `LayoutAlignment.stretch` (the default)
 
 This example show the different alignment possibilities
 
