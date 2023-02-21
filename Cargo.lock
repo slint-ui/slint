@@ -2104,9 +2104,9 @@ dependencies = [
 
 [[package]]
 name = "glow"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8edf6019dff2d92ad27c1e3ff82ad50a0aea5b01370353cc928bfdc33e95925c"
+checksum = "4e007a07a24de5ecae94160f141029e9a347282cfe25d1d58d85d845cf3130f1"
 dependencies = [
  "js-sys",
  "slotmap",
@@ -2455,7 +2455,7 @@ dependencies = [
  "core-text",
  "derive_more",
  "foreign-types",
- "glow 0.12.0",
+ "glow 0.12.1",
  "glutin",
  "i-slint-common",
  "i-slint-core",
@@ -3462,7 +3462,7 @@ dependencies = [
 name = "opengl_underlay"
 version = "0.3.5"
 dependencies = [
- "glow 0.12.0",
+ "glow 0.12.1",
  "instant",
  "slint",
  "slint-build",
@@ -4005,9 +4005,9 @@ dependencies = [
 
 [[package]]
 name = "rgb"
-version = "0.8.35"
+version = "0.8.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7495acf66551cdb696b7711408144bcd3194fc78e32f3a09e809bfe7dd4a7ce3"
+checksum = "20ec2d3e3fc7a92ced357df9cebd5a10b6fb2aa1ee797bf7e9ce2f17dffc8f59"
 dependencies = [
  "bytemuck",
 ]
