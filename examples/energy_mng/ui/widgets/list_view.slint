@@ -58,6 +58,8 @@ component ListViewItem {
 }
 
 export component ListView {
+    callback selection-changed(int /* index */);
+    
     in property <[StandardListViewItem]> model;
     in-out property <int> selected-index;
 
@@ -75,9 +77,14 @@ export component ListView {
                 animate opacity { duration: Theme.durations.fast;  }
 
                 clicked => {  
-                    selected-index = index;
+                    select(index);
                 }
             }
        }
+    }
+
+    function select(index: int) {
+        selected-index = index;
+        selection-changed(index);
     }
 }

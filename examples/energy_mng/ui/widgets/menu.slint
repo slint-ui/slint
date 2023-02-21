@@ -58,6 +58,11 @@ export component Menu  {
         }
     }
 
+    public function hide() {
+        menu-button-visible = false;
+        open = false;
+    }
+
     animate y { duration: Theme.durations.medium; }
 
     states [  

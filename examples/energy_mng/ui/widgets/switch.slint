@@ -4,6 +4,7 @@
 import { Theme } from "../theme.slint";
 
 export component Switch {
+    callback clicked <=> i-touch-area.clicked;
     in-out property <bool> checked;
 
     min-height: 18px;
@@ -29,7 +30,7 @@ export component Switch {
         animate background { duration: Theme.durations.fast; }
     }
 
-    TouchArea {  
+    i-touch-area := TouchArea {  
         clicked => {  
             checked = !checked;
         }

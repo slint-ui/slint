@@ -65,7 +65,6 @@ export component ScrollView {
     i-flickable := Flickable {
         x: 2px;
         y: 2px;
-        interactive: false;
         viewport-y <=> i-ver-bar.value;
         viewport-x <=> i-hor-bar.value;
         width: parent.width - i-ver-bar.width - Theme.spaces.medium;
@@ -107,7 +106,7 @@ export component ScrollView {
     }
 
     Rectangle {  
-        visible: viewport-height > visible-height;
+        visible: viewport-height > visible-height && viewport-y > visible-height - viewport-height;
         x: 2px;
         y: i-flickable.y + i-flickable.height - self.height;
         width: i-flickable.width;

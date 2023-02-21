@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { Theme } from "../theme.slint";
-import { Page } from "page.slint";
-import { IconButton, ListView, ScrollView, Item, ItemGroupBox, CheckBox, RadioButton, Switch } from "../widgets/widgets.slint";
-import { Switch } from "../widgets/switch.slint";
+import { Theme } from "../../theme.slint";
+import { About } from "about.slint";
+import { Page } from "../page.slint";
+import { IconButton, CheckBox, RadioButton, Switch, ScrollView, Item, ItemGroupBox } from "../../widgets/widgets.slint";
 
 export global SettingsAdapter {
     callback check-radio-option(int /* index */);
@@ -83,8 +83,12 @@ export component Settings inherits Page {
                 Item {
                     text: "Function One";
 
-                    CheckBox {
+                    i-function-one-check-box := CheckBox {
                         checked <=> root.fuction-one-checked;
+                    }
+
+                    clicked => {
+                        i-function-one-check-box.clicked();
                     }
                 }
 
@@ -95,24 +99,32 @@ export component Settings inherits Page {
                         text: "Option One";
                         has-separator: true;
 
-                        RadioButton {  
+                        i-radio-option-one := RadioButton {  
                             checked: root.radio-option-one-checked;
                             
                             clicked => {  
                                 root.check-radio-option(0);
                             }
                         }
+
+                        clicked => {
+                            i-radio-option-one.clicked();
+                        }
                     }
 
                     Item {
                         text: "Option Two";
 
-                        RadioButton {  
+                        i-radio-option-two := RadioButton {  
                             checked: root.radio-option-two-checked;
 
                             clicked => {  
                                 root.check-radio-option(1);
                             }
+                        }
+
+                        clicked => {
+                            i-radio-option-two.clicked();
                         }
                     }
                 }
@@ -124,8 +136,12 @@ export component Settings inherits Page {
                         text: "Option One";
                         has-separator: true;
 
-                        CheckBox {
+                        i-check-option-one := CheckBox {
                             checked <=> root.check-option-one-checked;
+                        }
+
+                        clicked => {
+                            i-check-option-one.clicked();
                         }
                     }
 
@@ -133,16 +149,24 @@ export component Settings inherits Page {
                         text: "Option Two";
                         has-separator: true;
 
-                        CheckBox {
+                        i-check-option-two := CheckBox {
                             checked <=> root.check-option-two-checked;
+                        }
+
+                        clicked => {
+                            i-check-option-two.clicked();
                         }
                     }
 
                     Item {
                         text: "Option Three";
 
-                        CheckBox {
+                        i-check-option-three := CheckBox {
                             checked <=> root.check-option-three-checked;
+                        }
+
+                        clicked => {
+                            i-check-option-three.clicked();
                         }
                     }
                 }
@@ -150,181 +174,27 @@ export component Settings inherits Page {
                 Item {
                     text: "Function Two";
 
-                    Switch { 
+                    i-fuction-two := Switch { 
                         checked <=> root.fuction-two-checked;
+                    }
+
+                    clicked => {
+                        i-fuction-two.clicked();
                     }
                 }
 
                 Item {
                     text: "Function Three";
 
-                    Switch {  
+                    i-fuction-three := Switch {  
                         checked <=> root.fuction-three-checked;
+                    }
+
+                    clicked => {
+                        i-fuction-three.clicked();
                     }
                 }
             }
         }
     }
-}
-
-export component About inherits Page {
-    callback back <=> i-back-button.clicked;
-
-    padding-left: 0;
-    padding-right: 0;
-
-    VerticalLayout {  
-        padding-left: Theme.spaces.medium;
-        padding-right: Theme.spaces.medium;
-        padding-top: Theme.spaces.medium;
-        padding-bottom: Theme.spaces.large;
-        spacing: Theme.spaces.medium;
-
-        HorizontalLayout {  
-            vertical-stretch: 0;
-            alignment: start;
-
-            i-back-button := IconButton {
-                horizontal-stretch: 0;
-                icon: @image-url("../assets/arrow-left.svg");
-            }
-        }
-
-        Text {  
-            vertical-stretch: 0;
-            horizontal-alignment: center;
-            text: "Developed by";
-            color: Theme.palette.slint-blue-100;
-            font-size: Theme.typo.desciption.size;
-            font-weight: Theme.typo.desciption.weight;
-        }
-
-        Image {  
-            preferred-height: 45px;
-            source: @image-url("../../../../logo/slint-logo-simple-white.svg");
-        }
-
-        // spacer
-        Rectangle { 
-            vertical-stretch: 1;
-        }
-
-        Text {  
-            vertical-stretch: 0;
-            horizontal-alignment: center;
-            text: "Designed by";
-            color: Theme.palette.slint-blue-100;
-            font-size: Theme.typo.desciption.size;
-            font-weight: Theme.typo.desciption.weight;
-        }
-       
-        Text {  
-            vertical-stretch: 0;
-            horizontal-alignment: center;
-            text: "Spyrosoft";
-            color: Theme.palette.white;
-            font-size: Theme.typo.header-item.size;
-            font-weight: Theme.typo.header-item.weight;
-        }
-
-        // Image {  
-        //     preferred-height: 32px;
-        //     source: @image-url("../assets/logo-spyrosoft.svg");
-        // }
-    }
-}
-
-export global SettingsOverviewAdapter {
-    in property <[StandardListViewItem]> model: [
-        { text: "Production & Self-consumption"},
-        { text: "Phases"},
-        { text: "Usage"},
-        { text: "Heater"},
-        { text: "Weather"},
-        { text: "Balance"},
-        { text: "Common"},
-    ];
-    in-out property <int> selected-index;
-}
-
-component SettingsOverview inherits Page {
-    callback show-settings <=> i-settings-button.clicked;
-    callback show-about <=> i-about-button.clicked;
-
-    in property <[StandardListViewItem]> model <=> SettingsOverviewAdapter.model;
-    in-out property <int> selected-index <=> SettingsOverviewAdapter.selected-index;
-
-    padding-left: 0;
-    padding-right: 0;
-
-    VerticalLayout {  
-        padding: Theme.spaces.medium;
-        spacing: Theme.spaces.small;
-
-        HorizontalLayout {  
-            vertical-stretch: 0;
-
-            i-settings-button := IconButton {  
-                icon: @image-url("../assets/settings.svg");
-            }
-
-            // spacer
-            Rectangle {  
-                horizontal-stretch: 1;
-            }
-
-            i-about-button := IconButton { 
-                icon: @image-url("../assets/information.svg");
-            }
-        }
-
-        ListView {  
-            model: root.model;
-            selected-index <=> root.selected-index;
-        }
-    }
-}
- 
-export component SettingsMain {
-   private property <int> current-index;
-   private property <bool> show-settings;
-
-    SettingsOverview {  
-        index: 0;
-        current-index: root.current-index;
-
-        show-settings => {  
-            show-settings = true;
-            current-index = 1;
-            
-        }
-        show-about => {  
-            show-settings = false;
-            current-index = 1;
-        }
-   }
-
-   About {
-        visible: !show-settings;
-        index: 1;
-        current-index: root.current-index;
-        
-        back => { 
-            back();
-        }
-    }
-
-   Settings {
-        visible: show-settings;
-        index: 1;
-        current-index: root.current-index;
-
-        back => {  
-            back();
-        }
-   }
-
-   function back() {
-        current-index = 0;
-   }
 }
