@@ -5,9 +5,11 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
 use display_interface_spi::SPIInterfaceNoCS;
+use embedded_graphics::geometry::OriginDimensions;
 use embedded_hal::digital::v2::OutputPin;
 use esp32s3_hal::{
     clock::ClockControl,
+    i2c::I2C,
     peripherals::Peripherals,
     prelude::*,
     spi::{Spi, SpiMode},
@@ -18,6 +20,7 @@ use esp32s3_hal::{
 use esp_alloc::EspHeap;
 use esp_backtrace as _;
 use mipidsi::{Display, Orientation};
+use slint::platform::WindowEvent;
 pub use xtensa_lx_rt::entry;
 
 #[global_allocator]
@@ -71,6 +74,18 @@ impl slint::platform::Platform for EspBackend {
         let mut delay = Delay::new(&clocks);
         let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
 
+        let i2c = I2C::new(
+            peripherals.I2C0,
+            io.pins.gpio8,
+            io.pins.gpio18,
+            400u32.kHz(),
+            &mut system.peripheral_clock_control,
+            &clocks,
+        );
+
+        let mut touch = tt21100::TT21100::new(i2c, io.pins.gpio3.into_pull_up_input())
+            .expect("Initialize the touch device");
+
         let sclk = io.pins.gpio7;
         let mosi = io.pins.gpio6;
 
@@ -97,17 +112,63 @@ impl slint::platform::Platform for EspBackend {
         let mut backlight = io.pins.gpio45.into_push_pull_output();
         backlight.set_high().unwrap();
 
+        let size = display.size();
+        let size = slint::PhysicalSize::new(size.width, size.height);
+
+        self.window.borrow().as_ref().unwrap().set_size(size);
+
         let mut buffer_provider = DrawBuffer {
             display,
             buffer: &mut [slint::platform::software_renderer::Rgb565Pixel(0); 320],
         };
 
-        self.window.borrow().as_ref().unwrap().set_size(slint::PhysicalSize::new(320, 240));
+        let mut last_touch = None;
 
         loop {
             slint::platform::update_timers_and_animations();
 
             if let Some(window) = self.window.borrow().clone() {
+                if touch.data_available().unwrap() {
+                    match touch.event() {
+                        // Ignore error because we sometimes get an error at the beginning
+                        Err(_) => (),
+                        Ok(tt21100::Event::Button(..)) => (),
+                        Ok(tt21100::Event::Touch { report: _, touches }) => {
+                            let button = slint::platform::PointerEventButton::Left;
+                            if let Some(event) = touches
+                                .0
+                                .map(|record| {
+                                    let position = slint::PhysicalPosition::new(
+                                        ((319. - record.x as f32) * size.width as f32 / 319.) as _,
+                                        (record.y as f32 * size.height as f32 / 239.) as _,
+                                    )
+                                    .to_logical(window.scale_factor());
+                                    match last_touch.replace(position) {
+                                        Some(_) => WindowEvent::PointerMoved { position },
+                                        None => WindowEvent::PointerPressed { position, button },
+                                    }
+                                })
+                                .or_else(|| {
+                                    last_touch.take().map(|position| WindowEvent::PointerReleased {
+                                        position,
+                                        button,
+                                    })
+                                })
+                            {
+                                let is_pointer_release_event =
+                                    matches!(event, WindowEvent::PointerReleased { .. });
+
+                                window.dispatch_event(event);
+
+                                // removes hover state on widgets
+                                if is_pointer_release_event {
+                                    window.dispatch_event(WindowEvent::PointerExited);
+                                }
+                            }
+                        }
+                    }
+                }
+
                 window.draw_if_needed(|renderer| {
                     renderer.render_by_line(&mut buffer_provider);
                 });
