@@ -28,7 +28,7 @@ All notable changes to this project are documented in this file.
  - The TextEdit and LineEdit now correctly handle double click and tripple click to select words or lines,
    as well as support for the "primary" clipboard on X11 and wayland (select to copy, and middle click to paste)
 
-## [0.3.5] - 2023-02-20
+## [0.3.5] - 2023-02-21
 
 ### Fixed
 
