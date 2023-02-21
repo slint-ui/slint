@@ -247,7 +247,8 @@ async fn reload_preview(
     let compiled = if let Some(mut from_cache) = get_file_from_cache(preview_component.path.clone())
     {
         if let Some(component) = &preview_component.component {
-            from_cache = format!("{}\n_Preview := {} {{ }}\n", from_cache, component);
+            from_cache =
+                format!("{}\nexport component _Preview inherits {} {{ }}\n", from_cache, component);
         }
         builder.build_from_source(from_cache, preview_component.path).await
     } else {
