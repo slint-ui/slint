@@ -240,8 +240,8 @@ extern "C" fn fminf(a: f32, b: f32) -> f32 {
     }
 }
 #[no_mangle]
-extern "C" fn fmodf() {
-    unimplemented!("fmodf");
+extern "C" fn fmodf(a: f32, b: f32) -> f32 {
+    ((a as u32) % (b as u32)) as f32
 }
 #[no_mangle]
 extern "C" fn fmod(a: f64, b: f64) -> f64 {
