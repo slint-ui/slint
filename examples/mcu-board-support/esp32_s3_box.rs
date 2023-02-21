@@ -90,6 +90,7 @@ impl slint::platform::Platform for EspBackend {
         let di = SPIInterfaceNoCS::new(spi, dc);
         let display = mipidsi::Builder::ili9342c_rgb565(di)
             .with_orientation(Orientation::PortraitInverted(false))
+            .with_color_order(mipidsi::options::ColorOrder::Bgr)
             .init(&mut delay, Some(rst))
             .unwrap();
 
