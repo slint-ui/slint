@@ -20,3 +20,4 @@ cargo publish --manifest-path internal/interpreter/Cargo.toml
 cargo publish --manifest-path api/rs/slint/Cargo.toml
 cargo publish --manifest-path tools/lsp/Cargo.toml
 cargo publish --manifest-path tools/viewer/Cargo.toml
+cargo publish --manifest-path tools/updater/Cargo.toml
