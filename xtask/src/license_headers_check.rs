@@ -273,8 +273,8 @@ lazy_static! {
         ("^\\.reuse/dep5$", LicenseLocation::NoLicense), // .reuse files have no license headers
         ("^api/cpp/docs/Pipfile$", LicenseLocation::NoLicense),
         ("^api/cpp/docs/conf.py$", LicenseLocation::NoLicense),
-        ("^docs/langref/Pipfile$", LicenseLocation::NoLicense),
-        ("^docs/langref/conf.py$", LicenseLocation::NoLicense),
+        ("^docs/language/Pipfile$", LicenseLocation::NoLicense),
+        ("^docs/language/conf.py$", LicenseLocation::NoLicense),
         ("^editors/tree-sitter-slint/binding.gyp$", LicenseLocation::NoLicense), // liberal license
         ("^editors/tree-sitter-slint/test-to-corpus.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license

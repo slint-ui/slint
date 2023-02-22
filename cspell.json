@@ -48,7 +48,7 @@
         },
         {
             "languageId": "restructuredtext",
-            "words": ["genindex", "langref", "modindex", "toctree"],
+            "words": ["genindex", "modindex", "toctree"],
             "ignoreRegExpList": ["/:.+:/"]
         },
         {
