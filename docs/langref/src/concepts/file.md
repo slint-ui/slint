@@ -1,11 +1,11 @@
-# `.slint` Files
+# The `.slint` File
+
+User interfaces are written in the Slint language and saved in files with the `.slint` extension.
 
 Each `.slint` file defines one or several components. These components declare
-a tree of elements. Each declared component may be used under its
-name as an element later.
-
-Components form the basis of composition in Slint. Use them to build your own
-re-usable set of UI controls.
+a tree of elements. Components form the basis of composition in Slint. Use them
+to build your own re-usable set of UI controls. You can use each declared
+component under its name as an element in another component.
 
 Below is an example of components and elements:
 
@@ -37,10 +37,15 @@ export component MyApp inherits Window {
 
 ```
 
-Here, both `MyButton` and `MyApp` are components. `Window` and `Rectangle` are built-in elements
-used by `MyApp`. `MyApp` also re-uses the `MyButton` component.
+Both `MyButton` and `MyApp` are components. `Window` and `Rectangle` are built-in elements
+used by `MyApp`. `MyApp` also re-uses the `MyButton` component as two separate elements.
 
-Assign a name to an element using the `:=` syntax:
+Elements have properties, which you can assign values to. Here we assign a string
+constant "hello" to the first `MyButton`'s `text` property. You
+can also assign entire expressions. Slint will re-evaluate the expressions when any
+of the properties they depend on change, which makes the user-interface reactive.
+
+You can name elements using the `:=` syntax:
 
 ```slint
 component MyButton inherits Text {
@@ -63,7 +68,7 @@ export component MyApp inherits Window {
 }
 ```
 
-Names have to be valid [identifiers](identifiers.md).
+Names have to be valid [identifiers](../identifiers.md).
 
 Some elements are also accessible under pre-defined names:
 
@@ -71,4 +76,4 @@ Some elements are also accessible under pre-defined names:
 -   `self` refers to the current element.
 -   `parent` refers to the parent element of the current element.
 
-These names are reserved and can't be re-defined by the user.
+These names are reserved and you can't re-define them.
