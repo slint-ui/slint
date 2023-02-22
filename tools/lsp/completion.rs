@@ -58,11 +58,11 @@ pub(crate) fn completion_at(
                             c.insert_text = Some(format!("{}: $1;", c.label))
                         }
                         Some(CompletionItemKind::METHOD) => {
-                            c.insert_text = Some(format!("{} => {{ $1 }}", c.label))
+                            c.insert_text = Some(format!("{} => {{$1}}", c.label))
                         }
                         Some(CompletionItemKind::CLASS) => {
                             available_types.insert(c.label.clone());
-                            c.insert_text = Some(format!("{} {{ $1 }}", c.label))
+                            c.insert_text = Some(format!("{} {{$1}}", c.label))
                         }
                         _ => (),
                     }
