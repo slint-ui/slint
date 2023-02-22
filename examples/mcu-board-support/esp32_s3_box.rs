@@ -8,7 +8,7 @@ use display_interface_spi::SPIInterfaceNoCS;
 use embedded_graphics::geometry::OriginDimensions;
 use embedded_hal::digital::v2::OutputPin;
 use esp32s3_hal::{
-    clock::ClockControl,
+    clock::{ClockControl, CpuClock},
     i2c::I2C,
     peripherals::Peripherals,
     prelude::*,
@@ -59,7 +59,7 @@ impl slint::platform::Platform for EspBackend {
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         let peripherals = Peripherals::take();
         let mut system = peripherals.SYSTEM.split();
-        let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
+        let clocks = ClockControl::configure(system.clock_control, CpuClock::Clock240MHz).freeze();
 
         let mut rtc = Rtc::new(peripherals.RTC_CNTL);
         let timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks);
@@ -93,7 +93,7 @@ impl slint::platform::Platform for EspBackend {
             peripherals.SPI2,
             sclk,
             mosi,
-            4u32.MHz(),
+            60u32.MHz(),
             SpiMode::Mode0,
             &mut system.peripheral_clock_control,
             &clocks,
