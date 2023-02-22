@@ -1,0 +1,200 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../../theme.slint";
+import { About } from "about.slint";
+import { Page } from "../page.slint";
+import { IconButton, CheckBox, RadioButton, Switch, ScrollView, Item, ItemGroupBox } from "../../widgets/widgets.slint";
+
+export global SettingsAdapter {
+    callback check-radio-option(int /* index */);
+    // fuctions
+    in-out property <bool> fuction-one-checked: true;
+    in-out property <bool> fuction-two-checked;
+    in-out property <bool> fuction-three-checked;
+
+    // radio options
+    in-out property <bool> radio-option-one-checked: true;
+    in-out property <bool> radio-option-two-checked: false;
+
+    // check options
+    in-out property <bool> check-option-one-checked: true;
+    in-out property <bool> check-option-two-checked;
+    in-out property <bool> check-option-three-checked;
+
+    check-radio-option(index) => {
+        if(index == 0) {
+            radio-option-one-checked = true;
+            radio-option-two-checked = false;
+            return;
+        } 
+
+        radio-option-one-checked = false;
+        radio-option-two-checked = true;
+    }
+}
+
+export component Settings inherits Page {
+    callback back <=> i-back-button.clicked;
+    callback check-radio-option <=> SettingsAdapter.check-radio-option;
+
+    // fuctions
+    in-out property <bool> fuction-one-checked <=> SettingsAdapter.fuction-one-checked;
+    in-out property <bool> fuction-two-checked <=> SettingsAdapter.fuction-two-checked;
+    in-out property <bool> fuction-three-checked <=> SettingsAdapter.fuction-three-checked;
+
+    // radio options
+    in-out property <bool> radio-option-one-checked <=> SettingsAdapter.radio-option-one-checked;
+    in-out property <bool> radio-option-two-checked <=> SettingsAdapter.radio-option-two-checked;
+
+    // check options
+    in-out property <bool> check-option-one-checked <=> SettingsAdapter.check-option-one-checked;
+    in-out property <bool> check-option-two-checked <=> SettingsAdapter.check-option-two-checked;
+    in-out property <bool> check-option-three-checked <=> SettingsAdapter.check-option-three-checked;
+
+    padding-left: 0;
+    padding-right: 0;
+
+    VerticalLayout {  
+        padding-left: Theme.spaces.medium;
+        padding-right: Theme.spaces.medium;
+        padding-top: Theme.spaces.medium;
+        padding-bottom: Theme.spaces.large;
+        spacing: Theme.spaces.medium;
+
+        HorizontalLayout {  
+            vertical-stretch: 0;
+            alignment: start;
+
+            i-back-button := IconButton {
+                horizontal-stretch: 0;
+                icon: @image-url("../../assets/arrow-left.svg");
+            }
+        }
+
+        // spacer
+        ScrollView {  
+            vertical-stretch: 1;
+
+            VerticalLayout {  
+                alignment: start;
+                spacing: Theme.spaces.medium;
+
+                Item {
+                    text: "Function One";
+
+                    i-function-one-check-box := CheckBox {
+                        checked <=> root.fuction-one-checked;
+                    }
+
+                    clicked => {
+                        i-function-one-check-box.clicked();
+                    }
+                }
+
+                ItemGroupBox {  
+                    title: "Subtitle";
+ 
+                    Item {
+                        text: "Option One";
+                        has-separator: true;
+
+                        i-radio-option-one := RadioButton {  
+                            checked: root.radio-option-one-checked;
+                            
+                            clicked => {  
+                                root.check-radio-option(0);
+                            }
+                        }
+
+                        clicked => {
+                            i-radio-option-one.clicked();
+                        }
+                    }
+
+                    Item {
+                        text: "Option Two";
+
+                        i-radio-option-two := RadioButton {  
+                            checked: root.radio-option-two-checked;
+
+                            clicked => {  
+                                root.check-radio-option(1);
+                            }
+                        }
+
+                        clicked => {
+                            i-radio-option-two.clicked();
+                        }
+                    }
+                }
+
+                ItemGroupBox {  
+                    title: "Subtitle";
+ 
+                    Item {
+                        text: "Option One";
+                        has-separator: true;
+
+                        i-check-option-one := CheckBox {
+                            checked <=> root.check-option-one-checked;
+                        }
+
+                        clicked => {
+                            i-check-option-one.clicked();
+                        }
+                    }
+
+                    Item {
+                        text: "Option Two";
+                        has-separator: true;
+
+                        i-check-option-two := CheckBox {
+                            checked <=> root.check-option-two-checked;
+                        }
+
+                        clicked => {
+                            i-check-option-two.clicked();
+                        }
+                    }
+
+                    Item {
+                        text: "Option Three";
+
+                        i-check-option-three := CheckBox {
+                            checked <=> root.check-option-three-checked;
+                        }
+
+                        clicked => {
+                            i-check-option-three.clicked();
+                        }
+                    }
+                }
+
+                Item {
+                    text: "Function Two";
+
+                    i-fuction-two := Switch { 
+                        checked <=> root.fuction-two-checked;
+                    }
+
+                    clicked => {
+                        i-fuction-two.clicked();
+                    }
+                }
+
+                Item {
+                    text: "Function Three";
+
+                    i-fuction-three := Switch {  
+                        checked <=> root.fuction-three-checked;
+                    }
+
+                    clicked => {
+                        i-fuction-three.clicked();
+                    }
+                }
+            }
+        }
+    }
+}

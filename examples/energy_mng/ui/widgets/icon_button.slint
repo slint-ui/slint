@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+
+export component IconButton {
+    callback clicked <=> i-touch-area.clicked;
+
+    in property <image> icon <=> i-icon.source;
+    in property <bool> enabled <=> i-touch-area.enabled;
+
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+    min-width: 24px;
+    min-height: 24px;
+
+    GridLayout {  
+        padding: 4px;
+
+        i-icon := Image {
+            colorize: Theme.palette.slint-blue-300;
+
+            animate colorize { duration: Theme.durations.medium;  }
+        }
+    }
+
+    i-touch-area := TouchArea {}
+
+    states [  
+        disabled when !root.enabled : {
+            opacity: 0.25;
+        }
+        pressed when i-touch-area.pressed : {
+            i-icon.colorize: Theme.palette.limon-green;
+        }
+    ]
+}

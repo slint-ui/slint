@@ -1,0 +1,117 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+import { StateLayer } from "../components/state_layer.slint";
+
+component ScrollBar inherits Rectangle {
+    in-out property <bool> horizontal;
+    in-out property<length> maximum;
+    in-out property<length> page-size;
+    // this is always negative and bigger than  -maximum
+    in-out property<length> value;
+
+    background: Theme.palette.pure-black;
+    border-width: 1px;
+
+    i-handle := Rectangle {
+        width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : parent.width * (root.page-size / (root.maximum + root.page-size));
+        height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : parent.height * (root.page-size / (root.maximum + root.page-size));
+
+        border-radius: 3px;
+        background: Theme.palette.slint-blue-400;
+        x: !root.horizontal ? 0phx : (root.width - i-handle.width) * (-root.value / root.maximum);
+        y: root.horizontal ? 0phx : (root.height - i-handle.height) * (-root.value / root.maximum);
+    }
+
+    i-touch-area := StateLayer {
+        private property <length> pressed-value;
+
+        width: parent.width;
+        height: parent.height;
+       
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.pressed-value = -root.value;
+            }
+        }
+        moved => {
+            if (self.enabled && self.pressed) {
+                root.value = -max(0px, min(root.maximum, self.pressed-value + (
+                    root.horizontal ? (i-touch-area.mouse-x - i-touch-area.pressed-x) * (root.maximum / (root.width - i-handle.width))
+                               : (i-touch-area.mouse-y - i-touch-area.pressed-y) * (root.maximum / (root.height - i-handle.height))
+                )));
+            }
+        }
+    }
+}
+
+export component ScrollView {
+    in-out property <length> viewport-width <=> i-flickable.viewport-width;
+    in-out property <length> viewport-height <=> i-flickable.viewport-height;
+    in-out property <length> viewport-x <=> i-flickable.viewport-x;
+    in-out property <length> viewport-y <=> i-flickable.viewport-y;
+    out property <length> visible-width <=>  i-flickable.width;
+    out property <length> visible-height <=>  i-flickable.height;
+    in property <bool> enabled: true;
+    // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
+    in-out property <bool> has-focus;
+    
+    min-height: 50px;
+    min-width: 50px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    i-flickable := Flickable {
+        x: 2px;
+        y: 2px;
+        viewport-y <=> i-ver-bar.value;
+        viewport-x <=> i-hor-bar.value;
+        width: parent.width - i-ver-bar.width - Theme.spaces.medium;
+        height: parent.height - i-hor-bar.height - Theme.spaces.medium;
+
+        @children
+    }
+
+    i-ver-bar := ScrollBar {
+        visible: viewport-height > visible-height;
+        width: 5px;
+        x:  i-flickable.width + i-flickable.x + Theme.spaces.medium;
+        y:  i-flickable.y;
+        height:  i-flickable.height;
+        horizontal: false;
+        maximum:  i-flickable.viewport-height - i-flickable.height;
+        page-size:  i-flickable.height;
+    }
+
+    i-hor-bar := ScrollBar {
+        visible: viewport-width > visible-width;
+        height: 5px;
+        y: i-flickable.height + i-flickable.y;
+        x: i-flickable.x;
+        width: i-flickable.width;
+        horizontal: true;
+        maximum: i-flickable.viewport-width - i-flickable.width;
+        page-size: i-flickable.width;
+    }
+
+    Rectangle {  
+        visible: viewport-y < 0;
+        x: 2px;
+        y: 2px;
+        width: i-flickable.width;
+        height: 38px;
+        background: @linear-gradient(180deg, #D9D9D9 0%, #D9D9D900 100%);
+        opacity: 0.1;
+    }
+
+    Rectangle {  
+        visible: viewport-height > visible-height && viewport-y > visible-height - viewport-height;
+        x: 2px;
+        y: i-flickable.y + i-flickable.height - self.height;
+        width: i-flickable.width;
+        height: 38px;
+        background: @linear-gradient(180deg, #D9D9D900 0%, #D9D9D9 100%);
+        opacity: 0.1;
+    }
+}

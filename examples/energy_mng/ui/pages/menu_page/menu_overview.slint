@@ -1,0 +1,56 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../../theme.slint";
+import { About } from "about.slint";
+import { Page } from "../page.slint";
+import { IconButton, ListView } from "../../widgets/widgets.slint";
+
+export global MenuOverviewAdapter {
+    in property <[StandardListViewItem]> model: [
+        { text: "Production & Self-consumption"},
+        { text: "Usage"},
+        { text: "Balance"},
+        { text: "Weather"},
+    ];
+    in-out property <int> current-page;
+}
+
+export component MenuOverview inherits Page {
+    callback page-changed <=> i-page-list.selection-changed;
+    callback show-settings <=> i-settings-button.clicked;
+    callback show-about <=> i-about-button.clicked;
+
+    in property <[StandardListViewItem]> model <=> MenuOverviewAdapter.model;
+    in-out property <int> current-page <=> MenuOverviewAdapter.current-page;
+
+    padding-left: 0;
+    padding-right: 0;
+
+    VerticalLayout {  
+        padding: Theme.spaces.medium;
+        spacing: Theme.spaces.small;
+
+        HorizontalLayout {  
+            vertical-stretch: 0;
+
+            i-settings-button := IconButton {  
+                icon: @image-url("../../assets/settings.svg");
+            }
+
+            // spacer
+            Rectangle {  
+                horizontal-stretch: 1;
+            }
+
+            i-about-button := IconButton { 
+                icon: @image-url("../../assets/information.svg");
+            }
+        }
+
+        i-page-list := ListView {  
+            model: root.model;
+            selected-index <=> root.current-page;
+        }
+    }
+}

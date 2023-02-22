@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../../theme.slint";
+import { Page } from "../page.slint";
+import { IconButton } from "../../widgets/widgets.slint";
+
+export component About inherits Page {
+    callback back <=> i-back-button.clicked;
+
+    padding-left: 0;
+    padding-right: 0;
+
+    VerticalLayout {  
+        padding-left: Theme.spaces.medium;
+        padding-right: Theme.spaces.medium;
+        padding-top: Theme.spaces.medium;
+        padding-bottom: Theme.spaces.large;
+        spacing: Theme.spaces.medium;
+
+        HorizontalLayout {  
+            vertical-stretch: 0;
+            alignment: start;
+
+            i-back-button := IconButton {
+                horizontal-stretch: 0;
+                icon: @image-url("../../assets/arrow-left.svg");
+            }
+        }
+
+        Text {  
+            vertical-stretch: 0;
+            horizontal-alignment: center;
+            text: "Developed by";
+            color: Theme.palette.slint-blue-100;
+            font-size: Theme.typo.desciption.size;
+            font-weight: Theme.typo.desciption.weight;
+        }
+
+        Image {  
+            preferred-height: 45px;
+            source: @image-url("../../../../../logo/slint-logo-simple-white.svg");
+        }
+
+        // spacer
+        Rectangle { 
+            vertical-stretch: 1;
+        }
+
+        Text {  
+            vertical-stretch: 0;
+            horizontal-alignment: center;
+            text: "Designed by";
+            color: Theme.palette.slint-blue-100;
+            font-size: Theme.typo.desciption.size;
+            font-weight: Theme.typo.desciption.weight;
+        }
+       
+        Text {  
+            vertical-stretch: 0;
+            horizontal-alignment: center;
+            text: "Spyrosoft";
+            color: Theme.palette.white;
+            font-size: Theme.typo.header-item.size;
+            font-weight: Theme.typo.header-item.weight;
+        }
+
+        // Image {  
+        //     preferred-height: 32px;
+        //     source: @image-url("../assets/logo-spyrosoft.svg");
+        // }
+    }
+}

@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { StateLayer } from "../components/state_layer.slint"; 
+import { ScrollView } from "scroll_view.slint"; 
+import { Theme } from "../theme.slint"; 
+import { StateLayer } from "../components/state_layer.slint";
+
+component ListViewItem {
+    callback clicked <=> i-state-layer.clicked;
+    in property <string> text <=> i-text.text;
+    in property <bool> selected;
+
+    min-height: 40px;
+
+    i-container := Rectangle {
+        background: Theme.palette.dark-deep-blue;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: Theme.palette.slint-blue-400;
+    }
+
+    HorizontalLayout { 
+        padding-left: Theme.spaces.medium;
+        padding-top: Theme.spaces.medium;
+        padding-bottom: Theme.spaces.medium;
+        padding-right: Theme.spaces.medium;
+        spacing: Theme.spaces.medium;
+
+        i-text := Text {  
+            horizontal-stretch: 1;
+            color: Theme.palette.white;
+            font-size: Theme.typo.desciption.size;
+            font-weight: Theme.typo.desciption.weight;
+            vertical-alignment: center;
+        }
+
+        i-icon := Image {  
+            horizontal-stretch: 0;
+            visible: false;
+            source: @image-url("../assets/check.svg");
+            colorize: Theme.palette.limon-green;
+        }
+     }
+
+     i-state-layer := StateLayer {  
+        width: i-container.width;
+        height: i-container.height;
+        border-radius: i-container.border-radius;
+    }
+
+    states [  
+        selected when selected : {
+            i-container.border-color: Theme.palette.limon-green;
+            i-icon.visible: true;
+        }
+    ]
+}
+
+export component ListView {
+    callback selection-changed(int /* index */);
+    
+    in property <[StandardListViewItem]> model;
+    in-out property <int> selected-index;
+
+    i-scroll-view := ScrollView {
+       i-blub := VerticalLayout {
+            alignment: start;  
+            spacing: Theme.spaces.medium;
+
+            for item[index] in model : ListViewItem {
+                private property <length> offset: i-scroll-view.viewport-y + index * (self.height + parent.spacing);
+
+                text: item.text;
+                selected: index == selected-index;
+
+                animate opacity { duration: Theme.durations.fast;  }
+
+                clicked => {  
+                    select(index);
+                }
+            }
+       }
+    }
+
+    function select(index: int) {
+        selected-index = index;
+        selection-changed(index);
+    }
+}

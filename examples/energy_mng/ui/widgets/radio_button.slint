@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "../theme.slint";
+
+export component RadioButton {
+    callback clicked <=> i-touch-area.clicked;
+
+    in property <bool> checked;
+
+    min-height: 18px;
+    width: self.height;
+
+    i-container := Rectangle {  
+        border-color: Theme.palette.slint-blue-300;
+        border-width: 2px;
+        border-radius: self.height / 2;
+
+        i-indicator := Rectangle {  
+            height: parent.height - 4 * parent.border-width;
+            width: self.height; 
+            border-radius: self.height / 2;
+
+            animate background { duration: Theme.durations.fast; }
+        }
+
+        animate border-color { duration: Theme.durations.fast; }
+    }
+
+    i-touch-area := TouchArea {}
+
+    states [  
+        checked when checked : {
+            i-container.border-color: Theme.palette.limon-green;
+            i-indicator.background: Theme.palette.limon-green;
+        }
+    ]
+}
