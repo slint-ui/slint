@@ -176,7 +176,7 @@ cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.sl
 
 The documentation for the different crates is built using rustdoc.
 
-The language reference has snippets in the .slint language which can be previewed by injecting
+The language documentation has snippets in the .slint language which can be previewed by injecting
 html to the documentation with the `--html-in-header` rustdoc flag.
 
 Use the following command line to build the documentation to include preview of the .slint files.

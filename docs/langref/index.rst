@@ -1,8 +1,8 @@
 .. Copyright © SixtyFPS GmbH <info@slint-ui.com>
 .. SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Welcome to the Slint Language Reference
-========================================
+Welcome to the Slint Language Documentation
+===========================================
 
 Introduction
 ------------

@@ -71,7 +71,7 @@ of elements and property bindings. Here's the obligatory "Hello World":
         }
     }
 
-Check out the `language reference <../slint>`_ for more details.
+Check out the `Slint Language Documentation <../slint>`_ for more details.
 
 Architecture
 ============

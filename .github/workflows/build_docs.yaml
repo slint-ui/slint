@@ -83,7 +83,7 @@ jobs:
     - name: "C++ Tutorial Docs"
       run: mdbook build
       working-directory: docs/tutorial/cpp
-    - name: "Slint Language Reference"
+    - name: "Slint Language Documentation"
       run: cargo xtask slintdocs --show-warnings
     - name: "Node docs"
       run: |
