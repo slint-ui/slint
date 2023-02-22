@@ -513,7 +513,7 @@ pub use crate::SharedString;
 /// Palette::get(&app).set_foreground_color(slint::Color::from_rgb_u8(255, 255, 255));
 /// ```
 ///
-/// See also the [language reference for global singletons](docs/langref/index.html#global-singletons) for more information.
+#[doc = concat!("See also the [language reference for global singletons](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/doc/slint/src/globals.html) for more information.")]
 ///
 /// **Note:** Only globals that are exported or re-exported from the main .slint file will
 /// be exposed in the API

@@ -56,7 +56,7 @@ fn main() {
 ### The .slint code in external files is compiled with `build.rs`
 
 When your design becomes bigger in terms of markup code, you may want move it to a dedicated*/
-#![doc = concat!("`.slint` file. It's also possible to split a `.slint` file into multiple files using [modules](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/doc/slint/modules.html).")]
+#![doc = concat!("`.slint` file. It's also possible to split a `.slint` file into multiple files using [modules](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/doc/slint/src/modules.html).")]
 /*!Use a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile
 your main `.slint` file:
 
@@ -206,8 +206,9 @@ struct MyStruct {
 
 ## Exported Global singletons
 
-When you export a [global singleton](../../slint/globals.html) from the main file,
-it is also generated with the exported name. Like the main component, the generated struct have
+*/
+#![doc = concat!("When you export a [global singleton](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/doc/slint/src/globals.html) from the main file,.")]
+/* it is also generated with the exported name. Like the main component, the generated struct have
 inherent method to access the properties and callback:
 
 For each property

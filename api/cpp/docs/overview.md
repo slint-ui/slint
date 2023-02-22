@@ -1,4 +1,3 @@
-
 # Overview
 
 The following sections explain how to integrate your `.slint` designs into your
@@ -53,14 +52,14 @@ that can hold different kinds of values, such as numbers, strings or even data
 models.
 
 More complex user interfaces commonly consume data in the form of an abstract
-data model, that is used with [`for` - `in`](markdown/langref.md#repetition)
-repetitions or [`ListView`](markdown/widgets.md#listview) elements in the
+data model, that is used with [`for` - `in`](../slint/src/repetitions.html)
+repetitions or [`ListView`](../slint/src/widgets.html#listview) elements in the
 `.slint` language. All models in C++ with the interpreter API are sub-classes
 of the {cpp:class}`slint::Model` where the template parameter is
 {cpp:class}`slint::interpreter::Value`. To provide your own data model, you can
 subclass `slint::Model<slint::interpreter::Value>`.
 
-It's possible to declare [singletons that are globally available](markdown/langref.md#global-singletons)
+It's possible to declare [singletons that are globally available](../slint/src/globals.html)
 in `.slint` files. You can access them from to your C++ code by exporting them
 and using the getter and setter functions on
 {cpp:class}`slint::interpreter::ComponentInstance` to change properties and
