@@ -17,6 +17,12 @@ pub mod ui {
 use ui::*;
 
 #[cfg(not(feature = "mcu-board-support"))]
+mod controllers;
+
+#[cfg(not(feature = "mcu-board-support"))]
+use controllers::*;
+
+#[cfg(not(feature = "mcu-board-support"))]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     // This provides better error messages in debug mode.
@@ -24,7 +30,18 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    MainWindow::new().unwrap().run().unwrap()
+    let window = MainWindow::new().unwrap();
+
+    // let _ to keep the timer alive.
+    let _timer = header::setup(&window);
+
+    #[cfg(feature = "network")]
+    let weather_join = weather::setup(&window);
+
+    window.run().unwrap();
+
+    #[cfg(feature = "network")]
+    weather_join.join().unwrap();
 }
 
 #[cfg(any(feature = "mcu-board-support", feature = "simulator"))]

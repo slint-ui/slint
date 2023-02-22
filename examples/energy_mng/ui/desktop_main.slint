@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Theme } from "theme.slint";
-import { TabWidget } from "widgets/widgets.slint";
-import { Dashboard } from "pages/dashboard.slint";
+import { TabWidget, BarTileModel } from "widgets/widgets.slint";
+import { Dashboard, WeatherAdapter } from "pages/pages.slint";
+import { Images } from "images.slint";
+
+export { WeatherAdapter, BarTileModel, Images }
 
 export global HeaderAdapter {
     in property <string> date: "Sunday 8th, January 2023";

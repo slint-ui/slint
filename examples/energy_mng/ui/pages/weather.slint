@@ -3,17 +3,18 @@
 
 import { Page } from "page.slint";
 import { GroupBox, Tile, BarTiles, BarTileModel } from "../widgets/widgets.slint";
+import { Images } from "../images.slint";
 
 export global WeatherAdapter {
     in property <string> title: "Weather";
-    in property <image> current-temperature-icon: @image-url("../assets/cloud.svg");
+    in property <image> current-temperature-icon: Images.cloud;
     in property <string> current-temperature: "22°";
     in property <string> current-day: "May 6th 2023";
-    in property <string> current-weather-desciption: "Very cloudy";
+    in property <string> current-weather-description: "Very cloudy";
     in property <[BarTileModel]> week-model: [
         {
             title: "Thu",
-            icon: @image-url("../assets/cloudy.svg"),
+            icon: Images.cloudy,
             max: 21,
             min: 18,
             absolute-max: 21,
@@ -22,7 +23,7 @@ export global WeatherAdapter {
         },
         {
             title: "Fri",
-            icon: @image-url("../assets/cloudy.svg"),
+            icon: Images.cloudy,
             max: 20,
             min: 17,
             absolute-max: 21,
@@ -31,7 +32,7 @@ export global WeatherAdapter {
         },
         {
             title: "Sat",
-            icon: @image-url("../assets/cloudy.svg"),
+            icon: Images.cloudy,
             max: 18,
             min: 15,
             absolute-max: 21,
@@ -46,7 +47,7 @@ export component Weather inherits Page {
     in property <image> current-temperature-icon <=> WeatherAdapter.current-temperature-icon;
     in property <string> current-temperature <=> WeatherAdapter.current-temperature;
     in property <string> current-day <=> WeatherAdapter.current-day;
-    in property <string> current-weather-desciption <=> WeatherAdapter.current-weather-desciption;
+    in property <string> current-weather-description <=> WeatherAdapter.current-weather-description;
     in property <[BarTileModel]> week-model <=> WeatherAdapter.week-model;
 
     GroupBox {
@@ -56,12 +57,15 @@ export component Weather inherits Page {
         Tile {
             value: current-temperature;
             text: current-day;
-            sub-text: current-weather-desciption;
+            sub-text: current-weather-description;
             icon: current-temperature-icon;
         }
 
         BarTiles {
             model: week-model;
         }
+
+        // stretches the empty element
+        if(week-model.length == 0) : Rectangle {}
     }
 }

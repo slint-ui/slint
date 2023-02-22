@@ -4,6 +4,7 @@
 import { StateLayer } from "../components/state_layer.slint"; 
 import { ScrollView } from "scroll_view.slint"; 
 import { Theme } from "../theme.slint"; 
+import { Images } from "../images.slint"; 
 import { StateLayer } from "../components/state_layer.slint";
 
 component ListViewItem {
@@ -38,7 +39,7 @@ component ListViewItem {
         i-icon := Image {  
             horizontal-stretch: 0;
             visible: false;
-            source: @image-url("../assets/check.svg");
+            source: Images.check;
             colorize: Theme.palette.limon-green;
         }
      }

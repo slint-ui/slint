@@ -3,13 +3,13 @@
 
 #[cfg(not(feature = "mcu-board-support"))]
 fn main() {
-    slint_build::compile("ui/main_window.slint").unwrap();
+    slint_build::compile("ui/desktop_main.slint").unwrap();
 }
 
 #[cfg(feature = "mcu-board-support")]
 fn main() {
     let config = slint_build::CompilerConfiguration::new()
         .embed_resources(slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer);
-    slint_build::compile_with_config("ui/main_window.slint", config).unwrap();
+    slint_build::compile_with_config("ui/pico_main.slint", config).unwrap();
     slint_build::print_rustc_flags().unwrap();
 }
