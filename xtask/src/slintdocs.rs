@@ -58,7 +58,7 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
 pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
 
-    let docs_source_dir = root.join("docs/langref");
+    let docs_source_dir = root.join("docs/language");
     let docs_build_dir = root.join("target/slintdocs");
     let html_static_dir = docs_build_dir.join("_static");
 
@@ -69,7 +69,7 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     symlink_files_in_dir(
         &docs_source_dir,
         &docs_build_dir,
-        ["..", "..", "docs", "langref"].iter().collect::<PathBuf>(),
+        ["..", "..", "docs", "language"].iter().collect::<PathBuf>(),
     )
     .context(format!("Error creating symlinks from docs source {docs_source_dir:?} to docs build dir {docs_build_dir:?}"))?;
 

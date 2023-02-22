@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut tests_file = std::fs::File::create(&tests_file_path)?;
 
     let prefix = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize()?;
-    for entry in std::fs::read_dir(prefix.join("docs/langref/src"))?
+    for entry in std::fs::read_dir(prefix.join("docs/language/src"))?
         .chain(std::fs::read_dir(prefix.join("docs"))?)
         .chain(std::fs::read_dir(prefix.join("docs/recipes"))?)
     {
