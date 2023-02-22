@@ -310,7 +310,7 @@ jobs:
             cp -a ../target/doc/* snapshots/$target_branch/docs/rust/
 
             # Fix up link to Slint language reference
-            sed -i "s!https://slint-ui.com/releases/.*/doc/slint!../../slint!" snapshots/$target_branch/docs/rust/slint/index.html
+            sed -i "s!https://slint-ui.com/releases/.*/doc/slint!../../slint!" snapshots/$target_branch/docs/rust/slint/*.html
 
             mkdir -p snapshots/$target_branch/docs/tutorial/rust
             cp -a ../docs/tutorial/rust/book/html/* snapshots/$target_branch/docs/tutorial/rust

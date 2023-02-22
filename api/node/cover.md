@@ -46,7 +46,7 @@ let main = new ui.Main();
 main.run();
 ```
 
-See [/examples/todo/node](/examples/todo/node) for a full example.
+See [/examples/todo/node](https://github.com/slint-ui/slint/tree/master/examples/todo/node) for a full example.
 
 ## API Overview
 
@@ -149,4 +149,4 @@ component.model = model;
 model.push(4); // this works
 // does NOT work, getting the model does not return the right object
 // component.model.push(5);
- ```
+```
