@@ -42,7 +42,7 @@ that is rotated by the specified angle. This is called a linear gradient and is 
 
 **`@linear-gradient(angle, color percentage, color percentage, ...)`**
 
-The first parameter to the macro is an angle (see [Types](#types)). The gradient line's starting point
+The first parameter to the macro is an angle (see [Types](types.md)). The gradient line's starting point
 will be rotated by the specified value.
 
 Following the initial angle is one or multiple color stops, describe as a space separated pair of a
