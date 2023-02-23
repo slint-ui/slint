@@ -34,9 +34,9 @@ is compiled to native code.
    src/concepts/file.md
    src/concepts/layouting.md
    src/concepts/container.md
-   src/concepts/purity.md
    src/concepts/focus.md
    src/concepts/fonts.md
+   src/concepts/purity.md
 
 .. toctree::
    :maxdepth: 2
