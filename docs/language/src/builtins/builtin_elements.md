@@ -8,7 +8,7 @@ These properties are valid on all visible items:
 
 -   **`width`** and **`height`** (_in_ _length_): The size of the element. When set, this overrides the default size.
 -   **`x`** and **`y`** (_in_ _length_): The position of the element relative to its parent
--   **`z`** (_in_ _float_): Allows to specify a different order to stack the items with its siblings. (default: 0)
+-   **`z`** (_in_ _float_): Allows to specify a different order to stack the items with its siblings. (default value: 0)
 
 ### Layout
 
@@ -22,21 +22,21 @@ These properties are valid on all visible items and can be used to expression co
 
 ### Miscellaneous
 
--   **`cache-rendering-hint`** (_in_ _bool_): When set to `true`, this provides a hint to the renderer to cache the contents of the element and all the children into an intermediate cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the expense of increased memory consumption. Not all rendering backends support this, so this is merely a hint. (default: `false`)
+-   **`cache-rendering-hint`** (_in_ _bool_): When set to `true`, this provides a hint to the renderer to cache the contents of the element and all the children into an intermediate cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the expense of increased memory consumption. Not all rendering backends support this, so this is merely a hint. (default value: `false`)
 -   **`dialog-button-role`** (_in_ _enum [`DialogButtonRole`](builtin_enums.md#dialogbuttonrole)_): Specify that this is a button in a `Dialog`.
--   **`opacity`** (_in_ _float_): A value between 0 and 1 (or a percentage) that is used to draw the element and its children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
--   **`visible`** (_in_ _bool_): When set to `false`, the element and all his children will not be drawn and not react to mouse input (default: `true`)
+-   **`opacity`** (_in_ _float_): A value between 0 and 1 (or a percentage) that is used to draw the element and its children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default value: 1)
+-   **`visible`** (_in_ _bool_): When set to `false`, the element and all his children will not be drawn and not react to mouse input (default value: `true`)
 
 ### Accessibility
 
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
 
--   **`accessible-role`** (_in_ _enum [`AccessibleRole`](builtin_enums.md#accessiblerole)_): The role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. The default value is `none` for most elements, but is `text` for the Text element.
+-   **`accessible-role`** (_in_ _enum [`AccessibleRole`](builtin_enums.md#accessiblerole)_): The role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. (default value: `none` for most elements, but `text` for the Text element)
 -   **`accessible-checkable`** (_in_ _bool_): Whether the element is can be checked or not.
 -   **`accessible-checked`** (_in_ _bool_): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
 -   **`accessible-description`** (_in_ _string_): The description for the current element.
 -   **`accessible-has-focus`** (_in_ _bool_): Set to true when the current element currently has the focus.
--   **`accessible-label`** (_in_ _string_): The label for an interactive element. The default value is empty for most elements, or is the value of the `text` property for Text elements.
+-   **`accessible-label`** (_in_ _string_): The label for an interactive element. (default value: empty for most elements, or the value of the `text` property for Text elements)
 -   **`accessible-value-maximum`** (_in_ _float_): The maximum value of the item. This is used for example by spin boxes.
 -   **`accessible-value-minimum`** (_in_ _float_): The minimum value of the item.
 -   **`accessible-value-step`** (_in_ _float_) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
@@ -47,7 +47,7 @@ Use the following `accessible-` properties to make your items interact well with
 To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
 an element, it's possible to set the following `drop-shadow` properties:
 
--   **`drop-shadow-blur`** (_in_ _length_): The radius of the shadow that also describes the level of blur applied to the shadow. Negative values are ignored and zero means no blur (default).
+-   **`drop-shadow-blur`** (_in_ _length_): The radius of the shadow that also describes the level of blur applied to the shadow. Negative values are ignored and zero means no blur. (default value: 0)
 -   **`drop-shadow-color`** (_in_ _color_): The base color of the shadow to use. Typically that color is the starting color of a gradient that fades into transparency.
 -   **`drop-shadow-offset-x`** and **`drop-shadow-offset-y`** (_in_ _length_): The horizontal and vertical distance of the shadow from the element's frame. A negative value places the shadow left / above of the element.
 
@@ -108,7 +108,7 @@ element when not specified.
 
 ### Properties
 
--   **`interactive`** (_in_ _bool_): When true, the viewport can be scrolled by clicking on it and dragging it with the cursor. (default: true)
+-   **`interactive`** (_in_ _bool_): When true, the viewport can be scrolled by clicking on it and dragging it with the cursor. (default value: true)
 -   **`viewport-height`**, **`viewport-width`** (_in_ _length_): The total size of the scrollable element.
 -   **`viewport-x`**, **`viewport-y`** (_in_ _length_): The position of the scrollable element relative to the `Flickable`. This is usually a negative value.
 
@@ -234,9 +234,9 @@ An `Image` can be used to represent an image loaded from a file.
 
 ### Properties
 
--   **`colorize`** (_in_ _brush_): When set, the image is used as an alpha mask and is drown in the given color (or with the gradient)
--   **`image-fit`** (_in_ _enum_ [`ImageFit`](builtin_enums.md#imagefit)): Specifies how the source image shall be fit into the image element. When the `Image` element is part of a layout, the default value for **`image-fit`** is `contain`. Otherwise it's `fill`.
--   **`image-rendering`** (_in_ _enum_ [`ImageRendering`](builtin_enums.md#imagerendering)): Specifies how the source image will be scaled. The default value is `smooth`.
+-   **`colorize`** (_in_ _brush_): When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
+-   **`image-fit`** (_in_ _enum_ [`ImageFit`](builtin_enums.md#imagefit)): Specifies how the source image shall be fit into the image element. (default value: `contain` when the `Image` element is part of a layout, `fill` otherwise)
+-   **`image-rendering`** (_in_ _enum_ [`ImageRendering`](builtin_enums.md#imagerendering)): Specifies how the source image will be scaled. (default value: `smooth`)
 -   **`rotation-angle`** (_in_ _angle_), **`rotation-origin-x`** (_in_ _length_), **`rotation-origin-y`** (_in_ _length_):
     Rotates the image by the given angle around the specified origin point. The default origin point is the center of the element.
     When these properties are present, the `Image` cannot have children.
@@ -323,7 +323,7 @@ accordingly.
 -   **`clip`** (_in_ _bool_): By default, when a path has a view box defined and the elements render
     outside of it, they are still rendered. When this property is set to `true`, then rendering will be
     clipped at the boundaries of the view box.
-    This property must be a literal `true` or `false` (default: `false`)
+    This property must be a literal `true` or `false` (default value: `false`)
 
 #### Path Using SVG commands
 
@@ -494,11 +494,11 @@ When not part of a layout, its width and height default to 100% of the parent el
 
 ### Properties
 
--   **`background`** (_in_ _brush_): The background brush of this `Rectangle`, typically a color. (default value: transparent)
--   **`border-color`** (_in_ _brush_): The color of the border. (default value: transparent)
+-   **`background`** (_in_ _brush_): The background brush of this `Rectangle`, typically a color. (default value: `transparent`)
+-   **`border-color`** (_in_ _brush_): The color of the border. (default value: `transparent`)
 -   **`border-radius`** (_in_ _length_): The size of the radius. (default value: 0)
 -   **`border-width`** (_in_ _length_): The width of the border. (default value: 0)
--   **`clip`** (_in_ _bool_): By default, when an element is bigger or outside another element, it's still shown. When this property is set to `true`, the children of this `Rectangle` are clipped to the border of the rectangle. (default: `false`)
+-   **`clip`** (_in_ _bool_): By default, when an element is bigger or outside another element, it's still shown. When this property is set to `true`, the children of this `Rectangle` are clipped to the border of the rectangle. (default value: `false`)
 
 ### Example
 
@@ -574,7 +574,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 -   **`text-cursor-width`** (_in_ _length_): The width of the text cursor. (default value: provided at run-time by the selected widget style)
 -   **`text`** (_in-out_ _string_): The text rendered and editable by the user.
 -   **`vertical-alignment`** (_in_ _enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)_): The vertical alignment of the text.
--   **`wrap`** (_in_ _enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text input wraps. Only makes sense when `single-line` is false. (default: no-wrap)
+-   **`wrap`** (_in_ _enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text input wraps. Only makes sense when `single-line` is false. (default value: no-wrap)
 
 ### Functions
 
@@ -617,11 +617,11 @@ and the text itself.
 -   **`font-size`** (_in_ _length_): The font size of the text.
 -   **`font-weight`** (_in_ _int_): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 -   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
--   **`letter-spacing`** (_in_ _length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance. The default value is 0.
--   **`overflow`** (_in_ _enum [`TextOverflow`](builtin_enums.md#textoverflow)_): What happens when the text overflows (default: clip).
+-   **`letter-spacing`** (_in_ _length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance. (default value: 0)
+-   **`overflow`** (_in_ _enum [`TextOverflow`](builtin_enums.md#textoverflow)_): What happens when the text overflows (default value: clip).
 -   **`text`** (_in_ _string_): The text rendered.
 -   **`vertical-alignment`** (_in_ _enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)_): The vertical alignment of the text.
--   **`wrap`** (_in_ _enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text wraps (default: no-wrap).
+-   **`wrap`** (_in_ _enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text wraps (default value: `no-wrap`).
 
 ### Example
 
