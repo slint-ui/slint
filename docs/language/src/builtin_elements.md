@@ -506,7 +506,7 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 The KeyEvent has a text property which is a character of the key entered.
 When a non-printable key is pressed, the character will be either a control character,
-or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the [`Key`](#key) namespace
+or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the [`Key`](builtin_namespaces.md#key) namespace
 
 ### Properties
 
@@ -685,7 +685,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 -   **`read-only`** (_bool_): When set to `true`, text editing via keyboard and mouse is disabled but
     selecting text is still enabled as well as editing text programatically (default value: `false`)
 -   **`wrap`** (_enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text input wraps. Only makes sense when `single-line` is false. (default: no-wrap)
--   **`input-type`** (_enum [`InputType`](builtin_enums.md#InputType)_): The way to allow special input viewing properties such as password fields (default value: `text`).
+-   **`input-type`** (_enum [`InputType`](builtin_enums.md#inputtype)_): The way to allow special input viewing properties such as password fields (default value: `text`).
 
 ### Methods
 

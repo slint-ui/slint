@@ -2,7 +2,7 @@
 
 All elements have properties. Built-in elements come with common properties such
 as color or dimensional properties. You can assign values or entire
-[expressions](#expressions) to them:
+[expressions](expressions.md) to them:
 
 ```slint,no-preview
 export component Example inherits Window {

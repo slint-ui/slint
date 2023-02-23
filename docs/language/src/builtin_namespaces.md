@@ -2,7 +2,7 @@
 
 The following namespaces provide access to common constants such as special keys or named colors.
 
-## `Colors` Namespace
+## `Colors`
 
 Use the colors namespace to select colors by their name. For example you can use `Colors.aquamarine` or `Colors.bisque`.
 The entire list of names is very long. You can find a complete list in the [CSS Specification](https://www.w3.org/TR/css-color-3/#svg-color).
@@ -19,9 +19,9 @@ The fourth value, if present, is an alpha value between 0 and 1.
 
 Unlike in CSS, the commas are mandatory.
 
-## `Key` Namespace
+## `Key`
 
-Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character. Check the value of [`KeyEvent`](#keyevent)'s `text` property
+Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character. Check the value of [`KeyEvent`](builtin_structs.md#keyevent)'s `text` property
 against the constants below.
 
 -   **`Backspace`**
@@ -78,7 +78,7 @@ against the constants below.
 -   **`Stop`**
 -   **`Menu`**
 
-## `Math` Namespace
+## `Math`
 
 These functions are available both in the global scope and in the `Math` namespace.
 

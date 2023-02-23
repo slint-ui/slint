@@ -181,7 +181,7 @@ A widget used to enter a single line of text
 -   **`enabled`**: (_bool_): Defaults to true. When false, nothing can be entered
 -   **`read-only`** (_bool_): When set to `true`, text editing via keyboard and mouse is disabled but
     selecting text is still enabled as well as editing text programatically (default value: `false`)
--   **`input-type`** (_enum [`InputType`](builtin_enums.md#InputType)_): The way to allow special input viewing properties such as password fields (default value: `text`).
+-   **`input-type`** (_enum [`InputType`](builtin_enums.md#inputtype)_): The way to allow special input viewing properties such as password fields (default value: `text`).
 -   **`horizontal-alignment`** (_enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
 
 ### Callbacks
