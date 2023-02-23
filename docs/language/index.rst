@@ -28,7 +28,7 @@ is compiled to native code.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Slint Language Concepts
+   :caption: Concepts
 
    src/concepts/intro.md
    src/concepts/file.md
@@ -40,7 +40,7 @@ is compiled to native code.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Slint Language Reference
+   :caption: Reference
 
    src/comments.md
    src/identifiers.md
@@ -60,7 +60,7 @@ is compiled to native code.
 
 .. toctree::
    :maxdepth: 4
-   :caption: Slint Language Builtins
+   :caption: Builtins
 
    src/builtin_callbacks.md
    src/builtin_elements.md
