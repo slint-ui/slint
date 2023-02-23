@@ -21,26 +21,236 @@ All properties in Slint have a type. Slint knows these basic types:
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
 
-```{include} strings.md
+## Strings
+
+Any sequence of utf-8 encoded characters surrounded by quotes is a `string`: `"foo"`.
+
+Escape sequences may be embedded into strings to insert characters that would
+be hard to insert otherwise:
+
+| Escape          | Result                                                                                          |
+| --------------- | ----------------------------------------------------------------------------------------------- |
+| `\"`            | `"`                                                                                             |
+| `\\`            | `\`                                                                                             |
+| `\n`            | new line                                                                                        |
+| `\u{x}`         | where `x` is a hexadecimal number, expands to the unicode code point represented by this number |
+| `\{expression}` | the result of evaluating the expression                                                         |
+
+Anything else following an unescaped `\` is an error.
+
+```slint,no-preview
+export component Example inherits Text {
+    text: "hello";
+}
+```
+
+## Colors and Brushes
+
+Color literals follow the syntax of CSS:
+
+```slint,no-preview
+export component Example inherits Window {
+    background: blue;
+    property<color> c1: #ffaaff;
+    property<brush> b2: Colors.red;
+}
+```
+
+In addition to plain colors, many elements have properties that are of type `brush` instead of `color`.
+A brush is a type that can be either a color or gradient. The brush is then used to fill an element or
+draw the outline.
+
+CSS Color names are only in scope in expressions of type `color` or `brush`. Otherwise, you can access
+colors from the `Colors` namespace.
+
+### Methods
+
+All colors and brushes define the following methods:
+
+-   **`brighter(factor: float) -> Brush`**
+
+    Returns a new color derived from this color but has its brightness increased by the specified factor.
+    For example if the factor is 0.5 (or for example 50%) the returned color is 50% brighter. Negative factors
+    decrease the brightness.
+
+-   **`darker(factor: float) -> Brush`**
+
+    Returns a new color derived from this color but has its brightness decreased by the specified factor.
+    For example if the factor is .5 (or for example 50%) the returned color is 50% darker. Negative factors
+    increase the brightness.
+
+### Linear Gradients
+
+Linear gradients describe smooth, colorful surfaces. They're specified using an angle and a series of
+color stops. The colors will be linearly interpolated between the stops, aligned to an imaginary line
+that is rotated by the specified angle. This is called a linear gradient and is specified using the
+`@linear-gradient` macro with the following signature:
+
+**`@linear-gradient(angle, color percentage, color percentage, ...)`**
+
+The first parameter to the macro is an angle (see [Types](types.md)). The gradient line's starting point
+will be rotated by the specified value.
+
+Following the initial angle is one or multiple color stops, describe as a space separated pair of a
+`color` value and a `percentage`. The color specifies which value the linear color interpolation should
+reach at the specified percentage along the axis of the gradient.
+
+The following example shows a rectangle that's filled with a linear gradient that starts with a light blue
+color, interpolates to a very light shade in the center and finishes with an orange tone:
+
+```slint
+export component Example inherits Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+
+    Rectangle {
+        background: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
+    }
+}
+```
+
+### Radial Gradients
+
+Linear gradiants are like real gradiant but the colors is interpolated in a circle instead of
+along a line. To describe a readial gradiant, use the `@radial-gradient` macro with the following signature:
+
+**`@radial-gradient(circle, color percentage, color percentage, ...)`**
+
+The first parameter to the macro is always `circle` because only circular radients are supported.
+The syntax is otherwise based on the CSS `radial-gradient` function.
+
+Example:
+
+```slint
+export component Example inherits Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+    Rectangle {
+        background: @radial-gradient(circle, #f00 0%, #0f0 50%, #00f 100%);
+    }
+}
+```
+
+## Images
+
+The `image` type is a reference to an image. It's defined using the `@image-url("...")` construct.
+The address within the `@image-url` function must be known at compile time.
+
+Slint looks for images in the following places:
+
+1. The absolute path or the path relative to the current `.slint` file.
+2. The include path used by the compiler to look up `.slint` files.
+
+Access an `image`'s dimension using its `width` and `height` properties.
+
+```slint
+export component Example inherits Window {
+    preferred-width: 150px;
+    preferred-height: 50px;
+
+    in property <image> some_image: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
+
+    Text {
+        text: "The image is " + some_image.width + "x" + some_image.height;
+    }
+}
+```
+
+## Structs
+
+Define named structures using the `struct` keyword:
+
+```slint,no-preview
+export struct Player  {
+    name: string,
+    score: int,
+}
+
+export component Example {
+    in-out property<Player> player: { name: "Foo", score: 100 };
+}
+```
+
+### Anonymous Structures
+
+Declare anonymous structures using `{ identifier1: type2, identifier1: type2 }`
+syntax, and initialize them using
+`{ identifier1: expression1, identifier2: expression2  }`.
+
+You may have a trailing `,` after the last expression or type.
+
+```slint,no-preview
+export component Example {
+    in-out property<{name: string, score: int}> player: { name: "Foo", score: 100 };
+    in-out property<{a: int, }> foo: { a: 3 };
+}
+```
+
+## Arrays and Models
+
+Arrays are declared by wrapping `[` and `]` square brackets around the type of the array elements.
+
+Array literals as well as properties holding arrays act as models in`for` expressions.
+
+```slint,no-preview
+export component Example {
+    in-out property<[int]> list-of-int: [1,2,3];
+    in-out property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
+}
+```
+
+Arrays define the following operations:
+
+-   **`array.length`**: One can query the length of an array and model using the builtin `.length` property.
+-   **`array[index]`**: The index operator retrieves individual elements of an array.
+
+Out of bound access into an array will return default-constructed values.
+
+```slint,no-preview
+export component Example {
+    in-out property<[int]> list-of-int: [1,2,3];
+
+    out property <int> list-len: list-of-int.length;
+    out property <int> first-int: list-of-int[0];
+}
 
 ```
 
-```{include} brushes.md
+## Conversions
 
-```
+Slint supports conversions between different types. Explicit
+conversions are required to make the UI description more robust, but implicit
+conversions are allowed between some types for convenience.
 
-```{include} images.md
+The following conversions are possible:
 
-```
+-   `int` can be converted implicitly to `float` and vice-versa
+-   `int` and `float` can be converted implicitly to `string`
+-   `physical-length` and `length` can be converted implicitly to each other only in
+    context where the pixel ratio is known.
+-   the units type (`length`, `physical-length`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
+    but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
+    these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
+-   The literal `0` can be converted to any of these types that have associated unit.
+-   Struct types convert with another struct type if they have the same property names and their types can be converted.
+    The source struct can have either missing properties, or extra properties. But not both.
+-   Arrays generally do not convert between each other. Array literals can be converted if the element types are convertible.
+-   String can be converted to float by using the `to-float` function. That function returns 0 if the string is not
+    a valid number. You can check with `is-float()` if the string contains a valid number
 
-```{include} structs.md
+```slint,no-preview
+export component Example {
+    // ok: int converts to string
+    property<{a: string, b: int}> prop1: {a: 12, b: 12 };
+    // ok even if a is missing, it will just have the default value
+    property<{a: string, b: int}> prop2: { b: 12 };
+    // ok even if c is too many, it will be discarded
+    property<{a: string, b: int}> prop3: { a: "x", b: 12, c: 42 };
+    // ERROR: b is missing and c is extra, this does not compile, because it could be a typo.
+    // property<{a: string, b: int}> prop4: { a: "x", c: 42 };
 
-```
-
-```{include} models.md
-
-```
-
-```{include} conversions.md
-
+    property<string> xxx: "42.1";
+    property<float> xxx1: xxx.to-float(); // 42.1
+    property<bool> xxx2: xxx.is-float(); // true
+}
 ```

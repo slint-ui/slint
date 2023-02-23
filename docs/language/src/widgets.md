@@ -12,7 +12,7 @@ The widget appearance depends on the selected style. The following styles are av
 
 See [Selecting a Widget Style](#selecting-a-widget-style) for details how to select the style. If no style is selected, `native` is the default. If `native` is not available, `fluent` is the default.
 
-All widgets support all [properties common to builtin elements](bultin_elements.md#common-properties).
+All widgets support all [properties common to builtin elements](builtin_elements.md#common-properties).
 
 ## `AboutSlint`
 
