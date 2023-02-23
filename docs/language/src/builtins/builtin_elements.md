@@ -6,50 +6,50 @@
 
 These properties are valid on all visible items
 
--   **`width`** and **`height`** (_in-out_ _length_): The size of the element. When set, this overrides the default size.
--   **`x`** and **`y`** (_in-out_ _length_): the position of the element relative to its parent
--   **`z`** (_in-out_ _float_): Allows to specify a different order to stack the items with its siblings. (default: 0)
+-   **`width`** and **`height`** (_in_ _length_): The size of the element. When set, this overrides the default size.
+-   **`x`** and **`y`** (_in_ _length_): the position of the element relative to its parent
+-   **`z`** (_in_ _float_): Allows to specify a different order to stack the items with its siblings. (default: 0)
 
 ### Layout
 
 These properties are related to the layout of widgets in user interfaces
 
--   **`col`**, **`row`**, **`colspan`**, **`rowspan`** (_in-out_ _int_): See [`GridLayout`](#gridlayout).
--   **`horizontal-stretch`** and **`vertical-stretch`** (_in-out_ _float_): Specify how much relative space these elements are stretching in a layout. When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
--   **`max-width`** and **`max-height`** (_in-out_ _length_): The maximum size of an element when used in a layout.
--   **`min-width`** and **`min-height`** (_in-out_ _length_): The minimum size of an element when used in a layout.
--   **`preferred-width`** and **`preferred-height`** (_in-out_ _length_): The preferred size of an element when used in a layout.
+-   **`col`**, **`row`**, **`colspan`**, **`rowspan`** (_in_ _int_): See [`GridLayout`](#gridlayout).
+-   **`horizontal-stretch`** and **`vertical-stretch`** (_in_ _float_): Specify how much relative space these elements are stretching in a layout. When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
+-   **`max-width`** and **`max-height`** (_in_ _length_): The maximum size of an element when used in a layout.
+-   **`min-width`** and **`min-height`** (_in_ _length_): The minimum size of an element when used in a layout.
+-   **`preferred-width`** and **`preferred-height`** (_in_ _length_): The preferred size of an element when used in a layout.
 
 ### Misc
 
--   **`cache-rendering-hint`** (_in-out_ _bool_): When set to `true`, this provides a hint to the renderer to cache the contents of the element and all the children into an intermediate cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the expense of increased memory consumption. Not all rendering backends support this, so this is merely a hint. (default: `false`)
--   **`dialog-button-role`** (_in-out_ _enum [`DialogButtonRole`](builtin_enums.md#dialogbuttonrole)_): Specify that this is a button in a `Dialog`.
--   **`opacity`** (_in-out_ _float_): A value between 0 and 1 (or a percentage) that is used to draw the element and its children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
--   **`visible`** (_in-out_ _bool_): When set to `false`, the element and all his children will not be drawn and not react to mouse input (default: `true`)
+-   **`cache-rendering-hint`** (_in_ _bool_): When set to `true`, this provides a hint to the renderer to cache the contents of the element and all the children into an intermediate cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the expense of increased memory consumption. Not all rendering backends support this, so this is merely a hint. (default: `false`)
+-   **`dialog-button-role`** (_in_ _enum [`DialogButtonRole`](builtin_enums.md#dialogbuttonrole)_): Specify that this is a button in a `Dialog`.
+-   **`opacity`** (_in_ _float_): A value between 0 and 1 (or a percentage) that is used to draw the element and its children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
+-   **`visible`** (_in_ _bool_): When set to `false`, the element and all his children will not be drawn and not react to mouse input (default: `true`)
 
 ### Accessibility
 
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
 
--   **`accessible-role`** (_in-out_ _enum [`AccessibleRole`](builtin_enums.md#accessiblerole)_): The accessibility role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. The default value is `none` for most elements, but is `text` for the Text element.
--   **`accessible-checkable`** (_in-out_ _bool_): Whether the element is can be checked or not.
--   **`accessible-checked`** (_in-out_ _bool_): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
--   **`accessible-description`** (_in-out_ _string_): The description for the current element.
--   **`accessible-has-focus`** (_in-out_ _bool_): Set to true when the current element currently has the focus.
--   **`accessible-label`** (_in-out_ _string_): The label for an interactive element. The default value is empty for most elements, or is the value of the `text` property for Text elements.
--   **`accessible-value-maximum`** (_in-out_ _float_): The maximum value of the item. This is used for example by spin boxes.
--   **`accessible-value-minimum`** (_in-out_ _float_): The minimum value of the item.
--   **`accessible-value-step`** (_in-out_ _float_) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
--   **`accessible-value`** (_in-out_ _string_): The current value of the item.
+-   **`accessible-role`** (_in_ _enum [`AccessibleRole`](builtin_enums.md#accessiblerole)_): The accessibility role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. The default value is `none` for most elements, but is `text` for the Text element.
+-   **`accessible-checkable`** (_in_ _bool_): Whether the element is can be checked or not.
+-   **`accessible-checked`** (_in_ _bool_): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
+-   **`accessible-description`** (_in_ _string_): The description for the current element.
+-   **`accessible-has-focus`** (_in_ _bool_): Set to true when the current element currently has the focus.
+-   **`accessible-label`** (_in_ _string_): The label for an interactive element. The default value is empty for most elements, or is the value of the `text` property for Text elements.
+-   **`accessible-value-maximum`** (_in_ _float_): The maximum value of the item. This is used for example by spin boxes.
+-   **`accessible-value-minimum`** (_in_ _float_): The minimum value of the item.
+-   **`accessible-value-step`** (_in_ _float_) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
+-   **`accessible-value`** (_in_ _string_): The current value of the item.
 
 ### Drop Shadows
 
 To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
 an element, it is possible to set the following `drop-shadow` properties:
 
--   **`drop-shadow-blur`** (_in-out_ _length_): The radius of the shadow that also describes the level of blur applied to the shadow. Negative values are ignored and zero means no blur (default).
--   **`drop-shadow-color`** (_in-out_ _color_): The base color of the shadow to use. Typically that color is the starting color of a gradient that fades into transparency.
--   **`drop-shadow-offset-x`** and **`drop-shadow-offset-y`** (_in-out_ _length_): The horizontal and vertical distance of the shadow from the element's frame. A negative value places the shadow left / above of the element.
+-   **`drop-shadow-blur`** (_in_ _length_): The radius of the shadow that also describes the level of blur applied to the shadow. Negative values are ignored and zero means no blur (default).
+-   **`drop-shadow-color`** (_in_ _color_): The base color of the shadow to use. Typically that color is the starting color of a gradient that fades into transparency.
+-   **`drop-shadow-offset-x`** and **`drop-shadow-offset-y`** (_in_ _length_): The horizontal and vertical distance of the shadow from the element's frame. A negative value places the shadow left / above of the element.
 
 The `drop-shadow` effect is supported for `Rectangle` elements.
 
@@ -183,9 +183,9 @@ Alternatively, the item can be put in a `Row` element.
 
 ### Properties
 
--   **`spacing`** (_in-out_ _length_): The distance between the elements in the layout.
--   **`padding`** (_in-out_ _length_): the padding within the layout.
--   **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (_in-out_ _length_):
+-   **`spacing`** (_in_ _length_): The distance between the elements in the layout.
+-   **`padding`** (_in_ _length_): the padding within the layout.
+-   **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (_in_ _length_):
     override the padding in specific sides.
 
 ### Examples
