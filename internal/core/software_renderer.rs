@@ -11,7 +11,7 @@ mod fonts;
 use crate::api::Window;
 use crate::graphics::{IntRect, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::ItemRenderer;
-use crate::items::{ImageFit, Item, ItemRc};
+use crate::items::{ImageFit, Item, ItemRc, TextOverflow};
 use crate::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, PointLengths,
     RectLengths, ScaleFactor, SizeLengths,
@@ -25,7 +25,7 @@ use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::num::Zero;
-use euclid::Length;
+use euclid::{Length, Size2D};
 #[allow(unused)]
 use num_traits::Float;
 
@@ -1591,8 +1591,64 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     }
 
     fn draw_text_input(&mut self, text_input: Pin<&crate::items::TextInput>, _: &ItemRc) {
-        text_input.geometry();
-        // TODO
+        let string = text_input.text();
+        let geom = LogicalRect::new(LogicalPoint::default(), text_input.geometry().size_length());
+        if !self.should_draw(&geom) {
+            return;
+        }
+
+        let font_request = text_input.font_request(&self.window.window_adapter());
+
+        let color = self.alpha_color(text_input.color().color());
+        let max_size = (geom.size.cast() * self.scale_factor).cast();
+
+        // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
+        // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
+        // FIXME: we should allow drawing outside of the Text element's boundaries.
+        let physical_clip = if let Some(logical_clip) = self.current_state.clip.intersection(&geom)
+        {
+            logical_clip.cast() * self.scale_factor
+        } else {
+            return; // This should have been caught earlier already
+        };
+        let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
+
+        let font = fonts::match_font(&font_request, self.scale_factor);
+
+        let visual_representation = text_input.visual_representation();
+
+        match font {
+            fonts::Font::PixelFont(pf) => {
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout: fonts::text_layout_for_font(&pf, &font_request, self.scale_factor),
+                    max_width: max_size.width_length(),
+                    max_height: max_size.height_length(),
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: text_input.single_line(),
+                };
+
+                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
+            }
+            fonts::Font::VectorFont(vf) => {
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout: fonts::text_layout_for_font(&vf, &font_request, self.scale_factor),
+                    max_width: max_size.width_length(),
+                    max_height: max_size.height_length(),
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: text_input.single_line(),
+                };
+
+                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
+            }
+        }
     }
 
     #[cfg(feature = "std")]
