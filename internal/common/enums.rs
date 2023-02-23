@@ -73,17 +73,31 @@ macro_rules! for_each_enums {
                 Evenodd,
             }
 
+            /// This enum is used to add standard buttons to a `Dialog`. The look and positioning
+            /// of these `StandardButton`s depends on the environment (OS, UI environment, etc.)
+            /// the application runs in.
             enum StandardButtonKind {
+                /// A "OK" button that accepts a `Dialog`, closing it
                 Ok,
+                /// A "Cancel" button that rejects a `Dialog`, closing it
                 Cancel,
+                /// A "Apply" button that should accept values from a `Dialog` without closing it.
                 Apply,
+                /// A "Close" button which should close a `Dialog` without looking at values
                 Close,
+                /// A "Reset" button which should reset the `Dialog` to its start state
                 Reset,
+                /// A "Help" button
                 Help,
+                /// A "Yes" button, used to confirm an action
                 Yes,
+                /// A "No" button, used to negate an action
                 No,
+                /// A "Abort" button, used to abort an action
                 Abort,
+                /// A "Retry" button, used to retry a failed action
                 Retry,
+                /// A "Ignore" button, used to ignore a failed action
                 Ignore,
             }
 
@@ -91,7 +105,7 @@ macro_rules! for_each_enums {
             /// any element within a `Dialog` to put that item in the button row, and its exact position
             /// depends on the role and the platform.
             enum DialogButtonRole {
-                /// This is not a button means to go in the row of button of the dialog
+                /// This is not a button meant to go into the bottom row
                 None,
                 /// This is the role of the main button to click to accept the dialog. e.g. "Ok" or "Yes"
                 Accept,
@@ -107,9 +121,13 @@ macro_rules! for_each_enums {
                 Action,
             }
 
+            /// The enum reports what happened to the `PointerEventButton` in the event
             enum PointerEventKind {
+                /// The action was cancelled
                 Cancel,
+                /// The button was pressed
                 Down,
+                /// The button was released
                 Up,
             }
 
@@ -198,14 +216,21 @@ macro_rules! for_each_enums {
                 //zoom_out,
             }
 
+            /// This enum defines how the source image shall fit into the image element.
             enum ImageFit {
+                /// Scales and stretches the image to fit the width and height of the element.
                 Fill,
+                /// The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
                 Contain,
+                /// The source image is scaled to cover into the image element's dimension while preserving the aspect ratio.
                 Cover,
             }
 
+            /// This enum specifies how the source image will be scaled.
             enum ImageRendering {
+                /// The image is scaled with a linear interpolation algorithm.
                 Smooth,
+                /// The image is scaled with the nearest neighbor algorithm.
                 Pixelated,
             }
 
@@ -219,13 +244,25 @@ macro_rules! for_each_enums {
                 Password,
             }
 
-            /// Enum representing the alignment property of a BoxLayout or HorizontalLayout
+            /// Enum representing the alignment property of a BoxLayout or HorizontalLayout.
+            /// See [alignment](concepts/layouting.md#alignment)
             enum LayoutAlignment {
+                /// Use the minimum size of all elements in a layout, distribute remaining space
+                /// based on `*-stretch` among all elements.
                 Stretch,
+                /// Use minimum size for all elements, distribute remaining space evenly before the
+                /// first and after the last element
                 Center,
+                /// Use minimum size for all elements, put remaining space after the last element
                 Start,
+                /// Use minimum size for all elements, put remaining space before the first
+                /// element
                 End,
+                /// Use minimum size for all elements, distribute remaining space evenly between
+                /// elements.
                 SpaceBetween,
+                /// Use minimum size for all elements, distribute remaining space evenly before the
+                /// first element, after the last element and between elements
                 SpaceAround,
             }
 

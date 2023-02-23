@@ -29,7 +29,7 @@ The default value of each enum type is always the first value.
  any element within a `Dialog` to put that item in the button row, and its exact position
  depends on the role and the platform.
 
-* **`none`**: This is not a button means to go in the row of button of the dialog
+* **`none`**: This is not a button meant to go into the bottom row
 * **`accept`**: This is the role of the main button to click to accept the dialog. e.g. "Ok" or "Yes"
 * **`reject`**: This is the role of the main button to click to reject the dialog. e.g. "Cancel" or "No"
 * **`apply`**: This is the role of the "Apply" button
@@ -53,16 +53,18 @@ The default value of each enum type is always the first value.
 
 ## `ImageFit`
 
+ This enum defines how the source image shall fit into the image element.
 
-* **`fill`**:
-* **`contain`**:
-* **`cover`**:
+* **`fill`**: Scales and stretches the image to fit the width and height of the element.
+* **`contain`**: The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
+* **`cover`**: The source image is scaled to cover into the image element's dimension while preserving the aspect ratio.
 
 ## `ImageRendering`
 
+ This enum specifies how the source image will be scaled.
 
-* **`smooth`**:
-* **`pixelated`**:
+* **`smooth`**: The image is scaled with a linear interpolation algorithm.
+* **`pixelated`**: The image is scaled with the nearest neighbor algorithm.
 
 ## `InputType`
 
@@ -75,14 +77,20 @@ The default value of each enum type is always the first value.
 
 ## `LayoutAlignment`
 
- Enum representing the alignment property of a BoxLayout or HorizontalLayout
+ Enum representing the alignment property of a BoxLayout or HorizontalLayout.
+ See [alignment](concepts/layouting.md#alignment)
 
-* **`stretch`**:
-* **`center`**:
-* **`start`**:
-* **`end`**:
-* **`space-between`**:
-* **`space-around`**:
+* **`stretch`**: Use the minimum size of all elements in a layout, distribute remaining space
+    based on `*-stretch` among all elements.
+* **`center`**: Use minimum size for all elements, distribute remaining space evenly before the
+    first and after the last element
+* **`start`**: Use minimum size for all elements, put remaining space after the last element
+* **`end`**: Use minimum size for all elements, put remaining space before the first
+    element
+* **`space-between`**: Use minimum size for all elements, distribute remaining space evenly between
+    elements.
+* **`space-around`**: Use minimum size for all elements, distribute remaining space evenly before the
+    first element, after the last element and between elements
 
 ## `MouseCursor`
 
@@ -145,10 +153,11 @@ The default value of each enum type is always the first value.
 
 ## `PointerEventKind`
 
+ The enum reports what happened to the `PointerEventButton` in the event
 
-* **`cancel`**:
-* **`down`**:
-* **`up`**:
+* **`cancel`**: The action was cancelled
+* **`down`**: The button was pressed
+* **`up`**: The button was released
 
 ## `SortOrder`
 
@@ -161,18 +170,21 @@ The default value of each enum type is always the first value.
 
 ## `StandardButtonKind`
 
+ This enum is used to add standard buttons to a `Dialog`. The look and positioning
+ of these `StandardButton`s depends on the environment (OS, UI environment, etc.)
+ the application runs in.
 
-* **`ok`**:
-* **`cancel`**:
-* **`apply`**:
-* **`close`**:
-* **`reset`**:
-* **`help`**:
-* **`yes`**:
-* **`no`**:
-* **`abort`**:
-* **`retry`**:
-* **`ignore`**:
+* **`ok`**: A "OK" button that accepts a `Dialog`, closing it
+* **`cancel`**: A "Cancel" button that rejects a `Dialog`, closing it
+* **`apply`**: A "Apply" button that should accept values from a `Dialog` without closing it.
+* **`close`**: A "Close" button which should close a `Dialog` without looking at values
+* **`reset`**: A "Reset" button which should reset the `Dialog` to its start state
+* **`help`**: A "Help" button
+* **`yes`**: A "Yes" button, used to confirm an action
+* **`no`**: A "No" button, used to negate an action
+* **`abort`**: A "Abort" button, used to abort an action
+* **`retry`**: A "Retry" button, used to retry a failed action
+* **`ignore`**: A "Ignore" button, used to ignore a failed action
 
 ## `TextHorizontalAlignment`
 
