@@ -526,7 +526,7 @@ pub trait Global<'a, Component> {
 /// It allows creating strongly-referenced clones, a conversion into/ a weak pointer as well
 /// as other convenience functions.
 ///
-/// This trait is implemented by the [generated component](mod@crate#generated-components)
+/// This trait is implemented by the [generated component](index.html#generated-components)
 pub trait ComponentHandle {
     /// The type of the generated component.
     #[doc(hidden)]
@@ -574,7 +574,7 @@ mod weak_handle {
 
     use super::*;
 
-    /// Struct that's used to hold weak references of a [Slint component](mod@crate#generated-components)
+    /// Struct that's used to hold weak references of a [Slint component](index.html#generated-components)
     ///
     /// In order to create a Weak, you should use [`ComponentHandle::as_weak`].
     ///
