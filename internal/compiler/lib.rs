@@ -93,8 +93,8 @@ impl CompilerConfiguration {
                 panic!("SLINT_EMBED_RESOURCES has incorrect value. Must be either unset, 'true' or 'false'")
             });
             match var {
-                true => EmbedResourcesKind::OnlyBuiltinResources,
-                false => EmbedResourcesKind::EmbedAllResources,
+                true => EmbedResourcesKind::EmbedAllResources,
+                false => EmbedResourcesKind::OnlyBuiltinResources,
             }
         } else {
             match output_format {
