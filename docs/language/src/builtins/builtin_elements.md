@@ -4,23 +4,23 @@
 
 ### Geometry
 
-These properties are valid on all visible items
+These properties are valid on all visible items:
 
 -   **`width`** and **`height`** (_in_ _length_): The size of the element. When set, this overrides the default size.
--   **`x`** and **`y`** (_in_ _length_): the position of the element relative to its parent
+-   **`x`** and **`y`** (_in_ _length_): The position of the element relative to its parent
 -   **`z`** (_in_ _float_): Allows to specify a different order to stack the items with its siblings. (default: 0)
 
 ### Layout
 
-These properties are related to the layout of widgets in user interfaces
+These properties are valid on all visible items and can be used to expression constraints when used in layouts:
 
 -   **`col`**, **`row`**, **`colspan`**, **`rowspan`** (_in_ _int_): See [`GridLayout`](#gridlayout).
--   **`horizontal-stretch`** and **`vertical-stretch`** (_in_ _float_): Specify how much relative space these elements are stretching in a layout. When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
--   **`max-width`** and **`max-height`** (_in_ _length_): The maximum size of an element when used in a layout.
--   **`min-width`** and **`min-height`** (_in_ _length_): The minimum size of an element when used in a layout.
--   **`preferred-width`** and **`preferred-height`** (_in_ _length_): The preferred size of an element when used in a layout.
+-   **`horizontal-stretch`** and **`vertical-stretch`** (_in-out_ _float_): Specify how much relative space these elements are stretching in a layout. When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1.
+-   **`max-width`** and **`max-height`** (_in_ _length_): The maximum size of an element
+-   **`min-width`** and **`min-height`** (_in_ _length_): The minimum size of an element
+-   **`preferred-width`** and **`preferred-height`** (_in_ _length_): The preferred size of an element
 
-### Misc
+### Miscellaneous
 
 -   **`cache-rendering-hint`** (_in_ _bool_): When set to `true`, this provides a hint to the renderer to cache the contents of the element and all the children into an intermediate cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the expense of increased memory consumption. Not all rendering backends support this, so this is merely a hint. (default: `false`)
 -   **`dialog-button-role`** (_in_ _enum [`DialogButtonRole`](builtin_enums.md#dialogbuttonrole)_): Specify that this is a button in a `Dialog`.
@@ -31,7 +31,7 @@ These properties are related to the layout of widgets in user interfaces
 
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
 
--   **`accessible-role`** (_in_ _enum [`AccessibleRole`](builtin_enums.md#accessiblerole)_): The accessibility role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. The default value is `none` for most elements, but is `text` for the Text element.
+-   **`accessible-role`** (_in_ _enum [`AccessibleRole`](builtin_enums.md#accessiblerole)_): The role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. The default value is `none` for most elements, but is `text` for the Text element.
 -   **`accessible-checkable`** (_in_ _bool_): Whether the element is can be checked or not.
 -   **`accessible-checked`** (_in_ _bool_): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
 -   **`accessible-description`** (_in_ _string_): The description for the current element.
@@ -57,20 +57,17 @@ The `drop-shadow` effect is supported for `Rectangle` elements.
 
 Dialog is like a window, but it has buttons that are automatically laid out.
 
-A Dialog should have one main element for the content, that is not a button.
-And the window can have any number of `StandardButton` widgets or other button
+A Dialog should have one main element as child, that is not a button.
+he dialog can have any number of `StandardButton` widgets or other buttons
 with the `dialog-button-role` property.
-The button will be layed out in an order that depends on the platform.
+The buttons will be placed in an order that depends on the target platform at run-time.
 
-The `kind` property of the `StandardButton`s and the `dialog-button-role` properties needs to be set to a specific value,
-it cannot be a complex expression.
-There cannot be several StandardButton of the same kind.
+The `kind` property of the `StandardButton`s and the `dialog-button-role` properties need to be set to a constant value, it can't be an arbitrary variable expression.
+There cannot be several `StandardButton` of the same kind.
 
-A callback `<kind>_clicked` is automatically added for each StandardButton which does not have an explicit
-callback handler, so it can be handled from the native code. (e.g. if there is a button of kind `cancel`,
-a `cancel_clicked` callback will be added).
-
-When viewed with the `slint-viewer` program, the `ok`, `cancel`, and `close` button will cause the dialog to close.
+A callback `<kind>_clicked` is automatically added for each `StandardButton` which does not have an explicit
+callback handler, so it can be handled from the native code: For example if there is a button of kind `cancel`,
+a `cancel_clicked` callback will be added.
 
 ### Properties
 
@@ -96,22 +93,24 @@ export component Example inherits Dialog {
 
 ## `Flickable`
 
-The `Flickable` is a lower-level item that is the base for scrollable
-elements, such as the ScrollView widget. When the `viewport-width` or the
-`viewport-height` is greater than the parent width or parent height
-respectively the element becomes scrollable although the `Flickable`
+The `Flickable` is a low-level element that is the base for scrollable
+widgets, such as the [`ScrollView`](widgets.md#scrollview). When the `viewport-width` or the
+`viewport-height` is greater than the parent's `width` or `height`
+respectively, the element becomes scrollable. Note that the `Flickable`
 does not create a scrollbar. When unset, the `viewport-width` and `viewport-height` are
-calculated automatically based on the content. Excepted when using a `for` loop to populate
-the elements, that is tracked in issue #407.
-The maximum and preferred size of the Flickable are based on those of the viewport.
+calculated automatically based on the `Flickable`'s children. This is not the
+case when using a `for` loop to populate the elements. This is a bug tracked in
+issue [#407]((https://github.com/slint-ui/slint/issues/407).
+The maximum and preferred size of the `Flickable` are based on the viewport.
 
-When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
+When not part of a layout, its width or height defaults to 100% of the parent
+element when not specified.
 
 ### Properties
 
 -   **`interactive`** (_in_ _bool_): When true, the viewport can be scrolled by clicking on it and dragging it with the cursor. (default: true)
--   **`viewport-height`**, **`viewport-width`** (_in_ _length_): The total size of the scrollable element
--   **`viewport-x`**, **`viewport-y`** (_in_ _length_): The position of the scrollable element relative to the Flickable. This is usually a negative value.
+-   **`viewport-height`**, **`viewport-width`** (_in_ _length_): The total size of the scrollable element.
+-   **`viewport-x`**, **`viewport-y`** (_in_ _length_): The position of the scrollable element relative to the `Flickable`. This is usually a negative value.
 
 ### Example
 
@@ -133,24 +132,27 @@ export component Example inherits Window {
 
 ## `FocusScope`
 
-The FocusScope exposes callback to intercept the pressed key when it has focus.
+The `FocusScope` exposes callbacks to intercept key events. Note that `FocusScope`
+will only trigger when it `has-focus`.
 
-The KeyEvent has a text property which is a character of the key entered.
+The [`KeyEvent`](builtin_structs.md#keyevent) has a text property which is a character of the key entered.
 When a non-printable key is pressed, the character will be either a control character,
 or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the [`Key`](builtin_namespaces.md#key) namespace
 
 ### Properties
 
--   **`has-focus`** (_out_ _bool_): Set to `true` when item is focused and receives keyboard events.
+-   **`has-focus`** (_out_ _bool_): Is `true` when the element has keyboard
+    focus.
 
-### Methods
+### Functions
 
--   **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
+-   **`focus()`** Call this function to transfer keyboard focus to this `FocusScope`,
+    to receive future [`KeyEvent`](builtin_structs.md#keyevent)s.
 
 ### Callbacks
 
--   **`key-pressed(`_[`KeyEvent`](builtin_structs.md#keyevent)_`) -> [`EventResult`](builtin_structs.md#eventresult)**: Emitted when a key is pressed, the argument is a [`KeyEvent`](builtin_structs.md#keyevent) struct
--   **`key-released(`_[`KeyEvent`](builtin_structs.md#keyevent)_`) -> [`EventResult`](builtin_structs.md#eventresult)**: Emitted when a key is released, the argument is a [`KeyEvent`](builtin_structs.md#keyevent) struct
+-   **`key-pressed(`_[`KeyEvent`](builtin_structs.md#keyevent)_`) -> [`EventResult`](builtin_structs.md#eventresult)**: Invoked when a key is pressed, the argument is a [`KeyEvent`](builtin_structs.md#keyevent) struct.
+-   **`key-released(`_[`KeyEvent`](builtin_structs.md#keyevent)_`) -> [`EventResult`](builtin_structs.md#eventresult)**: Invoked when a key is released, the argument is a [`KeyEvent`](builtin_structs.md#keyevent) struct.
 
 ### Example
 
@@ -176,21 +178,21 @@ export component Example inherits Window {
 
 ## `GridLayout`
 
-`GridLayout` places the elements in a grid. `GridLayout` adds properties to each item: `col`, `row`, `colspan`, `rowspan`.
-You can control the position of elements with `col` and `row`.
-If `col` or `row` is not specified, they are automatically computed such that the item is next to the previous item, in the same row.
+`GridLayout` places its children in a grid. `GridLayout` adds properties to each item: `col`, `row`, `colspan`, `rowspan`.
+You can control the position of children with `col` and `row`.
+If `col` or `row` are not specified, they are automatically computed such that the item is next to the previous item, in the same row.
 Alternatively, the item can be put in a `Row` element.
 
 ### Properties
 
 -   **`spacing`** (_in_ _length_): The distance between the elements in the layout.
--   **`padding`** (_in_ _length_): the padding within the layout.
+-   **`padding`** (_in_ _length_): The padding within the layout.
 -   **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (_in_ _length_):
-    override the padding in specific sides.
+    Set these properties to override the padding on specific sides.
 
 ### Examples
 
-This example uses the `Row` element
+This example uses the `Row` element:
 
 ```slint
 export component Foo inherits Window {
@@ -228,7 +230,7 @@ export component Foo inherits Window {
 
 ## `Image`
 
-An Image can be used to represent an image loaded from an image file.
+An `Image` can be used to represent an image loaded from a file.
 
 ### Properties
 
@@ -236,10 +238,9 @@ An Image can be used to represent an image loaded from an image file.
 -   **`image-fit`** (_in_ _enum_ [`ImageFit`](builtin_enums.md#imagefit)): Specifies how the source image shall be fit into the image element. When the `Image` element is part of a layout, the default value for **`image-fit`** is `contain`. Otherwise it is `fill`.
 -   **`image-rendering`** (_in_ _enum_ [`ImageRendering`](builtin_enums.md#imagerendering)): Specifies how the source image will be scaled. The default value is `smooth`.
 -   **`rotation-angle`** (_in_ _angle_), **`rotation-origin-x`** (_in_ _length_), **`rotation-origin-y`** (_in_ _length_):
-    Rotate the image by the given angle around the specified origin point. The default origin point is the center of the element.
-    When these properties are present, the Image cannot have any children elements.
--   **`source`** (_in_ _image_): The image to load. In order to reference image, one uses the `@image-url("...")` macro
-    which loads the file relative to the directory containing the .slint file.
+    Rotates the image by the given angle around the specified origin point. The default origin point is the center of the element.
+    When these properties are present, the `Image` cannot have children.
+-   **`source`** (_in_ _image_): The image to load. Use the `@image-url("...")` macro to specify the location of the image.
 -   **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (_in_ _int_): Properties in source
     image coordinates that define the region of the source image that is rendered. By default the entire source image is visible:
     | Property | Default Binding |
@@ -457,13 +458,13 @@ position to the beginning of the path.
 
 ## `PopupWindow`
 
-This allow to show a popup window like a tooltip or a popup menu.
+Use this element to show a popup window like a tooltip or a popup menu.
 
-Note: It is not allowed to access properties of elements within the popup from outside of the popup.
+Note: It is not allowed to access properties of elements within the popup from outside of the `PopupWindow`.
 
-### Methods
+### Functions
 
--   **`show()`** Call this function to show the popup.
+-   **`show()`** Show the popup on the screen.
 
 ### Example
 
@@ -486,18 +487,18 @@ export component Example inherits Window {
 
 ## `Rectangle`
 
-By default, the rectangle is just an empty item that shows nothing. By setting a color or a border
-it is then possible to draw a simple rectangle on the screen
+By default, a `Rectangle` is just an empty item that shows nothing. By setting a color or configuring a border,
+it is then possible to draw a rectangle on the screen.
 
-When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
+When not part of a layout, its width and height default to 100% of the parent element.
 
 ### Properties
 
--   **`background`** (_in_ _brush_): The background brush of the Rectangle, typically a color. (default value: transparent)
+-   **`background`** (_in_ _brush_): The background brush of this `Rectangle`, typically a color. (default value: transparent)
 -   **`border-color`** (_in_ _brush_): The color of the border. (default value: transparent)
 -   **`border-radius`** (_in_ _length_): The size of the radius. (default value: 0)
 -   **`border-width`** (_in_ _length_): The width of the border. (default value: 0)
--   **`clip`** (_in_ _bool_): By default, when an item is bigger or outside another item, it is still shown. But when this property is set to `true`, then the children element of this Rectangle are going to be clipped. (default: `false`)
+-   **`clip`** (_in_ _bool_): By default, when an element is bigger or outside another element, it is still shown. When this property is set to `true`, the children of this `Rectangle` are clipped to the border of the rectangle. (default: `false`)
 
 ### Example
 
@@ -559,31 +560,31 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Properties
 
 -   **`color`** (_in_ _brush_): The color of the text (default value: depends on the style)
--   **`font-family`** (_in_ _string_): The font name
--   **`font-size`** (_in_ _length_): The font size of the text
+-   **`font-family`** (_in_ _string_): The name of the font family selected for rendering the text.
+-   **`font-size`** (_in_ _length_): The font size of the text.
 -   **`font-weight`** (_in_ _int_): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
--   **`has-focus`** (_out_ _bool_): Set to `true` when item is focused and receives keyboard events.
+-   **`has-focus`** (_out_ _bool_): Set to `true` when this `TextInput` is focused and will receive [`KeyEvent`](builtin_structs.md#keyevent)s.
 -   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
--   **`input-type`** (_in_ _enum [`InputType`](builtin_enums.md#inputtype)_): The way to allow special input viewing properties such as password fields (default value: `text`).
--   **`letter-spacing`** (_in_ _length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance. The default value is 0.
--   **`read-only`** (_in_ _bool_): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programatically (default value: `false`)
--   **`selection-background-color`** (_in_ _color_): The background color of the selection
--   **`selection-foreground-color`** (_in_ _color_): The foreground color of the selection
--   **`single-line`** (_in_ _bool_): When set to `true`, no newlines are allowed (default value: `true`)
--   **`text-cursor-width`** (_in_ _length_): The width of the text cursor
--   **`text`** (_in-out_ _string_): The actual text.
+-   **`input-type`** (_in_ _enum [`InputType`](builtin_enums.md#inputtype)_): Use this to configure `TextInput` for editing special input, such as password fields. (default value: `text`)
+-   **`letter-spacing`** (_in_ _length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance. (default value: 0)
+-   **`read-only`** (_in_ _bool_): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programatically. (default value: `false`)
+-   **`selection-background-color`** (_in_ _color_): The background color of the selection.
+-   **`selection-foreground-color`** (_in_ _color_): The foreground color of the selection.
+-   **`single-line`** (_in_ _bool_): When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text. (default value: `true`)
+-   **`text-cursor-width`** (_in_ _length_): The width of the text cursor. (default value: provided at run-time by the selected widget style)
+-   **`text`** (_in-out_ _string_): The text rendered and editable by the user.
 -   **`vertical-alignment`** (_in_ _enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)_): The vertical alignment of the text.
 -   **`wrap`** (_in_ _enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text input wraps. Only makes sense when `single-line` is false. (default: no-wrap)
 
-### Methods
+### Functions
 
 -   **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
 
 ### Callbacks
 
--   **`accepted()`**: Emitted when enter key is pressed
--   **`cursor-position-changed([`Point`](builtin_structs.md#point))**: The cursor was moved to the new (x, y) position
--   **`edited()`**: Emitted when the text has changed because the user modified it
+-   **`accepted()`**: Invoked when enter key is pressed.
+-   **`cursor-position-changed(_[`Point`](builtin_structs.md#point)_)**: The cursor was moved to the new (x, y) position.
+-   **`edited()`**: Invoked when the text has changed because the user modified it.
 
 ### Example
 
@@ -605,20 +606,20 @@ it also allows configuring different visual aspects through the `font-family`, `
 
 The `Text` element can break long text into multiple lines of text. A line feed character (`\n`) in the string of the `text`
 property will trigger a manual line break. For automatic line breaking you need to set the `wrap` property to a value other than
-`no-wrap` and it is important to specify a `width` and `height` for the `Text` element, in order to know where to break. It's
+`no-wrap`, and it is important to specify a `width` and `height` for the `Text` element, in order to know where to break. It's
 recommended to place the `Text` element in a layout and let it set the `width` and `height` based on the available screen space
 and the text itself.
 
 ### Properties
 
--   **`color`** (_in_ _brush_): The color of the text (default value: depends on the style)
--   **`font-family`** (_in_ _string_): The font name
--   **`font-size`** (_in_ _length_): The font size of the text
+-   **`color`** (_in_ _brush_): The color of the text. (default value: depends on the style)
+-   **`font-family`** (_in_ _string_): The name of the font family selected for rendering the text.
+-   **`font-size`** (_in_ _length_): The font size of the text.
 -   **`font-weight`** (_in_ _int_): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 -   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
 -   **`letter-spacing`** (_in_ _length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance. The default value is 0.
 -   **`overflow`** (_in_ _enum [`TextOverflow`](builtin_enums.md#textoverflow)_): What happens when the text overflows (default: clip).
--   **`text`** (_in_ _string_): The actual text.
+-   **`text`** (_in_ _string_): The text rendered.
 -   **`vertical-alignment`** (_in_ _enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)_): The vertical alignment of the text.
 -   **`wrap`** (_in_ _enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text wraps (default: no-wrap).
 
@@ -659,24 +660,24 @@ export component Example inherits Window {
 
 ## `TouchArea`
 
-The TouchArea control what happens when the zone covered by it is touched or interacted with
+Use `TouchArea` to control what happens when the it covers is touched or interacted with
 using the mouse.
 
-When not part of a layout, its width or height default to 100% of the parent element if not specified.
+When not part of a layout, its width or height default to 100% of the parent element.
 
 ### Properties
 
--   **`has-hover`** (_in_ _bool_): Set to `true` by the TouchArea when the mouse is over it.
--   **`mouse-cursor`** (_in_ _enum [`MouseCursor`](builtin_enums.md#mousecursor)_): The mouse cursor type when the mouse is hovering the TouchArea.
--   **`mouse-x`**, **`mouse-y`** (_in_ _length_): Set by the TouchArea to the position of the mouse within it.
--   **`pressed-x`**, **`pressed-y`** (_in_ _length_): Set to `true` by the TouchArea to the position of the mouse at the moment it was last pressed.
--   **`pressed`** (_in_ _bool_): Set to `true` by the TouchArea when the mouse is pressed over it.
+-   **`has-hover`** (_out_ _bool_): Set to `true` when the mouse is over the `TouchArea`.
+-   **`mouse-cursor`** (_in_ _enum [`MouseCursor`](builtin_enums.md#mousecursor)_): The mouse cursor type when the mouse is hovering the `TouchArea`.
+-   **`mouse-x`**, **`mouse-y`** (_out_ _length_): Set by the `TouchArea` to the position of the mouse within it.
+-   **`pressed-x`**, **`pressed-y`** (_out_ _length_): Set to `true` by the `TouchArea` to the position of the mouse at the moment it was last pressed.
+-   **`pressed`** (_out_ _bool_): Set to `true` by the `TouchArea` when the mouse is pressed over it.
 
 ### Callbacks
 
--   **`clicked()`**: Emitted when clicked (the mouse is pressed, then released on this element)
+-   **`clicked()`**: Invoked when clicked: The mouse is pressed, then released on this element.
 -   **`moved()`**: The mouse has been moved. This will only be called if the mouse is also pressed.
--   **`pointer-event(`_[`PointerEvent`](builtin_structs.md#pointerevent)_`)`**: Received when a button was pressed or released.
+-   **`pointer-event(`_[`PointerEvent`](builtin_structs.md#pointerevent)_`)`**: Invoked when a button was pressed or released.
 
 ### Example
 
@@ -713,10 +714,10 @@ they will be computed by the layout respecting the minimum and maximum sizes and
 
 ### Properties
 
--   **`spacing`** (_in-out_ _length_): The distance between the elements in the layout.
--   **`padding`** (_in-out_ _length_): the padding within the layout.
--   **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (_in-out_ _length_): override the padding in specific sides.
--   **`alignment`** (_in_ _enum [`LayoutAlignment`](builtin_enums.md#layoutalignment)_): Set the alignment. Matches the CSS flex.
+-   **`spacing`** (_in_ _length_): The distance between the elements in the layout.
+-   **`padding`** (_in_ _length_): the padding within the layout.
+-   **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (_in_ _length_): Set these properties to override the padding on specific sides.
+-   **`alignment`** (_in_ _enum [`LayoutAlignment`](builtin_enums.md#layoutalignment)_): Set the alignment. Matches the CSS flex box.
 
 ### Example
 
@@ -736,18 +737,18 @@ export component Foo inherits Window {
 
 ## `Window`
 
-Window is the root of what is on the screen
+`Window` is the root of the tree of elements that are visible on the screen.
 
-The Window geometry will be restricted by its layout constraints: setting the `width` will result in a fixed width,
+The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
 and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
-or smaller. The initial width can be controlled with the `preferred-width` property. The same applies for the height.
+or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
 
 ### Properties
 
--   **`background`** (_in_ _brush_): The background brush of the Window. (default value: depends on the style)
--   **`default-font-family`** (_in_ _string_): The font family to use as default in text elements inside this window, that don't have their family set.
--   **`default-font-size`** (_in-out_ _length_): The font size to use as default in text elements inside this window, that don't have their size set.
--   **`default-font-weight`** (_in_ _int_): The font weight to use as default in text elements inside this window, that don't have their weight set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+-   **`background`** (_in_ _brush_): The background brush of the `Window`. (default value: depends on the style)
+-   **`default-font-family`** (_in_ _string_): The font family to use as default in text elements inside this window, that don't have their `font-family` property set.
+-   **`default-font-size`** (_in-out_ _length_): The font size to use as default in text elements inside this window, that don't have their `font-size` property set. The value of this property also forms the basis for relative font sizes.
+-   **`default-font-weight`** (_in_ _int_): The font weight to use as default in text elements inside this window, that don't have their `font-weight` property set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 -   **`icon`** (_in_ _image_): The window icon shown in the title bar or the task bar on window managers supporting it.
 -   **`no-frame`** (_in_ _bool_): Whether the window should be borderless/frameless or not.
 -   **`title`** (_in_ _string_): The window title that is shown in the title bar.
