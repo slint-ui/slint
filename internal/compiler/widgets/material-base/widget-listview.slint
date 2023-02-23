@@ -5,7 +5,7 @@
 import { ScrollView } from "widget-scrollview.slint";
 import { Item } from "widget-item.slint";
 
-// `ListView` is like a `Scrollview` but it should have a for element, and the content are automatically layed out in a list.
+// `ListView` is like a `Scrollview` but it should have a `for` element, and the content is automatically laid out in a list.
 export component ListView inherits ScrollView {
     @children
 }
@@ -13,7 +13,7 @@ export component ListView inherits ScrollView {
 component StandardListViewBase inherits ListView {
     private property <length> item-height: self.viewport-height / self.model.length;
     private property <length> current-item-y: self.viewport-y + current-item * item-height;
-     
+
     in property<[StandardListViewItem]> model;
     in-out property<int> current-item: -1;
 
@@ -21,8 +21,8 @@ component StandardListViewBase inherits ListView {
         selected: idx == root.current-item;
         text: item.text;
 
-        clicked => { 
-            set-current-item(idx);    
+        clicked => {
+            set-current-item(idx);
         }
     }
 
@@ -36,7 +36,7 @@ component StandardListViewBase inherits ListView {
         if(current-item-y < 0) {
             self.viewport-y += 0 - current-item-y;
         }
-        
+
         if(current-item-y + item-height > self.visible-height) {
             self.viewport-y -= current-item-y + item-height - self.visible-height;
         }
