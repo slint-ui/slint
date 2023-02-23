@@ -1,8 +1,4 @@
-# Concepts
-
-In this chapter we will look at a couple of concepts driving the design of Slint.
-
-## The Slint Language
+# The Slint Language
 
 Slint comes with a easy to learn and use language to describe user interfaces
 with. We designed this language to be readable to both humans and machines.
