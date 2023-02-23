@@ -1,5 +1,4 @@
 <!-- cSpell: ignore dgettext ngettext xgettext -->
-# Recipes and Examples
 
 This page provides a collection of common use-cases and how to implement them
 using Slint.
@@ -83,7 +82,7 @@ an external `.slint` file together with a build script.
 
 
 ```rust,no_run
-slint::slint!(import { Recipe } from "docs/recipes/button_native.slint";);
+slint::slint!(import { Recipe } from "docs/language/src/recipes/button_native.slint";);
 
 fn main() {
     let recipe = Recipe::new().unwrap();

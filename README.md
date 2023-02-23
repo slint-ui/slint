@@ -63,7 +63,7 @@ for our [🥠 Weekly Status Updates](https://slint-ui.com/thisweek/).
 The [examples](examples) folder contains examples and demos.
 
 The `docs` folder contains a lot more information, including
-[build instructions](docs/building.md), [recipes for common tasks](docs/recipes/recipes.md)
+[build instructions](docs/building.md), [recipes for common tasks](docs/language/src/recipes/recipes.md)
 and [internal developer docs](docs/development.md).
 
 Refer to the README of each language directory in the `api` folder:

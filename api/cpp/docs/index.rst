@@ -15,8 +15,6 @@ Welcome to Slint C++'s documentation!
 
    First Steps <getting_started.md>
 
-   markdown/recipes/recipes.md
-
 .. toctree::
    :maxdepth: 2
    :hidden:
