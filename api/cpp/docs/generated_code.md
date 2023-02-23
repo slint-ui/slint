@@ -32,8 +32,8 @@ actual instance and keeps it alive as long as at least one
 {cpp:class}`slint::ComponentHandle` is in scope, similar to `std::shared_ptr<T>`.
 
 For more complex user interfaces it's common to supply data in the form of an
-abstract data model, that's used with [`for` - `in`](../slint/repetition.html)
-repetitions or [`ListView`](../slint/widgets.md#listview) elements in the
+abstract data model, that's used with <a href="../slint/src/reference/repetitions.html">`for` - `in`</a>
+repetitions or <a href="../slint/src/builtins/widgets.html#listview">`ListView`</a> elements in the
 `.slint` language. All models in C++ are sub-classes of the
 {cpp:class}`slint::Model` and you can sub-class it yourself. For convenience,
 the {cpp:class}`slint::VectorModel` provides an implementation that's backed
@@ -106,7 +106,7 @@ private:
 
 ## Global Singletons
 
-You can declare [globally available singletons](../slint/globals.html) in your
+You can declare <a href="../slint/src/reference/globals.html">globally available singletons</a> in your
 `.slint` files. If exported, these singletons are available via the
 `global()` getter function on the generated C++ class. Each global singleton
 maps to a class iwith getter/setter functions for properties and callbacks,

@@ -52,8 +52,8 @@ that can hold different kinds of values, such as numbers, strings or even data
 models.
 
 More complex user interfaces commonly consume data in the form of an abstract
-data model, that is used with [`for` - `in`](../slint/src/repetitions.html)
-repetitions or [`ListView`](../slint/src/widgets.html#listview) elements in the
+data model, that is used with <a href="../slint/src/reference/repetitions.html">`for` - `in`</a>
+repetitions or <a href="../slint/src/builtins/widgets.html#listview">`ListView`</a> elements in the
 `.slint` language. All models in C++ with the interpreter API are sub-classes
 of the {cpp:class}`slint::Model` where the template parameter is
 {cpp:class}`slint::interpreter::Value`. To provide your own data model, you can
