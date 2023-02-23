@@ -45,7 +45,7 @@ Use the following `accessible-` properties to make your items interact well with
 ### Drop Shadows
 
 To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
-an element, it is possible to set the following `drop-shadow` properties:
+an element, it's possible to set the following `drop-shadow` properties:
 
 -   **`drop-shadow-blur`** (_in_ _length_): The radius of the shadow that also describes the level of blur applied to the shadow. Negative values are ignored and zero means no blur (default).
 -   **`drop-shadow-color`** (_in_ _color_): The base color of the shadow to use. Typically that color is the starting color of a gradient that fades into transparency.
@@ -57,7 +57,7 @@ The `drop-shadow` effect is supported for `Rectangle` elements.
 
 Dialog is like a window, but it has buttons that are automatically laid out.
 
-A Dialog should have one main element as child, that is not a button.
+A Dialog should have one main element as child, that isn't a button.
 he dialog can have any number of `StandardButton` widgets or other buttons
 with the `dialog-button-role` property.
 The buttons will be placed in an order that depends on the target platform at run-time.
@@ -98,7 +98,7 @@ widgets, such as the [`ScrollView`](widgets.md#scrollview). When the `viewport-w
 `viewport-height` is greater than the parent's `width` or `height`
 respectively, the element becomes scrollable. Note that the `Flickable`
 does not create a scrollbar. When unset, the `viewport-width` and `viewport-height` are
-calculated automatically based on the `Flickable`'s children. This is not the
+calculated automatically based on the `Flickable`'s children. This isn't the
 case when using a `for` loop to populate the elements. This is a bug tracked in
 issue [#407]((https://github.com/slint-ui/slint/issues/407).
 The maximum and preferred size of the `Flickable` are based on the viewport.
@@ -235,7 +235,7 @@ An `Image` can be used to represent an image loaded from a file.
 ### Properties
 
 -   **`colorize`** (_in_ _brush_): When set, the image is used as an alpha mask and is drown in the given color (or with the gradient)
--   **`image-fit`** (_in_ _enum_ [`ImageFit`](builtin_enums.md#imagefit)): Specifies how the source image shall be fit into the image element. When the `Image` element is part of a layout, the default value for **`image-fit`** is `contain`. Otherwise it is `fill`.
+-   **`image-fit`** (_in_ _enum_ [`ImageFit`](builtin_enums.md#imagefit)): Specifies how the source image shall be fit into the image element. When the `Image` element is part of a layout, the default value for **`image-fit`** is `contain`. Otherwise it's `fill`.
 -   **`image-rendering`** (_in_ _enum_ [`ImageRendering`](builtin_enums.md#imagerendering)): Specifies how the source image will be scaled. The default value is `smooth`.
 -   **`rotation-angle`** (_in_ _angle_), **`rotation-origin-x`** (_in_ _length_), **`rotation-origin-y`** (_in_ _length_):
     Rotates the image by the given angle around the specified origin point. The default origin point is the center of the element.
@@ -382,7 +382,7 @@ export component Example inherits Path {
 }
 ```
 
-Note how the coordinates of the path elements do not use units - they operate within the imaginary
+Note how the coordinates of the path elements don't use units - they operate within the imaginary
 coordinate system of the scalable path.
 
 ##### `MoveTo` Sub-element for `Path`
@@ -460,7 +460,7 @@ position to the beginning of the path.
 
 Use this element to show a popup window like a tooltip or a popup menu.
 
-Note: It is not allowed to access properties of elements within the popup from outside of the `PopupWindow`.
+Note: It isn't allowed to access properties of elements within the popup from outside of the `PopupWindow`.
 
 ### Functions
 
@@ -488,7 +488,7 @@ export component Example inherits Window {
 ## `Rectangle`
 
 By default, a `Rectangle` is just an empty item that shows nothing. By setting a color or configuring a border,
-it is then possible to draw a rectangle on the screen.
+it's then possible to draw a rectangle on the screen.
 
 When not part of a layout, its width and height default to 100% of the parent element.
 
@@ -498,7 +498,7 @@ When not part of a layout, its width and height default to 100% of the parent el
 -   **`border-color`** (_in_ _brush_): The color of the border. (default value: transparent)
 -   **`border-radius`** (_in_ _length_): The size of the radius. (default value: 0)
 -   **`border-width`** (_in_ _length_): The width of the border. (default value: 0)
--   **`clip`** (_in_ _bool_): By default, when an element is bigger or outside another element, it is still shown. When this property is set to `true`, the children of this `Rectangle` are clipped to the border of the rectangle. (default: `false`)
+-   **`clip`** (_in_ _bool_): By default, when an element is bigger or outside another element, it's still shown. When this property is set to `true`, the children of this `Rectangle` are clipped to the border of the rectangle. (default: `false`)
 
 ### Example
 
@@ -606,7 +606,7 @@ it also allows configuring different visual aspects through the `font-family`, `
 
 The `Text` element can break long text into multiple lines of text. A line feed character (`\n`) in the string of the `text`
 property will trigger a manual line break. For automatic line breaking you need to set the `wrap` property to a value other than
-`no-wrap`, and it is important to specify a `width` and `height` for the `Text` element, in order to know where to break. It's
+`no-wrap`, and it's important to specify a `width` and `height` for the `Text` element, in order to know where to break. It's
 recommended to place the `Text` element in a layout and let it set the `width` and `height` based on the available screen space
 and the text itself.
 
