@@ -12,13 +12,6 @@
 
 // cSpell: ignore rustdoc
 
-pub mod recipes {
-    #![doc = include_str!("docs/recipes/recipes.md")]
-
-    // So intra-doc links can refer it as `slint::`
-    use crate as slint;
-}
-
 /// This module exists only to explain the API of the code generated from `.slint` design markup. Its described structure
 /// is not really contained in the compiled crate.
 pub mod generated_code {

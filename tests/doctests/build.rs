@@ -12,8 +12,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let prefix = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize()?;
     for entry in std::fs::read_dir(prefix.join("docs/language/src"))?
         .chain(std::fs::read_dir(prefix.join("docs/language/src/concepts"))?)
+        .chain(std::fs::read_dir(prefix.join("docs/language/src/recipes"))?)
         .chain(std::fs::read_dir(prefix.join("docs"))?)
-        .chain(std::fs::read_dir(prefix.join("docs/recipes"))?)
     {
         let entry = entry?;
         let path = entry.path();

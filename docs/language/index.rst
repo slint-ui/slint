@@ -69,3 +69,9 @@ is compiled to native code.
    src/builtin_namespaces.md
    src/builtin_structs.md
    src/widgets.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Recipes & Examples
+
+   src/recipes/recipes.md
