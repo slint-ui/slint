@@ -543,7 +543,7 @@ export component Example inherits Window {
 }
 ```
 
-## `VerticalLayout` / `HorizontalLayout`
+## `VerticalLayout` and `HorizontalLayout`
 
 These layouts place their children next to each other vertically or horizontally.
 The size of elements can either be fixed with the `width` or `height` property, or if they are not set
