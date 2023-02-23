@@ -46,7 +46,7 @@ export component Example inherits Rectangle {
 }
 ```
 
-## Callback aliases
+## Aliases
 
 It is possible to declare callback aliases in a similar way to two-way bindings:
 
