@@ -21,7 +21,7 @@ import textwrap
 
 # -- Project information -----------------------------------------------------
 
-project = "Slint Book"
+project = "Slint Language Documentation"
 copyright = "2023, info@slint-ui.com"
 author = "Slint Developers <info@slint-ui.com>"
 
