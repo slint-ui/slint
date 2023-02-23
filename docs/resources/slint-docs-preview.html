@@ -100,30 +100,4 @@
         }
     }
     fix_markdown_links()
-
-    // Select C++ blocks in rustdoc generated code and hide them, while opening the <details> of Rust snippets
-    // Similarly, in Sphinx generated HTML, hide Rust blocks and open C++.
-    function select_code_snippet_variants(options) {
-        // When the CSS has pseudo class becomes available, we can probably use that directly
-        // in a stylesheet instead of JS here.
-
-        let selector_for_language = (language) => {
-            return `details[data-snippet-language="${language}"]`;
-        };
-
-        for (let details_element_to_hide of document.querySelectorAll(selector_for_language(options.hide))) {
-            details_element_to_hide.style = "display: none";
-        }
-
-        for (let details_element_to_show of document.querySelectorAll(selector_for_language(options.show))) {
-            details_element_to_show.open = true;
-        }
-    }
-
-    const rustDoc = document.querySelector('meta[name="generator"]')?.content == "rustdoc";
-    if (rustDoc) {
-        select_code_snippet_variants({ hide: "cpp", show: "rust" })
-    } else {
-        select_code_snippet_variants({ hide: "rust", show: "cpp" })
-    }
 </script>
