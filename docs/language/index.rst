@@ -62,13 +62,13 @@ is compiled to native code.
    :maxdepth: 4
    :caption: Builtins
 
-   src/builtin_callbacks.md
-   src/builtin_elements.md
-   src/builtin_enums.md
-   src/builtin_functions.md
-   src/builtin_namespaces.md
-   src/builtin_structs.md
-   src/widgets.md
+   src/builtins/builtin_callbacks.md
+   src/builtins/builtin_elements.md
+   src/builtins/builtin_enums.md
+   src/builtins/builtin_functions.md
+   src/builtins/builtin_namespaces.md
+   src/builtins/builtin_structs.md
+   src/builtins/widgets.md
 
 .. toctree::
    :maxdepth: 2
