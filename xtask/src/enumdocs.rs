@@ -38,7 +38,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
 
     let root = super::root_dir();
 
-    let path = root.join("docs/language/src/builtin_enums.md");
+    let path = root.join("docs/language/src/builtins/builtin_enums.md");
     let mut file = std::fs::File::create(&path).context(format!("error creating {path:?}"))?;
 
     file.write_all(
