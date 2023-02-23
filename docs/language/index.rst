@@ -42,21 +42,21 @@ is compiled to native code.
    :maxdepth: 2
    :caption: Reference
 
-   src/comments.md
-   src/identifiers.md
-   src/types.md
-   src/properties.md
-   src/expressions.md
-   src/functions.md
-   src/callbacks.md
-   src/statements.md
-   src/repetitions.md
-   src/conditions.md
-   src/animations.md
-   src/states.md
-   src/globals.md
-   src/modules.md
-   src/legacy_syntax.md
+   src/reference/comments.md
+   src/reference/identifiers.md
+   src/reference/types.md
+   src/reference/properties.md
+   src/reference/expressions.md
+   src/reference/functions.md
+   src/reference/callbacks.md
+   src/reference/statements.md
+   src/reference/repetitions.md
+   src/reference/conditions.md
+   src/reference/animations.md
+   src/reference/states.md
+   src/reference/globals.md
+   src/reference/modules.md
+   src/reference/legacy_syntax.md
 
 .. toctree::
    :maxdepth: 4
