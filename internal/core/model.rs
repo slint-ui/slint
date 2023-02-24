@@ -671,7 +671,7 @@ pub struct RepeaterTracker<C: RepeatedComponent> {
     model: Property<ModelRc<C::Data>>,
     #[pin]
     is_dirty: Property<bool>,
-    /// Only used for the list view to track if the scrollbar has changed and item needs to be layed out again.
+    /// Only used for the list view to track if the scrollbar has changed and item needs to be laid out again.
     #[pin]
     listview_geometry_tracker: crate::properties::PropertyTracker,
 }

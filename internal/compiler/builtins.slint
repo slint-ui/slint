@@ -207,6 +207,7 @@ export component TextInput {
     in property <bool> enabled: true;
     in property <bool> single-line: true;
     in property <bool> read-only: false;
+    // Internal, undocumented property, only exposed for IME.
     out property <string> preedit-text;
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
