@@ -235,8 +235,8 @@ An `Image` can be used to represent an image loaded from a file.
 ### Properties
 
 -   **`colorize`** (_in_ _brush_): When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
--   **`image-fit`** (_in_ _enum_ [`ImageFit`](enums.md#imagefit)): Specifies how the source image shall be fit into the image element. (default value: `contain` when the `Image` element is part of a layout, `fill` otherwise)
--   **`image-rendering`** (_in_ _enum_ [`ImageRendering`](enums.md#imagerendering)): Specifies how the source image will be scaled. (default value: `smooth`)
+-   **`image-fit`** (_in_ _enum [`ImageFit`](enums.md#imagefit)_): Specifies how the source image shall be fit into the image element. (default value: `contain` when the `Image` element is part of a layout, `fill` otherwise)
+-   **`image-rendering`** (_in_ _enum [`ImageRendering`](enums.md#imagerendering)_): Specifies how the source image will be scaled. (default value: `smooth`)
 -   **`rotation-angle`** (_in_ _angle_), **`rotation-origin-x`** (_in_ _length_), **`rotation-origin-y`** (_in_ _length_):
     Rotates the image by the given angle around the specified origin point. The default origin point is the center of the element.
     When these properties are set, the `Image` can't have children.
@@ -345,7 +345,7 @@ export component Example inherits Path {
 
 The commands are provided in a property:
 
--   **`commands`** (\*string): A string providing the commands according to the SVG path specification.
+-   **`commands`** (_in_ _string_): A string providing the commands according to the SVG path specification.
 
 #### Path Using SVG Path Elements
 
@@ -583,7 +583,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Callbacks
 
 -   **`accepted()`**: Invoked when enter key is pressed.
--   **`cursor-position-changed(_[`Point`](structs.md#point)\_)**: The cursor was moved to the new (x, y) position.
+-   **`cursor-position-changed(_[`Point`](structs.md#point)_)**: The cursor was moved to the new (x, y) position.
 -   **`edited()`**: Invoked when the text has changed because the user modified it.
 
 ### Example
