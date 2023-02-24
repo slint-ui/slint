@@ -6,6 +6,8 @@
 // NOTE: when changing the documentation of enums, you need to update
 // the markdown file with `cargo xtask enumdocs`
 
+// cSpell: ignore combobox enumdocs evenodd grabbable horizontalbox horizontallayout nesw spinbox standardbutton standardtableview verticalbox verticallayout
+
 /// Call a macro with every enum exposed in the .slint language
 ///
 /// ## Example
@@ -21,7 +23,7 @@
 macro_rules! for_each_enums {
     ($macro:ident) => {
         $macro![
-            /// This enum describes the different types of alignment of text along the horizontal axis.
+            /// This enum describes the different types of alignment of text along the horizontal axis of a [`Text`](elements.md#text) element.
             enum TextHorizontalAlignment {
                 /// The text will be aligned with the left edge of the containing box.
                 Left,
@@ -31,7 +33,7 @@ macro_rules! for_each_enums {
                 Right,
             }
 
-            /// This enum describes the different types of alignment of text along the vertical axis.
+            /// This enum describes the different types of alignment of text along the vertical axis of a [`Text`](elements.md#text) element.
             enum TextVerticalAlignment {
                 /// The text will be aligned to the top of the containing box.
                 Top,
@@ -41,15 +43,15 @@ macro_rules! for_each_enums {
                 Bottom,
             }
 
-            /// This enum describes the how the text wrap if it is too wide to fit in the Text width.
+            /// This enum describes the how the text wrap if it is too wide to fit in the [`Text`](elements.md#text) width.
             enum TextWrap {
-                /// The text will not wrap, but instead will overflow.
+                /// The text won't wrap, but instead will overflow.
                 NoWrap,
                 /// The text will be wrapped at word boundaries.
                 WordWrap,
             }
 
-            /// This enum describes the how the text appear if it is too wide to fit in the Text width.
+            /// This enum describes the how the text appear if it is too wide to fit in the [`Text`](elements.md#text) width.
             enum TextOverflow {
                 /// The text will simply be clipped.
                 Clip,
@@ -73,39 +75,39 @@ macro_rules! for_each_enums {
                 Evenodd,
             }
 
-            /// This enum is used to add standard buttons to a `Dialog`. The look and positioning
-            /// of these `StandardButton`s depends on the environment (OS, UI environment, etc.)
-            /// the application runs in.
+            /// Use this enum to add standard buttons to a `Dialog`. The look and positioning
+            /// of these [`StandardButton`](widgets.md#standardbutton)s depends on the environment
+            /// (OS, UI environment, etc.) the application runs in.
             enum StandardButtonKind {
-                /// A "OK" button that accepts a `Dialog`, closing it
+                /// A "OK" button that accepts a `Dialog`, closing it when clicked.
                 Ok,
-                /// A "Cancel" button that rejects a `Dialog`, closing it
+                /// A "Cancel" button that rejects a `Dialog`, closing it when clicked.
                 Cancel,
                 /// A "Apply" button that should accept values from a `Dialog` without closing it.
                 Apply,
-                /// A "Close" button which should close a `Dialog` without looking at values
+                /// A "Close" button, which should close a `Dialog` without looking at values.
                 Close,
-                /// A "Reset" button which should reset the `Dialog` to its start state
+                /// A "Reset" button, which should reset the `Dialog` to its initial state.
                 Reset,
-                /// A "Help" button
+                /// A "Help" button, which should bring up context related documentation when clicked.
                 Help,
-                /// A "Yes" button, used to confirm an action
+                /// A "Yes" button, used to confirm an action.
                 Yes,
-                /// A "No" button, used to negate an action
+                /// A "No" button, used to deny an action.
                 No,
-                /// A "Abort" button, used to abort an action
+                /// A "Abort" button, used to abort an action.
                 Abort,
-                /// A "Retry" button, used to retry a failed action
+                /// A "Retry" button, used to retry a failed action.
                 Retry,
-                /// A "Ignore" button, used to ignore a failed action
+                /// A "Ignore" button, used to ignore a failed action.
                 Ignore,
             }
 
             /// This enum represents the value of the `dialog-button-role` property which can be added to
-            /// any element within a `Dialog` to put that item in the button row, and its exact position
+            /// any element within a [`Dialog`](elements.md#dialog) to put that item in the button row, and its exact position
             /// depends on the role and the platform.
             enum DialogButtonRole {
-                /// This is not a button meant to go into the bottom row
+                /// This isn't a button meant to go into the bottom row
                 None,
                 /// This is the role of the main button to click to accept the dialog. e.g. "Ok" or "Yes"
                 Accept,
@@ -123,11 +125,11 @@ macro_rules! for_each_enums {
 
             /// The enum reports what happened to the `PointerEventButton` in the event
             enum PointerEventKind {
-                /// The action was cancelled
+                /// The action was cancelled.
                 Cancel,
-                /// The button was pressed
+                /// The button was pressed.
                 Down,
-                /// The button was released
+                /// The button was released.
                 Up,
             }
 
@@ -175,9 +177,9 @@ macro_rules! for_each_enums {
                 Copy,
                 /// Something is to be moved.
                 Move,
-                /// Something cannot be dropped here.
+                /// Something can't be dropped here.
                 NoDrop,
-                /// An action is not allowed
+                /// An action isn't allowed
                 NotAllowed,
                 /// Something is grabbable.
                 Grab,
@@ -216,13 +218,13 @@ macro_rules! for_each_enums {
                 //zoom_out,
             }
 
-            /// This enum defines how the source image shall fit into the image element.
+            /// This enum defines how the source image shall fit into an [`Image`](elements.md#image) element.
             enum ImageFit {
-                /// Scales and stretches the image to fit the width and height of the element.
+                /// Scales and stretches the source image to fit the width and height of the [`Image`](elements.md#image) element.
                 Fill,
-                /// The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
+                /// The source image is scaled to fit into the [`Image`](elements.md#image) element's dimension while preserving the aspect ratio.
                 Contain,
-                /// The source image is scaled to cover into the image element's dimension while preserving the aspect ratio.
+                /// The source image is scaled to cover into the [`Image`](elements.md#image) element's dimension while preserving the aspect ratio. If the aspect ratio of the source image doesn't match the element's one, then the image will be clipped to fit.
                 Cover,
             }
 
@@ -244,25 +246,26 @@ macro_rules! for_each_enums {
                 Password,
             }
 
-            /// Enum representing the alignment property of a BoxLayout or HorizontalLayout.
-            /// See [alignment](concepts/layouting.md#alignment)
+            /// Enum representing the [alignment](../concepts/layouting.md#alignment) property of a
+            /// [`HorizontalBox`](widgets.md#horizontalbox), a [`VerticalBox`](widgets.md#verticalbox),
+            /// a [`HorizontalLayout`, or `VerticalLayout`](elements.md#verticallayout-and-horizontallayout).
             enum LayoutAlignment {
                 /// Use the minimum size of all elements in a layout, distribute remaining space
                 /// based on `*-stretch` among all elements.
                 Stretch,
-                /// Use minimum size for all elements, distribute remaining space evenly before the
-                /// first and after the last element
+                /// Use the preferred size for all elements, distribute remaining space evenly before the
+                /// first and after the last element.
                 Center,
-                /// Use minimum size for all elements, put remaining space after the last element
+                /// Use the preferred size for all elements, put remaining space after the last element.
                 Start,
-                /// Use minimum size for all elements, put remaining space before the first
-                /// element
+                /// Use the preferred size for all elements, put remaining space before the first
+                /// element.
                 End,
-                /// Use minimum size for all elements, distribute remaining space evenly between
+                /// Use the preferred size for all elements, distribute remaining space evenly between
                 /// elements.
                 SpaceBetween,
-                /// Use minimum size for all elements, distribute remaining space evenly before the
-                /// first element, after the last element and between elements
+                /// Use the preferred size for all elements, distribute remaining space evenly before the
+                /// first element, after the last element and between elements.
                 SpaceAround,
             }
 
@@ -286,26 +289,26 @@ macro_rules! for_each_enums {
             /// This enum represents the different values for the `accessible-role` property, used to describe the
             /// role of an element in the context of assistive technology such as screen readers.
             enum AccessibleRole {
-                /// The element is not accessible.
+                /// The element isn't accessible.
                 None,
-                /// The element is a Button or behaves like one.
+                /// The element is a [`Button`](widgets.md#button) or behaves like one.
                 Button,
-                /// The element is a CheckBox or behaves like one.
+                /// The element is a [`CheckBox`](widgets.md#checkbox) or behaves like one.
                 Checkbox,
-                /// The element is a ComboBox or behaves like one.
+                /// The element is a [`ComboBox`](widgets.md#combobox) or behaves like one.
                 Combobox,
-                /// The element is a Slider or behaves like one.
+                /// The element is a [`Slider`](widgets.md#slider) or behaves like one.
                 Slider,
-                /// The element is a SpinBox or behaves like one.
+                /// The element is a [`SpinBox`](widgets.md#spinbox) or behaves like one.
                 Spinbox,
-                /// The element is a Tab or behaves like one.
+                /// The element is a [`Tab`](widgets.md#tabwidget) or behaves like one.
                 Tab,
-                /// The role for a Text element. It is automatically applied.
+                /// The role for a [`Text`](elements.md#text) element. It is automatically applied.
                 Text,
             }
 
             /// This enum represents the different values of the `sort-order` property.
-            /// It is used to sort a `StandardTableView` by a column.
+            /// It is used to sort a [`StandardTableView`](widgets.md#standardtableview) by a column.
             enum SortOrder {
                 /// The column is unsorted.
                 Unsorted,

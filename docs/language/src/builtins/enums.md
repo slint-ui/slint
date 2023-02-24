@@ -14,22 +14,22 @@ The default value of each enum type is always the first value.
  This enum represents the different values for the `accessible-role` property, used to describe the
  role of an element in the context of assistive technology such as screen readers.
 
-* **`none`**: The element is not accessible.
-* **`button`**: The element is a Button or behaves like one.
-* **`checkbox`**: The element is a CheckBox or behaves like one.
-* **`combobox`**: The element is a ComboBox or behaves like one.
-* **`slider`**: The element is a Slider or behaves like one.
-* **`spinbox`**: The element is a SpinBox or behaves like one.
-* **`tab`**: The element is a Tab or behaves like one.
-* **`text`**: The role for a Text element. It is automatically applied.
+* **`none`**: The element isn't accessible.
+* **`button`**: The element is a [`Button`](widgets.md#button) or behaves like one.
+* **`checkbox`**: The element is a [`CheckBox`](widgets.md#checkbox) or behaves like one.
+* **`combobox`**: The element is a [`ComboBox`](widgets.md#combobox) or behaves like one.
+* **`slider`**: The element is a [`Slider`](widgets.md#slider) or behaves like one.
+* **`spinbox`**: The element is a [`SpinBox`](widgets.md#spinbox) or behaves like one.
+* **`tab`**: The element is a [`Tab`](widgets.md#tabwidget) or behaves like one.
+* **`text`**: The role for a [`Text`](elements.md#text) element. It is automatically applied.
 
 ## `DialogButtonRole`
 
  This enum represents the value of the `dialog-button-role` property which can be added to
- any element within a `Dialog` to put that item in the button row, and its exact position
+ any element within a [`Dialog`](elements.md#dialog) to put that item in the button row, and its exact position
  depends on the role and the platform.
 
-* **`none`**: This is not a button meant to go into the bottom row
+* **`none`**: This isn't a button meant to go into the bottom row
 * **`accept`**: This is the role of the main button to click to accept the dialog. e.g. "Ok" or "Yes"
 * **`reject`**: This is the role of the main button to click to reject the dialog. e.g. "Cancel" or "No"
 * **`apply`**: This is the role of the "Apply" button
@@ -53,11 +53,11 @@ The default value of each enum type is always the first value.
 
 ## `ImageFit`
 
- This enum defines how the source image shall fit into the image element.
+ This enum defines how the source image shall fit into an [`Image`](elements.md#image) element.
 
-* **`fill`**: Scales and stretches the image to fit the width and height of the element.
-* **`contain`**: The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
-* **`cover`**: The source image is scaled to cover into the image element's dimension while preserving the aspect ratio.
+* **`fill`**: Scales and stretches the source image to fit the width and height of the [`Image`](elements.md#image) element.
+* **`contain`**: The source image is scaled to fit into the [`Image`](elements.md#image) element's dimension while preserving the aspect ratio.
+* **`cover`**: The source image is scaled to cover into the [`Image`](elements.md#image) element's dimension while preserving the aspect ratio. If the aspect ratio of the source image doesn't match the element's one, then the image will be clipped to fit.
 
 ## `ImageRendering`
 
@@ -77,20 +77,21 @@ The default value of each enum type is always the first value.
 
 ## `LayoutAlignment`
 
- Enum representing the alignment property of a BoxLayout or HorizontalLayout.
- See [alignment](concepts/layouting.md#alignment)
+ Enum representing the [alignment](../concepts/layouting.md#alignment) property of a
+ [`HorizontalBox`](widgets.md#horizontalbox), a [`VerticalBox`](widgets.md#verticalbox),
+ a [`HorizontalLayout`, or `VerticalLayout`](elements.md#verticallayout-and-horizontallayout).
 
 * **`stretch`**: Use the minimum size of all elements in a layout, distribute remaining space
     based on `*-stretch` among all elements.
-* **`center`**: Use minimum size for all elements, distribute remaining space evenly before the
-    first and after the last element
-* **`start`**: Use minimum size for all elements, put remaining space after the last element
-* **`end`**: Use minimum size for all elements, put remaining space before the first
-    element
-* **`space-between`**: Use minimum size for all elements, distribute remaining space evenly between
+* **`center`**: Use the preferred size for all elements, distribute remaining space evenly before the
+    first and after the last element.
+* **`start`**: Use the preferred size for all elements, put remaining space after the last element.
+* **`end`**: Use the preferred size for all elements, put remaining space before the first
+    element.
+* **`space-between`**: Use the preferred size for all elements, distribute remaining space evenly between
     elements.
-* **`space-around`**: Use minimum size for all elements, distribute remaining space evenly before the
-    first element, after the last element and between elements
+* **`space-around`**: Use the preferred size for all elements, distribute remaining space evenly before the
+    first element, after the last element and between elements.
 
 ## `MouseCursor`
 
@@ -109,8 +110,8 @@ The default value of each enum type is always the first value.
 * **`alias`**: An alias or shortcut is being created.
 * **`copy`**: A copy is being created.
 * **`move`**: Something is to be moved.
-* **`no-drop`**: Something cannot be dropped here.
-* **`not-allowed`**: An action is not allowed
+* **`no-drop`**: Something can't be dropped here.
+* **`not-allowed`**: An action isn't allowed
 * **`grab`**: Something is grabbable.
 * **`grabbing`**: Something is being grabbed.
 * **`col-resize`**: Indicating that a column is resizable horizontally.
@@ -155,14 +156,14 @@ The default value of each enum type is always the first value.
 
  The enum reports what happened to the `PointerEventButton` in the event
 
-* **`cancel`**: The action was cancelled
-* **`down`**: The button was pressed
-* **`up`**: The button was released
+* **`cancel`**: The action was cancelled.
+* **`down`**: The button was pressed.
+* **`up`**: The button was released.
 
 ## `SortOrder`
 
  This enum represents the different values of the `sort-order` property.
- It is used to sort a `StandardTableView` by a column.
+ It is used to sort a [`StandardTableView`](widgets.md#standardtableview) by a column.
 
 * **`unsorted`**: The column is unsorted.
 * **`ascending`**: The column is sorted in ascending order.
@@ -170,25 +171,25 @@ The default value of each enum type is always the first value.
 
 ## `StandardButtonKind`
 
- This enum is used to add standard buttons to a `Dialog`. The look and positioning
- of these `StandardButton`s depends on the environment (OS, UI environment, etc.)
- the application runs in.
+ Use this enum to add standard buttons to a `Dialog`. The look and positioning
+ of these [`StandardButton`](widgets.md#standardbutton)s depends on the environment
+ (OS, UI environment, etc.) the application runs in.
 
-* **`ok`**: A "OK" button that accepts a `Dialog`, closing it
-* **`cancel`**: A "Cancel" button that rejects a `Dialog`, closing it
+* **`ok`**: A "OK" button that accepts a `Dialog`, closing it when clicked.
+* **`cancel`**: A "Cancel" button that rejects a `Dialog`, closing it when clicked.
 * **`apply`**: A "Apply" button that should accept values from a `Dialog` without closing it.
-* **`close`**: A "Close" button which should close a `Dialog` without looking at values
-* **`reset`**: A "Reset" button which should reset the `Dialog` to its start state
-* **`help`**: A "Help" button
-* **`yes`**: A "Yes" button, used to confirm an action
-* **`no`**: A "No" button, used to negate an action
-* **`abort`**: A "Abort" button, used to abort an action
-* **`retry`**: A "Retry" button, used to retry a failed action
-* **`ignore`**: A "Ignore" button, used to ignore a failed action
+* **`close`**: A "Close" button, which should close a `Dialog` without looking at values.
+* **`reset`**: A "Reset" button, which should reset the `Dialog` to its initial state.
+* **`help`**: A "Help" button, which should bring up context related documentation when clicked.
+* **`yes`**: A "Yes" button, used to confirm an action.
+* **`no`**: A "No" button, used to deny an action.
+* **`abort`**: A "Abort" button, used to abort an action.
+* **`retry`**: A "Retry" button, used to retry a failed action.
+* **`ignore`**: A "Ignore" button, used to ignore a failed action.
 
 ## `TextHorizontalAlignment`
 
- This enum describes the different types of alignment of text along the horizontal axis.
+ This enum describes the different types of alignment of text along the horizontal axis of a [`Text`](elements.md#text) element.
 
 * **`left`**: The text will be aligned with the left edge of the containing box.
 * **`center`**: The text will be horizontally centered within the containing box.
@@ -196,14 +197,14 @@ The default value of each enum type is always the first value.
 
 ## `TextOverflow`
 
- This enum describes the how the text appear if it is too wide to fit in the Text width.
+ This enum describes the how the text appear if it is too wide to fit in the [`Text`](elements.md#text) width.
 
 * **`clip`**: The text will simply be clipped.
 * **`elide`**: The text will be elided with `…`.
 
 ## `TextVerticalAlignment`
 
- This enum describes the different types of alignment of text along the vertical axis.
+ This enum describes the different types of alignment of text along the vertical axis of a [`Text`](elements.md#text) element.
 
 * **`top`**: The text will be aligned to the top of the containing box.
 * **`center`**: The text will be vertically centered within the containing box.
@@ -211,8 +212,8 @@ The default value of each enum type is always the first value.
 
 ## `TextWrap`
 
- This enum describes the how the text wrap if it is too wide to fit in the Text width.
+ This enum describes the how the text wrap if it is too wide to fit in the [`Text`](elements.md#text) width.
 
-* **`no-wrap`**: The text will not wrap, but instead will overflow.
+* **`no-wrap`**: The text won't wrap, but instead will overflow.
 * **`word-wrap`**: The text will be wrapped at word boundaries.
 
