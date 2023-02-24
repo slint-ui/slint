@@ -99,6 +99,7 @@ targets = [
 ]
 ignore-build-dependencies = true
 ignore-dev-dependencies = true
+filter-noassertion = true
 EOT
 
 cargo about generate about.hbs -o $target_path/index.html
