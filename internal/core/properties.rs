@@ -668,7 +668,7 @@ unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
 
         assert!(
             !core::ptr::eq(
-                binding.dependencies.as_ptr() as *const u32,
+                *(binding.dependencies.as_ptr() as *mut *const u32),
                 (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
             ),
             "Const property marked as dirty"

@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+export component TestCase  {
+    width: 300px;
+    height: 300px;
+    r:= Rectangle {
+       property <bool> scrolling: false;
+
+       states [
+           active when scrolling : {
+               opacity: 1;
+               out {
+                   animate opacity { duration: 800ms; }
+               }
+           }
+           inactive when !scrolling : {
+               opacity: 0;
+           }
+       ]
+   }
+
+   out property rect_opacity <=> r.opacity;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_rect_opacity(), 0.0);
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_rect_opacity(), 0.0);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_rect_opacity(), 0.0);
+slint_testing::mock_elapsed_time(600);
+assert_eq(instance.get_rect_opacity(), 0.0);
+```
+
+*/
