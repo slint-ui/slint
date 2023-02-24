@@ -90,6 +90,7 @@ accepted = [
     "BSL-1.0",
     "ISC",
     "Unicode-DFS-2016",
+    "OpenSSL",
     "GPL-3.0", # That's only for Slint
 ]
 targets = [
