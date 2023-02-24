@@ -23,7 +23,7 @@ These properties are valid on all visible items and can be used to specify const
 ### Miscellaneous
 
 -   **`cache-rendering-hint`** (_in_ _bool_): When set to `true`, this provides a hint to the renderer to cache the contents of the element and all the children into an intermediate cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the expense of increased memory consumption. Not all rendering backends support this, so this is merely a hint. (default value: `false`)
--   **`dialog-button-role`** (_in_ _enum [`DialogButtonRole`](builtin_enums.md#dialogbuttonrole)_): Specify that this is a button in a `Dialog`.
+-   **`dialog-button-role`** (_in_ _enum [`DialogButtonRole`](enums.md#dialogbuttonrole)_): Specify that this is a button in a `Dialog`.
 -   **`opacity`** (_in_ _float_): A value between 0 and 1 (or a percentage) that is used to draw the element and its children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default value: 1)
 -   **`visible`** (_in_ _bool_): When set to `false`, the element and all his children will not be drawn and not react to mouse input (default value: `true`)
 
@@ -31,7 +31,7 @@ These properties are valid on all visible items and can be used to specify const
 
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
 
--   **`accessible-role`** (_in_ _enum [`AccessibleRole`](builtin_enums.md#accessiblerole)_): The role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. (default value: `none` for most elements, but `text` for the Text element)
+-   **`accessible-role`** (_in_ _enum [`AccessibleRole`](enums.md#accessiblerole)_): The role of the element. This property is mandatory to be able to use any other accessible properties. It should be set to a constant value. (default value: `none` for most elements, but `text` for the Text element)
 -   **`accessible-checkable`** (_in_ _bool_): Whether the element is can be checked or not.
 -   **`accessible-checked`** (_in_ _bool_): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
 -   **`accessible-description`** (_in_ _string_): The description for the current element.
@@ -135,9 +135,9 @@ export component Example inherits Window {
 The `FocusScope` exposes callbacks to intercept key events. Note that `FocusScope`
 will only invoke them when it `has-focus`.
 
-The [`KeyEvent`](builtin_structs.md#keyevent) has a text property, which is a character of the key entered.
+The [`KeyEvent`](structs.md#keyevent) has a text property, which is a character of the key entered.
 When a non-printable key is pressed, the character will be either a control character,
-or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the [`Key`](builtin_namespaces.md#key) namespace
+or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the [`Key`](namespaces.md#key) namespace
 
 ### Properties
 
@@ -147,12 +147,12 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 ### Functions
 
 -   **`focus()`** Call this function to transfer keyboard focus to this `FocusScope`,
-    to receive future [`KeyEvent`](builtin_structs.md#keyevent)s.
+    to receive future [`KeyEvent`](structs.md#keyevent)s.
 
 ### Callbacks
 
--   **`key-pressed(`_[`KeyEvent`](builtin_structs.md#keyevent)_`) -> [`EventResult`](builtin_structs.md#eventresult)**: Invoked when a key is pressed, the argument is a [`KeyEvent`](builtin_structs.md#keyevent) struct.
--   **`key-released(`_[`KeyEvent`](builtin_structs.md#keyevent)_`) -> [`EventResult`](builtin_structs.md#eventresult)**: Invoked when a key is released, the argument is a [`KeyEvent`](builtin_structs.md#keyevent) struct.
+-   **`key-pressed(`_[`KeyEvent`](structs.md#keyevent)_`) -> [`EventResult`](structs.md#eventresult)**: Invoked when a key is pressed, the argument is a [`KeyEvent`](structs.md#keyevent) struct.
+-   **`key-released(`_[`KeyEvent`](structs.md#keyevent)_`) -> [`EventResult`](structs.md#eventresult)**: Invoked when a key is released, the argument is a [`KeyEvent`](structs.md#keyevent) struct.
 
 ### Example
 
@@ -235,8 +235,8 @@ An `Image` can be used to represent an image loaded from a file.
 ### Properties
 
 -   **`colorize`** (_in_ _brush_): When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
--   **`image-fit`** (_in_ _enum_ [`ImageFit`](builtin_enums.md#imagefit)): Specifies how the source image shall be fit into the image element. (default value: `contain` when the `Image` element is part of a layout, `fill` otherwise)
--   **`image-rendering`** (_in_ _enum_ [`ImageRendering`](builtin_enums.md#imagerendering)): Specifies how the source image will be scaled. (default value: `smooth`)
+-   **`image-fit`** (_in_ _enum_ [`ImageFit`](enums.md#imagefit)): Specifies how the source image shall be fit into the image element. (default value: `contain` when the `Image` element is part of a layout, `fill` otherwise)
+-   **`image-rendering`** (_in_ _enum_ [`ImageRendering`](enums.md#imagerendering)): Specifies how the source image will be scaled. (default value: `smooth`)
 -   **`rotation-angle`** (_in_ _angle_), **`rotation-origin-x`** (_in_ _length_), **`rotation-origin-y`** (_in_ _length_):
     Rotates the image by the given angle around the specified origin point. The default origin point is the center of the element.
     When these properties are set, the `Image` cannot have children.
@@ -309,7 +309,7 @@ accordingly.
 ### Common Path Properties
 
 -   **`fill`** (_in_ _brush_): The color for filling the shape of the path.
--   **`fill-rule`** (_in_ _enum [`FillRule`](builtin_enums.md#fillrule)_): The fill rule to use for the path. (default value: `nonzero`)
+-   **`fill-rule`** (_in_ _enum [`FillRule`](enums.md#fillrule)_): The fill rule to use for the path. (default value: `nonzero`)
 -   **`stroke`** (_in_ _brush_): The color for drawing the outline of the path.
 -   **`stroke-width`** (_in_ _length_): The width of the outline.
 -   **`width`** (_in_ _length_): If non-zero, the path will be scaled to fit into the specified width.
@@ -563,9 +563,9 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 -   **`font-family`** (_in_ _string_): The name of the font family selected for rendering the text.
 -   **`font-size`** (_in_ _length_): The font size of the text.
 -   **`font-weight`** (_in_ _int_): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
--   **`has-focus`** (_out_ _bool_): `TextInput` sets this to `true` when it is focused. Only then it receives [`KeyEvent`](builtin_structs.md#keyevent)s.
--   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
--   **`input-type`** (_in_ _enum [`InputType`](builtin_enums.md#inputtype)_): Use this to configure `TextInput` for editing special input, such as password fields. (default value: `text`)
+-   **`has-focus`** (_out_ _bool_): `TextInput` sets this to `true` when it is focused. Only then it receives [`KeyEvent`](structs.md#keyevent)s.
+-   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
+-   **`input-type`** (_in_ _enum [`InputType`](enums.md#inputtype)_): Use this to configure `TextInput` for editing special input, such as password fields. (default value: `text`)
 -   **`letter-spacing`** (_in_ _length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance. (default value: 0)
 -   **`read-only`** (_in_ _bool_): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programatically. (default value: `false`)
 -   **`selection-background-color`** (_in_ _color_): The background color of the selection.
@@ -573,8 +573,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 -   **`single-line`** (_in_ _bool_): When set to `true`, the text is always rendered as a single line, regardless of new line separators in the text. (default value: `true`)
 -   **`text-cursor-width`** (_in_ _length_): The width of the text cursor. (default value: provided at run-time by the selected widget style)
 -   **`text`** (_in-out_ _string_): The text rendered and editable by the user.
--   **`vertical-alignment`** (_in_ _enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)_): The vertical alignment of the text.
--   **`wrap`** (_in_ _enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text input wraps. Only makes sense when `single-line` is false. (default value: no-wrap)
+-   **`vertical-alignment`** (_in_ _enum [`TextVerticalAlignment`](enums.md#textverticalalignment)_): The vertical alignment of the text.
+-   **`wrap`** (_in_ _enum [`TextWrap`](enums.md#textwrap)_): The way the text input wraps. Only makes sense when `single-line` is false. (default value: no-wrap)
 
 ### Functions
 
@@ -583,7 +583,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Callbacks
 
 -   **`accepted()`**: Invoked when enter key is pressed.
--   **`cursor-position-changed(_[`Point`](builtin_structs.md#point)_)**: The cursor was moved to the new (x, y) position.
+-   **`cursor-position-changed(_[`Point`](structs.md#point)_)**: The cursor was moved to the new (x, y) position.
 -   **`edited()`**: Invoked when the text has changed because the user modified it.
 
 ### Example
@@ -616,12 +616,12 @@ and the text itself.
 -   **`font-family`** (_in_ _string_): The name of the font family selected for rendering the text.
 -   **`font-size`** (_in_ _length_): The font size of the text.
 -   **`font-weight`** (_in_ _int_): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
--   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
+-   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
 -   **`letter-spacing`** (_in_ _length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance. (default value: 0)
--   **`overflow`** (_in_ _enum [`TextOverflow`](builtin_enums.md#textoverflow)_): What happens when the text overflows (default value: clip).
+-   **`overflow`** (_in_ _enum [`TextOverflow`](enums.md#textoverflow)_): What happens when the text overflows (default value: clip).
 -   **`text`** (_in_ _string_): The text rendered.
--   **`vertical-alignment`** (_in_ _enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)_): The vertical alignment of the text.
--   **`wrap`** (_in_ _enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text wraps (default value: `no-wrap`).
+-   **`vertical-alignment`** (_in_ _enum [`TextVerticalAlignment`](enums.md#textverticalalignment)_): The vertical alignment of the text.
+-   **`wrap`** (_in_ _enum [`TextWrap`](enums.md#textwrap)_): The way the text wraps (default value: `no-wrap`).
 
 ### Example
 
@@ -668,7 +668,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 ### Properties
 
 -   **`has-hover`** (_out_ _bool_): `TouchArea` sets this to `true` when the mouse is over it.
--   **`mouse-cursor`** (_in_ _enum [`MouseCursor`](builtin_enums.md#mousecursor)_): The mouse cursor type when the mouse is hovering the `TouchArea`.
+-   **`mouse-cursor`** (_in_ _enum [`MouseCursor`](enums.md#mousecursor)_): The mouse cursor type when the mouse is hovering the `TouchArea`.
 -   **`mouse-x`**, **`mouse-y`** (_out_ _length_): Set by the `TouchArea` to the position of the mouse within it.
 -   **`pressed-x`**, **`pressed-y`** (_out_ _length_): Set to `true` by the `TouchArea` to the position of the mouse at the moment it was last pressed.
 -   **`pressed`** (_out_ _bool_): Set to `true` by the `TouchArea` when the mouse is pressed over it.
@@ -677,7 +677,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 -   **`clicked()`**: Invoked when clicked: The mouse is pressed, then released on this element.
 -   **`moved()`**: The mouse has been moved. This will only be called if the mouse is also pressed.
--   **`pointer-event(`_[`PointerEvent`](builtin_structs.md#pointerevent)_`)`**: Invoked when a button was pressed or released.
+-   **`pointer-event(`_[`PointerEvent`](structs.md#pointerevent)_`)`**: Invoked when a button was pressed or released.
 
 ### Example
 
@@ -717,7 +717,7 @@ they will be computed by the layout respecting the minimum and maximum sizes and
 -   **`spacing`** (_in_ _length_): The distance between the elements in the layout.
 -   **`padding`** (_in_ _length_): the padding within the layout.
 -   **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (_in_ _length_): Set these properties to override the padding on specific sides.
--   **`alignment`** (_in_ _enum [`LayoutAlignment`](builtin_enums.md#layoutalignment)_): Set the alignment. Matches the CSS flex box.
+-   **`alignment`** (_in_ _enum [`LayoutAlignment`](enums.md#layoutalignment)_): Set the alignment. Matches the CSS flex box.
 
 ### Example
 
