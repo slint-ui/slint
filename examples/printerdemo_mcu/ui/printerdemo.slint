@@ -19,6 +19,8 @@ component SideBarIcon inherits Rectangle {
     in-out property <bool> active;
     callback activate;
     TouchArea {
+        width: 170%;
+        height: 150%;
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
                 root.activate();
