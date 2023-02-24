@@ -55,21 +55,21 @@ file. The Slint runtime expects the `<canvas>` element to have the id `id = "can
 
 ```html
 <html>
-  <body>
-    <!-- canvas required by the Slint runtime -->
-    <canvas id="canvas"></canvas>
-    <script type="module">
-      // import the generated file.
-      import init from './pkg/memory.js';
-      init();
-    </script>
-  </body>
+    <body>
+        <!-- canvas required by the Slint runtime -->
+        <canvas id="canvas"></canvas>
+        <script type="module">
+            // import the generated file.
+            import init from "./pkg/memory.js";
+            init();
+        </script>
+    </body>
 </html>
 ```
 
-Unfortunately, loading ES modules is not allowed for files on the file system when accessed from a
+Unfortunately, loading ES modules isn't allowed for files on the file system when accessed from a
 `file://` URL, so we can't simply open the index.html. Instead we need to serve it through a web server.
-For example, using Python, it is as simple as running
+For example, using Python, it's as simple as running
 
 ```sh
 python3 -m http.server

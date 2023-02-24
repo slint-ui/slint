@@ -3,7 +3,7 @@
 With the skeleton in place, let's look at the first element of the game, the memory tile. It will be the
 visual building block that consists of an underlying filled rectangle background, the icon image. Later we'll add a
 covering rectangle that acts as a curtain. The background rectangle is declared to be 64 logical pixels wide and tall,
-and it is filled with a soothing tone of blue. Note how lengths in the `.slint` language have a unit, here
+and it's filled with a soothing tone of blue. Note how lengths in the `.slint` language have a unit, here
 the `px` suffix. That makes the code easier to read and the compiler can detect when your are accidentally
 mixing values with different units attached to them.
 

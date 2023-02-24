@@ -21,7 +21,7 @@ The default value of each enum type is always the first value.
 * **`slider`**: The element is a [`Slider`](widgets.md#slider) or behaves like one.
 * **`spinbox`**: The element is a [`SpinBox`](widgets.md#spinbox) or behaves like one.
 * **`tab`**: The element is a [`Tab`](widgets.md#tabwidget) or behaves like one.
-* **`text`**: The role for a [`Text`](elements.md#text) element. It is automatically applied.
+* **`text`**: The role for a [`Text`](elements.md#text) element. It's automatically applied.
 
 ## `DialogButtonRole`
 
@@ -95,7 +95,7 @@ The default value of each enum type is always the first value.
 
 ## `MouseCursor`
 
- This enum represents different types of mouse cursors. It is a subset of the mouse cursors available in CSS.
+ This enum represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
  For details and pictograms see the [MDN Documentation for cursor](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#values).
  Depending on the backend and used OS unidirectional resize cursors may be replaced with bidirectional ones.
 
@@ -163,7 +163,7 @@ The default value of each enum type is always the first value.
 ## `SortOrder`
 
  This enum represents the different values of the `sort-order` property.
- It is used to sort a [`StandardTableView`](widgets.md#standardtableview) by a column.
+ It's used to sort a [`StandardTableView`](widgets.md#standardtableview) by a column.
 
 * **`unsorted`**: The column is unsorted.
 * **`ascending`**: The column is sorted in ascending order.
@@ -171,15 +171,16 @@ The default value of each enum type is always the first value.
 
 ## `StandardButtonKind`
 
- Use this enum to add standard buttons to a `Dialog`. The look and positioning
+ Use this enum to add standard buttons to a [`Dialog`](elements.md#dialog). The look and positioning
  of these [`StandardButton`](widgets.md#standardbutton)s depends on the environment
  (OS, UI environment, etc.) the application runs in.
 
-* **`ok`**: A "OK" button that accepts a `Dialog`, closing it when clicked.
-* **`cancel`**: A "Cancel" button that rejects a `Dialog`, closing it when clicked.
-* **`apply`**: A "Apply" button that should accept values from a `Dialog` without closing it.
-* **`close`**: A "Close" button, which should close a `Dialog` without looking at values.
-* **`reset`**: A "Reset" button, which should reset the `Dialog` to its initial state.
+* **`ok`**: A "OK" button that accepts a [`Dialog`](elements.md#dialog), closing it when clicked.
+* **`cancel`**: A "Cancel" button that rejects a [`Dialog`](elements.md#dialog), closing it when clicked.
+* **`apply`**: A "Apply" button that should accept values from a
+    [`Dialog`](elements.md#dialog) without closing it.
+* **`close`**: A "Close" button, which should close a [`Dialog`](elements.md#dialog) without looking at values.
+* **`reset`**: A "Reset" button, which should reset the [`Dialog`](elements.md#dialog) to its initial state.
 * **`help`**: A "Help" button, which should bring up context related documentation when clicked.
 * **`yes`**: A "Yes" button, used to confirm an action.
 * **`no`**: A "No" button, used to deny an action.

@@ -32,9 +32,9 @@ property can be read and written:
 -   **`private`** (the default): The property can only be accessed from within the component.
 -   **`in`**: The property is an input. It can be set and modified by the user of this component,
     for example through bindings or by assignment in callbacks.
-    The component can provide a default binding, but it cannot overwrite it by
+    The component can provide a default binding, but it can't overwrite it by
     assignment
--   **`out`**: An output property that can only be set by the component. It is read-only for the
+-   **`out`**: An output property that can only be set by the component. It's read-only for the
     users of the components.
 -   **`in-out`**: The property can be read and modified by everyone.
 
@@ -52,7 +52,7 @@ export component Button {
 }
 ```
 
-All properties declared at the top level of a component that are not `private` are accessible from the outside when using a component as an element, or via the
+All properties declared at the top level of a component that aren't `private` are accessible from the outside when using a component as an element, or via the
 language bindings from the business logic.
 
 ## Bindings
@@ -95,7 +95,7 @@ The property type is optional with two-way bindings, it will be inferred if not 
 ```slint,no-preview
 export component Example  {
     in property<brush> rect-color <=> r.background;
-    // it is allowed to omit the type to have it automatically inferred
+    // It's allowed to omit the type to have it automatically inferred
     in property rect-color2 <=> r.background;
     r:= Rectangle {
         width: parent.width;

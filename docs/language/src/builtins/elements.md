@@ -15,7 +15,7 @@ These properties are valid on all visible items:
 These properties are valid on all visible items and can be used to specify constraints when used in layouts:
 
 -   **`col`**, **`row`**, **`colspan`**, **`rowspan`** (_in_ _int_): See [`GridLayout`](#gridlayout).
--   **`horizontal-stretch`** and **`vertical-stretch`** (_in-out_ _float_): Specify how much relative space these elements are stretching in a layout. When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1.
+-   **`horizontal-stretch`** and **`vertical-stretch`** (_in-out_ _float_): Specify how much relative space these elements are stretching in a layout. When 0, this means that the elements won't be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1.
 -   **`max-width`** and **`max-height`** (_in_ _length_): The maximum size of an element
 -   **`min-width`** and **`min-height`** (_in_ _length_): The minimum size of an element
 -   **`preferred-width`** and **`preferred-height`** (_in_ _length_): The preferred size of an element
@@ -25,7 +25,7 @@ These properties are valid on all visible items and can be used to specify const
 -   **`cache-rendering-hint`** (_in_ _bool_): When set to `true`, this provides a hint to the renderer to cache the contents of the element and all the children into an intermediate cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the expense of increased memory consumption. Not all rendering backends support this, so this is merely a hint. (default value: `false`)
 -   **`dialog-button-role`** (_in_ _enum [`DialogButtonRole`](enums.md#dialogbuttonrole)_): Specify that this is a button in a `Dialog`.
 -   **`opacity`** (_in_ _float_): A value between 0 and 1 (or a percentage) that is used to draw the element and its children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default value: 1)
--   **`visible`** (_in_ _bool_): When set to `false`, the element and all his children will not be drawn and not react to mouse input (default value: `true`)
+-   **`visible`** (_in_ _bool_): When set to `false`, the element and all his children won't be drawn and not react to mouse input (default value: `true`)
 
 ### Accessibility
 
@@ -65,7 +65,7 @@ The buttons will be placed in an order that depends on the target platform at ru
 The `kind` property of the `StandardButton`s and the `dialog-button-role` properties need to be set to a constant value, it can't be an arbitrary variable expression.
 There can't be several `StandardButton`s of the same kind.
 
-A callback `<kind>_clicked` is automatically added for each `StandardButton` which does not have an explicit
+A callback `<kind>_clicked` is automatically added for each `StandardButton` which doesn't have an explicit
 callback handler, so it can be handled from the native code: For example if there is a button of kind `cancel`,
 a `cancel_clicked` callback will be added.
 
@@ -235,11 +235,11 @@ An `Image` can be used to represent an image loaded from a file.
 ### Properties
 
 -   **`colorize`** (_in_ _brush_): When set, the image is used as an alpha mask and is drawn in the given color (or with the gradient).
--   **`image-fit`** (_in_ _enum_ [`ImageFit`](enums.md#imagefit)): Specifies how the source image shall be fit into the image element. (default value: `contain` when the `Image` element is part of a layout, `fill` otherwise)
--   **`image-rendering`** (_in_ _enum_ [`ImageRendering`](enums.md#imagerendering)): Specifies how the source image will be scaled. (default value: `smooth`)
+-   **`image-fit`** (_in_ _enum [`ImageFit`](enums.md#imagefit)_): Specifies how the source image shall be fit into the image element. (default value: `contain` when the `Image` element is part of a layout, `fill` otherwise)
+-   **`image-rendering`** (_in_ _enum [`ImageRendering`](enums.md#imagerendering)_): Specifies how the source image will be scaled. (default value: `smooth`)
 -   **`rotation-angle`** (_in_ _angle_), **`rotation-origin-x`** (_in_ _length_), **`rotation-origin-y`** (_in_ _length_):
     Rotates the image by the given angle around the specified origin point. The default origin point is the center of the element.
-    When these properties are set, the `Image` cannot have children.
+    When these properties are set, the `Image` can't have children.
 -   **`source`** (_in_ _image_): The image to load. Use the `@image-url("...")` macro to specify the location of the image.
 -   **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (_in_ _int_): Properties in source
     image coordinates that define the region of the source image that is rendered. By default the entire source image is visible:
@@ -345,7 +345,7 @@ export component Example inherits Path {
 
 The commands are provided in a property:
 
--   **`commands`** (\*string): A string providing the commands according to the SVG path specification.
+-   **`commands`** (_in_ _string_): A string providing the commands according to the SVG path specification.
 
 #### Path Using SVG Path Elements
 
@@ -563,7 +563,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 -   **`font-family`** (_in_ _string_): The name of the font family selected for rendering the text.
 -   **`font-size`** (_in_ _length_): The font size of the text.
 -   **`font-weight`** (_in_ _int_): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
--   **`has-focus`** (_out_ _bool_): `TextInput` sets this to `true` when it is focused. Only then it receives [`KeyEvent`](structs.md#keyevent)s.
+-   **`has-focus`** (_out_ _bool_): `TextInput` sets this to `true` when it's focused. Only then it receives [`KeyEvent`](structs.md#keyevent)s.
 -   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
 -   **`input-type`** (_in_ _enum [`InputType`](enums.md#inputtype)_): Use this to configure `TextInput` for editing special input, such as password fields. (default value: `text`)
 -   **`letter-spacing`** (_in_ _length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance. (default value: 0)
@@ -709,7 +709,7 @@ export component Example inherits Window {
 ## `VerticalLayout` and `HorizontalLayout`
 
 These layouts place their children next to each other vertically or horizontally.
-The size of elements can either be fixed with the `width` or `height` property, or if they are not set
+The size of elements can either be fixed with the `width` or `height` property, or if they aren't set
 they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
 
 ### Properties

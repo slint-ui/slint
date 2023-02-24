@@ -26,7 +26,7 @@ We add the following handler in <span class="hljs-title">MainWindow</span>:
 On the Rust side, we can now add an handler to the `check_if_pair_solved` callback, that will check if
 two tiles are opened. If they match, the `solved` property is set to true in the model. If they don't
 match, start a timer that will close them after one second. While the timer is running, we disable every tile so
-one cannot click anything during this time.
+one can't click anything during this time.
 
 Insert this code before the `main_window.run()` call:
 

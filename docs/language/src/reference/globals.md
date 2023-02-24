@@ -76,7 +76,7 @@ fn main() {
 
 </details>
 
-It is possible to re-expose a callback or properties from a global using the two way binding syntax.
+It's possible to re-expose a callback or properties from a global using the two way binding syntax.
 
 ```slint,no-preview
 global Logic  {

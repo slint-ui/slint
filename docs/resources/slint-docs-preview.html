@@ -39,7 +39,7 @@
     }
 
     function should_show_automatic_preview(element) {
-        // The `no-auto-preview` doesn't map directly to a dedicated class but it is mangled differently
+        // The `no-auto-preview` doesn't map directly to a dedicated class but it's mangled differently
         // between rustdoc and sphinx, so match fuzzy on the entire class list:
         return !element.className.includes("no-auto-preview");
     }
