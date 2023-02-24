@@ -12,7 +12,7 @@ The widget appearance depends on the selected style. The following styles are av
 
 See [Selecting a Widget Style](#selecting-a-widget-style) for details how to select the style. If no style is selected, `native` is the default. If `native` is not available, `fluent` is the default.
 
-All widgets support all [properties common to builtin elements](builtin_elements.md#common-properties).
+All widgets support all [properties common to builtin elements](elements.md#common-properties).
 
 ## `AboutSlint`
 
@@ -123,7 +123,7 @@ export component Example inherits Window {
 
 ## `GridBox`
 
-A `GridBox` is a [`GridLayout`](builtin_elements.md#gridlayout) where the spacing and padding values
+A `GridBox` is a [`GridLayout`](elements.md#gridlayout) where the spacing and padding values
 depend on the style instead of defaulting to 0.
 
 ### Properties
@@ -150,7 +150,7 @@ export component Example inherits Window {
 
 ## `HorizontalBox`
 
-A `HorizontalBox` is a [`HorizontalLayout`](builtin_elements.md#verticallayout-and-horizontallayout) where the spacing and padding values
+A `HorizontalBox` is a [`HorizontalLayout`](elements.md#verticallayout-and-horizontallayout) where the spacing and padding values
 depend on the style instead of defaulting to 0.
 
 ## `LineEdit`
@@ -160,11 +160,11 @@ a widget able to handle several lines of text.
 
 ### Properties
 
--   **`enabled`**: (_in_ _bool_): Defaults to true. When false, nothing can be entered selecting text is still enabled as well as editing text programatically (default value: `false`)
+-   **`enabled`**: (_in_ _bool_): Defaults to true. When false, nothing can be entered selecting text is still enabled as well as editing text programmatically (default value: `false`)
 -   **`font-size`** (_in_ _length_): the size of the font of the input text
 -   **`has-focus`**: (_out_ _bool_): Set to true when the line edit currently has the focus
--   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
--   **`input-type`** (_in_ _enum [`InputType`](builtin_enums.md#inputtype)_): The way to allow special input viewing properties such as password fields (default value: `text`).
+-   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
+-   **`input-type`** (_in_ _enum [`InputType`](enums.md#inputtype)_): The way to allow special input viewing properties such as password fields (default value: `text`).
 -   **`placeholder-text`**: (_in_ _string_): A placeholder text being shown when there is no text in the edit field
 -   **`read-only`** (_in_ _bool_): When set to `true`, text editing via keyboard and mouse is disabled but
 -   **`text`** (_in-out_ _string_): The text being edited
@@ -335,7 +335,7 @@ it can used one of the pre-defined `kind` and the text and icon will depend on t
 
 -   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the button cannot be pressed
 -   **`has-focus`**: (_out_ _bool_): Set to true when the button currently has the focus
--   **`kind`** (_in_ _enum [`StandardButtonKind`](builtin_enums.md#standardbuttonkind)_): The kind of button, one of `ok` `cancel`, `apply`, `close`, `reset`, `help`, `yes`, `no,` `abort`, `retry` or `ignore`
+-   **`kind`** (_in_ _enum [`StandardButtonKind`](enums.md#standardbuttonkind)_): The kind of button, one of `ok` `cancel`, `apply`, `close`, `reset`, `help`, `yes`, `no,` `abort`, `retry` or `ignore`
 -   **`pressed`**: (_out_ _bool_): Set to true when the button is pressed.
 
 ### Callbacks
@@ -358,14 +358,14 @@ export component Example inherits Window {
 ## `StandardListView`
 
 Like ListView, but with a default delegate, and a `model` property which is a model of type
-[`StandardListViewItem`](builtin_structs.md#standardlistviewitem).
+[`StandardListViewItem`](structs.md#standardlistviewitem).
 
 ### Properties
 
 Same as [`ListView`](#listview), and in addition:
 
 -   **`current-item`** (_in-out_ _int_): The index of the currently active item. -1 mean none is selected, which is the default
--   **`model`** (_in_ _[`StandardListViewItem`](builtin_structs.md#standardlistviewitem)_): The model
+-   **`model`** (_in_ _[`StandardListViewItem`](structs.md#standardlistviewitem)_): The model
 
 ### Functions
 
@@ -393,15 +393,15 @@ export component Example inherits Window {
 
 The `StandardTableView` represents a table of data with columns and rows. Cells
 are organised in a model where each row is a model of
-\[[`StandardListViewItem`](builtin_structs.md#standardlistviewitem)\].
+\[[`StandardListViewItem`](structs.md#standardlistviewitem)\].
 
 ### Properties
 
 Same as [`ListView`](#listview), and in addition:
 
 -   **`current-sort-column`** (_out_ _int_): Indicates the sorted column. -1 mean no column is sorted.
--   **`columns`** (_in-out_ _\[[`TableColumn`](builtin_structs.md#tablecolumn)\]_): Defines the model of the table columns.
--   **`rows`** (_\[\[[`StandardListViewItem`](builtin_structs.md#standardlistviewitem)\]\]_): Defines the model of table rows.
+-   **`columns`** (_in-out_ _\[[`TableColumn`](structs.md#tablecolumn)\]_): Defines the model of the table columns.
+-   **`rows`** (_\[\[[`StandardListViewItem`](structs.md#standardlistviewitem)\]\]_): Defines the model of table rows.
 
 ### Callbacks
 
@@ -495,9 +495,9 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 -   **`text`** (_in-out_ _string_): The text being edited
 -   **`has-focus`**: (_in_out_ _bool_): Set to true when the widget currently has the focus
 -   **`enabled`**: (_in_ _bool_): Defaults to true. When false, nothing can be entered
--   **`read-only`** (_in_ _bool_): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programatically (default value: `false`)
--   **`wrap`** (_in_ _enum [`TextWrap`](builtin_enums.md#textwrap)_): The way the text wraps (default: word-wrap).
--   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
+-   **`read-only`** (_in_ _bool_): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically (default value: `false`)
+-   **`wrap`** (_in_ _enum [`TextWrap`](enums.md#textwrap)_): The way the text wraps (default: word-wrap).
+-   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
 
 ### Callbacks
 
@@ -518,9 +518,10 @@ export component Example inherits Window {
     }
 }
 ```
+
 ## `VerticalBox`
 
-A `VerticalBox` is a [`VerticalLayout`](builtin_elements.md#verticallayout-and-horizontallayout) where the spacing and padding values
+A `VerticalBox` is a [`VerticalLayout`](elements.md#verticallayout-and-horizontallayout) where the spacing and padding values
 depend on the style instead of defaulting to 0.
 
 ## Selecting a Widget Style

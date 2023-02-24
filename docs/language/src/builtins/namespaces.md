@@ -21,7 +21,7 @@ Unlike in CSS, the commas are mandatory.
 
 ## `Key`
 
-Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character. Check the value of [`KeyEvent`](builtin_structs.md#keyevent)'s `text` property
+Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character. Check the value of [`KeyEvent`](structs.md#keyevent)'s `text` property
 against the constants below.
 
 -   **`Backspace`**

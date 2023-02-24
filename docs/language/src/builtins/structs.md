@@ -40,7 +40,7 @@ This structure is generated and passed to the `pointer-event` callback of the `T
 -   **`kind`** (_enum PointerEventKind_): The kind of the event: one of the following
     -   `down`: The button was pressed.
     -   `up`: The button was released.
-    -   `cancel`: Another element or window took hold of the grab. This applies to all pressed button and the `button` is not relevent.
+    -   `cancel`: Another element or window took hold of the grab. This applies to all pressed button and the `button` is not relevant.
 -   **`button`** (_enum PointerEventButton_): The button that was pressed or released. `left`, `right`, `middle`, or `none`.
 
 ## `StandardListViewItem`
