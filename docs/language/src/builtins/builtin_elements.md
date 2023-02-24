@@ -7,12 +7,12 @@
 These properties are valid on all visible items:
 
 -   **`width`** and **`height`** (_in_ _length_): The size of the element. When set, this overrides the default size.
--   **`x`** and **`y`** (_in_ _length_): The position of the element relative to its parent
+-   **`x`** and **`y`** (_in_ _length_): The position of the element relative to its parent.
 -   **`z`** (_in_ _float_): Allows to specify a different order to stack the items with its siblings. (default value: 0)
 
 ### Layout
 
-These properties are valid on all visible items and can be used to expression constraints when used in layouts:
+These properties are valid on all visible items and can be used to specify constraints when used in layouts:
 
 -   **`col`**, **`row`**, **`colspan`**, **`rowspan`** (_in_ _int_): See [`GridLayout`](#gridlayout).
 -   **`horizontal-stretch`** and **`vertical-stretch`** (_in-out_ _float_): Specify how much relative space these elements are stretching in a layout. When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1.
@@ -58,12 +58,12 @@ The `drop-shadow` effect is supported for `Rectangle` elements.
 Dialog is like a window, but it has buttons that are automatically laid out.
 
 A Dialog should have one main element as child, that isn't a button.
-he dialog can have any number of `StandardButton` widgets or other buttons
+The dialog can have any number of `StandardButton` widgets or other buttons
 with the `dialog-button-role` property.
 The buttons will be placed in an order that depends on the target platform at run-time.
 
 The `kind` property of the `StandardButton`s and the `dialog-button-role` properties need to be set to a constant value, it can't be an arbitrary variable expression.
-There cannot be several `StandardButton` of the same kind.
+There can't be several `StandardButton`s of the same kind.
 
 A callback `<kind>_clicked` is automatically added for each `StandardButton` which does not have an explicit
 callback handler, so it can be handled from the native code: For example if there is a button of kind `cancel`,
@@ -97,7 +97,7 @@ The `Flickable` is a low-level element that is the base for scrollable
 widgets, such as the [`ScrollView`](widgets.md#scrollview). When the `viewport-width` or the
 `viewport-height` is greater than the parent's `width` or `height`
 respectively, the element becomes scrollable. Note that the `Flickable`
-does not create a scrollbar. When unset, the `viewport-width` and `viewport-height` are
+doesn't create a scrollbar. When unset, the `viewport-width` and `viewport-height` are
 calculated automatically based on the `Flickable`'s children. This isn't the
 case when using a `for` loop to populate the elements. This is a bug tracked in
 issue [#407]((https://github.com/slint-ui/slint/issues/407).
@@ -133,9 +133,9 @@ export component Example inherits Window {
 ## `FocusScope`
 
 The `FocusScope` exposes callbacks to intercept key events. Note that `FocusScope`
-will only trigger when it `has-focus`.
+will only invoke them when it `has-focus`.
 
-The [`KeyEvent`](builtin_structs.md#keyevent) has a text property which is a character of the key entered.
+The [`KeyEvent`](builtin_structs.md#keyevent) has a text property, which is a character of the key entered.
 When a non-printable key is pressed, the character will be either a control character,
 or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the [`Key`](builtin_namespaces.md#key) namespace
 
@@ -178,9 +178,9 @@ export component Example inherits Window {
 
 ## `GridLayout`
 
-`GridLayout` places its children in a grid. `GridLayout` adds properties to each item: `col`, `row`, `colspan`, `rowspan`.
+`GridLayout` places its children in a grid. `GridLayout` adds properties to each child: `col`, `row`, `colspan`, `rowspan`.
 You can control the position of children with `col` and `row`.
-If `col` or `row` are not specified, they are automatically computed such that the item is next to the previous item, in the same row.
+If `col` or `row` aren't specified, they are automatically computed such that the item is next to the previous item, in the same row.
 Alternatively, the item can be put in a `Row` element.
 
 ### Properties
@@ -239,7 +239,7 @@ An `Image` can be used to represent an image loaded from a file.
 -   **`image-rendering`** (_in_ _enum_ [`ImageRendering`](builtin_enums.md#imagerendering)): Specifies how the source image will be scaled. (default value: `smooth`)
 -   **`rotation-angle`** (_in_ _angle_), **`rotation-origin-x`** (_in_ _length_), **`rotation-origin-y`** (_in_ _length_):
     Rotates the image by the given angle around the specified origin point. The default origin point is the center of the element.
-    When these properties are present, the `Image` cannot have children.
+    When these properties are set, the `Image` cannot have children.
 -   **`source`** (_in_ _image_): The image to load. Use the `@image-url("...")` macro to specify the location of the image.
 -   **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (_in_ _int_): Properties in source
     image coordinates that define the region of the source image that is rendered. By default the entire source image is visible:
@@ -563,7 +563,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 -   **`font-family`** (_in_ _string_): The name of the font family selected for rendering the text.
 -   **`font-size`** (_in_ _length_): The font size of the text.
 -   **`font-weight`** (_in_ _int_): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
--   **`has-focus`** (_out_ _bool_): Set to `true` when this `TextInput` is focused and will receive [`KeyEvent`](builtin_structs.md#keyevent)s.
+-   **`has-focus`** (_out_ _bool_): `TextInput` sets this to `true` when it is focused. Only then it receives [`KeyEvent`](builtin_structs.md#keyevent)s.
 -   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
 -   **`input-type`** (_in_ _enum [`InputType`](builtin_enums.md#inputtype)_): Use this to configure `TextInput` for editing special input, such as password fields. (default value: `text`)
 -   **`letter-spacing`** (_in_ _length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance. (default value: 0)
@@ -660,14 +660,14 @@ export component Example inherits Window {
 
 ## `TouchArea`
 
-Use `TouchArea` to control what happens when the it covers is touched or interacted with
+Use `TouchArea` to control what happens when the region it covers is touched or interacted with
 using the mouse.
 
 When not part of a layout, its width or height default to 100% of the parent element.
 
 ### Properties
 
--   **`has-hover`** (_out_ _bool_): Set to `true` when the mouse is over the `TouchArea`.
+-   **`has-hover`** (_out_ _bool_): `TouchArea` sets this to `true` when the mouse is over it.
 -   **`mouse-cursor`** (_in_ _enum [`MouseCursor`](builtin_enums.md#mousecursor)_): The mouse cursor type when the mouse is hovering the `TouchArea`.
 -   **`mouse-x`**, **`mouse-y`** (_out_ _length_): Set by the `TouchArea` to the position of the mouse within it.
 -   **`pressed-x`**, **`pressed-y`** (_out_ _length_): Set to `true` by the `TouchArea` to the position of the mouse at the moment it was last pressed.
