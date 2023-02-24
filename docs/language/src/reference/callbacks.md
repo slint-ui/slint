@@ -48,7 +48,7 @@ export component Example inherits Rectangle {
 
 ## Aliases
 
-It is possible to declare callback aliases in a similar way to two-way bindings:
+It's possible to declare callback aliases in a similar way to two-way bindings:
 
 ```slint,no-preview
 export component Example inherits Rectangle {

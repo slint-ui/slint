@@ -29,7 +29,7 @@ export component MyWindow inherits Window {
 }
 ```
 
-Do not use this callback to initialize properties, because this violates the declarative principle.
+Don't use this callback to initialize properties, because this violates the declarative principle.
 Avoid using this callback, unless you need it, for example, in order to notify some native code:
 
 ```slint,no-preview

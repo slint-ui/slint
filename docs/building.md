@@ -21,7 +21,7 @@ For Linux a few additional packages beyond the usual build essentials are needed
 - fontconfig library (`libfontconfig-dev` on debian based distributions)
 - (optional) Qt will be used when `qmake` is found in `PATH`
 
-`xcb` and `xcbcommon` are not needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
+`xcb` and `xcbcommon` aren't needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
 
 fontconfig can be `dlopen`ed at runtime instead of linking it at build time by setting the
 environment variable `RUST_FONTCONFIG_DLOPEN=on`. This can be useful for [cross-compiling](#cross-compiling).
@@ -73,12 +73,12 @@ cargo test
 ```
 
 **Important:** Note that `cargo test` does not work without first calling `cargo build` because the
-the required dynamic library will not be found.
+the required dynamic library won't be found.
 
 ### C++ Tests
 
 The C++ tests are contained in the `test-driver-cpp` crate. It requires the Slint C++ library to be built,
-which is not done by default. Build it explicitly before running the tests:
+which isn't done by default. Build it explicitly before running the tests:
 
 ```sh
 cargo build --lib -p slint-cpp
@@ -88,7 +88,7 @@ cargo test -p test-driver-cpp
 ### Node.js Tests
 
 The Node.js tests are contained in the `test-driver-nodejs` crate. It requires the Slint node library to be built,
-which is not done by default. Build it explicitly before running the tests:
+which isn't done by default. Build it explicitly before running the tests:
 
 ```sh
 cargo build -p slint-node
@@ -163,7 +163,7 @@ See the [examples](/examples) folder for examples to build, run and test.
 
 ## Running the Viewer
 
-Slint also includes a viewer tool that can load `.slint` files dynamically at run-time. It is a
+Slint also includes a viewer tool that can load `.slint` files dynamically at run-time. It's a
 cargo-integrated binary and can be run directly on the `.slint` files, for example:
 
 ```sh

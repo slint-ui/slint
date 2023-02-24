@@ -35,7 +35,7 @@ component Button inherits Rectangle {
 export { Button as ColorButton }
 ```
 
-In the above example, `Button` is not accessible from the outside, but
+In the above example, `Button` isn't accessible from the outside, but
 is available under the name `ColorButton` instead.
 
 For convenience, a third way of exporting a component is to declare it exported

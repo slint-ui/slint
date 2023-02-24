@@ -1,6 +1,6 @@
 # Install Qt
 
-TLDR; If you are redirected to this document because of a link in the warning that Qt was not found and
+TLDR; If you are redirected to this document because of a link in the warning that Qt wasn't found and
 you want to silence the warning without installing Qt, you can set this environment variable: `SLINT_NO_QT=1`
 
 ## Do I need Qt to use Slint?
@@ -28,10 +28,10 @@ Alternatively, you can set the `QMAKE` environment variable to point to the `qma
 ### Linux
 
 Many distributions may provide Qt 5.15 in the distribution package. In that case you can install these packages
-and there is not much more to do. On many distributions, you also need the **-dev** packages. For distributions that
+and there isn't much more to do. On many distributions, you also need the **-dev** packages. For distributions that
 split the packages in different modules, you just need `qtbase` (for QtWidgets) and `qtsvg` for the SVG plugin.
 
-If when running your Slint application you get an error that libQt5Core.so.5 or such cannot be found, you need to
+If when running your Slint application you get an error that libQt5Core.so.5 or such can't be found, you need to
 adjust the `LD_LIBRARY_PATH` environment variable to contain a path that contains the Qt libraries.
 
 ### macOS
@@ -42,10 +42,10 @@ in order for the dynamic linker to find the Qt libraries when starting an applic
 
 ### Windows
 
-For Windows it is necessary to have the `bin` directory of your Qt installation in the list of paths in the `PATH`
+For Windows it's necessary to have the `bin` directory of your Qt installation in the list of paths in the `PATH`
 environment variable, in order for the build system to locate `qmake` and to find the Qt DLLs when starting an application.
 
 ## How To Disable the Qt Backend
 
-By setting the `SLINT_NO_QT` environment variable when building Slint, the Qt backend will not be compiled and
-no attempt will be made to find Qt on the system. This will also disable the warning stating that Qt was not found.
+By setting the `SLINT_NO_QT` environment variable when building Slint, the Qt backend won't be compiled and
+no attempt will be made to find Qt on the system. This will also disable the warning stating that Qt wasn't found.

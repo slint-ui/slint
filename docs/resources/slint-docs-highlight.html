@@ -91,8 +91,8 @@
       // For use with the mdbook Tutorial
       hljs.highlightAll();
 
-      // The Sphinx/my_st generated HTML for code blocks does not use <code> tags, so highlight.js'
-      // default selector "pre code" does not match. Let's do it by hand:
+      // The Sphinx/my_st generated HTML for code blocks doesn't use <code> tags, so highlight.js'
+      // default selector "pre code" doesn't match. Let's do it by hand:
       for (block of document.querySelectorAll("div[class*=highlight-slint] div.highlight pre")) {
         hljs.highlightElement(block)
       }

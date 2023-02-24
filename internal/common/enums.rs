@@ -75,19 +75,20 @@ macro_rules! for_each_enums {
                 Evenodd,
             }
 
-            /// Use this enum to add standard buttons to a `Dialog`. The look and positioning
+            /// Use this enum to add standard buttons to a [`Dialog`](elements.md#dialog). The look and positioning
             /// of these [`StandardButton`](widgets.md#standardbutton)s depends on the environment
             /// (OS, UI environment, etc.) the application runs in.
             enum StandardButtonKind {
-                /// A "OK" button that accepts a `Dialog`, closing it when clicked.
+                /// A "OK" button that accepts a [`Dialog`](elements.md#dialog), closing it when clicked.
                 Ok,
-                /// A "Cancel" button that rejects a `Dialog`, closing it when clicked.
+                /// A "Cancel" button that rejects a [`Dialog`](elements.md#dialog), closing it when clicked.
                 Cancel,
-                /// A "Apply" button that should accept values from a `Dialog` without closing it.
+                /// A "Apply" button that should accept values from a
+                /// [`Dialog`](elements.md#dialog) without closing it.
                 Apply,
-                /// A "Close" button, which should close a `Dialog` without looking at values.
+                /// A "Close" button, which should close a [`Dialog`](elements.md#dialog) without looking at values.
                 Close,
-                /// A "Reset" button, which should reset the `Dialog` to its initial state.
+                /// A "Reset" button, which should reset the [`Dialog`](elements.md#dialog) to its initial state.
                 Reset,
                 /// A "Help" button, which should bring up context related documentation when clicked.
                 Help,
@@ -148,7 +149,7 @@ macro_rules! for_each_enums {
                 Middle,
             }
 
-            /// This enum represents different types of mouse cursors. It is a subset of the mouse cursors available in CSS.
+            /// This enum represents different types of mouse cursors. It's a subset of the mouse cursors available in CSS.
             /// For details and pictograms see the [MDN Documentation for cursor](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#values).
             /// Depending on the backend and used OS unidirectional resize cursors may be replaced with bidirectional ones.
             enum MouseCursor {
@@ -303,12 +304,12 @@ macro_rules! for_each_enums {
                 Spinbox,
                 /// The element is a [`Tab`](widgets.md#tabwidget) or behaves like one.
                 Tab,
-                /// The role for a [`Text`](elements.md#text) element. It is automatically applied.
+                /// The role for a [`Text`](elements.md#text) element. It's automatically applied.
                 Text,
             }
 
             /// This enum represents the different values of the `sort-order` property.
-            /// It is used to sort a [`StandardTableView`](widgets.md#standardtableview) by a column.
+            /// It's used to sort a [`StandardTableView`](widgets.md#standardtableview) by a column.
             enum SortOrder {
                 /// The column is unsorted.
                 Unsorted,

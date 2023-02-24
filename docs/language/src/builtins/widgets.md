@@ -10,7 +10,7 @@ The widget appearance depends on the selected style. The following styles are av
     are used on. This specifically includes support for the look and feel of controls on macOS and Windows. This
     style is only available if you have Qt installed on your system.
 
-See [Selecting a Widget Style](#selecting-a-widget-style) for details how to select the style. If no style is selected, `native` is the default. If `native` is not available, `fluent` is the default.
+See [Selecting a Widget Style](#selecting-a-widget-style) for details how to select the style. If no style is selected, `native` is the default. If `native` isn't available, `fluent` is the default.
 
 All widgets support all [properties common to builtin elements](elements.md#common-properties).
 
@@ -65,7 +65,7 @@ export component Example inherits Window {
 ### Properties
 
 -   **`checked`**: (_inout_ _bool_): Whether the checkbox is checked or not.
--   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the checkbox cannot be pressed
+-   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the checkbox can't be pressed
 -   **`has-focus`**: (_out_ _bool_): Set to true when the checkbox has keyboard focus.
 -   **`text`** (_in_ _string_): The text written next to the checkbox.
 
@@ -96,7 +96,7 @@ A button that, when clicked, opens a popup to select a value.
 
 -   **`current-index`**: (_in-out_ _int_): The index of the selected value (-1 if no value is selected)
 -   **`current-value`**: (_in-out_ _string_): The currently selected text
--   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the combobox cannot be interacted with
+-   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the combobox can't be interacted with
 -   **`has-focus`**: (_out_ _bool_): Set to true when the combobox has keyboard focus.
 -   **`model`** (_in_ _\[string\]_): The list of possible values
 
@@ -128,7 +128,7 @@ depend on the style instead of defaulting to 0.
 
 ### Properties
 
--   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the groupbox cannot be interacted with
+-   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the groupbox can't be interacted with
 -   **`title`** (_in_ _string_): A text written as the title of the group box.
 
 ### Example
@@ -239,15 +239,15 @@ A Scrollview contains a viewport that is bigger than the view and can be
 scrolled. It has scrollbar to interact with. The viewport-width and
 viewport-height are calculated automatically to create a scollable view
 except for when using a for loop to populate the elements. In that case
-the viewport-width and viewport-height are not calculated automatically
+the viewport-width and viewport-height aren't calculated automatically
 and must be set manually for scrolling to work. The ability to
 automatically calculate the viewport-width and viewport-height when
 using for loops may be added in the future and is tracked in issue #407.
 
 ### Properties
 
--   **`enabled`** (_in_ _bool_): Used to render the frame as disabled or enabled, but does not change behavior of the widget.
--   **`has-focus`** (_in-out_ _bool_): Used to render the frame as focused or unfocused, but does not change the behavior of the widget.
+-   **`enabled`** (_in_ _bool_): Used to render the frame as disabled or enabled, but doesn't change behavior of the widget.
+-   **`has-focus`** (_in-out_ _bool_): Used to render the frame as focused or unfocused, but doesn't change the behavior of the widget.
 -   **`viewport-width`** and **`viewport-height`** (_in-out_ _length_): The `width` and `length` properties of the viewport
 -   **`viewport-x`** and **`viewport-y`** (_in-out_ _length_): The `x` and `y` properties of the viewport. Usually these are negative
 -   **`visible-width`** and **`visible-height`** (_out_ _length_): The size of the visible area of the ScrollView (not including the scrollbar)
@@ -276,7 +276,7 @@ export component Example inherits Window {
 
 ### Properties
 
--   **`enabled`**: (_in_ _bool_): Defaults to true. You can not interact with the slider if enabled is false.
+-   **`enabled`**: (_in_ _bool_): Defaults to true. You can't interact with the slider if enabled is false.
 -   **`has-focus`**: (_out_ _bool_): Set to true when the slider currently has the focus
 -   **`value`** (_in-out_ _float_): The value.
 -   **`minimum`** (_in_ _float_): The minimum value (default: 0)
@@ -305,7 +305,7 @@ export component Example inherits Window {
 
 ### Properties
 
--   **`enabled`**: (_in_ _bool_): Defaults to true. You can not interact with the spinbox if enabled is false.
+-   **`enabled`**: (_in_ _bool_): Defaults to true. You can't interact with the spinbox if enabled is false.
 -   **`has-focus`**: (_out_ _bool_): Set to true when the spinbox currently has the focus
 -   **`value`** (_in-out_ _int_): The value.
 -   **`minimum`** (_in_ _int_): The minimum value (default: 0).
@@ -333,7 +333,7 @@ it can used one of the pre-defined `kind` and the text and icon will depend on t
 
 ### Properties
 
--   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the button cannot be pressed
+-   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the button can't be pressed
 -   **`has-focus`**: (_out_ _bool_): Set to true when the button currently has the focus
 -   **`kind`** (_in_ _enum [`StandardButtonKind`](enums.md#standardbuttonkind)_): The kind of button, one of `ok` `cancel`, `apply`, `close`, `reset`, `help`, `yes`, `no,` `abort`, `retry` or `ignore`
 -   **`pressed`**: (_out_ _bool_): Set to true when the button is pressed.
@@ -456,7 +456,7 @@ a time.
 ### Properties of the `Tab` element
 
 -   **`current-focused`** (_out_ _int_): The index of this tab that has focus at this time or -1 if none is focused
--   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the tab cannot be activated
+-   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the tab can't be activated
 -   **`icon`** (_in_ _image_): The image on the tab
 -   **`num-tabs`** (_out_ _int_): The number of tabs in the current `TabBar`
 -   **`tab-index`** (_out_ _int_): The index of this tab
