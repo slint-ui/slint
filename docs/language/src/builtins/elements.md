@@ -670,7 +670,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 -   **`has-hover`** (_out_ _bool_): `TouchArea` sets this to `true` when the mouse is over it.
 -   **`mouse-cursor`** (_in_ _enum [`MouseCursor`](enums.md#mousecursor)_): The mouse cursor type when the mouse is hovering the `TouchArea`.
 -   **`mouse-x`**, **`mouse-y`** (_out_ _length_): Set by the `TouchArea` to the position of the mouse within it.
--   **`pressed-x`**, **`pressed-y`** (_out_ _length_): Set to `true` by the `TouchArea` to the position of the mouse at the moment it was last pressed.
+-   **`pressed-x`**, **`pressed-y`** (_out_ _length_): Set by the `TouchArea` to the position of the mouse at the moment it was last pressed.
 -   **`pressed`** (_out_ _bool_): Set to `true` by the `TouchArea` when the mouse is pressed over it.
 
 ### Callbacks
