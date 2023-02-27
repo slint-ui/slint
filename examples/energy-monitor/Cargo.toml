@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 [package]
-name = "energy_mng"
+name = "energy-monitor"
 version = "1.0.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
@@ -12,7 +12,7 @@ license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 
 [[bin]]
 path = "src/main.rs"
-name = "energy_mng"
+name = "energy-monitor"
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-0"] }
