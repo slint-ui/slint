@@ -16,10 +16,10 @@ pub mod ui {
 
 use ui::*;
 
-#[cfg(not(feature = "mcu-board-support"))]
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "mcu-board-support")))]
 mod controllers;
 
-#[cfg(not(feature = "mcu-board-support"))]
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "mcu-board-support")))]
 use controllers::*;
 
 #[cfg(not(feature = "mcu-board-support"))]
@@ -33,6 +33,7 @@ pub fn main() {
     let window = MainWindow::new().unwrap();
 
     // let _ to keep the timer alive.
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "mcu-board-support")))]
     let _timer = header::setup(&window);
 
     #[cfg(feature = "network")]
