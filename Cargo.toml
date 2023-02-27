@@ -92,3 +92,5 @@ panic = "abort"
 [profile.dev]
 panic = "abort"
 
+[patch.crates-io]
+xtensa-lx-rt = { git = "https://github.com/tronical/xtensa-lx-rt", branch = "no-fp-v14" }

@@ -11,6 +11,8 @@ rustflags = [
     "link-arg=-nostartfiles",
     "-C",
     "link-arg=-Wl,-Tlinkall.x",
+    "-C",
+    "target-feature=-fp",
 ]
 target = "xtensa-esp32s3-none-elf"
 
