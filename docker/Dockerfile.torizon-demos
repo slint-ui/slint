@@ -33,7 +33,7 @@ ENV RUST_FONTCONFIG_DLOPEN=on
 COPY . /slint
 WORKDIR /slint
 RUN mkdir demos \
-    && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo; do \
+    && for demo in printerdemo slide_puzzle gallery opengl_underlay carousel todo energy-monitor; do \
     cargo build --release --target $RUST_TOOLCHAIN_ARCH --features slint/renderer-winit-skia -p $demo; \
     cp target/$RUST_TOOLCHAIN_ARCH/release/$demo ./demos/; \
     done

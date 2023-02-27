@@ -37,6 +37,7 @@ By default, the printer demo from /usr/bin is run. The containers however packag
  * opengl_underlay
  * carousel
  * todo
+ * energy-monitor
 
 Run then by specifying them as paramter to `docker run`, for example:
 

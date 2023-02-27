@@ -79,3 +79,4 @@ jobs:
               target/${{ matrix.target }}/release/todo
               target/${{ matrix.target }}/release/gallery
               target/${{ matrix.target }}/release/viewer
+              target/${{ matrix.target }}/release/energy-monitor

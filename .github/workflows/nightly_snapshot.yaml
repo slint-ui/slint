@@ -279,7 +279,7 @@ jobs:
             rm -rf snapshots/$target_branch/demos
             mkdir -p snapshots/$target_branch/demos
 
-            for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory, imagefilter, plotter, opengl_underlay, carousel,rust; do
+            for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory, imagefilter, plotter, opengl_underlay, carousel,rust; energy-monitor, do
                 IFS=',' read demo subdir <<< "${demo_subdir}"
 
                 mkdir -p snapshots/$target_branch/demos/$demo
