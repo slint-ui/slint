@@ -5,14 +5,8 @@ import { Theme } from "theme.slint";
 import { Navigation, MenuButton, Menu, Value } from "widgets/widgets.slint";
 import { Balance, BalanceAdapter, Overview, OverviewAdapter, Usage, UsageAdapter, Weather, WeatherAdapter,
     MenuPage, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter } from "pages/pages.slint";
-export { OverviewAdapter, UsageAdapter, Value, WeatherAdapter, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter }
 
-export component MainWindow inherits Window {
-    title: "EnergyMNG Demo";
-    min_width: 320px;
-    min_height: 240px;
-    background: Theme.palette.pure-black;
-
+export component SmallMain {
     i-navigation := Navigation { 
         current-index <=> MenuOverviewAdapter.current-page;
         page-count: 4;

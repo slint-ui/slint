@@ -4,9 +4,6 @@
 import { Theme } from "theme.slint";
 import { TabWidget, BarTileModel } from "widgets/widgets.slint";
 import { Dashboard, WeatherAdapter } from "pages/pages.slint";
-import { Images } from "images.slint";
-
-export { WeatherAdapter, BarTileModel, Images }
 
 export global HeaderAdapter {
     in property <string> date: "Sunday 8th, January 2023";
@@ -73,11 +70,7 @@ export component Header {
     }
 }
 
-export component MainWindow inherits Window {
-    title: "EnergyMNG Demo";
-    min_width: 1366px;
-    min_height: 1024px;
-    background: Theme.palette.pure-black;
+export component BigMain{
 
     VerticalLayout {  
         Header {}
