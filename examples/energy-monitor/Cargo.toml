@@ -17,7 +17,7 @@ name = "energy-monitor"
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-0"] }
 mcu-board-support = { path = "../mcu-board-support", optional = true }
-chrono = "0.4.23"
+chrono = { version = "0.4.23", optional = true }
 weer_api = { version = "0.1", optional = true }
 tokio = { version = "1.25", optional = true, features = ["full"] }
 futures = { version = "0.3.26", optional = true }
@@ -26,7 +26,7 @@ futures = { version = "0.3.26", optional = true }
 slint-build = { path = "../../api/rs/build" }
 
 [features]
-default = ["slint/default", "network"]
+default = ["slint/default", "network", "chrono"]
 simulator = ["mcu-board-support", "slint/renderer-winit-software", "slint/backend-winit", "slint/std"]
 network = ["dep:weer_api", "tokio", "futures"]
 
