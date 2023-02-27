@@ -161,10 +161,17 @@ fn clip_path_for_rect_alike_item(
 }
 
 impl<'a> GLItemRenderer<'a> {
+    pub fn global_alpha_transparent(&self) -> bool {
+        self.state.last().unwrap().global_alpha == 0.0
+    }
+
     /// Draws a `Rectangle` using the `GLItemRenderer`.
     pub fn draw_rect(&mut self, rect: LogicalRect, brush: Brush) {
         let geometry = PhysicalRect::new(PhysicalPoint::default(), rect.size * self.scale_factor);
         if geometry.is_empty() {
+            return;
+        }
+        if self.global_alpha_transparent() {
             return;
         }
         // TODO: cache path in item to avoid re-tesselation
@@ -188,6 +195,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     fn draw_border_rectangle(&mut self, rect: Pin<&items::BorderRectangle>, _: &ItemRc) {
         let mut geometry = item_rect(rect, self.scale_factor);
         if geometry.is_empty() {
+            return;
+        }
+        if self.global_alpha_transparent() {
             return;
         }
 
@@ -299,6 +309,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             return;
         }
 
+        if self.global_alpha_transparent() {
+            return;
+        }
+
         let string = text.text();
         let string = string.as_str();
         let font = fonts::FONT_CACHE.with(|cache| {
@@ -336,6 +350,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let width = text_input.width() * self.scale_factor;
         let height = text_input.height() * self.scale_factor;
         if width.get() <= 0. || height.get() <= 0. {
+            return;
+        }
+
+        if self.global_alpha_transparent() {
             return;
         }
 
@@ -515,6 +533,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     }
 
     fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc) {
+        if self.global_alpha_transparent() {
+            return;
+        }
+
         let (offset, path_events) = match path.fitted_path_events() {
             Some(offset_and_events) => offset_and_events,
             None => return,
@@ -1156,9 +1178,12 @@ impl<'a> GLItemRenderer<'a> {
 
         let mut image_rect = femtovg::Path::new();
         image_rect.rect(0., 0., image_size.width, image_size.height);
+
         // We fill the entire image, there is no need to apply anti-aliasing around the edges
-        let brush_paint =
-            self.brush_to_paint(colorize_brush, &mut image_rect).unwrap().with_anti_alias(false);
+        let brush_paint = match self.brush_to_paint(colorize_brush, &mut image_rect) {
+            Some(paint) => paint.with_anti_alias(false),
+            None => return original_cache_entry,
+        };
 
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.reset();
@@ -1348,9 +1373,6 @@ impl<'a> GLItemRenderer<'a> {
 
     fn brush_to_paint(&self, brush: Brush, path: &mut femtovg::Path) -> Option<femtovg::Paint> {
         if brush.is_transparent() {
-            return None;
-        }
-        if self.state.last().unwrap().global_alpha == 0.0 {
             return None;
         }
         Some(match brush {
