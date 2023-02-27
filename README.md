@@ -27,6 +27,30 @@ We use the following design goals as a guide when developing Slint:
     mobile and web should be supported so that both the user and the developer
     feel comfortable on their platform of choice.
 
+## The .slint Markup Language
+
+Slint comes with a markup language that is specifically designed for user
+interfaces. This language is easy to learn, to read and write, and provides
+a powerful way to describe graphical elements, their placement, and the flow of
+data through the different states. It's a familiar syntax to describe the
+hierarchy of elements and property bindings.
+
+Here's the obligatory "Hello World":
+
+```slint
+export component HelloWorld inherits Window {
+    width: 400px;
+    height: 400px;
+
+    Text {
+       y: parent.width / 2;
+       x: parent.x + 200px;
+       text: "Hello, world";
+       color: blue;
+    }
+}
+```
+
 ## Current Status
 
 Slint is in active development. The state of the toolkit for each platform is as
@@ -47,11 +71,11 @@ follows:
 
 ### Accessibility
 
- Slint supports keyboard based navigation of many widgets, and user interfaces
- are scalable. The basic infrastructure for assistive technology like screen
- readers is in place, but currently requires the Qt backend.
- We are aware that more work is needed to get best-of-class support for users
- with special needs.
+Slint supports keyboard based navigation of many widgets, and user interfaces
+are scalable. The basic infrastructure for assistive technology like screen
+readers is in place, but currently requires the Qt backend.
+We are aware that more work is needed to get best-of-class support for users
+with special needs.
 
 ### Stay up to date
 
@@ -60,11 +84,16 @@ for our [🥠 Weekly Status Updates](https://slint-ui.com/thisweek/).
 
 ## Documentation
 
-The [examples](examples) folder contains examples and demos.
+Check out the [Slint Language Documentation](https://slint-ui.com/docs/slint)
+for more details.
+
+The [examples](examples) folder contains examples and demos, showing how to
+use the Slint markup language and how to interact with a Slint user interface
+from supported programming languages.
 
 The `docs` folder contains a lot more information, including
-[build instructions](docs/building.md), [recipes for common tasks](docs/language/src/recipes/recipes.md)
-and [internal developer docs](docs/development.md).
+[build instructions](docs/building.md), and
+[internal developer docs](docs/development.md).
 
 Refer to the README of each language directory in the `api` folder:
 
@@ -80,45 +109,21 @@ Refer to the README of each language directory in the `api` folder:
 
 ### MCU
 
-| STM32| RP2040 |
-|--------------|----------------|
+| STM32                                                                  | RP2040                                                                  |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | [Video of Slint on STM32](https://www.youtube.com/watch?v=NNNOJJsOAis) | [Video of Slint on RP2040](https://www.youtube.com/watch?v=dkBwNocItGs) |
 
 ### WebAssembly
 
-| Printer Demo | Slide Puzzle | Todo | Widget Gallery |
-|--------------|----------------|----------------|----------------|
+| Printer Demo                                                                                                                                           | Slide Puzzle                                                                                                                                       | Todo                                                                                                                               | Widget Gallery                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | [![Screenshot of the Printer Demo](https://slint-ui.com/resources/printerdemo_screenshot.png "Printer Demo")](https://slint-ui.com/demos/printerdemo/) | [![Screenshot of the Slide Puzzle](https://slint-ui.com/resources/puzzle_screenshot.png "Slide Puzzle")](https://slint-ui.com/demos/slide_puzzle/) | [![Screenshot of the Todo Demo](https://slint-ui.com/resources/todo_screenshot.png "Todo Demo")](https://slint-ui.com/demos/todo/) | [![Screenshot of the Gallery Demo](https://slint-ui.com/resources/gallery_screenshot.png "Gallery Demo")](https://slint-ui.com/demos/gallery/) |
 
 ### Desktop Native Widgets
 
-| Windows | macOS | Linux |
-|---------|-------|-------|
+| Windows                                                                                                      | macOS                                                                                                      | Linux                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | ![Screenshot of the Gallery on Windows](https://slint-ui.com/resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](https://slint-ui.com/resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](https://slint-ui.com/resources/gallery_linux_screenshot.png "Gallery") |
-
-## The .slint Markup Language
-
-Slint comes with a markup language that is specifically designed for user
-interfaces. This language provides a powerful way to describe graphical elements,
-their placement, and the flow of data through the different states. It is a
-familiar syntax to describe the hierarchy of elements and property bindings.
-Here's the obligatory "Hello World":
-
-```slint
-export component HelloWorld inherits Window {
-    width: 400px;
-    height: 400px;
-
-    Text {
-       y: parent.width / 2;
-       x: parent.x + 200px;
-       text: "Hello, world";
-       color: blue;
-    }
-}
-```
-
-Check out the [Slint Language Documentation](https://slint-ui.com/docs/slint) for more details.
 
 ## Architecture
 
@@ -195,7 +200,9 @@ request to add yours)
   Cross-platform game launcher made for Project Trains simulator.
 - **[Mastermind](https://github.com/ElevenJune/mastermind_Rust)**: Mastermind
   game coded in Rust.
-- **[coop_widgets](https://codeberg.org/flovansl/co_sl)**: Custom widget library for Slint [online demo](https://flovansl.codeberg.page/coop_sl/snapshots/examples/widgets/).
+- **[coop_widgets](https://codeberg.org/flovansl/co_sl)**: Custom widget
+  library for Slint
+  [online demo](https://flovansl.codeberg.page/coop_sl/snapshots/examples/widgets/).
 
 ## License
 
