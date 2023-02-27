@@ -46,7 +46,7 @@ jobs:
         build-args: |
           arch=${{matrix.target}}
 
-  build:
+  build_demos:
     needs: [build_containers]
     runs-on: ubuntu-20.04
     strategy:
@@ -54,7 +54,6 @@ jobs:
         target:
           - armv7-unknown-linux-gnueabihf
           - aarch64-unknown-linux-gnu
-          - riscv64gc-unknown-linux-gnu
           - x86_64-unknown-linux-gnu
     steps:
     - uses: actions/checkout@v3
