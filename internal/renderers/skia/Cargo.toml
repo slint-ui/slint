@@ -46,7 +46,7 @@ glow = { version = "0.12" }
 unicode-segmentation = { version = "1.8.0" }
 
 glutin = { version = "0.30", default-features = false, features = ["egl", "wgl"] }
-winit = { version = "0.28.2", optional = true, default-features = false }
+winit = { version = "0.28.3", optional = true, default-features = false }
 
 [target.'cfg(target_family = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["impl-default", "dwrite", "d3d12", "dxgi", "dxgi1_2", "dxgi1_3", "dxgi1_4", "d3d12sdklayers", "synchapi", "winbase"] }

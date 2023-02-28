@@ -214,6 +214,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
         }
     }
 
+    fn winit_window(&self) -> Option<Rc<winit::window::Window>> {
+        self.borrow_mapped_window().map(|mapped_window| mapped_window.winit_window.clone())
+    }
+
     fn constraints(&self) -> (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo) {
         self.borrow_mapped_window().map(|window| window.constraints.get()).unwrap_or_default()
     }
