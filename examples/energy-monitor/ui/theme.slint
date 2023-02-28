@@ -51,6 +51,7 @@ export struct Palette {
     inverted-alternative-bar-gradient: brush,
     bar-background-gradient: brush,
     tab-gradient: brush,
+    background-gradient: brush,
 }
 
 export struct Spaces {
@@ -133,6 +134,7 @@ export global Theme {
         inverted-alternative-bar-gradient: @linear-gradient(180deg, #CBE60000 0%, #CBE600 100%),
         bar-background-gradient: @linear-gradient(180deg, #896FFF 0%, #896FFF00 100%),
         tab-gradient: @linear-gradient(180deg, #0026ff21 0%, #0026ff01 100%),
+        background-gradient: @radial-gradient(circle, #0026ff40 50%, #0025FF00 100%),
     };
 
     in property <Spaces> spaces: {

@@ -7,12 +7,13 @@ import { MenuButton } from "menu_button.slint";
 export component Menu  {
     callback opend();
 
-    private property <bool> menu-button-visible;
+    in-out property <bool> menu-button-visible;
     private property <int> container-visibility;
     private property <bool> open;
 
     in property <length> start-y;
     in property <length> end-y;
+    in property <bool> stays-open;
 
     y: start-y;
 
@@ -32,7 +33,7 @@ export component Menu  {
             alignment: start;
 
             i-menu-button := MenuButton {  
-                visible: menu-button-visible || container-visibility == 1.0;
+                visible: menu-button-visible || container-visibility == 1.0 || stays-open;
                
                 clicked => { 
                     toggle-open(); 
