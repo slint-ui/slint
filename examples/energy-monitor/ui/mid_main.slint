@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Header, HeaderAdapter } from "blocks/blocks.slint";
+import { Images } from "images.slint";
+import { Theme } from "theme.slint";
+import { Menu, PageScrollView, PageContainer } from "widgets/widgets.slint";
+import { MenuPage } from "pages/pages.slint";
+import { Balance, Overview, Usage, UsageAdapter, Weather } from "pages/pages.slint";
+ 
+export component MidMain {
+    Rectangle {
+        background: Theme.palette.background-gradient;
+
+        VerticalLayout {  
+            padding-bottom: 50px;
+            spacing: 35px;
+
+            Header {}
+            
+            PageScrollView {
+                vertical-stretch: 1;
+
+                PageContainer {
+                    Overview {
+                  
+                    }
+                }
+
+                PageContainer {
+                    Usage {
+                  
+                    }
+                }
+                PageContainer {
+                    Weather {
+                  
+                    }
+                }
+                PageContainer {
+                    Balance {
+                  
+                    }
+                }
+
+            }
+        }
+
+        i-menu := Menu {
+            stays-open: true;
+            x: (parent.width - self.width) / 2;
+            start-y: parent.height - 42px;
+            end-y: 75px;
+            width: root.width / 3;
+            height: root.height - 75px;  
+    
+            MenuPage {
+                page-changed => {  
+                    i-menu.hide();
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,112 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { FloatButton } from "float_button.slint";
+import { Images } from "../images.slint";
+import { Theme } from "../theme.slint";
+
+component ScrollBar {
+    private property <length> ref-width: self.width - 4px;
+
+    in property <float> range;
+    in property <float> value;
+
+    min-height: 14px;
+
+    Rectangle {
+        border-width: 1px;
+        border-radius: 6px;
+        border-color: Theme.palette.slint-blue-300;
+
+        Rectangle {
+            x: 2px - ref-width * value;
+            y: 2px;
+            height: parent.height - 4px;
+            background: Theme.palette.slint-blue-300;
+            width: ref-width * range;
+            border-radius: parent.border-radius - 2px;
+        }
+    }
+}
+
+export component PageContainer {
+    min-width: 320px;
+    min-height: 240px;
+
+    Rectangle {
+        border-radius: 6px;
+        background: Theme.palette.dark-deep-blue;
+        opacity: 0.5;
+    }
+
+    Rectangle {
+        y: 10px;
+        height: root.height - 20px;
+
+        @children
+    }
+}
+
+export component PageScrollView {
+    VerticalLayout {
+        spacing: 50px;
+
+        i-flickable := Flickable {
+            vertical-stretch: 1;
+
+            i-layout := HorizontalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                spacing: 20px;
+
+                @children
+            }
+            
+        }
+
+        HorizontalLayout {
+            vertical-stretch: 0;
+            spacing: 25px;
+            padding-left: 25px;
+            padding-right: 25px;
+
+            FloatButton { 
+                visible: i-flickable.viewport-x < 0;
+                horizontal-stretch: 0;
+                icon: Images.arrow-left;
+
+                clicked => {
+                    scroll-left();
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                horizontal-stretch: 1;
+
+                ScrollBar {
+                    value: i-flickable.viewport-x / i-flickable.viewport-width;
+                    range:  i-flickable.width / i-flickable.viewport-width;
+                }
+            }
+
+            FloatButton { 
+                visible: i-flickable.viewport-x > i-flickable.width - i-flickable.viewport-width;
+                horizontal-stretch: 0;
+                icon: Images.arrow-right;
+                
+                clicked => {
+                    scroll-right();
+                }
+            }
+        }
+    }
+
+    function scroll-left() {
+        i-flickable.viewport-x = min(i-flickable.viewport-x + 64px, 0);
+    }
+
+    function scroll-right() {
+        i-flickable.viewport-x = max(i-flickable.viewport-x - 64px,  i-flickable.width - i-flickable.viewport-width);
+    }
+}

@@ -3,10 +3,12 @@
 
 import { Theme } from "theme.slint";
 import { SmallMain } from "small_main.slint";
-import { BigMain, HeaderAdapter } from "big_main.slint";
+import { BigMain } from "big_main.slint";
+import { MidMain } from "mid_main.slint";
 import { BarTileModel } from "widgets/widgets.slint";
 import { Images } from "images.slint";
 import { Theme } from "theme.slint";
+import { HeaderAdapter } from "blocks/blocks.slint";
 import { Navigation, MenuButton, Menu, Value } from "widgets/widgets.slint";
 import { BalanceAdapter, OverviewAdapter, UsageAdapter, WeatherAdapter, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter } from "pages/pages.slint";
 
@@ -27,6 +29,6 @@ export component MainWindow inherits Window {
     background: Theme.palette.pure-black;
 
     if show-big : BigMain {}
-
-    if show-small || show-mid : SmallMain {}
+    if show-mid : MidMain {}
+    if show-small : SmallMain {}
 }

@@ -23,40 +23,44 @@ export component MenuPage {
 
     private property <int> current-index;
     private property <bool> show-settings;
- 
-    i-overview := MenuOverview {  
-         index: 0;
-         current-index: root.current-index;
- 
-         show-settings => {  
-             show-settings = true;
-             current-index = 1;
-             
-         }
-         show-about => {  
-             show-settings = false;
-             current-index = 1;
-         }
-    }
- 
-    About {
-         visible: !show-settings;
-         index: 1;
-         current-index: root.current-index;
-         
-         back => { 
-             back();
-         }
-     }
- 
-    Settings {
-         visible: show-settings;
-         index: 1;
-         current-index: root.current-index;
- 
-         back => {  
-             back();
-         }
+
+    Rectangle {
+        clip: true;
+
+        i-overview := MenuOverview {  
+            index: 0;
+            current-index: root.current-index;
+    
+            show-settings => {  
+                show-settings = true;
+                current-index = 1;
+                
+            }
+            show-about => {  
+                show-settings = false;
+                current-index = 1;
+            }
+       }
+    
+       About {
+            visible: !show-settings;
+            index: 1;
+            current-index: root.current-index;
+            
+            back => { 
+                back();
+            }
+        }
+    
+       Settings {
+            visible: show-settings;
+            index: 1;
+            current-index: root.current-index;
+    
+            back => {  
+                back();
+            }
+       }
     }
  
     function back() {
