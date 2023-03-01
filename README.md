@@ -74,7 +74,7 @@ follows:
 Slint supports keyboard based navigation of many widgets, and user interfaces
 are scalable. The basic infrastructure for assistive technology like screen
 readers is in place, but currently requires the Qt backend.
-We are aware that more work is needed to get best-of-class support for users
+We're aware that more work is needed to get best-of-class support for users
 with special needs.
 
 ### Stay up to date
@@ -84,8 +84,7 @@ for our [🥠 Weekly Status Updates](https://slint-ui.com/thisweek/).
 
 ## Documentation
 
-Check out the [Slint Language Documentation](https://slint-ui.com/docs/slint)
-for more details.
+For more details, check out the [Slint Language Documentation](https://slint-ui.com/docs/slint).
 
 The [examples](examples) folder contains examples and demos, showing how to
 use the Slint markup language and how to interact with a Slint user interface
