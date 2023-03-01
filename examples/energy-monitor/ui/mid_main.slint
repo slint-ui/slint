@@ -9,6 +9,10 @@ import { MenuPage } from "pages/pages.slint";
 import { Balance, Overview, Usage, UsageAdapter, Weather } from "pages/pages.slint";
  
 export component MidMain {
+    private property <int> page-count: 4;
+    private property <length> item-width: i-page-scroll-view.viewport-width / page-count;
+    private property <length> max-viewport-x: i-page-scroll-view.width - i-page-scroll-view.viewport-width;
+
     Rectangle {
         background: Theme.palette.background-gradient;
 
@@ -18,31 +22,26 @@ export component MidMain {
 
             Header {}
             
-            PageScrollView {
+            i-page-scroll-view := PageScrollView {
                 vertical-stretch: 1;
 
                 PageContainer {
-                    Overview {
-                  
-                    }
+                    Overview {}
                 }
 
                 PageContainer {
-                    Usage {
-                  
-                    }
-                }
-                PageContainer {
-                    Weather {
-                  
-                    }
-                }
-                PageContainer {
-                    Balance {
-                  
-                    }
+                    Usage {}
                 }
 
+                PageContainer {
+                    Balance {}
+                }
+
+                PageContainer {
+                    Weather {}
+                }
+
+                animate viewport-x { duration: Theme.durations.medium;  }
             }
         }
 
@@ -55,8 +54,9 @@ export component MidMain {
             height: root.height - 75px;  
     
             MenuPage {
-                page-changed => {  
+                page-changed(index) => {  
                     i-menu.hide();
+                    i-page-scroll-view.viewport-x = min(0px, max(max-viewport-x, -(index * item-width))); 
                 }
             }
         }

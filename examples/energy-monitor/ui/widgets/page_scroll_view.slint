@@ -48,6 +48,9 @@ export component PageContainer {
 }
 
 export component PageScrollView {
+    out property <length> viewport-width: i-flickable.viewport-width;
+    in-out property <length> viewport-x <=> i-flickable.viewport-x;
+
     VerticalLayout {
         spacing: 50px;
 
