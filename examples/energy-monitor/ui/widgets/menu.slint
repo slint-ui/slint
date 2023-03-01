@@ -18,9 +18,14 @@ export component Menu {
     in property <length> menu-width <=> i-menu-container.width;
     in property <length> menu-height <=> i-menu-container.height;
 
-    if(open) : TouchArea {
-        clicked => {
-            hide();
+    if(open) : Rectangle {
+        background: Theme.palette.pure-black;
+        opacity: 0.5;
+
+        TouchArea {
+            clicked => {
+                hide();
+            }
         }
     }
 

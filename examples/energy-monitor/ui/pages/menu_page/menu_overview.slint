@@ -15,6 +15,7 @@ export global MenuOverviewAdapter {
         { text: "Weather"},
     ];
     in-out property <int> current-page;
+    out property <int> count: model.length;
 }
 
 export component MenuOverview inherits Page {

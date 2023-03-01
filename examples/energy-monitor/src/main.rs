@@ -14,6 +14,7 @@ pub mod ui {
     slint::include_modules!();
 }
 
+use slint::*;
 use ui::*;
 
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "mcu-board-support")))]
@@ -39,6 +40,8 @@ pub fn main() {
     #[cfg(feature = "network")]
     let weather_join = weather::setup(&window);
 
+    let _kiosk_mode_timer = kiosk_timer(&window);
+
     window.run().unwrap();
 
     #[cfg(feature = "network")]
@@ -49,7 +52,34 @@ pub fn main() {
 #[mcu_board_support::entry]
 fn main() -> ! {
     mcu_board_support::init();
-    MainWindow::new().unwrap().run().unwrap();
+    let window = MainWindow::new().unwrap();
+
+    let _kiosk_mode_timer = kiosk_timer(&window);
+
+    window.run().unwrap();
 
     panic!("The MCU demo should not quit")
+}
+
+fn kiosk_timer(window: &MainWindow) -> Timer {
+    let kiosk_mode_timer = Timer::default();
+    kiosk_mode_timer.start(TimerMode::Repeated, std::time::Duration::from_secs(4), {
+        let window_weak = window.as_weak();
+        move || {
+            if !SettingsAdapter::get(&window_weak.unwrap()).get_kiosk_mode_checked() {
+                return;
+            }
+
+            let current_page = MenuOverviewAdapter::get(&window_weak.unwrap()).get_current_page();
+            let count = MenuOverviewAdapter::get(&window_weak.unwrap()).get_count();
+
+            if current_page >= count - 1 {
+                MenuOverviewAdapter::get(&window_weak.unwrap()).set_current_page(0);
+            } else {
+                MenuOverviewAdapter::get(&window_weak.unwrap()).set_current_page(current_page + 1);
+            }
+        }
+    });
+
+    kiosk_mode_timer
 }

@@ -58,6 +58,10 @@ export component MidMain {
                     i-menu.hide();
                     i-page-scroll-view.viewport-x = min(0px, max(max-viewport-x, -(index * item-width))); 
                 }
+
+                close => {
+                    i-menu.hide();
+                }
             }
 
             opend => {

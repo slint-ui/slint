@@ -11,7 +11,7 @@ export global SettingsAdapter {
     callback check-radio-option(int /* index */);
     // fuctions
     in-out property <bool> fuction-one-checked: true;
-    in-out property <bool> fuction-two-checked;
+    in-out property <bool> kiosk-mode-checked;
     in-out property <bool> fuction-three-checked;
 
     // radio options
@@ -36,12 +36,13 @@ export global SettingsAdapter {
 }
 
 export component Settings inherits Page {
+    callback close();
     callback back <=> i-back-button.clicked;
     callback check-radio-option <=> SettingsAdapter.check-radio-option;
 
     // fuctions
     in-out property <bool> fuction-one-checked <=> SettingsAdapter.fuction-one-checked;
-    in-out property <bool> fuction-two-checked <=> SettingsAdapter.fuction-two-checked;
+    in-out property <bool> kiosk-mode-checked <=> SettingsAdapter.kiosk-mode-checked;
     in-out property <bool> fuction-three-checked <=> SettingsAdapter.fuction-three-checked;
 
     // radio options
@@ -173,14 +174,18 @@ export component Settings inherits Page {
                 }
 
                 Item {
-                    text: "Function Two";
+                    text: "Kiosk mode";
 
-                    i-fuction-two := Switch { 
-                        checked <=> root.fuction-two-checked;
+                    i-kiosk-mode := Switch { 
+                        checked <=> root.kiosk-mode-checked;
+
+                        changed => {
+                            close();
+                        }
                     }
 
                     clicked => {
-                        i-fuction-two.clicked();
+                        i-kiosk-mode.clicked();
                     }
                 }
 
