@@ -18,7 +18,7 @@ export global DemoPalette  {
     out property <color> page-background-color: root.night-mode ? #122F7B : white;
 
     out property <color> text-foreground-color: root.night-mode ? #F4F6FF : black;
-    out property <color> secondary-foreground-color: #6C6E7A; // FIXME: night mode
+    out property <color> secondary-foreground-color: root.night-mode ? #C1C3CA : #6C6E7A;
 
     out property <color> printer-action-background-color: root.night-mode ? root.main-background : white;
     out property <color> printer-queue-item-background-color: root.page-background-color;
