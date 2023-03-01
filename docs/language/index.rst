@@ -27,6 +27,7 @@ An application is composed of the business logic written in C++ and the `.slint`
 is compiled to native code.
 
 .. toctree::
+   :hidden:
    :maxdepth: 2
    :caption: Concepts
 
@@ -39,6 +40,7 @@ is compiled to native code.
    src/concepts/purity.md
 
 .. toctree::
+   :hidden:
    :maxdepth: 2
    :caption: Reference
 
@@ -59,6 +61,7 @@ is compiled to native code.
    src/reference/legacy_syntax.md
 
 .. toctree::
+   :hidden:
    :maxdepth: 4
    :caption: Builtins
 
@@ -71,6 +74,7 @@ is compiled to native code.
    src/builtins/widgets.md
 
 .. toctree::
+   :hidden:
    :maxdepth: 2
    :caption: Recipes & Examples
 
