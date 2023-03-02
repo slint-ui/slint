@@ -3,6 +3,8 @@
 
 // Verify that the init callback is invoked in the correct order
 
+import { ExportedGlobal } from "../../helper_components/export_globals.slint";
+
 export global InitOrder := {
     property <string> observed-order: "start";
 }
@@ -45,6 +47,7 @@ TestCase := Rectangle {
     height: 300phx;
     init => {
         InitOrder.observed-order += "|root";
+        ExportedGlobal.foo += 1;
     }
     Sub1 {
         init => {
