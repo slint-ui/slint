@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Theme } from "../../theme.slint";
+import { Images } from "../../images.slint";
 import { About } from "about.slint";
 import { Page } from "../page.slint";
 import { IconButton, CheckBox, RadioButton, Switch, ScrollView, Item, ItemGroupBox } from "../../widgets/widgets.slint";
@@ -68,7 +69,7 @@ export component Settings inherits Page {
 
             i-back-button := IconButton {
                 horizontal-stretch: 0;
-                icon: @image-url("../../assets/arrow-left.svg");
+                icon: Images.arrow-left;
             }
         }
 
