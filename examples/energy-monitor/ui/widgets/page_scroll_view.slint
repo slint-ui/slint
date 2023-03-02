@@ -32,6 +32,7 @@ component ScrollBar {
 export component PageContainer {
     min-width: 320px;
     min-height: 240px;
+    max-height: 300px;
 
     Rectangle {
         border-radius: 6px;
@@ -60,7 +61,7 @@ export component PageScrollView {
         }
 
         i-flickable := Flickable {
-            vertical-stretch: 0;
+            vertical-stretch: 1;
 
             i-layout := HorizontalLayout {
                 padding-left: 20px;

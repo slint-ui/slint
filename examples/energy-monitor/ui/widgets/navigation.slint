@@ -35,7 +35,6 @@ export component Navigation {
         i-pagination := Pagination {}
     }
 
-
     HorizontalLayout {  
         Rectangle { 
             visible: current-index > 0 && show-navigation; 
@@ -49,8 +48,8 @@ export component Navigation {
     
                 HorizontalLayout {  
                     padding-left: Theme.spaces.large;
-    
                     alignment: start;
+
                     FloatButton {  
                         icon: Images.arrow-left;
                         
