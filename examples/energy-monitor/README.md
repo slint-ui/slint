@@ -2,7 +2,7 @@ See the [MCU backend Readme](../mcu-board-support) to see how to run the example
 
 The example can run with the mcu simulator with the following command
 
-```cargo run -p energy_mng --no-default-features --features=simulator --release```
+```cargo run -p energy-monitor --no-default-features --features=simulator --release```
 
 ## display weather data
 
