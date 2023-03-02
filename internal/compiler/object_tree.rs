@@ -2056,6 +2056,11 @@ pub fn visit_all_named_references(
             compo
         },
     );
+    component
+        .init_code
+        .borrow_mut()
+        .iter_mut()
+        .for_each(|expr| visit_named_references_in_expression(expr, vis));
 }
 
 /// Visit all expression in this component and sub components
