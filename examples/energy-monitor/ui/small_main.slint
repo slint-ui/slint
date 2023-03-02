@@ -39,16 +39,19 @@ export component SmallMain {
     }
 
     i-menu := Menu {
-        x: (parent.width - self.width) / 2;
-        start-y: parent.height - 25px;
-        end-y: 9px;
-        width: parent.width - 8px;
-        height: parent.height - 14px;  
+        start-y:  25px;
+        end-y: 22px;
+        menu-width: parent.width - 8px;
+        menu-height: parent.height - 14px;  
 
-        MenuPage {
+        i-menu-page := MenuPage {
             page-changed => {  
                 i-menu.hide();
             }
+        }
+
+        opend => {
+            i-menu-page.current-index = 0;
         }
     }
 }

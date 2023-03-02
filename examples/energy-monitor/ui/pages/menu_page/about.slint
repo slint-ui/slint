@@ -29,46 +29,54 @@ export component About inherits Page {
             }
         }
 
-        Text {  
-            vertical-stretch: 0;
-            horizontal-alignment: center;
-            text: "Developed by";
-            color: Theme.palette.slint-blue-100;
-            font-size: Theme.typo.desciption.size;
-            font-weight: Theme.typo.desciption.weight;
-        }
-
-        Image {  
-            preferred-height: 45px;
-            source: Images.slint-logo;
-        }
-
-        // spacer
-        Rectangle { 
+        VerticalLayout { 
             vertical-stretch: 1;
+            spacing: Theme.spaces.medium;
+            alignment: start;
+
+            Text {  
+                vertical-stretch: 0;
+                horizontal-alignment: center;
+                text: "Developed by";
+                color: Theme.palette.slint-blue-100;
+                font-size: Theme.typo.header-item.size;
+                font-weight: Theme.typo.header-item.weight;
+            }
+    
+            Image {  
+                preferred-height: 55px;
+                source: Images.slint-logo;
+            }
+    
+            // spacer
+            Rectangle { 
+                vertical-stretch: 1;
+            }
+    
+            Text {  
+                vertical-stretch: 0;
+                horizontal-alignment: center;
+                text: "Designed by";
+                color: Theme.palette.slint-blue-100;
+                font-size: Theme.typo.header-item.size;
+                font-weight: Theme.typo.header-item.weight;
+            }
+           
+            Text {  
+                vertical-stretch: 0;
+                horizontal-alignment: center;
+                text: "Spyrosoft";
+                color: Theme.palette.white;
+                font-size: Theme.typo.header-item.size;
+                font-weight: Theme.typo.header-item.weight;
+            }
+    
+            // Image {  
+            //     preferred-height: 32px;
+            //     source: @image-url("../assets/logo-spyrosoft.svg");
+            // }
         }
 
-        Text {  
-            vertical-stretch: 0;
-            horizontal-alignment: center;
-            text: "Designed by";
-            color: Theme.palette.slint-blue-100;
-            font-size: Theme.typo.desciption.size;
-            font-weight: Theme.typo.desciption.weight;
-        }
-       
-        Text {  
-            vertical-stretch: 0;
-            horizontal-alignment: center;
-            text: "Spyrosoft";
-            color: Theme.palette.white;
-            font-size: Theme.typo.header-item.size;
-            font-weight: Theme.typo.header-item.weight;
-        }
-
-        // Image {  
-        //     preferred-height: 32px;
-        //     source: @image-url("../assets/logo-spyrosoft.svg");
-        // }
+  
     }
 }
