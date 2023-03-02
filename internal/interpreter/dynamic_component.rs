@@ -1280,23 +1280,26 @@ pub fn instantiate(
             if let Type::Function { .. } = property_type {
                 // function don't need initialization
             } else if let Type::Callback { .. } = property_type {
-                let expr = binding.expression.clone();
-                let component_type = component_type.clone();
-                if let Some(callback_offset) =
-                    component_type.custom_callbacks.get(prop_name).filter(|_| is_root)
-                {
-                    let callback = callback_offset.apply(instance_ref.as_ref());
-                    callback.set_handler(make_callback_eval_closure(expr, &self_weak));
-                } else {
-                    let item_within_component = &component_type.items[&elem.id];
-                    let item = item_within_component.item_from_component(instance_ref.as_ptr());
-                    if let Some(callback) = item_within_component.rtti.callbacks.get(prop_name) {
-                        callback.set_handler(
-                            item,
-                            Box::new(make_callback_eval_closure(expr, &self_weak)),
-                        );
+                if !matches!(binding.expression, Expression::Invalid) {
+                    let expr = binding.expression.clone();
+                    let component_type = component_type.clone();
+                    if let Some(callback_offset) =
+                        component_type.custom_callbacks.get(prop_name).filter(|_| is_root)
+                    {
+                        let callback = callback_offset.apply(instance_ref.as_ref());
+                        callback.set_handler(make_callback_eval_closure(expr, &self_weak));
                     } else {
-                        panic!("unknown callback {}", prop_name)
+                        let item_within_component = &component_type.items[&elem.id];
+                        let item = item_within_component.item_from_component(instance_ref.as_ptr());
+                        if let Some(callback) = item_within_component.rtti.callbacks.get(prop_name)
+                        {
+                            callback.set_handler(
+                                item,
+                                Box::new(make_callback_eval_closure(expr, &self_weak)),
+                            );
+                        } else {
+                            panic!("unknown callback {}", prop_name)
+                        }
                     }
                 }
             } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
