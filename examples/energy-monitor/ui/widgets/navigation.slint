@@ -29,6 +29,7 @@ export component Navigation {
 
         Rectangle {
             clip: true;
+            
             @children
         }
 
@@ -39,7 +40,6 @@ export component Navigation {
         Rectangle { 
             visible: current-index > 0 && show-navigation; 
             opacity: self.visible ? 1 : 0;
-            // x: 0px;
             min_width: 129px;
             background: Theme.palette.dark-left-gradient;
 

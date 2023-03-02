@@ -53,29 +53,23 @@ export component PageScrollView {
     in-out property <length> viewport-x <=> i-flickable.viewport-x;
 
     VerticalLayout {
-        spacing: 50px;
+        spacing: 10px;
 
-        // spacer
-        Rectangle {
+        VerticalLayout {
             vertical-stretch: 1;
-        }
+            alignment: center;
 
-        i-flickable := Flickable {
-            vertical-stretch: 1;
-
-            i-layout := HorizontalLayout {
-                padding-left: 20px;
-                padding-right: 20px;
-                spacing: 20px;
-
-                @children
-            }
-            
-        }
-
-        // spacer
-        Rectangle {
-            vertical-stretch: 1;
+            i-flickable := Flickable {
+                vertical-stretch: 1;
+    
+                i-layout := HorizontalLayout {
+                    padding-left: 20px;
+                    padding-right: 20px;
+                    spacing: 20px;
+    
+                    @children
+                }   
+            }     
         }
 
         HorizontalLayout {
