@@ -1,6 +1,6 @@
 <!-- SPDX-FileCopyrightText: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial -->
 
-<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M8 -7.3751e-06L9.425 1.39999L3.825 6.99999L16 6.99999L16 8.99999L3.825 8.99999L9.425 14.6L8 16L6.99382e-07 7.99999L8 -7.3751e-06Z" fill="white"/>
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path transform="rotate(180 12 12)" d="M12 20L10.575 18.6L16.175 13H4V11H16.175L10.575 5.4L12 4L20 12L12 20Z" fill="white"/>
 </svg>
