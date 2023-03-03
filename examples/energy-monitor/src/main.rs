@@ -63,7 +63,7 @@ fn main() -> ! {
 
 fn kiosk_timer(window: &MainWindow) -> Timer {
     let kiosk_mode_timer = Timer::default();
-    kiosk_mode_timer.start(TimerMode::Repeated, std::time::Duration::from_secs(4), {
+    kiosk_mode_timer.start(TimerMode::Repeated, core::time::Duration::from_secs(4), {
         let window_weak = window.as_weak();
         move || {
             if !SettingsAdapter::get(&window_weak.unwrap()).get_kiosk_mode_checked() {
