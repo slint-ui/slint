@@ -11,6 +11,7 @@ import { Theme } from "theme.slint";
 import { HeaderAdapter } from "blocks/blocks.slint";
 import { Navigation, MenuButton, Menu, Value } from "widgets/widgets.slint";
 import { BalanceAdapter, OverviewAdapter, UsageAdapter, WeatherAdapter, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter } from "pages/pages.slint";
+import { KioskOverlay } from "blocks/kiosk_overlay.slint";
 
 export { OverviewAdapter, UsageAdapter, Value, WeatherAdapter, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter, 
     BarTileModel, Images, HeaderAdapter }
@@ -31,4 +32,6 @@ export component MainWindow inherits Window {
     if show-big : BigMain {}
     if show-mid : MidMain {}
     if show-small : SmallMain {}
+
+    if SettingsAdapter.kiosk-mode-checked : KioskOverlay {}
 }

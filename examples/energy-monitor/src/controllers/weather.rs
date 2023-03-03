@@ -16,7 +16,7 @@ const WEATHER_LAT_KEY: &str = "WEATHER_LAT";
 const WEATHER_LONG_KEY: &str = "WEATHER_LONG";
 const LAT_BERLIN: f32 = 52.520008;
 const LONG_BERLIN: f32 = 13.404954;
-const FORECAST_DAYS: i64 = 5;
+const FORECAST_DAYS: i64 = 3;
 
 pub fn setup(window: &MainWindow) -> thread::JoinHandle<()> {
     let window_weak = window.as_weak();
@@ -140,7 +140,7 @@ fn display_forecast(window_weak: Weak<MainWindow>, forecast: Vec<(ForecastDay, S
 
             for (forecast_day, day) in forecast {
                 let model = BarTileModel {
-                    title: SharedString::from(day),
+                    title: SharedString::from(&day.as_str()[0..3]),
                     max: forecast_day.day.temp_c().max().round() as i32,
                     min: forecast_day.day.temp_c().min().round() as i32,
                     absolute_max: max_temp.round() as i32,

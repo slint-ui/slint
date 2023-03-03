@@ -4,7 +4,9 @@
 import { Theme } from "../theme.slint";
 
 export component Switch {
+    callback changed(bool /* checked */);
     callback clicked <=> i-touch-area.clicked;
+
     in-out property <bool> checked;
 
     min-height: 18px;
@@ -32,8 +34,13 @@ export component Switch {
 
     i-touch-area := TouchArea {  
         clicked => {  
-            checked = !checked;
+            toggle-checked();
         }
+    }
+
+    function toggle-checked() {
+        checked = !checked;
+        changed(checked);
     }
 
     states [  

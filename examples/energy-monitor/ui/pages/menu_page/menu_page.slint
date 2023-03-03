@@ -22,6 +22,7 @@ export component MenuPage {
     private property <bool> show-settings;
 
     callback page-changed <=> i-overview.page-changed;
+    callback close <=> i-settings.close;
    
     in-out property <int> current-index;
 
@@ -53,7 +54,7 @@ export component MenuPage {
             }
         }
     
-       Settings {
+       i-settings := Settings {
             visible: show-settings;
             index: 1;
             current-index: root.current-index;
