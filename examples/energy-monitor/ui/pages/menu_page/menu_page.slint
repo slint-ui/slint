@@ -19,10 +19,11 @@ export global MenuPageAdapter {
 }
 
 export component MenuPage {
-    callback page-changed <=> i-overview.page-changed;
-
-    private property <int> current-index;
     private property <bool> show-settings;
+
+    callback page-changed <=> i-overview.page-changed;
+   
+    in-out property <int> current-index;
 
     Rectangle {
         clip: true;

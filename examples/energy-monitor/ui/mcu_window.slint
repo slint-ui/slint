@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "theme.slint";
+import { SmallMain } from "small_main.slint";
+import { BarTileModel } from "widgets/widgets.slint";
+import { Images } from "images.slint";
+import { Theme } from "theme.slint";
+import { HeaderAdapter } from "blocks/blocks.slint";
+import { Navigation, MenuButton, Menu, Value } from "widgets/widgets.slint";
+import { BalanceAdapter, OverviewAdapter, UsageAdapter, WeatherAdapter, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter } from "pages/pages.slint";
+
+export { OverviewAdapter, UsageAdapter, Value, WeatherAdapter, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter, 
+    BarTileModel, Images, HeaderAdapter }
+
+export component MainWindow inherits Window {
+    title: "EnergyMNG Demo";
+    min-width: 320px;
+    min-height: 240px;
+    background: Theme.palette.pure-black;
+
+    SmallMain {}
+}

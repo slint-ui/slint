@@ -4,45 +4,61 @@
 import { Theme } from "../theme.slint";
 import { MenuButton } from "menu_button.slint";
 
-export component Menu  {
+export component Menu {
+    private property <bool> open;
+    private property <int> container-visibility;
+
     callback opend();
+    callback closed();
 
     in-out property <bool> menu-button-visible;
-    private property <int> container-visibility;
-    private property <bool> open;
-
     in property <length> start-y;
     in property <length> end-y;
     in property <bool> stays-open;
+    in property <length> menu-width <=> i-menu-container.width;
+    in property <length> menu-height <=> i-menu-container.height;
 
-    y: start-y;
-
-    i-container := Rectangle {
-        visible: container-visibility == 1.0;
-        border-radius: 4px;
-        background: Theme.palette.ebony-radial-gradient;
-
-        // avoid click-through
-        TouchArea {}
-
-        @children
+    if(open) : TouchArea {
+        clicked => {
+            hide();
+        }
     }
 
-    HorizontalLayout {  
-        y: - 5px;
-        alignment: center;
+    i-menu-container := Rectangle { 
+        x: (parent.width - self.width) / 2;
+        y: parent.height - start-y;
+        width: root.width / 3;
+        height: root.height - 75px;  
 
-        VerticalLayout {  
-            alignment: start;
-
-            i-menu-button := MenuButton {  
-                visible: menu-button-visible || container-visibility == 1.0 || stays-open;
-               
-                clicked => { 
-                    toggle-open(); 
+        i-container := Rectangle {
+            visible: container-visibility == 1.0;
+            border-radius: 4px;
+            background: Theme.palette.ebony-radial-gradient;
+    
+            // avoid click-through
+            TouchArea {}
+    
+            @children
+        }
+    
+        HorizontalLayout {  
+            y:  -i-menu-button.height / 2;
+            alignment: center;
+    
+            VerticalLayout {  
+                alignment: start;
+    
+                i-menu-button := MenuButton {  
+                    visible: menu-button-visible || container-visibility == 1.0 || stays-open;
+                   
+                    clicked => { 
+                        toggle-open(); 
+                    }
                 }
             }
         }
+
+        animate y { duration: Theme.durations.medium; }
     }
 
     public function hide-button() {
@@ -59,20 +75,21 @@ export component Menu  {
 
         if(open) {
             opend();
+        } else {
+            closed();
         }
     }
 
     public function hide() {
         menu-button-visible = false;
         open = false;
+        closed();
     }
-
-    animate y { duration: Theme.durations.medium; }
 
     states [  
         open when root.open : {
             container-visibility: 1.0;
-            root.y: end-y;
+            i-menu-container.y: end-y;
 
             out {
                 animate container-visibility { duration: Theme.durations.medium; }

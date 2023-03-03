@@ -47,17 +47,21 @@ export component MidMain {
 
         i-menu := Menu {
             stays-open: true;
-            x: (parent.width - self.width) / 2;
-            start-y: parent.height - 42px;
+           
+            start-y: 35px;
             end-y: 75px;
-            width: root.width / 3;
-            height: root.height - 75px;  
+            menu-width: root.width / 3;
+            menu-height: root.height - 75px;  
     
-            MenuPage {
+            i-menu-page := MenuPage {
                 page-changed(index) => {  
                     i-menu.hide();
                     i-page-scroll-view.viewport-x = min(0px, max(max-viewport-x, -(index * item-width))); 
                 }
+            }
+
+            opend => {
+                i-menu-page.current-index = 0;
             }
         }
     }
