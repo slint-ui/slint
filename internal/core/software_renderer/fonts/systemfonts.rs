@@ -27,6 +27,7 @@ fn init_fontdb() -> FontDatabase {
                 fontdb::Family::Name("Noto Sans"),
                 fontdb::Family::Name("DejaVu Sans"),
                 fontdb::Family::Name("FreeSans"),
+                fontdb::Family::Name("Liberation Sans"),
             ],
             ..Default::default()
         }) {
