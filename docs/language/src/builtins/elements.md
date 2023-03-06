@@ -151,8 +151,8 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 
 ### Callbacks
 
--   **`key-pressed(`_[`KeyEvent`](structs.md#keyevent)_`) -> [`EventResult`](structs.md#eventresult)**: Invoked when a key is pressed, the argument is a [`KeyEvent`](structs.md#keyevent) struct.
--   **`key-released(`_[`KeyEvent`](structs.md#keyevent)_`) -> [`EventResult`](structs.md#eventresult)**: Invoked when a key is released, the argument is a [`KeyEvent`](structs.md#keyevent) struct.
+-   **`key-pressed(`_[`KeyEvent`](structs.md#keyevent)_`) -> `[`EventResult`](structs.md#eventresult)**: Invoked when a key is pressed, the argument is a [`KeyEvent`](structs.md#keyevent) struct.
+-   **`key-released(`_[`KeyEvent`](structs.md#keyevent)_`) -> `[`EventResult`](structs.md#eventresult)**: Invoked when a key is released, the argument is a [`KeyEvent`](structs.md#keyevent) struct.
 
 ### Example
 
