@@ -102,7 +102,7 @@ A button that, when clicked, opens a popup to select a value.
 
 ### Callbacks
 
--   **`selected(_string_)`**: A value was selected from the combo box. The argument is the currently selected value.
+-   **`selected(`_`string`_`)`**: A value was selected from the combo box. The argument is the currently selected value.
 
 ### Example
 
@@ -171,8 +171,8 @@ a widget able to handle several lines of text.
 
 ### Callbacks
 
--   **`accepted(_string_)`**: Enter was pressed
--   **`edited(_string_)`**: Emitted when the text has changed because the user modified it
+-   **`accepted(`_`string`_`)`**: Enter was pressed
+-   **`edited(`_`string`_`)`**: Emitted when the text has changed because the user modified it
 
 ### Example
 
@@ -405,8 +405,8 @@ Same as [`ListView`](#listview), and in addition:
 
 ### Callbacks
 
--   **`sort-ascending(_int_)`**: Emitted if the model should be sorted by the given column in ascending order.
--   **`sort-descending(_int_)`**: Emitted if the model should be sorted by the given column in descending order.
+-   **`sort-ascending(`_`int`_`)`**: Emitted if the model should be sorted by the given column in ascending order.
+-   **`sort-descending(`_`int`_`)`**: Emitted if the model should be sorted by the given column in descending order.
 
 ### Example
 
@@ -501,7 +501,7 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 
 ### Callbacks
 
--   **`edited(_string_)`**: Emitted when the text has changed because the user modified it
+-   **`edited(`_`string`_`)`**: Emitted when the text has changed because the user modified it
 
 ### Example
 
