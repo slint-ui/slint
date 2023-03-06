@@ -9,10 +9,4 @@ fn main() {
        enable_skia_renderer: { any(feature = "renderer-winit-skia", feature = "renderer-winit-skia-opengl")},
        use_winit_theme: { any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32") },
     }
-
-    println!("cargo:rerun-if-env-changed=RUST_FONTCONFIG_DLOPEN");
-    let dlopen = std::env::var("RUST_FONTCONFIG_DLOPEN").is_ok();
-    if dlopen {
-        println!("cargo:rustc-cfg=feature=\"fontconfig-dlopen\"");
-    }
 }

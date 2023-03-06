@@ -10,6 +10,7 @@ license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 description = "FemtoVG based renderer for Slint"
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint-ui.com"
+build = "build.rs"
 rust-version.workspace = true
 
 [lib]
