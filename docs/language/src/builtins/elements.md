@@ -583,7 +583,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Callbacks
 
 -   **`accepted()`**: Invoked when enter key is pressed.
--   **`cursor-position-changed(_[`Point`](structs.md#point)_)**: The cursor was moved to the new (x, y) position.
+-   **`cursor-position-changed(`[_`Point`_](structs.md#point)`)`**: The cursor was moved to the new (x, y) position.
 -   **`edited()`**: Invoked when the text has changed because the user modified it.
 
 ### Example
@@ -677,7 +677,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 -   **`clicked()`**: Invoked when clicked: The mouse is pressed, then released on this element.
 -   **`moved()`**: The mouse has been moved. This will only be called if the mouse is also pressed.
--   **`pointer-event(`_[`PointerEvent`](structs.md#pointerevent)_`)`**: Invoked when a button was pressed or released.
+-   **`pointer-event(`[_`PointerEvent`_](structs.md#pointerevent)`)`**: Invoked when a button was pressed or released.
 
 ### Example
 
