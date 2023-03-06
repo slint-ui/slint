@@ -10,7 +10,7 @@ export component SmallMain {
         current-index <=> MenuOverviewAdapter.current-page;
         page-count: MenuOverviewAdapter.count;
 
-        // check current-index for virtualization
+        // check current-index to generate only displayed items
         if(i-navigation.current-index <= 1) : Overview {
             index: 0;
             current-index: i-navigation.current-index;
