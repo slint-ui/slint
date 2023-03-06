@@ -11,7 +11,13 @@ export TestCase := Window {
 
     GridLayout {
         Row {
-            Rectangle { background: @linear-gradient(90deg, red, blue); }
+            Rectangle {
+                background: @linear-gradient(90deg, red, blue);
+                Rectangle {
+                    background: @linear-gradient(0deg, limegreen 10%, transparent 50%);
+                    opacity: 0.5;
+                }
+            }
             Rectangle { background: @linear-gradient(0deg, green, yellow 20%, cyan); }
             Rectangle { background: @linear-gradient(30deg, orange 20%, pink); }
         }
