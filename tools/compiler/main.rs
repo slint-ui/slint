@@ -1,10 +1,25 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::*;
 use std::io::Write;
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum Embedding {
+    /// Embed resources using absolute paths on the build system (alias: false)
+    #[value(alias = "false", name = "as-paths")]
+    AsAbsolutePath,
+    /// Embed contents of resource files (alias: true)
+    #[value(alias = "true", name = "as-contents")]
+    AsFiles,
+    /// Embed in a format optimized for the software renderer. This
+    /// option falls back to as-contents when the software-renderer is not
+    /// used
+    #[value(name = "as-textures")]
+    SoftwareRenderer,
+}
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -29,6 +44,10 @@ struct Cli {
     #[arg(name = "dependency file", long = "depfile", number_of_values = 1, action)]
     depfile: Option<std::path::PathBuf>,
 
+    /// Declare which resources to embed
+    #[arg(long, name = "value", value_enum)]
+    embed_resources: Option<Embedding>,
+
     /// Sets the output file ('-' for stdout)
     #[arg(name = "file to generate", short = 'o', default_value = "-", action)]
     output: std::path::PathBuf,
@@ -45,6 +64,19 @@ fn main() -> std::io::Result<()> {
         std::process::exit(-1);
     }
     let mut compiler_config = CompilerConfiguration::new(args.format);
+
+    // Override defaults from command line:
+    if let Some(embed) = args.embed_resources {
+        compiler_config.embed_resources = match embed {
+            Embedding::AsAbsolutePath => EmbedResourcesKind::OnlyBuiltinResources,
+            Embedding::AsFiles => EmbedResourcesKind::EmbedAllResources,
+            #[cfg(feature = "software-renderer")]
+            Embedding::SoftwareRenderer => EmbedResourcesKind::EmbedTextures,
+            #[cfg(not(feature = "software-renderer"))]
+            Embedding::SoftwareRenderer => EmbedResourcesKind::EmbedAllResources,
+        };
+    }
+
     compiler_config.include_paths = args.include_paths;
     if let Some(style) = args.style {
         compiler_config.style = Some(style);
