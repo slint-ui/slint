@@ -763,7 +763,7 @@ fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>
                 (sec, prim)
             }
             #[cfg(not(feature = "x11"))]
-            (Box::new(NopClipboardContext), Box::new(NopClipboardContext))
+            (Box::new(SilentClipboardContext), Box::new(SilentClipboardContext))
         } else {
             (
                 copypasta::ClipboardContext::new().map_or(
