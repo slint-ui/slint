@@ -1187,20 +1187,18 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         });
     }
 
-    /// Returns the color of the brush, mixed with the current_state's alpha
-    fn alpha_color(&self, brush: &Brush) -> Color {
-        let mut color = brush.color();
-
+    /// Returns the color, mixed with the current_state's alpha
+    fn alpha_color(&self, color: Color) -> Color {
         if self.current_state.alpha < 1.0 {
-            color = Color::from_argb_u8(
+            Color::from_argb_u8(
                 (color.alpha() as f32 * self.current_state.alpha) as u8,
                 color.red(),
                 color.green(),
                 color.blue(),
-            );
+            )
+        } else {
+            color
         }
-
-        color
     }
 }
 
@@ -1284,8 +1282,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     };
 
                     let gr = GradientCommand {
-                        color1: s1.color.into(),
-                        color2: s2.color.into(),
+                        color1: self.alpha_color(s1.color).into(),
+                        color2: self.alpha_color(s2.color).into(),
                         start,
                         flags,
                         top_clip: Length::new(
@@ -1318,7 +1316,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             }
 
             // FIXME: gradients
-            let color = self.alpha_color(&background);
+            let color = self.alpha_color(background.color());
 
             if color.alpha() == 0 {
                 return;
@@ -1339,9 +1337,9 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             let mut border = rect.border_width();
             let radius = rect.border_radius();
             // FIXME: gradients
-            let color = self.alpha_color(&rect.background());
+            let color = self.alpha_color(rect.background().color());
             let border_color = if border.get() as f32 > 0.01 {
-                self.alpha_color(&rect.border_color())
+                self.alpha_color(rect.border_color().color())
             } else {
                 Color::default()
             };
@@ -1499,7 +1497,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
         let font_request = text.font_request(self.window);
 
-        let color = self.alpha_color(&text.color());
+        let color = self.alpha_color(text.color().color());
         let max_size = (geom.size.cast() * self.scale_factor).cast();
 
         // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
