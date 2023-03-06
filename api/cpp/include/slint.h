@@ -777,7 +777,7 @@ struct UIntModel : Model<int>
     {
         if (value >= row_count())
             return {};
-        return value;
+        return static_cast<int>(value);
     }
 };
 } // namespace private_api
