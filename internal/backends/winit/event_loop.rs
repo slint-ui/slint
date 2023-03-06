@@ -211,9 +211,9 @@ pub fn register_window(id: winit::window::WindowId, window: Rc<dyn WinitWindow>)
 }
 
 pub fn unregister_window(id: winit::window::WindowId) {
-    ALL_WINDOWS.with(|windows| {
+    let _ = ALL_WINDOWS.try_with(|windows| {
         windows.borrow_mut().remove(&id);
-    })
+    });
 }
 
 fn window_by_id(id: winit::window::WindowId) -> Option<Rc<dyn WinitWindow>> {
