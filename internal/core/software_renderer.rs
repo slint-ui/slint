@@ -1013,6 +1013,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
         let renderer_clip_in_source_rect_space = (self.current_state.clip.cast()
             * self.scale_factor)
+            .translate(-image_fit_offset)
             .scale(1. / source_to_target_x, 1. / source_to_target_y);
         match image_inner {
             ImageInner::None => (),
