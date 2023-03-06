@@ -10,19 +10,20 @@ export component SmallMain {
         current-index <=> MenuOverviewAdapter.current-page;
         page-count: MenuOverviewAdapter.count;
 
-        Overview {
+        // check current-index to generate only displayed items
+        if(i-navigation.current-index <= 1) : Overview {
             index: 0;
             current-index: i-navigation.current-index;
         }
-        Usage { 
+        if(i-navigation.current-index >= 0 && i-navigation.current-index <= 2) : Usage { 
             index: 1;
             current-index: i-navigation.current-index;
         }
-        Balance {
+        if(i-navigation.current-index >= 1 && i-navigation.current-index <= 3) : Balance {
             index: 2;
             current-index: i-navigation.current-index;
         }
-        Weather {
+        if(i-navigation.current-index >= 2 && i-navigation.current-index <= 4) : Weather {
             index: 3; 
             current-index: i-navigation.current-index;
         }
@@ -44,7 +45,7 @@ export component SmallMain {
         menu-width: parent.width - 8px;
         menu-height: parent.height - 14px;  
 
-        i-menu-page := MenuPage {
+        if(i-menu.open) : MenuPage {
             page-changed => {  
                 i-menu.hide();
             }
@@ -52,10 +53,6 @@ export component SmallMain {
             close => {
                 i-menu.hide();
             }
-        }
-
-        opend => {
-            i-menu-page.current-index = 0;
         }
     }
 }

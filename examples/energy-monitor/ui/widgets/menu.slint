@@ -5,7 +5,6 @@ import { Theme } from "../theme.slint";
 import { MenuButton } from "menu_button.slint";
 
 export component Menu {
-    private property <bool> open;
     private property <int> container-visibility;
 
     callback opend();
@@ -17,6 +16,7 @@ export component Menu {
     in property <bool> stays-open;
     in property <length> menu-width <=> i-menu-container.width;
     in property <length> menu-height <=> i-menu-container.height;
+    out property <bool> open;
 
     if(open) : Rectangle {
         background: Theme.palette.pure-black;
