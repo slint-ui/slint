@@ -18,7 +18,7 @@ path = "lib.rs"
 
 [features]
 pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "fugit", "cortex-m", "display-interface", "st7789", "defmt", "defmt-rtt", "shared-bus", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
-stm32h735g = ["slint/unsafe-single-threaded", "embedded-hal", "cortex-m/critical-section-single-core", "cortex-m-rt","alloc-cortex-m", "embedded-time", "cortex-m", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm"]
+stm32h735g = ["slint/unsafe-single-threaded", "embedded-hal", "cortex-m/critical-section-single-core", "cortex-m-rt","alloc-cortex-m", "embedded-time", "cortex-m", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm", "getrandom"]
 esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp32s2-hal", "embedded-hal", "xtensa-lx-rt/esp32s2", "esp-alloc", "esp-println/esp32s2", "display-interface", "display-interface-spi", "st7789", "slint/libm"]
 esp32-s3-box = ["slint/unsafe-single-threaded", "esp32s3-hal", "embedded-hal", "xtensa-lx-rt/esp32s3", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "display-interface", "display-interface-spi", "mipidsi", "embedded-graphics", "slint/libm", "tt21100"]
 
@@ -47,6 +47,7 @@ st7789 = { version = "0.7.0", optional = true }
 euclid = { version = "0.22", default-features = false, optional = true }
 
 stm32h7xx-hal = { version = "0.13.0", optional = true, features = ["log-rtt", "ltdc", "xspi"] }
+getrandom = { version = "0.2", optional = true, default-features = false, features = ["custom"] }
 embedded-time = { version = "0.12.0", optional = true }
 embedded-display-controller = { version = "0.1.0", optional = true }
 # Use upstream git version to enable use of panic-probe (released version enforced panic-semihosting)
