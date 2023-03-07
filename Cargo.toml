@@ -80,6 +80,9 @@ resolver="2"
 [profile.release]
 lto = true
 panic = "abort"
+codegen-units = 1 # better optimizations
+debug = true # symbols are nice and they don't increase the size in flash
+opt-level = "s" # optimize for binary size
 
 [profile.dev]
 panic = "abort"
