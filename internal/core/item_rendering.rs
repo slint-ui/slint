@@ -393,11 +393,21 @@ impl<'a, T> PartialRenderer<'a, T> {
 
     /// Visit the tree of item and compute what are the dirty regions
     pub fn compute_dirty_regions(&mut self, component: &ComponentRc, origin: LogicalPoint) {
+        #[derive(Clone, Copy)]
+        struct ComputeDirtyRegionState {
+            offset: euclid::Vector2D<Coord, LogicalPx>,
+            old_offset: euclid::Vector2D<Coord, LogicalPx>,
+            clipped: LogicalRect,
+            must_refresh_children: bool,
+        }
+
         crate::item_tree::visit_items(
             component,
             crate::item_tree::TraversalOrder::BackToFront,
-            |_, item, _, offset| {
+            |_, item, _, state| {
+                let mut new_state = *state;
                 let mut borrowed = self.cache.borrow_mut();
+
                 match item.cached_rendering_data_offset().get_entry(&mut borrowed) {
                     Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
                         if tr.is_dirty() {
@@ -406,30 +416,84 @@ impl<'a, T> PartialRenderer<'a, T> {
                             let geom = crate::properties::evaluate_no_tracking(|| {
                                 item.as_ref().geometry()
                             });
-                            self.mark_dirty_rect(old_geom, *offset);
-                            self.mark_dirty_rect(geom, *offset);
-                            ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
+
+                            self.mark_dirty_rect(old_geom, state.old_offset, &state.clipped);
+                            self.mark_dirty_rect(geom, state.offset, &state.clipped);
+
+                            new_state.offset += geom.origin.to_vector();
+                            new_state.old_offset += old_geom.origin.to_vector();
+                            if ItemRef::downcast_pin::<Clip>(item).is_some()
+                                || ItemRef::downcast_pin::<Opacity>(item).is_some()
+                            {
+                                // When the opacity or the clip change, this will impact all the children, including
+                                // the ones outside the element, regardless if they are themselves dirty or not.
+                                new_state.must_refresh_children = true;
+                            }
+
+                            ItemVisitorResult::Continue(new_state)
                         } else {
                             tr.as_ref().register_as_dependency_to_current_binding();
-                            ItemVisitorResult::Continue(*offset + data.origin.to_vector())
+
+                            if state.must_refresh_children
+                                || new_state.offset != new_state.old_offset
+                            {
+                                self.mark_dirty_rect(*data, state.old_offset, &state.clipped);
+                                self.mark_dirty_rect(*data, state.offset, &state.clipped);
+                            }
+
+                            new_state.offset += data.origin.to_vector();
+                            new_state.old_offset += data.origin.to_vector();
+                            if crate::properties::evaluate_no_tracking(|| is_clipping_item(item)) {
+                                new_state.clipped = new_state
+                                    .clipped
+                                    .intersection(
+                                        &data
+                                            .translate(state.offset)
+                                            .union(&data.translate(state.old_offset)),
+                                    )
+                                    .unwrap_or_default();
+                            }
+                            ItemVisitorResult::Continue(new_state)
                         }
                     }
                     _ => {
                         drop(borrowed);
-                        let geom =
-                            crate::properties::evaluate_no_tracking(|| item.as_ref().geometry());
-                        self.mark_dirty_rect(geom, *offset);
-                        ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
+                        let geom = crate::properties::evaluate_no_tracking(|| {
+                            let geom = item.as_ref().geometry();
+                            new_state.offset += geom.origin.to_vector();
+                            new_state.old_offset += geom.origin.to_vector();
+                            if is_clipping_item(item) {
+                                new_state.clipped = new_state
+                                    .clipped
+                                    .intersection(&geom.translate(state.offset))
+                                    .unwrap_or_default();
+                            }
+                            geom
+                        });
+                        self.mark_dirty_rect(geom, state.offset, &state.clipped);
+                        ItemVisitorResult::Continue(new_state)
                     }
                 }
             },
-            origin.to_vector(),
+            ComputeDirtyRegionState {
+                offset: origin.to_vector(),
+                old_offset: origin.to_vector(),
+                clipped: euclid::rect(0 as Coord, 0 as Coord, Coord::MAX, Coord::MAX),
+                must_refresh_children: false,
+            },
         );
     }
 
-    fn mark_dirty_rect(&mut self, rect: LogicalRect, offset: euclid::Vector2D<Coord, LogicalPx>) {
+    fn mark_dirty_rect(
+        &mut self,
+        rect: LogicalRect,
+        offset: euclid::Vector2D<Coord, LogicalPx>,
+        clip_rect: &LogicalRect,
+    ) {
         if !rect.is_empty() {
-            self.dirty_region = self.dirty_region.union(&rect.translate(offset).to_box2d());
+            if let Some(rect) = rect.translate(offset).intersection(&clip_rect) {
+                self.dirty_region = self.dirty_region.union(&rect.to_box2d());
+            }
         }
     }
 
@@ -459,10 +523,11 @@ impl<'a, T> PartialRenderer<'a, T> {
 }
 
 macro_rules! forward_rendering_call {
-    (fn $fn:ident($Ty:ty)) => {
-        fn $fn(&mut self, obj: Pin<&$Ty>, item_rc: &ItemRc) {
+    (fn $fn:ident($Ty:ty) $(-> $Ret:ty)?) => {
+        fn $fn(&mut self, obj: Pin<&$Ty>, item_rc: &ItemRc) $(-> $Ret)? {
+            let mut ret = None;
             Self::do_rendering(&self.cache, &obj.cached_rendering_data, || {
-                self.actual_renderer.$fn(obj, item_rc);
+                ret = Some(self.actual_renderer.$fn(obj, item_rc));
                 type Ty = $Ty;
                 let width = Ty::FIELD_OFFSETS.width.apply_pin(obj).get_untracked();
                 let height = Ty::FIELD_OFFSETS.height.apply_pin(obj).get_untracked();
@@ -472,13 +537,22 @@ macro_rules! forward_rendering_call {
                     LogicalPoint::from_lengths(x, y),
                     LogicalSize::from_lengths(width, height),
                 )
-            })
+            });
+            ret.unwrap_or_default()
         }
     };
 }
 
 impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
     fn filter_item(&mut self, item: Pin<ItemRef>) -> (bool, LogicalRect) {
+        let eval = || {
+            if let Some(clip) = ItemRef::downcast_pin::<Clip>(item) {
+                // Make sure we register a dependency on the clip
+                clip.clip();
+            }
+            item.as_ref().geometry()
+        };
+
         let rendering_data = item.cached_rendering_data_offset();
         let mut cache = self.cache.borrow_mut();
         let item_geometry = match rendering_data.get_entry(&mut cache) {
@@ -486,12 +560,11 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
                 dependency_tracker
                     .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
                     .as_ref()
-                    .evaluate_if_dirty(|| *data = item.as_ref().geometry());
+                    .evaluate_if_dirty(|| *data = eval());
                 *data
             }
             None => {
-                let cache_entry =
-                    crate::graphics::CachedGraphicsData::new(|| item.as_ref().geometry());
+                let cache_entry = crate::graphics::CachedGraphicsData::new(eval);
                 let geom = cache_entry.data;
                 rendering_data.cache_index.set(cache.insert(cache_entry));
                 rendering_data.cache_generation.set(cache.generation());
@@ -515,6 +588,9 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
     #[cfg(feature = "std")]
     forward_rendering_call!(fn draw_path(Path));
     forward_rendering_call!(fn draw_box_shadow(BoxShadow));
+
+    forward_rendering_call!(fn visit_clip(Clip) -> RenderingResult);
+    forward_rendering_call!(fn visit_opacity(Opacity) -> RenderingResult);
 
     fn combine_clip(
         &mut self,
