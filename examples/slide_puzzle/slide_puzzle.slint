@@ -223,7 +223,7 @@ export component MainWindow inherits Window {
         x: 0; y: 0;
         height: 100%; width: 100%;
         // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
-        source: @image-url("berlin.jpg");
+        source: @image-url("berlin_480.jpg");
         image-fit: cover;
     }
 
@@ -314,7 +314,7 @@ export component MainWindow inherits Window {
             if (root.current-theme.game-use-background-image) : Image {
                 height: 100%; width: 100%;
                 // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
-                source: @image-url("berlin.jpg");
+                source: @image-url("berlin_480.jpg");
                 source-clip-x: mod(i, 4) * self.source.width / 4;
                 source-clip-y: floor(i / 4) * self.source.height / 4;
                 source-clip-width: self.source.width / 4;
@@ -383,7 +383,7 @@ export component MainWindow inherits Window {
             if (root.current-theme.game-use-background-image) : Image {
                 height: 100%; width: 100%;
                 // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
-                source: @image-url("berlin.jpg");
+                source: @image-url("berlin_480.jpg");
                 source-clip-x: 3 * self.source.width / 4;
                 source-clip-y: 3 * self.source.height / 4;
                 source-clip-width: self.source.width / 4;
