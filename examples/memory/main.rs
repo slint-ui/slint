@@ -12,6 +12,9 @@ use slint::{Model, Timer, VecModel};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+#[cfg(feature = "mcu-board-support")]
+use slint::private_unstable_api::re_exports::Float;
+
 slint::slint! {
     import { MainWindow } from "memory.slint";
 }
