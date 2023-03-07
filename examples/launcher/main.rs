@@ -6,14 +6,14 @@
 
 slint::include_modules!();
 
-#[i_slint_backend_mcu::entry]
+#[mcu_board_support::entry]
 fn main() -> ! {
-    i_slint_backend_mcu::init();
+    mcu_board_support::init();
 
     let to_launch = {
-        let main_window = Launcher::new();
-        main_window.on_quit(slint::quit_event_loop);
-        main_window.run();
+        let main_window = Launcher::new().unwrap();
+        main_window.on_quit(|| slint::quit_event_loop().unwrap());
+        main_window.run().unwrap();
         main_window.get_to_launch()
     };
 
