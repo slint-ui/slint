@@ -158,7 +158,7 @@ export component Button {
 }
 
 component ScrollBar inherits Rectangle {
-    background: Palette.white;
+    background: enabled ? Palette.white : Palette.neutralLighter;
    // border-color: Palette.button-background;
     border-width: 1px;
     in-out property <bool> horizontal;
@@ -166,6 +166,7 @@ component ScrollBar inherits Rectangle {
     in-out property<length> page-size;
     // this is always negative and bigger than  -maximum
     in-out property<length> value;
+    in property <bool> enabled;
 
     handle := Rectangle {
         width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : parent.width * (root.page-size / (root.maximum + root.page-size));
@@ -231,6 +232,7 @@ export component ScrollView {
         height: parent.height - hbar.height - 4px;
     }
     vbar := ScrollBar {
+        enabled: root.enabled;
         width: 16px;
         x: fli.width + fli.x;
         y: fli.y;
@@ -240,6 +242,7 @@ export component ScrollView {
         page-size: fli.height;
     }
     hbar := ScrollBar {
+        enabled: root.enabled;
         height: 16px;
         y: fli.height + fli.y;
         x: fli.x;
@@ -248,4 +251,12 @@ export component ScrollView {
         maximum: fli.viewport-width - fli.width;
         page-size: fli.width;
     }
+    corner := Rectangle {
+        x: fli.width + fli.x;
+        y: fli.height + fli.y;
+        height: 16px;
+        width: 16px;
+        background: root.enabled ? transparent : Palette.neutralLighter;
+    }
+
 }
