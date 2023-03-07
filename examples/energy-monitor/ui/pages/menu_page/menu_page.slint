@@ -21,50 +21,58 @@ export global MenuPageAdapter {
 export component MenuPage {
     private property <bool> show-settings;
 
-    callback page-changed <=> i-overview.page-changed;
-    callback close <=> i-settings.close;
-   
+    callback page-changed(int /* index */);
+    callback close;
+
     in-out property <int> current-index;
 
     Rectangle {
+        x: -parent.width * current-index;
+        width: 2 * parent.width;
         clip: true;
 
-        i-overview := MenuOverview {  
-            index: 0;
-            current-index: root.current-index;
-    
-            show-settings => {  
+        if(parent.x > -parent.width) : MenuOverview {
+            width: root.width;
+
+            page-changed(index) => {
+                root.page-changed(index);
+            }
+            show-settings => {
                 show-settings = true;
                 current-index = 1;
-                
+
             }
-            show-about => {  
+            show-about => {
                 show-settings = false;
                 current-index = 1;
             }
        }
-    
-       About {
-            visible: !show-settings;
-            index: 1;
-            current-index: root.current-index;
-            
-            back => { 
+
+       if(!show-settings && current-index == 1) : About {
+            x: root.width;
+            width: root.width;
+
+            back => {
                 back();
             }
         }
-    
-       i-settings := Settings {
-            visible: show-settings;
-            index: 1;
-            current-index: root.current-index;
-    
-            back => {  
+
+       if(show-settings && current-index == 1) : Settings {
+            x: root.width;
+            width: root.width;
+
+            back => {
                 back();
             }
-       }
+
+            close => {
+                root.close();
+            }
+        }
+
+        animate x { duration: Theme.durations.fast; }
     }
- 
+
     function back() {
          current-index = 0;
     }

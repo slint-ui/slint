@@ -7,89 +7,87 @@ import { Theme } from "../theme.slint";
 import { Images } from "../images.slint";
 
 export component Navigation {
+    private property <bool> show-navigation;
+
     callback pagination-clicked <=> i-pagination.clicked;
     callback clicked;
-
-    private property <bool> show-navigation;
 
     in-out property <int> current-index <=> i-pagination.selected-index;
     in property <int> page-count <=> i-pagination.count;
 
-    TouchArea {  
-        clicked => {  
-            toogle-show-navigation();
-            root.clicked();
-        }
-    }
-
-    VerticalLayout {  
+    VerticalLayout {
         padding-top: Theme.spaces.small;
-        padding-bottom: Theme.spaces.medium;
-        spacing: Theme.spaces.medium;
 
         Rectangle {
             clip: true;
-            
+
+            TouchArea {
+                clicked => {
+                    toogle-show-navigation();
+                    root.clicked();
+                }
+            }
+
             @children
         }
 
         i-pagination := Pagination {}
     }
 
-    HorizontalLayout {  
-        Rectangle { 
-            visible: current-index > 0 && show-navigation; 
+    if(show-navigation) : HorizontalLayout {
+        Rectangle {
+            visible: current-index > 0;
             opacity: self.visible ? 1 : 0;
             min_width: 129px;
             background: Theme.palette.dark-left-gradient;
 
-            VerticalLayout { 
+            VerticalLayout {
                 alignment: center;
-    
-                HorizontalLayout {  
+
+                HorizontalLayout {
                     padding-left: Theme.spaces.large;
                     alignment: start;
 
-                    FloatButton {  
+                    FloatButton {
                         icon: Images.arrow-left;
-                        
-                        clicked => {  
+
+                        clicked => {
                             root.increment();
                         }
                     }
                 }
             }
-    
+
             animate opacity { duration: Theme.durations.fast; }
         }
 
-        Rectangle { }
-    
-        Rectangle {  
-            visible: current-index < page-count - 1 && show-navigation;
+        Rectangle {}
+
+        Rectangle {
+            visible: current-index < page-count - 1;
             opacity: self.visible ? 1 : 0;
             min_width: 129px;
             background: Theme.palette.dark-right-gradient;
-    
-            VerticalLayout { 
+
+            VerticalLayout {
                 alignment: center;
-    
-                HorizontalLayout {  
+
+                HorizontalLayout {
                     padding-right: Theme.spaces.large;
-    
                     alignment: end;
-                    FloatButton {  
+
+                    FloatButton {
                         icon: Images.arrow-right;
-                       
-                        clicked => {  
+
+                        clicked => {
                             root.decrement();
                         }
                     }
                 }
             }
-    
+
             animate opacity { duration: Theme.durations.fast; }
-        } 
+        }
     }
 
     function toogle-show-navigation() {
