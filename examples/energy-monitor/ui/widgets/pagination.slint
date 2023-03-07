@@ -13,7 +13,7 @@ component Bubble inherits Rectangle {
 
     i-touch-area := TouchArea {}
 
-    states [  
+    states [
         selected when selected : {
             background: Theme.palette.white;
         }
@@ -22,20 +22,20 @@ component Bubble inherits Rectangle {
 
 export component Pagination {
     callback clicked <=> i-touch-area.clicked;
-    
+
     in property <int> count;
     in property <int> selected_index;
 
-    min-height: 11px;
+    min-height: 26px;
     vertical-stretch: 0;
 
-    VerticalLayout {  
+    VerticalLayout {
         alignment: center;
 
-        HorizontalLayout {  
+        HorizontalLayout {
             alignment: center;
             spacing: Theme.spaces.small;
-    
+
             for index in count : Bubble {
                 selected: index == selected-index;
             }

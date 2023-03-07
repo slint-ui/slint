@@ -29,35 +29,34 @@ export component Menu {
         }
     }
 
-    i-menu-container := Rectangle { 
+    i-menu-container := Rectangle {
         x: (parent.width - self.width) / 2;
         y: parent.height - start-y;
         width: root.width / 3;
-        height: root.height - 75px;  
+        height: root.height - 75px;
 
         i-container := Rectangle {
             visible: container-visibility == 1.0;
             border-radius: 4px;
             background: Theme.palette.ebony-radial-gradient;
-    
+
             // avoid click-through
             TouchArea {}
-    
+
             @children
         }
-    
-        HorizontalLayout {  
+
+        if(menu-button-visible || container-visibility == 1.0 || stays-open) : HorizontalLayout {
             y:  -i-menu-button.height / 2;
             alignment: center;
-    
-            VerticalLayout {  
+
+            VerticalLayout {
                 alignment: start;
-    
-                i-menu-button := MenuButton {  
-                    visible: menu-button-visible || container-visibility == 1.0 || stays-open;
-                   
-                    clicked => { 
-                        toggle-open(); 
+
+                i-menu-button := MenuButton {
+
+                    clicked => {
+                        toggle-open();
                     }
                 }
             }
@@ -91,7 +90,7 @@ export component Menu {
         closed();
     }
 
-    states [  
+    states [
         open when root.open : {
             container-visibility: 1.0;
             i-menu-container.y: end-y;

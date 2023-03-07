@@ -6,29 +6,29 @@ import { Navigation, MenuButton, Menu, Value } from "widgets/widgets.slint";
 import { Balance, Overview, Usage, UsageAdapter, Weather, MenuPage, MenuOverviewAdapter } from "pages/pages.slint";
 
 export component SmallMain {
-    i-navigation := Navigation { 
+    i-navigation := Navigation {
         current-index <=> MenuOverviewAdapter.current-page;
         page-count: MenuOverviewAdapter.count;
 
         // check current-index to generate only displayed items
-        if(i-navigation.current-index <= 1) : Overview {
+        if(i-navigation.current-index <= 1 && !i-menu.open) : Overview {
             index: 0;
             current-index: i-navigation.current-index;
         }
-        if(i-navigation.current-index >= 0 && i-navigation.current-index <= 2) : Usage { 
+        if(i-navigation.current-index >= 0 && i-navigation.current-index <= 2 && !i-menu.open) : Usage {
             index: 1;
             current-index: i-navigation.current-index;
         }
-        if(i-navigation.current-index >= 1 && i-navigation.current-index <= 3) : Balance {
+        if(i-navigation.current-index >= 1 && i-navigation.current-index <= 3 && !i-menu.open) : Balance {
             index: 2;
             current-index: i-navigation.current-index;
         }
-        if(i-navigation.current-index >= 2 && i-navigation.current-index <= 4) : Weather {
-            index: 3; 
+        if(i-navigation.current-index >= 2 && i-navigation.current-index <= 4 && !i-menu.open) : Weather {
+            index: 3;
             current-index: i-navigation.current-index;
         }
 
-        pagination-clicked => {  
+        pagination-clicked => {
             i-menu.show-button();
             i-navigation.hide();
         }
@@ -43,10 +43,10 @@ export component SmallMain {
         start-y:  25px;
         end-y: 22px;
         menu-width: parent.width - 8px;
-        menu-height: parent.height - 14px;  
+        menu-height: parent.height - 14px;
 
         if(i-menu.open) : MenuPage {
-            page-changed => {  
+            page-changed => {
                 i-menu.hide();
             }
 
