@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// Verify that properties in the base type can be accessed from init
+
+
+component Base {
+    out property <string> title: "OK";
+}
+
+export component TestCase inherits Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    out property <string> test: "KO";
+
+    in property <bool> cond: false;
+
+    if cond: Base {
+        init => {
+            root.test = self.title;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.get_test(), "KO");
+instance.set_cond(true);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_test(), "OK");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_test(), "KO");
+instance.set_cond(true);
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_test(), "OK");
+```
+
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.test, "KO");
+instance.cond = true;
+instance.send_mouse_click(5., 5.);
+assert.equal(instance.test, "OK");
+```
+
+
+*/

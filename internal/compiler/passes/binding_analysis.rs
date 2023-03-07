@@ -139,6 +139,12 @@ fn perform_binding_analysis(
         &(),
         &mut |e, _| analyze_element(e, &mut context, reverse_aliases, diag),
     );
+
+    component.init_code.borrow().iter().for_each(|init_expr| {
+        recurse_expression(&init_expr, &mut |prop: &PropertyPath| {
+            process_property(prop, &mut context, reverse_aliases, diag);
+        });
+    });
 }
 
 fn analyze_element(
@@ -160,6 +166,17 @@ fn analyze_element(
     }
     for (_, nr) in &elem.borrow().accessibility_props.0 {
         process_property(&PropertyPath::from(nr.clone()), context, reverse_aliases, diag);
+    }
+    if elem.borrow().repeated.is_some() {
+        if let ElementType::Component(base) = &elem.borrow().base_type {
+            if base.parent_element.upgrade().is_some() {
+                base.init_code.borrow().iter().for_each(|init_expr| {
+                    recurse_expression(&init_expr, &mut |prop: &PropertyPath| {
+                        process_property(prop, context, reverse_aliases, diag);
+                    });
+                });
+            }
+        }
     }
 }
 
