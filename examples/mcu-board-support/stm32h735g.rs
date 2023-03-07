@@ -5,6 +5,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use core::cell::RefCell;
 pub use cortex_m_rt::entry;
 use defmt_rtt as _;
 use embedded_display_controller::{DisplayController, DisplayControllerLayer};
@@ -38,24 +39,28 @@ pub fn init() {
         .expect("backend already initialized");
 }
 
-#[derive(Default)]
-struct StmBackend {
-    window:
-        core::cell::RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
-    timer: once_cell::unsync::OnceCell<hal::timer::Timer<pac::TIM2>>,
-}
-impl slint::platform::Platform for StmBackend {
-    fn create_window_adapter(
-        &self,
-    ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
-        let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
-            slint::platform::software_renderer::RepaintBufferType::SwappedBuffers,
-        );
-        self.window.replace(Some(window.clone()));
-        Ok(window)
-    }
+#[link_section = ".frame_buffer"]
+static mut FB1: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
+    [software_renderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
+#[link_section = ".frame_buffer"]
+static mut FB2: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
+    [software_renderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
 
-    fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
+struct StmBackendInner {
+    scb: cortex_m::peripheral::SCB,
+    delay: stm32h7xx_hal::delay::Delay,
+    layer: stm32h7xx_hal::ltdc::LtdcLayer1,
+    touch_i2c: stm32h7xx_hal::i2c::I2c<stm32h7xx_hal::device::I2C4>,
+}
+
+struct StmBackend {
+    window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
+    timer: hal::timer::Timer<pac::TIM2>,
+    inner: RefCell<StmBackendInner>,
+}
+
+impl Default for StmBackend {
+    fn default() -> Self {
         let mut cp = cortex_m::Peripherals::take().unwrap();
         let dp = pac::Peripherals::take().unwrap();
 
@@ -195,12 +200,6 @@ impl slint::platform::Platform for StmBackend {
         led_green.set_low();
         */
 
-        #[link_section = ".frame_buffer"]
-        static mut FB1: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
-            [software_renderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
-        #[link_section = ".frame_buffer"]
-        static mut FB2: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
-            [software_renderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
         // SAFETY the init function is only called once (as enforced by Peripherals::take)
         let (fb1, fb2) = unsafe { (&mut FB1, &mut FB2) };
 
@@ -285,18 +284,42 @@ impl slint::platform::Platform for StmBackend {
         // Init Timer
         let mut timer = dp.TIM2.tick_timer(10000.Hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
         timer.listen(hal::timer::Event::TimeOut);
-        self.timer.set(timer).unwrap();
 
         // Init Touch screen
         let scl =
             gpiof.pf14.into_alternate::<4>().set_open_drain().speed(High).internal_pull_up(true);
         let sda =
             gpiof.pf15.into_alternate::<4>().set_open_drain().speed(High).internal_pull_up(true);
-        let mut touch_i2c =
-            dp.I2C4.i2c((scl, sda), 100u32.kHz(), ccdr.peripheral.I2C4, &ccdr.clocks);
+        let touch_i2c = dp.I2C4.i2c((scl, sda), 100u32.kHz(), ccdr.peripheral.I2C4, &ccdr.clocks);
 
-        let mut ft5336 = ft5336::Ft5336::new(&mut touch_i2c, 0x70 >> 1, &mut delay).unwrap();
-        ft5336.init(&mut touch_i2c);
+        Self {
+            window: RefCell::default(),
+            timer,
+            inner: RefCell::new(StmBackendInner { scb: cp.SCB, delay, layer, touch_i2c }),
+        }
+    }
+}
+
+impl slint::platform::Platform for StmBackend {
+    fn create_window_adapter(
+        &self,
+    ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
+        let window = slint::platform::software_renderer::MinimalSoftwareWindow::new(
+            slint::platform::software_renderer::RepaintBufferType::SwappedBuffers,
+        );
+        self.window.replace(Some(window.clone()));
+        Ok(window)
+    }
+
+    fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
+        let inner = &mut *self.inner.borrow_mut();
+
+        let mut ft5336 =
+            ft5336::Ft5336::new(&mut inner.touch_i2c, 0x70 >> 1, &mut inner.delay).unwrap();
+        ft5336.init(&mut inner.touch_i2c);
+
+        // Safety: The Refcell at the beginning of `run_event_loop` prevents re-entrancy and thus multiple mutable references to FB1/FB2.
+        let (fb1, fb2) = unsafe { (&mut FB1, &mut FB2) };
 
         let mut displayed_fb: &mut [TargetPixel] = fb1;
         let mut work_fb: &mut [TargetPixel] = fb2;
@@ -312,20 +335,20 @@ impl slint::platform::Platform for StmBackend {
 
             if let Some(window) = self.window.borrow().clone() {
                 window.draw_if_needed(|renderer| {
-                    while layer.is_swap_pending() {}
+                    while inner.layer.is_swap_pending() {}
                     renderer.render(work_fb, DISPLAY_WIDTH);
-                    cp.SCB.clean_dcache_by_slice(work_fb);
+                    inner.scb.clean_dcache_by_slice(work_fb);
                     // Safety: the frame buffer has the right size
-                    unsafe { layer.swap_framebuffer(work_fb.as_ptr() as *const u8) };
+                    unsafe { inner.layer.swap_framebuffer(work_fb.as_ptr() as *const u8) };
                     // Swap the buffer pointer so we will work now on the second buffer
                     core::mem::swap::<&mut [_]>(&mut work_fb, &mut displayed_fb);
                 });
 
                 // handle touch event
-                let touch = ft5336.detect_touch(&mut touch_i2c).unwrap();
+                let touch = ft5336.detect_touch(&mut inner.touch_i2c).unwrap();
                 let button = slint::platform::PointerEventButton::Left;
                 let event = if touch > 0 {
-                    let state = ft5336.get_touch(&mut touch_i2c, 1).unwrap();
+                    let state = ft5336.get_touch(&mut inner.touch_i2c, 1).unwrap();
                     let position = slint::PhysicalPosition::new(state.y as i32, state.x as i32)
                         .to_logical(window.scale_factor());
                     Some(match last_touch.replace(position) {
@@ -357,7 +380,7 @@ impl slint::platform::Platform for StmBackend {
 
     fn duration_since_start(&self) -> core::time::Duration {
         // FIXME! the timer can overflow
-        let val = self.timer.get().map_or(0, |t| t.counter() / 10);
+        let val = self.timer.counter() / 10;
         core::time::Duration::from_millis(val.into())
     }
 
