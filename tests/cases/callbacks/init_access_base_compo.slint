@@ -4,6 +4,13 @@
 // Verify that properties in the base type can be accessed from init
 
 
+component Foo inherits VerticalLayout {
+    in property<string> title: "OK";
+    Text {
+        text <=> root.title;
+    }
+}
+
 component Base {
     out property <string> title: "OK";
 }
@@ -13,12 +20,19 @@ export component TestCase inherits Rectangle {
     height: 300phx;
 
     out property <string> test: "KO";
+    out property <string> test2: "KO";
 
     in property <bool> cond: false;
 
     if cond: Base {
         init => {
             root.test = self.title;
+        }
+    }
+
+    if cond: Foo {
+        init => {
+            root.test2 = self.title;
         }
     }
 }
@@ -28,27 +42,33 @@ export component TestCase inherits Rectangle {
 let instance = TestCase::new().unwrap();
 
 assert_eq!(instance.get_test(), "KO");
+assert_eq!(instance.get_test2(), "KO");
 instance.set_cond(true);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_test(), "OK");
+assert_eq!(instance.get_test2(), "OK");
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert_eq(instance.get_test(), "KO");
+assert_eq(instance.get_test2(), "KO");
 instance.set_cond(true);
 slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_test(), "OK");
+assert_eq(instance.get_test2(), "OK");
 ```
 
 
 ```js
 var instance = new slint.TestCase({});
 assert.equal(instance.test, "KO");
+assert.equal(instance.test2, "KO");
 instance.cond = true;
 instance.send_mouse_click(5., 5.);
 assert.equal(instance.test, "OK");
+assert.equal(instance.test2, "OK");
 ```
 
 
