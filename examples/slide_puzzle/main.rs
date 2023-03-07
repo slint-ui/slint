@@ -1,41 +1,26 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+#![no_std]
+#![cfg_attr(feature = "mcu-board-support", no_main)]
+
+extern crate alloc;
+
+use alloc::rc::Rc;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::cell::RefCell;
+#[cfg(feature = "rand")]
+use rand::SeedableRng;
 use slint::Model;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+#[cfg(feature = "mcu-board-support")]
+use slint::private_unstable_api::re_exports::Float;
+
 slint::include_modules!();
-
-fn shuffle() -> Vec<i8> {
-    fn is_solvable(positions: &[i8]) -> bool {
-        // Same source as the flutter's slide_puzzle:
-        // https://www.cs.bham.ac.uk/~mdr/teaching/modules04/java2/TilesSolvability.html
-        // This page seems to be no longer available, a copy can be found here:
-        // https://horatiuvlad.com/unitbv/inteligenta_artificiala/2015/TilesSolvability.html
-
-        let mut inversions = 0;
-        for x in 0..positions.len() - 1 {
-            let v = positions[x];
-            inversions += positions[x + 1..].iter().filter(|x| **x >= 0 && **x < v).count();
-        }
-        //((blank on odd row from bottom) == (#inversions even))
-        let blank_row = positions.iter().position(|x| *x == -1).unwrap() / 4;
-        inversions % 2 != blank_row % 2
-    }
-
-    let mut vec = ((-1)..15).collect::<Vec<i8>>();
-    use rand::seq::SliceRandom;
-    let mut rng = rand::thread_rng();
-    vec.shuffle(&mut rng);
-    while !is_solvable(&vec) {
-        vec.shuffle(&mut rng);
-    }
-    vec
-}
 
 struct AppState {
     pieces: Rc<slint::VecModel<Piece>>,
@@ -48,6 +33,8 @@ struct AppState {
     /// The speed in the x and y direction for the associated tile
     speed_for_kick_animation: [(f32, f32); 15],
     finished: bool,
+    #[cfg(feature = "rand")]
+    rng: rand::rngs::SmallRng,
 }
 
 impl AppState {
@@ -61,12 +48,41 @@ impl AppState {
     }
 
     fn randomize(&mut self) {
-        self.positions = shuffle();
+        self.positions = self.shuffle();
         for (i, p) in self.positions.iter().enumerate() {
             self.set_pieces_pos(*p, i as _);
         }
         self.main_window.unwrap().set_moves(0);
         self.apply_tiles_left();
+    }
+
+    fn shuffle(&mut self) -> Vec<i8> {
+        fn is_solvable(positions: &[i8]) -> bool {
+            // Same source as the flutter's slide_puzzle:
+            // https://www.cs.bham.ac.uk/~mdr/teaching/modules04/java2/TilesSolvability.html
+            // This page seems to be no longer available, a copy can be found here:
+            // https://horatiuvlad.com/unitbv/inteligenta_artificiala/2015/TilesSolvability.html
+
+            let mut inversions = 0;
+            for x in 0..positions.len() - 1 {
+                let v = positions[x];
+                inversions += positions[x + 1..].iter().filter(|x| **x >= 0 && **x < v).count();
+            }
+            //((blank on odd row from bottom) == (#inversions even))
+            let blank_row = positions.iter().position(|x| *x == -1).unwrap() / 4;
+            inversions % 2 != blank_row % 2
+        }
+
+        let mut vec = ((-1)..15).into_iter().collect::<Vec<i8>>();
+        #[cfg(feature = "rand")]
+        {
+            use rand::seq::SliceRandom;
+            vec.shuffle(&mut self.rng);
+            while !is_solvable(&vec) {
+                vec.shuffle(&mut self.rng);
+            }
+        }
+        vec
     }
 
     fn apply_tiles_left(&mut self) {
@@ -111,11 +127,14 @@ impl AppState {
     }
 
     fn random_move(&mut self) {
-        let mut rng = rand::thread_rng();
         let hole = self.positions.iter().position(|x| *x == -1).unwrap() as i8;
-        let mut p;
+        let mut p = 1;
         loop {
-            p = rand::Rng::gen_range(&mut rng, 0..16);
+            p = p + 1;
+            #[cfg(feature = "rand")]
+            {
+                p = rand::Rng::gen_range(&mut self.rng, 0..16);
+            }
             if hole == p {
                 continue;
             } else if (hole % 4 == p % 4) || (hole / 4 == p / 4) {
@@ -165,7 +184,11 @@ impl AppState {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
+#[cfg_attr(feature = "mcu-board-support", mcu_board_support::entry)]
+fn main() -> ! {
+    #[cfg(feature = "mcu-board-support")]
+    mcu_board_support::init();
+
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
@@ -181,6 +204,8 @@ pub fn main() {
         kick_animation_timer: Default::default(),
         speed_for_kick_animation: Default::default(),
         finished: false,
+        #[cfg(feature = "rand")]
+        rng: rand::rngs::SmallRng::from_entropy(),
     }));
     state.borrow_mut().randomize();
     main_window.set_pieces(state.borrow().pieces.clone().into());
@@ -196,7 +221,7 @@ pub fn main() {
             let state_weak = Rc::downgrade(&state_copy);
             state_copy.borrow().kick_animation_timer.start(
                 slint::TimerMode::Repeated,
-                std::time::Duration::from_millis(16),
+                core::time::Duration::from_millis(16),
                 move || {
                     if let Some(state) = state_weak.upgrade() {
                         state.borrow_mut().kick_animation();
@@ -219,7 +244,7 @@ pub fn main() {
             let state_weak = Rc::downgrade(&state_copy);
             state_copy.borrow().auto_play_timer.start(
                 slint::TimerMode::Repeated,
-                std::time::Duration::from_millis(200),
+                core::time::Duration::from_millis(200),
                 move || {
                     if let Some(state) = state_weak.upgrade() {
                         state.borrow_mut().random_move();
@@ -231,4 +256,5 @@ pub fn main() {
         }
     });
     main_window.run().unwrap();
+    panic!("the end");
 }

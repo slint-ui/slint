@@ -13,9 +13,16 @@ license = "MIT"
 path = "main.rs"
 name = "slide_puzzle"
 
+[features]
+default = ["slint/default", "rand"]
+
 [dependencies]
-rand = "0.8"
-slint = { path = "../../api/rs/slint" }
+rand = { version = "0.8", optional = true, default-features = false, features = ["small_rng", "getrandom"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-0"] }
+i-slint-core = { path = "../../internal/core", default-features = false, features = ["libm"] }
+mcu-board-support = { path = "../mcu-board-support", optional = true }
+once_cell = { version="1.9", features = ["atomic-polyfill"], default-features = false }
+getrandom = { version = "0.2", default-features = false, features = ["custom"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
