@@ -36,6 +36,9 @@ static ALLOCATOR: Heap = Heap::empty();
 static RNG: cortex_m::interrupt::Mutex<core::cell::RefCell<Option<hal::rng::Rng>>> =
     cortex_m::interrupt::Mutex::new(core::cell::RefCell::new(None));
 
+static QUIT_LOOP: cortex_m::interrupt::Mutex<core::cell::Cell<bool>> =
+    cortex_m::interrupt::Mutex::new(core::cell::Cell::new(false));
+
 pub fn init() {
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
     slint::platform::set_platform(Box::new(StmBackend::default()))
@@ -322,6 +325,7 @@ impl slint::platform::Platform for StmBackend {
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
         let inner = &mut *self.inner.borrow_mut();
+        cortex_m::interrupt::free(|cs| QUIT_LOOP.borrow(cs).set(false));
 
         let mut ft5336 =
             ft5336::Ft5336::new(&mut inner.touch_i2c, 0x70 >> 1, &mut inner.delay).unwrap();
@@ -383,8 +387,17 @@ impl slint::platform::Platform for StmBackend {
                 }
             }
 
+            if cortex_m::interrupt::free(|cs| QUIT_LOOP.borrow(cs).get()) {
+                break;
+            }
+
             // FIXME: cortex_m::asm::wfe();
         }
+        Ok(())
+    }
+
+    fn new_event_loop_proxy(&self) -> Option<Box<dyn slint::platform::EventLoopProxy>> {
+        Some(Box::new(DummyLoopProxy {}))
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
@@ -396,6 +409,22 @@ impl slint::platform::Platform for StmBackend {
     fn debug_log(&self, arguments: core::fmt::Arguments) {
         use alloc::string::ToString;
         defmt::println!("{=str}", arguments.to_string());
+    }
+}
+
+struct DummyLoopProxy;
+
+impl slint::platform::EventLoopProxy for DummyLoopProxy {
+    fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
+        cortex_m::interrupt::free(|cs| QUIT_LOOP.borrow(cs).set(true));
+        Ok(())
+    }
+
+    fn invoke_from_event_loop(
+        &self,
+        _event: Box<dyn FnOnce() + Send>,
+    ) -> Result<(), slint::EventLoopError> {
+        unimplemented!()
     }
 }
 
