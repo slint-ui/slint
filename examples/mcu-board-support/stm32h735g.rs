@@ -33,6 +33,9 @@ pub type TargetPixel = software_renderer::Rgb565Pixel;
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
+static RNG: cortex_m::interrupt::Mutex<core::cell::RefCell<Option<hal::rng::Rng>>> =
+    cortex_m::interrupt::Mutex::new(core::cell::RefCell::new(None));
+
 pub fn init() {
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
     slint::platform::set_platform(Box::new(StmBackend::default()))
@@ -285,6 +288,12 @@ impl Default for StmBackend {
         let mut timer = dp.TIM2.tick_timer(10000.Hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
         timer.listen(hal::timer::Event::TimeOut);
 
+        // Init RNG
+        let rng = dp.RNG.constrain(ccdr.peripheral.RNG, &ccdr.clocks);
+        cortex_m::interrupt::free(|cs| {
+            let _ = RNG.borrow(cs).replace(Some(rng));
+        });
+
         // Init Touch screen
         let scl =
             gpiof.pf14.into_alternate::<4>().set_open_drain().speed(High).internal_pull_up(true);
@@ -389,3 +398,15 @@ impl slint::platform::Platform for StmBackend {
         defmt::println!("{=str}", arguments.to_string());
     }
 }
+
+fn rng(buf: &mut [u8]) -> Result<(), getrandom::Error> {
+    cortex_m::interrupt::free(|cs| match RNG.borrow(cs).borrow_mut().as_mut() {
+        Some(rng) => rng.fill(buf).map_err(|e| match e {
+            stm32h7xx_hal::rng::ErrorKind::ClockError => getrandom::Error::UNSUPPORTED,
+            stm32h7xx_hal::rng::ErrorKind::SeedError => getrandom::Error::UNSUPPORTED,
+        }),
+        None => Err(getrandom::Error::UNSUPPORTED),
+    })
+}
+
+getrandom::register_custom_getrandom!(rng);
