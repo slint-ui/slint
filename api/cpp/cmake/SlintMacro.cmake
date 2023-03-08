@@ -1,11 +1,22 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+# Set up machinery to handle SLINT_EMBED_RESOURCES target property
+set(DEFAULT_SLINT_EMBED_RESOURCES as-paths CACHE STRING
+    "The default resource embedding option to pass to the Slint compiler")
+set_property(CACHE DEFAULT_SLINT_EMBED_RESOURCES PROPERTY STRINGS
+    "as-paths" "as-contents" "as-textures")
+define_property(TARGET PROPERTY SLINT_EMBED_RESOURCES
+    INITIALIZE_FROM_VARIABLE DEFAULT_SLINT_EMBED_RESOURCES)
+
 function(SLINT_TARGET_SOURCES target)
     foreach (it IN ITEMS ${ARGN})
         get_filename_component(_SLINT_BASE_NAME ${it} NAME_WE)
         get_filename_component(_SLINT_ABSOLUTE ${it} REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
         get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
+
+        set(embed "$<TARGET_PROPERTY:${target},SLINT_EMBED_RESOURCES>")
+
         if(CMAKE_GENERATOR STREQUAL "Ninja")
             # this code is inspired from the llvm source
             # https://github.com/llvm/llvm-project/blob/a00290ed10a6b4e9f6e9be44ceec367562f270c6/llvm/cmake/modules/TableGen.cmake#L13
@@ -17,6 +28,7 @@ function(SLINT_TARGET_SOURCES target)
                 COMMAND Slint::slint-compiler ${_SLINT_ABSOLUTE}
                     -o ${_SLINT_BASE_NAME_REL}.h  --depfile ${_SLINT_BASE_NAME_REL}.d
                     --style ${_SLINT_STYLE}
+                    --embed-resources=${embed}
                 DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE}
                 COMMENT "Generating ${_SLINT_BASE_NAME}.h"
                 DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
@@ -30,6 +42,7 @@ function(SLINT_TARGET_SOURCES target)
                 COMMAND Slint::slint-compiler ${_SLINT_ABSOLUTE}
                     -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
                     --style ${_SLINT_STYLE}
+                    --embed-resources=${embed}
                 DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE} ${ALL_SLINTS}
                 COMMENT "Generating ${_SLINT_BASE_NAME}.h"
             )
