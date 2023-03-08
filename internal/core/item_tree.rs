@@ -270,7 +270,7 @@ impl ItemRc {
                     crate::item_tree::ItemTreeNode::Item { .. } => {
                         panic!("Got an Item, expected a repeater!")
                     }
-                    crate::item_tree::ItemTreeNode::DynamicTree { index, .. } => *index as usize,
+                    crate::item_tree::ItemTreeNode::DynamicTree { index, .. } => *index,
                 };
 
                 let range = parent_ref_pin.as_ref().get_subtree_range(subtree_index);

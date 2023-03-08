@@ -123,9 +123,9 @@ impl Item for NativeSlider {
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let enabled = self.enabled();
-        let value = self.value() as f32;
-        let min = self.minimum() as f32;
-        let max = self.maximum() as f32;
+        let value = self.value();
+        let min = self.minimum();
+        let max = self.maximum();
         let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed: bool = data.pressed != 0;

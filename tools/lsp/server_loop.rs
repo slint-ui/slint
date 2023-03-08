@@ -69,10 +69,7 @@ fn range_from_token(token: Option<SyntaxToken>, range: &rowan::TextRange) -> row
         }
     }
 
-    return rowan::TextRange::new(
-        start_pos.unwrap_or(range.start()),
-        end_pos.unwrap_or(range.end()),
-    );
+    rowan::TextRange::new(start_pos.unwrap_or(range.start()), end_pos.unwrap_or(range.end()))
 }
 
 pub struct ProgressReporter {
@@ -133,7 +130,7 @@ impl ProgressReporter {
         }
     }
 
-    pub fn finish(mut self: Self, message: Option<String>) -> Result<(), Error> {
+    pub fn finish(mut self, message: Option<String>) -> Result<(), Error> {
         self.finish_impl(message)
     }
 
@@ -169,15 +166,13 @@ const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
 const SET_BINDING_COMMAND: &str = "slint/setBinding";
 
 fn command_list() -> Vec<String> {
-    let mut result = vec![];
-
-    result.push(QUERY_PROPERTIES_COMMAND.into());
-    result.push(REMOVE_BINDING_COMMAND.into());
-    #[cfg(any(feature = "preview", feature = "preview-lense"))]
-    result.push(SHOW_PREVIEW_COMMAND.into());
-    result.push(SET_BINDING_COMMAND.into());
-
-    result
+    vec![
+        QUERY_PROPERTIES_COMMAND.into(),
+        REMOVE_BINDING_COMMAND.into(),
+        #[cfg(any(feature = "preview", feature = "preview-lense"))]
+        SHOW_PREVIEW_COMMAND.into(),
+        SET_BINDING_COMMAND.into(),
+    ]
 }
 
 fn create_show_preview_command(pretty: bool, file: &str, component_name: &str) -> Command {
@@ -232,7 +227,7 @@ impl DocumentCache {
         uri: &lsp_types::Url,
     ) -> Result<OffsetToPositionMapper, Error> {
         self.newline_offsets_of_url(uri)
-            .map(|no| OffsetToPositionMapper(no))
+            .map(OffsetToPositionMapper)
             .ok_or_else(|| Into::<Error>::into("Document not found in cache"))
     }
 }
@@ -566,7 +561,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         let mut document_cache = ctx.document_cache.borrow_mut();
         let uri = params.text_document.uri;
         if let Some((tk, _off)) = token_descr(&mut document_cache, &uri, &params.position) {
-            if let Some(_) = find_element_id_for_highlight(&tk, &tk.parent()) {
+            if find_element_id_for_highlight(&tk, &tk.parent()).is_some() {
                 return Ok(Some(PrepareRenameResponse::Range(
                     document_cache.offset_to_position_mapper(&uri)?.map_range(tk.text_range()),
                 )));
@@ -613,11 +608,11 @@ pub fn query_properties_command(
     use crate::properties;
 
     let text_document_uri = serde_json::from_value::<lsp_types::TextDocumentIdentifier>(
-        params.get(0).ok_or_else(|| "No text document provided")?.clone(),
+        params.get(0).ok_or("No text document provided")?.clone(),
     )?
     .uri;
     let position = serde_json::from_value::<lsp_types::Position>(
-        params.get(1).ok_or_else(|| "No position provided")?.clone(),
+        params.get(1).ok_or("No position provided")?.clone(),
     )?;
 
     let source_version = if let Some(v) = document_cache.document_version(&text_document_uri) {
@@ -649,17 +644,16 @@ pub async fn set_binding_command(
     use crate::properties;
 
     let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
-        params.get(0).ok_or_else(|| "No text document provided")?.clone(),
+        params.get(0).ok_or("No text document provided")?.clone(),
     )?;
     let element_range = serde_json::from_value::<lsp_types::Range>(
-        params.get(1).ok_or_else(|| "No element range provided")?.clone(),
+        params.get(1).ok_or("No element range provided")?.clone(),
     )?;
     let property_name = serde_json::from_value::<String>(
-        params.get(2).ok_or_else(|| "No property name provided")?.clone(),
+        params.get(2).ok_or("No property name provided")?.clone(),
     )?;
-    let new_expression = serde_json::from_value::<String>(
-        params.get(3).ok_or_else(|| "No expression provided")?.clone(),
-    )?;
+    let new_expression =
+        serde_json::from_value::<String>(params.get(3).ok_or("No expression provided")?.clone())?;
     let dry_run = {
         if let Some(p) = params.get(4) {
             serde_json::from_value::<bool>(p.clone())
@@ -695,7 +689,7 @@ pub async fn set_binding_command(
                 .borrow()
                 .node
                 .as_ref()
-                .ok_or_else(|| "The element was found, but had no range defined!")?,
+                .ok_or("The element was found, but had no range defined!")?,
         );
 
         if node_range.start != element_range.start {
@@ -743,13 +737,13 @@ pub async fn remove_binding_command(
     use crate::properties;
 
     let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
-        params.get(0).ok_or_else(|| "No text document provided")?.clone(),
+        params.get(0).ok_or("No text document provided")?.clone(),
     )?;
     let element_range = serde_json::from_value::<lsp_types::Range>(
-        params.get(1).ok_or_else(|| "No element range provided")?.clone(),
+        params.get(1).ok_or("No element range provided")?.clone(),
     )?;
     let property_name = serde_json::from_value::<String>(
-        params.get(2).ok_or_else(|| "No property name provided")?.clone(),
+        params.get(2).ok_or("No property name provided")?.clone(),
     )?;
 
     let edit = {
@@ -780,7 +774,7 @@ pub async fn remove_binding_command(
                 .borrow()
                 .node
                 .as_ref()
-                .ok_or_else(|| "The element was found, but had no range defined!")?,
+                .ok_or("The element was found, but had no range defined!")?,
         );
 
         if node_range.start != element_range.start {
@@ -1037,11 +1031,11 @@ fn get_document_and_offset<'a>(
     text_document_uri: &'a Url,
     pos: &'a Position,
 ) -> Option<(&'a i_slint_compiler::object_tree::Document, u32)> {
-    let o = document_cache.newline_offsets.get(&text_document_uri)?.get(pos.line as usize)?
-        + pos.character as u32;
+    let o = document_cache.newline_offsets.get(text_document_uri)?.get(pos.line as usize)?
+        + pos.character;
 
     let doc = document_cache.documents.get_document(&text_document_uri.to_file_path().ok()?)?;
-    doc.node.as_ref()?.text_range().contains(o.into()).then(|| (doc, o))
+    doc.node.as_ref()?.text_range().contains(o.into()).then_some((doc, o))
 }
 
 fn element_contains(element: &i_slint_compiler::object_tree::ElementRc, offset: u32) -> bool {
@@ -1123,16 +1117,11 @@ fn get_code_actions(
         let component_name =
             i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
 
-        let mut r = vec![];
-
-        // handle preview lense:
-        r.push(CodeActionOrCommand::Command(create_show_preview_command(
+        Some(vec![CodeActionOrCommand::Command(create_show_preview_command(
             false,
             &component.source_file.path().to_string_lossy(),
             &component_name,
-        )));
-
-        Some(r)
+        ))])
     } else {
         None
     }
@@ -1144,7 +1133,7 @@ fn get_document_color(
 ) -> Option<Vec<ColorInformation>> {
     let mut result = Vec::new();
     let uri = &text_document.uri;
-    let offset_mapper = document_cache.offset_to_position_mapper(&uri).ok()?;
+    let offset_mapper = document_cache.offset_to_position_mapper(uri).ok()?;
     let doc = document_cache.documents.get_document(&uri.to_file_path().ok()?)?;
     let root_node = &doc.node.as_ref()?.node;
     let mut token = root_node.first_token()?;
@@ -1178,7 +1167,7 @@ fn get_document_symbols(
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<DocumentSymbolResponse> {
     let uri = &text_document.uri;
-    let offset_mapper = document_cache.offset_to_position_mapper(&uri).ok()?;
+    let offset_mapper = document_cache.offset_to_position_mapper(uri).ok()?;
     let doc = document_cache.documents.get_document(&uri.to_file_path().ok()?)?;
 
     // DocumentSymbol doesn't implement default and some field depends on features or are deprecated
@@ -1247,7 +1236,7 @@ fn get_document_symbols(
                 })
             })
             .collect::<Vec<_>>();
-        (!r.is_empty()).then(|| r)
+        (!r.is_empty()).then_some(r)
     }
 
     r.sort_by(|a, b| {
@@ -1269,7 +1258,7 @@ fn get_code_lenses(
 ) -> Option<Vec<CodeLens>> {
     if cfg!(feature = "preview-lense") {
         let uri = &text_document.uri;
-        let offset_mapper = document_cache.offset_to_position_mapper(&uri).ok()?;
+        let offset_mapper = document_cache.offset_to_position_mapper(uri).ok()?;
         let filepath = uri.to_file_path().ok()?;
         let doc = document_cache.documents.get_document(&filepath)?;
 

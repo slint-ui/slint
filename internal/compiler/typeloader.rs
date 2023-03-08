@@ -150,8 +150,8 @@ impl TypeLoader {
                     match &import.import_kind {
                         ImportKind::ImportList(imported_types) => {
                             let mut imported_types =
-                                ImportedName::extract_imported_names(&imported_types).peekable();
-                            if !imported_types.peek().is_none() {
+                                ImportedName::extract_imported_names(imported_types).peekable();
+                            if imported_types.peek().is_some() {
                                 Self::register_imported_types(
                                     doc,
                                     &import,
@@ -450,7 +450,7 @@ impl TypeLoader {
                 // process `export * from "foo"`
                 doc.ExportsList().flat_map(|exports| exports.ExportModule()).map(|reexport| {
                     let maybe_import_uri = reexport.child_token(SyntaxKind::StringLiteral);
-                    (maybe_import_uri, ImportKind::ModuleReexport(reexport.clone()))
+                    (maybe_import_uri, ImportKind::ModuleReexport(reexport))
                 }),
             )
             .filter_map(|(maybe_import_uri, type_specifier)| {

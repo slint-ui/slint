@@ -255,7 +255,7 @@ impl SoftwareRenderer {
                 window_inner,
                 window_item.background(),
                 size.cast(),
-                &self,
+                self,
                 line_buffer,
             );
         }
@@ -464,7 +464,7 @@ impl Scene {
     ) -> Self {
         let current_line = dirty_region.origin.y_length();
         items.retain(|i| i.pos.y_length() + i.size.height_length() > current_line);
-        items.sort_unstable_by(|a, b| compare_scene_item(a, b));
+        items.sort_unstable_by(compare_scene_item);
         let current_items_index = items.partition_point(|i| i.pos.y_length() <= current_line);
         items[..current_items_index].sort_unstable_by(|a, b| b.z.cmp(&a.z));
         Self {
@@ -1385,7 +1385,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                         RoundedRectangle {
                             radius: (radius.cast() * self.scale_factor).cast(),
                             width: (border.cast() * self.scale_factor).cast(),
-                            border_color: border_color,
+                            border_color,
                             inner_color: color,
                             top_clip: PhysicalLength::new(
                                 (clipped2.min_y() - geom2.min_y() + E) as _,

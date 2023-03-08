@@ -647,7 +647,7 @@ pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[D
         // assume some unix check if XDG_CURRENT_DESKTOP stats with K
         std::env::var("XDG_CURRENT_DESKTOP")
             .ok()
-            .and_then(|v| v.as_bytes().get(0).copied())
+            .and_then(|v| v.as_bytes().first().copied())
             .map_or(false, |x| x.to_ascii_uppercase() == b'K')
     }
     #[cfg(not(feature = "std"))]

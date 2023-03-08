@@ -1000,7 +1000,7 @@ impl ComponentInstance {
             LangType::Function { .. }
         ) {
             g.as_ref()
-                .eval_function(&callable_name, args.iter().cloned().collect())
+                .eval_function(&callable_name, args.to_vec())
                 .map_err(|()| InvokeError::NoSuchCallable)
         } else {
             g.as_ref()

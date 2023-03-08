@@ -54,7 +54,6 @@ pub fn main() {
 
     app.global::<TableViewPageAdapter>().on_sort_descending({
         let app_weak = app.as_weak();
-        let row_data = row_data.clone();
         move |index| {
             let row_data = row_data.clone();
 

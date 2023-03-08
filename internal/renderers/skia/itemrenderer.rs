@@ -447,7 +447,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
         let string = text.text();
         let string = string.as_str();
-        let font_request = text.font_request(WindowInner::from_pub(&self.window));
+        let font_request = text.font_request(WindowInner::from_pub(self.window));
 
         let paint = match self.brush_to_paint(text.color(), max_width, max_height) {
             Some(paint) => paint,

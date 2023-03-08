@@ -243,7 +243,7 @@ pub(crate) fn add_highlight_items(doc: &Document) {
 
 fn clean_item_indices(cmp: &Rc<Component>) {
     i_slint_compiler::object_tree::recurse_elem_including_sub_components(
-        &cmp,
+        cmp,
         &(),
         &mut |e, &()| {
             e.borrow_mut().item_index = Default::default();

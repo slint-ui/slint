@@ -774,7 +774,7 @@ fn generate_sub_component(
         if what == "Role" {
             accessible_role_branch.push(quote!(#index => #expr,));
         } else {
-            let what = ident(&what);
+            let what = ident(what);
             accessible_string_property_branch
                 .push(quote!((#index, AccessibleStringProperty::#what) => #expr,));
         }
@@ -1646,7 +1646,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 llr::PropertyReference::Function { sub_component_path, function_index } => {
                     let mut sub_component = ctx.current_sub_component.unwrap();
 
-                    let mut compo_path = path.clone();
+                    let mut compo_path = path;
                     for i in sub_component_path {
                         let component_id = inner_component_id(sub_component);
                         let sub_component_name = ident(&sub_component.sub_components[*i].name);

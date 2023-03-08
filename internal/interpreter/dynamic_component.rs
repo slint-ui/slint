@@ -595,7 +595,7 @@ impl<'id> ComponentDescription<'id> {
         let inst = eval::ComponentInstance::InstanceRef(c);
 
         if matches!(&decl.property_type, Type::Function { .. }) {
-            eval::call_function(inst, &elem, name, args.iter().cloned().collect()).ok_or(())
+            eval::call_function(inst, &elem, name, args.to_vec()).ok_or(())
         } else {
             eval::invoke_callback(inst, &elem, name, args).ok_or(())
         }
@@ -1626,7 +1626,7 @@ extern "C" fn accessible_string_property(
 ) {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let prop_name = format!("accessible-{}", what.to_string());
+    let prop_name = format!("accessible-{}", what);
     let nr = instance_ref.component_type.original_elements[item_index]
         .borrow()
         .accessibility_props

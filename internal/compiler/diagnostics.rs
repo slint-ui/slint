@@ -106,7 +106,7 @@ impl SourceFileInner {
     }
 
     pub fn source(&self) -> Option<&str> {
-        self.source.as_ref().map(|s| s.as_str())
+        self.source.as_deref()
     }
 }
 

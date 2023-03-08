@@ -178,7 +178,7 @@ impl Document {
             }
             // First ref count is in the type registry, the second one in inner_components. Any use of the element
             // would have resulted in another strong reference.
-            if Rc::strong_count(&local_compo) == 2 {
+            if Rc::strong_count(local_compo) == 2 {
                 diag.push_warning(
                     "Component is neither used nor exported".into(),
                     &local_compo.node,

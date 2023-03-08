@@ -166,7 +166,7 @@ mod for_unit_test {
         y: f32,
     ) {
         let rc = component.clone_strong().into();
-        let dyn_rc = vtable::VRc::into_dyn(rc.clone());
+        let dyn_rc = vtable::VRc::into_dyn(rc);
         i_slint_core::tests::slint_send_mouse_click(
             &dyn_rc,
             x,

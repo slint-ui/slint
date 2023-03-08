@@ -69,7 +69,7 @@ fn main() -> std::io::Result<()> {
             }
         }
         for resource in doc.root_component.embedded_file_resources.borrow().keys() {
-            if !fileaccess::load_file(&std::path::Path::new(resource))
+            if !fileaccess::load_file(std::path::Path::new(resource))
                 .map_or(false, |f| f.is_builtin())
             {
                 write!(f, " {}", resource)?;

@@ -165,7 +165,7 @@ fn init_compiler(
         compiler.set_file_loader(move |path| {
             notify::Watcher::watch(
                 &mut *watcher.lock().unwrap(),
-                &path,
+                path,
                 notify::RecursiveMode::NonRecursive,
             )
             .unwrap_or_else(|err| {

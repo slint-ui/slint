@@ -133,7 +133,7 @@ fn process_tabwidget(
 
     let tabbar = Element {
         id: format!("{}-tabbar", elem.borrow().id),
-        base_type: tabbar_impl.clone(),
+        base_type: tabbar_impl,
         enclosing_component: elem.borrow().enclosing_component.clone(),
         children: tabs,
         ..Default::default()
@@ -149,7 +149,7 @@ fn process_tabwidget(
     );
     tabbar.borrow_mut().bindings.insert(
         "current".to_owned(),
-        BindingExpression::new_two_way(NamedReference::new(&elem, "current-index")).into(),
+        BindingExpression::new_two_way(NamedReference::new(elem, "current-index")).into(),
     );
     elem.borrow_mut().bindings.insert(
         "current-focused".to_owned(),

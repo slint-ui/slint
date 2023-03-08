@@ -82,7 +82,7 @@ impl TextShaper for PixelFont {
                 |glyph_index| PhysicalLength::new(self.glyphs.glyph_data[glyph_index].x_advance),
             );
             Glyph {
-                glyph_id: glyph_index.map(|index| Self::glyph_index_to_glyph_id(index)),
+                glyph_id: glyph_index.map(Self::glyph_index_to_glyph_id),
                 advance: x_advance,
                 text_byte_offset: byte_offset,
                 ..Default::default()
@@ -99,7 +99,7 @@ impl TextShaper for PixelFont {
             .map(|char_map_index| {
                 let glyph_index =
                     self.bitmap_font.character_map[char_map_index].glyph_index as usize;
-                let bitmap_glyph = &self.glyphs.glyph_data[glyph_index as usize];
+                let bitmap_glyph = &self.glyphs.glyph_data[glyph_index];
                 let x_advance = PhysicalLength::new(bitmap_glyph.x_advance);
                 Glyph {
                     glyph_id: Some(Self::glyph_index_to_glyph_id(glyph_index)),

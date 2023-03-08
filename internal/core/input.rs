@@ -534,15 +534,15 @@ impl ClickState {
                 }
 
                 return MouseEvent::Pressed {
-                    position: position,
-                    button: button,
+                    position,
+                    button,
                     click_count: self.click_count.get(),
                 };
             }
             MouseEvent::Released { position, button, .. } => {
                 return MouseEvent::Released {
-                    position: position,
-                    button: button,
+                    position,
+                    button,
                     click_count: self.click_count.get(),
                 }
             }
@@ -662,7 +662,7 @@ pub fn process_mouse_input(
     }
 
     let mut result = MouseInputState::default();
-    let root = ItemRc::new(component.clone(), 0);
+    let root = ItemRc::new(component, 0);
     let r = send_mouse_event_to_item(mouse_event, root, window_adapter, &mut result, false);
     if mouse_input_state.delayed.is_some() && !r.has_aborted() {
         // Keep the delayed event
