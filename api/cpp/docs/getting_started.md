@@ -15,7 +15,7 @@ target in two steps:
 A minimal CMake `CMakeLists.txt` file looks like this:
 
 ```cmake
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.23)
 project(my_application LANGUAGES CXX)
 
 # Note: Use find_package(Slint) instead of the following three commands,

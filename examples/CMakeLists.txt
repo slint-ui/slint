@@ -1,6 +1,6 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.23)
 project(SlintExamples LANGUAGES CXX)
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
