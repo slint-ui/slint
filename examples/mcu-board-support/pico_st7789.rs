@@ -13,7 +13,8 @@ use cortex_m::interrupt::Mutex;
 use cortex_m::singleton;
 pub use cortex_m_rt::entry;
 use defmt_rtt as _;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::blocking::spi::Transfer;
+use embedded_hal::digital::v2::{InputPin, OutputPin};
 use embedded_hal::spi::FullDuplex;
 use fugit::{Hertz, RateExtU32};
 use hal::dma::{DMAExt, SingleChannel, WriteTarget};
@@ -51,17 +52,140 @@ const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 240);
 pub type TargetPixel = Rgb565Pixel;
 
 pub fn init() {
+    let mut pac = pac::Peripherals::take().unwrap();
+    let core = pac::CorePeripherals::take().unwrap();
+
+    let mut watchdog = hal::watchdog::Watchdog::new(pac.WATCHDOG);
+    let clocks = hal::clocks::init_clocks_and_plls(
+        rp_pico::XOSC_CRYSTAL_FREQ,
+        pac.XOSC,
+        pac.CLOCKS,
+        pac.PLL_SYS,
+        pac.PLL_USB,
+        &mut pac.RESETS,
+        &mut watchdog,
+    )
+    .ok()
+    .unwrap();
+
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
-    slint::platform::set_platform(Box::new(PicoBackend::default()))
-        .expect("backend already initialized");
+
+    let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().raw());
+
+    let sio = hal::sio::Sio::new(pac.SIO);
+    let pins = rp_pico::Pins::new(pac.IO_BANK0, pac.PADS_BANK0, sio.gpio_bank0, &mut pac.RESETS);
+
+    let _spi_sclk = pins.gpio10.into_mode::<hal::gpio::FunctionSpi>();
+    let _spi_mosi = pins.gpio11.into_mode::<hal::gpio::FunctionSpi>();
+    let _spi_miso = pins.gpio12.into_mode::<hal::gpio::FunctionSpi>();
+
+    let spi = hal::spi::Spi::<_, _, 8>::new(pac.SPI1);
+    let spi = spi.init(
+        &mut pac.RESETS,
+        clocks.peripheral_clock.freq(),
+        SPI_ST7789VW_MAX_FREQ,
+        &embedded_hal::spi::MODE_3,
+    );
+    let spi = singleton!(:shared_bus::BusManagerSimple<hal::Spi<hal::spi::Enabled,  pac::SPI1, 8>> = shared_bus::BusManagerSimple::new(spi)).unwrap();
+
+    let rst = pins.gpio15.into_push_pull_output();
+    let bl = pins.gpio13.into_push_pull_output();
+
+    let dc = pins.gpio8.into_push_pull_output();
+    let cs = pins.gpio9.into_push_pull_output();
+
+    let (dc_copy, cs_copy) =
+        unsafe { (core::ptr::read(&dc as *const _), core::ptr::read(&cs as *const _)) };
+
+    let di = display_interface_spi::SPIInterface::new(spi.acquire_spi(), dc, cs);
+
+    let mut display = st7789::ST7789::new(
+        di,
+        Some(rst),
+        Some(bl),
+        DISPLAY_SIZE.width as _,
+        DISPLAY_SIZE.height as _,
+    );
+    display.init(&mut delay).unwrap();
+    display.set_orientation(st7789::Orientation::Landscape).unwrap();
+
+    let touch_irq = pins.gpio17.into_pull_up_input();
+    touch_irq.set_interrupt_enabled(GpioInterrupt::LevelLow, true);
+
+    cortex_m::interrupt::free(|cs| {
+        IRQ_PIN.borrow(cs).replace(Some(touch_irq));
+    });
+    let touch =
+        xpt2046::XPT2046::new(&IRQ_PIN, pins.gpio16.into_push_pull_output(), spi.acquire_spi())
+            .unwrap();
+
+    let mut timer = Timer::new(pac.TIMER, &mut pac.RESETS);
+    let mut alarm0 = timer.alarm_0().unwrap();
+    alarm0.enable_interrupt();
+
+    cortex_m::interrupt::free(|cs| {
+        ALARM0.borrow(cs).replace(Some(alarm0));
+        TIMER.borrow(cs).replace(Some(timer));
+    });
+
+    unsafe {
+        pac::NVIC::unmask(pac::Interrupt::IO_IRQ_BANK0);
+        pac::NVIC::unmask(pac::Interrupt::TIMER_IRQ_0);
+    }
+
+    let dma = pac.DMA.split(&mut pac.RESETS);
+    // SAFETY: This is not safe :-(
+    let stolen_spi = unsafe {
+        hal::spi::Spi::<_, _, 8>::new(rp_pico::hal::pac::Peripherals::steal().SPI1).init(
+            &mut pac.RESETS,
+            clocks.peripheral_clock.freq(),
+            SPI_ST7789VW_MAX_FREQ,
+            &embedded_hal::spi::MODE_3,
+        )
+    };
+    let pio = PioTransfer::Idle(
+        dma.ch0,
+        vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
+        stolen_spi,
+    );
+    let buffer_provider = DrawBuffer {
+        display,
+        buffer: vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
+        pio: Some(pio),
+        stolen_pin: (dc_copy, cs_copy),
+    };
+
+    slint::platform::set_platform(Box::new(PicoBackend {
+        window: Default::default(),
+        buffer_provider: buffer_provider.into(),
+        touch: touch.into(),
+    }))
+    .expect("backend already initialized");
 }
 
-#[derive(Default)]
-struct PicoBackend {
+struct PicoBackend<DrawBuffer, Touch> {
     window: RefCell<Option<Rc<renderer::MinimalSoftwareWindow>>>,
+    buffer_provider: RefCell<DrawBuffer>,
+    touch: RefCell<Touch>,
 }
 
-impl slint::platform::Platform for PicoBackend {
+impl<
+        DI: display_interface::WriteOnlyDataCommand,
+        RST: OutputPin<Error = Infallible>,
+        BL: OutputPin<Error = Infallible>,
+        TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>,
+        CH: SingleChannel,
+        DC_: OutputPin<Error = Infallible>,
+        CS_: OutputPin<Error = Infallible>,
+        IRQ: InputPin<Error = Infallible>,
+        CS: OutputPin<Error = Infallible>,
+        SPI: Transfer<u8>,
+    > slint::platform::Platform
+    for PicoBackend<
+        DrawBuffer<st7789::ST7789<DI, RST, BL>, PioTransfer<TO, CH>, (DC_, CS_)>,
+        xpt2046::XPT2046<IRQ, CS, SPI>,
+    >
+{
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
@@ -79,110 +203,6 @@ impl slint::platform::Platform for PicoBackend {
     }
 
     fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-        let mut pac = pac::Peripherals::take().unwrap();
-        let core = pac::CorePeripherals::take().unwrap();
-
-        let mut watchdog = hal::watchdog::Watchdog::new(pac.WATCHDOG);
-
-        let clocks = hal::clocks::init_clocks_and_plls(
-            rp_pico::XOSC_CRYSTAL_FREQ,
-            pac.XOSC,
-            pac.CLOCKS,
-            pac.PLL_SYS,
-            pac.PLL_USB,
-            &mut pac.RESETS,
-            &mut watchdog,
-        )
-        .ok()
-        .unwrap();
-
-        let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().raw());
-
-        let sio = hal::sio::Sio::new(pac.SIO);
-        let pins =
-            rp_pico::Pins::new(pac.IO_BANK0, pac.PADS_BANK0, sio.gpio_bank0, &mut pac.RESETS);
-
-        let _spi_sclk = pins.gpio10.into_mode::<hal::gpio::FunctionSpi>();
-        let _spi_mosi = pins.gpio11.into_mode::<hal::gpio::FunctionSpi>();
-        let _spi_miso = pins.gpio12.into_mode::<hal::gpio::FunctionSpi>();
-
-        let spi = hal::spi::Spi::<_, _, 8>::new(pac.SPI1);
-        let spi = spi.init(
-            &mut pac.RESETS,
-            clocks.peripheral_clock.freq(),
-            SPI_ST7789VW_MAX_FREQ,
-            &embedded_hal::spi::MODE_3,
-        );
-        let spi = singleton!(:shared_bus::BusManagerSimple<hal::Spi<hal::spi::Enabled,  pac::SPI1, 8>> = shared_bus::BusManagerSimple::new(spi)).unwrap();
-
-        let rst = pins.gpio15.into_push_pull_output();
-        let bl = pins.gpio13.into_push_pull_output();
-
-        let dc = pins.gpio8.into_push_pull_output();
-        let cs = pins.gpio9.into_push_pull_output();
-
-        let (dc_copy, cs_copy) =
-            unsafe { (core::ptr::read(&dc as *const _), core::ptr::read(&cs as *const _)) };
-
-        let di = display_interface_spi::SPIInterface::new(spi.acquire_spi(), dc, cs);
-
-        let mut display = st7789::ST7789::new(
-            di,
-            Some(rst),
-            Some(bl),
-            DISPLAY_SIZE.width as _,
-            DISPLAY_SIZE.height as _,
-        );
-
-        display.init(&mut delay).unwrap();
-        display.set_orientation(st7789::Orientation::Landscape).unwrap();
-
-        let touch_irq = pins.gpio17.into_pull_up_input();
-        touch_irq.set_interrupt_enabled(GpioInterrupt::LevelLow, true);
-
-        cortex_m::interrupt::free(|cs| {
-            IRQ_PIN.borrow(cs).replace(Some(touch_irq));
-        });
-        let mut touch =
-            xpt2046::XPT2046::new(&IRQ_PIN, pins.gpio16.into_push_pull_output(), spi.acquire_spi())
-                .unwrap();
-
-        let mut timer = Timer::new(pac.TIMER, &mut pac.RESETS);
-        let mut alarm0 = timer.alarm_0().unwrap();
-        alarm0.enable_interrupt();
-
-        cortex_m::interrupt::free(|cs| {
-            ALARM0.borrow(cs).replace(Some(alarm0));
-            TIMER.borrow(cs).replace(Some(timer));
-        });
-
-        unsafe {
-            pac::NVIC::unmask(pac::Interrupt::IO_IRQ_BANK0);
-            pac::NVIC::unmask(pac::Interrupt::TIMER_IRQ_0);
-        }
-
-        let dma = pac.DMA.split(&mut pac.RESETS);
-        // SAFETY: This is not safe :-(
-        let stolen_spi = unsafe {
-            hal::spi::Spi::<_, _, 8>::new(rp_pico::hal::pac::Peripherals::steal().SPI1).init(
-                &mut pac.RESETS,
-                clocks.peripheral_clock.freq(),
-                SPI_ST7789VW_MAX_FREQ,
-                &embedded_hal::spi::MODE_3,
-            )
-        };
-        let pio = PioTransfer::Idle(
-            dma.ch0,
-            vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
-            stolen_spi,
-        );
-        let mut buffer_provider = DrawBuffer {
-            display,
-            buffer: vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
-            pio: Some(pio),
-            stolen_pin: (dc_copy, cs_copy),
-        };
-
         let mut last_touch = None;
 
         self.window.borrow().as_ref().unwrap().set_size(DISPLAY_SIZE);
@@ -192,13 +212,16 @@ impl slint::platform::Platform for PicoBackend {
 
             if let Some(window) = self.window.borrow().clone() {
                 window.draw_if_needed(|renderer| {
-                    renderer.render_by_line(&mut buffer_provider);
+                    let mut buffer_provider = self.buffer_provider.borrow_mut();
+                    renderer.render_by_line(&mut *buffer_provider);
                     buffer_provider.flush_frame();
                 });
 
                 // handle touch event
                 let button = PointerEventButton::Left;
-                if let Some(event) = touch
+                if let Some(event) = self
+                    .touch
+                    .borrow_mut()
                     .read()
                     .map_err(|_| ())
                     .unwrap()
