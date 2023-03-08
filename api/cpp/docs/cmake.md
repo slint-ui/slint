@@ -65,6 +65,22 @@ FetchContent_MakeAvailable(Slint)
 If you prefer to use Slint as an external CMake package, then you build Slint from source like a regular
 CMake project, install it into a prefix directory of your choice and use `find_package(Slint)` in your `CMakeLists.txt`.
 
+### Resource Embedding
+
+You may change the default resource embedding the Slint compiler will use via
+the `SLINT_EMBED_RESOURCES` target property, which accepts `as-paths`,
+`as-contents` and `as-textures`. The latter optimizes for the Slint
+software-renderer and falls back to `as-contents` if that isn't used.
+
+Typically you will want to effect resource embedding for all targets in a
+CMake project. This is done with the `DEFAULT_SLINT_EMBED_RESOURCES` option,
+which initializes the `SLINT_EMBED_RESOURCES` target property.
+
+Typically you will want to set `DEFAULT_SLINT_EMBED_RESOURCES` to `as-paths`
+for debug builds as this reduces build times. When doing a release, you will
+want to switch to `as-contents` to create self-contained binary that will work
+on all systems.
+
 ### Features
 
 The Slint library supports a set of features, not all of them enabled by default.
