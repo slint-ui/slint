@@ -409,9 +409,12 @@ impl<'a, T> PartialRenderer<'a, T> {
                 let mut borrowed = self.cache.borrow_mut();
 
                 match item.cached_rendering_data_offset().get_entry(&mut borrowed) {
-                    Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
+                    Some(CachedGraphicsData {
+                        data: cached_geom,
+                        dependency_tracker: Some(tr),
+                    }) => {
                         if tr.is_dirty() {
-                            let old_geom = *data;
+                            let old_geom = *cached_geom;
                             drop(borrowed);
                             let geom = crate::properties::evaluate_no_tracking(|| {
                                 item.as_ref().geometry()
@@ -437,19 +440,23 @@ impl<'a, T> PartialRenderer<'a, T> {
                             if state.must_refresh_children
                                 || new_state.offset != new_state.old_offset
                             {
-                                self.mark_dirty_rect(*data, state.old_offset, &state.clipped);
-                                self.mark_dirty_rect(*data, state.offset, &state.clipped);
+                                self.mark_dirty_rect(
+                                    *cached_geom,
+                                    state.old_offset,
+                                    &state.clipped,
+                                );
+                                self.mark_dirty_rect(*cached_geom, state.offset, &state.clipped);
                             }
 
-                            new_state.offset += data.origin.to_vector();
-                            new_state.old_offset += data.origin.to_vector();
+                            new_state.offset += cached_geom.origin.to_vector();
+                            new_state.old_offset += cached_geom.origin.to_vector();
                             if crate::properties::evaluate_no_tracking(|| is_clipping_item(item)) {
                                 new_state.clipped = new_state
                                     .clipped
                                     .intersection(
-                                        &data
+                                        &cached_geom
                                             .translate(state.offset)
-                                            .union(&data.translate(state.old_offset)),
+                                            .union(&cached_geom.translate(state.old_offset)),
                                     )
                                     .unwrap_or_default();
                             }
