@@ -360,6 +360,9 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             geometry.height_length(),
         ) {
             fill_paint.set_style(skia_safe::PaintStyle::Fill);
+            if !background_rect.is_rect() {
+                fill_paint.set_anti_alias(true);
+            }
             self.canvas.draw_rrect(background_rect, &fill_paint);
         }
 
@@ -369,6 +372,9 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             {
                 border_paint.set_style(skia_safe::PaintStyle::Stroke);
                 border_paint.set_stroke_width(border_width.get());
+                if !border_rect.is_rect() {
+                    border_paint.set_anti_alias(true);
+                }
                 self.canvas.draw_rrect(border_rect, &border_paint);
             }
         }
