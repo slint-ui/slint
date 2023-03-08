@@ -302,6 +302,7 @@ pub fn generate(doc: &Document) -> TokenStream {
         #[allow(clippy::erasing_op)]
         #[allow(clippy::approx_constant)] // We may get those from .slint inputs!
         #[allow(clippy::eq_op)] // The generated code will compare/subtract/etc. equal values
+        #[allow(clippy::cmp_owned)] // The generated code will do this
         mod #compo_module {
             use slint::private_unstable_api::re_exports::*;
             #(#structs)*
