@@ -62,3 +62,4 @@ jobs:
           IMAGE_ARCH=${{matrix.image_arch}}
           RUST_TOOLCHAIN_ARCH=${{matrix.rust_toolchain_arch}}
           BASE_NAME=wayland-base${{matrix.base_image_suffix}}
+          WEATHER_API_KEY=${{secrets.WEATHER_API_KEY}}

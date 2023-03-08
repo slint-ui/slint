@@ -10,6 +10,9 @@ FROM torizon/debian-cross-toolchain-$TOOLCHAIN_ARCH:2-bullseye AS build
 ARG TOOLCHAIN_ARCH
 ARG RUST_TOOLCHAIN_ARCH=aarch64-unknown-linux-gnu
 
+ARG WEATHER_API_KEY
+ENV WEATHER_API=$WEATHER_API_KEY
+
 # Install Rust
 ENV RUSTUP_HOME=/rust
 ENV CARGO_HOME=/cargo 
