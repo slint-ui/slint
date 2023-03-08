@@ -2044,18 +2044,14 @@ pub fn visit_all_named_references(
         &Weak::new(),
         &mut |elem, parent_compo| {
             visit_all_named_references_in_element(elem, |nr| vis(nr));
-            if elem.borrow().repeated.is_some() {
-                if let ElementType::Component(base) = &elem.borrow().base_type {
-                    if base.parent_element.upgrade().is_some() {
-                        base.init_code.borrow_mut().iter_mut().for_each(|init_expr| {
-                            visit_named_references_in_expression(init_expr, vis)
-                        });
-                    }
-                }
-            }
             let compo = elem.borrow().enclosing_component.clone();
             if !Weak::ptr_eq(parent_compo, &compo) {
                 let compo = compo.upgrade().unwrap();
+                compo
+                    .init_code
+                    .borrow_mut()
+                    .iter_mut()
+                    .for_each(|expr| visit_named_references_in_expression(expr, vis));
                 compo.root_constraints.borrow_mut().visit_named_references(vis);
                 compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
                     vis(&mut p.x);
@@ -2065,11 +2061,6 @@ pub fn visit_all_named_references(
             compo
         },
     );
-    component
-        .init_code
-        .borrow_mut()
-        .iter_mut()
-        .for_each(|expr| visit_named_references_in_expression(expr, vis));
 }
 
 /// Visit all expression in this component and sub components
