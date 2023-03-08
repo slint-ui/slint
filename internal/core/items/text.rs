@@ -1101,7 +1101,6 @@ fn prev_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
 
 fn next_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
     text.unicode_word_indices()
-        .skip_while(|(offset, slice)| *offset + slice.len() < last_cursor_pos)
-        .next()
+        .find(|(offset, slice)| *offset + slice.len() >= last_cursor_pos)
         .map_or(text.len(), |(offset, slice)| offset + slice.len())
 }

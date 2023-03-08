@@ -102,7 +102,7 @@ pub fn count_property_use(root: &PublicComponent) {
 
         // 8.functions (TODO: only visit used function)
         for f in &sc.functions {
-            f.code.visit_recursive(&mut |e| visit_expression(e, &ctx));
+            f.code.visit_recursive(&mut |e| visit_expression(e, ctx));
         }
     });
 

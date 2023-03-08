@@ -47,7 +47,7 @@ pub fn with_lookup_ctx<R>(
     node: SyntaxNode,
     f: impl FnOnce(&mut LookupCtx) -> R,
 ) -> Option<R> {
-    let (element, prop_name) = lookup_expression_context(node.clone())?;
+    let (element, prop_name) = lookup_expression_context(node)?;
     with_property_lookup_ctx::<R>(document_cache, &element, &prop_name, f)
 }
 
@@ -75,7 +75,7 @@ pub fn with_property_lookup_ctx<R>(
         .map(|n| object_tree::type_from_node(n, &mut Default::default(), tr))
         .or_else(|| {
             lookup_current_element_type((**element).clone(), tr)
-                .map(|el_ty| el_ty.lookup_property(&prop_name).property_type)
+                .map(|el_ty| el_ty.lookup_property(prop_name).property_type)
         });
 
     // FIXME: we need also to fill in the repeated element
@@ -99,7 +99,7 @@ pub fn with_property_lookup_ctx<R>(
 
     let mut build_diagnostics = Default::default();
     let mut lookup_context = LookupCtx::empty_context(tr, &mut build_diagnostics);
-    lookup_context.property_name = Some(&prop_name);
+    lookup_context.property_name = Some(prop_name);
     lookup_context.property_type = ty.unwrap_or_default();
     lookup_context.component_scope = &scope;
     Some(f(&mut lookup_context))

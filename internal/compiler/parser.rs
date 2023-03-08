@@ -920,7 +920,7 @@ pub fn parse_expression_as_bindingexpression(
     build_diagnostics: &mut BuildDiagnostics,
 ) -> SyntaxNode {
     let node = {
-        let mut p = DefaultParser::new(&source, build_diagnostics);
+        let mut p = DefaultParser::new(source, build_diagnostics);
         let token = {
             let mut p = p.start_node(SyntaxKind::BindingExpression);
             expressions::parse_expression(&mut *p);

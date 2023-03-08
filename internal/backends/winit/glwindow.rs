@@ -513,7 +513,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                             ),
                         ))
                     } else {
-                        window_builder.with_inner_size(window_size_to_slint(&requested_size))
+                        window_builder.with_inner_size(window_size_to_slint(requested_size))
                     }
                 } else if s.width > 0 as Coord && s.height > 0 as Coord {
                     // Make sure that the window's inner size is in sync with the root window item's

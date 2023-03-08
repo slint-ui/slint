@@ -261,7 +261,7 @@ impl WindowInner {
             redraw_tracker.set_debug_name("i_slint_core::Window::redraw_tracker".into());
         }
 
-        let window = Self {
+        Self {
             window_adapter_weak,
             component: Default::default(),
             mouse_input_state: Default::default(),
@@ -276,9 +276,7 @@ impl WindowInner {
             close_requested: Default::default(),
             inner_size: Default::default(),
             click_state: ClickState::default(),
-        };
-
-        window
+        }
     }
 
     /// Associates this window with the specified component. Further event handling and rendering, etc. will be
@@ -292,7 +290,7 @@ impl WindowInner {
         self.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
         let window_adapter = self.window_adapter();
         {
-            let component = ComponentRc::borrow_pin(&component);
+            let component = ComponentRc::borrow_pin(component);
             let root_item = component.as_ref().get_item_ref(0);
             let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item).unwrap();
 
@@ -509,7 +507,7 @@ impl WindowInner {
                 item.borrow().as_ref().focus_event(
                     &crate::input::FocusEvent::FocusIn,
                     &self.window_adapter(),
-                    &item,
+                    item,
                 )
             }
             None => {
@@ -641,7 +639,7 @@ impl WindowInner {
         let position = parent_item.map_to_window(
             parent_item.geometry().origin + LogicalPoint::from_untyped(position).to_vector(),
         );
-        let popup_component = ComponentRc::borrow_pin(&popup_componentrc);
+        let popup_component = ComponentRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
         let (mut w, mut h) = if let Some(window_item) =

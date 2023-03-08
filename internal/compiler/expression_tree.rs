@@ -1534,7 +1534,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::EnumerationValue(e) => match e.enumeration.values.get(e.value as usize) {
+        Expression::EnumerationValue(e) => match e.enumeration.values.get(e.value) {
             Some(val) => write!(f, "{}.{}", e.enumeration.name, val),
             None => write!(f, "{}.{}", e.enumeration.name, e.value),
         },

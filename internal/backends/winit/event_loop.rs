@@ -563,10 +563,7 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
         }
 
         Event::MainEventsCleared => {
-            for window in windows_with_pending_property_updates
-                .drain(..)
-                .filter_map(|window_id| window_by_id(window_id))
-            {
+            for window in windows_with_pending_property_updates.drain(..).filter_map(window_by_id) {
                 WindowInner::from_pub(window.window()).update_window_properties();
             }
         }
@@ -582,10 +579,7 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                 *control_flow = ControlFlow::Poll;
             }
 
-            for window in windows_with_pending_redraw_requests
-                .drain(..)
-                .filter_map(|window_id| window_by_id(window_id))
-            {
+            for window in windows_with_pending_redraw_requests.drain(..).filter_map(window_by_id) {
                 let redraw_requested_during_draw = window.draw();
                 if redraw_requested_during_draw {
                     // If during rendering a new redraw_request() was issued (for example in a rendering notifier callback), then

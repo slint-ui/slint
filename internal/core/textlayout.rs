@@ -179,15 +179,11 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
                 let x = glyph_x;
                 glyph_x += glyph.advance;
 
-                if let Some(existing_glyph_id) = glyph.glyph_id {
-                    Some(PositionedGlyph {
-                        x,
-                        y: Font::Length::zero(),
-                        glyph_id: existing_glyph_id,
-                    })
-                } else {
-                    None
-                }
+                glyph.glyph_id.map(|existing_glyph_id| PositionedGlyph {
+                    x,
+                    y: Font::Length::zero(),
+                    glyph_id: existing_glyph_id,
+                })
             });
 
             line_callback(&mut positioned_glyph_it, x, y);

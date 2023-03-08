@@ -65,7 +65,7 @@ impl<'a> LookupCtx<'a> {
             Type::Callback { return_type, .. } => {
                 return_type.as_ref().map_or(&Type::Void, |b| &(**b))
             }
-            Type::Function { return_type, .. } => &return_type,
+            Type::Function { return_type, .. } => return_type,
             _ => &self.property_type,
         }
     }
@@ -254,7 +254,7 @@ impl LookupObject for IdLookup {
                 if x.borrow().repeated.is_some() {
                     continue;
                 }
-                if let Some(r) = visit(&x, f) {
+                if let Some(r) = visit(x, f) {
                     return Some(r);
                 }
             }

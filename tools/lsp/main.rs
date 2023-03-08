@@ -221,7 +221,7 @@ fn main_loop(connection: &Connection, init_param: InitializeParams) -> Result<()
     let server_notifier = ServerNotifier(connection.sender.clone(), request_queue.clone());
     let ctx = Rc::new(Context {
         document_cache: RefCell::new(DocumentCache::new(compiler_config)),
-        server_notifier: server_notifier.clone(),
+        server_notifier,
         init_param,
         #[cfg(feature = "preview-api")]
         preview: server_loop::PreviewApi {

@@ -93,7 +93,7 @@ pub fn resolve_expressions(
                         expr,
                         property_name,
                         property_type(),
-                        &scope,
+                        scope,
                         &doc.local_registry,
                         type_loader,
                         diag,
@@ -918,7 +918,7 @@ impl Expression {
         let index_expr = Self::from_expression_node(index_expr_n.clone(), ctx).maybe_convert_to(
             Type::Int32,
             &index_expr_n,
-            &mut ctx.diag,
+            ctx.diag,
         );
 
         let ty = array_expr.ty();

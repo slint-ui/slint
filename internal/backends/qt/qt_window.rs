@@ -576,7 +576,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let rect: qttypes::QRectF = get_geometry!(items::Text, text);
         let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
         let mut string: qttypes::QString = text.text().as_str().into();
-        let font: QFont = get_font(text.font_request(WindowInner::from_pub(&self.window)));
+        let font: QFont = get_font(text.font_request(WindowInner::from_pub(self.window)));
         let flags = match text.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -654,9 +654,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let fill_brush: qttypes::QBrush = into_qbrush(text_input.color(), rect.width, rect.height);
 
-        let font: QFont = get_font(
-            text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
-        );
+        let font: QFont =
+            get_font(text_input.font_request(&WindowInner::from_pub(self.window).window_adapter()));
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -700,8 +699,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
             )
         } else {
             (
-                text_input.cursor_position(&text),
-                text_input.anchor_position(&text),
+                text_input.cursor_position(text),
+                text_input.anchor_position(text),
                 text_input.selection_foreground_color().as_argb_encoded(),
                 text_input.selection_background_color().as_argb_encoded(),
                 false,
@@ -1022,7 +1021,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn window(&self) -> &i_slint_core::api::Window {
-        &self.window
+        self.window
     }
 
     fn as_any(&mut self) -> Option<&mut dyn std::any::Any> {

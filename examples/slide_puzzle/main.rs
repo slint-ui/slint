@@ -23,7 +23,7 @@ fn shuffle() -> Vec<i8> {
             inversions += positions[x + 1..].iter().filter(|x| **x >= 0 && **x < v).count();
         }
         //((blank on odd row from bottom) == (#inversions even))
-        let blank_row = positions.iter().position(|x| *x == -1).unwrap() as usize / 4;
+        let blank_row = positions.iter().position(|x| *x == -1).unwrap() / 4;
         inversions % 2 != blank_row % 2
     }
 

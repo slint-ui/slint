@@ -241,7 +241,7 @@ pub(super) fn draw_rounded_rectangle_line(
             if ONE + x2 <= x3 {
                 TargetPixel::blend_slice(
                     &mut line_buffer[pos_x + rev(x3).ceil().min(span.size.width as u32) as usize
-                        ..pos_x + rev(x2).floor().min(span.size.width as u32) as usize as usize],
+                        ..pos_x + rev(x2).floor().min(span.size.width as u32) as usize],
                     rr.border_color,
                 )
             }
@@ -508,9 +508,9 @@ impl TargetPixel for crate::graphics::image::Rgb8Pixel {
 pub struct Rgb565Pixel(pub u16);
 
 impl Rgb565Pixel {
-    const R_MASK: u16 = 0b11111000_00000000;
-    const G_MASK: u16 = 0b00000111_11100000;
-    const B_MASK: u16 = 0b00000000_00011111;
+    const R_MASK: u16 = 0b1111_1000_0000_0000;
+    const G_MASK: u16 = 0b0000_0111_1110_0000;
+    const B_MASK: u16 = 0b0000_0000_0001_1111;
 
     /// Return the red component as a u8.
     ///

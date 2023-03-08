@@ -317,7 +317,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let string = string.as_str();
         let font = fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text.font_request(WindowInner::from_pub(&self.window)),
+                text.font_request(WindowInner::from_pub(self.window)),
                 self.scale_factor,
                 &text.text(),
             )
@@ -359,7 +359,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let font = fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
+                text_input.font_request(&WindowInner::from_pub(self.window).window_adapter()),
                 self.scale_factor,
                 &text_input.text(),
             )
@@ -634,10 +634,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(offset.x, offset.y);
             if let Some(fill_paint) = &fill_paint {
-                canvas.fill_path(&mut femtovg_path, &fill_paint);
+                canvas.fill_path(&mut femtovg_path, fill_paint);
             }
             if let Some(border_paint) = &border_paint {
-                canvas.stroke_path(&mut femtovg_path, &border_paint);
+                canvas.stroke_path(&mut femtovg_path, border_paint);
             }
         })
     }

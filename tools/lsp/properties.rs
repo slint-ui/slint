@@ -97,7 +97,7 @@ fn property_is_editable(property: &PropertyDeclaration, is_local_element: bool) 
         return false;
     }
 
-    return true;
+    true
 }
 
 fn add_element_properties(
@@ -137,7 +137,7 @@ fn add_element_properties(
 fn left_extend(token: rowan::SyntaxToken<Language>) -> rowan::SyntaxToken<Language> {
     let mut current_token = token.prev_token();
     let mut start_token = token.clone();
-    let mut last_comment = token.clone();
+    let mut last_comment = token;
 
     // Walk backwards:
     while let Some(t) = current_token {
@@ -167,7 +167,7 @@ fn left_extend(token: rowan::SyntaxToken<Language>) -> rowan::SyntaxToken<Langua
 fn right_extend(token: rowan::SyntaxToken<Language>) -> rowan::SyntaxToken<Language> {
     let mut current_token = token.next_token();
     let mut end_token = token.clone();
-    let mut last_comment = token.clone();
+    let mut last_comment = token;
 
     // Walk forwards:
     while let Some(t) = current_token {
@@ -426,11 +426,11 @@ fn get_element_information(
     ElementInformation {
         id: e.id.clone(),
         type_name: e.base_type.to_string(),
-        range: e.node.as_ref().map(|n| offset_to_position.map_node(&n)),
+        range: e.node.as_ref().map(|n| offset_to_position.map_node(n)),
     }
 }
 
-pub(crate) fn query_properties<'a>(
+pub(crate) fn query_properties(
     document_cache: &mut DocumentCache,
     uri: &lsp_types::Url,
     source_version: i32,
@@ -439,18 +439,18 @@ pub(crate) fn query_properties<'a>(
     let mapper = document_cache.offset_to_position_mapper(uri)?;
 
     Ok(QueryPropertyResponse {
-        properties: get_properties(&element, &mapper),
-        element: Some(get_element_information(&element, &mapper)),
+        properties: get_properties(element, &mapper),
+        element: Some(get_element_information(element, &mapper)),
         source_uri: uri.to_string(),
         source_version,
     })
 }
 
-fn get_property_information<'a>(
+fn get_property_information(
     properties: &[PropertyInformation],
     property_name: &str,
 ) -> Result<PropertyInformation, Error> {
-    if let Some(property) = properties.into_iter().find(|pi| pi.name == property_name).clone() {
+    if let Some(property) = properties.iter().find(|pi| pi.name == property_name) {
         Ok(property.clone())
     } else {
         Err(format!("Element has no property with name {property_name}").into())
@@ -479,7 +479,7 @@ fn validate_property_expression_type(
     }
 }
 
-fn create_workspace_edit_for_set_binding_on_existing_property<'a>(
+fn create_workspace_edit_for_set_binding_on_existing_property(
     uri: &lsp_types::Url,
     version: i32,
     property: &PropertyInformation,
@@ -515,7 +515,7 @@ fn set_binding_on_existing_property(
             create_workspace_edit_for_set_binding_on_existing_property(
                 uri,
                 document_cache.document_version(uri)?,
-                &property,
+                property,
                 new_expression,
             )
         })
@@ -523,7 +523,7 @@ fn set_binding_on_existing_property(
 
     Ok((
         SetBindingResponse {
-            diagnostics: diag.iter().map(|d| crate::util::to_lsp_diag(d)).collect::<Vec<_>>(),
+            diagnostics: diag.iter().map(crate::util::to_lsp_diag).collect::<Vec<_>>(),
         },
         workspace_edit,
     ))
@@ -544,22 +544,17 @@ fn find_insert_position_relative_to_defined_properties(
     for (i, p) in properties.iter().enumerate() {
         if p.name == property_name {
             property_index = i;
-        } else {
-            if let Some(defined_at) = &p.defined_at {
-                if property_index == usize::MAX {
-                    previous_property = Some((i, defined_at.selection_range.end.clone()));
-                } else {
-                    if let Some((pi, pp)) = previous_property {
-                        if (i - property_index) >= (property_index - pi) {
-                            return Some((
-                                lsp_types::Range::new(pp.clone(), pp),
-                                InsertPosition::After,
-                            ));
-                        }
+        } else if let Some(defined_at) = &p.defined_at {
+            if property_index == usize::MAX {
+                previous_property = Some((i, defined_at.selection_range.end));
+            } else {
+                if let Some((pi, pp)) = previous_property {
+                    if (i - property_index) >= (property_index - pi) {
+                        return Some((lsp_types::Range::new(pp, pp), InsertPosition::After));
                     }
-                    let p = defined_at.selection_range.start.clone();
-                    return Some((lsp_types::Range::new(p.clone(), p), InsertPosition::Before));
                 }
+                let p = defined_at.selection_range.start;
+                return Some((lsp_types::Range::new(p, p), InsertPosition::Before));
             }
         }
     }
@@ -585,7 +580,7 @@ fn find_insert_range_for_property(
     })
 }
 
-fn create_workspace_edit_for_set_binding_on_known_property<'a>(
+fn create_workspace_edit_for_set_binding_on_known_property(
     uri: &lsp_types::Url,
     version: i32,
     element: &ElementRc,
@@ -644,8 +639,8 @@ fn set_binding_on_known_property(
                 &document_cache
                     .offset_to_position_mapper(uri)
                     .expect("This URI is known at this point!"),
-                &properties,
-                &property_name,
+                properties,
+                property_name,
                 new_expression,
             )
         })
@@ -653,7 +648,7 @@ fn set_binding_on_known_property(
 
     Ok((
         SetBindingResponse {
-            diagnostics: diag.iter().map(|d| crate::util::to_lsp_diag(d)).collect::<Vec<_>>(),
+            diagnostics: diag.iter().map(crate::util::to_lsp_diag).collect::<Vec<_>>(),
         },
         workspace_edit,
     ))
@@ -677,7 +672,7 @@ fn find_element_indent(element: &ElementRc) -> Option<String> {
         })
 }
 
-pub(crate) fn set_binding<'a>(
+pub(crate) fn set_binding(
     document_cache: &mut DocumentCache,
     uri: &lsp_types::Url,
     element: &ElementRc,
@@ -726,10 +721,7 @@ pub(crate) fn set_binding<'a>(
             );
             return Ok((
                 SetBindingResponse {
-                    diagnostics: diag
-                        .iter()
-                        .map(|d| crate::util::to_lsp_diag(d))
-                        .collect::<Vec<_>>(),
+                    diagnostics: diag.iter().map(crate::util::to_lsp_diag).collect::<Vec<_>>(),
                 },
                 None,
             ));
@@ -745,7 +737,7 @@ pub(crate) fn set_binding<'a>(
         set_binding_on_known_property(
             document_cache,
             uri,
-            &element,
+            element,
             &properties,
             &property.name,
             &new_expression,
@@ -805,7 +797,7 @@ pub(crate) fn remove_binding(
                                     None
                                 }
                             })
-                            .unwrap_or_else(|| start)
+                            .unwrap_or(start)
                     };
                     let end = {
                         let token = right_extend(ancestor.last_token()?);
@@ -822,7 +814,7 @@ pub(crate) fn remove_binding(
                                     None
                                 }
                             })
-                            .unwrap_or_else(|| end)
+                            .unwrap_or(end)
                     };
 
                     return Some(offset_mapper.map_range(rowan::TextRange::new(start, end)));

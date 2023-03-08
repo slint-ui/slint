@@ -498,7 +498,7 @@ impl<'a, T> PartialRenderer<'a, T> {
         clip_rect: &LogicalRect,
     ) {
         if !rect.is_empty() {
-            if let Some(rect) = rect.translate(offset).intersection(&clip_rect) {
+            if let Some(rect) = rect.translate(offset).intersection(clip_rect) {
                 self.dirty_region = self.dirty_region.union(&rect.to_box2d());
             }
         }
