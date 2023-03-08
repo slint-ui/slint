@@ -169,13 +169,11 @@ fn analyze_element(
     }
     if elem.borrow().repeated.is_some() {
         if let ElementType::Component(base) = &elem.borrow().base_type {
-            if base.parent_element.upgrade().is_some() {
-                base.init_code.borrow().iter().for_each(|init_expr| {
-                    recurse_expression(&init_expr, &mut |prop: &PropertyPath| {
-                        process_property(prop, context, reverse_aliases, diag);
-                    });
+            base.init_code.borrow().iter().for_each(|init_expr| {
+                recurse_expression(&init_expr, &mut |prop: &PropertyPath| {
+                    process_property(prop, context, reverse_aliases, diag);
                 });
-            }
+            });
         }
     }
 }

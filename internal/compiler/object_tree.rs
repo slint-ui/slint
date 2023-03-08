@@ -590,10 +590,8 @@ pub fn pretty_print(
         expression_tree::pretty_print(f, &repeated.model)?;
         write!(f, ":")?;
         if let ElementType::Component(base) = &e.base_type {
-            if base.parent_element.upgrade().is_some() {
-                pretty_print(f, &base.root_element.borrow(), indentation)?;
-                return Ok(());
-            }
+            pretty_print(f, &base.root_element.borrow(), indentation)?;
+            return Ok(());
         }
     }
     writeln!(f, "{} := {} {{", e.id, e.base_type)?;
@@ -1831,9 +1829,7 @@ pub fn recurse_elem_including_sub_components<State>(
         ));
         if elem.borrow().repeated.is_some() {
             if let ElementType::Component(base) = &elem.borrow().base_type {
-                if base.parent_element.upgrade().is_some() {
-                    recurse_elem_including_sub_components(base, state, vis);
-                }
+                recurse_elem_including_sub_components(base, state, vis);
             }
         }
         vis(elem, state)
