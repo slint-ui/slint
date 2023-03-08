@@ -27,6 +27,11 @@ pub fn setup(window: &MainWindow) -> thread::JoinHandle<()> {
 }
 
 async fn weather_worker_loop(window_weak: Weak<MainWindow>) {
+    let api_key = api_key();
+    if api_key.is_empty() {
+        return;
+    }
+
     // place holders
     window_weak
         .upgrade_in_event_loop(|window| {
@@ -36,7 +41,6 @@ async fn weather_worker_loop(window_weak: Weak<MainWindow>) {
         })
         .unwrap();
 
-    let api_key = api_key();
     let lat = lat();
     let long = long();
 
