@@ -12,14 +12,14 @@ export component About inherits Page {
     padding-left: 0;
     padding-right: 0;
 
-    VerticalLayout {  
+    VerticalLayout {
         padding-left: Theme.spaces.medium;
         padding-right: Theme.spaces.medium;
         padding-top: Theme.spaces.medium;
         padding-bottom: Theme.spaces.large;
         spacing: Theme.spaces.medium;
 
-        HorizontalLayout {  
+        HorizontalLayout {
             vertical-stretch: 0;
             alignment: start;
 
@@ -29,12 +29,12 @@ export component About inherits Page {
             }
         }
 
-        VerticalLayout { 
+        VerticalLayout {
             vertical-stretch: 1;
             spacing: Theme.spaces.medium;
             alignment: start;
 
-            Text {  
+            Text {
                 vertical-stretch: 0;
                 horizontal-alignment: center;
                 text: "Developed by";
@@ -42,18 +42,18 @@ export component About inherits Page {
                 font-size: Theme.typo.header-item.size;
                 font-weight: Theme.typo.header-item.weight;
             }
-    
-            Image {  
+
+            Image {
                 preferred-height: 55px;
                 source: Images.slint-logo;
             }
-    
+
             // spacer
-            Rectangle { 
+            Rectangle {
                 vertical-stretch: 1;
             }
-    
-            Text {  
+
+            Text {
                 vertical-stretch: 0;
                 horizontal-alignment: center;
                 text: "Designed by";
@@ -61,22 +61,11 @@ export component About inherits Page {
                 font-size: Theme.typo.header-item.size;
                 font-weight: Theme.typo.header-item.weight;
             }
-           
-            Text {  
-                vertical-stretch: 0;
-                horizontal-alignment: center;
-                text: "Spyrosoft";
-                color: Theme.palette.white;
-                font-size: Theme.typo.header-item.size;
-                font-weight: Theme.typo.header-item.weight;
-            }
-    
-            // Image {  
-            //     preferred-height: 32px;
-            //     source: @image-url("../assets/logo-spyrosoft.svg");
-            // }
-        }
 
-  
+            Image {
+                preferred-height: 42px;
+                source: Images.spyrosoft-logo;
+            }
+        }
     }
 }
