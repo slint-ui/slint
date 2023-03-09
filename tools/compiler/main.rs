@@ -9,16 +9,15 @@ use std::io::Write;
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Embedding {
     /// Embed resources using absolute paths on the build system (alias: false)
-    #[value(alias = "false", name = "as-paths")]
+    #[value(alias = "false")]
     AsAbsolutePath,
     /// Embed contents of resource files (alias: true)
-    #[value(alias = "true", name = "as-contents")]
-    AsFiles,
+    #[value(alias = "true")]
+    EmbedFiles,
     /// Embed in a format optimized for the software renderer. This
-    /// option falls back to as-contents when the software-renderer is not
+    /// option falls back to `embed-files` if the software-renderer is not
     /// used
-    #[value(name = "as-textures")]
-    SoftwareRenderer,
+    EmbedForSoftwareRenderer,
 }
 
 #[derive(Parser)]
@@ -69,11 +68,11 @@ fn main() -> std::io::Result<()> {
     if let Some(embed) = args.embed_resources {
         compiler_config.embed_resources = match embed {
             Embedding::AsAbsolutePath => EmbedResourcesKind::OnlyBuiltinResources,
-            Embedding::AsFiles => EmbedResourcesKind::EmbedAllResources,
+            Embedding::EmbedFiles => EmbedResourcesKind::EmbedAllResources,
             #[cfg(feature = "software-renderer")]
-            Embedding::SoftwareRenderer => EmbedResourcesKind::EmbedTextures,
+            Embedding::EmbedForSoftwareRenderer => EmbedResourcesKind::EmbedTextures,
             #[cfg(not(feature = "software-renderer"))]
-            Embedding::SoftwareRenderer => EmbedResourcesKind::EmbedAllResources,
+            Embedding::EmbedForSoftwareRenderer => EmbedResourcesKind::EmbedAllResources,
         };
     }
 
