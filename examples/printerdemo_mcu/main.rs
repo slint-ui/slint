@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-#![no_std]
+//#![no_std]
 #![cfg_attr(not(feature = "simulator"), no_main)]
 
 extern crate alloc;
@@ -34,6 +34,7 @@ impl PrinterQueueData {
 
 #[mcu_board_support::entry]
 fn main() -> ! {
+    std::env::set_var("SLINT_FULLSCREEN", "1");
     mcu_board_support::init();
     let main_window = MainWindow::new().unwrap();
     main_window.set_ink_levels(slint::VecModel::from_slice(&[

@@ -15,7 +15,7 @@ path = "src/main.rs"
 name = "energy-monitor"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-0"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-0", "std", "backend-winit-wayland", "renderer-winit-software"] }
 mcu-board-support = { path = "../mcu-board-support", optional = true }
 chrono = { version = "0.4.23", optional = true }
 weer_api = { version = "0.1", optional = true }

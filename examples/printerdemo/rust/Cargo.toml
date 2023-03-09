@@ -15,7 +15,7 @@ path = "main.rs"
 name = "printerdemo"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint" }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-0", "std", "backend-winit-wayland", "renderer-winit-software"] }
 
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
 
