@@ -20,7 +20,7 @@ fn main() -> ! {
     match to_launch {
         1 => printerdemo_mcu::run(),
         2 => slide_puzzle::main(),
-        3 => memory::main(),
+        3 => energy_monitor::main(),
         _ => panic!("Cannot launch yet {to_launch}"),
     }
 
