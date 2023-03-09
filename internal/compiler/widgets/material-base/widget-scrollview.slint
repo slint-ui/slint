@@ -25,8 +25,8 @@ component ScrollBar inherits Rectangle {
     handle := Rectangle {
         x: !root.horizontal ? 0phx : (root.width - handle.width) * (-root.value / root.maximum);
         y: root.horizontal ? 0phx : (root.height - handle.height) * (-root.value / root.maximum);
-        width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : parent.width * (root.page-size / (root.maximum + root.page-size));
-        height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : parent.height * (root.page-size / (root.maximum + root.page-size));
+        width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : max(32px, parent.width * max(root.page-size / (root.maximum + root.page-size)));
+        height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : max(32px, parent.height * (root.page-size / (root.maximum + root.page-size)));
 
         container := Rectangle {
             width: 100%;
