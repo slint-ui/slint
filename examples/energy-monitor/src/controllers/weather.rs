@@ -32,15 +32,6 @@ async fn weather_worker_loop(window_weak: Weak<MainWindow>) {
         return;
     }
 
-    // place holders
-    window_weak
-        .upgrade_in_event_loop(|window| {
-            window.global::<WeatherAdapter>().set_week_model(
-                VecModel::from_slice(&vec![BarTileModel::default(); FORECAST_DAYS as usize]).into(),
-            );
-        })
-        .unwrap();
-
     let lat = lat();
     let long = long();
 
@@ -80,7 +71,9 @@ async fn weather_worker_loop(window_weak: Weak<MainWindow>) {
         }
     }
 
-    display_forecast(window_weak.clone(), forecast_days);
+    if !forecast_days.is_empty() {
+        display_forecast(window_weak.clone(), forecast_days);
+    }
 }
 
 async fn current_forecast(
