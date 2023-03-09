@@ -22,6 +22,8 @@ SECTIONS {
       __s_slint_assets = .;
        *(.slint_assets);
        . = ALIGN(4);
+       *(.slint_code);
+       . = ALIGN(4);
      } > SDRAM  AT>OSPI_ROM
 
     __e_slint_assets = .;
