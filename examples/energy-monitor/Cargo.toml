@@ -13,6 +13,9 @@ license = "MIT"
 [lib]
 crate-type = ["cdylib", "lib"]
 
+[lib]
+path = "src/main.rs"
+
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
 mcu-board-support = { path = "../mcu-board-support", optional = true }
@@ -33,3 +36,4 @@ slint-build = { path = "../../api/rs/build" }
 default = ["slint/default", "network", "chrono", "slint/backend-android-activity-05"]
 simulator = ["mcu-board-support", "slint/renderer-software", "slint/backend-winit", "slint/std"]
 network = ["dep:weer_api", "tokio", "futures"]
+from_launcher = []
