@@ -99,6 +99,8 @@ pub struct SoftwareRenderer {
     repaint_buffer_type: RepaintBufferType,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
     force_dirty: Cell<crate::item_rendering::DirtyRegion>,
+    /// Force a redraw in the next frame, no matter what's dirty. Use only as a last resort.
+    force_screen_refresh: Cell<bool>,
     /// This is the area which was dirty on the previous frame.
     /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
     prev_frame_dirty: Cell<DirtyRegion>,
@@ -121,6 +123,7 @@ impl SoftwareRenderer {
             repaint_buffer_type,
             partial_cache: Default::default(),
             force_dirty: Default::default(),
+            force_screen_refresh: Default::default(),
             prev_frame_dirty: Default::default(),
         }
     }
@@ -129,9 +132,15 @@ impl SoftwareRenderer {
     /// Returns the region to actually draw.
     fn apply_dirty_region(
         &self,
-        dirty_region: DirtyRegion,
+        mut dirty_region: DirtyRegion,
         screen_size: PhysicalSize,
     ) -> DirtyRegion {
+        let screen_region = PhysicalRect { origin: euclid::point2(0, 0), size: screen_size };
+
+        if self.force_screen_refresh.take() {
+            dirty_region = screen_region;
+        }
+
         match self.repaint_buffer_type {
             RepaintBufferType::NewBuffer => {
                 PhysicalRect { origin: euclid::point2(0, 0), size: screen_size }
@@ -141,7 +150,7 @@ impl SoftwareRenderer {
                 dirty_region.union(&self.prev_frame_dirty.replace(dirty_region))
             }
         }
-        .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size: screen_size })
+        .intersection(&screen_region)
         .unwrap_or_default()
     }
 
@@ -297,6 +306,9 @@ impl Renderer for SoftwareRenderer {
         for item in items {
             item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
         }
+        // We don't have a way to determine the screen region of the delete items, what's in the cache is relative. So
+        // as a last resort, refresh everything.
+        self.force_screen_refresh.set(true);
     }
 
     fn mark_dirty_region(&self, region: crate::item_rendering::DirtyRegion) {
