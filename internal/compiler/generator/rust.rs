@@ -1521,7 +1521,7 @@ fn generate_repeated_component(
             fn init(&self) {
                 let self_rc = self.self_weak.get().unwrap().upgrade().unwrap();
                 #inner_component_id::user_init(
-                    VRcMapped::map(self_rc.clone(), |x| x),
+                    VRcMapped::map(self_rc, |x| x),
                 );
             }
             #extra_fn
