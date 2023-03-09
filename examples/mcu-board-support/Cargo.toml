@@ -17,8 +17,8 @@ links = "mcu_board_support" # just so we can pass metadata to the slint build cr
 path = "lib.rs"
 
 [features]
-pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "fugit", "cortex-m", "display-interface", "st7789", "defmt", "defmt-rtt", "shared-bus", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
-stm32h735g = ["slint/unsafe-single-threaded", "embedded-hal", "cortex-m/critical-section-single-core", "cortex-m-rt","alloc-cortex-m", "embedded-time", "cortex-m", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm", "getrandom"]
+pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "cortex-m-rt", "embedded-alloc", "fugit", "cortex-m", "display-interface", "st7789", "defmt", "defmt-rtt", "shared-bus", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
+stm32h735g = ["slint/unsafe-single-threaded", "embedded-hal", "cortex-m/critical-section-single-core", "cortex-m-rt","embedded-alloc", "embedded-time", "cortex-m", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm", "getrandom"]
 esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp32s2-hal", "embedded-hal", "xtensa-lx-rt/esp32s2", "esp-alloc", "esp-println/esp32s2", "display-interface", "display-interface-spi", "st7789", "slint/libm"]
 esp32-s3-box = ["slint/unsafe-single-threaded", "esp32s3-hal", "embedded-hal", "xtensa-lx-rt/esp32s3", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "display-interface", "display-interface-spi", "mipidsi", "embedded-graphics", "slint/libm", "tt21100"]
 
@@ -33,7 +33,7 @@ pin-weak = { version = "1", default-features = false }
 rgb = "0.8.27"
 cfg-if = "1"
 
-alloc-cortex-m = { version = "0.4.1", optional = true }
+embedded-alloc = { version = "0.5", optional = true }
 cortex-m-rt = { version = "0.7", optional = true }
 cortex-m = { version = "0.7.2", optional = true }
 display-interface = { version = "0.4.1", optional = true }

@@ -6,13 +6,13 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec;
-use alloc_cortex_m::CortexMHeap;
 use core::cell::RefCell;
 use core::convert::Infallible;
 use cortex_m::interrupt::Mutex;
 use cortex_m::singleton;
 pub use cortex_m_rt::entry;
 use defmt_rtt as _;
+use embedded_alloc::Heap;
 use embedded_hal::blocking::spi::Transfer;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 use embedded_hal::spi::FullDuplex;
@@ -35,7 +35,7 @@ const HEAP_SIZE: usize = 200 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
 #[global_allocator]
-static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
+static ALLOCATOR: Heap = Heap::empty();
 
 type IrqPin = gpio::Pin<gpio::bank0::Gpio17, gpio::PullUpInput>;
 static IRQ_PIN: Mutex<RefCell<Option<IrqPin>>> = Mutex::new(RefCell::new(None));

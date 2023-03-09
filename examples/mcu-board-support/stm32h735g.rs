@@ -19,7 +19,7 @@ use stm32h7xx_hal as hal; // global logger
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
 
-use alloc_cortex_m::CortexMHeap;
+use embedded_alloc::Heap;
 
 const HEAP_SIZE: usize = 200 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
@@ -31,7 +31,7 @@ const DISPLAY_HEIGHT: usize = 272;
 pub type TargetPixel = software_renderer::Rgb565Pixel;
 
 #[global_allocator]
-static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
+static ALLOCATOR: Heap = Heap::empty();
 
 static RNG: cortex_m::interrupt::Mutex<core::cell::RefCell<Option<hal::rng::Rng>>> =
     cortex_m::interrupt::Mutex::new(core::cell::RefCell::new(None));
