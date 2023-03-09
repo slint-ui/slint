@@ -128,7 +128,12 @@ impl slint::platform::Platform for EspBackend {
             slint::platform::update_timers_and_animations();
 
             if let Some(window) = self.window.borrow().clone() {
-                if touch.data_available().unwrap() {
+                let mut event_count = 0;
+                // The hardware keeps a queue of events. We should ideally process all event from the queue before rendering
+                // or we will get outdated event in the next frames. But move events are constantly added to the queue
+                // so we would block the whole interface, so add an arbitrary threshold
+                while event_count < 15 && touch.data_available().unwrap() {
+                    event_count += 1;
                     match touch.event() {
                         // Ignore error because we sometimes get an error at the beginning
                         Err(_) => (),
