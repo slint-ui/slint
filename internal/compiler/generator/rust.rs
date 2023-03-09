@@ -282,11 +282,15 @@ fn generate_public_component(
     #[cfg(not(feature = "bundle-translations"))]
     let init_bundle_translations = quote!();
 
+    let code_link_section =
+        std::env::var("SLINT_CODE_SECTION").ok().map(|section| quote!(#[link_section = #section]));
+
     quote!(
         #component
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
 
         impl #public_component_id {
+            #code_link_section
             pub fn new() -> core::result::Result<Self, slint::PlatformError> {
                 let inner = #inner_component_id::new()?;
                 #init_bundle_translations
@@ -301,6 +305,7 @@ fn generate_public_component(
         }
 
         impl From<#public_component_id> for sp::VRc<sp::ItemTreeVTable, #inner_component_id> {
+            #code_link_section
             fn from(value: #public_component_id) -> Self {
                 value.0
             }
@@ -308,18 +313,22 @@ fn generate_public_component(
 
         impl slint::ComponentHandle for #public_component_id {
             type Inner = #inner_component_id;
+            #code_link_section
             fn as_weak(&self) -> slint::Weak<Self> {
                 slint::Weak::new(&self.0)
             }
 
+            #code_link_section
             fn clone_strong(&self) -> Self {
                 Self(self.0.clone())
             }
 
+            #code_link_section
             fn from_inner(inner: sp::VRc<sp::ItemTreeVTable, #inner_component_id>) -> Self {
                 Self(inner)
             }
 
+            #code_link_section
             fn run(&self) -> core::result::Result<(), slint::PlatformError> {
                 self.show()?;
                 slint::run_event_loop()?;
@@ -327,18 +336,22 @@ fn generate_public_component(
                 core::result::Result::Ok(())
             }
 
+            #code_link_section
             fn show(&self) -> core::result::Result<(), slint::PlatformError> {
                 self.0.globals.get().unwrap().window_adapter_ref()?.window().show()
             }
 
+            #code_link_section
             fn hide(&self) -> core::result::Result<(), slint::PlatformError> {
                 self.0.globals.get().unwrap().window_adapter_ref()?.window().hide()
             }
 
+            #code_link_section
             fn window(&self) -> &slint::Window {
                 self.0.globals.get().unwrap().window_adapter_ref().unwrap().window()
             }
 
+            #code_link_section
             fn global<'a, T: slint::Global<'a, Self>>(&'a self) -> T {
                 T::get(&self)
             }
@@ -379,6 +392,7 @@ fn generate_shared_globals(
             root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>,
         }
         impl SharedGlobals {
+            #code_link_section
             fn new(root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>) -> Self {
                 Self {
                     #(#global_names : #global_types::new(),)*
@@ -566,6 +580,9 @@ fn public_api(
     self_init: TokenStream,
     ctx: &EvaluationContext,
 ) -> TokenStream {
+    let code_link_section =
+        std::env::var("SLINT_CODE_SECTION").ok().map(|section| quote!(#[link_section = #section]));
+
     let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
     for p in public_properties {
         let prop_ident = ident(&p.name);
@@ -580,6 +597,7 @@ fn public_api(
             let caller_ident = format_ident!("invoke_{}", prop_ident);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
+                #code_link_section
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     let _self = #self_init;
                     #prop.call(&(#(#args_name,)*))
@@ -589,6 +607,7 @@ fn public_api(
             let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
+                #code_link_section
                 pub fn #on_ident(&self, mut f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
                     let _self = #self_init;
                     #[allow(unused)]
@@ -607,6 +626,7 @@ fn public_api(
             let caller_ident = format_ident!("invoke_{}", prop_ident);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
+                #code_link_section
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                     let _self = #self_init;
                     #prop(#(#args_name,)*)
@@ -621,6 +641,7 @@ fn public_api(
 
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
+                #code_link_section
                 pub fn #getter_ident(&self) -> #rust_property_type {
                     #[allow(unused_imports)]
                     let _self = #self_init;
@@ -633,6 +654,7 @@ fn public_api(
                 let set_value = property_set_value_tokens(&p.prop, quote!(value), ctx);
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
+                    #code_link_section
                     pub fn #setter_ident(&self, value: #rust_property_type) {
                         #[allow(unused_imports)]
                         let _self = #self_init;
@@ -1101,6 +1123,9 @@ fn generate_sub_component(
         quote!(usize::MAX)
     };
 
+    let code_link_section =
+        std::env::var("SLINT_CODE_SECTION").ok().map(|section| quote!(#[link_section = #section]));
+
     let timer_names =
         component.timers.iter().enumerate().map(|(idx, _)| format_ident!("timer{idx}"));
     let update_timers = (!component.timers.is_empty()).then(|| {
@@ -1128,6 +1153,7 @@ fn generate_sub_component(
         });
         user_init_code.push(quote!(_self.update_timers();));
         quote!(
+            #code_link_section
             fn update_timers(self: ::core::pin::Pin<&Self>) {
                 let _self = self;
                 #(#updt)*
@@ -1160,6 +1186,7 @@ fn generate_sub_component(
         }
 
         impl #inner_component_id {
+            #code_link_section
             fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
                     globals : sp::Rc<SharedGlobals>,
                     tree_index: u32, tree_index_of_first_child: u32) {
@@ -1172,12 +1199,14 @@ fn generate_sub_component(
                 #(#init)*
             }
 
+            #code_link_section
             fn user_init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>) {
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
                 #(#user_init_code)*
             }
 
+            #code_link_section
             fn visit_dynamic_children(
                 self: ::core::pin::Pin<&Self>,
                 dyn_index: u32,
@@ -1192,6 +1221,7 @@ fn generate_sub_component(
                 }
             }
 
+            #code_link_section
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
                 #![allow(unused)]
                 let _self = self;
@@ -1201,6 +1231,7 @@ fn generate_sub_component(
                 }
             }
 
+            #code_link_section
             fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: u32) -> sp::IndexRange {
                 #![allow(unused)]
                 let _self = self;
@@ -1210,6 +1241,7 @@ fn generate_sub_component(
                 }
             }
 
+            #code_link_section
             fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak) {
                 #![allow(unused)]
                 let _self = self;
@@ -1219,12 +1251,14 @@ fn generate_sub_component(
                 };
             }
 
+            #code_link_section
             fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
                 #![allow(unused)]
                 let _self = self;
                 #subtree_index_function
             }
 
+            #code_link_section
             fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
                 #![allow(unused)]
                 let _self = self;
@@ -1237,6 +1271,7 @@ fn generate_sub_component(
                 sp::euclid::rect(x, y, w, h)
             }
 
+            #code_link_section
             fn accessible_role(self: ::core::pin::Pin<&Self>, index: u32) -> sp::AccessibleRole {
                 #![allow(unused)]
                 let _self = self;
@@ -1247,6 +1282,7 @@ fn generate_sub_component(
                 }
             }
 
+            #code_link_section
             fn accessible_string_property(
                 self: ::core::pin::Pin<&Self>,
                 index: u32,
@@ -1297,6 +1333,9 @@ fn generate_sub_component(
 }
 
 fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> Vec<TokenStream> {
+    let code_link_section =
+        std::env::var("SLINT_CODE_SECTION").ok().map(|section| quote!(#[link_section = #section]));
+
     functions
         .iter()
         .map(|f| {
@@ -1321,6 +1360,7 @@ fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> V
 
             quote! {
                 #[allow(dead_code, unused)]
+                #code_link_section
                 pub fn #fn_id(self: ::core::pin::Pin<&Self>, #(#args_name : #args_ty,)*) -> #return_type {
                     let _self = self;
                     let args = (#(#args_name,)*);
@@ -1336,6 +1376,9 @@ fn generate_global(
     global: &llr::GlobalComponent,
     root: &llr::CompilationUnit,
 ) -> TokenStream {
+    let code_link_section =
+        std::env::var("SLINT_CODE_SECTION").ok().map(|section| quote!(#[link_section = #section]));
+
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
     let mut declared_callbacks = vec![];
@@ -1448,6 +1491,7 @@ fn generate_global(
         let getters = root.public_components.iter().map(|c| {
             let root_component_id = ident(&c.name);
             quote! {
+                #code_link_section
                 impl<'a> slint::Global<'a, #root_component_id> for #public_component_id<'a> {
                     fn get(component: &'a #root_component_id) -> Self {
                         Self(&component.0.globals.get().unwrap().#global_id)
@@ -1481,9 +1525,11 @@ fn generate_global(
         }
 
         impl #inner_component_id {
+            #code_link_section
             fn new() -> ::core::pin::Pin<sp::Rc<Self>> {
                 sp::Rc::pin(Self::default())
             }
+            #code_link_section
             fn init(self: ::core::pin::Pin<sp::Rc<Self>>, globals: &sp::Rc<SharedGlobals>) {
                 #![allow(unused)]
                 self.globals.set(sp::Rc::downgrade(globals));
@@ -1506,6 +1552,8 @@ fn generate_item_tree(
     index_property: Option<llr::PropertyIdx>,
     is_popup_menu: bool,
 ) -> TokenStream {
+    let code_link_section =
+        std::env::var("SLINT_CODE_SECTION").ok().map(|section| quote!(#[link_section = #section]));
     let sub_comp = generate_sub_component(sub_tree.root, root, parent_ctx, index_property, true);
     let inner_component_id = self::inner_component_id(&root.sub_components[sub_tree.root]);
     let parent_component_type = parent_ctx
@@ -1609,6 +1657,7 @@ fn generate_item_tree(
         #sub_comp
 
         impl #inner_component_id {
+            #code_link_section
             fn new(#(parent: #parent_component_type,)* #globals_arg) -> core::result::Result<sp::VRc<sp::ItemTreeVTable, Self>, slint::PlatformError> {
                 #![allow(unused)]
                 slint::private_unstable_api::ensure_backend()?;
@@ -1622,11 +1671,13 @@ fn generate_item_tree(
                 core::result::Result::Ok(self_rc)
             }
 
+            #code_link_section
             fn item_tree() -> &'static [sp::ItemTreeNode] {
                 const ITEM_TREE : [sp::ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
                 &ITEM_TREE
             }
 
+            #code_link_section
             fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
                 // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
                 static ITEM_ARRAY : sp::OnceBox<
@@ -1637,6 +1688,7 @@ fn generate_item_tree(
         }
 
         const _ : () = {
+            #code_link_section
             use slint::private_unstable_api::re_exports::*;
             ItemTreeVTable_static!(static VT for self::#inner_component_id);
         };
@@ -1651,16 +1703,19 @@ fn generate_item_tree(
         }
 
         impl sp::ItemTree for #inner_component_id {
+            #code_link_section
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
                 -> sp::VisitChildrenResult
             {
                 return sp::visit_item_tree(self, &sp::VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
                 #[allow(unused)]
+                #code_link_section
                 fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>, dyn_index: u32) -> sp::VisitChildrenResult  {
                     _self.visit_dynamic_children(dyn_index, order, visitor)
                 }
             }
 
+            #code_link_section
             fn get_item_ref(self: ::core::pin::Pin<&Self>, index: u32) -> ::core::pin::Pin<sp::ItemRef<'_>> {
                 match &self.get_item_tree().as_slice()[index as usize] {
                     sp::ItemTreeNode::Item { item_array_index, .. } => {
@@ -1671,34 +1726,40 @@ fn generate_item_tree(
                 }
             }
 
+            #code_link_section
             fn get_item_tree(
                 self: ::core::pin::Pin<&Self>) -> sp::Slice<'_, sp::ItemTreeNode>
             {
                 Self::item_tree().into()
             }
 
+            #code_link_section
             fn get_subtree_range(
                 self: ::core::pin::Pin<&Self>, index: u32) -> sp::IndexRange
             {
                 self.subtree_range(index)
             }
 
+            #code_link_section
             fn get_subtree(
                 self: ::core::pin::Pin<&Self>, index: u32, subtree_index: usize, result: &mut sp::ItemTreeWeak)
             {
                 self.subtree_component(index, subtree_index, result);
             }
 
+            #code_link_section
             fn subtree_index(
                 self: ::core::pin::Pin<&Self>) -> usize
             {
                 self.index_property()
             }
 
+            #code_link_section
             fn parent_node(self: ::core::pin::Pin<&Self>, _result: &mut sp::ItemWeak) {
                 #parent_item_expression
             }
 
+            #code_link_section
             fn embed_component(self: ::core::pin::Pin<&Self>, _parent_component: &sp::ItemTreeWeak, _item_tree_index: u32) -> bool {
                 #embedding_function
             }
@@ -1707,6 +1768,7 @@ fn generate_item_tree(
                 self.layout_info(orientation)
             }
 
+            #code_link_section
             fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
                 self.item_geometry(index)
             }
@@ -1715,6 +1777,7 @@ fn generate_item_tree(
                 self.accessible_role(index)
             }
 
+            #code_link_section
             fn accessible_string_property(
                 self: ::core::pin::Pin<&Self>,
                 index: u32,
@@ -1767,6 +1830,9 @@ fn generate_repeated_component(
     unit: &llr::CompilationUnit,
     parent_ctx: ParentCtx,
 ) -> TokenStream {
+    let code_link_section =
+        std::env::var("SLINT_CODE_SECTION").ok().map(|section| quote!(#[link_section = #section]));
+
     let component =
         generate_item_tree(&repeated.sub_tree, unit, Some(parent_ctx), repeated.index_prop, false);
 
@@ -1786,6 +1852,7 @@ fn generate_repeated_component(
         let p_y = access_member(&listview.prop_y, &ctx).unwrap();
         let p_height = access_member(&listview.prop_height, &ctx).unwrap();
         quote! {
+            #code_link_section
             fn listview_layout(
                 self: ::core::pin::Pin<&Self>,
                 offset_y: &mut sp::LogicalLength,
@@ -1799,6 +1866,7 @@ fn generate_repeated_component(
     } else {
         // TODO: we could generate this code only if we know that this component is in a box layout
         quote! {
+            #code_link_section
             fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sp::Orientation)
                 -> sp::BoxLayoutCellData
             {
@@ -1836,12 +1904,14 @@ fn generate_repeated_component(
 
         impl sp::RepeatedItemTree for #inner_component_id {
             type Data = #data_type;
+            #code_link_section
             fn update(&self, _index: usize, _data: Self::Data) {
                 let self_rc = self.self_weak.get().unwrap().upgrade().unwrap();
                 let _self = self_rc.as_pin_ref();
                 #(#index_prop.set(_index as _);)*
                 #(#set_data_expr)*
             }
+            #code_link_section
             fn init(&self) {
                 let self_rc = self.self_weak.get().unwrap().upgrade().unwrap();
                 #inner_component_id::user_init(
