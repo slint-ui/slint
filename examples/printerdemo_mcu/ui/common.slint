@@ -178,6 +178,7 @@ export component ComboBox inherits Rectangle {
     border-color: DemoPalette.control-outline-color;
     height: 32px;
     min-width: label.x + label.width + i.width;
+    horizontal-stretch: 1; // Work around #2284
     label := Text {
         vertical-alignment: center;
         horizontal-alignment: left;
