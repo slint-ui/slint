@@ -219,5 +219,9 @@ fn event_text(e: &web_sys::KeyboardEvent) -> Option<SharedString> {
     }
     i_slint_common::for_each_special_keys!(check_non_printable_code);
 
-    return Some(key.into());
+    let mut chars = key.chars();
+    match chars.next() {
+        Some(first_char) if chars.next().is_none() => Some(first_char.into()),
+        _ => None,
+    }
 }
