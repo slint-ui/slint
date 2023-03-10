@@ -67,19 +67,15 @@ CMake project, install it into a prefix directory of your choice and use `find_p
 
 ### Resource Embedding
 
-You may change the default resource embedding the Slint compiler will use via
-the `SLINT_EMBED_RESOURCES` target property, which accepts `as-absolute-path`,
-`embed-files` and `embed-for-software-renderer`. The latter optimizes for the
-Slint software-renderer and falls back to `embed-files` if that isn't used.
+By default, images or fonts that your Slint files reference are loaded from disk at run-time. This minimises build times, but requires that the directory structure with the files remains stable. If you want to build a program that runs anywhere, then you can configure the Slint compiler to embed such sources into the binary.
 
-Typically you will want to effect resource embedding for all targets in a
-CMake project. This is done with the `DEFAULT_SLINT_EMBED_RESOURCES` option,
-which initializes the `SLINT_EMBED_RESOURCES` target property.
+Set the `SLINT_EMBED_RESOURCES` target property on your CMake target to one of the following values:
 
-Typically you will want to set `DEFAULT_SLINT_EMBED_RESOURCES` to
-`as-absolute-path` for debug builds as this reduces build times. When doing a
-release, you will want to switch to `embed-files` to create self-contained
-binary that will work on all systems.
+* `embed-files`: The raw files are embedded in the application binary.
+* `embed-for-software-renderer`: The files will be loaded by the Slint compiler, optimized for use with the software renderer and embedded in the application binary.
+* `as-absolute-path`: The paths of files are made absolute and will be used at run-time to load the resources from the file system. This is the default.
+
+This target property is initialised from the global `DEFAULT_SLINT_EMBED_RESOURCES` cache variable. Set it to configure the default for all CMake targets.
 
 ### Features
 
