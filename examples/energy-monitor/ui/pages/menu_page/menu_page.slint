@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { About } from "about.slint";
-import { MenuOverview, MenuOverviewAdapter } from "menu_overview.slint";
+import { MenuOverviewAdapter } from "menu_overview.slint";
 import { Settings, SettingsAdapter } from "settings.slint";
 import { Theme } from "../../theme.slint";
 
@@ -31,42 +31,24 @@ export component MenuPage {
         width: 2 * parent.width;
         clip: true;
 
-        if(parent.x > -parent.width) : MenuOverview {
+        if(current-index == 0) : Settings {
             width: root.width;
 
-            page-changed(index) => {
-                root.page-changed(index);
-            }
-            show-settings => {
-                show-settings = true;
-                current-index = 1;
-
-            }
             show-about => {
-                show-settings = false;
                 current-index = 1;
-            }
-       }
-
-       if(!show-settings && current-index == 1) : About {
-            x: root.width;
-            width: root.width;
-
-            back => {
-                back();
-            }
-        }
-
-       if(show-settings && current-index == 1) : Settings {
-            x: root.width;
-            width: root.width;
-
-            back => {
-                back();
             }
 
             close => {
                 root.close();
+            }
+        }
+
+       if(current-index == 1) : About {
+            x: root.width;
+            width: root.width;
+
+            back => {
+                back();
             }
         }
 
