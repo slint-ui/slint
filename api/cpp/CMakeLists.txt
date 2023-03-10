@@ -352,6 +352,6 @@ endif(NOT WIN32)
 
 include(CPack)
 
-if(BUILD_TESTING)
+if(SLINT_BUILD_TESTING)
     add_subdirectory(tests)
 endif()
