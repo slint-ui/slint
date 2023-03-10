@@ -8,8 +8,9 @@ import { Theme } from "../theme.slint";
 component ScrollBar {
     private property <length> ref-width: self.width - 4px;
 
-    in property <float> range;
-    in property <float> value;
+    in-out property<length> page-size;
+    in-out property<length> value;
+    in-out property<length> maximum;
 
     min-height: 14px;
 
@@ -18,21 +19,44 @@ component ScrollBar {
         border-radius: 6px;
         border-color: Theme.palette.slint-blue-300;
 
-        Rectangle {
-            x: 2px - ref-width * value;
-            y: 2px;
+        i-indicator := Rectangle {
+            x: 2px + (root.ref-width - i-indicator.width) * (-root.value / root.maximum);
             height: parent.height - 4px;
             background: Theme.palette.slint-blue-300;
-            width: ref-width * range;
+            width: max(32px, ref-width * root.page-size / (root.maximum + root.page-size));
             border-radius: parent.border-radius - 2px;
+        }
+    }
+
+    TouchArea {
+        property <length> pressed-value;
+
+        width: parent.width;
+        height: parent.height;
+
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                self.pressed-value = -root.value;
+            }
+        }
+        moved => {
+            if (self.enabled && self.pressed) {
+                root.value = -max(0px, min(root.maximum, self.pressed-value + (
+                   (self.mouse-x - self.pressed-x) * (root.maximum / (root.width - i-indicator.width))
+                )));
+            }
         }
     }
 }
 
 export component PageContainer {
+    callback clicked <=> i-touch-area.clicked;
+
     min-width: 320px;
     min-height: 240px;
     max-height: 300px;
+
+    i-touch-area := TouchArea {}
 
     Rectangle {
         border-radius: 6px;
@@ -61,15 +85,15 @@ export component PageScrollView {
 
             i-flickable := Flickable {
                 vertical-stretch: 1;
-    
+
                 i-layout := HorizontalLayout {
                     padding-left: 20px;
                     padding-right: 20px;
                     spacing: 20px;
-    
+
                     @children
-                }   
-            }     
+                }
+            }
         }
 
         HorizontalLayout {
@@ -78,7 +102,7 @@ export component PageScrollView {
             padding-left: 25px;
             padding-right: 25px;
 
-            FloatButton { 
+            FloatButton {
                 visible: i-flickable.viewport-x < 0;
                 horizontal-stretch: 0;
                 icon: Images.arrow-left;
@@ -93,16 +117,17 @@ export component PageScrollView {
                 horizontal-stretch: 1;
 
                 ScrollBar {
-                    value: i-flickable.viewport-x / i-flickable.viewport-width;
-                    range:  i-flickable.width / i-flickable.viewport-width;
+                    maximum: i-flickable.viewport-width - i-flickable.width;
+                    page-size: i-flickable.width;
+                    value <=> i-flickable.viewport-x;
                 }
             }
 
-            FloatButton { 
+            FloatButton {
                 visible: i-flickable.viewport-x > i-flickable.width - i-flickable.viewport-width;
                 horizontal-stretch: 0;
                 icon: Images.arrow-right;
-                
+
                 clicked => {
                     scroll-right();
                 }

@@ -7,7 +7,7 @@ import { Theme } from "theme.slint";
 import { Menu, PageScrollView, PageContainer } from "widgets/widgets.slint";
 import { MenuPage } from "pages/pages.slint";
 import { Balance, Overview, Usage, UsageAdapter, Weather } from "pages/pages.slint";
- 
+
 export component MidMain {
     private property <int> page-count: 4;
     private property <length> item-width: i-page-scroll-view.viewport-width / page-count;
@@ -16,29 +16,45 @@ export component MidMain {
     Rectangle {
         background: Theme.palette.background-gradient;
 
-        VerticalLayout {  
+        VerticalLayout {
             padding-bottom: 50px;
             spacing: 35px;
 
             Header {}
- 
+
             i-page-scroll-view := PageScrollView {
                 vertical-stretch: 1;
 
                 PageContainer {
                     Overview {}
+
+                    clicked => {
+                        show-page(0);
+                    }
                 }
 
                 PageContainer {
                     Usage {}
+
+                    clicked => {
+                        show-page(1);
+                    }
                 }
 
                 PageContainer {
                     Balance {}
+
+                    clicked => {
+                        show-page(2);
+                    }
                 }
 
                 PageContainer {
                     Weather {}
+
+                    clicked => {
+                        show-page(3);
+                    }
                 }
 
                 animate viewport-x { duration: Theme.durations.medium;  }
@@ -47,16 +63,16 @@ export component MidMain {
 
         i-menu := Menu {
             stays-open: true;
-           
+
             start-y: 35px;
             end-y: 75px;
             menu-width: root.width / 3;
-            menu-height: root.height - 75px;  
-    
+            menu-height: root.height - 75px;
+
             i-menu-page := MenuPage {
-                page-changed(index) => {  
+                page-changed(index) => {
                     i-menu.hide();
-                    i-page-scroll-view.viewport-x = min(0px, max(max-viewport-x, -(index * item-width))); 
+                    show-page(index);
                 }
 
                 close => {
@@ -68,5 +84,9 @@ export component MidMain {
                 i-menu-page.current-index = 0;
             }
         }
+    }
+
+    function show-page(index: int) {
+        i-page-scroll-view.viewport-x = min(0px, max(max-viewport-x, -(index * item-width)));
     }
 }

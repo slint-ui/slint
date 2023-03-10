@@ -39,6 +39,7 @@ export component Menu {
             visible: container-visibility == 1.0;
             border-radius: 4px;
             background: Theme.palette.ebony-radial-gradient;
+            clip: true;
 
             // avoid click-through
             TouchArea {}
@@ -54,9 +55,12 @@ export component Menu {
                 alignment: start;
 
                 i-menu-button := MenuButton {
-
                     clicked => {
-                        toggle-open();
+                        if(open) {
+                            hide();
+                        } else {
+                            open-menu();
+                        }
                     }
                 }
             }
@@ -69,19 +73,8 @@ export component Menu {
         menu-button-visible = false;
     }
 
-    public function show-button() {
-        menu-button-visible = true;
-    }
-
-    function toggle-open() {
-        menu-button-visible = false;
-        open = !open;
-
-        if(open) {
-            opend();
-        } else {
-            closed();
-        }
+    public function open-menu() {
+        open = true;
     }
 
     public function hide() {

@@ -9,6 +9,7 @@ import { IconButton, CheckBox, RadioButton, Switch, ScrollView, Item, ItemGroupB
 
 export global SettingsAdapter {
     callback check-radio-option(int /* index */);
+
     // fuctions
     in-out property <bool> fuction-one-checked: true;
     in-out property <bool> kiosk-mode-checked;
@@ -28,7 +29,7 @@ export global SettingsAdapter {
             radio-option-one-checked = true;
             radio-option-two-checked = false;
             return;
-        } 
+        }
 
         radio-option-one-checked = false;
         radio-option-two-checked = true;
@@ -37,7 +38,7 @@ export global SettingsAdapter {
 
 export component Settings inherits Page {
     callback close();
-    callback back <=> i-back-button.clicked;
+    callback show-about <=> i-back-button.clicked;
     callback check-radio-option <=> SettingsAdapter.check-radio-option;
 
     // fuctions
@@ -57,28 +58,28 @@ export component Settings inherits Page {
     padding-left: 0;
     padding-right: 0;
 
-    VerticalLayout {  
+    VerticalLayout {
         padding-left: Theme.spaces.medium;
         padding-right: Theme.spaces.medium;
         padding-top: Theme.spaces.medium;
         padding-bottom: Theme.spaces.large;
         spacing: Theme.spaces.medium;
 
-        HorizontalLayout {  
+        HorizontalLayout {
             vertical-stretch: 0;
-            alignment: start;
+            alignment: end;
 
             i-back-button := IconButton {
                 horizontal-stretch: 0;
-                icon: Images.arrow-left;
+                icon: Images.information;
             }
         }
 
         // spacer
-        ScrollView {  
+        ScrollView {
             vertical-stretch: 1;
 
-            VerticalLayout {  
+            VerticalLayout {
                 alignment: start;
                 spacing: Theme.spaces.medium;
 
@@ -94,17 +95,17 @@ export component Settings inherits Page {
                     }
                 }
 
-                ItemGroupBox {  
+                ItemGroupBox {
                     title: "Subtitle";
- 
+
                     Item {
                         text: "Option One";
                         has-separator: true;
 
-                        i-radio-option-one := RadioButton {  
+                        i-radio-option-one := RadioButton {
                             checked: root.radio-option-one-checked;
-                            
-                            clicked => {  
+
+                            clicked => {
                                 root.check-radio-option(0);
                             }
                         }
@@ -117,10 +118,10 @@ export component Settings inherits Page {
                     Item {
                         text: "Option Two";
 
-                        i-radio-option-two := RadioButton {  
+                        i-radio-option-two := RadioButton {
                             checked: root.radio-option-two-checked;
 
-                            clicked => {  
+                            clicked => {
                                 root.check-radio-option(1);
                             }
                         }
@@ -131,9 +132,9 @@ export component Settings inherits Page {
                     }
                 }
 
-                ItemGroupBox {  
+                ItemGroupBox {
                     title: "Subtitle";
- 
+
                     Item {
                         text: "Option One";
                         has-separator: true;
@@ -176,7 +177,7 @@ export component Settings inherits Page {
                 Item {
                     text: "Kiosk mode";
 
-                    i-kiosk-mode := Switch { 
+                    i-kiosk-mode := Switch {
                         checked <=> root.kiosk-mode-checked;
 
                         changed => {
@@ -192,7 +193,7 @@ export component Settings inherits Page {
                 Item {
                     text: "Function Three";
 
-                    i-fuction-three := Switch {  
+                    i-fuction-three := Switch {
                         checked <=> root.fuction-three-checked;
                     }
 
