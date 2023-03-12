@@ -151,11 +151,6 @@
     color: var(--undefined-fg);
 }
 
-.properties-editor .value-column.type-unknown:before {
-    content: "??? ";
-    padding: 2px;
-}
-
 .properties-editor .properties-table input {
     margin: 0px;
     border: none;
