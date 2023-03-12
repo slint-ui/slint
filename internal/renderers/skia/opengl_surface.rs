@@ -47,10 +47,8 @@ impl super::Surface for OpenGLSurface {
             }
         };
 
-        let gl_interface = skia_safe::gpu::gl::Interface::new_load_with(|name| {
-            current_glutin_context
-                .display()
-                .get_proc_address(&std::ffi::CString::new(name).unwrap()) as *const _
+        let gl_interface = skia_safe::gpu::gl::Interface::new_load_with_cstr(|name| {
+            current_glutin_context.display().get_proc_address(name) as *const _
         });
 
         let mut gr_context = skia_safe::gpu::DirectContext::new_gl(gl_interface, None).unwrap();
