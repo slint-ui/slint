@@ -61,30 +61,42 @@ impl<'a> SkiaRenderer<'a> {
         width: PhysicalLength,
         height: PhysicalLength,
     ) -> Option<skia_safe::Paint> {
+        Self::brush_to_shader(brush, width, height).map(|shader| {
+            let mut paint = skia_safe::Paint::default();
+            paint.set_shader(shader);
+            paint.set_alpha_f(paint.alpha_f() * self.current_state.alpha);
+            paint
+        })
+    }
+
+    fn brush_to_shader(
+        brush: Brush,
+        width: PhysicalLength,
+        height: PhysicalLength,
+    ) -> Option<skia_safe::shader::Shader> {
         if brush.is_transparent() {
             return None;
         }
-        let mut paint = skia_safe::Paint::default();
         match brush {
-            Brush::SolidColor(color) => paint.set_color(to_skia_color(&color)),
+            Brush::SolidColor(color) => Some(skia_safe::shaders::color(to_skia_color(&color))),
             Brush::LinearGradient(g) => {
                 let (start, end) = i_slint_core::graphics::line_for_angle(g.angle());
                 let (colors, pos): (Vec<_>, Vec<_>) =
                     g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
-                paint.set_shader(skia_safe::gradient_shader::linear(
+                skia_safe::gradient_shader::linear(
                     (skia_safe::Point::new(start.x, start.y), skia_safe::Point::new(end.x, end.y)),
                     skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
                     Some(&*pos),
                     skia_safe::TileMode::Clamp,
                     None,
                     &skia_safe::Matrix::scale((width.get(), height.get())),
-                ))
+                )
             }
             Brush::RadialGradient(g) => {
                 let (colors, pos): (Vec<_>, Vec<_>) =
                     g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
                 let circle_scale = width.max(height) / 2.;
-                paint.set_shader(skia_safe::gradient_shader::radial(
+                skia_safe::gradient_shader::radial(
                     skia_safe::Point::new(0., 0.),
                     1.,
                     skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
@@ -94,14 +106,10 @@ impl<'a> SkiaRenderer<'a> {
                     skia_safe::Matrix::scale((circle_scale.get(), circle_scale.get()))
                         .post_translate((width.get() / 2., height.get() / 2.))
                         as &skia_safe::Matrix,
-                ))
+                )
             }
-            _ => return None,
-        };
-
-        paint.set_alpha_f(paint.alpha_f() * self.current_state.alpha);
-
-        Some(paint)
+            _ => None,
+        }
     }
 
     fn colorize_image(
@@ -120,7 +128,7 @@ impl<'a> SkiaRenderer<'a> {
         let canvas = surface.canvas();
         canvas.clear(skia_safe::Color::TRANSPARENT);
 
-        let colorize_paint = self.brush_to_paint(
+        let colorize_shader = Self::brush_to_shader(
             colorize_brush,
             PhysicalLength::new(image.width() as f32),
             PhysicalLength::new(image.height() as f32),
@@ -130,7 +138,7 @@ impl<'a> SkiaRenderer<'a> {
         paint.set_image_filter(skia_safe::image_filters::blend(
             skia_safe::BlendMode::SrcIn,
             skia_safe::image_filters::image(image, None, None, None),
-            skia_safe::image_filters::paint(&colorize_paint, None),
+            skia_safe::image_filters::shader(colorize_shader, None),
             None,
         ));
         canvas.draw_paint(&paint);
