@@ -10,8 +10,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FeatureSummary)
 
-option(BUILD_TESTING "Build tests" OFF)
-add_feature_info(BUILD_TESTING BUILD_TESTING "configure whether to build the test suite")
+option(SLINT_BUILD_TESTING "Build tests" OFF)
+add_feature_info(SLINT_BUILD_TESTING SLINT_BUILD_TESTING "configure whether to build the test suite")
 include(CTest)
 
 # Place all compiled examples into the same bin directory
@@ -30,7 +30,7 @@ add_feature_info(SLINT_BUILD_EXAMPLES SLINT_BUILD_EXAMPLES "configure whether to
 
 if(SLINT_BUILD_EXAMPLES)
     add_subdirectory(examples)
-    if(BUILD_TESTING)
+    if(SLINT_BUILD_TESTING)
         add_subdirectory(docs/tutorial/cpp/src/)
     endif()
 endif()
