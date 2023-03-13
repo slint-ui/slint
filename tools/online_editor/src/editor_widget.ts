@@ -481,11 +481,25 @@ class EditorPaneWidget extends Widget {
             return model.getValue();
         }
 
-        const response = await fetch(uri.toString());
-        if (!response.ok) {
-            return "Failed to access URL: " + response.statusText;
+        let doc = "";
+        try {
+            const response = await fetch(uri.toString());
+            if (!response.ok) {
+                alert(
+                    "Failed to download data from " +
+                        uri +
+                        ":\n" +
+                        response.status +
+                        " " +
+                        response.statusText,
+                );
+                return "";
+            }
+            doc = await response.text();
+        } catch (e) {
+            alert("Failed to download data from " + uri + ".");
+            return "";
         }
-        const doc = await response.text();
 
         model = monaco.editor.getModel(uri);
         if (model != null) {
@@ -499,7 +513,23 @@ class EditorPaneWidget extends Widget {
     }
 
     async read_from_url(url: string): Promise<string> {
-        const uri = monaco.Uri.parse(url);
+        let uri = monaco.Uri.parse(url);
+        if (uri.authority == "github.com") {
+            const orig = uri;
+            const path = orig.path.split("/");
+
+            if (path[3] === "blob") {
+                path.splice(3, 1);
+
+                uri = monaco.Uri.from({
+                    scheme: orig.scheme,
+                    authority: "raw.githubusercontent.com",
+                    path: path.join("/"),
+                    query: orig.query,
+                    fragment: orig.fragment,
+                });
+            }
+        }
         return this.fetch_url_content(this.#edit_era, uri);
     }
 }
@@ -652,6 +682,12 @@ export class EditorWidget extends Widget {
 
     goto_position(uri: string, position: LspPosition | LspRange) {
         this.#editor?.goto_position(uri, position);
+    }
+
+    async open_url(url: string | null) {
+        if (url == null) return;
+
+        return this.load_from_url(url);
     }
 
     async set_demo(location: string) {
