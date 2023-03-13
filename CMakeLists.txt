@@ -30,9 +30,9 @@ add_feature_info(SLINT_BUILD_EXAMPLES SLINT_BUILD_EXAMPLES "configure whether to
 
 if(SLINT_BUILD_EXAMPLES)
     add_subdirectory(examples)
-    if(SLINT_BUILD_TESTING)
-        add_subdirectory(docs/tutorial/cpp/src/)
-    endif()
+endif()
+if(SLINT_BUILD_TESTING)
+    add_subdirectory(docs/tutorial/cpp/src/)
 endif()
 
 feature_summary(WHAT ENABLED_FEATURES DESCRIPTION "Enabled features:")
