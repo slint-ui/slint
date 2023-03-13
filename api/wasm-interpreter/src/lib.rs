@@ -186,8 +186,8 @@ impl Clone for WrappedInstance {
 impl WrappedInstance {
     /// Marks this instance for rendering and input handling.
     #[wasm_bindgen]
-    pub fn show(&self) {
-        self.0.show();
+    pub fn show(&self) -> Result<(), JsValue> {
+        self.0.show().map_err(|e| -> JsValue { format!("{e}").into() })
     }
     /// Hides this instance and prevents further updates of the canvas element.
     #[wasm_bindgen]
@@ -210,6 +210,6 @@ impl WrappedInstance {
 /// to ignore.
 #[wasm_bindgen]
 pub fn run_event_loop() -> Result<(), JsValue> {
-    slint_interpreter::run_event_loop();
+    slint_interpreter::run_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })?;
     Ok(())
 }
