@@ -425,7 +425,7 @@ impl BuildDiagnostics {
                     DiagnosticLevel::Error => {
                         needs_error = false;
                         result.extend(proc_macro::TokenStream::from(if let Some(span) = span {
-                            quote::quote_spanned!(span.into() => compile_error!{ #message })
+                            quote::quote_spanned!(proc_macro2::Span::from(span) => compile_error!{ #message })
                         } else {
                             quote::quote!(compile_error! { #message })
                         }));
