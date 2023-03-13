@@ -83,6 +83,25 @@ function create_style_menu(editor: EditorWidget): Menu {
     return menu;
 }
 
+function create_open_menu(editor: EditorWidget): Menu {
+    const menu = new Menu({ commands });
+    menu.title.label = "Open";
+
+    commands.addCommand("slint:open_url", {
+        label: "Open Slint file from URL",
+        iconClass: "fa fa-link",
+        mnemonic: 1,
+        execute: () => {
+            const url = prompt("Please enter the URL to open");
+            editor.open_url(url);
+        },
+    });
+
+    menu.addItem({ command: "slint:open_url" });
+
+    return menu;
+}
+
 function create_share_menu(editor: EditorWidget): Menu {
     const menu = new Menu({ commands });
     menu.title.label = "Share";
@@ -394,6 +413,7 @@ function setup(lsp: Lsp) {
 
     const menu_bar = new MenuBar();
     menu_bar.id = "menuBar";
+    menu_bar.addMenu(create_open_menu(editor));
     menu_bar.addMenu(create_share_menu(editor));
     menu_bar.addMenu(create_build_menu());
     menu_bar.addMenu(create_demo_menu(editor));
