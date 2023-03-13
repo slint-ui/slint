@@ -1118,6 +1118,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 /// the StandardListViewItem type in Slint files, when declaring for example a `property <[StandardListViewItem]> my-list-view-model;`.
 #[repr(C)]
 #[derive(Clone, Default, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct StandardListViewItem {
     /// The text content of the item.
     pub text: SharedString,
@@ -1138,6 +1139,7 @@ impl From<&str> for StandardListViewItem {
 /// Represent an TableColumn header
 #[repr(C)]
 #[derive(Clone, Default, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct TableColumn {
     /// The title of the column header
     pub title: SharedString,

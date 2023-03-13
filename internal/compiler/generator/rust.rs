@@ -1799,10 +1799,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     let fields = fields.iter().enumerate().map(|(index, (name, _))| {
                         let index = proc_macro2::Literal::usize_unsuffixed(index);
                         let name = ident(name);
-                        quote!(#name: obj.#index as _)
+                        quote!(the_struct.#name =  obj.#index as _;)
                     });
                     let id = struct_name_to_tokens(n);
-                    quote!({ let obj = #f; #id { #(#fields),*} })
+                    quote!({ let obj = #f; let mut the_struct = #id::default(); #(#fields)* the_struct })
                 }
                 (Type::Array(..), Type::PathData)
                     if matches!(
@@ -2057,10 +2057,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 if let Some(name) = name {
                     let name_tokens: TokenStream = struct_name_to_tokens(name.as_str());
                     let keys = fields.keys().map(|k| ident(k));
-                    if name == "Point" {
-                        quote!(#name_tokens{#(#keys: #elem as _,)* ..Default::default()})
+                    if name.contains("LayoutData") {
+                        quote!(#name_tokens{#(#keys: #elem as _,)*})
                     } else {
-                        quote!(#name_tokens { #(#keys: #elem as _,)* })
+                        quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys =  #elem as _;)* the_struct})
                     }
                 } else {
                     let as_ = fields.values().map(|t| {
