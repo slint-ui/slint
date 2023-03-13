@@ -1,0 +1,12 @@
+[book]
+authors = ["Slint Developers <info@slint-ui.com>"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Slint Memory Game Tutorial (node)"
+
+[output.html]
+theme = "../theme"
+
+[output.linkcheck]  # enable the "mdbook-linkcheck" renderer
+optional = true
