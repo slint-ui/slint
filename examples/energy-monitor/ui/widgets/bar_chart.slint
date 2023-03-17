@@ -10,20 +10,20 @@ component Bar {
 
     horizontal-stretch: 1;
 
-    Rectangle {  
+    Rectangle {
         border-radius: 2px;
         y: parent.height - self.height;
         height: bar-height;
         clip: true;
 
-        Rectangle {  
+        Rectangle {
             height: root.height;
             y: parent.height - self.height;
             background: Theme.palette.bar-gradient;
         }
     }
 }
- 
+
 export component BarBackground inherits Rectangle {
     border-radius: 2px;
     background: Theme.palette.bar-background-gradient;
@@ -34,17 +34,30 @@ export component BarChart {
     in property <[float]> model;
     in property <float> min;
     in property <float> max;
+    in property <bool> active;
 
-    ChartPattern {  
+    ChartPattern {
         count: model.length / 2;
     }
 
-    HorizontalLayout {  
+    HorizontalLayout {
         spacing: 1px;
 
         for value in model : Bar {
-            height: 100%; 
-            bar-height: parent.height * (value - root.min) / (root.max - root.min);
+            private property <float> display-value;
+
+            height: 100%;
+            bar-height: parent.height * (display-value - root.min) / (root.max - root.min);
+
+            states [
+                active when active : {
+                    display-value: value;
+
+                    in {
+                        animate display-value { duration: Theme.durations.slow; easing: ease-in-out; }
+                    }
+                }
+            ]
         }
     }
-} 
+}

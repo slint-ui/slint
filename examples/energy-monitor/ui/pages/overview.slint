@@ -17,7 +17,7 @@ export global OverviewAdapter {
             title: "Weekly",
             value: 90.28,
             unit: "kWh",
-        } 
+        }
     ];
     in property <[Value]> self-consumption-model: [
         {
@@ -29,7 +29,7 @@ export global OverviewAdapter {
             title: "Monthly",
             value: 320.18,
             unit: "kWh",
-        } 
+        }
     ];
 }
 
@@ -45,24 +45,24 @@ export component Overview inherits Page {
     VerticalLayout {
         spacing: 12px;
 
-        i-production-group := GroupBox {  
+        i-production-group := GroupBox {
             title: root.production-title;
 
-            ValueDisplay {  
+            ValueDisplay {
                 active: root.active;
                 model: root.production-model;
             }
         }
 
-        i-self-consumption-group := GroupBox {  
+        i-self-consumption-group := GroupBox {
             title: root.self-consumption-title;
 
-            ValueDisplay {  
+            ValueDisplay {
                 active: root.active;
                 alternative-colors: true;
 
                 model: root.self-consumption-model;
             }
         }
-    } 
-} 
+    }
+}

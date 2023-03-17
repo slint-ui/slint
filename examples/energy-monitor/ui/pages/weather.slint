@@ -52,7 +52,7 @@ export component Weather inherits Page {
 
     GroupBox {
         title: root.title;
-        spacing: 1px; 
+        spacing: 1px;
 
         Tile {
             value: current-temperature;
@@ -63,6 +63,7 @@ export component Weather inherits Page {
 
         BarTiles {
             model: week-model;
+            active: root.active;
         }
 
         // stretches the empty element

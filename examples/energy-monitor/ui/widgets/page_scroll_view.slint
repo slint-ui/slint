@@ -52,16 +52,22 @@ component ScrollBar {
 export component PageContainer {
     callback clicked <=> i-touch-area.clicked;
 
-    min-width: 320px;
-    min-height: 240px;
-    max-height: 300px;
+    in property <bool> transparent-background: true;
+    out property <length> mouse-x: i-touch-area.mouse-x;
+
+    in property <bool> shrink;
+    in property <bool> stretched;
+
+    min-width: shrink && !stretched ? 0 : 320px;
+    min-height: shrink && !stretched ? 0 : 240px;
+    horizontal-stretch: 1;
 
     i-touch-area := TouchArea {}
 
     Rectangle {
         border-radius: 6px;
         background: Theme.palette.dark-deep-blue;
-        opacity: 0.5;
+        opacity: root.transparent-background ? 0.5 : 1.0;
     }
 
     Rectangle {
@@ -70,18 +76,32 @@ export component PageContainer {
 
         @children
     }
+
+    states [
+        shrink when shrink && !stretched : {
+            horizontal-stretch: 0;
+            opacity: 0.0;
+        }
+    ]
+
+    animate min-width, opacity { duration: 400ms; }
 }
 
 export component PageScrollView {
+    private property <bool> zoomed-in: selected-index > -1;
+    private property <float> navigation-opacity: 1.0;
+
     out property <length> viewport-width: i-flickable.viewport-width;
     in-out property <length> viewport-x <=> i-flickable.viewport-x;
+    out property <int> selected-index: -1;
 
     VerticalLayout {
-        spacing: 10px;
+        spacing: zoomed-in ? 0 : 10px;
+        padding-bottom: zoomed-in ? 20px : 0;
 
         VerticalLayout {
             vertical-stretch: 1;
-            alignment: center;
+            alignment: zoomed-in ? stretch : center;
 
             i-flickable := Flickable {
                 vertical-stretch: 1;
@@ -89,9 +109,11 @@ export component PageScrollView {
                 i-layout := HorizontalLayout {
                     padding-left: 20px;
                     padding-right: 20px;
-                    spacing: 20px;
+                    spacing: zoomed-in ? 0 : 20px;
 
                     @children
+
+                    animate height { duration: 200ms; }
                 }
             }
         }
@@ -101,11 +123,13 @@ export component PageScrollView {
             spacing: 25px;
             padding-left: 25px;
             padding-right: 25px;
+            opacity: navigation-opacity;
 
             FloatButton {
                 visible: i-flickable.viewport-x < 0;
                 horizontal-stretch: 0;
                 icon: Images.arrow-left;
+
 
                 clicked => {
                     scroll-left();
@@ -135,6 +159,19 @@ export component PageScrollView {
         }
     }
 
+    pure public function shrink(index: int) -> bool {
+        return selected-index > -1 && index != selected-index;
+    }
+
+    public function toggle-selection(index: int) {
+       if(selected-index > -1) {
+            selected-index = -1;
+            return;
+       }
+
+       selected-index = index;
+    }
+
     function scroll-left() {
         i-flickable.viewport-x = min(i-flickable.viewport-x + 64px, 0);
     }
@@ -142,4 +179,15 @@ export component PageScrollView {
     function scroll-right() {
         i-flickable.viewport-x = max(i-flickable.viewport-x - 64px,  i-flickable.width - i-flickable.viewport-width);
     }
+
+    states [
+        zoomed-in when zoomed-in : {
+            i-layout.x: -viewport-x;
+            navigation-opacity: 0.0;
+
+            out {
+                animate navigation-opacity { duration: 400ms; }
+            }
+        }
+    ]
 }
