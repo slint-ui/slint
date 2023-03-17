@@ -172,6 +172,23 @@ TEST_CASE("Image")
         REQUIRE(actual_path.has_value());
         REQUIRE(*actual_path == SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
     }
+
+    img = Image::from_raw_data(0, 0, SharedVector<Rgba8Pixel> {});
+    {
+        auto size = img.size();
+        REQUIRE(size.width == 0);
+        REQUIRE(size.height == 0);
+        REQUIRE(!img.path().has_value());
+    }
+    auto red = Rgb8Pixel { 0xff, 0, 0 };
+    auto blu = Rgb8Pixel { 0, 0, 0xff };
+    img = Image::from_raw_data(3, 2, SharedVector<Rgb8Pixel> { red, red, blu, red, blu, blu });
+    {
+        auto size = img.size();
+        REQUIRE(size.width == 3);
+        REQUIRE(size.height == 2);
+        REQUIRE(!img.path().has_value());
+    }
 }
 
 TEST_CASE("SharedVector")
