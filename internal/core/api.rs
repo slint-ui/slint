@@ -676,6 +676,16 @@ mod weak_handle {
                 }
             })
         }
+
+        #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+        pub fn upgrade_in_event_loop(&self, func: impl FnOnce(T)) -> Result<(), EventLoopError>
+        where
+            T: 'static,
+        {
+            // No threads, just invoke the function synchronously.
+            func(self.upgrade().unwrap());
+            Ok(())
+        }
     }
 
     // Safety: we make sure in upgrade that the thread is the proper one,
