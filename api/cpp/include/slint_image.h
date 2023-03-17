@@ -11,6 +11,9 @@
 
 namespace slint {
 
+using cbindgen_private::types::Rgb8Pixel;
+using cbindgen_private::types::Rgba8Pixel;
+
 /// An image type that can be displayed by the Image element
 struct Image
 {
@@ -25,13 +28,33 @@ public:
         return img;
     }
 
-    /*
-    static Image load_from_argb(int width, int height, const SharedVector<uint32_t> &data) {
+    /// Construct an image from a vector of RGB pixel.
+    /// The size of the vector \a data should be \a width * \a height
+    static Image from_raw_data(unsigned int width, unsigned int height,
+                               const SharedVector<Rgb8Pixel> &data)
+    {
         Image img;
-        img.data = Data::EmbeddedRgbaImage(width, height, data);
+        img.data = Data::ImageInner_EmbeddedImage(
+                cbindgen_private::types::ImageCacheKey::Invalid(),
+                cbindgen_private::types::SharedImageBuffer::RGB8(
+                        cbindgen_private::types::SharedPixelBuffer<Rgb8Pixel> {
+                                .width = width, .height = height, .data = data }));
         return img;
     }
-    */
+
+    /// Construct an image from a vector of RGBA pixels.
+    /// The size of the vector \a data should be \a width * \a height
+    static Image from_raw_data(unsigned int width, unsigned int height,
+                               const SharedVector<Rgba8Pixel> &data)
+    {
+        Image img;
+        img.data = Data::ImageInner_EmbeddedImage(
+                cbindgen_private::types::ImageCacheKey::Invalid(),
+                cbindgen_private::types::SharedImageBuffer::RGBA8(
+                        cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> {
+                                .width = width, .height = height, .data = data }));
+        return img;
+    }
 
     /// Returns the size of the Image in pixels.
     Size<unsigned int> size() const { return cbindgen_private::types::slint_image_size(&data); }

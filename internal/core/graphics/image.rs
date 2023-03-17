@@ -670,7 +670,8 @@ pub(crate) mod ffi {
     use super::super::IntSize;
     use super::*;
 
-    /// Expand Rgb8Pixel so that cbindgen can see it. (is in fact rgb::RGB<u8>)
+    // Expand Rgb8Pixel so that cbindgen can see it. (is in fact rgb::RGB<u8>)
+    /// Represents a RGB pixel
     #[cfg(cbindgen)]
     #[repr(C)]
     struct Rgb8Pixel {
@@ -679,7 +680,8 @@ pub(crate) mod ffi {
         b: u8,
     }
 
-    /// Expand Rgba8Pixel so that cbindgen can see it. (is in fact rgb::RGBA<u8>)
+    // Expand Rgba8Pixel so that cbindgen can see it. (is in fact rgb::RGBA<u8>)
+    /// Represents a RGBA pixel
     #[cfg(cbindgen)]
     #[repr(C)]
     struct Rgba8Pixel {
