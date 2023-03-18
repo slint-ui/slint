@@ -54,11 +54,9 @@ function createModel(
     source: string,
     uri?: monaco.Uri,
 ): monaco.editor.ITextModel {
-    let model = null;
-    if (uri != null) {
-        model = monaco.editor.getModel(uri);
-    }
-    return model ?? monaco.editor.createModel(source, "slint", uri);
+    const url = uri ?? monaco.Uri.parse("inmemory:///unnamed.slint");
+    const model = monaco.editor.getModel(url);
+    return model ?? monaco.editor.createModel(source, "slint", url);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
