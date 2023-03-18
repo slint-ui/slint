@@ -141,7 +141,7 @@ class EditorPaneWidget extends Widget {
         this.#client = this.setup_editor(this.contentNode, lsp);
 
         lsp.file_reader = (url) => {
-            return this.read_from_url(url);
+            return this.handle_lsp_url_request(this.#edit_era, url);
         };
 
         monaco.editor.onDidCreateModel((model) =>
@@ -219,10 +219,6 @@ class EditorPaneWidget extends Widget {
         this.update_preview();
     }
 
-    next_era() {
-        this.#edit_era += 1;
-    }
-
     set style(value: string) {
         this.#style = value;
         this.update_preview();
@@ -233,7 +229,7 @@ class EditorPaneWidget extends Widget {
     }
 
     public clear_models() {
-        this.next_era();
+        this.#edit_era += 1;
         this.#editor_view_states.clear();
         monaco.editor.getModels().forEach((model) => model.dispose());
         this.#onModelsCleared?.();
@@ -324,8 +320,7 @@ class EditorPaneWidget extends Widget {
                         source,
                         this.#base_url?.toString() ?? "",
                         (url: string) => {
-                            const uri = monaco.Uri.parse(url);
-                            return this.fetch_url_content(era, uri);
+                            return this.handle_lsp_url_request(era, url);
                         },
                     ).then((markers: monaco.editor.IMarkerData[]) => {
                         if (this.#editor != null) {
@@ -470,9 +465,18 @@ class EditorPaneWidget extends Widget {
         this.#onModelSelected = f;
     }
 
-    protected async fetch_url_content(
+    protected async handle_lsp_url_request(
+        era: number,
+        url: string,
+    ): Promise<string> {
+        const uri = monaco.Uri.parse(url);
+        return this.safely_open_editor_with_url_content(era, uri, false);
+    }
+
+    private async safely_open_editor_with_url_content(
         era: number,
         uri: monaco.Uri,
+        raise_alert: boolean,
     ): Promise<string> {
         let model = monaco.editor.getModel(uri);
         if (model != null) {
@@ -483,19 +487,23 @@ class EditorPaneWidget extends Widget {
         try {
             const response = await fetch(uri.toString());
             if (!response.ok) {
-                alert(
-                    "Failed to download data from " +
-                        uri +
-                        ":\n" +
-                        response.status +
-                        " " +
-                        response.statusText,
-                );
+                if (raise_alert) {
+                    alert(
+                        "Failed to download data from " +
+                            uri +
+                            ":\n" +
+                            response.status +
+                            " " +
+                            response.statusText,
+                    );
+                }
                 return "";
             }
             doc = await response.text();
         } catch (e) {
-            alert("Failed to download data from " + uri + ".");
+            if (raise_alert) {
+                alert("Failed to download data from " + uri + ".");
+            }
             return "";
         }
 
@@ -510,16 +518,15 @@ class EditorPaneWidget extends Widget {
         return doc;
     }
 
-    async read_from_url(url: string): Promise<string> {
-        let uri = monaco.Uri.parse(url);
-        if (uri.authority == "github.com") {
-            const orig = uri;
+    async read_from_url(url: monaco.Uri): Promise<string> {
+        if (url.authority == "github.com") {
+            const orig = url;
             const path = orig.path.split("/");
 
             if (path[3] === "blob") {
                 path.splice(3, 1);
 
-                uri = monaco.Uri.from({
+                url = monaco.Uri.from({
                     scheme: orig.scheme,
                     authority: "raw.githubusercontent.com",
                     path: path.join("/"),
@@ -528,7 +535,11 @@ class EditorPaneWidget extends Widget {
                 });
             }
         }
-        return this.fetch_url_content(this.#edit_era, uri);
+        return this.safely_open_editor_with_url_content(
+            this.#edit_era,
+            url,
+            true,
+        );
     }
 }
 
@@ -610,12 +621,9 @@ export class EditorWidget extends Widget {
             this.#editor.clear_models();
             createModel(code);
         } else if (load_url) {
-            this.load_from_url(load_url);
-        } else if (load_demo) {
-            this.set_demo(load_demo);
+            this.project_from_url(load_url);
         } else {
-            this.#editor.clear_models();
-            createModel(hello_world);
+            this.set_demo(load_demo ?? "");
         }
     }
 
@@ -663,9 +671,14 @@ export class EditorWidget extends Widget {
         return this.#editor.supported_commands;
     }
 
-    protected async load_from_url(url: string) {
+    async project_from_url(url: string | null) {
+        if (url == null) {
+            return;
+        }
+
         this.#editor.clear_models();
-        await this.#editor.read_from_url(url);
+        const uri = monaco.Uri.parse(url);
+        await this.#editor.read_from_url(uri);
     }
 
     known_demos(): [string, string][] {
@@ -682,12 +695,6 @@ export class EditorWidget extends Widget {
         this.#editor?.goto_position(uri, position);
     }
 
-    async open_url(url: string | null) {
-        if (url == null) return;
-
-        return this.load_from_url(url);
-    }
-
     async set_demo(location: string) {
         if (location) {
             let tag = "master";
@@ -701,7 +708,7 @@ export class EditorWidget extends Widget {
                     tag = "v" + found[1];
                 }
             }
-            await this.load_from_url(
+            await this.project_from_url(
                 `https://raw.githubusercontent.com/slint-ui/slint/${tag}/${location}`,
             );
         } else {
