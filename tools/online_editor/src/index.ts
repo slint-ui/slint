@@ -93,7 +93,7 @@ function create_open_menu(editor: EditorWidget): Menu {
         mnemonic: 1,
         execute: () => {
             const url = prompt("Please enter the URL to open");
-            editor.open_url(url);
+            editor.project_from_url(url);
         },
     });
 
