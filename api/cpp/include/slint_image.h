@@ -12,36 +12,37 @@
 namespace slint {
 
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
-/// internally reference counted and cheap to clone.
+/// internally reference counted and cheap to copy.
 ///
 /// You can construct a new empty shared pixel buffer with its default constructor,
-/// or you can copy it from an existing contiguous buffer that you might already have, using that
-/// constructor
+/// or you can copy it from an existing contiguous buffer that you might already have, using the
+/// range constructor.
 ///
 /// See the documentation for Image for examples how to use this type to integrate
 /// Slint with external rendering functions.
 template<typename Pixel>
 struct SharedPixelBuffer
 {
-    /// construct an empty SharedPixelBuffer
+    /// Construct an empty SharedPixelBuffer.
     SharedPixelBuffer() = default;
 
-    /// construct a SharedPixelBuffer with the given size
+    /// Construct a SharedPixelBuffer with the given \a width and \a height. The pixels are default
+    /// initialized.
     SharedPixelBuffer(uint32_t width, uint32_t height)
         : m_width(width), m_height(height), m_data(width * height)
     {
     }
 
     /// Construct a SharedPixelBuffer by copying the data from the \a data array.
-    /// The array must be of size \a width * \a height
+    /// The array must be of size \a width * \a height .
     SharedPixelBuffer(uint32_t width, uint32_t height, const Pixel *data)
         : m_width(width), m_height(height), m_data(data, data + (width * height))
     {
     }
 
-    /// Return the width of the buffer in pixels
+    /// Returns the width of the buffer in pixels.
     uint32_t width() const { return m_width; }
-    /// Return the height of the buffer in pixels
+    /// Returns the height of the buffer in pixels.
     uint32_t height() const { return m_height; }
 
     /// Returns a const pointer to the first pixel of this buffer.
@@ -57,7 +58,7 @@ struct SharedPixelBuffer
     /// Returns a const pointer past this buffer.
     const Pixel *cend() const { return m_data.end(); }
 
-    /// Compare two SharedPixelBuffer. They are considered equal if all their pixels are equal
+    /// Compare two SharedPixelBuffers. They are considered equal if all their pixels are equal.
     bool operator==(const SharedPixelBuffer &other) const = default;
 
 private:
@@ -68,6 +69,43 @@ private:
 };
 
 /// An image type that can be displayed by the Image element
+///
+/// You can construct Image objects from a path to an image file on disk, using
+/// Image::load_from_path().
+///
+/// Another typical use-case is to render the image content with C++ code.
+/// For this it’s most efficient to create a new SharedPixelBuffer with the known dimensions and
+/// pass the pixel pointer returned by begin() to your rendering function. Afterwards you can create
+/// an Image using the constructor taking a SharedPixelBuffer.
+///
+/// The following example creates a 320x200 RGB pixel buffer and calls a function to draw a shape
+/// into it:
+/// ```c++
+/// slint::SharedPixelBuffer::<slint::Rgb8Pixel> pixel_buffer(320, 200);
+/// low_level_render(pixel_buffer.width(), pixel_buffer.height(),
+///                  static_cast<unsigned char *>(pixel_buffer.begin()));
+/// slint::Image image(pixel_buffer);
+/// ```
+///
+/// Another use-case is to import existing image data into Slint, by
+/// creating a new Image through copying of the buffer:
+///
+/// ```cpp
+/// slint::Image image(slint::SharedPixelBuffer<slint::Rgb8Pixel>(the_width, the_height,
+///     static_cast<slint::Rgb8Pixel*>(the_data));
+/// ```
+///
+/// This only works if the static_cast is valid and the underlying data has the same
+/// memory layout as slint::Rgb8Pixel or slint::Rgba8Pixel. Otherwise, you will have to do a
+/// pixel conversion as you copy the pixels:
+///
+/// ```cpp
+/// slint::SharedPixelBuffer::<slint::Rgb8Pixel> pixel_buffer(the_width, the_height);
+/// slint::Rgb8Pixel *raw_data = pixel_buffer.begin();
+/// for (int i = 0; i < the_width * the_height; i++) {
+///   raw_data[i] = { bgr_data[i * 3 + 2], bgr_data[i * 3 + 1], bgr_data[i * 3] };
+/// }
+/// ```
 struct Image
 {
 public:
@@ -81,7 +119,7 @@ public:
         return img;
     }
 
-    /// Construct an image from a SharedPixelBuffer of RGB pixel.
+    /// Construct an image from a SharedPixelBuffer of RGB pixels.
     Image(SharedPixelBuffer<Rgb8Pixel> buffer)
         : data(Data::ImageInner_EmbeddedImage(
                 cbindgen_private::types::ImageCacheKey::Invalid(),
@@ -93,7 +131,7 @@ public:
     {
     }
 
-    /// Construct an image from a SharedPixelBuffer of RGB pixel.
+    /// Construct an image from a SharedPixelBuffer of RGBA pixels.
     Image(SharedPixelBuffer<Rgba8Pixel> buffer)
         : data(Data::ImageInner_EmbeddedImage(
                 cbindgen_private::types::ImageCacheKey::Invalid(),

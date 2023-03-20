@@ -671,23 +671,30 @@ pub(crate) mod ffi {
     use super::*;
 
     // Expand Rgb8Pixel so that cbindgen can see it. (is in fact rgb::RGB<u8>)
-    /// Represents a RGB pixel
+    /// Represents an RGB pixel.
     #[cfg(cbindgen)]
     #[repr(C)]
     struct Rgb8Pixel {
+        /// red value (between 0 and 255)
         r: u8,
+        /// green value (between 0 and 255)
         g: u8,
+        /// blue value (between 0 and 255)
         b: u8,
     }
 
     // Expand Rgba8Pixel so that cbindgen can see it. (is in fact rgb::RGBA<u8>)
-    /// Represents a RGBA pixel
+    /// Represents an RGBA pixel.
     #[cfg(cbindgen)]
     #[repr(C)]
     struct Rgba8Pixel {
+        /// red value (between 0 and 255)
         r: u8,
+        /// green value (between 0 and 255)
         g: u8,
+        /// blue value (between 0 and 255)
         b: u8,
+        /// alpha value (between 0 and 255)
         a: u8,
     }
 
