@@ -173,7 +173,7 @@ TEST_CASE("Image")
         REQUIRE(*actual_path == SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
     }
 
-    img = Image::from_raw_data(0, 0, SharedVector<Rgba8Pixel> {});
+    img = Image(SharedPixelBuffer<Rgba8Pixel> {});
     {
         auto size = img.size();
         REQUIRE(size.width == 0);
@@ -182,7 +182,8 @@ TEST_CASE("Image")
     }
     auto red = Rgb8Pixel { 0xff, 0, 0 };
     auto blu = Rgb8Pixel { 0, 0, 0xff };
-    img = Image::from_raw_data(3, 2, SharedVector<Rgb8Pixel> { red, red, blu, red, blu, blu });
+    Rgb8Pixel some_data[] = { red, red, blu, red, blu, blu };
+    img = Image(SharedPixelBuffer<Rgb8Pixel>(3, 2, some_data));
     {
         auto size = img.size();
         REQUIRE(size.width == 3);
@@ -207,6 +208,7 @@ TEST_CASE("SharedVector")
     REQUIRE(vec.size() == 4);
     auto orig_cap = vec.capacity();
     REQUIRE(orig_cap >= vec.size());
+
     vec.clear();
     REQUIRE(vec.size() == 0);
     REQUIRE(vec.capacity() == 0); // vec was shared, so start with new empty vector.
@@ -216,6 +218,23 @@ TEST_CASE("SharedVector")
 
     REQUIRE(copy.size() == 4);
     REQUIRE(copy.capacity() == orig_cap);
+
+    SharedVector<SharedString> vec2 { "Hello", "World", "of", "Vectors" };
+    REQUIRE(copy == vec2);
+    REQUIRE(copy != vec);
+
     copy.clear(); // copy is not shared (anymore), retain capacity.
     REQUIRE(copy.capacity() == orig_cap);
+
+    SharedVector<SharedString> vec3(2, "Welcome back");
+    REQUIRE(vec3.size() == 2);
+    REQUIRE(vec3[1] == "Welcome back");
+    REQUIRE(vec3 != vec);
+
+    vec.push_back("Welcome back");
+    REQUIRE(vec3 == vec);
+
+    SharedVector<int> vec4(5);
+    REQUIRE(vec4.size() == 5);
+    REQUIRE(vec4[3] == 0);
 }

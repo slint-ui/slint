@@ -21,17 +21,48 @@ struct SharedVector
                 cbindgen_private::slint_shared_vector_empty())))
     {
     }
+
     /// Creates a new vector that holds all the elements of the given std::initializer_list \a args.
-    SharedVector(std::initializer_list<T> args) : SharedVector()
+    SharedVector(std::initializer_list<T> args)
+        : SharedVector(SharedVector::with_capacity(args.size()))
     {
-        auto new_array = SharedVector::with_capacity(args.size());
-        auto new_data = reinterpret_cast<T *>(new_array.inner + 1);
+        auto new_data = reinterpret_cast<T *>(inner + 1);
         auto input_it = args.begin();
         for (std::size_t i = 0; i < args.size(); ++i, ++input_it) {
             new (new_data + i) T(*input_it);
-            new_array.inner->size++;
+            inner->size++;
         }
-        *this = std::move(new_array);
+    }
+
+    /// Creates a vector of a given size, with default-constructed data.
+    explicit SharedVector(size_t size) : SharedVector(SharedVector::with_capacity(size))
+    {
+        auto new_data = reinterpret_cast<T *>(inner + 1);
+        for (std::size_t i = 0; i < size; ++i) {
+            new (new_data + i) T();
+            inner->size++;
+        }
+    }
+
+    /// Creates a vector of a given size, with with copies of the value.
+    explicit SharedVector(size_t size, const T &value)
+        : SharedVector(SharedVector::with_capacity(size))
+    {
+        auto new_data = reinterpret_cast<T *>(inner + 1);
+        for (std::size_t i = 0; i < size; ++i) {
+            new (new_data + i) T(value);
+            inner->size++;
+        }
+    }
+
+    /// Constructs the container with the contents of the range `[first, last)`.
+    template<class InputIt>
+    SharedVector(InputIt first, InputIt last)
+        : SharedVector(SharedVector::with_capacity(std::distance(first, last)))
+    {
+        for (auto it = first; it != last; ++it) {
+            push_back(*it);
+        }
     }
 
     /// Creates a new vector that is a copy of \a other.
@@ -41,6 +72,7 @@ struct SharedVector
             ++inner->refcount;
         }
     }
+
     /// Destroys this vector. The underlying data is destroyed if no other
     /// vector references it.
     ~SharedVector() { drop(); }
@@ -139,13 +171,10 @@ struct SharedVector
     /// and all the elements also compare equal; false otherwise.
     friend bool operator==(const SharedVector &a, const SharedVector &b)
     {
-        if (a.size() != a.size())
+        if (a.size() != b.size())
             return false;
         return std::equal(a.cbegin(), a.cend(), b.cbegin());
     }
-    /// Returns false if the vector \a a has the same number of elements as \a b
-    /// and all the elements also compare equal; true otherwise.
-    friend bool operator!=(const SharedVector &a, const SharedVector &b) { return !(a == b); }
 
     /// \private
     std::size_t capacity() const { return inner->capacity; }
