@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
+## [0.1.10]
+
+ - updated syn to syn 2.0
+
 ## [0.1.9] - 2022-09-14
 
  - Added `VRc::map_dyn`, the equivalent of `VRc::map` to create a `VRcMapped`
