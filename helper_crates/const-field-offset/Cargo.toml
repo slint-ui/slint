@@ -3,7 +3,7 @@
 
 [package]
 name = "const-field-offset"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
@@ -15,7 +15,7 @@ homepage = "https://slint-ui.com"
 field-offset-trait = ["const-field-offset-macro/field-offset-trait"]
 
 [dependencies]
-const-field-offset-macro = { version = "=0.1.2", path = "./macro" }
+const-field-offset-macro = { version = "=0.1.3", path = "./macro" }
 field-offset = "0.3.2"
 
 [dev-dependencies]
