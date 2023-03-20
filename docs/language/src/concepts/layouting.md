@@ -72,12 +72,35 @@ parent.
 
 The default values for `width` and `height` depend on the type of element. Some elements are sized
 automatically based on their content, such as `Image`, `Text`, and most widgets. The following elements
-don't have content and default to fill their parent element:
+don't have content and default to fill their parent element when they do not have children:
 
 -   `Rectangle`
 -   `TouchArea`
 -   `FocusScope`
 -   `Flickable`
+
+Layouts are also defaulting to fill the parent, regardless of their own preferred size.
+
+Other elements (including custom ones without base) defaults to using their preferred size.
+
+### Preferred size
+
+The preferred size of elements can be specified with the `preferred-width` and `preferred-height` properties.
+
+When not explicitly set, the preferred size depends on the children, and is the preferred size of the
+child that has the bigger preferred size, whose `x` and `y` property are not set.
+The preferred size are therefore computed from the child to the parent, just like other constraints (maximum and minimum size), unless explicitly overwritten.
+
+A special case is to set the preferred size to be the size of the parent using `100%` as a preferred size.
+Example: this component will use the size of the parent by default
+
+```slint
+component MyComponent {
+    preferred-width: 100%;
+    preferred-height: 100%;
+    // ...
+}
+```
 
 ## Automatic Placement Using Layouts
 
@@ -89,15 +112,15 @@ Slint comes with different layout elements that automatically calculate the posi
 You can also nest layouts to create complex user interfaces.
 
 You can tune the automatic placement using different constraints, to accommodate the design of your user
-interface. For example each element has a minimum and a maximum size. Set these explicitly using the
+interface. Each element has a minimum, a maximum size, and a preferred size. Set these explicitly using the
 following properties:
 
 -   `min-width`
 -   `min-height`
 -   `max-width`
 -   `max-height`
-
-A layout element also affects the minimum and maximum size of its parent.
+-   `preferred-width`
+-   `preferred-height`
 
 Any element with a specified `width` and `height` has a fixed size in a layout.
 
