@@ -141,11 +141,12 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     let mut pin = false;
     let mut drop = false;
     for a in &input.attrs {
-        if let Some(i) = a.path.get_ident() {
+        if let Some(i) = a.path().get_ident() {
             if i == "repr" {
-                match a.tokens.to_string().as_str() {
-                    "(C)" => has_repr_c = true,
-                    "(packed)" => {
+                let inner = a.parse_args::<syn::Ident>().map(|x| x.to_string());
+                match inner.as_ref().map(|x| x.as_str()) {
+                    Ok("C") => has_repr_c = true,
+                    Ok("packed") => {
                         return TokenStream::from(quote!(
                             compile_error! {"FieldOffsets does not work on #[repr(packed)]"}
                         ))
@@ -153,18 +154,14 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                     _ => (),
                 }
             } else if i == "const_field_offset" {
-                let mut token_it = a.tokens.clone().into_iter();
-                if let (Some(proc_macro2::TokenTree::Group(g)), None) =
-                    (token_it.next(), token_it.next())
-                {
-                    if g.delimiter() == proc_macro2::Delimiter::Parenthesis {
-                        crate_ = g.stream();
-                        continue;
+                match a.parse_args::<syn::Path>() {
+                    Ok(c) => crate_ = quote!(#c),
+                    Err(_) => {
+                        return TokenStream::from(
+                            quote_spanned! {a.span() => compile_error!{"const_field_offset attribute must be a crate name"}},
+                        );
                     }
                 }
-                return TokenStream::from(
-                    quote_spanned! {a.span() => compile_error!{"const_field_offset attribute must be a crate name"}},
-                );
             } else if i == "pin" {
                 pin = true;
             } else if i == "pin_drop" {
@@ -282,7 +279,6 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     #[cfg(feature = "field-offset-trait")]
     let in_mod_vis = vis.iter().map(|vis| min_vis(vis, &struct_vis)).map(|vis| match vis {
         Visibility::Public(_) => quote! {#vis},
-        Visibility::Crate(_) => quote! {#vis},
         Visibility::Restricted(VisRestricted { pub_token, path, .. }) => {
             if quote!(#path).to_string().starts_with("super") {
                 quote!(#pub_token(in super::#path))
@@ -338,8 +334,6 @@ fn min_vis<'a>(a: &'a Visibility, b: &'a Visibility) -> &'a Visibility {
     match (a, b) {
         (Visibility::Public(_), _) => b,
         (_, Visibility::Public(_)) => a,
-        (Visibility::Crate(_), _) => b,
-        (_, Visibility::Crate(_)) => a,
         (Visibility::Inherited, _) => a,
         (_, Visibility::Inherited) => b,
         // FIXME: compare two paths

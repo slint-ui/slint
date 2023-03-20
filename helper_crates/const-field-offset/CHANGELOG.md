@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.3]
+
+ - Upgraded syn to syn 2
+
 ## [0.1.2] - 2021-11-24
 
 ### Changed
