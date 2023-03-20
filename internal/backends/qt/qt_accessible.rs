@@ -510,13 +510,9 @@ cpp! {{
 
         QAccessibleInterface *childAt(int x, int y) const override {
             for (int i = 0; i < childCount(); ++i)  {
-                auto c = child(i)->childAt(x, y);
-                if (c) return c;
-            }
-
-            auto r = rect();
-            if (r.contains(x, y)) {
-                return const_cast<QAccessibleInterface *>(static_cast<const QAccessibleInterface *>(this));
+                auto c = child(i);
+                auto r = c->rect();
+                if (r.contains(x, y)) return c;
             }
             return nullptr;
         }
