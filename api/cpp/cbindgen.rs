@@ -395,8 +395,20 @@ fn gen_corelib(
     public_config.export.exclude = private_exported_types.into_iter().collect();
     public_config.export.exclude.push("Point".into());
     public_config.export.include = public_exported_types.into_iter().map(str::to_string).collect();
-    public_config.structure.derive_eq = true;
-    public_config.structure.derive_neq = true;
+    public_config.export.body.insert(
+        "StandardListViewItem".to_owned(),
+        "/// \\private\nfriend bool operator==(const StandardListViewItem&, const StandardListViewItem&) = default;".into(),
+    );
+    public_config.export.body.insert(
+        "Rgb8Pixel".to_owned(),
+        "/// \\private\nfriend bool operator==(const Rgb8Pixel&, const Rgb8Pixel&) = default;"
+            .into(),
+    );
+    public_config.export.body.insert(
+        "Rgba8Pixel".to_owned(),
+        "/// \\private\nfriend bool operator==(const Rgba8Pixel&, const Rgba8Pixel&) = default;"
+            .into(),
+    );
 
     cbindgen::Builder::new()
         .with_config(public_config)

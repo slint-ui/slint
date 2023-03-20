@@ -44,7 +44,7 @@ struct SharedVector
         }
     }
 
-    /// Creates a vector of a given size, with with copies of the value.
+    /// Creates a vector of a given size, initialized with copies of the \a value.
     explicit SharedVector(size_t size, const T &value)
         : SharedVector(SharedVector::with_capacity(size))
     {
