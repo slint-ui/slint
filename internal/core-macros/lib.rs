@@ -56,15 +56,7 @@ pub fn slint_element(input: TokenStream) -> TokenStream {
         .iter()
         .filter(|f| {
             f.attrs.iter().any(|attr| {
-                attr.parse_meta()
-                    .ok()
-                    .map(|meta| match meta {
-                        syn::Meta::Path(path) => {
-                            path.get_ident().map(|ident| *ident == "rtti_field").unwrap_or(false)
-                        }
-                        _ => false,
-                    })
-                    .unwrap_or(false)
+                matches!(&attr.meta, syn::Meta::Path(path) if path.get_ident().map(|ident| *ident == "rtti_field").unwrap_or(false))
             })
         })
         .map(|f| (f.ident.as_ref().unwrap(), &f.ty))
