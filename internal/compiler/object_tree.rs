@@ -1282,7 +1282,7 @@ impl Element {
                         | SyntaxKind::RepeatedElement
                         | SyntaxKind::ChildrenPlaceholder
                 ) {
-                    diag.push_warning("A ListView can just have a single 'for' as children. Anything else is not supported".into(), &se)
+                    diag.push_error("A ListView can just have a single 'for' as children. Anything else is not supported".into(), &se)
                 }
             }
         }
