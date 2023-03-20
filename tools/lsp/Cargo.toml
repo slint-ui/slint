@@ -79,7 +79,7 @@ once_cell = "1.9.0"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
-serde-wasm-bindgen = "0.4.5"
+serde-wasm-bindgen = "0.5.0"
 js-sys = { version = "0.3.57" }
 console_error_panic_hook = "0.1.5"
 
