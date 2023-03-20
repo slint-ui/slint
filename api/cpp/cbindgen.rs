@@ -171,6 +171,8 @@ fn gen_corelib(
         "GraphicsAPI",
         "CloseRequestResponse",
         "StandardListViewItem",
+        "Rgb8Pixel",
+        "Rgba8Pixel",
     ];
 
     config.export.exclude = [
@@ -344,6 +346,7 @@ fn gen_corelib(
         .iter()
         .filter(|exclusion| !rust_types.iter().any(|inclusion| inclusion == *exclusion))
         .chain(extra_excluded_types.iter())
+        .chain(public_exported_types.iter())
         .map(|s| s.to_string())
         .collect();
 
@@ -392,11 +395,8 @@ fn gen_corelib(
     public_config.export.exclude = private_exported_types.into_iter().collect();
     public_config.export.exclude.push("Point".into());
     public_config.export.include = public_exported_types.into_iter().map(str::to_string).collect();
-
-    public_config.export.body.insert(
-        "StandardListViewItem".to_owned(),
-        "/// \\private\nfriend bool operator==(const StandardListViewItem&, const StandardListViewItem&) = default;".into(),
-    );
+    public_config.structure.derive_eq = true;
+    public_config.structure.derive_neq = true;
 
     cbindgen::Builder::new()
         .with_config(public_config)
@@ -405,6 +405,8 @@ fn gen_corelib(
         .with_src(crate_dir.join("window.rs"))
         .with_src(crate_dir.join("api.rs"))
         .with_src(crate_dir.join("model.rs"))
+        .with_src(crate_dir.join("graphics/image.rs"))
+        .with_include("slint_string.h")
         .with_after_include(format!(
             r"
 /// This macro expands to the to the numeric value of the major version of Slint you're
@@ -564,9 +566,6 @@ fn gen_backend(
         .with_crate(crate_dir)
         .with_include("slint_image_internal.h")
         .with_include("slint_internal.h")
-        .with_after_include(
-            "namespace slint::cbindgen_private { using slint::cbindgen_private::types::Rgb8Pixel; }",
-        )
         .generate()
         .context("Unable to generate bindings for slint_backend_internal.h")?
         .write_to_file(include_dir.join("slint_backend_internal.h"));

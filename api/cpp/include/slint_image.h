@@ -11,8 +11,61 @@
 
 namespace slint {
 
-using cbindgen_private::types::Rgb8Pixel;
-using cbindgen_private::types::Rgba8Pixel;
+/// SharedPixelBuffer is a container for storing image data as pixels. It is
+/// internally reference counted and cheap to clone.
+///
+/// You can construct a new empty shared pixel buffer with its default constructor,
+/// or you can copy it from an existing contiguous buffer that you might already have, using that
+/// constructor
+///
+/// See the documentation for Image for examples how to use this type to integrate
+/// Slint with external rendering functions.
+template<typename Pixel>
+struct SharedPixelBuffer
+{
+    /// construct an empty SharedPixelBuffer
+    SharedPixelBuffer() = default;
+
+    /// construct a SharedPixelBuffer with the given size
+    SharedPixelBuffer(uint32_t width, uint32_t height)
+        : m_width(width), m_height(height), m_data(width * height)
+    {
+    }
+
+    /// Construct a SharedPixelBuffer by copying the data from the \a data array.
+    /// The array must be of size \a width * \a height
+    SharedPixelBuffer(uint32_t width, uint32_t height, const Pixel *data)
+        : m_width(width), m_height(height), m_data(data, data + (width * height))
+    {
+    }
+
+    /// Return the width of the buffer in pixels
+    uint32_t width() const { return m_width; }
+    /// Return the height of the buffer in pixels
+    uint32_t height() const { return m_height; }
+
+    /// Returns a const pointer to the first pixel of this buffer.
+    const Pixel *begin() const { return m_data.begin(); }
+    /// Returns a const pointer past this buffer.
+    const Pixel *end() const { return m_data.end(); }
+    /// Returns a pointer to the first pixel of this buffer.
+    Pixel *begin() { return m_data.begin(); }
+    /// Returns a pointer past this buffer.
+    Pixel *end() { return m_data.end(); }
+    /// Returns a const pointer to the first pixel of this buffer.
+    const Pixel *cbegin() const { return m_data.begin(); }
+    /// Returns a const pointer past this buffer.
+    const Pixel *cend() const { return m_data.end(); }
+
+    /// Compare two SharedPixelBuffer. They are considered equal if all their pixels are equal
+    bool operator==(const SharedPixelBuffer &other) const = default;
+
+private:
+    friend struct Image;
+    uint32_t m_width;
+    uint32_t m_height;
+    SharedVector<Pixel> m_data;
+};
 
 /// An image type that can be displayed by the Image element
 struct Image
@@ -28,32 +81,28 @@ public:
         return img;
     }
 
-    /// Construct an image from a vector of RGB pixel.
-    /// The size of the vector \a data should be \a width * \a height
-    static Image from_raw_data(unsigned int width, unsigned int height,
-                               const SharedVector<Rgb8Pixel> &data)
-    {
-        Image img;
-        img.data = Data::ImageInner_EmbeddedImage(
+    /// Construct an image from a SharedPixelBuffer of RGB pixel.
+    Image(SharedPixelBuffer<Rgb8Pixel> buffer)
+        : data(Data::ImageInner_EmbeddedImage(
                 cbindgen_private::types::ImageCacheKey::Invalid(),
                 cbindgen_private::types::SharedImageBuffer::RGB8(
                         cbindgen_private::types::SharedPixelBuffer<Rgb8Pixel> {
-                                .width = width, .height = height, .data = data }));
-        return img;
+                                .width = buffer.width(),
+                                .height = buffer.height(),
+                                .data = buffer.m_data })))
+    {
     }
 
-    /// Construct an image from a vector of RGBA pixels.
-    /// The size of the vector \a data should be \a width * \a height
-    static Image from_raw_data(unsigned int width, unsigned int height,
-                               const SharedVector<Rgba8Pixel> &data)
-    {
-        Image img;
-        img.data = Data::ImageInner_EmbeddedImage(
+    /// Construct an image from a SharedPixelBuffer of RGB pixel.
+    Image(SharedPixelBuffer<Rgba8Pixel> buffer)
+        : data(Data::ImageInner_EmbeddedImage(
                 cbindgen_private::types::ImageCacheKey::Invalid(),
                 cbindgen_private::types::SharedImageBuffer::RGBA8(
                         cbindgen_private::types::SharedPixelBuffer<Rgba8Pixel> {
-                                .width = width, .height = height, .data = data }));
-        return img;
+                                .width = buffer.width(),
+                                .height = buffer.height(),
+                                .data = buffer.m_data })))
+    {
     }
 
     /// Returns the size of the Image in pixels.

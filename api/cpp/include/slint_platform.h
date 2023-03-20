@@ -230,8 +230,7 @@ public:
     ///
     /// The stride is the amount of pixels between two lines in the buffer.
     /// It is must be at least as large as the width of the window.
-    void render(std::span<slint::cbindgen_private::Rgb8Pixel> buffer,
-                std::size_t pixel_stride) const
+    void render(std::span<slint::Rgb8Pixel> buffer, std::size_t pixel_stride) const
     {
         cbindgen_private::slint_software_renderer_render_rgb8(inner, buffer.data(), buffer.size(),
                                                               pixel_stride);
