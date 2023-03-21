@@ -19,7 +19,7 @@ path = "lib.rs"
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-wayland = ["winit/wayland", "glutin/wayland", "glutin-winit/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland"]
+wayland = ["winit/wayland", "winit/wayland-csd-adwaita", "glutin/wayland", "glutin-winit/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland"]
 x11 = ["winit/x11", "glutin/x11", "glutin/glx", "glutin-winit/x11", "glutin-winit/glx", "copypasta/x11", "i-slint-renderer-skia?/x11"]
 renderer-winit-femtovg = ["i-slint-renderer-femtovg"]
 renderer-winit-skia = ["i-slint-renderer-skia"]
