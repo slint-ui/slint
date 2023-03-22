@@ -7,9 +7,11 @@ All notable changes to this project are documented in this file.
 
  - Minimum Rust version is now 1.66.
  - Deprecated functions and enums were removed
+ - The old syntax that declares component with `:=` is now deprecated
  - `PointerEventButton::None` was renamed `PointerEventButton::Other`
  - In the Rust API, more functions now return Result, and the return value needs to be unwrap()'ed
  - In the Rust API, a lifetime parameter was added to `slint::ModelPeer`
+ - In the Rust API, `StandardListViewItem` and `TableColumn` are now marked as `#[non_exhaustive]`
  - In the C++ API, functions that take a functor as argument are now using concepts
  - In the C++ API, the type for row indexes in models was changed from `int` to `size_t`.
    This includes arguments of virtual functions in `slint::Model` that needs to be adjusted in
@@ -22,11 +24,28 @@ All notable changes to this project are documented in this file.
  - In Rust, the MAX_BUFFER_AGE const parameter of `slint::platform::software_renderer::MinimalSoftwareWindow`
    has been removed and replaced by an argument to the `new()` function
  - the `compat-0-3-0` mandatory cargo feature flag was renamed to `compat-1-0`
+ - Flickable: don't forward event if the flickable is dragged in a direction that can be dragged, even if at the end
+ - LSP: don't add spaces when auto-completing elements or callbacks, leads to better formatting
+
 
 ### Added
 
  - The TextEdit and LineEdit now correctly handle double click and tripple click to select words or lines,
    as well as support for the "primary" clipboard on X11 and wayland (select to copy, and middle click to paste)
+ - C++ API to create `slint::Image` from raw pixel data
+ - Software renderer: support for linear-gradients
+
+### Fixed
+
+ - Faster TextEdit with many lines with the femtovg backend
+ - Fixed Infinite loop in the accessibility backend on Windows (#2195)
+ - Software renderer: fixed artifacts when components are deleted or elements become invisible
+ - Skia renderer: Enable anti-aliasing for rectangle with radius
+ - Fixed some clippy warning in the generated Rust code
+ - Fluent style: Adjust disabled scrollbar background color
+ - Fix panics in the compiler (#2312, #2274, #2319)
+ - winit backend: Fix rendering when moving windows between monitors with different scale factor (#2282)
+
 
 ## [0.3.5] - 2023-02-21
 
