@@ -488,9 +488,17 @@ fn handle_property_init(
                 quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
             }
         } else {
+            let maybe_cast_to_property_type = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
+                // Don't cast if the Rust code is the never type, as with return statements inside a block, the
+                // type of the return expression is `()` instead of `!`.
+                None
+            } else {
+                Some(quote!(as _))
+            };
+
             let binding_tokens = quote!(move |self_rc| {
                 #init_self_pin_ref
-                (#tokens_for_expression) as _
+                (#tokens_for_expression) #maybe_cast_to_property_type
             });
 
             if binding_expression.is_state_info {
@@ -1048,7 +1056,15 @@ fn generate_functions(functions: &[llr::Function], ctx: &EvaluationContext) -> V
             let mut ctx2 = ctx.clone();
             ctx2.argument_types = &f.args;
             let tokens_for_expression = compile_expression(&f.code, &ctx2);
-            let as_ = if f.ret_ty == Type::Void { quote!(;) } else { quote!(as _) };
+            let as_ = if f.ret_ty == Type::Void {
+                Some(quote!(;))
+            } else if f.code.ty(&ctx2) == Type::Invalid {
+                // Don't cast if the Rust code is the never type, as with return statements inside a block, the
+                // type of the return expression is `()` instead of `!`.
+                None
+            } else {
+                Some(quote!(as _))
+            };
             let fn_id = ident(&format!("fn_{}", f.name));
             let args_ty =
                 f.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();

@@ -13,6 +13,14 @@ TestCase := Rectangle {
         return 100;
     }
 
+    in-out property <int> index: -1;
+    public function rust_fn_codegen_bug() -> bool {
+        return index != 0 && index != 1;
+    }
+    in-out property <bool> rust_binding_codegen_bug: {
+        return index != 42 && index != 42;
+    }
+
     callback test_signal;
     property <bool> block_signal;
     property <bool> signal_handled;
