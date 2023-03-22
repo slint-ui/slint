@@ -67,7 +67,7 @@ impl Item for Path {
         _orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
-        LayoutInfo::default()
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(
