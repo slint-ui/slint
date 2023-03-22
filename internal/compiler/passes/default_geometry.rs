@@ -50,7 +50,18 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
 
             if let Some(parent) = parent {
                 match builtin_type.default_size_binding {
-                    DefaultSizeBinding::None => {}
+                    DefaultSizeBinding::None => {
+                        if elem.borrow().default_fill_parent.0 {
+                            w100 |= make_default_100(elem, parent, "width");
+                        } else {
+                            make_default_implicit(elem, "width");
+                        }
+                        if elem.borrow().default_fill_parent.1 {
+                            h100 |= make_default_100(elem, parent, "height");
+                        } else {
+                            make_default_implicit(elem, "height");
+                        }
+                    }
                     DefaultSizeBinding::ExpandsToParentGeometry => {
                         if !elem.borrow().child_of_layout {
                             w100 |= make_default_100(elem, parent, "width");
@@ -81,8 +92,8 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                                     elem, "width", "height",
                                 )
                             } else {
-                                make_default_implicit(elem, "width", Orientation::Horizontal);
-                                make_default_implicit(elem, "height", Orientation::Vertical);
+                                make_default_implicit(elem, "width");
+                                make_default_implicit(elem, "height");
                             }
                         } else if is_image {
                             // If an image is in a layout and has no explicit width or height specified, change the default for image-fit
@@ -279,17 +290,22 @@ fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str
     if property_type != Type::LogicalLength {
         return false;
     }
+
     elem.borrow_mut().set_binding_if_not_set(resolved_name.to_string(), || {
         Expression::PropertyReference(NamedReference::new(parent_element, resolved_name.as_ref()))
     })
 }
 
-fn make_default_implicit(elem: &ElementRc, property: &str, orientation: Orientation) {
-    let base = implicit_layout_info_call(elem, orientation).into();
-    elem.borrow_mut().set_binding_if_not_set(property.into(), || Expression::StructFieldAccess {
-        base,
-        name: "preferred".into(),
-    });
+fn make_default_implicit(elem: &ElementRc, property: &str) {
+    let e = crate::builtin_macros::min_max_expression(
+        Expression::PropertyReference(NamedReference::new(
+            elem,
+            &format!("preferred-{}", property),
+        )),
+        Expression::PropertyReference(NamedReference::new(elem, &format!("min-{}", property))),
+        '>',
+    );
+    elem.borrow_mut().set_binding_if_not_set(property.into(), || e);
 }
 
 // For an element with `width`, `height`, `preferred-width` and `preferred-height`, make an aspect

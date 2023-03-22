@@ -1,13 +1,44 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-SubSub := Rectangle {
+component SubSub inherits Rectangle {
     width: 30phx;
 }
 
-Sub := SubSub {}
+component Sub inherits SubSub {}
 
-TestCase := Rectangle {
+component Empty {
+    r := Rectangle {}
+    out property <length> p : r.width + r.height;
+}
+
+component Widget1 {
+    HorizontalLayout {
+        padding: 1px;
+        Rectangle {
+            min-width: 20px;
+            min-height: 30px;
+        }
+    }
+}
+
+component Widget2 {
+    preferred-height: 70px;
+    min-width: 10px;
+    @children
+}
+
+component WidFill {
+    preferred-height: 100%;
+    preferred-width: 30px;
+}
+
+component SubFill inherits WidFill {
+    preferred-width: 100%;
+}
+
+
+export component TestCase inherits Rectangle {
     width: 300phx;
     height: 200phx;
 
@@ -20,12 +51,51 @@ TestCase := Rectangle {
 
     elem4 := Sub { }
 
-    property <bool> elem1_ok: elem1.width == 300phx && elem1.height == 200phx;
-    property <bool> elem2_ok: elem2.width == 300phx && elem2.height == 200phx;
-    property <bool> elem3_ok: elem3.width == 300phx && elem3.height == 200phx / 2;
-    property <bool> elem4_ok: elem4.width == 30phx && elem4.height == 200phx;
+    empty1 := Empty {}
+    empty2 := Empty { preferred-width: 30px; height: 20px; }
 
-    property<bool> test: elem1_ok && elem2_ok && elem3_ok && elem4_ok;
+    wid1 := Widget1 {}
+    wid2 := Widget2 {}
+    wid3 := WidFill {}
+    wid4 := SubFill {}
+
+    Rectangle {
+        Rectangle {
+            preferred-width: 50px; // ignored
+            Rectangle {
+                HorizontalLayout {
+                    Rectangle {
+                        preferred-height: 50px; // doesn't matter
+                        inner1 := Rectangle {    }
+                    }
+                }
+            }
+        }
+    }
+    Rectangle {
+        Rectangle {
+            Rectangle {
+                Widget2 {
+                    inner2 := Rectangle {}
+                }
+            }
+        }
+    }
+
+    out property <bool> elem1_ok: elem1.width == 300phx && elem1.height == 200phx;
+    out property <bool> elem2_ok: elem2.width == 300phx && elem2.height == 200phx;
+    out property <bool> elem3_ok: elem3.width == 300phx && elem3.height == 200phx / 2;
+    out property <bool> elem4_ok: elem4.width == 30phx && elem4.height == 200phx;
+    out property <bool> empty1_ok: empty1.width == 0px && empty1.height == 0px && empty1.p == 0px;
+    out property <bool> empty2_ok: empty2.width == 30px && empty2.height == 20px && empty2.p == 50px;
+    out property <bool> wid1_ok: wid1.width == 22px && wid1.height == 32px;
+    out property <bool> wid2_ok: wid2.width == 10px && wid2.height == 70px;
+    out property <bool> wid3_ok: wid3.width == 30px && wid3.height == 200phx;
+    out property <bool> wid4_ok: wid4.width == 300phx && wid4.height == 200phx;
+    out property <bool> inner1_ok: inner1.width == 300phx && inner1.height == 200phx;
+    out property <bool> inner2_ok: inner2.width == 10px && inner2.height == 70px;
+
+    out property<bool> test: elem1_ok && elem2_ok && elem3_ok && elem4_ok && empty1_ok && empty2_ok && wid1-ok && wid2-ok && wid3-ok && wid4-ok && inner1-ok && inner2-ok;
 }
 
 /*
@@ -37,6 +107,7 @@ assert(instance.get_elem1_ok());
 assert(instance.get_elem2_ok());
 assert(instance.get_elem3_ok());
 assert(instance.get_elem4_ok());
+assert(instance.get_test());
 ```
 
 
@@ -46,6 +117,7 @@ assert!(instance.get_elem1_ok());
 assert!(instance.get_elem2_ok());
 assert!(instance.get_elem3_ok());
 assert!(instance.get_elem4_ok());
+assert!(instance.get_test());
 ```
 
 */

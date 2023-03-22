@@ -12,6 +12,8 @@ export component ScrollView {
     out property <length> visible-height <=> fli.height;
     in-out property <bool> has-focus <=> native.has-focus;
     in property <bool> enabled <=> native.enabled;
+    preferred-height: 100%;
+    preferred-width: 100%;
 
     native := NativeScrollView {
         vertical-max: fli.viewport-height > fli.height ? fli.viewport-height - fli.height : 0phx;

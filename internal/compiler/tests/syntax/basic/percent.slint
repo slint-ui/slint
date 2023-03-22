@@ -4,12 +4,16 @@
 Foo := Rectangle {
     width: 30%;
 
+    preferred-width: 50%;
+//                  ^error{preferred-width must either be a length, or the literal '100%'}
+
+
     Rectangle {
         height: 111%;
     }
 
     x: 30%;
-//    ^error{conversion from percentage to length is only possible for the properties width and height}
+//    ^error{Automatic conversion from percentage to length is only possible for the following properties: width, height, preferred-width, preferred-height}
 }
 
 export X := Rectangle {
@@ -19,6 +23,9 @@ export X := Rectangle {
         background: 30%;
 //                 ^error{Cannot convert percent to brush}
         y: 30%;
-//        ^error{conversion from percentage to length is only possible for the properties width and height}
+//        ^error{Automatic conversion from percentage to length is only possible for the following properties: width, height, preferred-width, preferred-height}
+
+        preferred-height: 50%;
+//                       ^error{preferred-height must either be a length, or the literal '100%'}
     }
 }

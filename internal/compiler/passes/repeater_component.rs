@@ -41,6 +41,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 transitions: std::mem::take(&mut elem.transitions),
                 child_of_layout: elem.child_of_layout || is_listview.is_some(),
                 layout_info_prop: elem.layout_info_prop.take(),
+                default_fill_parent: elem.default_fill_parent,
                 accessibility_props: std::mem::take(&mut elem.accessibility_props),
                 is_flickable_viewport: elem.is_flickable_viewport,
                 has_popup_child: elem.has_popup_child,

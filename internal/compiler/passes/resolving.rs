@@ -139,15 +139,16 @@ impl Expression {
             .unwrap_or(Self::Invalid);
         if ctx.property_type == Type::LogicalLength && e.ty() == Type::Percent {
             // See if a conversion from percentage to length is allowed
-            const RELATIVE_TO_PARENT_PROPERTIES: [&str; 2] = ["width", "height"];
+            const RELATIVE_TO_PARENT_PROPERTIES: &[&str] =
+                &["width", "height", "preferred-width", "preferred-height"];
             let property_name = ctx.property_name.unwrap_or_default();
             if RELATIVE_TO_PARENT_PROPERTIES.contains(&property_name) {
                 return e;
             } else {
                 ctx.diag.push_error(
                     format!(
-                        "Automatic conversion from percentage to length is only possible for the properties {}",
-                        RELATIVE_TO_PARENT_PROPERTIES.join(" and ")
+                        "Automatic conversion from percentage to length is only possible for the following properties: {}",
+                        RELATIVE_TO_PARENT_PROPERTIES.join(", ")
                     ),
                     &node
                 );
