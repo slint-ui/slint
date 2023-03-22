@@ -99,6 +99,15 @@ fn simplify_expression(expr: &mut Expression) -> bool {
             }
             can_inline
         }
+        Expression::StructFieldAccess { base, name } => {
+            if let Expression::Struct { values, .. } = &mut **base {
+                if let Some(e) = values.remove(name) {
+                    *expr = e;
+                    return simplify_expression(expr);
+                }
+            };
+            simplify_expression(base)
+        }
         Expression::Cast { from, to } => {
             let can_inline = simplify_expression(from);
             let new = if from.ty() == *to {
