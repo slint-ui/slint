@@ -538,6 +538,8 @@ pub struct Element {
     pub child_of_layout: bool,
     /// The property pointing to the layout info. `(horizontal, vertical)`
     pub layout_info_prop: Option<(NamedReference, NamedReference)>,
+    /// Whether we have `preferred-{width,height}: 100%`
+    pub default_fill_parent: (bool, bool),
 
     pub accessibility_props: AccessibilityProps,
 

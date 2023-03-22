@@ -9,7 +9,7 @@ global Glob := {
     property <float> ratio: allowed / 1phx;
 //                         ^error{Cannot convert between logical and physical length in a global component, because the scale factor is not known}
     property <length> converted_rem: 2rem;
-//                                  ^error{Cannot convert between rem and logical length in a global component, because the default font size is not known}    
+//                                  ^error{Cannot convert between rem and logical length in a global component, because the default font size is not known}
     property <float> should_work: 45px / 8px + (4rem / 2rem);
     property <length> allowed: 45px * 5;
     property <relative-font-size> rem_allowed: 42rem;
@@ -40,7 +40,7 @@ export X := Rectangle {
         background: "blue";
 //                 ^error{Cannot convert string to brush$}
         property<length> no_matching_parent: 50%;
-//                                          ^error{Automatic conversion from percentage to length is only possible for the properties width and height}
+//                                          ^error{Automatic conversion from percentage to length is only possible for the following properties: width, height, preferred-width, preferred-height}
     }
 
     property <{a: string, b: int}> object1: { a: "123", typo: 42};

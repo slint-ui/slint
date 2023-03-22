@@ -44,6 +44,7 @@ pub fn ensure_window(
         child_of_layout: false,
         has_popup_child: false,
         layout_info_prop: Default::default(),
+        default_fill_parent: Default::default(),
         accessibility_props: Default::default(),
         is_flickable_viewport: false,
         item_index: Default::default(),

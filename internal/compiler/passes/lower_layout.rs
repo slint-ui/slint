@@ -23,6 +23,23 @@ pub async fn lower_layouts(
     type_loader: &mut TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
+    // lower the preferred-{width, height}: 100%;
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
+        if check_preferred_size_100(elem, "preferred-width", diag) {
+            elem.borrow_mut().default_fill_parent.0 = true;
+        }
+        if check_preferred_size_100(elem, "preferred-height", diag) {
+            elem.borrow_mut().default_fill_parent.1 = true;
+        }
+        let base = elem.borrow().sub_component().cloned();
+        if let Some(base) = base {
+            let base = base.root_element.borrow();
+            let mut elem_mut = elem.borrow_mut();
+            elem_mut.default_fill_parent.0 |= base.default_fill_parent.0;
+            elem_mut.default_fill_parent.1 |= base.default_fill_parent.1;
+        }
+    });
+
     // Ignore import errors
     let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
     let style_metrics = type_loader
@@ -43,6 +60,29 @@ pub async fn lower_layouts(
         );
         check_no_layout_properties(elem, diag);
     });
+}
+
+fn check_preferred_size_100(elem: &ElementRc, prop: &str, diag: &mut BuildDiagnostics) -> bool {
+    let ret = if let Some(p) = elem.borrow().bindings.get(prop) {
+        if p.borrow().expression.ty() == Type::Percent {
+            if !matches!(p.borrow().expression, Expression::NumberLiteral(val, _) if val == 100.) {
+                diag.push_error(
+                    format!("{prop} must either be a length, or the literal '100%'"),
+                    &*p.borrow(),
+                );
+            }
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    if ret {
+        elem.borrow_mut().bindings.remove(prop).unwrap();
+        return true;
+    }
+    false
 }
 
 fn lower_element_layout(
@@ -73,6 +113,7 @@ fn lower_element_layout(
         let mut elem = elem.borrow_mut();
         let elem = &mut *elem;
         let prev_base = std::mem::replace(&mut elem.base_type, type_register.empty_type());
+        elem.default_fill_parent = (true, true);
         // Create fake properties for the layout properties
         for p in elem.bindings.keys() {
             if !elem.base_type.lookup_property(p).is_valid()
