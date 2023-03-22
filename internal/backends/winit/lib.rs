@@ -29,9 +29,9 @@ mod renderer {
 
         fn show(
             &self,
-            window: &Rc<winit::window::Window>,
+            window_builder: winit::window::WindowBuilder,
             #[cfg(target_arch = "wasm32")] canvas_id: &str,
-        );
+        ) -> Rc<winit::window::Window>;
         fn hide(&self);
 
         fn render(&self, size: PhysicalSize);

@@ -17,9 +17,15 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         Self { renderer: i_slint_renderer_skia::SkiaRenderer::new(window_adapter_weak.clone()) }
     }
 
-    fn show(&self, window: &Rc<winit::window::Window>) {
+    fn show(&self, window_builder: winit::window::WindowBuilder) -> Rc<winit::window::Window> {
+        let window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
+            window_builder.build(event_loop.event_loop_target()).unwrap()
+        }));
+
         let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
         self.renderer.show(window.clone(), PhysicalWindowSize::new(size.width, size.height));
+
+        window
     }
 
     fn hide(&self) {

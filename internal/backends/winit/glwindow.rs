@@ -548,12 +548,8 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 window_builder.with_canvas(Some(canvas.clone()))
             };
 
-            let winit_window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
-                window_builder.build(event_loop.event_loop_target()).unwrap()
-            }));
-
-            self_.renderer.show(
-                &winit_window,
+            let winit_window = self_.renderer.show(
+                window_builder,
                 #[cfg(target_arch = "wasm32")]
                 &self_.canvas_id,
             );

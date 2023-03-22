@@ -9,6 +9,8 @@ use glutin::{
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 use i_slint_core::api::PhysicalSize;
+#[cfg(not(target_arch = "wasm32"))]
+use raw_window_handle::HasRawWindowHandle;
 
 pub struct OpenGLContext {
     #[cfg(not(target_arch = "wasm32"))]
@@ -49,144 +51,108 @@ impl OpenGLContext {
         }
     }
 
-    pub fn new_context(
-        _window: &dyn raw_window_handle::HasRawWindowHandle,
-        _display: &dyn raw_window_handle::HasRawDisplayHandle,
-        _size: PhysicalSize,
-        #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> Self {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            cfg_if::cfg_if! {
-                if #[cfg(target_os = "macos")] {
-                    let prefs = [glutin::display::DisplayApiPreference::Cgl];
-                } else if #[cfg(all(feature = "x11", not(target_family = "windows")))] {
-                    let prefs = [glutin::display::DisplayApiPreference::Egl, glutin::display::DisplayApiPreference::Glx(Box::new(winit::platform::x11::register_xlib_error_hook))];
-                } else if #[cfg(not(target_family = "windows"))] {
-                    let prefs = [glutin::display::DisplayApiPreference::Egl];
-                } else {
-                    let prefs = [glutin::display::DisplayApiPreference::EglThenWgl(Some(_window.raw_window_handle()))];
-                }
-            }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn new_context<T>(
+        window_builder: winit::window::WindowBuilder,
+        window_target: &winit::event_loop::EventLoopWindowTarget<T>,
+    ) -> Result<(winit::window::Window, Self), Box<dyn std::error::Error>> {
+        let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
 
-            let width: std::num::NonZeroU32 =
-                _size.width.try_into().expect("new context called with zero width window");
-            let height: std::num::NonZeroU32 =
-                _size.height.try_into().expect("new context called with zero height window");
+        let (window, gl_config) = glutin_winit::DisplayBuilder::new()
+            .with_preference(glutin_winit::ApiPrefence::FallbackEgl)
+            .with_window_builder(Some(window_builder.clone()))
+            .build(window_target, config_template_builder, |it| {
+                it.reduce(|accum, config| {
+                    let transparency_check = config.supports_transparency().unwrap_or(false)
+                        & !accum.supports_transparency().unwrap_or(false);
 
-            let try_create_surface =
-                |display_api_preference| -> Result<(_, _), Box<dyn std::error::Error>> {
-                    let gl_display = unsafe {
-                        glutin::display::Display::new(
-                            _display.raw_display_handle(),
-                            display_api_preference,
-                        )?
-                    };
-
-                    let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
-
-                    // Upstream advises to use this only on Windows.
-                    #[cfg(target_family = "windows")]
-                    let config_template_builder = config_template_builder
-                        .compatible_with_native_window(_window.raw_window_handle());
-
-                    let config_template = config_template_builder.build();
-
-                    let config = unsafe {
-                        gl_display
-                            .find_configs(config_template)?
-                            .reduce(|accum, config| {
-                                let transparency_check =
-                                    config.supports_transparency().unwrap_or(false)
-                                        & !accum.supports_transparency().unwrap_or(false);
-
-                                if transparency_check || config.num_samples() < accum.num_samples()
-                                {
-                                    config
-                                } else {
-                                    accum
-                                }
-                            })
-                            .ok_or("Unable to find suitable GL config")?
-                    };
-
-                    let gles_context_attributes = ContextAttributesBuilder::new()
-                        .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
-                            major: 2,
-                            minor: 0,
-                        })))
-                        .build(Some(_window.raw_window_handle()));
-
-                    let fallback_context_attributes =
-                        ContextAttributesBuilder::new().build(Some(_window.raw_window_handle()));
-
-                    let not_current_gl_context = unsafe {
-                        gl_display.create_context(&config, &gles_context_attributes).or_else(
-                            |_| gl_display.create_context(&config, &fallback_context_attributes),
-                        )?
-                    };
-
-                    let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-                        _window.raw_window_handle(),
-                        width,
-                        height,
-                    );
-
-                    let surface =
-                        unsafe { config.display().create_window_surface(&config, &attrs)? };
-
-                    Ok((surface, not_current_gl_context))
-                };
-
-            let num_prefs = prefs.len();
-            let (surface, not_current_gl_context) = prefs
-                .into_iter()
-                .enumerate()
-                .find_map(|(i, pref)| {
-                    let is_last = i == num_prefs - 1;
-
-                    match try_create_surface(pref) {
-                        Ok(result) => Some(result),
-                        Err(glutin_error) => {
-                            if is_last {
-                                panic!("Glutin error creating GL surface: {}", glutin_error);
-                            }
-                            None
-                        }
+                    if transparency_check || config.num_samples() < accum.num_samples() {
+                        config
+                    } else {
+                        accum
                     }
                 })
-                .unwrap();
+                .expect("internal error: Could not find any matching GL configuration")
+            })?;
 
-            #[cfg(target_os = "macos")]
-            if let raw_window_handle::RawWindowHandle::AppKit(
-                raw_window_handle::AppKitWindowHandle { ns_view, .. },
-            ) = _window.raw_window_handle()
-            {
-                use cocoa::appkit::NSView;
-                let view_id: cocoa::base::id = ns_view as *const _ as *mut _;
-                unsafe {
-                    NSView::setLayerContentsPlacement(view_id, cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft)
-                }
-            }
+        let gl_display = gl_config.display();
 
-            Self { context: not_current_gl_context.make_current(&surface).unwrap(), surface }
-        }
+        let raw_window_handle = window.as_ref().map(|w| w.raw_window_handle());
 
-        #[cfg(target_arch = "wasm32")]
+        let gles_context_attributes = ContextAttributesBuilder::new()
+            .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
+                major: 2,
+                minor: 0,
+            })))
+            .build(raw_window_handle);
+
+        let fallback_context_attributes = ContextAttributesBuilder::new().build(raw_window_handle);
+
+        let not_current_gl_context = unsafe {
+            gl_display
+                .create_context(&gl_config, &gles_context_attributes)
+                .or_else(|_| gl_display.create_context(&gl_config, &fallback_context_attributes))?
+        };
+
+        let window = match window {
+            Some(window) => window,
+            None => glutin_winit::finalize_window(window_target, window_builder, &gl_config)?,
+        };
+
+        let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
+
+        let width: std::num::NonZeroU32 =
+            size.width.try_into().expect("new context called with zero width window");
+        let height: std::num::NonZeroU32 =
+            size.height.try_into().expect("new context called with zero height window");
+
+        let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+            window.raw_window_handle(),
+            width,
+            height,
+        );
+
+        let surface = unsafe { gl_display.create_window_surface(&gl_config, &attrs)? };
+
+        #[cfg(target_os = "macos")]
+        if let raw_window_handle::RawWindowHandle::AppKit(raw_window_handle::AppKitWindowHandle {
+            ns_view,
+            ..
+        }) = window.raw_window_handle()
         {
-            use wasm_bindgen::JsCast;
-
-            let canvas = web_sys::window()
-                .unwrap()
-                .document()
-                .unwrap()
-                .get_element_by_id(canvas_id)
-                .unwrap()
-                .dyn_into::<web_sys::HtmlCanvasElement>()
-                .unwrap();
-
-            Self { canvas }
+            use cocoa::appkit::NSView;
+            let view_id: cocoa::base::id = ns_view as *const _ as *mut _;
+            unsafe {
+                NSView::setLayerContentsPlacement(view_id, cocoa::appkit::NSViewLayerContentsPlacement::NSViewLayerContentsPlacementTopLeft)
+            }
         }
+
+        Ok((
+            window,
+            Self { context: not_current_gl_context.make_current(&surface).unwrap(), surface },
+        ))
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn new_context<T>(
+        window_builder: winit::window::WindowBuilder,
+        window_target: &winit::event_loop::EventLoopWindowTarget<T>,
+        canvas_id: &str,
+    ) -> Result<(winit::window::Window, Self), Box<dyn std::error::Error>> {
+        let window = window_builder.build(window_target)?;
+
+        use wasm_bindgen::JsCast;
+
+        let canvas = web_sys::window()
+            .unwrap()
+            .document()
+            .unwrap()
+            .get_element_by_id(canvas_id)
+            .unwrap()
+            .dyn_into::<web_sys::HtmlCanvasElement>()
+            .unwrap();
+
+        Ok((window, Self { canvas }))
     }
 
     #[cfg(not(target_arch = "wasm32"))]
