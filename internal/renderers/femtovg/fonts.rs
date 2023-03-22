@@ -109,8 +109,11 @@ impl Font {
         let mut start = 0;
         if let Some(max_width) = max_width {
             while start < text.len() {
-                let index =
-                    self.text_context.break_text(max_width.get(), &text[start..], &paint).unwrap();
+                let max_line_index = text[start..].find('\n').map_or(text.len(), |i| i + 1 + start);
+                let index = self
+                    .text_context
+                    .break_text(max_width.get(), &text[start..max_line_index], &paint)
+                    .unwrap();
                 if index == 0 {
                     break;
                 }
@@ -708,7 +711,10 @@ pub(crate) fn layout_text_lines(
     let mut start = 0;
     'lines: while start < string.len() && y + font_height <= max_height {
         if wrap && (!elide || y + font_height * 2. <= max_height) {
-            let index = text_context.break_text(max_width.get(), &string[start..], paint).unwrap();
+            let max_line_index = string[start..].find('\n').map_or(string.len(), |i| i + 1 + start);
+            let index = text_context
+                .break_text(max_width.get(), &string[start..max_line_index], paint)
+                .unwrap();
             if index == 0 {
                 // FIXME the word is too big to be shown, but we should still break, ideally
                 break;
