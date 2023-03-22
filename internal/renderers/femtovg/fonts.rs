@@ -3,6 +3,7 @@
 
 // cspell:ignore Noto fontconfig
 
+use core::num::NonZeroUsize;
 use femtovg::TextContext;
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::FontRequest;
@@ -249,10 +250,14 @@ impl Default for FontCache {
             })
             .collect();
 
+        let text_context = TextContext::default();
+        text_context.resize_shaped_words_cache(NonZeroUsize::new(10_000_000).unwrap());
+        text_context.resize_shaping_run_cache(NonZeroUsize::new(1_000_000).unwrap());
+
         Self {
             loaded_fonts: HashMap::new(),
             loaded_font_coverage: HashMap::new(),
-            text_context: Default::default(),
+            text_context,
             available_fonts: font_db,
             available_families,
             #[cfg(all(
