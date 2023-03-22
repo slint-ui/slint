@@ -62,17 +62,18 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
 
     fn show(
         &self,
-        window: &Rc<winit::window::Window>,
+        window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) {
-        let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
-        let opengl_context = glcontext::OpenGLContext::new_context(
-            window,
-            window,
-            PhysicalWindowSize::new(size.width, size.height),
-            #[cfg(target_arch = "wasm32")]
-            canvas_id,
-        );
+    ) -> Rc<winit::window::Window> {
+        let (window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
+            glcontext::OpenGLContext::new_context(
+                window_builder,
+                event_loop.event_loop_target(),
+                #[cfg(target_arch = "wasm32")]
+                canvas_id,
+            )
+        })
+        .expect("Unable to create OpenGL context");
 
         self.renderer.show(
             #[cfg(not(target_arch = "wasm32"))]
@@ -88,6 +89,8 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         }
 
         *self.opengl_context.borrow_mut() = Some(opengl_context);
+
+        Rc::new(window)
     }
 
     fn hide(&self) {

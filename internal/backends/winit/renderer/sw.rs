@@ -28,10 +28,16 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         }
     }
 
-    fn show(&self, window: &Rc<winit::window::Window>) {
+    fn show(&self, window_builder: winit::window::WindowBuilder) -> Rc<winit::window::Window> {
+        let window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
+            window_builder.build(event_loop.event_loop_target()).unwrap()
+        }));
+
         *self.canvas.borrow_mut() = Some(unsafe {
             softbuffer::GraphicsContext::new(window.as_ref(), window.as_ref()).unwrap()
         });
+
+        window
     }
 
     fn hide(&self) {

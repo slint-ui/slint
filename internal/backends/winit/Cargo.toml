@@ -19,8 +19,8 @@ path = "lib.rs"
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland"]
-x11 = ["winit/x11", "glutin/x11", "glutin/glx", "copypasta/x11", "i-slint-renderer-skia?/x11"]
+wayland = ["winit/wayland", "glutin/wayland", "glutin-winit/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland"]
+x11 = ["winit/x11", "glutin/x11", "glutin/glx", "glutin-winit/x11", "glutin-winit/glx", "copypasta/x11", "i-slint-renderer-skia?/x11"]
 renderer-winit-femtovg = ["i-slint-renderer-femtovg"]
 renderer-winit-skia = ["i-slint-renderer-skia"]
 renderer-winit-skia-opengl = ["renderer-winit-skia", "i-slint-renderer-skia/opengl"]
@@ -66,6 +66,7 @@ send_wrapper = "0.6.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 glutin = { version = "0.30", optional = true, default-features = false, features = ["egl", "wgl"] }
+glutin-winit = { version = "0.3.0", optional = true, default-features = false, features = ["egl", "wgl"] }
 i-slint-renderer-femtovg = { version = "=1.0.0", path = "../../renderers/femtovg", optional = true, features = ["diskfonts"] }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
