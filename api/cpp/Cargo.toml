@@ -45,6 +45,8 @@ i-slint-renderer-skia = { version = "=1.0.0", path="../../internal/renderers/ski
 i-slint-core = { version = "=1.0.0", path="../../internal/core", features = ["ffi"] }
 slint-interpreter = { version = "=1.0.0", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-1-0"], optional = true }
 raw-window-handle = { version = "0.5", optional = true }
+# Enable image-rs' default features to make all image formats to C++ users
+image = { version = "0.24.0" }
 
 [build-dependencies]
 anyhow = "1.0"
