@@ -45,6 +45,7 @@ All notable changes to this project are documented in this file.
  - Fluent style: Adjust disabled scrollbar background color
  - Fix panics in the compiler (#2312, #2274, #2319)
  - winit backend: Fix rendering when moving windows between monitors with different scale factor (#2282)
+ - C++: Support all image formats the Rust image-rs crate supports, not just png and jpeg.
 
 
 ## [0.3.5] - 2023-02-21
