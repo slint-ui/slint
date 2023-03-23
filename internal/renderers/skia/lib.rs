@@ -52,6 +52,7 @@ cfg_if::cfg_if! {
 pub struct SkiaRenderer<NativeWindowWrapper> {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
+    surface_config: Option<<DefaultSurface as Surface>::SurfaceConfig>,
     canvas: RefCell<Option<SkiaCanvas<DefaultSurface, NativeWindowWrapper>>>,
 }
 
@@ -60,18 +61,33 @@ impl<
     > SkiaRenderer<NativeWindowWrapper>
 {
     /// Creates a new renderer is associated with the provided window adapter.
-    pub fn new(window_adapter_weak: Weak<dyn WindowAdapter>) -> Self {
+    pub fn new(
+        _display: Option<&dyn raw_window_handle::HasRawDisplayHandle>,
+        window_adapter_weak: Weak<dyn WindowAdapter>,
+    ) -> Self {
         Self {
             window_adapter_weak,
             rendering_notifier: Default::default(),
+            surface_config: _display.and_then(|display| DefaultSurface::create_config(display)),
             canvas: Default::default(),
         }
+    }
+
+    #[cfg(skia_backend_opengl)]
+    pub fn glutin_config(&self) -> Option<&glutin::config::Config> {
+        self.surface_config.as_ref()
+    }
+
+    #[cfg(not(skia_backend_opengl))]
+    pub fn glutin_config(&self) -> Option<&glutin::config::Config> {
+        None
     }
 
     /// Use the provided window and display for rendering the Slint scene in future calls to [`Self::render()`].
     /// The size must be identical to the size of the window in physical pixels that is providing the window handle.
     pub fn show(&self, native_window: NativeWindowWrapper, size: PhysicalWindowSize) {
-        let surface = DefaultSurface::new(&native_window, &native_window, size);
+        let surface =
+            DefaultSurface::new(&native_window, &native_window, self.surface_config.clone(), size);
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_adapter_weak.clone(),
@@ -386,9 +402,16 @@ impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<Nati
 
 trait Surface {
     const SUPPORTS_GRAPHICS_API: bool;
+    type SurfaceConfig;
+    fn create_config(
+        _display: &dyn raw_window_handle::HasRawDisplayHandle,
+    ) -> Option<Self::SurfaceConfig> {
+        None
+    }
     fn new(
         window: &dyn raw_window_handle::HasRawWindowHandle,
         display: &dyn raw_window_handle::HasRawDisplayHandle,
+        config: Option<Self::SurfaceConfig>,
         size: PhysicalWindowSize,
     ) -> Self;
     fn name(&self) -> &'static str;

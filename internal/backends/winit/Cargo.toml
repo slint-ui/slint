@@ -26,7 +26,7 @@ renderer-winit-skia = ["i-slint-renderer-skia"]
 renderer-winit-skia-opengl = ["renderer-winit-skia", "i-slint-renderer-skia/opengl"]
 renderer-winit-software = ["softbuffer", "imgref", "rgb", "i-slint-core/systemfonts"]
 rtti = ["i-slint-core/rtti"]
-default = []
+default = ["renderer-winit-skia-opengl"]
 
 [dependencies]
 i-slint-core = { version = "=1.0.0", path = "../../../internal/core" }

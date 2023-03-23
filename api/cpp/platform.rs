@@ -210,7 +210,7 @@ pub unsafe extern "C" fn slint_skia_renderer_new(
 ) -> SkiaRendererOpaque {
     let window = core::mem::transmute::<&WindowAdapterRcOpaque, &Rc<dyn WindowAdapter>>(window);
     let weak = Rc::downgrade(window);
-    Box::into_raw(Box::new(SkiaRenderer::new(weak))) as SkiaRendererOpaque
+    Box::into_raw(Box::new(SkiaRenderer::new(None, weak))) as SkiaRendererOpaque
 }
 
 #[no_mangle]

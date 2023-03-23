@@ -24,12 +24,23 @@ pub struct OpenGLSurface {
 impl super::Surface for OpenGLSurface {
     const SUPPORTS_GRAPHICS_API: bool = true;
 
+    type SurfaceConfig = glutin::config::Config;
+
+    fn create_config(
+        display: &dyn raw_window_handle::HasRawDisplayHandle,
+    ) -> Option<Self::SurfaceConfig> {
+        Self::find_config(display, None).ok()
+    }
+
     fn new(
         window: &dyn raw_window_handle::HasRawWindowHandle,
         display: &dyn raw_window_handle::HasRawDisplayHandle,
+        config: Option<glutin::config::Config>,
         size: PhysicalWindowSize,
     ) -> Self {
-        let (current_glutin_context, glutin_surface) = Self::init_glutin(window, display, size);
+        let (current_glutin_context, glutin_surface) =
+            Self::init_glutin(window, display, config, size)
+                .expect("internal error: Unable to create Glutin Context for use with Skia");
 
         let fb_info = {
             use glow::HasContext;
@@ -134,111 +145,95 @@ impl super::Surface for OpenGLSurface {
 }
 
 impl OpenGLSurface {
+    pub fn find_config(
+        display: &dyn raw_window_handle::HasRawDisplayHandle,
+        _maybe_window: Option<&dyn raw_window_handle::HasRawWindowHandle>,
+    ) -> Result<glutin::config::Config, Box<dyn std::error::Error>> {
+        cfg_if::cfg_if! {
+            if #[cfg(target_os = "macos")] {
+                let display_api_preference = glutin::display::DisplayApiPreference::Cgl;
+            } else if #[cfg(all(feature = "x11", not(target_family = "windows")))] {
+                let display_api_preference = glutin::display::DisplayApiPreference::GlxThenEgl(Box::new(winit::platform::x11::register_xlib_error_hook));
+            } else if #[cfg(not(target_family = "windows"))] {
+                let display_api_preference = glutin::display::DisplayApiPreference::Egl;
+            } else {
+                let display_api_preference = match _maybe_window {
+                    Some(window) = glutin::display::DisplayApiPreference::Wgl(Some(window.raw_window_handle())),
+                    None => return Err("Cannot create OpenGL display on Windows without a window handle"),
+                }
+            }
+        }
+
+        let gl_display = unsafe {
+            glutin::display::Display::new(display.raw_display_handle(), display_api_preference)?
+        };
+
+        let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
+        let config_template = config_template_builder.build();
+
+        let config = unsafe {
+            gl_display
+                .find_configs(config_template)?
+                .reduce(|accum, config| {
+                    let transparency_check = config.supports_transparency().unwrap_or(false)
+                        & !accum.supports_transparency().unwrap_or(false);
+
+                    if transparency_check || config.num_samples() < accum.num_samples() {
+                        config
+                    } else {
+                        accum
+                    }
+                })
+                .ok_or("Unable to find suitable GL config")?
+        };
+        Ok(config)
+    }
+
     fn init_glutin(
         _window: &dyn raw_window_handle::HasRawWindowHandle,
         _display: &dyn raw_window_handle::HasRawDisplayHandle,
+        _maybe_config: Option<glutin::config::Config>,
         _size: PhysicalWindowSize,
-    ) -> (
-        glutin::context::PossiblyCurrentContext,
-        glutin::surface::Surface<glutin::surface::WindowSurface>,
-    ) {
-        cfg_if::cfg_if! {
-            if #[cfg(target_os = "macos")] {
-                let prefs = [glutin::display::DisplayApiPreference::Cgl];
-            } else if #[cfg(all(feature = "x11", not(target_family = "windows")))] {
-                let prefs = [glutin::display::DisplayApiPreference::Egl, glutin::display::DisplayApiPreference::Glx(Box::new(winit::platform::x11::register_xlib_error_hook))];
-            } else if #[cfg(not(target_family = "windows"))] {
-                let prefs = [glutin::display::DisplayApiPreference::Egl];
-            } else {
-                let prefs = [glutin::display::DisplayApiPreference::EglThenWgl(Some(_window.raw_window_handle()))];
-            }
-        }
+    ) -> Result<
+        (
+            glutin::context::PossiblyCurrentContext,
+            glutin::surface::Surface<glutin::surface::WindowSurface>,
+        ),
+        Box<dyn std::error::Error>,
+    > {
+        let config = Self::find_config(_display, Some(_window))
+            .expect("Unable to create display config when showing window");
 
         let width: std::num::NonZeroU32 =
             _size.width.try_into().expect("new context called with zero width window");
         let height: std::num::NonZeroU32 =
             _size.height.try_into().expect("new context called with zero height window");
 
-        let try_create_surface =
-            |display_api_preference| -> Result<(_, _), Box<dyn std::error::Error>> {
-                let gl_display = unsafe {
-                    glutin::display::Display::new(
-                        _display.raw_display_handle(),
-                        display_api_preference,
-                    )?
-                };
+        let gles_context_attributes = ContextAttributesBuilder::new()
+            .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
+                major: 2,
+                minor: 0,
+            })))
+            .build(Some(_window.raw_window_handle()));
 
-                let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
+        let fallback_context_attributes =
+            ContextAttributesBuilder::new().build(Some(_window.raw_window_handle()));
 
-                // Upstream advises to use this only on Windows.
-                #[cfg(target_family = "windows")]
-                let config_template_builder = config_template_builder
-                    .compatible_with_native_window(_window.raw_window_handle());
+        let gl_display = config.display();
 
-                let config_template = config_template_builder.build();
+        let not_current_gl_context = unsafe {
+            gl_display
+                .create_context(&config, &gles_context_attributes)
+                .or_else(|_| gl_display.create_context(&config, &fallback_context_attributes))?
+        };
 
-                let config = unsafe {
-                    gl_display
-                        .find_configs(config_template)?
-                        .reduce(|accum, config| {
-                            let transparency_check =
-                                config.supports_transparency().unwrap_or(false)
-                                    & !accum.supports_transparency().unwrap_or(false);
+        let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+            _window.raw_window_handle(),
+            width,
+            height,
+        );
 
-                            if transparency_check || config.num_samples() < accum.num_samples() {
-                                config
-                            } else {
-                                accum
-                            }
-                        })
-                        .ok_or("Unable to find suitable GL config")?
-                };
-
-                let gles_context_attributes = ContextAttributesBuilder::new()
-                    .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
-                        major: 2,
-                        minor: 0,
-                    })))
-                    .build(Some(_window.raw_window_handle()));
-
-                let fallback_context_attributes =
-                    ContextAttributesBuilder::new().build(Some(_window.raw_window_handle()));
-
-                let not_current_gl_context = unsafe {
-                    gl_display.create_context(&config, &gles_context_attributes).or_else(|_| {
-                        gl_display.create_context(&config, &fallback_context_attributes)
-                    })?
-                };
-
-                let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-                    _window.raw_window_handle(),
-                    width,
-                    height,
-                );
-
-                let surface = unsafe { config.display().create_window_surface(&config, &attrs)? };
-
-                Ok((surface, not_current_gl_context))
-            };
-
-        let num_prefs = prefs.len();
-        let (surface, not_current_gl_context) = prefs
-            .into_iter()
-            .enumerate()
-            .find_map(|(i, pref)| {
-                let is_last = i == num_prefs - 1;
-
-                match try_create_surface(pref) {
-                    Ok(result) => Some(result),
-                    Err(glutin_error) => {
-                        if is_last {
-                            panic!("Glutin error creating GL surface: {}", glutin_error);
-                        }
-                        None
-                    }
-                }
-            })
-            .unwrap();
+        let surface = unsafe { config.display().create_window_surface(&config, &attrs)? };
 
         #[cfg(target_os = "macos")]
         if let raw_window_handle::RawWindowHandle::AppKit(raw_window_handle::AppKitWindowHandle {
@@ -253,7 +248,7 @@ impl OpenGLSurface {
             }
         }
 
-        (not_current_gl_context.make_current(&surface).unwrap(), surface)
+        Ok((not_current_gl_context.make_current(&surface).unwrap(), surface))
     }
 
     fn create_internal_surface(
