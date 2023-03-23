@@ -7,7 +7,8 @@ Welcome to the Slint Language Documentation
 Introduction
 ------------
 
-The Slint design markup language describes extensible graphical user interfaces.
+The Slint design markup language describes extensible graphical user interfaces using the
+`Slint framework <https://slint-ui.com>`_
 
 - Place and compose a tree of visual elements in a window using a textual representation.
 - Configure the appearance of elements via properties. For example a `Text` element has a `text`
@@ -20,11 +21,16 @@ The Slint design markup language describes extensible graphical user interfaces.
 - Build highly customized user interfaces with the :ref:`builtin elements <Builtin Elements>`
   and pre-built :ref:`widgets <Widgets>` provided.
 
-Architecture
-------------
+It only describes the user interface and it is not a programming language. The business
+logic is written in a different programming language using the Slint API.
 
-An application is composed of the business logic written in C++ and the `.slint` user interface design markup, which
-is compiled to native code.
+Getting Started
+---------------
+
+To use `Slint <https://slint-ui.com>`_ you will need to embed your slint files in a project written
+in a programming language. Refer to the `Slint documentation specific to that programming language <../>`_
+to get started.
+
 
 .. toctree::
    :hidden:

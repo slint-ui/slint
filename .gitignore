@@ -9,3 +9,4 @@ tools/figma_import/figma_output
 /_deps
 package-lock.json
 .DS_Store
+Pipfile.lock

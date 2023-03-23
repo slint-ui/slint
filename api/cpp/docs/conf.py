@@ -1,4 +1,4 @@
-# Copyright © 2021 SixtyFPS GmbH <info@slint-ui.com>
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 # Configuration file for the Sphinx documentation builder.
@@ -21,9 +21,9 @@ import textwrap
 
 # -- Project information -----------------------------------------------------
 
-project = "Slint C++"
-copyright = "2022, info@slint-ui.com"
-author = "info@slint-ui.com"
+project = "Slint C++ API"
+copyright = "SixtyFPS GmbH"
+author = "Slint Developers <info@slint-ui.com>"
 
 # The full version, including alpha/beta/rc tags
 version = "1.0.0"
