@@ -3,10 +3,10 @@
 
 import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
-component MainWindow inherits Window {
+export component MainWindow inherits Window {
     in-out property <duration> total-time: slider.value * 1s;
     in-out property <duration> elapsed-time;
-    
+
     callback tick(duration);
     tick(passed-time) => {
         root.elapsed-time += passed-time;

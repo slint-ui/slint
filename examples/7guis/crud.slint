@@ -3,7 +3,7 @@
 
 import { LineEdit, Button, Slider, StandardListView, GridBox, HorizontalBox } from "std-widgets.slint";
 
-component MainWindow inherits Window {
+export component MainWindow inherits Window {
 
     GridBox {
         Text {
@@ -26,7 +26,7 @@ component MainWindow inherits Window {
         Text {
             col: 2;
             row: 1;
-            text: "Name: "; 
+            text: "Name: ";
             vertical-alignment: center;
             horizontal-alignment: right;
         }
@@ -35,7 +35,7 @@ component MainWindow inherits Window {
         Text {
             col: 2;
             row: 2;
-            text: "Surname: "; 
+            text: "Surname: ";
             vertical-alignment: center;
             horizontal-alignment: right;
         }
