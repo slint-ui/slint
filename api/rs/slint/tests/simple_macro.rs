@@ -5,12 +5,12 @@ use ::slint::slint;
 
 #[test]
 fn simple_window() {
-    slint!(X := Window{});
+    slint!(export component X inherits Window{});
     X::new().unwrap();
 }
 #[test]
 fn empty_stuff() {
     slint!();
-    slint!(struct Hei := { abcd: bool });
-    slint!(global G := { });
+    slint!(export struct Hei { abcd: bool });
+    slint!(export global G { });
 }
