@@ -22,6 +22,23 @@ import {
     Widget,
 } from "@lumino/widgets";
 
+function resolveControllerReady(resolve: () => void, count: number) {
+    count += 1;
+    if (navigator.serviceWorker.controller) {
+        console.info(`Controller ready after ${count} attempts`);
+        resolve();
+    } else {
+        console.warn(`Controller is not ready yet ! waiting ... - (${count})`);
+        return setTimeout(() => {
+            resolveControllerReady(resolve, count);
+        }, 500);
+    }
+}
+
+function wait_for_service_worker(): Promise<void> {
+    return new Promise((res, _) => resolveControllerReady(res, 0));
+}
+
 const lsp_waiter = new LspWaiter();
 
 const commands = new CommandRegistry();
@@ -440,10 +457,12 @@ function setup(lsp: Lsp) {
 }
 
 function main() {
-    lsp_waiter.wait_for_lsp().then((lsp: Lsp) => {
-        setup(lsp);
-        document.body.getElementsByClassName("loader")[0].remove();
-    });
+    Promise.all([wait_for_service_worker(), lsp_waiter.wait_for_lsp()]).then(
+        ([_, lsp]) => {
+            setup(lsp);
+            document.body.getElementsByClassName("loader")[0].remove();
+        },
+    );
 }
 
 window.onload = main;
