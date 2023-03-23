@@ -114,6 +114,8 @@ impl OpenGLContext {
 
         let surface = unsafe { gl_display.create_window_surface(&gl_config, &attrs)? };
 
+        // Align the GL layer to the top-left, so that resizing only invalidates the bottom/right
+        // part of the window.
         #[cfg(target_os = "macos")]
         if let raw_window_handle::RawWindowHandle::AppKit(raw_window_handle::AppKitWindowHandle {
             ns_view,
