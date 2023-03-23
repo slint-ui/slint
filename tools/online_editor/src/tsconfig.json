@@ -1,7 +1,7 @@
 {
     "extends": "../tsconfig.default.json",
     "compilerOptions": {
-        "lib": ["dom", "es2020"],
+        "lib": ["dom", "es2021"],
         "types": ["json-schema", "vscode"]
     },
     "include": ["./*.ts", "./shared/*.ts"],
