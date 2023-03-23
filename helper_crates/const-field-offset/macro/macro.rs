@@ -158,7 +158,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                     Ok(c) => crate_ = quote!(#c),
                     Err(_) => {
                         return TokenStream::from(
-                            quote_spanned! {a.span() => compile_error!{"const_field_offset attribute must be a crate name"}},
+                            quote_spanned!(a.span()=> compile_error!{"const_field_offset attribute must be a crate name"}),
                         );
                     }
                 }
