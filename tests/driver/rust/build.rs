@@ -68,6 +68,8 @@ fn generate_macro(
         output.write_all(b"#[test] #[ignore] fn ignored_because_string_template() {{}}")?;
         return Ok(false);
     }
+    // to silence all the warnings in .slint files that would be turned into errors
+    output.write_all(b"#![allow(deprecated)]")?;
     let include_paths = test_driver_lib::extract_include_paths(source);
     output.write_all(b"slint::slint!{")?;
     for path in include_paths {
