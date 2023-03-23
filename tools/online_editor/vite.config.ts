@@ -4,12 +4,12 @@
 // TODO: Do build and package wasm-lsp separately. Right now vite does not
 // support `exclude` in web workers!
 
-// cSpell: ignore lumino
+// cSpell: ignore iife lumino
 
-import { defineConfig } from "vite";
+import { defineConfig, UserConfig } from "vite";
 
-export default defineConfig(({ command, _mode }) => {
-    const base_config = {
+export default defineConfig(({ command }) => {
+    const base_config: UserConfig = {
         server: {
             fs: {
                 // Allow serving files from the project root
@@ -20,13 +20,28 @@ export default defineConfig(({ command, _mode }) => {
         build: {
             // We need to enable support for bigint
             target: "safari14",
+            rollupOptions: {
+                input: {
+                    index: "./index.html",
+                    preview: "./preview.html",
+                    service_worker: "./src/worker/service_worker.ts",
+                },
+                output: {
+                    entryFileNames: (assetInfo) => {
+                        return assetInfo.name === "service_worker"
+                            ? "[name].js"
+                            : "assets/[name]-[hash].js";
+                    },
+                },
+            },
         },
         worker: {
             format: "iife",
         },
+        resolve: {},
     };
 
-    let global_aliases = {
+    const global_aliases = {
         "@lsp/": "../../../lsp/pkg/",
         "~@lumino": "node_modules/@lumino/", // work around strange defaults in @lumino
         path: "path-browserify", // To make path.sep available to monaco
@@ -44,12 +59,15 @@ export default defineConfig(({ command, _mode }) => {
         // For distribution builds,
         // assume deployment on the main website where the loading file (index.js) is in the assets/
         // sub-directory and the relative path to the interpreter is as below.
+        if (base_config.build == null) {
+            base_config.build = {};
+        }
         base_config.build.rollupOptions = {
             makeAbsoluteExternalsRelative: true,
             external: [
                 "../../../../wasm-interpreter/slint_wasm_interpreter.js",
             ],
-            input: ["index.html", "preview.html"],
+            ...base_config.build.rollupOptions,
         };
         base_config.resolve = {
             alias: {
@@ -59,5 +77,5 @@ export default defineConfig(({ command, _mode }) => {
         };
     }
 
-    return base_config;
+    return base_config as UserConfig;
 });
