@@ -678,7 +678,97 @@ class EditorPaneWidget extends Widget {
         const file_name_start = url.path.lastIndexOf("/") ?? 0;
         let file_name = url.path.slice(file_name_start);
 
-        if (url.authority == "github.com") {
+        if (url.authority == "gist.github.com") {
+            const orig = url;
+            const path = orig.path.split("/");
+
+            // A URL to a Gist, not to a specific file in a gist!
+            if (path.length == 3 || path.length == 2) {
+                // Raw gist URL: Find a start file!
+                const gist_id = path[path.length - 1];
+
+                try {
+                    const response = await fetch(
+                        "https://api.github.com/gists/" + gist_id,
+                        {
+                            method: "GET",
+                            headers: {
+                                Accept: "application/vnd.github+json",
+                            },
+                        },
+                    );
+                    const body = await response.json();
+
+                    const map: { [path: string]: monaco.Uri } = {};
+                    let definite_main_file_name;
+                    let fallback_main_file_name;
+                    let fallback_main_file_url;
+                    for (const [k, v] of Object.entries(body.files)) {
+                        if (k === "slint.json") {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const content: any = JSON.parse(
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                (v as any).content as string,
+                            );
+                            definite_main_file_name = content.main as string;
+                            const mappings = content.mappings as {
+                                string: string;
+                            };
+
+                            Object.entries(mappings).forEach(([f, u]) => {
+                                map["/" + f] =
+                                    monaco.Uri.parse(u) ??
+                                    monaco.Uri.parse("file:///broken_url");
+                            });
+                        } else {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const url = (v as any).raw_url;
+                            if (fallback_main_file_name == null) {
+                                fallback_main_file_name = k;
+                                fallback_main_file_url = url;
+                            }
+                            map["/" + k] =
+                                monaco.Uri.parse(url) ??
+                                monaco.Uri.parse("file:///broken_url");
+                        }
+                    }
+
+                    mapper = new KnownUrlMapper(this.#internal_uuid, map);
+
+                    if (body.errors) {
+                        alert(
+                            "Failed to read gist with errors:\n" +
+                                body.errors.join("\n"),
+                        );
+
+                        return Promise.resolve("");
+                    }
+
+                    const description_file =
+                        body.description.match(/main file is: "(.+)"/i)?.[1];
+                    let main_file_name =
+                        definite_main_file_name ??
+                        description_file ??
+                        "main.slint";
+
+                    let main_file_url = map["/" + main_file_name];
+                    if (main_file_url == null) {
+                        main_file_name = fallback_main_file_name;
+                        main_file_url =
+                            monaco.Uri.parse(fallback_main_file_url) ??
+                            monaco.Uri.parse("file:///broken_url");
+                    }
+
+                    url = main_file_url;
+                    file_name = "/" + main_file_name;
+                } catch (e) {
+                    console.error("Failed to resolve gist URL to a file.", e);
+                    alert("Failed to retrieve information on Gist");
+
+                    return Promise.resolve("");
+                }
+            }
+        } else if (url.authority == "github.com") {
             const orig = url;
             const path = orig.path.split("/");
 
