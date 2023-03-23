@@ -704,6 +704,23 @@ class EditorPaneWidget extends Widget {
             true,
         );
     }
+
+    add_empty_file(name: string): boolean {
+        let abs_name = name;
+        if (!abs_name.startsWith("/")) {
+            abs_name = "/" + abs_name;
+        }
+
+        const uri = internal_file_uri(this.#internal_uuid, abs_name);
+
+        if (monaco.editor.getModel(uri)) {
+            return false;
+        }
+
+        createModel(this.internal_uuid, "", uri);
+
+        return true;
+    }
 }
 
 export class EditorWidget extends Widget {
@@ -860,6 +877,10 @@ export class EditorWidget extends Widget {
 
     goto_position(uri: string, position: LspPosition | LspRange) {
         this.#editor.goto_position(uri, position);
+    }
+
+    add_empty_file_to_project(name: string) {
+        this.#editor.add_empty_file(name);
     }
 
     async set_demo(location: string) {

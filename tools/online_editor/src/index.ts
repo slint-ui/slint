@@ -113,8 +113,24 @@ function create_open_menu(editor: EditorWidget): Menu {
             editor.project_from_url(url);
         },
     });
+    commands.addCommand("slint:add_file", {
+        label: "Add a file to your Slint project",
+        iconClass: "fa-regular fa-file",
+        mnemonic: 1,
+        execute: () => {
+            let name = prompt("Please enter the file name");
+            if (name == null) {
+                return;
+            }
+            if (!name.endsWith(".slint")) {
+                name = "${name}.slint";
+            }
+            editor.add_empty_file_to_project(name);
+        },
+    });
 
     menu.addItem({ command: "slint:open_url" });
+    menu.addItem({ command: "slint:add_file" });
 
     return menu;
 }
