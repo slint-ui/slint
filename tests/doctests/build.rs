@@ -67,33 +67,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo:rerun-if-changed={}", path.display());
     }
 
-    let cargo_manifest_dir = env!("CARGO_MANIFEST_DIR").replace('\\', "/");
-
-    for entry in std::fs::read_dir(
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/tutorial/rust/src"),
-    )? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.extension().map_or(true, |e| e != "rs") {
-            continue;
-        }
-        let stem = path
-            .file_stem()
-            .unwrap()
-            .to_string_lossy()
-            .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
-
-        writeln!(
-            tests_file,
-            "\n#[cfg(test)]\n#[path = \"{}/../../docs/tutorial/rust/src/{}\"]\nmod {};",
-            cargo_manifest_dir,
-            path.file_name().unwrap().to_string_lossy(),
-            stem
-        )?;
-
-        println!("cargo:rerun-if-changed={}", path.display());
-    }
-
     println!("cargo:rustc-env=TEST_FUNCTIONS={}", tests_file_path.to_string_lossy());
 
     Ok(())
