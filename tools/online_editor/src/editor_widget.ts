@@ -50,11 +50,77 @@ export component Demo {
 }
 `;
 
+function internal_file_uri(uuid: string, file_name: string): monaco.Uri {
+    console.assert(file_name.startsWith("/"));
+    return monaco.Uri.from({
+        scheme: "https",
+        authority: uuid + ".slint.rs",
+        path: file_name,
+    });
+}
+
+function is_internal_uri(uuid: string, uri: monaco.Uri): boolean {
+    return uri.scheme === "https" && uri.authority === uuid + ".slint.rs";
+}
+
+function file_from_internal_uri(uuid: string, uri: monaco.Uri): string {
+    console.assert(is_internal_uri(uuid, uri));
+    return uri.path;
+}
+
+interface UrlMapper {
+    from_internal(_uri: monaco.Uri): monaco.Uri | null;
+}
+
+class KnownUrlMapper implements UrlMapper {
+    #map: { [path: string]: monaco.Uri };
+    #uuid: string;
+
+    constructor(uuid: string, map: { [path: string]: monaco.Uri }) {
+        this.#uuid = uuid;
+        this.#map = map;
+        console.assert(Object.keys(map).length > 0);
+        Object.keys(map).forEach((k) => console.assert(k.startsWith("/")));
+    }
+
+    from_internal(uri: monaco.Uri): monaco.Uri | null {
+        const file_path = file_from_internal_uri(this.#uuid, uri);
+
+        return this.#map[file_path] || null;
+    }
+}
+
+class RelativeUrlMapper implements UrlMapper {
+    #base_uri: monaco.Uri;
+    #base_path: string;
+    #uuid: string;
+
+    constructor(uuid: string, uri: monaco.Uri) {
+        const path = uri.path;
+
+        this.#uuid = uuid;
+        this.#base_path = path.slice(0, path.lastIndexOf("/") ?? 0);
+        console.assert(this.#base_path.endsWith("/"));
+        this.#base_uri = uri;
+    }
+
+    from_internal(uri: monaco.Uri): monaco.Uri | null {
+        return monaco.Uri.from({
+            scheme: this.#base_uri.scheme,
+            authority: this.#base_uri.authority,
+            path: this.#base_path + file_from_internal_uri(this.#uuid, uri),
+        });
+    }
+}
+
 function createModel(
+    uuid: string,
     source: string,
     uri?: monaco.Uri,
 ): monaco.editor.ITextModel {
-    const url = uri ?? monaco.Uri.parse("inmemory:///unnamed.slint");
+    const url = uri ?? internal_file_uri(uuid, "/main.slint");
+    console.assert(is_internal_uri(uuid, url));
+
     const model = monaco.editor.getModel(url);
     return model ?? monaco.editor.createModel(source, "slint", url);
 }
@@ -72,9 +138,6 @@ function createModel(
 };
 
 function tabTitleFromURL(url: monaco.Uri): string {
-    if (url.scheme == "inmemory") {
-        return "unnamed.slint";
-    }
     try {
         const path = url.path;
         return path.substring(path.lastIndexOf("/") + 1);
@@ -86,6 +149,7 @@ function tabTitleFromURL(url: monaco.Uri): string {
 class EditorPaneWidget extends Widget {
     auto_compile = true;
     #style = "fluent-light";
+    #main_uri: monaco.Uri | null = null;
     #editor_view_states: Map<
         monaco.Uri,
         monaco.editor.ICodeEditorViewState | null | undefined
@@ -93,9 +157,12 @@ class EditorPaneWidget extends Widget {
     #editor: monaco.editor.IStandaloneCodeEditor | null = null;
     #client: MonacoLanguageClient | null = null;
     #keystroke_timeout_handle?: number;
-    #base_url?: monaco.Uri;
+    #url_mapper: UrlMapper | null = null;
     #edit_era: number;
     #disposables: monaco.IDisposable[] = [];
+    #internal_uuid = self.crypto.randomUUID();
+
+    #service_worker_port: MessagePort;
 
     onPositionChangeCallback: PositionChangeCallback = (
         _pos: VersionedDocumentAndPosition,
@@ -147,14 +214,53 @@ class EditorPaneWidget extends Widget {
         monaco.editor.onDidCreateModel((model) =>
             this.add_model_listener(model),
         );
+
+        const sw_channel = new MessageChannel();
+        sw_channel.port1.onmessage = (m) => {
+            if (m.data.type === "MapUrl") {
+                const reply_port = m.ports[0];
+                const internal_uri = monaco.Uri.parse(m.data.url);
+                const mapped_url =
+                    this.#url_mapper?.from_internal(internal_uri)?.toString() ??
+                    "";
+                const file = file_from_internal_uri(
+                    this.#internal_uuid,
+                    internal_uri,
+                );
+                reply_port.postMessage(mapped_url);
+            } else {
+                console.error(
+                    "Unknown message received from service worker:",
+                    m.data,
+                );
+            }
+        };
+        if (navigator.serviceWorker.controller == null) {
+            console.error("No active service worker!");
+        } else {
+            navigator.serviceWorker.controller.postMessage(
+                { type: "EditorOpened", url_prefix: this.internal_url_prefix },
+                [sw_channel.port2],
+            );
+        }
+        this.#service_worker_port = sw_channel.port1;
     }
 
     dispose() {
+        this.#service_worker_port.close();
         this.#disposables.forEach((d: monaco.IDisposable) => d.dispose());
         this.#disposables = [];
         this.#editor?.dispose();
         this.#editor = null;
         super.dispose();
+    }
+
+    get internal_uuid(): string {
+        return this.#internal_uuid;
+    }
+
+    get internal_url_prefix(): string {
+        return internal_file_uri(this.#internal_uuid, "/").toString();
     }
 
     protected get contentNode(): HTMLDivElement {
@@ -230,6 +336,7 @@ class EditorPaneWidget extends Widget {
 
     public clear_models() {
         this.#edit_era += 1;
+        this.#url_mapper = null;
         this.#editor_view_states.clear();
         monaco.editor.getModels().forEach((model) => model.dispose());
         this.#onModelsCleared?.();
@@ -266,7 +373,7 @@ class EditorPaneWidget extends Widget {
         this.#editor_view_states.set(uri, null);
         this.#onModelAdded?.(uri);
         if (monaco.editor.getModels().length === 1) {
-            this.#base_url = uri;
+            this.#main_uri = uri;
             this.set_model(uri);
             this.update_preview();
         }
@@ -307,7 +414,7 @@ class EditorPaneWidget extends Widget {
 
     protected update_preview() {
         const model = monaco.editor.getModel(
-            this.#base_url ?? new monaco.Uri(),
+            this.#main_uri ?? new monaco.Uri(),
         );
         if (model != null) {
             const source = model.getValue();
@@ -318,7 +425,7 @@ class EditorPaneWidget extends Widget {
                     this.#onRenderRequest(
                         this.#style,
                         source,
-                        this.#base_url?.toString() ?? "",
+                        this.#main_uri?.toString() ?? "",
                         (url: string) => {
                             return this.handle_lsp_url_request(era, url);
                         },
@@ -469,13 +576,29 @@ class EditorPaneWidget extends Widget {
         era: number,
         url: string,
     ): Promise<string> {
-        const uri = monaco.Uri.parse(url);
-        return this.safely_open_editor_with_url_content(era, uri, false);
+        if (this.#url_mapper === null) {
+            return Promise.resolve("Error: Can not resolve URL.");
+        }
+
+        const internal_uri = monaco.Uri.parse(url);
+        const uri = this.#url_mapper.from_internal(internal_uri);
+
+        if (uri === null) {
+            return Promise.resolve("Error: Can not map URL.");
+        }
+
+        return this.safely_open_editor_with_url_content(
+            era,
+            uri,
+            internal_uri,
+            false,
+        );
     }
 
     private async safely_open_editor_with_url_content(
         era: number,
         uri: monaco.Uri,
+        internal_uri: monaco.Uri,
         raise_alert: boolean,
     ): Promise<string> {
         let model = monaco.editor.getModel(uri);
@@ -513,12 +636,16 @@ class EditorPaneWidget extends Widget {
         }
 
         if (era == this.#edit_era) {
-            createModel(doc, uri);
+            createModel(this.internal_uuid, doc, internal_uri);
         }
         return doc;
     }
 
-    async read_from_url(url: monaco.Uri): Promise<string> {
+    async open_tab_from_url(url: monaco.Uri): Promise<string> {
+        let mapper: UrlMapper | null = null;
+        const file_name_start = url.path.lastIndexOf("/") ?? 0;
+        let file_name = url.path.slice(file_name_start);
+
         if (url.authority == "github.com") {
             const orig = url;
             const path = orig.path.split("/");
@@ -535,9 +662,13 @@ class EditorPaneWidget extends Widget {
                 });
             }
         }
+
+        this.#url_mapper =
+            mapper ?? new RelativeUrlMapper(this.#internal_uuid, url);
         return this.safely_open_editor_with_url_content(
             this.#edit_era,
             url,
+            internal_file_uri(this.#internal_uuid, file_name),
             true,
         );
     }
@@ -619,7 +750,7 @@ export class EditorWidget extends Widget {
 
         if (code) {
             this.#editor.clear_models();
-            createModel(code);
+            createModel(this.#editor.internal_uuid, code);
         } else if (load_url) {
             this.project_from_url(load_url);
         } else {
@@ -678,7 +809,7 @@ export class EditorWidget extends Widget {
 
         this.#editor.clear_models();
         const uri = monaco.Uri.parse(url);
-        await this.#editor.read_from_url(uri);
+        await this.#editor.open_tab_from_url(uri);
     }
 
     known_demos(): [string, string][] {
@@ -696,7 +827,7 @@ export class EditorWidget extends Widget {
     }
 
     goto_position(uri: string, position: LspPosition | LspRange) {
-        this.#editor?.goto_position(uri, position);
+        this.#editor.goto_position(uri, position);
     }
 
     async set_demo(location: string) {
@@ -717,7 +848,7 @@ export class EditorWidget extends Widget {
             );
         } else {
             this.#editor.clear_models();
-            createModel(hello_world);
+            createModel(this.#editor.internal_uuid, hello_world);
         }
     }
 
@@ -738,5 +869,9 @@ export class EditorWidget extends Widget {
 
     get position(): VersionedDocumentAndPosition {
         return this.#editor.position;
+    }
+
+    get internal_url_prefix(): string {
+        return this.#editor.internal_url_prefix;
     }
 }
