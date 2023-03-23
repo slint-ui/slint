@@ -1045,17 +1045,16 @@ impl ComponentHandle for ComponentInstance {
         comp.borrow_instance().window_adapter().window().show()
     }
 
-    fn hide(&self) {
+    fn hide(&self) -> Result<(), PlatformError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.borrow_instance().window_adapter().window().hide();
+        comp.borrow_instance().window_adapter().window().hide()
     }
 
     fn run(&self) -> Result<(), PlatformError> {
         self.show()?;
         run_event_loop()?;
-        self.hide();
-        Ok(())
+        self.hide()
     }
 
     fn window(&self) -> &Window {

@@ -25,8 +25,9 @@ impl super::Surface for MetalSurface {
         window: &dyn raw_window_handle::HasRawWindowHandle,
         _display: &dyn raw_window_handle::HasRawDisplayHandle,
         size: PhysicalWindowSize,
-    ) -> Self {
-        let device = metal::Device::system_default().expect("no metal device found");
+    ) -> Result<Self, i_slint_core::platform::PlatformError> {
+        let device = metal::Device::system_default()
+            .ok_or_else(|| format!("Skia Renderer: No metal device found"))?;
 
         let layer = metal::MetalLayer::new();
         layer.set_device(&device);
@@ -40,7 +41,9 @@ impl super::Surface for MetalSurface {
                 raw_window_handle::RawWindowHandle::AppKit(
                     raw_window_handle::AppKitWindowHandle { ns_view, .. },
                 ) => ns_view,
-                _ => panic!("Metal surface is only supported with AppKit"),
+                _ => {
+                    return Err("Skia Renderer: Metal surface is only supported with AppKit".into())
+                }
             } as cocoa_id;
             view.setWantsLayer(YES);
             view.setLayer(layer.as_ref() as *const _ as _);
@@ -58,7 +61,7 @@ impl super::Surface for MetalSurface {
 
         let gr_context = skia_safe::gpu::DirectContext::new_metal(&backend, None).unwrap().into();
 
-        Self { command_queue, layer, gr_context }
+        Ok(Self { command_queue, layer, gr_context })
     }
 
     fn name(&self) -> &'static str {
@@ -69,19 +72,28 @@ impl super::Surface for MetalSurface {
         unimplemented!()
     }
 
-    fn resize_event(&self, size: PhysicalWindowSize) {
+    fn resize_event(
+        &self,
+        size: PhysicalWindowSize,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.layer.set_drawable_size(CGSize::new(size.width as f64, size.height as f64));
+        Ok(())
     }
 
     fn render(
         &self,
         _size: PhysicalWindowSize,
         callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
-    ) {
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         autoreleasepool(|| {
             let drawable = match self.layer.next_drawable() {
                 Some(drawable) => drawable,
-                None => return,
+                None => {
+                    return Err(format!(
+                        "Skia Metal Renderer: Failed to retrieve next drawable for rendering"
+                    )
+                    .into())
+                }
             };
 
             let gr_context = &mut self.gr_context.borrow_mut();
@@ -118,15 +130,17 @@ impl super::Surface for MetalSurface {
             let command_buffer = self.command_queue.new_command_buffer();
             command_buffer.present_drawable(drawable);
             command_buffer.commit();
+
+            Ok(())
         })
     }
 
-    fn bits_per_pixel(&self) -> u8 {
+    fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {
         // From https://developer.apple.com/documentation/metal/mtlpixelformat:
         // The storage size of each pixel format is determined by the sum of its components.
         // For example, the storage size of BGRA8Unorm is 32 bits (four 8-bit components) and
         // the storage size of BGR5A1Unorm is 16 bits (three 5-bit components and one 1-bit component).
-        match self.layer.pixel_format() {
+        Ok(match self.layer.pixel_format() {
             MTLPixelFormat::B5G6R5Unorm
             | MTLPixelFormat::A1BGR5Unorm
             | MTLPixelFormat::ABGR4Unorm
@@ -146,7 +160,12 @@ impl super::Surface for MetalSurface {
             | MTLPixelFormat::RGBA16Uint
             | MTLPixelFormat::RGBA16Sint => 64,
             MTLPixelFormat::RGBA32Uint | MTLPixelFormat::RGBA32Sint => 128,
-            _ => 0, // Not mapped yet
-        }
+            fmt @ _ => {
+                return Err(format!(
+                    "Skia Metal Renderer: Unsupported layer pixel format found {fmt:?}"
+                )
+                .into())
+            }
+        })
     }
 }

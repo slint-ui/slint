@@ -110,7 +110,7 @@ pub mod generated_code {
 
         /// Marks the window of this component to be hidden on the screen. This de-registers
         /// the window from the windowing system and it will not receive any further events.
-        fn hide(&self) {
+        fn hide(&self) -> Result<(), crate::PlatformError> {
             unimplemented!();
         }
 

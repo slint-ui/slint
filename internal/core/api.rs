@@ -348,8 +348,8 @@ impl Window {
     }
 
     /// De-registers the window from the windowing system, therefore hiding it.
-    pub fn hide(&self) {
-        self.0.hide();
+    pub fn hide(&self) -> Result<(), PlatformError> {
+        self.0.hide()
     }
 
     /// This function allows registering a callback that's invoked during the different phases of
@@ -552,7 +552,7 @@ pub trait ComponentHandle {
 
     /// Marks the window of this component to be hidden on the screen. This de-registers
     /// the window from the windowing system and it will not receive any further events.
-    fn hide(&self);
+    fn hide(&self) -> Result<(), PlatformError>;
 
     /// Returns the Window associated with this component. The window API can be used
     /// to control different aspects of the integration into the windowing system,

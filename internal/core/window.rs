@@ -72,7 +72,9 @@ pub trait WindowAdapterSealed {
         Ok(())
     }
     /// De-registers the window from the windowing system.
-    fn hide(&self) {}
+    fn hide(&self) -> Result<(), PlatformError> {
+        Ok(())
+    }
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
     /// request.
     fn request_redraw(&self) {}
@@ -591,7 +593,10 @@ impl WindowInner {
 
     /// Calls the render_components to render the main component and any sub-window components, tracked by a
     /// property dependency tracker.
-    pub fn draw_contents(&self, render_components: impl FnOnce(&[(&ComponentRc, LogicalPoint)])) {
+    pub fn draw_contents<T>(
+        &self,
+        render_components: impl FnOnce(&[(&ComponentRc, LogicalPoint)]) -> T,
+    ) -> T {
         let draw_fn = || {
             let component_rc = self.component();
 
@@ -609,7 +614,7 @@ impl WindowInner {
                     (&popup_component, popup_coordinates),
                 ])
             } else {
-                render_components(&[(&component_rc, LogicalPoint::default())]);
+                render_components(&[(&component_rc, LogicalPoint::default())])
             }
         };
 
@@ -625,8 +630,8 @@ impl WindowInner {
     }
 
     /// De-registers the window with the windowing system.
-    pub fn hide(&self) {
-        self.window_adapter().hide();
+    pub fn hide(&self) -> Result<(), PlatformError> {
+        self.window_adapter().hide()
     }
 
     /// Show a popup at the given position relative to the item
@@ -833,7 +838,7 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowAdapterRcOpaque) {
         let window = &*(handle as *const Rc<dyn WindowAdapter>);
-        window.hide();
+        window.hide().unwrap();
     }
 
     /// Returns the visibility state of the window. This function can return false even if you previously called show()

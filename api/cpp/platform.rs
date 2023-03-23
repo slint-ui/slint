@@ -53,8 +53,9 @@ impl WindowAdapterSealed for CppWindowAdapter {
         unsafe { (self.show)(self.user_data) };
         Ok(())
     }
-    fn hide(&self) {
+    fn hide(&self) -> Result<(), PlatformError> {
         unsafe { (self.hide)(self.user_data) }
+        Ok(())
     }
 
     fn request_redraw(&self) {
@@ -230,7 +231,7 @@ pub unsafe extern "C" fn slint_skia_renderer_show_win32(
         RawWindowHandle::Win32(init_raw!(raw_window_handle::Win32WindowHandle { hwnd, hinstance })),
         RawDisplayHandle::Windows(raw_window_handle::WindowsDisplayHandle::empty()),
     );
-    r.show(handle, PhysicalSize { width: size.width, height: size.height })
+    r.show(handle, PhysicalSize { width: size.width, height: size.height }).unwrap()
 }
 
 #[no_mangle]
@@ -248,7 +249,7 @@ pub unsafe extern "C" fn slint_skia_renderer_show_x11(
         RawWindowHandle::Xcb(init_raw!(XcbWindowHandle { window, visual_id })),
         RawDisplayHandle::Xcb(init_raw!(XcbDisplayHandle { connection, screen })),
     );
-    r.show(handle, PhysicalSize { width: size.width, height: size.height })
+    r.show(handle, PhysicalSize { width: size.width, height: size.height }).unwrap();
 }
 
 #[no_mangle]
@@ -265,7 +266,7 @@ pub unsafe extern "C" fn slint_skia_renderer_show_wayland(
         RawWindowHandle::Wayland(init_raw!(WaylandWindowHandle { surface })),
         RawDisplayHandle::Wayland(init_raw!(WaylandDisplayHandle { display })),
     );
-    r.show(handle, PhysicalSize { width: size.width, height: size.height })
+    r.show(handle, PhysicalSize { width: size.width, height: size.height }).unwrap();
 }
 
 #[no_mangle]
@@ -282,25 +283,25 @@ pub unsafe extern "C" fn slint_skia_renderer_show_appkit(
         RawWindowHandle::AppKit(init_raw!(AppKitWindowHandle { ns_view, ns_window })),
         RawDisplayHandle::AppKit(AppKitDisplayHandle::empty()),
     );
-    r.show(handle, PhysicalSize { width: size.width, height: size.height })
+    r.show(handle, PhysicalSize { width: size.width, height: size.height }).unwrap();
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_skia_renderer_hide(r: SkiaRendererOpaque) {
     let r = &*(r as *const SkiaRenderer);
-    r.hide()
+    r.hide().unwrap()
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_skia_renderer_resize(r: SkiaRendererOpaque, size: IntSize) {
     let r = &*(r as *const SkiaRenderer);
-    r.resize_event(PhysicalSize { width: size.width, height: size.height });
+    r.resize_event(PhysicalSize { width: size.width, height: size.height }).unwrap();
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_skia_renderer_render(r: SkiaRendererOpaque, size: IntSize) {
     let r = &*(r as *const SkiaRenderer);
-    r.render(PhysicalSize { width: size.width, height: size.height });
+    r.render(PhysicalSize { width: size.width, height: size.height }).unwrap();
 }
 
 #[no_mangle]

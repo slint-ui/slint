@@ -381,7 +381,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
             fn run(&self) -> core::result::Result<(), slint::PlatformError> {
                 self.show()?;
                 slint::run_event_loop()?;
-                self.hide();
+                self.hide()?;
                 core::result::Result::Ok(())
             }
 
@@ -389,7 +389,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
                 self.window().show()
             }
 
-            fn hide(&self)  {
+            fn hide(&self) -> core::result::Result<(), slint::PlatformError> {
                 self.window().hide()
             }
 

@@ -302,13 +302,14 @@ impl Renderer for SoftwareRenderer {
         &self,
         _component: crate::component::ComponentRef,
         items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
-    ) {
+    ) -> Result<(), crate::platform::PlatformError> {
         for item in items {
             item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
         }
         // We don't have a way to determine the screen region of the delete items, what's in the cache is relative. So
         // as a last resort, refresh everything.
         self.force_screen_refresh.set(true);
+        Ok(())
     }
 
     fn mark_dirty_region(&self, region: crate::item_rendering::DirtyRegion) {

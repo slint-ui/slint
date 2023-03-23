@@ -562,7 +562,7 @@ pub extern "C" fn slint_interpreter_component_instance_show(
     if is_visible {
         comp.borrow_instance().window_adapter().show().unwrap();
     } else {
-        comp.borrow_instance().window_adapter().hide();
+        comp.borrow_instance().window_adapter().hide().unwrap();
     }
 }
 
