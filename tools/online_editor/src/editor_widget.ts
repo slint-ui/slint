@@ -163,6 +163,7 @@ class EditorPaneWidget extends Widget {
     #internal_uuid = self.crypto.randomUUID();
 
     #service_worker_port: MessagePort;
+    #extra_file_urls: { [key: string]: string } = {};
 
     onPositionChangeCallback: PositionChangeCallback = (
         _pos: VersionedDocumentAndPosition,
@@ -227,6 +228,7 @@ class EditorPaneWidget extends Widget {
                     this.#internal_uuid,
                     internal_uri,
                 );
+                this.#extra_file_urls[file] = mapped_url;
                 reply_port.postMessage(mapped_url);
             } else {
                 console.error(
@@ -321,6 +323,35 @@ class EditorPaneWidget extends Widget {
         }
     }
 
+    get open_document_urls(): string[] {
+        const main_file = this.#main_uri?.toString();
+
+        const result = [];
+
+        if (main_file != null) {
+            result.push(main_file);
+        }
+
+        monaco.editor.getModels().forEach((m) => {
+            const u = m?.uri.toString();
+
+            if (u != null && u != main_file) {
+                result.push(u);
+            }
+        });
+
+        return result;
+    }
+
+    document_contents(url: string): string | undefined {
+        const uri = monaco.Uri.parse(url);
+        return monaco.editor.getModel(uri)?.getValue();
+    }
+
+    get extra_files(): { [key: string]: string } {
+        return this.#extra_file_urls;
+    }
+
     compile() {
         this.update_preview();
     }
@@ -338,6 +369,7 @@ class EditorPaneWidget extends Widget {
         this.#edit_era += 1;
         this.#url_mapper = null;
         this.#editor_view_states.clear();
+        this.#extra_file_urls = {};
         monaco.editor.getModels().forEach((model) => model.dispose());
         this.#onModelsCleared?.();
     }
@@ -869,6 +901,18 @@ export class EditorWidget extends Widget {
 
     get position(): VersionedDocumentAndPosition {
         return this.#editor.position;
+    }
+
+    get open_document_urls(): string[] {
+        return this.#editor.open_document_urls;
+    }
+
+    get extra_files(): { [key: string]: string } {
+        return this.#editor.extra_files;
+    }
+
+    document_contents(url: string): string | undefined {
+        return this.#editor.document_contents(url);
     }
 
     get internal_url_prefix(): string {
