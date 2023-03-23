@@ -430,8 +430,13 @@ impl BuildDiagnostics {
                             quote::quote!(compile_error! { #message })
                         }));
                     }
-                    // FIXME: find a way to report warnings.
-                    DiagnosticLevel::Warning => (),
+                    DiagnosticLevel::Warning => {
+                        result.extend(proc_macro::TokenStream::from(if let Some(span) = span {
+                            quote::quote_spanned!(span.into() => const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };)
+                        } else {
+                            quote::quote!(const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };)
+                        }));
+                    },
                 }
             }),
             |_, codemap| {
