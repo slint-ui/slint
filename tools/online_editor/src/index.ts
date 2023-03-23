@@ -362,7 +362,10 @@ function setup(lsp: Lsp) {
         dock,
         [
             () => {
-                const preview = new PreviewWidget(lsp.previewer);
+                const preview = new PreviewWidget(
+                    lsp.previewer,
+                    editor.internal_url_prefix,
+                );
                 editor.onRenderRequest = (
                     style: string,
                     source: string,

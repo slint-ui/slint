@@ -41,7 +41,7 @@ export class PreviewWidget extends Widget {
         return node;
     }
 
-    constructor(previewer: Previewer) {
+    constructor(previewer: Previewer, internal_url_prefix: string) {
         super({ node: PreviewWidget.createNode() });
         this.setFlag(Widget.Flag.DisallowLayout);
         this.addClass("content");
@@ -63,11 +63,15 @@ export class PreviewWidget extends Widget {
             error_area.innerHTML = "";
 
             if (error_string != "") {
-                const text = document.createTextNode(error_string);
-                const p = document.createElement("p");
-                p.className = "error-message";
-                p.appendChild(text);
-                error_area.appendChild(p);
+                for (const line of error_string.split("\n")) {
+                    const text = document.createTextNode(
+                        line.replaceAll(internal_url_prefix, ""),
+                    );
+                    const p = document.createElement("p");
+                    p.className = "error-message";
+                    p.appendChild(text);
+                    error_area.appendChild(p);
+                }
 
                 error_area.style.display = "block";
             } else {
