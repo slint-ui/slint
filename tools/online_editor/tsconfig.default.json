@@ -4,7 +4,7 @@
         "composite": true,
         "declaration": true,
         "declarationMap": true,
-        "lib": ["es2020"],
+        "lib": ["es2021"],
         "module": "esnext",
         "moduleResolution": "node",
         "outDir": "./dist",
