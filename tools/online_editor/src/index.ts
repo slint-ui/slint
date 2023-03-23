@@ -44,6 +44,7 @@ const lsp_waiter = new LspWaiter();
 const commands = new CommandRegistry();
 
 const local_storage_key_layout = "layout_v1";
+const local_storage_key_github_token = "github_token_v1";
 
 function create_build_menu(): Menu {
     const menu = new Menu({ commands });
@@ -128,9 +129,26 @@ function create_open_menu(editor: EditorWidget): Menu {
             editor.add_empty_file_to_project(name);
         },
     });
+    commands.addCommand("slint:store_github_token", {
+        label: "Store github access token in your browsers local storage.",
+        iconClass: "fa-brands fa-github",
+        execute: () => {
+            let action = "Please provide a github access token:";
+            if (localStorage.getItem(local_storage_key_github_token) != null) {
+                action = "Overwrite existing github access token:";
+            }
+
+            const token = prompt(action);
+            if (token == null) {
+                return;
+            }
+            localStorage.setItem(local_storage_key_github_token, token);
+        },
+    });
 
     menu.addItem({ command: "slint:open_url" });
     menu.addItem({ command: "slint:add_file" });
+    menu.addItem({ command: "slint:store_github_token" });
 
     return menu;
 }
