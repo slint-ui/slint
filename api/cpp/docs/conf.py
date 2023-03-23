@@ -35,7 +35,7 @@ cpp_index_common_prefix = ["slint::", "slint::interpreter::"]
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["breathe", "myst_parser", "exhale", "sphinx_markdown_tables"]
+extensions = ["breathe", "myst_parser", "exhale", "sphinx_markdown_tables", "sphinxcontrib.jquery"]
 
 breathe_projects = {"Slint": "./docs/xml"}
 breathe_default_project = "Slint"
@@ -92,7 +92,7 @@ exclude_patterns = [
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme"
+html_theme = "furo"
 
 html_theme_options = {"collapse_navigation": False}
 

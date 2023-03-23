@@ -10,11 +10,12 @@ verify_ssl = true
 
 [packages]
 breathe = "4.33.1"
-sphinx-rtd-theme = "1.0.0"
 sphinx = "4.5.0"
 exhale = "0.2.4"
 myst_parser = "0.17.2"
 sphinx-markdown-tables = "0.0.15"
+furo = "2022.12.7"
+sphinxcontrib-jquery = "4.1"
 
 [requires]
 python_version = "3"
