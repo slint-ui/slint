@@ -34,5 +34,8 @@ rand = "0.8"
 scoped-tls-hkt = "0.1"
 spin_on = "0.1" #FIXME: remove and delegate to async JS instead
 
+# Enable image-rs' default features to make all image formats available for nodejs builds
+image = { version = "0.24.0" }
+
 [build-dependencies]
 neon-build = "0.8.0"
