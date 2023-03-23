@@ -384,5 +384,9 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     result.extend(reload);
     result.extend(quote! {const _ : Option<&'static str> = ::core::option_env!("SLINT_STYLE");});
 
-    result.into()
+    let mut result = TokenStream::from(result);
+    if !diag.is_empty() {
+        result.extend(diag.report_macro_diagnostic(&tokens));
+    }
+    result
 }
