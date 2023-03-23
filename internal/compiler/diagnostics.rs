@@ -425,14 +425,14 @@ impl BuildDiagnostics {
                     DiagnosticLevel::Error => {
                         needs_error = false;
                         result.extend(proc_macro::TokenStream::from(if let Some(span) = span {
-                            quote::quote_spanned!(span.into() => compile_error!{ #message })
+                            quote::quote_spanned!(span.into()=> compile_error!{ #message })
                         } else {
                             quote::quote!(compile_error! { #message })
                         }));
                     }
                     DiagnosticLevel::Warning => {
                         result.extend(proc_macro::TokenStream::from(if let Some(span) = span {
-                            quote::quote_spanned!(span.into() => const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };)
+                            quote::quote_spanned!(span.into()=> const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };)
                         } else {
                             quote::quote!(const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };)
                         }));
