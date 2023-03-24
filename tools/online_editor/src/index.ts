@@ -11,6 +11,12 @@ import { PreviewWidget } from "./preview_widget";
 import { PropertiesWidget } from "./properties_widget";
 import { WelcomeWidget } from "./welcome_widget";
 
+import {
+    export_to_gist,
+    create_github_access_token,
+    has_github_access_token,
+} from "./github";
+
 import { CommandRegistry } from "@lumino/commands";
 import {
     DockLayout,
@@ -44,7 +50,6 @@ const lsp_waiter = new LspWaiter();
 const commands = new CommandRegistry();
 
 const local_storage_key_layout = "layout_v1";
-const local_storage_key_github_token = "github_token_v1";
 
 function create_build_menu(): Menu {
     const menu = new Menu({ commands });
@@ -133,16 +138,7 @@ function create_open_menu(editor: EditorWidget): Menu {
         label: "Store github access token in your browsers local storage.",
         iconClass: "fa-brands fa-github",
         execute: () => {
-            let action = "Please provide a github access token:";
-            if (localStorage.getItem(local_storage_key_github_token) != null) {
-                action = "Overwrite existing github access token:";
-            }
-
-            const token = prompt(action);
-            if (token == null) {
-                return;
-            }
-            localStorage.setItem(local_storage_key_github_token, token);
+            create_github_access_token();
         },
     });
 
@@ -180,85 +176,14 @@ function create_share_menu(editor: EditorWidget): Menu {
         mnemonic: 1,
         isEnabled: () => {
             return (
-                localStorage.getItem(local_storage_key_github_token) != null &&
+                has_github_access_token() &&
                 editor.open_document_urls.length > 0
             );
         },
         execute: async () => {
-            const access_token = localStorage.getItem(
-                local_storage_key_github_token,
-            );
-            console.assert(access_token != null);
-
-            // collect data:
-            const files: { [key: string]: { [key: string]: string } } = {};
-            const urls = editor.open_document_urls;
-            if (urls.length == 0) {
-                return;
-            }
-
-            const to_strip = urls[0].lastIndexOf("/") + 1;
-
-            for (const u of urls) {
-                files[u.slice(to_strip)] = {
-                    content: editor.document_contents(u) ?? "",
-                };
-            }
-
-            const extras: { [path: string]: string } = {};
-            Object.entries(editor.extra_files).forEach(async ([f, u]) => {
-                extras[f.slice(1)] = u;
-            });
-
-            const project_data = {
-                main: urls[0].slice(to_strip),
-                mappings: extras,
-            };
-
-            files["slint.json"] = { content: JSON.stringify(project_data) };
-
-            const data = JSON.stringify({
-                description:
-                    'Made with Slint, main file is: "' +
-                    urls[0].slice(to_strip) +
-                    '".',
-                public: true,
-                files: files,
-            });
-
-            fetch("https://api.github.com/gists", {
-                method: "POST",
-                mode: "cors",
-                cache: "no-cache",
-                credentials: "same-origin",
-                headers: {
-                    "Content-Type": "application/json",
-                    Accept: "application/vnd.github+json",
-                    Authorization: "Bearer " + access_token,
-                },
-                redirect: "follow",
-                referrerPolicy: "no-referrer",
-                body: data,
-            })
-                .then((response) => response.json())
-                .then((body) => {
-                    if (body.errors) {
-                        alert(
-                            "Failed to publish to Github with errors:\n" +
-                                body.errors.join("\n"),
-                        );
-                    } else if (body.html_url == null) {
-                        alert(
-                            "Failed to retrieve URL after publishing to Github",
-                        );
-                    } else {
-                        navigator.clipboard.writeText(body.html_url);
-                    }
-                })
-                .catch((error) => {
-                    console.error("Error:", error);
-                    alert("Failed to publish as a Gist to Github");
-                });
+            export_to_gist(editor, "Made with Slint", true)
+                .then((url) => navigator.clipboard.writeText(url))
+                .catch((e) => alert(e));
         },
     });
 

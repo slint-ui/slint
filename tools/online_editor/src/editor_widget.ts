@@ -12,6 +12,7 @@ import {
 } from "./lsp_integration";
 import { Lsp } from "./lsp";
 import { PositionChangeCallback, VersionedDocumentAndPosition } from "./text";
+import * as github from "./github";
 
 import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
 import { Message as LuminoMessage } from "@lumino/messaging";
@@ -68,15 +69,15 @@ function file_from_internal_uri(uuid: string, uri: monaco.Uri): string {
     return uri.path;
 }
 
-interface UrlMapper {
+export interface UrlMapper {
     from_internal(_uri: monaco.Uri): monaco.Uri | null;
 }
 
-class KnownUrlMapper implements UrlMapper {
-    #map: { [path: string]: monaco.Uri };
+export class KnownUrlMapper implements UrlMapper {
+    #map: { [path: string]: string };
     #uuid: string;
 
-    constructor(uuid: string, map: { [path: string]: monaco.Uri }) {
+    constructor(uuid: string, map: { [path: string]: string }) {
         this.#uuid = uuid;
         this.#map = map;
         console.assert(Object.keys(map).length > 0);
@@ -86,11 +87,15 @@ class KnownUrlMapper implements UrlMapper {
     from_internal(uri: monaco.Uri): monaco.Uri | null {
         const file_path = file_from_internal_uri(this.#uuid, uri);
 
-        return this.#map[file_path] || null;
+        const mapped_url = this.#map[file_path] || null;
+        return (
+            monaco.Uri.parse(mapped_url ?? "file:///missing_url") ??
+            monaco.Uri.parse("file:///broken_url")
+        );
     }
 }
 
-class RelativeUrlMapper implements UrlMapper {
+export class RelativeUrlMapper implements UrlMapper {
     #base_uri: monaco.Uri;
     #base_path: string;
     #uuid: string;
@@ -673,124 +678,26 @@ class EditorPaneWidget extends Widget {
         return doc;
     }
 
-    async open_tab_from_url(url: monaco.Uri): Promise<string> {
-        let mapper: UrlMapper | null = null;
-        const file_name_start = url.path.lastIndexOf("/") ?? 0;
-        let file_name = url.path.slice(file_name_start);
+    async open_tab_from_url(input_url: monaco.Uri): Promise<string> {
+        const [url, file_name, mapper] = await github.open_url(
+            this.#internal_uuid,
+            input_url.toString(),
+        );
 
-        if (url.authority == "gist.github.com") {
-            const orig = url;
-            const path = orig.path.split("/");
-
-            // A URL to a Gist, not to a specific file in a gist!
-            if (path.length == 3 || path.length == 2) {
-                // Raw gist URL: Find a start file!
-                const gist_id = path[path.length - 1];
-
-                try {
-                    const response = await fetch(
-                        "https://api.github.com/gists/" + gist_id,
-                        {
-                            method: "GET",
-                            headers: {
-                                Accept: "application/vnd.github+json",
-                            },
-                        },
-                    );
-                    const body = await response.json();
-
-                    const map: { [path: string]: monaco.Uri } = {};
-                    let definite_main_file_name;
-                    let fallback_main_file_name;
-                    let fallback_main_file_url;
-                    for (const [k, v] of Object.entries(body.files)) {
-                        if (k === "slint.json") {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            const content: any = JSON.parse(
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                (v as any).content as string,
-                            );
-                            definite_main_file_name = content.main as string;
-                            const mappings = content.mappings as {
-                                string: string;
-                            };
-
-                            Object.entries(mappings).forEach(([f, u]) => {
-                                map["/" + f] =
-                                    monaco.Uri.parse(u) ??
-                                    monaco.Uri.parse("file:///broken_url");
-                            });
-                        } else {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            const url = (v as any).raw_url;
-                            if (fallback_main_file_name == null) {
-                                fallback_main_file_name = k;
-                                fallback_main_file_url = url;
-                            }
-                            map["/" + k] =
-                                monaco.Uri.parse(url) ??
-                                monaco.Uri.parse("file:///broken_url");
-                        }
-                    }
-
-                    mapper = new KnownUrlMapper(this.#internal_uuid, map);
-
-                    if (body.errors) {
-                        alert(
-                            "Failed to read gist with errors:\n" +
-                                body.errors.join("\n"),
-                        );
-
-                        return Promise.resolve("");
-                    }
-
-                    const description_file =
-                        body.description.match(/main file is: "(.+)"/i)?.[1];
-                    let main_file_name =
-                        definite_main_file_name ??
-                        description_file ??
-                        "main.slint";
-
-                    let main_file_url = map["/" + main_file_name];
-                    if (main_file_url == null) {
-                        main_file_name = fallback_main_file_name;
-                        main_file_url =
-                            monaco.Uri.parse(fallback_main_file_url) ??
-                            monaco.Uri.parse("file:///broken_url");
-                    }
-
-                    url = main_file_url;
-                    file_name = "/" + main_file_name;
-                } catch (e) {
-                    console.error("Failed to resolve gist URL to a file.", e);
-                    alert("Failed to retrieve information on Gist");
-
-                    return Promise.resolve("");
-                }
-            }
-        } else if (url.authority == "github.com") {
-            const orig = url;
-            const path = orig.path.split("/");
-
-            if (path[3] === "blob") {
-                path.splice(3, 1);
-
-                url = monaco.Uri.from({
-                    scheme: orig.scheme,
-                    authority: "raw.githubusercontent.com",
-                    path: path.join("/"),
-                    query: orig.query,
-                    fragment: orig.fragment,
-                });
-            }
-        }
-
+        const output_url = monaco.Uri.parse(url ?? input_url.toString());
         this.#url_mapper =
-            mapper ?? new RelativeUrlMapper(this.#internal_uuid, url);
+            mapper ?? new RelativeUrlMapper(this.#internal_uuid, output_url);
+
         return this.safely_open_editor_with_url_content(
             this.#edit_era,
-            url,
-            internal_file_uri(this.#internal_uuid, file_name),
+            output_url,
+            internal_file_uri(
+                this.#internal_uuid,
+                file_name ??
+                    output_url.path.slice(
+                        output_url.path.lastIndexOf("/") ?? 0,
+                    ),
+            ),
             true,
         );
     }
