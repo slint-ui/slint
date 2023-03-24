@@ -1641,8 +1641,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         todo!()
     }
 
-    fn window(&self) -> &crate::api::Window {
-        unreachable!("this backend don't query the window")
+    fn window(&self) -> &crate::window::WindowInner {
+        self.window
     }
 
     fn as_any(&mut self) -> Option<&mut dyn core::any::Any> {

@@ -1020,8 +1020,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn window(&self) -> &i_slint_core::api::Window {
-        self.window
+    fn window(&self) -> &i_slint_core::window::WindowInner {
+        i_slint_core::window::WindowInner::from_pub(self.window)
     }
 
     fn as_any(&mut self) -> Option<&mut dyn std::any::Any> {
