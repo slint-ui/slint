@@ -291,50 +291,46 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
     }
 
     fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
-        // Make the unwrap() calls on self.borrow_mapped_window*() safe
-        if !self.is_mapped() {
-            return;
-        }
+        let winit_window = match self.winit_window() {
+            Some(handle) => handle,
+            None => return,
+        };
 
         let mut width = window_item.width().get() as f32;
         let mut height = window_item.height().get() as f32;
 
         let mut must_resize = false;
 
-        self.with_window_handle(&mut |winit_window| {
-            winit_window.set_window_icon(icon_to_winit(window_item.icon()));
-            winit_window.set_title(&window_item.title());
-            winit_window
-                .set_decorations(!window_item.no_frame() || winit_window.fullscreen().is_some());
+        winit_window.set_window_icon(icon_to_winit(window_item.icon()));
+        winit_window.set_title(&window_item.title());
+        winit_window
+            .set_decorations(!window_item.no_frame() || winit_window.fullscreen().is_some());
 
-            if width <= 0. || height <= 0. {
-                must_resize = true;
+        if width <= 0. || height <= 0. {
+            must_resize = true;
 
-                let winit_size =
-                    winit_window.inner_size().to_logical(self.window.scale_factor() as f64);
+            let winit_size =
+                winit_window.inner_size().to_logical(self.window.scale_factor() as f64);
 
-                if width <= 0. {
-                    width = winit_size.width;
-                }
-                if height <= 0. {
-                    height = winit_size.height;
-                }
+            if width <= 0. {
+                width = winit_size.width;
             }
-
-            let existing_size: winit::dpi::LogicalSize<f32> =
-                winit_window.inner_size().to_logical(self.window.scale_factor().into());
-
-            if (existing_size.width - width).abs() > 1.
-                || (existing_size.height - height).abs() > 1.
-            {
-                // If we're in fullscreen state, don't try to resize the window but maintain the surface
-                // size we've been assigned to from the windowing system. Weston/Wayland don't like it
-                // when we create a surface that's bigger than the screen due to constraints (#532).
-                if winit_window.fullscreen().is_none() {
-                    winit_window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
-                }
+            if height <= 0. {
+                height = winit_size.height;
             }
-        });
+        }
+
+        let existing_size: winit::dpi::LogicalSize<f32> =
+            winit_window.inner_size().to_logical(self.window.scale_factor().into());
+
+        if (existing_size.width - width).abs() > 1. || (existing_size.height - height).abs() > 1. {
+            // If we're in fullscreen state, don't try to resize the window but maintain the surface
+            // size we've been assigned to from the windowing system. Weston/Wayland don't like it
+            // when we create a surface that's bigger than the screen due to constraints (#532).
+            if winit_window.fullscreen().is_none() {
+                winit_window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
+            }
+        }
 
         if must_resize {
             self.window.set_size(i_slint_core::api::LogicalSize::new(width, height));
