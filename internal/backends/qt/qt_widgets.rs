@@ -58,8 +58,7 @@ macro_rules! fn_render {
         fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, item_rc: &ItemRc) -> RenderingResult {
             let $dpr: f32 = backend.scale_factor();
 
-            let window = backend.window();
-            let active: bool = WindowInner::from_pub(window).active();
+            let active: bool = backend.window().active();
             // This should include self.enabled() as well, but not every native widget
             // has that property right now.
             let $initial_state = cpp!(unsafe [ active as "bool" ] -> i32 as "int" {
