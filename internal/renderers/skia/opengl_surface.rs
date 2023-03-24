@@ -29,13 +29,11 @@ impl super::Surface for OpenGLSurface {
         display: &dyn raw_window_handle::HasRawDisplayHandle,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
-        let width: std::num::NonZeroU32 = size.width.try_into().map_err(|e| {
-            format!("Attempting to create window surface with width that doesn't fit into non-zero U32: {e}")
+        let width: std::num::NonZeroU32 = size.width.try_into().map_err(|_| {
+            format!("Attempting to create window surface with an invalid width: {}", size.width)
         })?;
-        let height: std::num::NonZeroU32 = size.height.try_into().map_err(|e| {
-            format!(
-                "Attempting to create window surface with height that doesn't fit into non-zero U32: {e}"
-            )
+        let height: std::num::NonZeroU32 = size.height.try_into().map_err(|_| {
+            format!("Attempting to create window surface with an invalid height: {}", size.height)
         })?;
 
         let (current_glutin_context, glutin_surface) =
@@ -68,9 +66,23 @@ impl super::Surface for OpenGLSurface {
                 format!("Skia Renderer: Internal Error: Could not create Skia OpenGL interface")
             })?;
 
-        let surface =
-            Self::create_internal_surface(fb_info, &current_glutin_context, &mut gr_context, size)?
-                .into();
+        let width: i32 = size.width.try_into().map_err(|e| {
+                format!("Attempting to create window surface with width that doesn't fit into non-zero i32: {e}")
+            })?;
+        let height: i32 = size.height.try_into().map_err(|e| {
+                format!(
+                    "Attempting to create window surface with height that doesn't fit into non-zero i32: {e}"
+                )
+            })?;
+
+        let surface = Self::create_internal_surface(
+            fb_info,
+            &current_glutin_context,
+            &mut gr_context,
+            width,
+            height,
+        )?
+        .into();
 
         Ok(Self {
             fb_info,
@@ -112,11 +124,20 @@ impl super::Surface for OpenGLSurface {
         let gr_context = &mut self.gr_context.borrow_mut();
 
         let mut surface = self.surface.borrow_mut();
-        if size.width.try_into().ok() != Some(surface.width())
-            || size.height.try_into().ok() != Some(surface.height())
-        {
-            *surface =
-                Self::create_internal_surface(self.fb_info, &current_context, gr_context, size)?;
+
+        let width = size.width.try_into().ok();
+        let height = size.height.try_into().ok();
+
+        if let Some((width, height)) = width.zip(height) {
+            if width != surface.width() || height != surface.height() {
+                *surface = Self::create_internal_surface(
+                    self.fb_info,
+                    &current_context,
+                    gr_context,
+                    width,
+                    height,
+                )?;
+            }
         }
 
         let skia_canvas = surface.canvas();
@@ -295,18 +316,10 @@ impl OpenGLSurface {
         fb_info: skia_safe::gpu::gl::FramebufferInfo,
         gl_context: &glutin::context::PossiblyCurrentContext,
         gr_context: &mut skia_safe::gpu::DirectContext,
-        size: PhysicalWindowSize,
+        width: i32,
+        height: i32,
     ) -> Result<skia_safe::Surface, PlatformError> {
         let config = gl_context.config();
-
-        let width: i32 = size.width.try_into().map_err(|e| {
-            format!("Attempting to create window surface with width that doesn't fit into non-zero i32: {e}")
-        })?;
-        let height: i32 = size.height.try_into().map_err(|e| {
-            format!(
-                "Attempting to create window surface with height that doesn't fit into non-zero i32: {e}"
-            )
-        })?;
 
         let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_gl(
             (width, height),

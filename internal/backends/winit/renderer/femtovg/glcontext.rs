@@ -49,14 +49,16 @@ impl OpenGLContext {
     pub fn ensure_resized(&self, _size: PhysicalSize) -> Result<(), PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let width = _size.width.try_into().map_err(|e| {
+            let width = _size.width.try_into().map_err(|_| {
                 format!(
-                    "Attempting to resize window surface with width that doesn't fit into U32: {e}"
+                    "Attempting to create window surface with an invalid width: {}",
+                    _size.width
                 )
             })?;
-            let height = _size.height.try_into().map_err(|e| {
+            let height = _size.height.try_into().map_err(|_| {
                 format!(
-                    "Attempting to resize window surface with height that doesn't fit into U32: {e}"
+                    "Attempting to create window surface with an invalid height: {}",
+                    _size.height
                 )
             })?;
 
