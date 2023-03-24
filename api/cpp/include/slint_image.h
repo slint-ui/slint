@@ -80,7 +80,7 @@ private:
 ///
 /// The following example creates a 320x200 RGB pixel buffer and calls a function to draw a shape
 /// into it:
-/// ```c++
+/// ```cpp
 /// slint::SharedPixelBuffer::<slint::Rgb8Pixel> pixel_buffer(320, 200);
 /// low_level_render(pixel_buffer.width(), pixel_buffer.height(),
 ///                  static_cast<unsigned char *>(pixel_buffer.begin()));
