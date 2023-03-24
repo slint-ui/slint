@@ -191,8 +191,8 @@ impl WrappedInstance {
     }
     /// Hides this instance and prevents further updates of the canvas element.
     #[wasm_bindgen]
-    pub fn hide(&self) {
-        self.0.hide();
+    pub fn hide(&self) -> Result<(), JsValue> {
+        self.0.hide().map_err(|e| -> JsValue { format!("{e}").into() })
     }
 
     /// THIS FUNCTION IS NOT PART THE PUBLIC API!

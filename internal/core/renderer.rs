@@ -42,7 +42,8 @@ pub trait Renderer {
         &self,
         _component: ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
-    ) {
+    ) -> Result<(), crate::platform::PlatformError> {
+        Ok(())
     }
 
     /// Mark a given region as dirty regardless whether the items actually are dirty.

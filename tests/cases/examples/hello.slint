@@ -189,7 +189,7 @@ let instance = Hello::new().unwrap();
 assert!(!instance.window().is_visible());
 instance.window().show().unwrap();
 assert!(instance.window().is_visible());
-instance.window().hide();
+instance.window().hide().unwrap();
 assert!(!instance.window().is_visible());
 ```
 

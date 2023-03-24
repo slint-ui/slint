@@ -14,6 +14,7 @@ use i_slint_core::items::Item;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
+use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
@@ -114,21 +115,21 @@ impl FemtoVGRenderer {
     pub fn render(
         &self,
         size: PhysicalWindowSize,
-        mut before_rendering_callback: Option<impl FnOnce()>,
-    ) {
+        mut before_rendering_callback: Option<impl FnOnce() -> Result<(), PlatformError>>,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         let width = size.width;
         let height = size.height;
 
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
         } else {
-            return;
+            return Err(format!("FemtoVG renderer: render() called before show()").into());
         };
 
         let window_adapter = self.window_adapter_weak.upgrade().unwrap();
         let window = WindowInner::from_pub(window_adapter.window());
 
-        window.draw_contents(|components| {
+        window.draw_contents(|components| -> Result<(), PlatformError> {
             let window_background_brush = window.window_item().map(|w| w.as_pin_ref().background());
 
             {
@@ -161,7 +162,7 @@ impl FemtoVGRenderer {
                 femtovg_canvas.set_size(width, height, 1.0);
                 drop(femtovg_canvas);
 
-                callback();
+                callback()?;
             }
 
             let window_adapter = self.window_adapter_weak.upgrade().unwrap();
@@ -201,7 +202,8 @@ impl FemtoVGRenderer {
             // avoid GPU memory leaks.
             canvas.texture_cache.borrow_mut().drain();
             drop(item_renderer);
-        });
+            Ok(())
+        })
     }
 }
 
@@ -389,14 +391,15 @@ impl Renderer for FemtoVGRenderer {
         &self,
         component: i_slint_core::component::ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
-    ) {
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
         } else {
-            return;
+            return Ok(());
         };
 
         canvas.graphics_cache.component_destroyed(component);
+        Ok(())
     }
 }
 

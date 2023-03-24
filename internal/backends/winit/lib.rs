@@ -31,14 +31,17 @@ mod renderer {
             &self,
             window_builder: winit::window::WindowBuilder,
             #[cfg(target_arch = "wasm32")] canvas_id: &str,
-        ) -> Rc<winit::window::Window>;
-        fn hide(&self);
+        ) -> Result<Rc<winit::window::Window>, i_slint_core::platform::PlatformError>;
+        fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError>;
 
-        fn render(&self, size: PhysicalSize);
+        fn render(&self, size: PhysicalSize) -> Result<(), i_slint_core::platform::PlatformError>;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
 
-        fn resize_event(&self, size: PhysicalSize);
+        fn resize_event(
+            &self,
+            size: PhysicalSize,
+        ) -> Result<(), i_slint_core::platform::PlatformError>;
 
         #[cfg(target_arch = "wasm32")]
         fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement;

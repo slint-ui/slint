@@ -48,7 +48,7 @@ pub fn main() {
     let weak_window = main_window.as_weak();
     main_window.on_popup_confirmed(move || {
         let window = weak_window.unwrap();
-        window.hide();
+        window.hide().unwrap();
     });
 
     {

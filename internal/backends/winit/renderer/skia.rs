@@ -17,30 +17,39 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         Self { renderer: i_slint_renderer_skia::SkiaRenderer::new(window_adapter_weak.clone()) }
     }
 
-    fn show(&self, window_builder: winit::window::WindowBuilder) -> Rc<winit::window::Window> {
+    fn show(
+        &self,
+        window_builder: winit::window::WindowBuilder,
+    ) -> Result<Rc<winit::window::Window>, i_slint_core::platform::PlatformError> {
         let window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).unwrap()
         }));
 
         let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
-        self.renderer.show(window.clone(), PhysicalWindowSize::new(size.width, size.height));
+        self.renderer.show(window.clone(), PhysicalWindowSize::new(size.width, size.height))?;
 
-        window
+        Ok(window)
     }
 
-    fn hide(&self) {
-        self.renderer.hide();
+    fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+        self.renderer.hide()
     }
 
-    fn render(&self, size: PhysicalWindowSize) {
-        self.renderer.render(size);
+    fn render(
+        &self,
+        size: PhysicalWindowSize,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        self.renderer.render(size)
     }
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
     }
 
-    fn resize_event(&self, size: PhysicalWindowSize) {
+    fn resize_event(
+        &self,
+        size: PhysicalWindowSize,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.renderer.resize_event(size)
     }
 }

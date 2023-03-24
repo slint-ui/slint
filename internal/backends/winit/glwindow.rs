@@ -145,37 +145,43 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
         }
     }
 
-    fn unmap(&self) {
+    fn unmap(&self) -> Result<(), PlatformError> {
         let old_mapped = match self.map_state.replace(GraphicsWindowBackendState::Unmapped {
             requested_position: None,
             requested_size: None,
         }) {
-            GraphicsWindowBackendState::Unmapped { .. } => return,
+            GraphicsWindowBackendState::Unmapped { .. } => return Ok(()),
             GraphicsWindowBackendState::Mapped(old_mapped) => old_mapped,
         };
 
         crate::event_loop::unregister_window(old_mapped.winit_window.id());
 
-        self.renderer.hide();
+        self.renderer.hide()
     }
 
-    fn call_with_event_loop(&self, callback: fn(&Self)) {
+    fn call_with_event_loop(
+        &self,
+        callback: fn(&Self) -> Result<(), PlatformError>,
+    ) -> Result<(), PlatformError> {
         // With wasm, winit's `run()` consumes the event loop and access to it from outside the event handler yields
         // loop and thus ends up trying to create a new event loop instance, which panics in winit. Instead, forward
         // the call to be invoked from within the event loop
         #[cfg(target_arch = "wasm32")]
-        corelib::api::invoke_from_event_loop({
+        return corelib::api::invoke_from_event_loop({
             let self_weak = send_wrapper::SendWrapper::new(self.self_weak.clone());
 
             move || {
                 if let Some(this) = self_weak.take().upgrade() {
-                    callback(&this)
+                    // Can't propagate the returned error because we're in an async callback, so throw.
+                    callback(&this).unwrap()
                 }
             }
         })
-        .unwrap();
+        .map_err(|_| {
+            format!("internal error in winit backend: invoke_from_event_loop failed").into()
+        });
         #[cfg(not(target_arch = "wasm32"))]
-        callback(self)
+        return callback(self);
     }
 }
 
@@ -189,17 +195,17 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
     }
 
     /// Draw the items of the specified `component` in the given window.
-    fn draw(&self) -> bool {
+    fn draw(&self) -> Result<bool, PlatformError> {
         let window = match self.borrow_mapped_window() {
             Some(window) => window,
-            None => return false, // caller bug, doesn't make sense to call draw() when not mapped
+            None => return Ok(false), // caller bug, doesn't make sense to call draw() when not mapped
         };
 
         self.pending_redraw.set(false);
 
-        self.renderer.render(physical_size_to_slint(&window.winit_window.inner_size()));
+        self.renderer.render(physical_size_to_slint(&window.winit_window.inner_size()))?;
 
-        self.pending_redraw.get()
+        Ok(self.pending_redraw.get())
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
@@ -231,7 +237,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
         }
     }
 
-    fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) {
+    fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) -> Result<(), PlatformError> {
         // slint::Window::set_size will call set_size() on this type, which would call
         // set_inner_size on the winit Window. On Windows that triggers an new resize event
         // in the next event loop iteration for mysterious reasons, with slightly different sizes.
@@ -248,7 +254,9 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
         if size.width > 0 && size.height > 0 {
             let physical_size = physical_size_to_slint(&size);
             self.window.set_size(physical_size);
-            self.renderer.resize_event(physical_size);
+            self.renderer.resize_event(physical_size)
+        } else {
+            Ok(())
         }
     }
 
@@ -282,8 +290,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     )
                 })
                 .ok();
-            })
-        });
+            });
+            Ok(()) // Doesn't matter if the eventloop is already closed, nothing to update then.
+        })
+        .ok();
     }
 
     fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
@@ -402,7 +412,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 GraphicsWindowBackendState::Unmapped { requested_position, requested_size } => {
                     (requested_position.clone(), requested_size.clone())
                 }
-                GraphicsWindowBackendState::Mapped(_) => return,
+                GraphicsWindowBackendState::Mapped(_) => return Ok(()),
             };
 
             let mut window_builder = winit::window::WindowBuilder::new();
@@ -460,21 +470,34 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             );
 
             #[cfg(target_arch = "wasm32")]
-            {
+            let html_canvas = {
                 use wasm_bindgen::JsCast;
 
-                let canvas = web_sys::window()
-                    .unwrap()
+                web_sys::window()
+                    .ok_or_else(|| "winit backend: Could not retrieve DOM window".to_string())?
                     .document()
-                    .unwrap()
+                    .ok_or_else(|| "winit backend: Could not retrieve DOM document".to_string())?
                     .get_element_by_id(&self_.canvas_id)
-                    .unwrap()
+                    .ok_or_else(|| {
+                        format!(
+                            "winit backend: Could not retrieve existing HTML Canvas element '{}'",
+                            self_.canvas_id
+                        )
+                    })?
                     .dyn_into::<web_sys::HtmlCanvasElement>()
-                    .unwrap();
+                    .map_err(|_| {
+                        format!(
+                            "winit backend: Specified DOM element '{}' is not a HTML Canvas",
+                            self_.canvas_id
+                        )
+                    })?
+            };
 
+            #[cfg(target_arch = "wasm32")]
+            {
                 let existing_canvas_size = winit::dpi::LogicalSize::new(
-                    canvas.client_width() as f32,
-                    canvas.client_height() as f32,
+                    html_canvas.client_width() as f32,
+                    html_canvas.client_height() as f32,
                 );
 
                 // Try to maintain the existing size of the canvas element. A window created with winit
@@ -533,26 +556,15 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
 
             #[cfg(target_arch = "wasm32")]
             let window_builder = {
-                use wasm_bindgen::JsCast;
-
-                let canvas = web_sys::window()
-                    .unwrap()
-                    .document()
-                    .unwrap()
-                    .get_element_by_id(&self_.canvas_id)
-                    .unwrap()
-                    .dyn_into::<web_sys::HtmlCanvasElement>()
-                    .unwrap();
-
                 use winit::platform::web::WindowBuilderExtWebSys;
-                window_builder.with_canvas(Some(canvas.clone()))
+                window_builder.with_canvas(Some(html_canvas.clone()))
             };
 
             let winit_window = self_.renderer.show(
                 window_builder,
                 #[cfg(target_arch = "wasm32")]
                 &self_.canvas_id,
-            );
+            )?;
 
             WindowInner::from_pub(&self_.window).set_scale_factor(
                 scale_factor_override.unwrap_or_else(|| winit_window.scale_factor()) as _,
@@ -570,13 +582,13 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             }));
 
             crate::event_loop::register_window(id, self_.self_weak.upgrade().unwrap());
-        });
-        Ok(())
+            Ok(())
+        })
     }
 
-    fn hide(&self) {
+    fn hide(&self) -> Result<(), PlatformError> {
         self.call_with_event_loop(|self_| {
-            self_.unmap();
+            self_.unmap()?;
 
             /* FIXME:
             if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
@@ -587,8 +599,9 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     .event_loop_proxy()
                     .send_event(crate::event_loop::CustomEvent::WindowHidden)
             })
-            .unwrap();
-        });
+            .ok(); // It's okay to call hide() even after the event loop is closed. We don't need the logic for quitting the event loop anymore at this point.
+            Ok(())
+        })
     }
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
@@ -746,7 +759,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
 
 impl<Renderer: WinitCompatibleRenderer + 'static> Drop for GLWindow<Renderer> {
     fn drop(&mut self) {
-        self.unmap();
+        self.unmap().expect("winit backend: error unmapping window");
     }
 }
 

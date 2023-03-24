@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::cell::RefCell;
+use std::{cell::RefCell, num::NonZeroU32};
 
 use glutin::{
     config::GetGlConfig,
@@ -10,8 +10,8 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use i_slint_core::api::GraphicsAPI;
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
+use i_slint_core::{api::GraphicsAPI, platform::PlatformError};
 
 pub struct OpenGLSurface {
     fb_info: skia_safe::gpu::gl::FramebufferInfo,
@@ -28,8 +28,16 @@ impl super::Surface for OpenGLSurface {
         window: &dyn raw_window_handle::HasRawWindowHandle,
         display: &dyn raw_window_handle::HasRawDisplayHandle,
         size: PhysicalWindowSize,
-    ) -> Self {
-        let (current_glutin_context, glutin_surface) = Self::init_glutin(window, display, size);
+    ) -> Result<Self, PlatformError> {
+        let width: std::num::NonZeroU32 = size.width.try_into().map_err(|_| {
+            format!("Attempting to create window surface with an invalid width: {}", size.width)
+        })?;
+        let height: std::num::NonZeroU32 = size.height.try_into().map_err(|_| {
+            format!("Attempting to create window surface with an invalid height: {}", size.height)
+        })?;
+
+        let (current_glutin_context, glutin_surface) =
+            Self::init_glutin(window, display, width, height)?;
 
         let fb_info = {
             use glow::HasContext;
@@ -42,7 +50,9 @@ impl super::Surface for OpenGLSurface {
             let fboid = unsafe { gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) };
 
             skia_safe::gpu::gl::FramebufferInfo {
-                fboid: fboid.try_into().unwrap(),
+                fboid: fboid.try_into().map_err(|_| {
+                    format!("Skia Renderer: Internal error, framebuffer binding returned signed id")
+                })?,
                 format: skia_safe::gpu::gl::Format::RGBA8.into(),
             }
         };
@@ -51,19 +61,36 @@ impl super::Surface for OpenGLSurface {
             current_glutin_context.display().get_proc_address(name) as *const _
         });
 
-        let mut gr_context = skia_safe::gpu::DirectContext::new_gl(gl_interface, None).unwrap();
+        let mut gr_context =
+            skia_safe::gpu::DirectContext::new_gl(gl_interface, None).ok_or_else(|| {
+                format!("Skia Renderer: Internal Error: Could not create Skia OpenGL interface")
+            })?;
 
-        let surface =
-            Self::create_internal_surface(fb_info, &current_glutin_context, &mut gr_context, size)
-                .into();
+        let width: i32 = size.width.try_into().map_err(|e| {
+                format!("Attempting to create window surface with width that doesn't fit into non-zero i32: {e}")
+            })?;
+        let height: i32 = size.height.try_into().map_err(|e| {
+                format!(
+                    "Attempting to create window surface with height that doesn't fit into non-zero i32: {e}"
+                )
+            })?;
 
-        Self {
+        let surface = Self::create_internal_surface(
+            fb_info,
+            &current_glutin_context,
+            &mut gr_context,
+            width,
+            height,
+        )?
+        .into();
+
+        Ok(Self {
             fb_info,
             surface,
             gr_context: RefCell::new(gr_context),
             glutin_context: current_glutin_context,
             glutin_surface,
-        }
+        })
     }
 
     fn name(&self) -> &'static str {
@@ -79,57 +106,79 @@ impl super::Surface for OpenGLSurface {
         callback(api)
     }
 
-    fn with_active_surface(&self, callback: impl FnOnce()) {
-        self.ensure_context_current();
+    fn with_active_surface(&self, callback: impl FnOnce()) -> Result<(), PlatformError> {
+        self.ensure_context_current()?;
         callback();
+        Ok(())
     }
 
     fn render(
         &self,
         size: PhysicalWindowSize,
         callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
-    ) {
-        let width = size.width;
-        let height = size.height;
-
-        self.ensure_context_current();
+    ) -> Result<(), PlatformError> {
+        self.ensure_context_current()?;
 
         let current_context = &self.glutin_context;
 
         let gr_context = &mut self.gr_context.borrow_mut();
 
         let mut surface = self.surface.borrow_mut();
-        if width != surface.width() as u32 || height != surface.height() as u32 {
-            *surface =
-                Self::create_internal_surface(self.fb_info, &current_context, gr_context, size);
+
+        let width = size.width.try_into().ok();
+        let height = size.height.try_into().ok();
+
+        if let Some((width, height)) = width.zip(height) {
+            if width != surface.width() || height != surface.height() {
+                *surface = Self::create_internal_surface(
+                    self.fb_info,
+                    &current_context,
+                    gr_context,
+                    width,
+                    height,
+                )?;
+            }
         }
 
         let skia_canvas = surface.canvas();
 
         callback(skia_canvas, gr_context);
 
-        self.glutin_surface.swap_buffers(&current_context).unwrap();
+        self.glutin_surface.swap_buffers(&current_context).map_err(|glutin_error| {
+            format!("Skia OpenGL Renderer: Error swapping buffers: {glutin_error}").into()
+        })
     }
 
-    fn resize_event(&self, size: PhysicalWindowSize) {
-        self.ensure_context_current();
+    fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
+        self.ensure_context_current()?;
 
-        self.glutin_surface.resize(
-            &self.glutin_context,
-            size.width.try_into().unwrap(),
-            size.height.try_into().unwrap(),
-        );
+        let width = size.width.try_into().map_err(|e| {
+            format!("Skia: Attempting to resize window surface with width that doesn't fit into U32: {e}")
+        })?;
+        let height = size.height.try_into().map_err(|e| {
+            format!(
+                "Skia: Attempting to resize window surface with height that doesn't fit into U32: {e}"
+            )
+        })?;
+
+        self.glutin_surface.resize(&self.glutin_context, width, height);
+        Ok(())
     }
 
-    fn bits_per_pixel(&self) -> u8 {
+    fn bits_per_pixel(&self) -> Result<u8, PlatformError> {
         let config = self.glutin_context.config();
         let rgb_bits = match config.color_buffer_type() {
             Some(glutin::config::ColorBufferType::Rgb { r_size, g_size, b_size }) => {
                 r_size + g_size + b_size
             }
-            _ => panic!("unsupported color buffer used with Skia OpenGL renderer"),
+            other @ _ => {
+                return Err(format!(
+                    "Skia OpenGL Renderer: unsupported color buffer {other:?} encountered"
+                )
+                .into())
+            }
         };
-        rgb_bits + config.alpha_size()
+        Ok(rgb_bits + config.alpha_size())
     }
 }
 
@@ -137,11 +186,15 @@ impl OpenGLSurface {
     fn init_glutin(
         _window: &dyn raw_window_handle::HasRawWindowHandle,
         _display: &dyn raw_window_handle::HasRawDisplayHandle,
-        _size: PhysicalWindowSize,
-    ) -> (
-        glutin::context::PossiblyCurrentContext,
-        glutin::surface::Surface<glutin::surface::WindowSurface>,
-    ) {
+        width: NonZeroU32,
+        height: NonZeroU32,
+    ) -> Result<
+        (
+            glutin::context::PossiblyCurrentContext,
+            glutin::surface::Surface<glutin::surface::WindowSurface>,
+        ),
+        PlatformError,
+    > {
         cfg_if::cfg_if! {
             if #[cfg(target_os = "macos")] {
                 let prefs = [glutin::display::DisplayApiPreference::Cgl];
@@ -153,11 +206,6 @@ impl OpenGLSurface {
                 let prefs = [glutin::display::DisplayApiPreference::EglThenWgl(Some(_window.raw_window_handle()))];
             }
         }
-
-        let width: std::num::NonZeroU32 =
-            _size.width.try_into().expect("new context called with zero width window");
-        let height: std::num::NonZeroU32 =
-            _size.height.try_into().expect("new context called with zero height window");
 
         let try_create_surface =
             |display_api_preference| -> Result<(_, _), Box<dyn std::error::Error>> {
@@ -229,16 +277,16 @@ impl OpenGLSurface {
                 let is_last = i == num_prefs - 1;
 
                 match try_create_surface(pref) {
-                    Ok(result) => Some(result),
+                    Ok(result) => Some(Ok(result)),
                     Err(glutin_error) => {
                         if is_last {
-                            panic!("Glutin error creating GL surface: {}", glutin_error);
+                            return Some(Err(format!("Skia OpenGL Renderer: Failed to create OpenGL Window Surface: {glutin_error}")));
                         }
                         None
                     }
                 }
             })
-            .unwrap();
+            .unwrap()?;
 
         // Align the GL layer to the top-left, so that resizing only invalidates the bottom/right
         // part of the window.
@@ -255,44 +303,61 @@ impl OpenGLSurface {
             }
         }
 
-        (not_current_gl_context.make_current(&surface).unwrap(), surface)
+        let context = not_current_gl_context.make_current(&surface)
+            .map_err(|glutin_error: glutin::error::Error| -> PlatformError {
+                format!("FemtoVG Renderer: Failed to make newly created OpenGL context current: {glutin_error}")
+                .into()
+        })?;
+
+        Ok((context, surface))
     }
 
     fn create_internal_surface(
         fb_info: skia_safe::gpu::gl::FramebufferInfo,
         gl_context: &glutin::context::PossiblyCurrentContext,
         gr_context: &mut skia_safe::gpu::DirectContext,
-        size: PhysicalWindowSize,
-    ) -> skia_safe::Surface {
+        width: i32,
+        height: i32,
+    ) -> Result<skia_safe::Surface, PlatformError> {
         let config = gl_context.config();
+
         let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_gl(
-            (size.width.try_into().unwrap(), size.height.try_into().unwrap()),
+            (width, height),
             Some(config.num_samples() as _),
             config.stencil_size() as _,
             fb_info,
         );
-        let surface = skia_safe::Surface::from_backend_render_target(
+        match skia_safe::Surface::from_backend_render_target(
             gr_context,
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::BottomLeft,
             skia_safe::ColorType::RGBA8888,
             None,
             None,
-        )
-        .unwrap();
-        surface
+        ) {
+            Some(surface) => Ok(surface),
+            None => {
+                Err("Skia OpenGL Renderer: Failed to allocate internal backend rendering target"
+                    .into())
+            }
+        }
     }
 
-    fn ensure_context_current(&self) {
+    fn ensure_context_current(&self) -> Result<(), PlatformError> {
         if !self.glutin_context.is_current() {
-            self.glutin_context.make_current(&self.glutin_surface).unwrap();
+            self.glutin_context.make_current(&self.glutin_surface).map_err(
+                |glutin_error| -> PlatformError {
+                    format!("Skia Renderer: Error making context current: {glutin_error}").into()
+                },
+            )?;
         }
+        Ok(())
     }
 }
 
 impl Drop for OpenGLSurface {
     fn drop(&mut self) {
         // Make sure that the context is current before Skia calls glDelete***
-        self.ensure_context_current();
+        self.ensure_context_current().expect("Skia OpenGL Renderer: Failed to make OpenGL context current before deleting graphics resources");
     }
 }

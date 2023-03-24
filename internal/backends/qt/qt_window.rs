@@ -1498,7 +1498,7 @@ impl WindowAdapterSealed for QtWindow {
         Ok(())
     }
 
-    fn hide(&self) {
+    fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         self.rendering_metrics_collector.take();
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
@@ -1507,6 +1507,7 @@ impl WindowAdapterSealed for QtWindow {
             // visible windows, and ends the application if needed
             QEventLoopLocker();
         }};
+        Ok(())
     }
 
     fn request_redraw(&self) {
@@ -1930,9 +1931,10 @@ impl Renderer for QtWindow {
         &self,
         component: ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
-    ) {
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         // Invalidate caches:
         self.cache.component_destroyed(component);
+        Ok(())
     }
 }
 

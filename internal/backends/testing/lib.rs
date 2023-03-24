@@ -60,8 +60,9 @@ impl WindowAdapterSealed for TestingWindow {
         Ok(())
     }
 
-    fn hide(&self) {
+    fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         self.shown.set(false);
+        Ok(())
     }
 
     fn renderer(&self) -> &dyn Renderer {

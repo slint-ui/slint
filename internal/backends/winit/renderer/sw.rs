@@ -28,29 +28,43 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         }
     }
 
-    fn show(&self, window_builder: winit::window::WindowBuilder) -> Rc<winit::window::Window> {
-        let window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
-            window_builder.build(event_loop.event_loop_target()).unwrap()
-        }));
+    fn show(
+        &self,
+        window_builder: winit::window::WindowBuilder,
+    ) -> Result<Rc<winit::window::Window>, i_slint_core::platform::PlatformError> {
+        let window = crate::event_loop::with_window_target(|event_loop| {
+            window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
+                format!("Error creating native window for software rendering: {}", winit_os_error)
+            })
+        })?;
+        let window = Rc::new(window);
 
         *self.canvas.borrow_mut() = Some(unsafe {
-            softbuffer::GraphicsContext::new(window.as_ref(), window.as_ref()).unwrap()
+            softbuffer::GraphicsContext::new(window.as_ref(), window.as_ref()).map_err(
+                |softbuffer_error| {
+                    format!("Error creating softbuffer graphics context: {}", softbuffer_error)
+                },
+            )?
         });
 
-        window
+        Ok(window)
     }
 
-    fn hide(&self) {
+    fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         self.canvas.borrow_mut().take();
+        Ok(())
     }
 
-    fn render(&self, size: PhysicalWindowSize) {
+    fn render(
+        &self,
+        size: PhysicalWindowSize,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         let mut canvas = if self.canvas.borrow().is_some() {
             std::cell::RefMut::map(self.canvas.borrow_mut(), |canvas_opt| {
                 canvas_opt.as_mut().unwrap()
             })
         } else {
-            return;
+            return Ok(());
         };
 
         let width = size.width as usize;
@@ -95,9 +109,15 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         );
 
         canvas.set_buffer(&softbuffer_buffer, width as u16, height as u16);
+        Ok(())
     }
 
-    fn resize_event(&self, _size: PhysicalWindowSize) {}
+    fn resize_event(
+        &self,
+        _size: PhysicalWindowSize,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        Ok(())
+    }
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer

@@ -224,7 +224,11 @@ impl SwapChain {
         [make_surface(0), make_surface(1)]
     }
 
-    fn resize(&mut self, width: u32, height: u32) {
+    fn resize(
+        &mut self,
+        width: u32,
+        height: u32,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.gr_context.flush_submit_and_sync_cpu();
 
         self.wait_for_buffer(0);
@@ -236,7 +240,9 @@ impl SwapChain {
             let resize_result =
                 self.swap_chain.ResizeBuffers(0, width, height, DEFAULT_SURFACE_FORMAT, 0);
             if resize_result != S_OK {
-                panic!("Error resizing swap chain buffers: {:x}", resize_result);
+                return Err(
+                    format!("Error resizing swap chain buffers: {:x}", resize_result).into()
+                );
             }
         }
 
@@ -246,6 +252,7 @@ impl SwapChain {
             width as i32,
             height as i32,
         ));
+        Ok(())
     }
 
     fn wait_for_buffer(&mut self, buffer_index: usize) {
@@ -281,7 +288,7 @@ impl super::Surface for D3DSurface {
         window: &dyn raw_window_handle::HasRawWindowHandle,
         _display: &dyn raw_window_handle::HasRawDisplayHandle,
         size: PhysicalWindowSize,
-    ) -> Self {
+    ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let factory_flags = 0;
         /*
         let factory_flags = dxgi1_3::DXGI_CREATE_FACTORY_DEBUG;
@@ -401,7 +408,7 @@ impl super::Surface for D3DSurface {
         let swap_chain =
             RefCell::new(SwapChain::new(queue, &device, gr_context, &window, size, &dxgi_factory));
 
-        Self { swap_chain }
+        Ok(Self { swap_chain })
     }
 
     fn name(&self) -> &'static str {
@@ -412,26 +419,34 @@ impl super::Surface for D3DSurface {
         unimplemented!()
     }
 
-    fn resize_event(&self, size: PhysicalWindowSize) {
-        self.swap_chain.borrow_mut().resize(size.width, size.height);
+    fn resize_event(
+        &self,
+        size: PhysicalWindowSize,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        self.swap_chain.borrow_mut().resize(size.width, size.height)
     }
 
     fn render(
         &self,
         _size: PhysicalWindowSize,
         callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
-    ) {
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.swap_chain
             .borrow_mut()
-            .render_and_present(|surface, gr_context| callback(surface.canvas(), gr_context))
+            .render_and_present(|surface, gr_context| callback(surface.canvas(), gr_context));
+        Ok(())
     }
 
-    fn bits_per_pixel(&self) -> u8 {
+    fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {
         let mut desc = dxgi::DXGI_SWAP_CHAIN_DESC::default();
         unsafe { self.swap_chain.borrow().swap_chain.GetDesc(&mut desc) };
-        match desc.BufferDesc.Format {
+        Ok(match desc.BufferDesc.Format {
             DEFAULT_SURFACE_FORMAT => 32,
-            _ => 0, // Not mapped yet
-        }
+            fmt @ _ => {
+                return Err(
+                    format!("Skia D3D Renderer: Unsupported buffer format found {fmt:?}").into()
+                )
+            }
+        })
     }
 }

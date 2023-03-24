@@ -10,6 +10,7 @@ use i_slint_core::api::{
     SetRenderingNotifierError,
 };
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
+use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::WindowAdapter;
 use i_slint_renderer_femtovg::FemtoVGRenderer;
@@ -27,25 +28,27 @@ impl GlutinFemtoVGRenderer {
     fn with_graphics_api(
         opengl_context: &glcontext::OpenGLContext,
         callback: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>),
-    ) {
-        opengl_context.ensure_current();
+    ) -> Result<(), PlatformError> {
+        opengl_context.ensure_current()?;
         let api = GraphicsAPI::NativeOpenGL {
             get_proc_address: &|name| opengl_context.get_proc_address(name),
         };
-        callback(api)
+        callback(api);
+        Ok(())
     }
 
     #[cfg(target_arch = "wasm32")]
     fn with_graphics_api(
         opengl_context: &glcontext::OpenGLContext,
         callback: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>),
-    ) {
+    ) -> Result<(), PlatformError> {
         let canvas_element_id = opengl_context.html_canvas_element().id();
         let api = GraphicsAPI::WebGL {
             canvas_element_id: canvas_element_id.as_str(),
             context_type: "webgl",
         };
-        callback(api)
+        callback(api);
+        Ok(())
     }
 }
 
@@ -64,7 +67,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         &self,
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> Rc<winit::window::Window> {
+    ) -> Result<Rc<winit::window::Window>, PlatformError> {
         let (window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
             glcontext::OpenGLContext::new_context(
                 window_builder,
@@ -72,8 +75,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
                 #[cfg(target_arch = "wasm32")]
                 canvas_id,
             )
-        })
-        .expect("Unable to create OpenGL context");
+        })?;
 
         self.renderer.show(
             #[cfg(not(target_arch = "wasm32"))]
@@ -85,36 +87,37 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
             Self::with_graphics_api(&opengl_context, |api| {
                 callback.notify(RenderingState::RenderingSetup, &api)
-            });
+            })?;
         }
 
         *self.opengl_context.borrow_mut() = Some(opengl_context);
 
-        Rc::new(window)
+        Ok(Rc::new(window))
     }
 
-    fn hide(&self) {
+    fn hide(&self) -> Result<(), PlatformError> {
         if let Some(opengl_context) = self.opengl_context.borrow_mut().take() {
-            opengl_context.ensure_current();
+            opengl_context.ensure_current()?;
             if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
                 Self::with_graphics_api(&opengl_context, |api| {
                     callback.notify(RenderingState::RenderingTeardown, &api)
-                });
+                })?;
             }
             self.renderer.hide();
         }
+        Ok(())
     }
 
-    fn render(&self, size: PhysicalWindowSize) {
+    fn render(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
         let opengl_context = if self.opengl_context.borrow().is_some() {
             std::cell::Ref::map(self.opengl_context.borrow(), |context_opt| {
                 context_opt.as_ref().unwrap()
             })
         } else {
-            return;
+            return Ok(());
         };
 
-        opengl_context.ensure_current();
+        opengl_context.ensure_current()?;
 
         self.renderer.render(
             size,
@@ -122,31 +125,31 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
                 || {
                     Self::with_graphics_api(&opengl_context, |api| {
                         notifier_fn.notify(RenderingState::BeforeRendering, &api)
-                    });
+                    })
                 }
             }),
-        );
+        )?;
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
             Self::with_graphics_api(&opengl_context, |api| {
                 callback.notify(RenderingState::AfterRendering, &api)
-            });
+            })?;
         }
 
-        opengl_context.swap_buffers();
+        opengl_context.swap_buffers()
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {
         self
     }
 
-    fn resize_event(&self, size: PhysicalWindowSize) {
+    fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
         let opengl_context = if self.opengl_context.borrow().is_some() {
             std::cell::Ref::map(self.opengl_context.borrow(), |context_opt| {
                 context_opt.as_ref().unwrap()
             })
         } else {
-            return;
+            return Ok(());
         };
 
         opengl_context.ensure_resized(size)
@@ -219,16 +222,16 @@ impl Renderer for GlutinFemtoVGRenderer {
         &self,
         component: i_slint_core::component::ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
-    ) {
+    ) -> Result<(), PlatformError> {
         let opengl_context = if self.opengl_context.borrow().is_some() {
             std::cell::Ref::map(self.opengl_context.borrow(), |context_opt| {
                 context_opt.as_ref().unwrap()
             })
         } else {
-            return;
+            return Ok(());
         };
 
-        opengl_context.ensure_current();
+        opengl_context.ensure_current()?;
         self.renderer.free_graphics_resources(component, _items)
     }
 }

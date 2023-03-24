@@ -18,6 +18,7 @@ use i_slint_core::items::Item;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
+use i_slint_core::platform::PlatformError;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
 
@@ -70,15 +71,19 @@ impl<
 
     /// Use the provided window and display for rendering the Slint scene in future calls to [`Self::render()`].
     /// The size must be identical to the size of the window in physical pixels that is providing the window handle.
-    pub fn show(&self, native_window: NativeWindowWrapper, size: PhysicalWindowSize) {
-        let surface = DefaultSurface::new(&native_window, &native_window, size);
+    pub fn show(
+        &self,
+        native_window: NativeWindowWrapper,
+        size: PhysicalWindowSize,
+    ) -> Result<(), PlatformError> {
+        let surface = DefaultSurface::new(&native_window, &native_window, size)?;
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_adapter_weak.clone(),
             &format!(
                 "Skia renderer (skia backend {}; surface: {} bpp)",
                 surface.name(),
-                surface.bits_per_pixel()
+                surface.bits_per_pixel()?
             ),
         );
 
@@ -95,11 +100,13 @@ impl<
         }
 
         *self.canvas.borrow_mut() = Some(canvas);
+
+        Ok(())
     }
 
     /// Release any graphics resources and disconnect the rendere from a window that it was previously associated when when
     /// calling [`Self::show()]`.
-    pub fn hide(&self) {
+    pub fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         if let Some(canvas) = self.canvas.borrow_mut().take() {
             canvas.surface.with_active_surface(|| {
                 if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
@@ -107,16 +114,20 @@ impl<
                         callback.notify(RenderingState::RenderingTeardown, &api)
                     })
                 }
-            });
+            })?;
         }
+        Ok(())
     }
 
     /// Render the scene in the previously associated window. The size parameter must match the size of the window.
-    pub fn render(&self, size: PhysicalWindowSize) {
+    pub fn render(
+        &self,
+        size: PhysicalWindowSize,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
         } else {
-            return;
+            return Err(format!("Skia renderer: render() called before show()").into());
         };
 
         let window_adapter = self.window_adapter_weak.upgrade().unwrap();
@@ -185,15 +196,18 @@ impl<
                 canvas
                     .with_graphics_api(|api| callback.notify(RenderingState::AfterRendering, &api))
             }
-        });
+        })
     }
 
     /// Call this when you receive a notification from the windowing system that the size of the window has changed.
-    pub fn resize_event(&self, size: PhysicalWindowSize) {
+    pub fn resize_event(
+        &self,
+        size: PhysicalWindowSize,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
         } else {
-            return;
+            return Ok(());
         };
 
         canvas.surface.resize_event(size)
@@ -372,15 +386,16 @@ impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<Nati
         &self,
         component: i_slint_core::component::ComponentRef,
         _items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'_>>>,
-    ) {
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
         } else {
-            return;
+            return Ok(());
         };
 
         canvas.image_cache.component_destroyed(component);
         canvas.path_cache.component_destroyed(component);
+        Ok(())
     }
 }
 
@@ -390,19 +405,28 @@ trait Surface {
         window: &dyn raw_window_handle::HasRawWindowHandle,
         display: &dyn raw_window_handle::HasRawDisplayHandle,
         size: PhysicalWindowSize,
-    ) -> Self;
+    ) -> Result<Self, PlatformError>
+    where
+        Self: Sized;
     fn name(&self) -> &'static str;
     fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>));
-    fn with_active_surface(&self, callback: impl FnOnce()) {
-        callback()
+    fn with_active_surface(
+        &self,
+        callback: impl FnOnce(),
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        callback();
+        Ok(())
     }
     fn render(
         &self,
         size: PhysicalWindowSize,
         callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
-    );
-    fn resize_event(&self, size: PhysicalWindowSize);
-    fn bits_per_pixel(&self) -> u8;
+    ) -> Result<(), i_slint_core::platform::PlatformError>;
+    fn resize_event(
+        &self,
+        size: PhysicalWindowSize,
+    ) -> Result<(), i_slint_core::platform::PlatformError>;
+    fn bits_per_pixel(&self) -> Result<u8, PlatformError>;
 }
 
 struct SkiaCanvas<SurfaceType: Surface, NativeWindowWrapper> {
