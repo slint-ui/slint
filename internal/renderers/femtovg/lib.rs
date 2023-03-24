@@ -123,7 +123,7 @@ impl FemtoVGRenderer {
         let canvas = if self.canvas.borrow().is_some() {
             std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
         } else {
-            return Ok(());
+            return Err(format!("FemtoVG renderer: render() called before show()"));
         };
 
         let window_adapter = self.window_adapter_weak.upgrade().unwrap();
