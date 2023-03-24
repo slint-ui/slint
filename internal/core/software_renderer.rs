@@ -9,7 +9,7 @@ mod draw_functions;
 mod fonts;
 
 use crate::api::Window;
-use crate::graphics::{IntRect, PixelFormat, SharedImageBuffer};
+use crate::graphics::{IntRect, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::ItemRenderer;
 use crate::items::{ImageFit, Item, ItemRc};
 use crate::lengths::{
@@ -1631,10 +1631,40 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
     fn draw_cached_pixmap(
         &mut self,
-        _: &ItemRc,
-        _update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
+        _item: &ItemRc,
+        update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
-        todo!()
+        // FIXME: actually cache the pixmap
+        update_fn(&mut |width, height, data| {
+            let img = SharedImageBuffer::RGBA8Premultiplied(SharedPixelBuffer::clone_from_slice(
+                data, width, height,
+            ));
+
+            let physical_clip = self.current_state.clip.cast() * self.scale_factor;
+            let src_rect = euclid::rect(0., 0., width as f32, height as f32);
+
+            if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
+                let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
+                let geometry = clipped_src.translate(offset).round();
+                let origin = (geometry.origin - offset.round()).cast::<usize>();
+                let actual_x = origin.x - src_rect.origin.x as usize;
+                let actual_y = origin.y - src_rect.origin.y as usize;
+                let geometry = geometry.cast();
+
+                self.processor.process_shared_image_buffer(
+                    geometry,
+                    SharedBufferCommand {
+                        buffer: SharedBufferData::SharedImage(img),
+                        source_rect: PhysicalRect::new(
+                            PhysicalPoint::new(actual_x as _, actual_y as _),
+                            geometry.size,
+                        ),
+                        colorize: Default::default(),
+                        alpha: (self.current_state.alpha * 255.) as u8,
+                    },
+                );
+            }
+        });
     }
 
     fn draw_string(&mut self, _string: &str, _color: Color) {
