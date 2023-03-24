@@ -124,7 +124,7 @@ function create_open_menu(editor: EditorWidget): Menu {
                 return;
             }
             if (!name.endsWith(".slint")) {
-                name = "${name}.slint";
+                name = name + ".slint";
             }
             editor.add_empty_file_to_project(name);
         },
