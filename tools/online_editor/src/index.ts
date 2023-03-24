@@ -17,6 +17,11 @@ import {
     has_github_access_token,
 } from "./github";
 
+import {
+    report_export_url_dialog,
+    report_export_error_dialog,
+} from "./dialogs";
+
 import { CommandRegistry } from "@lumino/commands";
 import {
     DockLayout,
@@ -165,9 +170,8 @@ function create_share_menu(editor: EditorWidget): Menu {
             params.set("snippet", editor.current_editor_content);
             const this_url = new URL(window.location.toString());
             this_url.search = params.toString();
-            const share_url = this_url.toString();
 
-            navigator.clipboard.writeText(share_url);
+            report_export_url_dialog(this_url.toString());
         },
     });
     commands.addCommand("slint:create_gist", {
@@ -182,8 +186,8 @@ function create_share_menu(editor: EditorWidget): Menu {
         },
         execute: async () => {
             export_to_gist(editor, "Made with Slint", true)
-                .then((url) => navigator.clipboard.writeText(url))
-                .catch((e) => alert(e));
+                .then((url) => report_export_url_dialog(url))
+                .catch((e) => report_export_error_dialog(e));
         },
     });
 

@@ -164,3 +164,32 @@
 .welcome > div {
     padding: 1ex;
 }
+
+.dialog {
+    font: var(--default-font);
+}
+
+.dialog .close_button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin: 5px;
+}
+
+.dialog .button_row {
+    padding-top: 20px;
+    text-align: center;
+}
+
+.dialog.report_export_url .url {
+    display: flex;
+    align-items: center;
+}
+.dialog.report_export_url .copy_url {
+    margin-left: 5px;
+    padding: 5px;
+}
+
+.dialog.report_export_url .url .url_text {
+    font-family: monospace;
+}
