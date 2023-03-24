@@ -9,13 +9,13 @@
 This crate is the main entry point for embedding user interfaces designed with
 [Slint](https://slint.rs/) in Rust programs.
 */
-#![doc = concat!("If you are new to Slint, start with the [Walk-through tutorial](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/tutorial/rust)")]
+#![doc = concat!("If you are new to Slint, start with the [Walk-through tutorial](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/tutorial/rust)")]
 /*! If you are already familiar with Slint, the following topics provide related information.
 
 ## Related topics
 
 */
-#![doc = concat!("* [The Slint Language Documentation](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/doc/slint)")]
+#![doc = concat!("* [The Slint Language Documentation](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint)")]
 /*! * [Slint on Microcontrollers](docs::mcu)
  * [Debugging Techniques](docs::debugging_techniques)
 
