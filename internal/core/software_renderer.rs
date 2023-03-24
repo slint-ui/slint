@@ -85,6 +85,23 @@ pub trait LineBufferProvider {
     );
 }
 
+/// Represents a rectangular region on the screen, used for partial rendering.
+///
+/// The region may be composed of multiple sub-regions.
+#[derive(Clone, Debug)]
+pub struct PhysicalRegion(PhysicalRect);
+
+impl PhysicalRegion {
+    /// Returns the size of the bounding box of this region.
+    pub fn bounding_box_size(&self) -> crate::api::PhysicalSize {
+        crate::api::PhysicalSize { width: self.0.width() as _, height: self.0.height() as _ }
+    }
+    /// Returns the origin of the bounding box of this region.
+    pub fn bounding_box_origin(&self) -> crate::api::PhysicalPosition {
+        crate::api::PhysicalPosition { x: self.0.origin.x as _, y: self.0.origin.y as _ }
+    }
+}
+
 /// A Renderer that do the rendering in software
 ///
 /// The renderer can remember what items needs to be redrawn from the previous iteration.
@@ -159,9 +176,10 @@ impl SoftwareRenderer {
     /// The renderer uses a cache internally and will only render the part of the window
     /// which are dirty. The `extra_draw_region` is an extra regin which will also
     /// be rendered. (eg: the previous dirty region in case of double buffering)
+    /// This function returns the region that was rendered.
     ///
     /// returns the dirty region for this frame (not including the extra_draw_region)
-    pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) {
+    pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
         let window = self.window.upgrade().expect("render() called on a destroyed Window");
         let window_inner = WindowInner::from_pub(window.window());
         let factor = ScaleFactor::new(window_inner.scale_factor());
@@ -214,15 +232,19 @@ impl SoftwareRenderer {
             for (component, origin) in components {
                 crate::item_rendering::render_component_items(component, &mut renderer, *origin);
             }
-        });
+
+            PhysicalRegion(to_draw)
+        })
     }
 
-    /// Render the window, line by line, into the line buffer provided by the `line_callback` function.
+    /// Render the window, line by line, into the line buffer provided by the [`LineBufferProvider`].
     ///
     /// The renderer uses a cache internally and will only render the part of the window
     /// which are dirty, depending on the dirty tracking policy set in [`SoftwareRenderer::new`]
+    /// This function returns the region that was rendered.
     ///
-    /// The line callback will be called for each line and should provide a buffer to draw into.
+    /// The [`LineBufferProvider::process_line()`] function will be called for each line and should
+    ///  provide a buffer to draw into.
     ///
     /// As an example, let's imagine we want to render into a plain buffer.
     /// (You wouldn't normally use `render_by_line` for that because the [`Self::render`] would
@@ -249,7 +271,7 @@ impl SoftwareRenderer {
     /// renderer.render_by_line(FrameBuffer{ frame_buffer: the_frame_buffer, stride: display_width });
     /// # }
     /// ```
-    pub fn render_by_line(&self, line_buffer: impl LineBufferProvider) {
+    pub fn render_by_line(&self, line_buffer: impl LineBufferProvider) -> PhysicalRegion {
         let window = self.window.upgrade().expect("render() called on a destroyed Window");
         let window_inner = WindowInner::from_pub(window.window());
         let component_rc = window_inner.component();
@@ -266,7 +288,9 @@ impl SoftwareRenderer {
                 size.cast(),
                 self,
                 line_buffer,
-            );
+            )
+        } else {
+            PhysicalRegion(Default::default())
         }
     }
 }
@@ -347,7 +371,7 @@ fn render_window_frame_by_line(
     size: PhysicalSize,
     renderer: &SoftwareRenderer,
     mut line_buffer: impl LineBufferProvider,
-) {
+) -> PhysicalRegion {
     let mut scene = prepare_scene(window, size, renderer);
 
     let dirty_region = scene.dirty_region;
@@ -440,6 +464,7 @@ fn render_window_frame_by_line(
             scene.next_line();
         }
     }
+    PhysicalRegion(dirty_region)
 }
 
 #[derive(Default)]

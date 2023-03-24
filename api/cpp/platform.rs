@@ -168,7 +168,7 @@ pub unsafe extern "C" fn slint_software_renderer_render_rgb8(
     pixel_stride: usize,
 ) {
     let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
-    (*(r as *const SoftwareRenderer)).render(buffer, pixel_stride)
+    (*(r as *const SoftwareRenderer)).render(buffer, pixel_stride);
 }
 
 #[no_mangle]
