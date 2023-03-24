@@ -161,6 +161,9 @@ function create_share_menu(editor: EditorWidget): Menu {
         label: "Copy Permalink to Clipboard",
         iconClass: "fa fa-share",
         mnemonic: 1,
+        isEnabled: () => {
+            return editor.open_document_urls.length == 1;
+        },
         execute: () => {
             const params = new URLSearchParams();
             params.set("snippet", editor.current_editor_content);
@@ -176,7 +179,10 @@ function create_share_menu(editor: EditorWidget): Menu {
         iconClass: "fa-brands fa-github",
         mnemonic: 1,
         isEnabled: () => {
-            return localStorage.getItem(local_storage_key_github_token) != null;
+            return (
+                localStorage.getItem(local_storage_key_github_token) != null &&
+                editor.open_document_urls.length > 0
+            );
         },
         execute: async () => {
             const access_token = localStorage.getItem(
