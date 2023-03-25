@@ -12,6 +12,7 @@ use crate::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxToken};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
 use crate::{fileaccess, parser};
+use core::future::Future;
 
 /// Storage for a cache of all loaded documents
 #[derive(Default)]
@@ -139,52 +140,33 @@ impl TypeLoader {
         registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
     ) -> core::pin::Pin<Box<dyn std::future::Future<Output = (Vec<ImportedTypes>, Exports)> + 'b>>
     {
-        Box::pin(async move {
-            let dependencies =
-                Self::collect_dependencies(doc, &mut state.borrow_mut().diag).collect::<Vec<_>>();
-            let mut foreign_imports = vec![];
-            let mut reexports = None;
-            for mut import in dependencies {
+        let mut foreign_imports = vec![];
+        let mut dependencies = Self::collect_dependencies(state, doc)
+            .filter_map(|mut import| {
                 if import.file.ends_with(".60") || import.file.ends_with(".slint") {
-                    let file = import.file.as_str();
-                    let doc_path = match Self::ensure_document_loaded(
-                        state,
-                        file,
-                        Some(import.import_uri_token.clone().into()),
-                    )
-                    .await
-                    {
-                        Some(path) => path,
-                        None => continue,
-                    };
-
-                    let mut state = state.borrow_mut();
-                    let state = &mut *state;
-
-                    let doc = state.tl.all_documents.docs.get(&doc_path).unwrap();
-
-                    match &import.import_kind {
-                        ImportKind::ImportList(imported_types) => {
-                            let mut imported_types =
-                                ImportedName::extract_imported_names(imported_types).peekable();
-                            if imported_types.peek().is_some() {
-                                Self::register_imported_types(
-                                    doc,
-                                    &import,
-                                    imported_types,
-                                    registry_to_populate,
-                                    &mut state.diag,
-                                );
-                            } else {
-                                state.diag.push_error(
-                        "Import names are missing. Please specify which types you would like to import"
-                            .into(),
-                        &import.import_uri_token,
-                    );
+                    Some(Box::pin(async move {
+                        let file = import.file.as_str();
+                        let doc_path = Self::ensure_document_loaded(
+                            state,
+                            file,
+                            Some(import.import_uri_token.clone().into()),
+                        )
+                        .await?;
+                        let mut state = state.borrow_mut();
+                        let state = &mut *state;
+                        let doc = state.tl.all_documents.docs.get(&doc_path).unwrap();
+                        match &import.import_kind {
+                            ImportKind::ImportList(imported_types) => {
+                                let mut imported_types =
+                                    ImportedName::extract_imported_names(&imported_types).peekable();
+                                if imported_types.peek().is_some() {
+                                    Self::register_imported_types(doc, &import, imported_types, registry_to_populate, &mut state.diag);
+                                } else {
+                                    state.diag.push_error("Import names are missing. Please specify which types you would like to import".into(), &import.import_uri_token);
+                                }
+                                None
                             }
-                        }
-                        ImportKind::ModuleReexport(export_module_syntax_node) => {
-                            if reexports.is_none() {
+                            ImportKind::ModuleReexport(export_module_syntax_node) => {
                                 let mut exports = Exports::default();
                                 exports.add_reexports(
                                     doc.exports.iter().map(|(exported_name, compo_or_type)| {
@@ -198,15 +180,10 @@ impl TypeLoader {
                                     }),
                                     &mut state.diag,
                                 );
-                                reexports = Some(exports);
-                            } else {
-                                state.diag.push_error(
-                                    "re-exporting modules is only allowed once per file".into(),
-                                    export_module_syntax_node,
-                                );
+                                Some((exports, export_module_syntax_node.clone()))
                             }
                         }
-                    }
+                    }))
                 } else {
                     import.file = state
                         .borrow()
@@ -219,8 +196,34 @@ impl TypeLoader {
                         .to_string_lossy()
                         .to_string();
                     foreign_imports.push(import);
+                    None
                 }
-            }
+            })
+            .collect::<Vec<_>>();
+
+        Box::pin(async move {
+            let mut reexports = None;
+            std::future::poll_fn(|cx| {
+                dependencies.retain_mut(|fut| {
+                    let core::task::Poll::Ready(export) = fut.as_mut().poll(cx) else { return true };
+                    let Some((exports, node)) = export else { return false };
+                    if reexports.is_none() {
+                        reexports = Some(exports);
+                    } else {
+                        state.borrow_mut().diag.push_error(
+                            "re-exporting modules is only allowed once per file".into(),
+                            &node,
+                        );
+                    };
+                    false
+                });
+                if dependencies.is_empty() {
+                    core::task::Poll::Ready(())
+                } else {
+                    core::task::Poll::Pending
+                }
+            })
+            .await;
             (foreign_imports, reexports.unwrap_or_default())
         })
     }
@@ -283,18 +286,14 @@ impl TypeLoader {
         file_to_import: &'b str,
         import_token: Option<NodeOrToken>,
     ) -> Option<PathBuf> {
-        let (path, is_builtin) =
-            state.borrow().tl.resolve_import_path(import_token.as_ref(), file_to_import);
+        let (path, builtin) =
+            { state.borrow().tl.resolve_import_path(import_token.as_ref(), file_to_import) };
 
         let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
 
         if state.borrow().tl.all_documents.docs.get(path_canon.as_path()).is_some() {
             return Some(path_canon);
         }
-
-        // Drop &self lifetime attached to is_builtin, in order to mutable borrow self below
-        let builtin = is_builtin.map(|s| s.to_owned());
-        let is_builtin = builtin.is_some();
 
         if !state.borrow_mut().tl.all_documents.currently_loading.insert(path_canon.clone()) {
             state
@@ -305,11 +304,14 @@ impl TypeLoader {
         }
 
         let source_code_result = if let Some(builtin) = builtin {
-            Ok(String::from_utf8(builtin)
-                .expect("internal error: embedded file is not UTF-8 source code"))
-        } else if let Some(fallback) =
-            { state.borrow().tl.compiler_config.open_import_fallback.clone() }
-        {
+            Ok(String::from(
+                core::str::from_utf8(builtin)
+                    .expect("internal error: embedded file is not UTF-8 source code"),
+            ))
+        } else if let Some(fallback) = {
+            let fallback = state.borrow().tl.compiler_config.open_import_fallback.clone();
+            fallback
+        } {
             let result = fallback(path_canon.to_string_lossy().into()).await;
             result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
         } else {
@@ -337,7 +339,7 @@ impl TypeLoader {
             }
         };
 
-        Self::load_file_impl(state, &path_canon, &path, source_code, is_builtin).await;
+        Self::load_file_impl(state, &path_canon, &path, source_code, builtin.is_some()).await;
         let _ok =
             state.borrow_mut().tl.all_documents.currently_loading.remove(path_canon.as_path());
         assert!(_ok);
@@ -474,9 +476,9 @@ impl TypeLoader {
             })
     }
 
-    fn collect_dependencies<'a>(
-        doc: &'a syntax_nodes::Document,
-        doc_diagnostics: &'a mut BuildDiagnostics,
+    fn collect_dependencies<'a: 'b, 'b>(
+        state: &'a RefCell<BorrowedTypeLoader<'a>>,
+        doc: &'b syntax_nodes::Document,
     ) -> impl Iterator<Item = ImportedTypes> + 'a {
         doc.ImportSpecifier()
             .map(|import| {
@@ -494,7 +496,7 @@ impl TypeLoader {
                 let import_uri = match maybe_import_uri {
                     Some(import_uri) => import_uri,
                     None => {
-                        debug_assert!(doc_diagnostics.has_error());
+                        debug_assert!(state.borrow().diag.has_error());
                         return None;
                     }
                 };
@@ -502,7 +504,9 @@ impl TypeLoader {
                 let path_to_import = path_to_import.trim_matches('\"').to_string();
 
                 if path_to_import.is_empty() {
-                    doc_diagnostics
+                    state
+                        .borrow_mut()
+                        .diag
                         .push_error("Unexpected empty import url".to_owned(), &import_uri);
                     return None;
                 }
