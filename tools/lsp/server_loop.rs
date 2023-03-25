@@ -922,7 +922,7 @@ pub async fn reload_document(
 
 fn extract_rust_macro(content: String) -> Option<String> {
     let mut begin = 0;
-    loop {
+    let (open, close) = loop {
         if let Some(m) = content[begin..].find("slint") {
             // heuristics to find if we are not in a comment or a string literal. Not perfect, but should work in most cases
             if let Some(x) = content[begin..(begin + m)].rfind(['\\', '\n', '/', '\"']) {
@@ -943,32 +943,36 @@ fn extract_rust_macro(content: String) -> Option<String> {
             while content[begin..].starts_with(' ') {
                 begin += 1;
             }
-            if !content[begin..].starts_with('{') {
-                continue;
+            let Some(open) = content.as_bytes().get(begin) else { continue };
+            match open {
+                b'{' => break (SyntaxKind::LBrace, SyntaxKind::RBrace),
+                b'[' => break (SyntaxKind::LBracket, SyntaxKind::RBracket),
+                b'(' => break (SyntaxKind::LParent, SyntaxKind::RParent),
+                _ => continue,
             }
-            begin += 1;
-            break;
         } else {
             // No macro found, just return
             return None;
         }
-    }
+    };
 
-    // Now find the matching '}'
+    begin += 1;
+
+    // Now find the matching closing delimitor
     // Technically, we should be lexing rust, not slint
     let mut state = i_slint_compiler::lexer::LexState::default();
     let mut end = begin;
     let mut level = 0;
     while !content[end..].is_empty() {
         let len = match i_slint_compiler::parser::lex_next_token(&content[end..], &mut state) {
-            Some((len, i_slint_compiler::parser::SyntaxKind::LBrace)) => {
+            Some((len, x)) if x == open => {
                 level += 1;
                 len
             }
-            Some((_, i_slint_compiler::parser::SyntaxKind::RBrace)) if level == 0 => {
+            Some((_, x)) if x == close && level == 0 => {
                 break;
             }
-            Some((len, i_slint_compiler::parser::SyntaxKind::RBrace)) => {
+            Some((len, x)) if x == close => {
                 level -= 1;
                 len
             }
@@ -1024,6 +1028,18 @@ fn test_extract_rust_macro() {
         Some("   \n                   \n       world \n ".into())
     );
     assert_eq!(extract_rust_macro("foo\n\" slint! { hello }\"\n".into()), None);
+    assert_eq!(
+        extract_rust_macro(
+            "abc\n€\nslint !  (x /* \\\" )🦀*/ { () {}\n {} }xx =)-  ;}\n xxx \n yyy {}\n".into(),
+        ),
+        Some(
+            "   \n   \n          x /* \\\" )🦀*/ { () {}\n {} }xx =      \n     \n       \n".into(),
+        )
+    );
+    assert_eq!(
+        extract_rust_macro("abc slint![x slint!() [{[]}] s] abc".into()),
+        Some("           x slint!() [{[]}] s     ".into()),
+    );
 }
 
 fn get_document_and_offset<'a>(
