@@ -69,6 +69,11 @@ pub struct TypeLoader {
     all_documents: LoadedDocuments,
 }
 
+struct BorrowedTypeLoader<'a> {
+    tl: &'a mut TypeLoader,
+    diag: &'a mut BuildDiagnostics,
+}
+
 impl TypeLoader {
     pub fn new(
         global_type_registry: Rc<RefCell<TypeRegister>>,
@@ -119,33 +124,44 @@ impl TypeLoader {
     }
 
     /// Imports of files that don't have the .slint extension are returned.
-    pub fn load_dependencies_recursively<'a>(
+    pub async fn load_dependencies_recursively<'a>(
         &'a mut self,
         doc: &'a syntax_nodes::Document,
-        diagnostics: &'a mut BuildDiagnostics,
+        diag: &'a mut BuildDiagnostics,
         registry_to_populate: &'a Rc<RefCell<TypeRegister>>,
-    ) -> core::pin::Pin<Box<dyn std::future::Future<Output = (Vec<ImportedTypes>, Exports)> + 'a>>
+    ) -> (Vec<ImportedTypes>, Exports) {
+        let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
+        Self::load_dependencies_recursively_impl(&state, doc, registry_to_populate).await
+    }
+    fn load_dependencies_recursively_impl<'a: 'b, 'b>(
+        state: &'a RefCell<BorrowedTypeLoader<'a>>,
+        doc: &'b syntax_nodes::Document,
+        registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
+    ) -> core::pin::Pin<Box<dyn std::future::Future<Output = (Vec<ImportedTypes>, Exports)> + 'b>>
     {
         Box::pin(async move {
-            let dependencies = Self::collect_dependencies(doc, diagnostics).collect::<Vec<_>>();
+            let dependencies =
+                Self::collect_dependencies(doc, &mut state.borrow_mut().diag).collect::<Vec<_>>();
             let mut foreign_imports = vec![];
             let mut reexports = None;
             for mut import in dependencies {
                 if import.file.ends_with(".60") || import.file.ends_with(".slint") {
                     let file = import.file.as_str();
-                    let doc_path = match self
-                        .ensure_document_loaded(
-                            file,
-                            Some(import.import_uri_token.clone().into()),
-                            diagnostics,
-                        )
-                        .await
+                    let doc_path = match Self::ensure_document_loaded(
+                        state,
+                        file,
+                        Some(import.import_uri_token.clone().into()),
+                    )
+                    .await
                     {
                         Some(path) => path,
                         None => continue,
                     };
 
-                    let doc = self.all_documents.docs.get(&doc_path).unwrap();
+                    let mut state = state.borrow_mut();
+                    let state = &mut *state;
+
+                    let doc = state.tl.all_documents.docs.get(&doc_path).unwrap();
 
                     match &import.import_kind {
                         ImportKind::ImportList(imported_types) => {
@@ -157,10 +173,10 @@ impl TypeLoader {
                                     &import,
                                     imported_types,
                                     registry_to_populate,
-                                    diagnostics,
+                                    &mut state.diag,
                                 );
                             } else {
-                                diagnostics.push_error(
+                                state.diag.push_error(
                         "Import names are missing. Please specify which types you would like to import"
                             .into(),
                         &import.import_uri_token,
@@ -180,11 +196,11 @@ impl TypeLoader {
                                             compo_or_type.clone(),
                                         )
                                     }),
-                                    diagnostics,
+                                    &mut state.diag,
                                 );
                                 reexports = Some(exports);
                             } else {
-                                diagnostics.push_error(
+                                state.diag.push_error(
                                     "re-exporting modules is only allowed once per file".into(),
                                     export_module_syntax_node,
                                 );
@@ -192,7 +208,9 @@ impl TypeLoader {
                         }
                     }
                 } else {
-                    import.file = self
+                    import.file = state
+                        .borrow()
+                        .tl
                         .resolve_import_path(
                             Some(&import.import_uri_token.clone().into()),
                             &import.file,
@@ -211,9 +229,10 @@ impl TypeLoader {
         &mut self,
         file_to_import: &str,
         type_name: &str,
-        diagnostics: &mut BuildDiagnostics,
+        diag: &mut BuildDiagnostics,
     ) -> Option<Rc<object_tree::Component>> {
-        let doc_path = match self.ensure_document_loaded(file_to_import, None, diagnostics).await {
+        let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
+        let doc_path = match Self::ensure_document_loaded(&state, file_to_import, None).await {
             Some(doc_path) => doc_path,
             None => return None,
         };
@@ -259,17 +278,17 @@ impl TypeLoader {
             })
     }
 
-    async fn ensure_document_loaded<'b>(
-        &'b mut self,
+    async fn ensure_document_loaded<'a: 'b, 'b>(
+        state: &'a RefCell<BorrowedTypeLoader<'a>>,
         file_to_import: &'b str,
         import_token: Option<NodeOrToken>,
-        diagnostics: &'b mut BuildDiagnostics,
     ) -> Option<PathBuf> {
-        let (path, is_builtin) = self.resolve_import_path(import_token.as_ref(), file_to_import);
+        let (path, is_builtin) =
+            state.borrow().tl.resolve_import_path(import_token.as_ref(), file_to_import);
 
         let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
 
-        if self.all_documents.docs.get(path_canon.as_path()).is_some() {
+        if state.borrow().tl.all_documents.docs.get(path_canon.as_path()).is_some() {
             return Some(path_canon);
         }
 
@@ -277,8 +296,10 @@ impl TypeLoader {
         let builtin = is_builtin.map(|s| s.to_owned());
         let is_builtin = builtin.is_some();
 
-        if !self.all_documents.currently_loading.insert(path_canon.clone()) {
-            diagnostics
+        if !state.borrow_mut().tl.all_documents.currently_loading.insert(path_canon.clone()) {
+            state
+                .borrow_mut()
+                .diag
                 .push_error(format!("Recursive import of \"{}\"", path.display()), &import_token);
             return None;
         }
@@ -286,7 +307,9 @@ impl TypeLoader {
         let source_code_result = if let Some(builtin) = builtin {
             Ok(String::from_utf8(builtin)
                 .expect("internal error: embedded file is not UTF-8 source code"))
-        } else if let Some(fallback) = &self.compiler_config.open_import_fallback {
+        } else if let Some(fallback) =
+            { state.borrow().tl.compiler_config.open_import_fallback.clone() }
+        {
             let result = fallback(path_canon.to_string_lossy().into()).await;
             result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
         } else {
@@ -296,7 +319,7 @@ impl TypeLoader {
         let source_code = match source_code_result {
             Ok(source) => source,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                diagnostics.push_error(
+                state.borrow_mut().diag.push_error(
                     format!(
                         "Cannot find requested import \"{}\" in the include search path",
                         file_to_import
@@ -306,7 +329,7 @@ impl TypeLoader {
                 return None;
             }
             Err(err) => {
-                diagnostics.push_error(
+                state.borrow_mut().diag.push_error(
                     format!("Error reading requested import \"{}\": {}", path.display(), err),
                     &import_token,
                 );
@@ -314,8 +337,9 @@ impl TypeLoader {
             }
         };
 
-        self.load_file(&path_canon, &path, source_code, is_builtin, diagnostics).await;
-        let _ok = self.all_documents.currently_loading.remove(path_canon.as_path());
+        Self::load_file_impl(state, &path_canon, &path, source_code, is_builtin).await;
+        let _ok =
+            state.borrow_mut().tl.all_documents.currently_loading.remove(path_canon.as_path());
         assert!(_ok);
         Some(path_canon)
     }
@@ -329,19 +353,31 @@ impl TypeLoader {
         source_path: &Path,
         source_code: String,
         is_builtin: bool,
-        diagnostics: &mut BuildDiagnostics,
+        diag: &mut BuildDiagnostics,
+    ) {
+        let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
+        Self::load_file_impl(&state, path, source_path, source_code, is_builtin).await
+    }
+
+    async fn load_file_impl<'a>(
+        state: &'a RefCell<BorrowedTypeLoader<'a>>,
+        path: &Path,
+        source_path: &Path,
+        source_code: String,
+        is_builtin: bool,
     ) {
         let dependency_doc: syntax_nodes::Document =
-            crate::parser::parse(source_code, Some(source_path), diagnostics).into();
+            crate::parser::parse(source_code, Some(source_path), &mut state.borrow_mut().diag)
+                .into();
 
         let dependency_registry =
-            Rc::new(RefCell::new(TypeRegister::new(&self.global_type_registry)));
+            Rc::new(RefCell::new(TypeRegister::new(&state.borrow().tl.global_type_registry)));
         dependency_registry.borrow_mut().expose_internal_types = is_builtin;
-        let (foreign_imports, reexports) = self
-            .load_dependencies_recursively(&dependency_doc, diagnostics, &dependency_registry)
-            .await;
+        let (foreign_imports, reexports) =
+            Self::load_dependencies_recursively_impl(state, &dependency_doc, &dependency_registry)
+                .await;
 
-        if diagnostics.has_error() {
+        if state.borrow().diag.has_error() {
             // If there was error (esp parse error) we don't want to report further error in this document.
             // because they might be nonsense (TODO: we should check that the parse error were really in this document).
             // But we still want to create a document to give better error messages in the root document.
@@ -357,19 +393,20 @@ impl TypeLoader {
                 &mut ignore_diag,
                 &dependency_registry,
             );
-            self.all_documents.docs.insert(path.to_owned(), doc);
+            state.borrow_mut().tl.all_documents.docs.insert(path.to_owned(), doc);
             return;
         }
+        let mut state = state.borrow_mut();
+        let state = &mut *state;
         let doc = crate::object_tree::Document::from_node(
             dependency_doc,
             foreign_imports,
             reexports,
-            diagnostics,
+            &mut state.diag,
             &dependency_registry,
         );
-        crate::passes::run_import_passes(&doc, self, diagnostics);
-
-        self.all_documents.docs.insert(path.to_owned(), doc);
+        crate::passes::run_import_passes(&doc, &state.tl, &mut state.diag);
+        state.tl.all_documents.docs.insert(path.to_owned(), doc);
     }
 
     fn register_imported_types(
