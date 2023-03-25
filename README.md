@@ -79,7 +79,7 @@ with special needs.
 
 ### Stay up to date
 
-Follow [@slint-ui](https://twitter.com/slint_ui) on twitter or keep an eye out
+Follow [@slint-ui](https://twitter.com/slint_ui) on Twitter or keep an eye out
 for our [🥠 Weekly Status Updates](https://slint-ui.com/thisweek/).
 
 ## Documentation
