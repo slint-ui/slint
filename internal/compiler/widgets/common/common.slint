@@ -87,7 +87,7 @@ export component TextEdit inherits ScrollView {
     }
 }
 
-export component AboutSlint inherits Rectangle {
+export component AboutSlint {
     VerticalLayout {
         padding: 12px;
         spacing: 8px;
@@ -101,6 +101,7 @@ export component AboutSlint inherits Rectangle {
         Image {
             source: StyleMetrics.dark-color-scheme ? @image-url("slint-logo-dark.svg") : @image-url("slint-logo-light.svg");
             preferred-width: 256px;
+            min-height: 48px;
         }
         Text {
             text: "Version 1.0.0\nhttps://slint-ui.com/";
