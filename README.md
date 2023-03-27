@@ -173,7 +173,7 @@ We have a few tools to help with the development of .slint files:
 - A [**slint-viewer**](./tools/viewer) tool which displays the .slint files. The
   `--auto-reload` argument makes it easy to preview your UI while you are
   working on it (when using the LSP preview is not possible).
-- An [**online editor**](https://slint-ui.com/editor) to try out .slint syntax
+- [**SlintPad**](https://slint-ui.com/editor), an online editor to try out .slint syntax
   without installing anything ([sources](./tools/online_editor)).
 - An [**updater**](./tools/updater) to convert the .slint files from
   previous versions to newer versions.
