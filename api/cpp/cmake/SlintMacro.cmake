@@ -6,8 +6,9 @@ set(DEFAULT_SLINT_EMBED_RESOURCES as-absolute-path CACHE STRING
     "The default resource embedding option to pass to the Slint compiler")
 set_property(CACHE DEFAULT_SLINT_EMBED_RESOURCES PROPERTY STRINGS
     "as-absolute-path" "embed-files" "embed-for-software-renderer")
-define_property(TARGET PROPERTY SLINT_EMBED_RESOURCES
-    INITIALIZE_FROM_VARIABLE DEFAULT_SLINT_EMBED_RESOURCES)
+## This requires CMake 3.23 and does not work in 3.26 AFAICT.
+# define_property(TARGET PROPERTY SLINT_EMBED_RESOURCES
+#     INITIALIZE_FROM_VARIABLE DEFAULT_SLINT_EMBED_RESOURCES)
 
 function(SLINT_TARGET_SOURCES target)
     foreach (it IN ITEMS ${ARGN})
@@ -15,7 +16,9 @@ function(SLINT_TARGET_SOURCES target)
         get_filename_component(_SLINT_ABSOLUTE ${it} REALPATH BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
         get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
 
-        set(embed "$<TARGET_PROPERTY:${target},SLINT_EMBED_RESOURCES>")
+        set(t_prop "$<TARGET_PROPERTY:${target},SLINT_EMBED_RESOURCES>")
+        set(global_fallback "${DEFAULT_SLINT_EMBED_RESOURCES}")
+        set(embed "$<IF:$<STREQUAL:${t_prop},>,${global_fallback},${t_prop}>")
 
         if(CMAKE_GENERATOR STREQUAL "Ninja")
             # this code is inspired from the llvm source

@@ -14,7 +14,7 @@ In a new directory, we create a new `CMakeLists.txt` file.
 
 ```cmake
 # CMakeLists.txt
-cmake_minimum_required(VERSION 3.23)
+cmake_minimum_required(VERSION 3.21)
 project(memory LANGUAGES CXX)
 
 include(FetchContent)
