@@ -26,7 +26,9 @@ of including them in Rust:
 
  - The `.slint` code is [inline in a macro](#the-slint-code-in-a-macro).
  - The `.slint` code in [external files compiled with `build.rs`](#the-slint-code-in-external-files-is-compiled-with-buildrs)
- - The `.slint` code is loaded dynamically at run-time from the file system, by using the [interpreter API](https://docs.rs/slint-interpreter).
+*/
+#![doc = concat!(" - The `.slint` code is loaded dynamically at run-time from the file system, by using the [interpreter API](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint_interpreter/).")]
+/*!
 
 With the first two methods, the markup code is translated to Rust code and each component is turned into a Rust
 struct with functions. Use these functions to instantiate and show the component, and
