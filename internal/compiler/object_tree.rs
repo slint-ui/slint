@@ -287,6 +287,10 @@ pub struct Component {
     /// if it is a global singleton and exported.
     pub exported_global_names: RefCell<Vec<ExportedName>>,
 
+    /// The list of properties (name and type) declared as private in the component.
+    /// This is used to issue better error in the generated code if the property is used.
+    pub private_properties: RefCell<Vec<(String, Type)>>,
+
     /// This is the main entry point for the code generators. Such a component
     /// should have the full API, etc.
     pub is_root_component: Cell<bool>,

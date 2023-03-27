@@ -308,6 +308,7 @@ fn duplicate_sub_component(
         popup_windows: Default::default(),
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
         is_root_component: Default::default(),
+        private_properties: Default::default(),
     };
 
     let new_component = Rc::new(new_component);

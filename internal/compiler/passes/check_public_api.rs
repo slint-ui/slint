@@ -27,7 +27,9 @@ fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDi
     let mut pa = root_elem.property_analysis.borrow_mut();
     root_elem.property_declarations.iter_mut().for_each(|(n, d)| {
         if d.property_type.ok_for_public_api() {
-            if d.visibility != PropertyVisibility::Private {
+            if d.visibility == PropertyVisibility::Private {
+                root_component.private_properties.borrow_mut().push((n.clone(), d.property_type.clone()));
+            } else {
                 d.expose_in_public_api = true;
                 if d.visibility != PropertyVisibility::Output {
                     pa.entry(n.to_string()).or_default().is_set = true;

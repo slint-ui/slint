@@ -60,6 +60,7 @@ pub struct GlobalComponent {
     pub init_values: Vec<Option<BindingExpression>>,
     pub const_properties: Vec<bool>,
     pub public_properties: PublicProperties,
+    pub private_properties: PrivateProperties,
     /// true if we should expose the global in the generated API
     pub exported: bool,
     /// The extra names under which this component should be accessible
@@ -305,6 +306,7 @@ pub struct ItemTree {
 #[derive(Debug)]
 pub struct PublicComponent {
     pub public_properties: PublicProperties,
+    pub private_properties: PrivateProperties,
     pub item_tree: ItemTree,
     pub sub_components: Vec<Rc<SubComponent>>,
     pub globals: Vec<GlobalComponent>,
@@ -375,3 +377,4 @@ pub struct PublicProperty {
     pub read_only: bool,
 }
 pub type PublicProperties = Vec<PublicProperty>;
+pub type PrivateProperties = Vec<(String, Type)>;
