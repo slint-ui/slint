@@ -64,9 +64,14 @@ impl BoxShadowOptions {
         if color.alpha() == 0 {
             return None;
         }
+        let width = box_shadow.width() * scale_factor;
+        let height = box_shadow.height() * scale_factor;
+        if width.get() < 1. || height.get() < 1. {
+            return None;
+        }
         Some(Self {
-            width: box_shadow.width() * scale_factor,
-            height: box_shadow.height() * scale_factor,
+            width,
+            height,
             color,
             blur: box_shadow.blur() * scale_factor, // This effectively becomes the blur radius, so scale to physical pixels
             radius: box_shadow.border_radius() * scale_factor,
