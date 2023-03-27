@@ -46,6 +46,7 @@ pub fn lower_to_item_tree(component: &Rc<Component>) -> PublicComponent {
             })
             .collect(),
         public_properties,
+        private_properties: component.private_properties.borrow().clone(),
     };
     super::optim_passes::run_passes(&root);
     root
@@ -655,6 +656,7 @@ fn lower_global(
         init_values,
         const_properties,
         public_properties,
+        private_properties: global.private_properties.borrow().clone(),
         exported: !global.exported_global_names.borrow().is_empty(),
         aliases: global.global_aliases(),
         is_builtin,

@@ -722,8 +722,12 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         };
     }
 
-    let declarations = generate_public_api_for_properties(&component.public_properties, &ctx);
-    component_struct.members.extend(declarations.into_iter().map(|decl| (Access::Public, decl)));
+    generate_public_api_for_properties(
+        &mut component_struct.members,
+        &component.public_properties,
+        &component.private_properties,
+        &ctx,
+    );
 
     component_struct.members.push((
         Access::Public,
@@ -1884,8 +1888,12 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
         Declaration::Var(Var { ty: root_ptr_type, name: "root".to_owned(), ..Default::default() }),
     ));
 
-    let declarations = generate_public_api_for_properties(&global.public_properties, &ctx);
-    global_struct.members.extend(declarations.into_iter().map(|decl| (Access::Public, decl)));
+    generate_public_api_for_properties(
+        &mut global_struct.members,
+        &global.public_properties,
+        &global.private_properties,
+        &ctx,
+    );
     global_struct
         .members
         .extend(generate_functions(&global.functions, &ctx).map(|x| (Access::Public, x)));
@@ -1923,11 +1931,12 @@ fn generate_functions<'a>(
 }
 
 fn generate_public_api_for_properties(
+    declarations: &mut Vec<(Access, Declaration)>,
     public_properties: &llr::PublicProperties,
+    private_properties: &llr::PrivateProperties,
     ctx: &EvaluationContext,
-) -> Vec<Declaration> {
-    let mut declarations = Vec::new();
-    for p in public_properties.iter() {
+) {
+    for p in public_properties {
         let prop_ident = ident(&p.name);
 
         let access = access_member(&p.prop, ctx);
@@ -1943,33 +1952,39 @@ fn generate_public_api_for_properties(
                     (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 ),
             ];
-            declarations.push(Declaration::Function(Function {
-                name: format!("invoke_{}", ident(&p.name)),
-                signature: format!(
-                    "({}) const -> {}",
-                    param_types
-                        .iter()
-                        .enumerate()
-                        .map(|(i, ty)| format!("{} arg_{}", ty, i))
-                        .join(", "),
-                    return_type
-                ),
-                statements: Some(callback_emitter),
-                ..Default::default()
-            }));
-            declarations.push(Declaration::Function(Function {
-                name: format!("on_{}", ident(&p.name)),
-                template_parameters: Some(format!(
-                    "std::invocable<{}> Functor",
-                    param_types.join(", "),
-                )),
-                signature: "(Functor && callback_handler) const".into(),
-                statements: Some(vec![
-                    "[[maybe_unused]] auto self = this;".into(),
-                    format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
-                ]),
-                ..Default::default()
-            }));
+            declarations.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: format!("invoke_{prop_ident}"),
+                    signature: format!(
+                        "({}) const -> {}",
+                        param_types
+                            .iter()
+                            .enumerate()
+                            .map(|(i, ty)| format!("{} arg_{}", ty, i))
+                            .join(", "),
+                        return_type
+                    ),
+                    statements: Some(callback_emitter),
+                    ..Default::default()
+                }),
+            ));
+            declarations.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: format!("on_{}", ident(&p.name)),
+                    template_parameters: Some(format!(
+                        "std::invocable<{}> Functor",
+                        param_types.join(", "),
+                    )),
+                    signature: "(Functor && callback_handler) const".into(),
+                    statements: Some(vec![
+                        "[[maybe_unused]] auto self = this;".into(),
+                        format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
+                    ]),
+                    ..Default::default()
+                }),
+            ));
         } else if let Type::Function { return_type, args } = &p.ty {
             let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             let ret = return_type.cpp_type().unwrap();
@@ -1981,47 +1996,105 @@ fn generate_public_api_for_properties(
                     (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 ),
             ];
-            declarations.push(Declaration::Function(Function {
-                name: format!("invoke_{}", ident(&p.name)),
-                signature: format!(
-                    "({}) const -> {ret}",
-                    param_types
-                        .iter()
-                        .enumerate()
-                        .map(|(i, ty)| format!("{} arg_{}", ty, i))
-                        .join(", "),
-                ),
-                statements: Some(call_code),
-                ..Default::default()
-            }));
+            declarations.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: format!("invoke_{}", ident(&p.name)),
+                    signature: format!(
+                        "({}) const -> {ret}",
+                        param_types
+                            .iter()
+                            .enumerate()
+                            .map(|(i, ty)| format!("{} arg_{}", ty, i))
+                            .join(", "),
+                    ),
+                    statements: Some(call_code),
+                    ..Default::default()
+                }),
+            ));
         } else {
             let cpp_property_type = p.ty.cpp_type().expect("Invalid type in public properties");
             let prop_getter: Vec<String> = vec![
                 "[[maybe_unused]] auto self = this;".into(),
                 format!("return {}.get();", access),
             ];
-            declarations.push(Declaration::Function(Function {
-                name: format!("get_{}", &prop_ident),
-                signature: format!("() const -> {}", &cpp_property_type),
-                statements: Some(prop_getter),
-                ..Default::default()
-            }));
+            declarations.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: format!("get_{}", &prop_ident),
+                    signature: format!("() const -> {}", &cpp_property_type),
+                    statements: Some(prop_getter),
+                    ..Default::default()
+                }),
+            ));
 
             if !p.read_only {
                 let prop_setter: Vec<String> = vec![
                     "[[maybe_unused]] auto self = this;".into(),
                     property_set_value_code(&p.prop, "value", ctx) + ";",
                 ];
-                declarations.push(Declaration::Function(Function {
-                    name: format!("set_{}", &prop_ident),
-                    signature: format!("(const {} &value) const", &cpp_property_type),
-                    statements: Some(prop_setter),
-                    ..Default::default()
-                }));
+                declarations.push((
+                    Access::Public,
+                    Declaration::Function(Function {
+                        name: format!("set_{}", &prop_ident),
+                        signature: format!("(const {} &value) const", &cpp_property_type),
+                        statements: Some(prop_setter),
+                        ..Default::default()
+                    }),
+                ));
+            } else {
+                declarations.push((
+                    Access::Private,
+                    Declaration::Function(Function {
+                        name: format!("set_{}", &prop_ident),
+                        signature: format!(
+                            "(const {cpp_property_type} &) const = delete /* property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter */", p.name
+                        ),
+                        ..Default::default()
+                    }),
+                ));
             }
         }
     }
-    declarations
+
+    for (name, ty) in private_properties {
+        let prop_ident = ident(name);
+
+        if let Type::Function { args, .. } = &ty {
+            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
+            declarations.push((
+                Access::Private,
+                Declaration::Function(Function {
+                    name: format!("invoke_{prop_ident}"),
+                    signature: format!(
+                        "({param_types}) const = delete /* the function '{name}' is declared as private. Declare it as 'public' */",
+                    ),
+                    ..Default::default()
+                }),
+            ));
+        } else {
+            declarations.push((
+                Access::Private,
+                Declaration::Function(Function {
+                    name: format!("get_{prop_ident}"),
+                    signature: format!(
+                        "() const = delete /* the property '{name}' is declared as private. Declare it as 'in', 'out', or 'in-out' to make it public */",
+                    ),
+                    ..Default::default()
+                }),
+            ));
+            declarations.push((
+                Access::Private,
+                Declaration::Function(Function {
+                    name: format!("set_{}", &prop_ident),
+                    signature: format!(
+                        "(const auto &) const = delete /* property '{name}' is declared as private. Declare it as 'in' or 'in-out' to make it public */",
+                    ),
+                    ..Default::default()
+                }),
+            ));
+        }
+    }
 }
 
 fn follow_sub_component_path<'a>(

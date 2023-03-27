@@ -336,8 +336,12 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
         argument_types: &[],
     };
 
-    let property_and_callback_accessors =
-        public_api(&llr.public_properties, quote!(vtable::VRc::as_pin_ref(&self.0)), &ctx);
+    let property_and_callback_accessors = public_api(
+        &llr.public_properties,
+        &llr.private_properties,
+        quote!(vtable::VRc::as_pin_ref(&self.0)),
+        &ctx,
+    );
 
     let global_names =
         llr.globals.iter().map(|g| format_ident!("global_{}", ident(&g.name))).collect::<Vec<_>>();
@@ -539,6 +543,7 @@ fn handle_property_init(
 /// Public API for Global and root component
 fn public_api(
     public_properties: &llr::PublicProperties,
+    private_properties: &llr::PrivateProperties,
     self_init: TokenStream,
     ctx: &EvaluationContext,
 ) -> TokenStream {
@@ -603,8 +608,8 @@ fn public_api(
                 }
             ));
 
+            let setter_ident = format_ident!("set_{}", prop_ident);
             if !p.read_only {
-                let setter_ident = format_ident!("set_{}", prop_ident);
                 let set_value = property_set_value_tokens(&p.prop, quote!(value), ctx);
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
@@ -614,7 +619,28 @@ fn public_api(
                         #set_value
                     }
                 ));
+            } else {
+                property_and_callback_accessors.push(quote!(
+                    #[allow(dead_code)] fn #setter_ident(&self, _read_only_property : ()) { }
+                ));
             }
+        }
+    }
+
+    for (name, ty) in private_properties {
+        let prop_ident = ident(name);
+        if let Type::Function { .. } = ty {
+            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            property_and_callback_accessors.push(
+                quote!( #[allow(dead_code)] fn #caller_ident(&self, _private_function: ()) {} ),
+            );
+        } else {
+            let getter_ident = format_ident!("get_{}", prop_ident);
+            let setter_ident = format_ident!("set_{}", prop_ident);
+            property_and_callback_accessors.push(quote!(
+                #[allow(dead_code)] fn #getter_ident(&self, _private_property: ()) {}
+                #[allow(dead_code)] fn #setter_ident(&self, _private_property: ()) {}
+            ));
         }
     }
 
@@ -1152,7 +1178,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
     }
 
     let public_interface = global.exported.then(|| {
-        let property_and_callback_accessors = public_api(&global.public_properties, quote!(self.0.as_ref()), &ctx);
+        let property_and_callback_accessors = public_api(&global.public_properties, &global.private_properties, quote!(self.0.as_ref()), &ctx);
         let public_component_id = ident(&global.name);
         let root_component_id = self::public_component_id(&root.item_tree.root);
         let global_id = format_ident!("global_{}", public_component_id);
