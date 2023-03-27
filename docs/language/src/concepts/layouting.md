@@ -81,7 +81,8 @@ don't have content and default to fill their parent element when they do not hav
 
 Layouts are also defaulting to fill the parent, regardless of their own preferred size.
 
-Other elements (including custom ones without base) default to using their preferred size.
+Other elements (including custom ones without base) default to using the preferred size or the
+minimum size (whichever is bigger).
 
 ### Preferred size
 
@@ -89,7 +90,8 @@ The preferred size of elements can be specified with the `preferred-width` and `
 
 When not explicitly set, the preferred size depends on the children, and is the preferred size of the
 child that has the bigger preferred size, whose `x` and `y` property are not set.
-The preferred size is therefore computed from the child to the parent, just like other constraints (maximum and minimum size), unless explicitly overwritten.
+The preferred size is therefore computed from the child to the parent, just like other
+constraints (maximum and minimum size), unless explicitly overwritten.
 
 A special case is to set the preferred size to be the size of the parent using `100%` as value.
 For example,this component will use the size of the parent by default:
@@ -101,6 +103,8 @@ component MyComponent {
     // ...
 }
 ```
+
+If there is nothing specified explicitly or implicitly, the default is 100%
 
 ## Automatic Placement Using Layouts
 
