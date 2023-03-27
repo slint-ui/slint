@@ -103,7 +103,7 @@ pub fn embed_glyphs<'a>(
                         fontdb.faces().get(face_count).map(|face_info| face_info.id)
                     },
                     Err(err) => {
-                        diag.push_warning(
+                        diag.push_error(
                             format!("Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}", path.display(), err),
                             &generic_diag_location,
                         );
@@ -111,7 +111,7 @@ pub fn embed_glyphs<'a>(
                     },
                 }
             } else {
-                diag.push_warning(
+                diag.push_error(
                     "The environment variable `SLINT_DEFAULT_FONT` is set, but its value is not referring to a file".into(),
                     &generic_diag_location,
                 );
