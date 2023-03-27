@@ -1,8 +1,8 @@
-# Slint Online Editor
+# SlintPad
 
-This directory contains the frontend code for the online code editor
-which is hosted in https://slint-ui.com/editor (last stable) and
-https://slint-ui.com/snapshots/master/editor (nightly)
+This directory contains the frontend code for SlintPad, the online code editor
+which is hosted on https://slint-ui.com/editor (last stable) and
+https://slint-ui.com/snapshots/master/editor (nightly).
 
 To try it out locally type this in this directory:
 

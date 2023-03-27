@@ -10,7 +10,7 @@ describe("Smoke test", () => {
         // Other UI elements
         cy.get(".edit-area").get(".monaco-editor-background");
         cy.get(".content.welcome").contains(
-            "Welcome to the Slint Online Editor",
+            "Welcome to SlintPad",
         );
 
         // Menu bar:

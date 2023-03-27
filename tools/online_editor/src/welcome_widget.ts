@@ -13,7 +13,7 @@ export class WelcomeWidget extends Widget {
         content.innerHTML = `
       <div>
       <center>
-      <h1>Welcome to the Slint Online Editor</h1>
+      <h1>Welcome to SlintPad</h1>
 
       <a href="https://slint-ui.com/" target="_blank"><img src="https://slint-ui.com/logo/slint-logo-simple-light.svg"></a>
       </center>
@@ -23,11 +23,11 @@ export class WelcomeWidget extends Widget {
       interfaces. This language is easy to learn, to read and write, and provides a powerful way to describe
       graphical elements. For more details, check out the <a href="https://slint-ui.com/docs/slint" target="_blank">Slint Language Documentation</a>.</p>
 
-      <p>Use this Online Editor to quickly try out Slint code snippets, with auto-completion, code navigation, and live-preview.</p>
+      <p>Use SlintPad to quickly try out Slint code snippets, with auto-completion, code navigation, and live-preview.</p>
       <p>The same features are also available in the <a href="https://marketplace.visualstudio.com/items?itemName=Slint.slint" target="_blank">Visual Studio Code extension</a>,
       which runs in your local VS code installation as well as in the <a href="https://vscode.dev/" target="_blank">Visual Studio Code for the Web</a>.</p>
 
-      <p>This Online Editor is licensed under the GNU GPLv3. The source code is located in our <a href="https://github.com/slint-ui/slint/tree/master/tools/online_editor" target="_blank">GitHub repository</a>.
+      <p>SlintPad is licensed under the GNU GPLv3. The source code is located in our <a href="https://github.com/slint-ui/slint/tree/master/tools/online_editor" target="_blank">GitHub repository</a>.
       </div>
       `;
         node.appendChild(content);
