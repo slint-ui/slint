@@ -152,12 +152,16 @@ impl super::Surface for OpenGLSurface {
     fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
         self.ensure_context_current()?;
 
-        let width = size.width.try_into().map_err(|e| {
-            format!("Skia: Attempting to resize window surface with width that doesn't fit into U32: {e}")
-        })?;
-        let height = size.height.try_into().map_err(|e| {
+        let width = size.width.try_into().map_err(|_| {
             format!(
-                "Skia: Attempting to resize window surface with height that doesn't fit into U32: {e}"
+                "Attempting to resize OpenGL window surface with an invalid width: {}",
+                size.width
+            )
+        })?;
+        let height = size.height.try_into().map_err(|_| {
+            format!(
+                "Attempting to resize OpenGL window surface with an invalid height: {}",
+                size.height
             )
         })?;
 

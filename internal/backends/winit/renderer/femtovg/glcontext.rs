@@ -125,12 +125,16 @@ impl OpenGLContext {
 
         let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
 
-        let width: std::num::NonZeroU32 = size.width.try_into().map_err(|e| {
-            format!("Attempting to create window surface with width that doesn't fit into U32: {e}")
-        })?;
-        let height: std::num::NonZeroU32 = size.height.try_into().map_err(|e| {
+        let width: std::num::NonZeroU32 = size.width.try_into().map_err(|_| {
             format!(
-                "Attempting to create window surface with height that doesn't fit into U32: {e}"
+                "Attempting to create an OpenGL window surface with an invalid width: {}",
+                size.width
+            )
+        })?;
+        let height: std::num::NonZeroU32 = size.height.try_into().map_err(|_| {
+            format!(
+                "Attempting to create an OpenGL window surface with an invalid height: {}",
+                size.height
             )
         })?;
 
