@@ -10,17 +10,7 @@ We're going to use `slint-ui` as `npm` dependency.
 In a new directory, we create a new `package.json` file.
 
 ```json
-{
-    "name": "memory",
-    "version": "1.0.0",
-    "main": "main.js",
-    "dependencies": {
-        "slint-ui": "^1.0.0"
-    },
-    "scripts": {
-        "start": "node ."
-    }
-}
+{{#include package.json}}
 ```
 
 This should look familiar to people familiar with nodejs. We see that this package.json
