@@ -11,7 +11,7 @@ use std::hash::Hash;
 use std::rc::{Rc, Weak};
 
 use crate::langtype::{ElementType, Type};
-use crate::object_tree::{Element, ElementRc, PropertyAnalysis};
+use crate::object_tree::{Element, ElementRc, PropertyAnalysis, PropertyVisibility};
 
 /// Reference to a property or callback of a given name within an element.
 #[derive(Clone)]
@@ -66,7 +66,7 @@ impl NamedReference {
         let mut elem = self.element();
         let e = elem.borrow();
         if let Some(decl) = e.property_declarations.get(self.name()) {
-            if decl.expose_in_public_api {
+            if decl.expose_in_public_api && decl.visibility != PropertyVisibility::Input {
                 // could be set by the public API
                 return false;
             }
