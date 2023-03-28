@@ -6,13 +6,13 @@ import { ChartAxis, AxisLabel, AxisValue } from "chart_axis.slint";
 import { ChartPattern, BarBackground } from "chart_pattern.slint";
 
 component UpBar {
-    VerticalLayout {  
-        Rectangle {  
+    VerticalLayout {
+        Rectangle {
             height: 0.6 * root.height;
             background: Theme.palette.alternative-bar-gradient;
         }
- 
-        Rectangle {  
+
+        Rectangle {
             height: 0.4 * root.height;
             background: Theme.palette.alternative-light-bar-gradient;
         }
@@ -20,18 +20,18 @@ component UpBar {
 }
 
 component DownBar {
-    VerticalLayout {  
-        Rectangle {  
+    VerticalLayout {
+        Rectangle {
             height: 0.37 * root.height;
             background: Theme.palette.inverted-bar-gradient;
         }
- 
-        Rectangle {  
+
+        Rectangle {
             height: 0.26 * root.height;
             background: Theme.palette.inverted-alternative-bar-gradient;
         }
 
-        Rectangle {  
+        Rectangle {
             height: 0.37 * root.height;
             background: Theme.palette.inverted-alternative-bar-gradient;
         }
@@ -40,7 +40,7 @@ component DownBar {
 
 export component BalanceChart {
     private property <length> zero: root.height * (1 - (0. - min) / (max - min));
-    
+
     in property <float> min;
     in property <float> max;
     in property <[string]> x-axis-model;
@@ -48,19 +48,25 @@ export component BalanceChart {
     in property <string> y-unit;
     in property <[float]> model;
 
-    i-zero-pattern := ChartPattern {  
+    i-zero-pattern := ChartPattern {
+        preferred-width: 100%;
+        preferred-height: 100%;
         y: 0px;
         count: x-axis-model.length;
         height: root.zero;
     }
 
-    ChartPattern {  
+    ChartPattern {
+        preferred-width: 100%;
+        preferred-height: 100%;
         y: i-zero-pattern.height;
         count: x-axis-model.length;
         height: root.height - i_zero_pattern.height;
     }
 
-    ChartAxis {  
+    ChartAxis {
+        preferred-width: 100%;
+        preferred-height: 100%;
         x-model: x-axis-model;
         y-model: y-axis-model;
         vertical-stretch: 1;
@@ -69,19 +75,21 @@ export component BalanceChart {
         y-unit: root.y-unit;
     }
 
-    HorizontalLayout {  
+    HorizontalLayout {
         padding-left: 6px;
         padding-right: 6px;
         spacing: 10px;
 
         for value[index] in model : Rectangle {
             if(value > 0.0) : UpBar {
+                width: 100%;
                 y: zero - self.height;
                 height: parent.height * (value / (root.max - root.min));
             }
 
             if(value < 0.0) : DownBar {
                 y: zero;
+                width: 100%;
                 height: parent.height * (-1 * value / (root.max - root.min));
             }
         }

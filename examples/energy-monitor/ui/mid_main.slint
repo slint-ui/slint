@@ -63,13 +63,17 @@ export component MidMain {
 
         i-menu := Menu {
             stays-open: true;
-
+            preferred-width: 100%;
+            preferred-height: 100%;
             start-y: 35px;
             end-y: 75px;
             menu-width: root.width / 3;
             menu-height: root.height - 75px;
 
             i-menu-page := MenuPage {
+                preferred-width: 100%;
+                preferred-height: 100%;
+
                 page-changed(index) => {
                     i-menu.hide();
                     show-page(index);
