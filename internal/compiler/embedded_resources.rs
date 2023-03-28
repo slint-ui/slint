@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 #[cfg(feature = "software-renderer")]
-pub use tiny_skia::IntRect as Rect;
+pub use resvg::tiny_skia::IntRect as Rect;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Size {

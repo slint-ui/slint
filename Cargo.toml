@@ -86,6 +86,9 @@ resolver="2"
 [workspace.package]
 rust-version = "1.66"
 
+[workspace.dependencies]
+resvg = { version= "0.30.0", default-features = false }
+
 [profile.release]
 lto = true
 panic = "abort"
