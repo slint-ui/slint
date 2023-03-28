@@ -167,17 +167,25 @@
 
 .dialog {
     font: var(--default-font);
+    padding: 0px;
 }
 
-.dialog .close_button {
-    position: absolute;
-    top: 0;
-    right: 0;
-    margin: 5px;
+.dialog .dialog_content {
+    padding: 5px;
+}
+
+.dialog .titlebar {
+    border-bottom: 1px solid black;
+    text-align: right;
+}
+
+.dialog .titlebar .close_button {
+    padding: 5px;
 }
 
 .dialog .button_row {
-    padding-top: 20px;
+    padding: 5px;
+    margin-top: 10px;
     text-align: center;
 }
 
