@@ -20,6 +20,7 @@ import {
 import {
     report_export_url_dialog,
     report_export_error_dialog,
+    export_gist_dialog,
 } from "./dialogs";
 
 import { CommandRegistry } from "@lumino/commands";
@@ -185,9 +186,11 @@ function create_share_menu(editor: EditorWidget): Menu {
             );
         },
         execute: async () => {
-            export_to_gist(editor, "Made with Slint", true)
-                .then((url) => report_export_url_dialog(url))
-                .catch((e) => report_export_error_dialog(e));
+            export_gist_dialog((desc, is_public) => {
+                export_to_gist(editor, desc, is_public)
+                    .then((url) => report_export_url_dialog(url))
+                    .catch((e) => report_export_error_dialog(e));
+            });
         },
     });
 
