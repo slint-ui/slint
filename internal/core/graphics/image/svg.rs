@@ -3,11 +3,12 @@
 
 #![cfg(feature = "svg")]
 
+use super::{ImageCacheKey, SharedImageBuffer, SharedPixelBuffer};
 use crate::lengths::PhysicalPx;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::SharedString;
-
-use super::{ImageCacheKey, SharedImageBuffer, SharedPixelBuffer};
+use resvg::{tiny_skia, usvg};
+use usvg::TreeParsing;
 
 pub struct ParsedSVG {
     svg_tree: usvg::Tree,
@@ -45,7 +46,7 @@ impl ParsedSVG {
         size: euclid::Size2D<u32, PhysicalPx>,
     ) -> Result<SharedImageBuffer, usvg::Error> {
         let tree = &self.svg_tree;
-        let fit = usvg::FitTo::Size(size.width, size.height);
+        let fit = resvg::FitTo::Size(size.width, size.height);
         let size = fit.fit_to(tree.size.to_screen_size()).ok_or(usvg::Error::InvalidSize)?;
         let mut buffer = SharedPixelBuffer::new(size.width(), size.height());
         let skia_buffer =

@@ -130,7 +130,6 @@ fn embed_image(
 }
 
 #[cfg(feature = "software-renderer")]
-
 trait Pixel {
     //fn alpha(&self) -> f32;
     //fn rgb(&self) -> (u8, u8, u8);
@@ -272,6 +271,8 @@ fn load_image(
     file: crate::fileaccess::VirtualFile,
     scale_factor: f64,
 ) -> image::ImageResult<(image::RgbaImage, Size)> {
+    use resvg::{tiny_skia, usvg};
+    use usvg::TreeParsing;
     if file.path.ends_with(".svg") || file.path.ends_with(".svgz") {
         let options = usvg::Options::default();
         let tree = match file.builtin_contents {
@@ -303,7 +304,7 @@ fn load_image(
                 .ok_or_else(size_error)?;
         resvg::render(
             &tree,
-            usvg::FitTo::Original,
+            resvg::FitTo::Original,
             tiny_skia::Transform::from_scale(scale_factor as _, scale_factor as _),
             skia_buffer,
         )
