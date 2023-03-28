@@ -28,14 +28,14 @@ two tiles are opened. If they match, the `solved` property is set to true in the
 match, start a timer that will close them after one second. While the timer is running, we disable every tile so
 one can't click anything during this time.
 
-Insert this code before the `main_window.run()` call:
+Insert this code before the `mainWindow.run()` call:
 
 ```js
 {{#include main_game_logic.js:game_logic}}
 ```
 
-Notice that we take a weak pointer of our `main_window`. This is very
-important because capturing a copy of the `main_window` itself within the callback handler would result in a circular ownership.
+Notice that we take a weak pointer of our `mainWindow`. This is very
+important because capturing a copy of the `mainWindow` itself within the callback handler would result in a circular ownership.
 The `MainWindow` owns the callback handler, which itself owns a reference to the `MainWindow`, which must be weak
 instead of strong to avoid a memory leak.
 

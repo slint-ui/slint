@@ -5,9 +5,9 @@
 // main.js
 let slint = require("slint-ui");
 let ui = require("./memory.slint");
-let window = new ui.MainWindow();
+let mainWindow = new ui.MainWindow();
 
-let initial_tiles = window.memory_tiles;
+let initial_tiles = mainWindow.memory_tiles;
 let tiles = initial_tiles.concat(initial_tiles.map((tile) => Object.assign({}, tile)));
 
 for (let i = tiles.length - 1; i > 0; i--) {
@@ -16,8 +16,8 @@ for (let i = tiles.length - 1; i > 0; i--) {
 }
 
 let model = new slint.ArrayModel(tiles);
-window.memory_tiles = model
+mainWindow.memory_tiles = model;
 
-window.run();
+mainWindow.run();
 
 // ANCHOR_END: main

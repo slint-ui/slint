@@ -5,7 +5,7 @@
 // main.js
 require("slint-ui");
 let ui = require("./memory.slint");
-let window = new ui.MainWindow();
-window.run();
+let mainWindow = new ui.MainWindow();
+mainWindow.run();
 
 // ANCHOR_END: main
