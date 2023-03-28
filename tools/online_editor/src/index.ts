@@ -57,19 +57,9 @@ const commands = new CommandRegistry();
 
 const local_storage_key_layout = "layout_v1";
 
-function create_build_menu(): Menu {
-    const menu = new Menu({ commands });
-    menu.title.label = "Build";
-
-    menu.addItem({ command: "slint:compile" });
-    menu.addItem({ command: "slint:auto_compile" });
-
-    return menu;
-}
-
 function create_demo_menu(editor: EditorWidget): Menu {
     const menu = new Menu({ commands });
-    menu.title.label = "Demos";
+    menu.title.label = "Open a Demo";
 
     for (const demo of editor.known_demos()) {
         const command_name = "slint:set_demo_" + demo[1];
@@ -112,12 +102,30 @@ function create_style_menu(editor: EditorWidget): Menu {
     return menu;
 }
 
-function create_open_menu(editor: EditorWidget): Menu {
+function create_settings_menu(): Menu {
     const menu = new Menu({ commands });
-    menu.title.label = "Open";
+    menu.title.label = "Change Settings";
+
+    commands.addCommand("slint:store_github_token", {
+        label: "Manage Github login",
+        iconClass: "fa-brands fa-github",
+        execute: () => {
+            create_github_access_token();
+        },
+    });
+
+    menu.addItem({ command: "slint:store_github_token" });
+    menu.addItem({ command: "slint:auto_compile" });
+
+    return menu;
+}
+
+function create_project_menu(editor: EditorWidget): Menu {
+    const menu = new Menu({ commands });
+    menu.title.label = "Project";
 
     commands.addCommand("slint:open_url", {
-        label: "Open Slint file from URL",
+        label: "Open URL",
         iconClass: "fa fa-link",
         mnemonic: 1,
         execute: () => {
@@ -125,8 +133,15 @@ function create_open_menu(editor: EditorWidget): Menu {
             editor.project_from_url(url);
         },
     });
+
+    commands.addKeyBinding({
+        keys: ["Accel O"],
+        selector: "body",
+        command: "slint:open_url",
+    });
+
     commands.addCommand("slint:add_file", {
-        label: "Add a file to your Slint project",
+        label: "Add a file",
         iconClass: "fa-regular fa-file",
         mnemonic: 1,
         execute: () => {
@@ -140,17 +155,22 @@ function create_open_menu(editor: EditorWidget): Menu {
             editor.add_empty_file_to_project(name);
         },
     });
-    commands.addCommand("slint:store_github_token", {
-        label: "Store github access token in your browsers local storage.",
-        iconClass: "fa-brands fa-github",
-        execute: () => {
-            create_github_access_token();
-        },
+
+    commands.addKeyBinding({
+        keys: ["Accel N"],
+        selector: "body",
+        command: "slint:add_file",
     });
 
     menu.addItem({ command: "slint:open_url" });
+    menu.addItem({ type: "submenu", submenu: create_demo_menu(editor) });
+    menu.addItem({ type: "separator" });
+    menu.addItem({ command: "slint:compile" });
+    menu.addItem({ type: "separator" });
     menu.addItem({ command: "slint:add_file" });
-    menu.addItem({ command: "slint:store_github_token" });
+    menu.addItem({ type: "submenu", submenu: create_share_menu(editor) });
+    menu.addItem({ type: "separator" });
+    menu.addItem({ type: "submenu", submenu: create_settings_menu() });
 
     return menu;
 }
@@ -304,6 +324,7 @@ function create_view_menu(dock_widgets: DockWidgets): Menu {
     menu.addItem({ command: "slint:save-dock-layout" });
     menu.addItem({ command: "slint:restore-dock-layout" });
     menu.addItem({ command: "slint:reset-dock-layout" });
+    menu.addItem({ type: "separator" });
 
     for (const w of dock.widgets()) {
         const id = w.title.label;
@@ -490,10 +511,7 @@ function setup(lsp: Lsp) {
 
     const menu_bar = new MenuBar();
     menu_bar.id = "menuBar";
-    menu_bar.addMenu(create_open_menu(editor));
-    menu_bar.addMenu(create_share_menu(editor));
-    menu_bar.addMenu(create_build_menu());
-    menu_bar.addMenu(create_demo_menu(editor));
+    menu_bar.addMenu(create_project_menu(editor));
     menu_bar.addMenu(create_style_menu(editor));
     menu_bar.addMenu(create_view_menu(dock_widgets));
 
