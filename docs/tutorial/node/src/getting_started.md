@@ -30,7 +30,7 @@ What's still missing is the `main.js`:
 {{#include main_initial.js:main}}
 ```
 
-To recap, we now have a directory with a `package.json`, `memory.slint` and `main.js`.
+To recap, we now have a directory with a `package.json`, `memory.slint`, and `main.js`.
 
 We can now compile and run the program:
 
