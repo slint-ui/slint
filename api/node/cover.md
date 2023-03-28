@@ -1,4 +1,4 @@
-# Slint-node
+# Slint-node (Beta)
 
 [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui)
 
@@ -7,8 +7,8 @@ Slint-node is the integration with node.
 
 The complete Node documentation can be viewed online at https://slint-ui.com/docs/node/.
 
-**Warning: Pre-Alpha**
-Slint is still in the early stages of development: APIs will change and important features are still being developed.
+**Warning: Beta**
+Slint-node is still in the early stages of development: APIs will change and important features are still being developed.
 
 ## Slint Language Manual
 
