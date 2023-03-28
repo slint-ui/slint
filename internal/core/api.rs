@@ -661,7 +661,7 @@ mod weak_handle {
         /// # thread.join().unwrap(); return; // don't run the event loop in examples
         /// handle.run().unwrap();
         /// ```
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
         pub fn upgrade_in_event_loop(
             &self,
             func: impl FnOnce(T) + Send + 'static,
@@ -681,7 +681,7 @@ mod weak_handle {
     // Safety: we make sure in upgrade that the thread is the proper one,
     // and the VWeak only use atomic pointer so it is safe to clone and drop in another thread
     #[allow(unsafe_code)]
-    #[cfg(feature = "std")]
+    #[cfg(any(feature = "std", feature = "unsafe-single-threaded"))]
     unsafe impl<T: ComponentHandle> Send for Weak<T> {}
 }
 
