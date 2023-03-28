@@ -7,19 +7,22 @@ export component GroupBox {
     in property <string> title <=> i-title.text;
     in property <length> spacing;
 
-    VerticalLayout {  
+    preferred-width: 100%;
+    preferred-height: 100%;
+
+    VerticalLayout {
         spacing: Theme.spaces.medium;
-        
-        i-title := Text {  
+
+        i-title := Text {
             horizontal-alignment: left;
             color: Theme.palette.white;
             font-size: Theme.typo.header.size;
             font-weight: Theme.typo.header.weight;
         }
 
-        i-layout := HorizontalLayout { 
+        i-layout := HorizontalLayout {
             spacing: root.spacing;
-            
+
             @children
         }
     }

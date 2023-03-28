@@ -6,8 +6,7 @@ import { FloatButton } from "float_button.slint";
 import { Theme } from "../theme.slint";
 import { Images } from "../images.slint";
 
-export component Navigation inherits Rectangle {
-
+export component Navigation {
     private property <bool> show-navigation;
 
     callback pagination-clicked <=> i-pagination.clicked;
@@ -15,6 +14,9 @@ export component Navigation inherits Rectangle {
 
     in-out property <int> current-index <=> i-pagination.selected-index;
     in property <int> page-count <=> i-pagination.count;
+
+    preferred-width: 100%;
+    preferred-height: 100%;
 
     VerticalLayout {
         padding-top: Theme.spaces.small;

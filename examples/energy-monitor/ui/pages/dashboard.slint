@@ -33,9 +33,6 @@ export component BarChartTile {
     in property <bool> active;
 
     i-group-box := GroupBox {
-        preferred-width: 100%;
-        preferred-height: 100%;
-
         i-value-display := ValueDisplay {
             min-width: 216px;
             horizontal-stretch: 0;
@@ -59,8 +56,6 @@ export component WeatherTile {
     in property <[BarTileModel]> week-model <=> i-bar-tiles.model;
 
     i-group-box := GroupBox {
-        preferred-width: 100%;
-        preferred-height: 100%;
         spacing: 1px;
         i-tile := Tile {}
         i-bar-tiles := BarTiles {}
@@ -78,8 +73,6 @@ export component BalanceTile {
 
     GroupBox {
         title: root.title;
-        preferred-width: 100%;
-        preferred-height: 100%;
 
         BalanceChart {
 
