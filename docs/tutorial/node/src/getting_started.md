@@ -3,8 +3,8 @@
 In this tutorial, we use JavaScript as the host programming language. We also support other programming languages like
 [Rust](https://slint-ui.com/docs/rust/slint/) or [C++](https://slint-ui.com/docs/cpp/).
 
-You will need a development environment with [node.js 16](https://nodejs.org/download/release/v16.19.1/) and [npm](https://www.npmjs.com/) installed. More recent
-versions of NodeJS are currently not supported, check [Issue #2220](https://github.com/slint-ui/slint/issues/2220).
+You'll need a development environment with [Node.js 16](https://nodejs.org/download/release/v16.19.1/) and [npm](https://www.npmjs.com/) installed. More recent
+versions of NodeJS are currently not supported, for details check [Issue #2220](https://github.com/slint-ui/slint/issues/2220).
 
 We're going to use `slint-ui` as `npm` dependency.
 
