@@ -3,7 +3,7 @@
 
 import { Theme } from "theme.slint";
 import { Navigation, MenuButton, Menu, Value } from "widgets/widgets.slint";
-import { Balance, Overview, Usage, UsageAdapter, Weather, MenuPage, MenuOverviewAdapter } from "pages/pages.slint";
+import { Balance, Overview, Usage, UsageAdapter, Weather, MenuPage, MenuOverviewAdapter, About } from "pages/pages.slint";
 
 export component SmallMain {
     i-navigation := Navigation {
@@ -25,6 +25,10 @@ export component SmallMain {
         }
         if(i-navigation.current-index >= 2 && i-navigation.current-index <= 4 && !i-menu.open) : Weather {
             index: 3;
+            current-index: i-navigation.current-index;
+        }
+        if(i-navigation.current-index >= 3 && i-navigation.current-index <= 5 && !i-menu.open) : About {
+            index: 4;
             current-index: i-navigation.current-index;
         }
 

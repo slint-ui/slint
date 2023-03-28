@@ -6,10 +6,10 @@ import { Images } from "images.slint";
 import { Theme } from "theme.slint";
 import { Menu, PageScrollView, PageContainer } from "widgets/widgets.slint";
 import { MenuPage } from "pages/pages.slint";
-import { Balance, Overview, Usage, UsageAdapter, Weather } from "pages/pages.slint";
+import { Balance, Overview, Usage, UsageAdapter, Weather, About } from "pages/pages.slint";
 
 export component MidMain {
-    private property <int> page-count: 4;
+    private property <int> page-count: 5;
     private property <length> item-width: i-page-scroll-view.viewport-width / page-count;
     private property <length> max-viewport-x: i-page-scroll-view.width - i-page-scroll-view.viewport-width;
 
@@ -54,6 +54,14 @@ export component MidMain {
 
                     clicked => {
                         show-page(3);
+                    }
+                }
+
+                PageContainer {
+                    About {}
+
+                    clicked => {
+                        show-page(4);
                     }
                 }
 

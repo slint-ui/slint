@@ -1,34 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { Theme } from "../../theme.slint";
-import { Images } from "../../images.slint";
-import { Page } from "../page.slint";
-import { IconButton } from "../../widgets/widgets.slint";
+import { Theme } from "../theme.slint";
+import { Images } from "../images.slint";
+import { Page } from "page.slint";
+import { IconButton } from "../widgets/widgets.slint";
+import { GroupBox } from "../widgets/group_box.slint";
 
 export component About inherits Page {
-    callback back <=> i-back-button.clicked;
-
-    padding-left: 0;
-    padding-right: 0;
-
-    VerticalLayout {
-        padding-left: Theme.spaces.medium;
-        padding-right: Theme.spaces.medium;
-        padding-top: Theme.spaces.medium;
-        padding-bottom: Theme.spaces.large;
-        spacing: Theme.spaces.medium;
-
-        HorizontalLayout {
-            vertical-stretch: 0;
-            alignment: start;
-
-            i-back-button := IconButton {
-                horizontal-stretch: 0;
-                icon: Images.arrow-left;
-            }
-        }
-
+    GroupBox {
         VerticalLayout {
             vertical-stretch: 1;
             spacing: Theme.spaces.medium;
