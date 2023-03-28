@@ -15,7 +15,7 @@ for (let i = tiles.length - 1; i > 0; i--) {
 }
 
 let model = new slint.ArrayModel(tiles);
-window.memory_tiles = model
+window.memory_tiles = model;
 
 window.check_if_pair_solved.setHandler(function () {
     let flipped_tiles = [];
@@ -53,7 +53,7 @@ window.check_if_pair_solved.setHandler(function () {
                 model.setRowData(tile1_index, tile1);
                 tile2.image_visible = false;
                 model.setRowData(tile2_index, tile2);
-            })
+            });
 
         }
     }
