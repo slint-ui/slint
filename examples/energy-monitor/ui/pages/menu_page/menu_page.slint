@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { About } from "about.slint";
 import { MenuOverviewAdapter } from "menu_overview.slint";
 import { Settings, SettingsAdapter } from "settings.slint";
 import { Theme } from "../../theme.slint";
@@ -34,21 +33,8 @@ export component MenuPage {
         if(current-index == 0) : Settings {
             width: root.width;
 
-            show-about => {
-                current-index = 1;
-            }
-
             close => {
                 root.close();
-            }
-        }
-
-       if(current-index == 1) : About {
-            x: root.width;
-            width: root.width;
-
-            back => {
-                back();
             }
         }
 

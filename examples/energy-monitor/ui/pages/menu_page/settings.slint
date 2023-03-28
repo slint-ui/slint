@@ -3,7 +3,6 @@
 
 import { Theme } from "../../theme.slint";
 import { Images } from "../../images.slint";
-import { About } from "about.slint";
 import { Page } from "../page.slint";
 import { IconButton, CheckBox, RadioButton, Switch, ScrollView, Item, ItemGroupBox } from "../../widgets/widgets.slint";
 
@@ -38,7 +37,6 @@ export global SettingsAdapter {
 
 export component Settings inherits Page {
     callback close();
-    callback show-about <=> i-back-button.clicked;
     callback check-radio-option <=> SettingsAdapter.check-radio-option;
 
     // fuctions
@@ -64,16 +62,6 @@ export component Settings inherits Page {
         padding-top: Theme.spaces.medium;
         padding-bottom: Theme.spaces.large;
         spacing: Theme.spaces.medium;
-
-        HorizontalLayout {
-            vertical-stretch: 0;
-            alignment: end;
-
-            i-back-button := IconButton {
-                horizontal-stretch: 0;
-                icon: Images.information;
-            }
-        }
 
         // spacer
         ScrollView {
