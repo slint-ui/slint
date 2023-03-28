@@ -14,7 +14,7 @@ In a new directory, we create a new `package.json` file.
 {{#include package.json}}
 ```
 
-This should look familiar to people familiar with nodejs. We see that this package.json
+This should look familiar to people familiar with NodeJS. We see that this package.json
 references a `main.js`, which we will add later. We must then create, in the same directory,
 the `memory.slint` file. Let's just fill it with a hello world for now:
 
