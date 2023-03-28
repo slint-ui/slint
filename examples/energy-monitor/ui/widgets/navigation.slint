@@ -6,7 +6,8 @@ import { FloatButton } from "float_button.slint";
 import { Theme } from "../theme.slint";
 import { Images } from "../images.slint";
 
-export component Navigation {
+export component Navigation inherits Rectangle {
+
     private property <bool> show-navigation;
 
     callback pagination-clicked <=> i-pagination.clicked;

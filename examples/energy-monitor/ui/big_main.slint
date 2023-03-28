@@ -7,10 +7,10 @@ import { Dashboard, WeatherAdapter } from "pages/pages.slint";
 import { Header, HeaderAdapter } from "blocks/blocks.slint";
 
 export component BigMain{
-    VerticalLayout {  
+    VerticalLayout {
         Header {}
-        
-        i-tab-widget := TabWidget {  
+
+        i-tab-widget := TabWidget {
             tabs: [
                 "Dashboard",
                 "Energy Flow",
@@ -19,7 +19,7 @@ export component BigMain{
                 "Settings",
             ];
 
-            Dashboard {  
+            Dashboard {
                 index: 0;
                 current-index: i-tab-widget.selected-tab;
             }

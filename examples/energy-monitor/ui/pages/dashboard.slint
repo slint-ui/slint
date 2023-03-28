@@ -15,7 +15,10 @@ export component ValueTile {
     in property <bool> active;
 
     i-group-box := GroupBox {
-        i-value-display := ValueDisplay {  
+        preferred-width: 100%;
+        preferred-height: 100%;
+
+        i-value-display := ValueDisplay {
             active: root.active;
         }
     }
@@ -28,9 +31,12 @@ export component BarChartTile {
     in property <float> min <=> i-bar-chart.min;
     in property <float> max <=> i-bar-chart.max;
     in property <bool> active;
- 
-    i-group-box := GroupBox {  
-        i-value-display := ValueDisplay { 
+
+    i-group-box := GroupBox {
+        preferred-width: 100%;
+        preferred-height: 100%;
+
+        i-value-display := ValueDisplay {
             min-width: 216px;
             horizontal-stretch: 0;
             alternative-colors: true;
@@ -38,10 +44,10 @@ export component BarChartTile {
             vertical: true;
         }
 
-        i-bar-chart := BarChart {  
+        i-bar-chart := BarChart {
             horizontal-stretch: 1;
-        }  
-    }  
+        }
+    }
 }
 
 export component WeatherTile {
@@ -52,7 +58,9 @@ export component WeatherTile {
     in property <string> current-weather-description <=> i-tile.sub-text;
     in property <[BarTileModel]> week-model <=> i-bar-tiles.model;
 
-    i-group-box := GroupBox {  
+    i-group-box := GroupBox {
+        preferred-width: 100%;
+        preferred-height: 100%;
         spacing: 1px;
         i-tile := Tile {}
         i-bar-tiles := BarTiles {}
@@ -68,10 +76,13 @@ export component BalanceTile {
     in property <string> y-unit;
     in property <string> title;
 
-    GroupBox {  
+    GroupBox {
         title: root.title;
+        preferred-width: 100%;
+        preferred-height: 100%;
 
-        BalanceChart {  
+        BalanceChart {
+
             x-axis-model: root.x-axis-model;
             y-axis-model: root.y-axis-model;
             model: root.model;
@@ -83,7 +94,7 @@ export component BalanceTile {
 }
 
 export component Dashboard inherits Page {
-    GridLayout {  
+    GridLayout {
         padding-left: 20px;
         padding-right: 20px;
         padding-top: 20px;
@@ -92,7 +103,7 @@ export component Dashboard inherits Page {
 
         Row {
             ValueTile {
-                title: OverviewAdapter.production-title; 
+                title: OverviewAdapter.production-title;
                 model: OverviewAdapter.production-model;
                 active: root.active;
              }
@@ -106,7 +117,7 @@ export component Dashboard inherits Page {
         }
 
         Row {
-            BalanceTile {  
+            BalanceTile {
                 x-axis-model <=> BalanceAdapter.x-axis-model;
                 y-axis-model <=> BalanceAdapter.y-axis-model;
                 model <=> BalanceAdapter.model;
@@ -116,7 +127,7 @@ export component Dashboard inherits Page {
                 title <=> BalanceAdapter.title;
             }
 
-            WeatherTile {  
+            WeatherTile {
                 title <=> WeatherAdapter.title;
                 current-temperature-icon <=> WeatherAdapter.current-temperature-icon;
                 current-temperature <=> WeatherAdapter.current-temperature;
@@ -136,6 +147,6 @@ export component Dashboard inherits Page {
                 value-model: UsageAdapter.overview-model;
                 active: root.active;
             }
-        } 
+        }
     }
 }

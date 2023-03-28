@@ -29,9 +29,20 @@ export component MainWindow inherits Window {
     min-height: 240px;
     background: Theme.palette.pure-black;
 
-    if show-big : BigMain {}
-    if show-mid : MidMain {}
-    if show-small : SmallMain {}
+    if show-big : BigMain {
+        preferred-width: 100%;
+        preferred-height: 100%;
+    }
+
+    if show-mid : MidMain {
+        preferred-width: 100%;
+        preferred-height: 100%;
+    }
+
+    if show-small : SmallMain {
+        preferred-width: 100%;
+        preferred-height: 100%;
+    }
 
     if SettingsAdapter.kiosk-mode-checked : KioskOverlay {}
 }

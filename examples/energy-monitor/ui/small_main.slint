@@ -40,12 +40,17 @@ export component SmallMain {
     }
 
     i-menu := Menu {
+        preferred-width: 100%;
+        preferred-height: 100%;
         start-y:  25px;
         end-y: 22px;
         menu-width: parent.width - 8px;
         menu-height: parent.height - 14px;
 
         if(i-menu.open) : MenuPage {
+            preferred-width: 100%;
+            preferred-height: 100%;
+
             page-changed => {
                 i-menu.hide();
             }
