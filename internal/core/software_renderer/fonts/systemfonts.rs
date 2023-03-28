@@ -45,11 +45,11 @@ fn init_fontdb() -> FontDatabase {
             let face_count = db.len();
             match db.load_font_file(path) {
                 Ok(()) => {
-                    db.faces().get(face_count).map(|face_info| face_info.id)
+                    db.faces().nth(face_count).map(|face_info| face_info.id)
                 },
                 Err(err) => {
                     eprintln!(
-                        "Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}", path.display(), err,                        
+                        "Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}", path.display(), err,
                     );
                     None
                 },

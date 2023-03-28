@@ -100,7 +100,7 @@ pub fn embed_glyphs<'a>(
                 let face_count = fontdb.len();
                 match fontdb.load_font_file(path) {
                     Ok(()) => {
-                        fontdb.faces().get(face_count).map(|face_info| face_info.id)
+                        fontdb.faces().nth(face_count).map(|face_info| face_info.id)
                     },
                     Err(err) => {
                         diag.push_error(
@@ -126,11 +126,11 @@ pub fn embed_glyphs<'a>(
     // add custom fonts
     for doc in all_docs {
         for (font_path, import_token) in doc.custom_fonts.iter() {
-            let face_count = fontdb.faces().len();
+            let face_count = fontdb.faces().count();
             if let Err(e) = fontdb.load_font_file(&font_path) {
                 diag.push_error(format!("Error loading font: {}", e), import_token);
             } else {
-                custom_fonts.extend(fontdb.faces()[face_count..].iter().map(|info| info.id))
+                custom_fonts.extend(fontdb.faces().skip(face_count).map(|info| info.id))
             }
         }
     }

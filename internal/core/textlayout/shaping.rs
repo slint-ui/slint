@@ -302,7 +302,7 @@ fn with_dejavu_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> O
             .iter()
             .collect();
     fontdb.load_font_file(dejavu_path).expect("unable to load test dejavu font");
-    let font_id = fontdb.faces()[0].id;
+    let font_id = fontdb.faces().next().unwrap().id;
     fontdb.with_face_data(font_id, |data, font_index| {
         let face =
             rustybuzz::Face::from_slice(data, font_index).expect("unable to parse dejavu font");
