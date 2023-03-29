@@ -78,6 +78,33 @@ impl core::ops::Add for LayoutInfo {
     }
 }
 
+/// Returns the logical min and max sizes given the provided layout constraints.
+pub fn min_max_size_for_layout_constraints(
+    constraints_horizontal: LayoutInfo,
+    constraints_vertical: LayoutInfo,
+) -> (Option<crate::lengths::LogicalSize>, Option<crate::lengths::LogicalSize>) {
+    let min_width = constraints_horizontal.min.min(constraints_horizontal.max) as f32;
+    let min_height = constraints_vertical.min.min(constraints_vertical.max) as f32;
+    let max_width = constraints_horizontal.max.max(constraints_horizontal.min) as f32;
+    let max_height = constraints_vertical.max.max(constraints_vertical.min) as f32;
+
+    let min_size = if min_width > 0. || min_height > 0. {
+        Some(crate::lengths::LogicalSize::new(min_width, min_height))
+    } else {
+        None
+    };
+    let max_size = if max_width > 0.
+        && max_height > 0.
+        && (max_width < i32::MAX as f32 || max_height < i32::MAX as f32)
+    {
+        Some(crate::lengths::LogicalSize::new(max_width, max_height))
+    } else {
+        None
+    };
+
+    (min_size, max_size)
+}
+
 /// Implement a saturating_add version for both possible value of Coord.
 /// So that adding the max value does not overflow
 trait Saturating {

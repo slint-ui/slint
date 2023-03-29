@@ -34,11 +34,6 @@ pub trait WinitWindow: WindowAdapter {
     fn draw(&self) -> Result<bool, i_slint_core::platform::PlatformError>;
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window));
     fn winit_window(&self) -> Option<Rc<winit::window::Window>>;
-    fn constraints(&self) -> (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo);
-    fn set_constraints(
-        &self,
-        constraints: (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo),
-    );
 
     /// Called by the event loop when a WindowEvent::Resized is received.
     fn resize_event(
