@@ -313,10 +313,10 @@ jobs:
             sed -i "s!https://slint-ui.com/releases/.*/docs/slint!../../slint!" snapshots/$target_branch/docs/rust/slint/*.html
             sed -i "s!https://slint-ui.com/releases/.*/docs/tutorial!../../tutorial!" snapshots/$target_branch/docs/rust/slint/*.html
 
-            mkdir -p snapshots/$target_branch/docs/tutorial/rust
-            cp -a ../docs/tutorial/rust/book/html/* snapshots/$target_branch/docs/tutorial/rust
-            mkdir -p snapshots/$target_branch/docs/tutorial/cpp
-            cp -a ../docs/tutorial/cpp/book/html/* snapshots/$target_branch/docs/tutorial/cpp
+            for lang in rust cpp node; do
+                mkdir -p snapshots/$target_branch/docs/tutorial/$lang
+                cp -a ../docs/tutorial/$lang/book/html/* snapshots/$target_branch/docs/tutorial/$lang
+            done
             mkdir -p snapshots/$target_branch/docs/node
             cp -a ../api/node/docs/* snapshots/$target_branch/docs/node/
             mkdir -p snapshots/$target_branch/docs/slint
