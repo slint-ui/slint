@@ -373,7 +373,9 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 } else {
                     None
                 };
-                let max_inner_size = if max_width < i32::MAX as f32 || max_height < i32::MAX as f32
+                let max_inner_size = if max_width > 0.
+                    && max_height > 0.
+                    && (max_width < i32::MAX as f32 || max_height < i32::MAX as f32)
                 {
                     Some(winit::dpi::PhysicalSize::new(
                         (max_width * sf).min(65535.),
@@ -524,7 +526,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                         winit::dpi::LogicalSize::new(layout_info_h.min, layout_info_v.min),
                     ))
                 }
-                if layout_info_h.max < Coord::MAX || layout_info_v.max < Coord::MAX {
+                if layout_info_h.max > Coord::zero()
+                    && layout_info_v.max > Coord::zero()
+                    && (layout_info_h.max < Coord::MAX || layout_info_v.max < Coord::MAX)
+                {
                     window_builder = window_builder.with_max_inner_size(into_size(
                         winit::dpi::LogicalSize::new(layout_info_h.max, layout_info_v.max),
                     ))
