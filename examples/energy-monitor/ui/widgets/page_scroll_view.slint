@@ -56,11 +56,9 @@ export component PageContainer {
     out property <length> mouse-x: i-touch-area.mouse-x;
 
     in property <bool> shrink;
-    in property <bool> stretched;
 
-    min-width: shrink && !stretched ? 0 : 320px;
-    min-height: shrink && !stretched ? 0 : 240px;
-    horizontal-stretch: 1;
+    min-width: shrink ? 0 : 320px;
+    min-height: shrink ? 0 : 240px;
 
     i-touch-area := TouchArea {}
 
@@ -78,7 +76,7 @@ export component PageContainer {
     }
 
     states [
-        shrink when shrink && !stretched : {
+        shrink when shrink : {
             horizontal-stretch: 0;
             opacity: 0.0;
         }
