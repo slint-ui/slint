@@ -2,24 +2,113 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { EditorWidget, UrlMapper, KnownUrlMapper } from "./editor_widget";
+import { modal_dialog } from "./dialogs";
 
 const local_storage_key_github_token = "github_token_v1";
 
 export function has_github_access_token(): boolean {
-    return localStorage.getItem(local_storage_key_github_token) != null;
+    const token = localStorage.getItem(local_storage_key_github_token);
+    return token != null && token !== "";
 }
 
-export function create_github_access_token() {
-    let action = "Please provide a github access token:";
-    if (localStorage.getItem(local_storage_key_github_token) != null) {
-        action = "Overwrite existing github access token:";
+export function manage_github_access(): boolean | null {
+    let new_access_token = "";
+
+    const description_div = document.createElement("div");
+    description_div.classList.add("description_area");
+
+    const description = document.createElement("p");
+
+    description_div.appendChild(description);
+
+    const state_div = document.createElement("div");
+    state_div.classList.add("current_state");
+
+    const error_div = document.createElement("div");
+    error_div.classList.add("error_area");
+
+    const error = document.createElement("p");
+    error_div.appendChild(error);
+
+    const token_input = document.createElement("input");
+    token_input.classList.add("token_input");
+    token_input.type = "password";
+    token_input.autocomplete = "new-password";
+    token_input.onfocus = () => {
+        error.innerText = "";
+    };
+    token_input.onblur = () => {
+        set_state(token_input.value);
+    };
+
+    const logout_button = document.createElement("button");
+    logout_button.classList.add("logout");
+    logout_button.classList.add("button");
+
+    logout_button.innerText = "logout";
+
+    function set_state(nt: string) {
+        new_access_token = nt;
+        if (new_access_token !== "") {
+            if (
+                new_access_token.match(
+                    /^github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}$/,
+                )
+            ) {
+                error.innerText = "";
+            } else {
+                new_access_token = "";
+                error.innerText = "Not a github personal access token";
+            }
+        }
+
+        if (new_access_token != "") {
+            token_input.placeholder = "<logged in>";
+            token_input.readOnly = true;
+            logout_button.disabled = false;
+
+            description.innerText =
+                "You currently have a github access token set up. Click on logout " +
+                "to invalidate the token.";
+        } else {
+            description.innerText =
+                "You currently do not have a github access token. Visit your github account, " +
+                "go to your settings, then developer settings and create a personal access " +
+                "token there with the permission to read and write Gists. Then paste it into " +
+                "the text field below.";
+            token_input.placeholder = "<logged out>";
+            token_input.readOnly = false;
+            logout_button.disabled = true;
+        }
+
+        token_input.value = "";
     }
 
-    const token = prompt(action);
-    if (token == null) {
-        return;
-    }
-    localStorage.setItem(local_storage_key_github_token, token);
+    set_state(get_github_access_token() ?? "");
+
+    logout_button.onclick = () => {
+        set_state("");
+    };
+
+    state_div.appendChild(token_input);
+    state_div.appendChild(logout_button);
+
+    let result: boolean | null = null;
+
+    modal_dialog(
+        "manage_github_dialog",
+        [description_div, state_div, error_div],
+        "OK",
+        () => {
+            localStorage.setItem(
+                local_storage_key_github_token,
+                new_access_token,
+            );
+            result = has_github_access_token();
+        },
+    );
+
+    return result;
 }
 
 function get_github_access_token(): string | null {

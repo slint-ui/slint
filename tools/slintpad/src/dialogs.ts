@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-function modal_dialog(
+export function modal_dialog(
     extra_class: string,
     content: HTMLElement[],
     trigger_text = "OK",
