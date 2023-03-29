@@ -16,7 +16,7 @@ All notable changes to this project are documented in this file.
  - In the C++ API, the type for row indexes in models was changed from `int` to `size_t`.
    This includes arguments of virtual functions in `slint::Model` that needs to be adjusted in
    derived classes.
- - The C++ generated struct members are now sorted in the same order as the ones in the .slint source file
+ - The order of C++ generated struct members is now preserved from the .slint source file.
  - Removed the `stride()` function from `slint::Image` in Rust - use `width()` instead.
  - In `slint::platform::WindowEvent::KeyPressed` and `KeyReleased`, the `text` field is now
    a `slint::SharedString`.
