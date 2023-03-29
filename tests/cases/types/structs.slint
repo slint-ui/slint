@@ -50,10 +50,10 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
 assert_eq(instance.get_player_1().score, 12.);
-auto [ energy_level, name, score ] = instance.get_player_2();
+auto [ name, score, energy_level ] = instance.get_player_2();
 assert_eq(name, "Player2");
 assert_eq(score, 24);
-auto super_player = Player{ 0.4, "Super Player", 99 };
+auto super_player = Player{ "Super Player", 99, 0.44 };
 instance.set_player_2(super_player);
 assert_eq(instance.get_player_2().name, "Super Player");
 

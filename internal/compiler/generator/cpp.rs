@@ -294,6 +294,7 @@ use crate::llr::{
     TypeResolutionContext as _,
 };
 use crate::object_tree::Document;
+use crate::parser::syntax_nodes;
 use cpp_ast::*;
 use itertools::{Either, Itertools};
 use std::collections::BTreeMap;
@@ -578,8 +579,8 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
     }
 
     for ty in doc.root_component.used_types.borrow().structs.iter() {
-        if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
-            generate_struct(&mut file, name, fields);
+        if let Type::Struct { fields, name: Some(name), node: Some(node) } = ty {
+            generate_struct(&mut file, name, fields, node);
         }
     }
 
@@ -637,24 +638,27 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
     file
 }
 
-fn generate_struct(file: &mut File, name: &str, fields: &BTreeMap<String, Type>) {
-    let mut members = fields
-        .iter()
-        .map(|(name, t)| {
+fn generate_struct(
+    file: &mut File,
+    name: &str,
+    fields: &BTreeMap<String, Type>,
+    node: &syntax_nodes::ObjectType,
+) {
+    let mut members = node
+        .ObjectTypeMember()
+        .map(|n| crate::parser::identifier_text(&n).unwrap())
+        .map(|name| {
             (
                 Access::Public,
                 Declaration::Var(Var {
-                    ty: t.cpp_type().unwrap(),
-                    name: ident(name),
+                    ty: fields.get(&name).unwrap().cpp_type().unwrap(),
+                    name: ident(&name),
                     ..Default::default()
                 }),
             )
         })
         .collect::<Vec<_>>();
-    members.sort_unstable_by(|a, b| match (&a.1, &b.1) {
-        (Declaration::Var(a), Declaration::Var(b)) => a.name.cmp(&b.name),
-        _ => unreachable!(),
-    });
+
     members.push((
         Access::Public,
         Declaration::Function(Function {
