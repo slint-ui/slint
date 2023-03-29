@@ -259,8 +259,8 @@ jobs:
           name: docs
       - uses: actions/download-artifact@v2
         with:
-          name: online_editor
-          path: online_editor
+          name: slintpad
+          path: slintpad
       - uses: actions/download-artifact@v2
         with:
           name: wasm
@@ -297,7 +297,7 @@ jobs:
 
             rm -rf snapshots/$target_branch/editor
             mkdir -p snapshots/$target_branch/editor
-            cp -a ../online_editor/* snapshots/$target_branch/editor/
+            cp -a ../slintpad/* snapshots/$target_branch/editor/
             git add snapshots/$target_branch/editor
             git add -u snapshots/$target_branch/editor
 

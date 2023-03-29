@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 ---
-name: Build and test the online editor and required WASM binaries
+name: Build and test the slintpad and required WASM binaries
 
 on:
   workflow_dispatch:
@@ -25,10 +25,10 @@ jobs:
 
       - name: Build slint-wasm-interpreter
         run: npm run build:wasm_preview-release
-        working-directory: tools/online_editor
+        working-directory: tools/slintpad
       - name: Build slint-wasm-lsp
         run: npm run build:wasm_lsp-release
-        working-directory: tools/online_editor
+        working-directory: tools/slintpad
 
       - name: "Upload wasm Artifacts"
         uses: actions/upload-artifact@v3
@@ -38,7 +38,7 @@ jobs:
             api/wasm-interpreter/pkg/
             tools/lsp/pkg/
 
-  build-online-editor:
+  build-slintpad:
     needs: [wasm]
     runs-on: ubuntu-20.04
     steps:
@@ -51,25 +51,25 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('api/wasm-interpreter/pkg/package.json', 'tools/lsp/pkg/package.json', 'tools/online_editor/package.json') }}
+          key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('api/wasm-interpreter/pkg/package.json', 'tools/lsp/pkg/package.json', 'tools/slintpad/package.json') }}
           restore-keys: |
             ${{ runner.os }}-${{ github.job }}-node-
 
       - name: Install NPM dependencies
         run: npm install
-        working-directory: tools/online_editor
+        working-directory: tools/slintpad
 
-      - name: Compile online editor
+      - name: Compile slintpad
         run: npm run build
-        working-directory: tools/online_editor
+        working-directory: tools/slintpad
 
-      - name: "Upload online_editor Artifacts"
+      - name: "Upload slintpad Artifacts"
         uses: actions/upload-artifact@v3
         with:
-          name: online_editor
-          path: tools/online_editor/dist/
+          name: slintpad
+          path: tools/slintpad/dist/
 
-  lint-online-editor:
+  lint-slintpad:
     needs: [wasm]
     runs-on: ubuntu-20.04
     steps:
@@ -82,22 +82,22 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: ~/.npm
-          key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('api/wasm-interpreter/pkg/package.json', 'tools/lsp/pkg/package.json', 'tools/online_editor/package.json') }}
+          key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('api/wasm-interpreter/pkg/package.json', 'tools/lsp/pkg/package.json', 'tools/slintpad/package.json') }}
           restore-keys: |
             ${{ runner.os }}-${{ github.job }}-node-
 
       - name: Install NPM dependencies
         run: npm install
-        working-directory: tools/online_editor
+        working-directory: tools/slintpad
 
-      - name: Lint online editor # This needs the slint-wasm-interpreter!
+      - name: Lint slintpad # This needs the slint-wasm-interpreter!
         run: |
           npm run syntax_check
           npm run lint
-        working-directory: tools/online_editor
+        working-directory: tools/slintpad
 
-  # test-online-editor-ff:
-  #   needs: [wasm, build-online-editor]
+  # test-slintpad-ff:
+  #   needs: [wasm, build-slintpad]
   #   runs-on: ubuntu-latest
   #   container:
   #     image: cypress/browsers:node16.13.0-chrome95-ff94
@@ -105,14 +105,14 @@ jobs:
   #
   #   steps:
   #     - uses: actions/checkout@v3
-  #     - uses: ./.github/actions/test-online-editor
+  #     - uses: ./.github/actions/test-slintpad
   #       with:
   #         browser: "firefox"
   #         wasm-binaries: wasm
-  #         online-editor-artifact: online_editor
+  #         slintpad-artifact: slintpad
   #
-  # test-online-editor-chrome:
-  #   needs: [wasm, build-online-editor]
+  # test-slintpad-chrome:
+  #   needs: [wasm, build-slintpad]
   #   runs-on: ubuntu-latest
   #   container:
   #     image: cypress/browsers:node16.13.0-chrome95-ff94
@@ -120,8 +120,8 @@ jobs:
   #
   #   steps:
   #     - uses: actions/checkout@v3
-  #     - uses: ./.github/actions/test-online-editor
+  #     - uses: ./.github/actions/test-slintpad
   #       with:
   #         browser: "chrome"
   #         wasm-binaries: wasm
-  #         online-editor-artifact: online_editor
+  #         slintpad-artifact: slintpad

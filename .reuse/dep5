@@ -55,7 +55,7 @@ Files: editors/tree-sitter-slint/binding.gyp editors/tree-sitter-slint/CONTRIBUT
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Files: tools/online_editor/*.html tools/online_editor/styles/*.css tools/online_editor/*.json
+Files: tools/slintpad/*.html tools/slintpad/styles/*.css tools/slintpad/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 

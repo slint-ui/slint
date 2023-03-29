@@ -6,7 +6,7 @@
 import {
     PropertiesView,
     SetBindingResponse,
-} from "../../../tools/online_editor/src/shared/properties";
+} from "../../../tools/slintpad/src/shared/properties";
 
 const vscode = acquireVsCodeApi();
 

@@ -65,7 +65,7 @@ slint_init()
                 const response = the_lsp.server_initialize_result(
                     params.capabilities,
                 );
-                response.capabilities.codeLensProvider = null; // CodeLenses are not relevant for the online editor
+                response.capabilities.codeLensProvider = null; // CodeLenses are not relevant for Slintpad
                 return response;
             },
         );

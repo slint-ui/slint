@@ -8,7 +8,7 @@
 import {
     Property,
     PropertyQuery,
-} from "../../../tools/online_editor/src/shared/properties";
+} from "../../../tools/slintpad/src/shared/properties";
 import {
     change_property,
     query_properties,

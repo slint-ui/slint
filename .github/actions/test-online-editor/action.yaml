@@ -7,8 +7,8 @@
 # https://github.com/cypress-io/cypress-realworld-app/blob/develop/.github/workflows/main.yml
 
 ---
-name: Test online editor (cypress)
-description: Test the online editor using cypress
+name: Test Slintpad (cypress)
+description: Test Slintpad using cypress
 
 inputs:
   browser:
@@ -19,10 +19,10 @@ inputs:
     description: "The WASM binaries to download and use"
     required: true
     default: wasm
-  online-editor-artifact:
-    description: "The online editor artifacts"
+  slintpad-artifact:
+    description: "The Slintpad artifacts"
     required: true
-    default: online_editor
+    default: slintpad
 
 runs:
   using: composite
@@ -31,38 +31,38 @@ runs:
       uses: actions/download-artifact@v3
       with:
         name: ${{ inputs.wasm-binaries }}
-    - name: Download the online-editor artifacts
+    - name: Download the slintpad artifacts
       uses: actions/download-artifact@v3
       with:
-        name: ${{ inputs.online-editor-artifact }}
-        path: tools/online-editor/dist
-    - name: online editor setup actions
+        name: ${{ inputs.slintpad-artifact }}
+        path: tools/slintpad/dist
+    - name: slintpad setup actions
       run: mv ../../../api/wasm-interpreter/pkg wasm-interpreter
       shell: bash
-      working-directory: tools/online-editor/dist
+      working-directory: tools/slintpad/dist
     - name: work around assets problem
       run: ln -s . assets
       shell: bash
-      working-directory: tools/online-editor/dist/assets
+      working-directory: tools/slintpad/dist/assets
 
     # Debug filesystem layout
     - name: work around assets problem
       run: |
-        ls -alF tools/online-editor/dist
-        ls -alF tools/online-editor/dist/assets
-        ls -alF tools/online-editor/dist/wasm-interpreter
+        ls -alF tools/slintpad/dist
+        ls -alF tools/slintpad/dist/assets
+        ls -alF tools/slintpad/dist/wasm-interpreter
       shell: bash
 
     - name: Install NPM dependencies
       run: npm install
       shell: bash
-      working-directory: tools/online_editor
+      working-directory: tools/slintpad
 
     - name: "UI Tests - Chrome"
       uses: cypress-io/github-action@v4
       with:
         browser: ${{ inputs.browser }}
-        working-directory: tools/online_editor
+        working-directory: tools/slintpad
         start: npm run start:vite_cypress-preview
         wait-on: 'http://localhost:3001'
         wait-on-timeout: 20
@@ -74,4 +74,4 @@ runs:
       if: failure()
       with:
         name: cypress-screenshots-chrome
-        path: tools/online_editor/cypress/screenshots
+        path: tools/slintpad/cypress/screenshots

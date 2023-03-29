@@ -1,6 +1,6 @@
 {
     "//": "cSpell: ignore lumino dragdrop frsource ",
-    "name": "slint-online-editor",
+    "name": "slintpad",
     "version": "1.0.0",
     "description": "",
     "main": "index.js",

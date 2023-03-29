@@ -27,7 +27,7 @@ export class WelcomeWidget extends Widget {
       <p>The same features are also available in the <a href="https://marketplace.visualstudio.com/items?itemName=Slint.slint" target="_blank">Visual Studio Code extension</a>,
       which runs in your local VS code installation as well as in the <a href="https://vscode.dev/" target="_blank">Visual Studio Code for the Web</a>.</p>
 
-      <p>SlintPad is licensed under the GNU GPLv3. The source code is located in our <a href="https://github.com/slint-ui/slint/tree/master/tools/online_editor" target="_blank">GitHub repository</a>.
+      <p>SlintPad is licensed under the GNU GPLv3. The source code is located in our <a href="https://github.com/slint-ui/slint/tree/master/tools/slintpad" target="_blank">GitHub repository</a>.
       </div>
       `;
         node.appendChild(content);

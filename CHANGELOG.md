@@ -26,6 +26,7 @@ All notable changes to this project are documented in this file.
  - the `compat-0-3-0` mandatory cargo feature flag was renamed to `compat-1-0`
  - Flickable: don't forward event if the flickable is dragged in a direction that can be dragged, even if at the end
  - LSP: don't add spaces when auto-completing elements or callbacks, leads to better formatting
+ - The online editor was renamed to Slintpad
 
 
 ### Added
