@@ -141,7 +141,7 @@ function create_project_menu(editor: EditorWidget): Menu {
     });
 
     commands.addCommand("slint:add_file", {
-        label: "Add a file",
+        label: "Add File",
         iconClass: "fa-regular fa-file",
         mnemonic: 1,
         execute: () => {
