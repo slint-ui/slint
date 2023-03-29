@@ -368,24 +368,30 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
 
                 let sf = self.window.scale_factor();
 
-                winit_window.set_resizable(true);
-                winit_window.set_min_inner_size(if min_width > 0. || min_height > 0. {
+                let min_inner_size = if min_width > 0. || min_height > 0. {
                     Some(winit::dpi::PhysicalSize::new(min_width * sf, min_height * sf))
                 } else {
                     None
-                });
-                winit_window.set_max_inner_size(
-                    if max_width < i32::MAX as f32 || max_height < i32::MAX as f32 {
-                        Some(winit::dpi::PhysicalSize::new(
-                            (max_width * sf).min(65535.),
-                            (max_height * sf).min(65535.),
-                        ))
+                };
+                let max_inner_size = if max_width < i32::MAX as f32 || max_height < i32::MAX as f32
+                {
+                    Some(winit::dpi::PhysicalSize::new(
+                        (max_width * sf).min(65535.),
+                        (max_height * sf).min(65535.),
+                    ))
+                } else {
+                    None
+                };
+                winit_window.set_min_inner_size(min_inner_size);
+                winit_window.set_max_inner_size(max_inner_size);
+                self.set_constraints((constraints_horizontal, constraints_vertical));
+                winit_window.set_resizable(
+                    if min_inner_size.is_some() && max_inner_size.is_some() {
+                        min_width < max_width || min_height < max_height
                     } else {
-                        None
+                        true
                     },
                 );
-                self.set_constraints((constraints_horizontal, constraints_vertical));
-                winit_window.set_resizable(min_width < max_width || min_height < max_height);
 
                 #[cfg(target_arch = "wasm32")]
                 {
