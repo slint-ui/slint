@@ -433,10 +433,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             {
                 window_builder = window_builder
                     .with_title(window_item.title().to_string())
-                    .with_resizable(
-                        window_item.height() <= LogicalLength::zero()
-                            || window_item.width() <= LogicalLength::zero(),
-                    )
                     .with_decorations(!window_item.no_frame())
                     .with_window_icon(icon_to_winit(window_item.icon()));
             } else {
@@ -521,18 +517,37 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 window_builder = window_builder
                     .with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
             } else {
-                if layout_info_h.min >= 1. as Coord || layout_info_v.min >= 1. as Coord {
-                    window_builder = window_builder.with_min_inner_size(into_size(
-                        winit::dpi::LogicalSize::new(layout_info_h.min, layout_info_v.min),
-                    ))
-                }
-                if layout_info_h.max > Coord::zero()
+                let min_inner_size =
+                    if layout_info_h.min >= 1. as Coord || layout_info_v.min >= 1. as Coord {
+                        Some(winit::dpi::LogicalSize::new(layout_info_h.min, layout_info_v.min))
+                    } else {
+                        None
+                    };
+                let max_inner_size = if layout_info_h.max > Coord::zero()
                     && layout_info_v.max > Coord::zero()
                     && (layout_info_h.max < Coord::MAX || layout_info_v.max < Coord::MAX)
                 {
-                    window_builder = window_builder.with_max_inner_size(into_size(
-                        winit::dpi::LogicalSize::new(layout_info_h.max, layout_info_v.max),
-                    ))
+                    Some(winit::dpi::LogicalSize::new(layout_info_h.max, layout_info_v.max))
+                } else {
+                    None
+                };
+
+                if let Some(logical_min_inner_size) = min_inner_size {
+                    window_builder =
+                        window_builder.with_min_inner_size(into_size(logical_min_inner_size))
+                }
+                if let Some(logical_max_inner_size) = max_inner_size {
+                    window_builder =
+                        window_builder.with_max_inner_size(into_size(logical_max_inner_size))
+                }
+
+                if let Some((
+                    winit::dpi::LogicalSize { width: min_width, height: min_height },
+                    winit::dpi::LogicalSize { width: max_width, height: max_height },
+                )) = min_inner_size.zip(max_inner_size)
+                {
+                    window_builder = window_builder
+                        .with_resizable(min_width < max_width || min_height < max_height)
                 }
 
                 if let Some(requested_size) = &requested_size {
