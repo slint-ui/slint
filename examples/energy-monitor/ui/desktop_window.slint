@@ -29,12 +29,14 @@ export component MainWindow inherits Window {
     min-height: 240px;
     background: Theme.palette.pure-black;
 
+    /* The design is not finished yet
     if show-big : BigMain {
         preferred-width: 100%;
         preferred-height: 100%;
     }
+    */
 
-    if show-mid : MidMain {
+    if show-mid || show-big : MidMain {
         preferred-width: 100%;
         preferred-height: 100%;
     }
