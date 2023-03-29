@@ -59,7 +59,7 @@ const local_storage_key_layout = "layout_v1";
 
 function create_demo_menu(editor: EditorWidget): Menu {
     const menu = new Menu({ commands });
-    menu.title.label = "Open a Demo";
+    menu.title.label = "Open Demo";
 
     for (const demo of editor.known_demos()) {
         const command_name = "slint:set_demo_" + demo[1];
