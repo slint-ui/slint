@@ -22,6 +22,16 @@ A simple application showing the different widgets
 
 ![Screenshot of the Gallery on Windows](https://slint-ui.com/resources/gallery_win_screenshot.png "Gallery")
 
+### [`energy-monitor`](./energy-monitor)
+
+A fictional user interface of a device that monitors energy consumption in a building.
+
+| `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
+| --- | --- | --- | --- |
+| [`desktop_window.slint`](./energy-monitor/ui/desktop_window.slint) | [`main.rs`](./energy-monitor/src/main.rs) | [Online simulation](https://slint-ui.com/snapshots/master/demos/energy-monitor/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/energy-monitor/ui/desktop_window.slint) |
+
+![Screenshot of the Energy-Monitor Demo](https://slint-ui.com/resources/energy-monitor-screenshot.png "Energy Monitor")
+
 ### [`todo`](./todo)
 
 A simple todo mvc application
