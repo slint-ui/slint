@@ -30,6 +30,6 @@ slint-build = { path = "../../api/rs/build" }
 
 #wasm# [target.'cfg(target_arch = "wasm32")'.dependencies]
 #wasm# wasm-bindgen = { version = "0.2" }
-#wasm# web-sys = { version = "0.3", features=["console"] }
+#wasm# web-sys = { version = "0.3", features=["console", "Element", "HtmlCollection"] }
 #wasm# console_error_panic_hook = "0.1.5"
 #wasm# getrandom = { version = "0.2.2", features = ["js"] }

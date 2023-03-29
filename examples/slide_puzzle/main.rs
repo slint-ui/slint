@@ -172,6 +172,10 @@ pub fn main() {
     console_error_panic_hook::set_once();
 
     let main_window = MainWindow::new().unwrap();
+
+    #[cfg(target_arch = "wasm32")]
+    handle_resize(main_window.as_weak());
+
     let state = Rc::new(RefCell::new(AppState {
         pieces: Rc::new(slint::VecModel::<Piece>::from(vec![Piece::default(); 15])),
         main_window: main_window.as_weak(),
@@ -230,4 +234,44 @@ pub fn main() {
         }
     });
     main_window.run().unwrap();
+}
+
+#[cfg(target_arch = "wasm32")]
+/// winit doesn't handle the resizing of the canvas from CSS well
+/// https://github.com/rust-windowing/winit/issues/1661
+/// in the mean time, adjust the size manually
+fn handle_resize(slint_window: slint::Weak<MainWindow>) -> Option<()> {
+    let window = web_sys::window()?;
+    let resize_handler = move || {
+        let window = web_sys::window()?;
+        let doc = window.document()?;
+
+        let container = doc.get_element_by_id("container")?;
+        let children = container.children();
+        let mut height_sum = 0.;
+        for i in 0..children.length() {
+            let child = children.item(i).unwrap();
+            if child.tag_name().to_lowercase() == "canvas" {
+                continue;
+            }
+            let style = window.get_computed_style(&child).ok()?;
+            let get_margin = |m| {
+                style.as_ref()?.get_property_value(m).ok()?.strip_suffix("px")?.parse::<f32>().ok()
+            };
+            height_sum += child.scroll_height() as f32
+                + get_margin("margin-top").unwrap_or(0.)
+                + get_margin("margin-bottom").unwrap_or(0.)
+                + 1.;
+        }
+
+        let width = doc.body()?.client_width() as f32;
+        let height = doc.body()?.client_height() as f32 - height_sum;
+        slint_window.upgrade()?.window().set_size(slint::LogicalSize { width, height });
+        Some(())
+    };
+    resize_handler();
+    let closure = Closure::wrap(Box::new(move || drop(resize_handler())) as Box<dyn FnMut()>);
+    window.set_onresize(Some(closure.as_ref().unchecked_ref()));
+    closure.forget();
+    Some(())
 }
