@@ -65,8 +65,6 @@ export component Menu {
                 }
             }
         }
-
-        animate y { duration: Theme.durations.medium; }
     }
 
     public function hide-button() {
@@ -88,8 +86,11 @@ export component Menu {
             container-visibility: 1.0;
             i-menu-container.y: end-y;
 
+            in {
+                animate i-menu-container.y { duration: Theme.durations.medium; }
+            }
             out {
-                animate container-visibility { duration: Theme.durations.medium; }
+                animate container-visibility, i-menu-container.y { duration: Theme.durations.medium; }
             }
         }
     ]
