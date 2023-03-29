@@ -50,7 +50,7 @@ Puzzle game based on a Flutter example. See [Readme](./slide_puzzle)
 
 | `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- |
-| [`slide_puzzle.slint`](./slide_puzzle/slide_puzzle.slint) | [`main.rs`](./todo/rust/main.rs) | [Online simulation](https://slint-ui.com/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/slide_puzzle/slide_puzzle.slint) |
+| [`slide_puzzle.slint`](./slide_puzzle/slide_puzzle.slint) | [`main.rs`](./slide_puzzle/main.rs) | [Online simulation](https://slint-ui.com/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/slide_puzzle/slide_puzzle.slint) |
 
 ![Screenshot of the Slide Puzzle](https://slint-ui.com/resources/puzzle_screenshot.png "Slide Puzzle")
 
