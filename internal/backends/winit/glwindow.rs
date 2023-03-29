@@ -427,19 +427,18 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             let component_rc = runtime_window.component();
             let component = ComponentRc::borrow_pin(&component_rc);
 
-            window_builder = if let Some(window_item) =
-                runtime_window.window_item().as_ref().map(|i| i.as_pin_ref())
+            if let Some(window_item) = runtime_window.window_item().as_ref().map(|i| i.as_pin_ref())
             {
-                window_builder
+                window_builder = window_builder
                     .with_title(window_item.title().to_string())
                     .with_resizable(
                         window_item.height() <= LogicalLength::zero()
                             || window_item.width() <= LogicalLength::zero(),
                     )
                     .with_decorations(!window_item.no_frame())
-                    .with_window_icon(icon_to_winit(window_item.icon()))
+                    .with_window_icon(icon_to_winit(window_item.icon()));
             } else {
-                window_builder.with_title("Slint Window".to_string())
+                window_builder = window_builder.with_title("Slint Window".to_string());
             };
 
             let scale_factor_override = runtime_window.scale_factor();
@@ -516,8 +515,9 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 }
             }
 
-            let window_builder = if std::env::var("SLINT_FULLSCREEN").is_ok() {
-                window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
+            if std::env::var("SLINT_FULLSCREEN").is_ok() {
+                window_builder = window_builder
+                    .with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
             } else {
                 if layout_info_h.min >= 1. as Coord || layout_info_v.min >= 1. as Coord {
                     window_builder = window_builder.with_min_inner_size(into_size(
@@ -535,32 +535,29 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     // and we don't know the scale factor yet...
                     if let Some(sf) = scale_factor_override {
                         let physical_size = requested_size.to_physical(sf as f32);
-                        window_builder.with_inner_size(winit::dpi::Size::new(
+                        window_builder = window_builder.with_inner_size(winit::dpi::Size::new(
                             winit::dpi::PhysicalSize::new(
                                 physical_size.width,
                                 physical_size.height,
                             ),
-                        ))
+                        ));
                     } else {
-                        window_builder.with_inner_size(window_size_to_slint(requested_size))
+                        window_builder =
+                            window_builder.with_inner_size(window_size_to_slint(requested_size));
                     }
                 } else if s.width > 0 as Coord && s.height > 0 as Coord {
-                    window_builder.with_inner_size(into_size(s))
-                } else {
-                    window_builder
+                    window_builder = window_builder.with_inner_size(into_size(s));
                 }
             };
 
-            let window_builder = if let Some(pos) = &requested_position {
-                window_builder.with_position(position_to_winit(pos))
-            } else {
-                window_builder
+            if let Some(pos) = &requested_position {
+                window_builder = window_builder.with_position(position_to_winit(pos))
             };
 
             #[cfg(target_arch = "wasm32")]
-            let window_builder = {
+            {
                 use winit::platform::web::WindowBuilderExtWebSys;
-                window_builder.with_canvas(Some(html_canvas.clone()))
+                window_builder = window_builder.with_canvas(Some(html_canvas.clone()))
             };
 
             let winit_window = self_.renderer.show(
