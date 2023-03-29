@@ -18,7 +18,7 @@ component ValueLabel {
     in property <string> text;
     in property <string> unit;
 
-    HorizontalLayout {  
+    HorizontalLayout {
         Text {
             color: Theme.palette.white;
             vertical-stretch: 0;
@@ -48,12 +48,12 @@ component BarTile {
     in property <int> absolute-min;
     in property <int> absolute-max;
 
-    HorizontalLayout {  
+    HorizontalLayout {
         alignment: center;
 
-        VerticalLayout {  
+        VerticalLayout {
             spacing: 7px;
-    
+
             i-tiitle := Text {
                 color: Theme.palette.white;
                 vertical-stretch: 0;
@@ -61,39 +61,39 @@ component BarTile {
                 font-size: Theme.typo.desciption.size;
                 font-weight: Theme.typo.desciption.weight;
             }
-    
+
             i-icon := Image {
                 height: 20px;
                 vertical-stretch: 0;
             }
 
-            ValueLabel {  
+            ValueLabel {
                 text: max;
                 unit: unit;
             }
-    
-            Rectangle {  
+
+            Rectangle {
                 private property <int> range: root.absolute-max - root.absolute-min;
                 private property <length> max-y: self.height * (root.max - root.absolute-min) / range;
                 private property <length> min-y: self.height * (root.min - root.absolute-min) / range;
-                
+
                 vertical-stretch: 1;
-              
-                HorizontalLayout {  
+
+                HorizontalLayout {
                     alignment: center;
                     y: parent.height - max-y;
                     height: max-y - min-y;
 
-                    Rectangle {  
+                    Rectangle {
                         min_width: 12px;
                         border-radius: 6px;
-                       
+
                         background: Theme.palette.limon-green-light-gradient;
                     }
                 }
             }
-    
-            ValueLabel {  
+
+            ValueLabel {
                 text: min;
                 unit: unit;
             }
@@ -103,27 +103,39 @@ component BarTile {
 
 export component BarTiles {
     in property <[BarTileModel]> model;
+    in property <bool> active;
 
-    horizontal-stretch: 1; 
+    horizontal-stretch: 1;
     vertical-stretch: 1;
 
     BarBackground {}
 
-    HorizontalLayout { 
+    HorizontalLayout {
         padding-right: 18px;
         padding-left: 18px;
         padding-top: 11px;
         padding-bottom: 11px;
-      
+
         for tile in model : BarTile {
+            private property <float> display-max: tile.max;
+
             horizontal-stretch: 1;
             title: tile.title;
             icon: tile.icon;
-            max: tile.max;
             min: tile.min;
             absolute-min: tile.absolute-min;
             absolute-max: tile.absolute-max;
             unit: tile.unit;
+
+            states [
+                active when active : {
+                    max: display-max;
+
+                    in {
+                        animate max { duration: Theme.durations.slow; easing: ease-in-out; }
+                    }
+                }
+            ]
         }
     }
 }

@@ -12,7 +12,7 @@ export component BarBackground inherits Rectangle {
 export component ChartPattern {
     in property <int> count;
 
-    HorizontalLayout {  
+    HorizontalLayout {
         spacing: 1px;
         for _ in count : BarBackground {}
     }

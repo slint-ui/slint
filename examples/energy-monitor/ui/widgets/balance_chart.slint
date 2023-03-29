@@ -47,6 +47,7 @@ export component BalanceChart {
     in property <[int]> y-axis-model;
     in property <string> y-unit;
     in property <[float]> model;
+    in property <bool> active;
 
     i-zero-pattern := ChartPattern {
         preferred-width: 100%;
@@ -81,10 +82,12 @@ export component BalanceChart {
         spacing: 10px;
 
         for value[index] in model : Rectangle {
+            private property <float> display-value;
+
             if(value > 0.0) : UpBar {
                 width: 100%;
                 y: zero - self.height;
-                height: parent.height * (value / (root.max - root.min));
+                height: parent.height * (display-value / (root.max - root.min));
             }
 
             if(value < 0.0) : DownBar {
@@ -92,6 +95,16 @@ export component BalanceChart {
                 width: 100%;
                 height: parent.height * (-1 * value / (root.max - root.min));
             }
+
+            states [
+                active when active : {
+                    display-value: value;
+
+                    in {
+                        animate display-value { duration: Theme.durations.slow; easing: ease-in-out; }
+                    }
+                }
+            ]
         }
     }
 }

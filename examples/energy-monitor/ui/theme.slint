@@ -10,6 +10,7 @@ export struct Palette {
     limon-green: brush,
     limon-green-op10: brush,
     white: brush,
+    dimmer: brush,
 
     // slint blue
     slint-blue-50: brush,
@@ -90,10 +91,11 @@ export global Theme {
         pure-black: #000000,
         dark-deep-blue: #040708,
         shark-gray: #2C2F36,
-        limon-green: #DEFB3A, 
-        limon-green-op10: #defb3a1a, 
+        limon-green: #DEFB3A,
+        limon-green-op10: #defb3a1a,
         white: #FFFFFF,
- 
+        dimmer: #0000007b,
+
         // slint blue
         slint-blue-50: #EEE6FF,
         slint-blue-100: #D0C3FF,
@@ -140,13 +142,13 @@ export global Theme {
     in property <Spaces> spaces: {
         small: 5px,
         medium: 10px,
-        large: 20px, 
+        large: 20px,
     };
 
     in property <Durations> durations: {
         fast: 125ms,
         medium: 200ms,
-        slow: 1200ms,
+        slow: 500ms,
     };
 
     in property <Typo> typo: {

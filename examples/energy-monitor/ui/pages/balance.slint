@@ -37,16 +37,17 @@ export component Balance inherits Page {
     in property <string> y-unit <=> BalanceAdapter.y-unit;
     in property <string> title <=> BalanceAdapter.title;
 
-    GroupBox {  
+    GroupBox {
         title: root.title;
 
-        BalanceChart {  
+        BalanceChart {
             x-axis-model: root.x-axis-model;
             y-axis-model: root.y-axis-model;
             model: root.model;
             min: root.min;
             max: root.max;
             y-unit: root.y-unit;
+            active: root.active;
         }
     }
 }

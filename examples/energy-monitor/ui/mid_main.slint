@@ -12,6 +12,8 @@ export component MidMain {
     private property <int> page-count: 5;
     private property <length> item-width: i-page-scroll-view.viewport-width / page-count;
     private property <length> max-viewport-x: i-page-scroll-view.width - i-page-scroll-view.viewport-width;
+    private property <bool> overlay-open;
+    private property <bool> hightlight-selected;
 
     Rectangle {
         background: Theme.palette.background-gradient;
@@ -26,42 +28,51 @@ export component MidMain {
                 vertical-stretch: 1;
 
                 PageContainer {
+                    shrink: i-page-scroll-view.shrink(0);
+
                     Overview {}
 
                     clicked => {
-                        show-page(0);
+                        i-page-scroll-view.toggle-selection(0);
                     }
                 }
 
                 PageContainer {
+                    shrink: i-page-scroll-view.shrink(1);
+
                     Usage {}
 
                     clicked => {
-                        show-page(1);
+                        i-page-scroll-view.toggle-selection(1);
                     }
                 }
 
                 PageContainer {
+                    shrink: i-page-scroll-view.shrink(2);
+
                     Balance {}
 
                     clicked => {
-                        show-page(2);
+                        i-page-scroll-view.toggle-selection(2);
                     }
                 }
 
                 PageContainer {
+                    shrink: i-page-scroll-view.shrink(3);
+
                     Weather {}
 
                     clicked => {
-                        show-page(3);
+                        i-page-scroll-view.toggle-selection(3);
                     }
                 }
 
                 PageContainer {
+                    shrink: i-page-scroll-view.shrink(4);
                     About {}
 
                     clicked => {
-                        show-page(4);
+                        i-page-scroll-view.toggle-selection(4);
                     }
                 }
 
@@ -82,11 +93,6 @@ export component MidMain {
                 preferred-width: 100%;
                 preferred-height: 100%;
 
-                page-changed(index) => {
-                    i-menu.hide();
-                    show-page(index);
-                }
-
                 close => {
                     i-menu.hide();
                 }
@@ -96,9 +102,5 @@ export component MidMain {
                 i-menu-page.current-index = 0;
             }
         }
-    }
-
-    function show-page(index: int) {
-        i-page-scroll-view.viewport-x = min(0px, max(max-viewport-x, -(index * item-width)));
     }
 }
