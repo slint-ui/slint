@@ -539,9 +539,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                         window_builder.with_inner_size(window_size_to_slint(requested_size))
                     }
                 } else if s.width > 0 as Coord && s.height > 0 as Coord {
-                    // Make sure that the window's inner size is in sync with the root window item's
-                    // width/height.
-                    runtime_window.set_window_item_geometry(LogicalSize::new(s.width, s.height));
                     window_builder.with_inner_size(into_size(s))
                 } else {
                     window_builder
@@ -566,14 +563,12 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 &self_.canvas_id,
             )?;
 
-            WindowInner::from_pub(&self_.window).set_scale_factor(
-                scale_factor_override.unwrap_or_else(|| winit_window.scale_factor()) as _,
-            );
-            // On wasm, with_inner_size on the WindowBuilder don't have effect, so apply manually
-            #[cfg(target_arch = "wasm32")]
-            if s.width > 0 as Coord && s.height > 0 as Coord {
-                winit_window.set_inner_size(s);
-            }
+            let scale_factor = scale_factor_override.unwrap_or_else(|| winit_window.scale_factor());
+            WindowInner::from_pub(&self_.window).set_scale_factor(scale_factor as _);
+            let s = winit_window.inner_size().to_logical(scale_factor);
+            // Make sure that the window's inner size is in sync with the root window item's
+            // width/height.
+            runtime_window.set_window_item_geometry(LogicalSize::new(s.width, s.height));
             let id = winit_window.id();
 
             self_.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
@@ -699,30 +694,30 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
     }
 
     fn set_position(&self, position: corelib::api::WindowPosition) {
-        match &mut *self.map_state.borrow_mut() {
+        let w = match &mut *self.map_state.borrow_mut() {
             GraphicsWindowBackendState::Unmapped { requested_position, .. } => {
-                *requested_position = Some(position)
+                *requested_position = Some(position);
+                return;
             }
-            GraphicsWindowBackendState::Mapped(mapped_window) => {
-                mapped_window.winit_window.set_outer_position(position_to_winit(&position))
-            }
-        }
+            GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window.winit_window.clone(),
+        };
+        w.set_outer_position(position_to_winit(&position))
     }
 
     fn set_size(&self, size: corelib::api::WindowSize) {
         if self.in_resize_event.get() {
             return;
         }
-        if let Ok(mut map_state) = self.map_state.try_borrow_mut() {
-            match &mut *map_state {
-                GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
-                    *requested_size = Some(size)
-                }
-                GraphicsWindowBackendState::Mapped(mapped_window) => {
-                    mapped_window.winit_window.set_inner_size(window_size_to_slint(&size));
-                }
+        let Ok(mut map_state) = self.map_state.try_borrow_mut() else { return };
+        let w = match &mut *map_state {
+            GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
+                *requested_size = Some(size);
+                return;
             }
-        }
+            GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window.winit_window.clone(),
+        };
+        drop(map_state);
+        w.set_inner_size(window_size_to_slint(&size))
     }
 
     fn dark_color_scheme(&self) -> bool {
