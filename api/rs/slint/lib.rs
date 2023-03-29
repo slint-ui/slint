@@ -68,11 +68,11 @@ build = "build.rs"
 edition = "2021"
 
 [dependencies]
-slint = "0.3.4"
+slint = "1.0.0"
 ...
 
 [build-dependencies]
-slint-build = "0.3.4"
+slint-build = "1.0.0"
 ```
 
 Use the API of the slint-build crate in the `build.rs` file:
