@@ -375,8 +375,9 @@
                 text-align: center;
                 letter-spacing: -0.02em;
                 margin: 1ex 0;
+                height: 5em;
+                width: 100%;
             }
-
         </style>
 
         <meta name="description" content="Slint Toolkit" />
@@ -426,14 +427,14 @@
             }
 
             #docs li strong {
-                padding-bottom: 2ex;
+                height: 6em;
             }
 
             #docs li a {
-                display: block;
-                align-self: end;
-                justify-self: center;
-
+                display: flex;
+                flex-wrap: wrap;
+                align-content: center;
+                justify-content: center;
             }
 
             @media (max-width: 800px) {
