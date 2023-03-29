@@ -104,7 +104,7 @@ function create_style_menu(editor: EditorWidget): Menu {
 
 function create_settings_menu(): Menu {
     const menu = new Menu({ commands });
-    menu.title.label = "Change Settings";
+    menu.title.label = "Settings";
 
     commands.addCommand("slint:store_github_token", {
         label: "Manage Github login",
