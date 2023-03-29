@@ -200,17 +200,26 @@ function create_share_menu(editor: EditorWidget): Menu {
         iconClass: "fa-brands fa-github",
         mnemonic: 1,
         isEnabled: () => {
-            return (
-                has_github_access_token() &&
-                editor.open_document_urls.length > 0
-            );
+            return editor.open_document_urls.length > 0;
         },
         execute: async () => {
-            export_gist_dialog((desc, is_public) => {
-                export_to_gist(editor, desc, is_public)
-                    .then((url) => report_export_url_dialog(url))
-                    .catch((e) => report_export_error_dialog(e));
-            });
+            let has_token = has_github_access_token();
+            if (!has_token) {
+                await manage_github_access();
+            }
+            has_token = has_github_access_token();
+
+            if (has_token) {
+                await export_gist_dialog((desc, is_public) => {
+                    export_to_gist(editor, desc, is_public)
+                        .then((url) => report_export_url_dialog(url))
+                        .catch((e) => report_export_error_dialog(e));
+                });
+            } else {
+                alert(
+                    "You need a github access token set up to export as a gist.",
+                );
+            }
         },
     });
 

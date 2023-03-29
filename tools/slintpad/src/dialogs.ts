@@ -8,6 +8,9 @@ export function modal_dialog(
     trigger_action = () => {
         /**/
     },
+    close_action = () => {
+        /**/
+    },
 ) {
     const dialog = document.createElement("dialog");
     dialog.classList.add("dialog");
@@ -49,6 +52,8 @@ export function modal_dialog(
     dialog.appendChild(button_div);
 
     document.body.appendChild(dialog);
+
+    dialog.onclose = close_action;
     dialog.showModal();
 }
 

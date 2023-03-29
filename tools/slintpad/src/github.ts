@@ -11,7 +11,7 @@ export function has_github_access_token(): boolean {
     return token != null && token !== "";
 }
 
-export function manage_github_access(): boolean | null {
+export async function manage_github_access(): Promise<boolean | null> {
     let new_access_token = "";
 
     const description_div = document.createElement("div");
@@ -93,22 +93,25 @@ export function manage_github_access(): boolean | null {
     state_div.appendChild(token_input);
     state_div.appendChild(logout_button);
 
-    let result: boolean | null = null;
+    return new Promise((resolve, _) => {
+        let result: boolean | null = null;
 
-    modal_dialog(
-        "manage_github_dialog",
-        [description_div, state_div, error_div],
-        "OK",
-        () => {
-            localStorage.setItem(
-                local_storage_key_github_token,
-                new_access_token,
-            );
-            result = has_github_access_token();
-        },
-    );
-
-    return result;
+        modal_dialog(
+            "manage_github_dialog",
+            [description_div, state_div, error_div],
+            "OK",
+            () => {
+                localStorage.setItem(
+                    local_storage_key_github_token,
+                    new_access_token,
+                );
+                result = has_github_access_token();
+            },
+            () => {
+                resolve(result);
+            },
+        );
+    });
 }
 
 function get_github_access_token(): string | null {
