@@ -16,10 +16,10 @@ use core::future::Future;
 
 /// Storage for a cache of all loaded documents
 #[derive(Default)]
-pub struct LoadedDocuments {
+struct LoadedDocuments {
     /// maps from the canonical file name to the object_tree::Document
     docs: HashMap<PathBuf, Document>,
-    currently_loading: HashSet<PathBuf>,
+    currently_loading: HashMap<PathBuf, Vec<std::task::Waker>>,
 }
 
 pub enum ImportKind {
@@ -132,12 +132,19 @@ impl TypeLoader {
         registry_to_populate: &'a Rc<RefCell<TypeRegister>>,
     ) -> (Vec<ImportedTypes>, Exports) {
         let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
-        Self::load_dependencies_recursively_impl(&state, doc, registry_to_populate).await
+        Self::load_dependencies_recursively_impl(
+            &state,
+            doc,
+            registry_to_populate,
+            &Default::default(),
+        )
+        .await
     }
     fn load_dependencies_recursively_impl<'a: 'b, 'b>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         doc: &'b syntax_nodes::Document,
         registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
+        import_stack: &'b HashSet<PathBuf>,
     ) -> core::pin::Pin<Box<dyn std::future::Future<Output = (Vec<ImportedTypes>, Exports)> + 'b>>
     {
         let mut foreign_imports = vec![];
@@ -150,6 +157,7 @@ impl TypeLoader {
                             state,
                             file,
                             Some(import.import_uri_token.clone().into()),
+                            import_stack.clone()
                         )
                         .await?;
                         let mut state = state.borrow_mut();
@@ -235,10 +243,13 @@ impl TypeLoader {
         diag: &mut BuildDiagnostics,
     ) -> Option<Rc<object_tree::Component>> {
         let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
-        let doc_path = match Self::ensure_document_loaded(&state, file_to_import, None).await {
-            Some(doc_path) => doc_path,
-            None => return None,
-        };
+        let doc_path =
+            match Self::ensure_document_loaded(&state, file_to_import, None, Default::default())
+                .await
+            {
+                Some(doc_path) => doc_path,
+                None => return None,
+            };
 
         let doc = self.all_documents.docs.get(&doc_path).unwrap();
 
@@ -285,22 +296,42 @@ impl TypeLoader {
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         file_to_import: &'b str,
         import_token: Option<NodeOrToken>,
+        mut import_stack: HashSet<PathBuf>,
     ) -> Option<PathBuf> {
         let (path, builtin) =
             { state.borrow().tl.resolve_import_path(import_token.as_ref(), file_to_import) };
 
         let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
 
-        if state.borrow().tl.all_documents.docs.get(path_canon.as_path()).is_some() {
-            return Some(path_canon);
-        }
-
-        if !state.borrow_mut().tl.all_documents.currently_loading.insert(path_canon.clone()) {
+        if !import_stack.insert(path_canon.clone()) {
             state
                 .borrow_mut()
                 .diag
                 .push_error(format!("Recursive import of \"{}\"", path.display()), &import_token);
             return None;
+        }
+
+        let is_loaded = core::future::poll_fn(|cx| {
+            let mut state = state.borrow_mut();
+            let all_documents = &mut state.tl.all_documents;
+            match all_documents.currently_loading.entry(path_canon.clone()) {
+                std::collections::hash_map::Entry::Occupied(mut e) => {
+                    e.get_mut().push(cx.waker().clone());
+                    core::task::Poll::Pending
+                }
+                std::collections::hash_map::Entry::Vacant(v) => {
+                    if all_documents.docs.get(path_canon.as_path()).is_some() {
+                        core::task::Poll::Ready(true)
+                    } else {
+                        v.insert(Default::default());
+                        core::task::Poll::Ready(false)
+                    }
+                }
+            }
+        })
+        .await;
+        if is_loaded {
+            return Some(path_canon);
         }
 
         let source_code_result = if let Some(builtin) = builtin {
@@ -339,10 +370,27 @@ impl TypeLoader {
             }
         };
 
-        Self::load_file_impl(state, &path_canon, &path, source_code, builtin.is_some()).await;
-        let _ok =
-            state.borrow_mut().tl.all_documents.currently_loading.remove(path_canon.as_path());
-        assert!(_ok);
+        Self::load_file_impl(
+            state,
+            &path_canon,
+            &path,
+            source_code,
+            builtin.is_some(),
+            &import_stack,
+        )
+        .await;
+
+        let wakers = state
+            .borrow_mut()
+            .tl
+            .all_documents
+            .currently_loading
+            .remove(path_canon.as_path())
+            .unwrap();
+        for x in wakers {
+            x.wake();
+        }
+
         Some(path_canon)
     }
 
@@ -358,7 +406,15 @@ impl TypeLoader {
         diag: &mut BuildDiagnostics,
     ) {
         let state = RefCell::new(BorrowedTypeLoader { tl: self, diag });
-        Self::load_file_impl(&state, path, source_path, source_code, is_builtin).await
+        Self::load_file_impl(
+            &state,
+            path,
+            source_path,
+            source_code,
+            is_builtin,
+            &Default::default(),
+        )
+        .await
     }
 
     async fn load_file_impl<'a>(
@@ -367,6 +423,7 @@ impl TypeLoader {
         source_path: &Path,
         source_code: String,
         is_builtin: bool,
+        import_stack: &HashSet<PathBuf>,
     ) {
         let dependency_doc: syntax_nodes::Document =
             crate::parser::parse(source_code, Some(source_path), &mut state.borrow_mut().diag)
@@ -375,9 +432,13 @@ impl TypeLoader {
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&state.borrow().tl.global_type_registry)));
         dependency_registry.borrow_mut().expose_internal_types = is_builtin;
-        let (foreign_imports, reexports) =
-            Self::load_dependencies_recursively_impl(state, &dependency_doc, &dependency_registry)
-                .await;
+        let (foreign_imports, reexports) = Self::load_dependencies_recursively_impl(
+            state,
+            &dependency_doc,
+            &dependency_registry,
+            import_stack,
+        )
+        .await;
 
         if state.borrow().diag.has_error() {
             // If there was error (esp parse error) we don't want to report further error in this document.
