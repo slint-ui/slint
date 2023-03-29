@@ -19,7 +19,7 @@ The follow table summarizes the entire mapping:
  :code:`duration`            :code:`std::int64_t`                At run-time, durations are always represented as signed 64-bit integers with millisecond precision.
  :code:`angle`               :code:`float`                       The value in degrees.
  :code:`relative-font-size`  :code:`float`                       Relative font size factor that is multiplied with the :code:`Window.default-font-size` and can be converted to a :code:`length`.
- structure                   A :code:`class` of the same name    The order of the data member are in the lexicographic order of their name
+ structure                   A :code:`class` of the same name    The order of the data member are in the same as in the slint declaration
 ===========================  ==================================  =======================================================================================================================================
 ```
 ## Structures
@@ -42,7 +42,7 @@ will generate the following type in C++:
 ```cpp
 class MyStruct {
 public:
-    slint::SharedString bar;
     int foo;
+    slint::SharedString bar;
 };
 ```
