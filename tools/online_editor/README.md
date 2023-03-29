@@ -7,8 +7,14 @@ https://slint-ui.com/snapshots/master/editor (nightly).
 To try it out locally type this in this directory:
 
 ```sh
-npm install
-npm start
+## only need to run this once
+npm run build:wasm_preview   # Build the wasm interpreter used by the preview
+npm run build:wasm_lsp       # Build the wasm LSP used by the text editor
+
+## Run this to refresh slintpad
+npm run build                # Build the web UI code
+cp -r ../../api/wasm-interpreter/pkg dist/wasm-interpreter # To make the LSP available
+npx vite preview             # Start a server serving the slintpad UI
 ```
 
 ## Documentation
