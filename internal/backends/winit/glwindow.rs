@@ -14,7 +14,7 @@ use crate::renderer::WinitCompatibleRenderer;
 use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
 use corelib::items::MouseCursor;
-use corelib::layout::{LayoutInfo, Orientation};
+use corelib::layout::Orientation;
 use corelib::lengths::{LogicalLength, LogicalPoint, LogicalSize};
 use corelib::platform::PlatformError;
 use corelib::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
@@ -42,6 +42,10 @@ fn window_size_to_slint(size: &corelib::api::WindowSize) -> winit::dpi::Size {
             winit::dpi::Size::new(winit::dpi::PhysicalSize::new(size.width, size.height))
         }
     }
+}
+
+fn logical_size_to_winit(size: LogicalSize) -> winit::dpi::LogicalSize<f32> {
+    winit::dpi::LogicalSize::new(size.width, size.height)
 }
 
 fn physical_size_to_slint(size: &winit::dpi::PhysicalSize<u32>) -> corelib::api::PhysicalSize {
@@ -80,36 +84,16 @@ fn icon_to_winit(icon: corelib::graphics::Image) -> Option<winit::window::Icon> 
     winit::window::Icon::from_rgba(rgba_pixels, pixel_buffer.width(), pixel_buffer.height()).ok()
 }
 
-fn min_max_sizes_and_resizable(
-    constraints_horizontal: LayoutInfo,
-    constraints_vertical: LayoutInfo,
-) -> (Option<winit::dpi::LogicalSize<f32>>, Option<winit::dpi::LogicalSize<f32>>, bool) {
-    let min_width = constraints_horizontal.min.min(constraints_horizontal.max) as f32;
-    let min_height = constraints_vertical.min.min(constraints_vertical.max) as f32;
-    let max_width = constraints_horizontal.max.max(constraints_horizontal.min) as f32;
-    let max_height = constraints_vertical.max.max(constraints_vertical.min) as f32;
-
-    let min_size = if min_width > 0. || min_height > 0. {
-        Some(winit::dpi::LogicalSize::new(min_width, min_height))
-    } else {
-        None
-    };
-    let max_size = if max_width > 0.
-        && max_height > 0.
-        && (max_width < i32::MAX as f32 || max_height < i32::MAX as f32)
+fn window_is_resizable(min_size: Option<LogicalSize>, max_size: Option<LogicalSize>) -> bool {
+    if let Some((
+        LogicalSize { width: min_width, height: min_height, .. },
+        LogicalSize { width: max_width, height: max_height, .. },
+    )) = min_size.zip(max_size)
     {
-        Some(winit::dpi::LogicalSize::new(max_width, max_height))
-    } else {
-        None
-    };
-
-    let resizable = if min_size.is_some() && max_size.is_some() {
         min_width < max_width || min_height < max_height
     } else {
         true
-    };
-
-    (min_size, max_size, resizable)
+    }
 }
 
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
@@ -214,6 +198,19 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
         #[cfg(not(target_arch = "wasm32"))]
         return callback(self);
     }
+
+    fn constraints(&self) -> (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo) {
+        self.borrow_mapped_window().map(|window| window.constraints.get()).unwrap_or_default()
+    }
+
+    fn set_constraints(
+        &self,
+        constraints: (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo),
+    ) {
+        if let Some(window) = self.borrow_mapped_window() {
+            window.constraints.set(constraints);
+        }
+    }
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Renderer> {
@@ -247,19 +244,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
 
     fn winit_window(&self) -> Option<Rc<winit::window::Window>> {
         self.borrow_mapped_window().map(|mapped_window| mapped_window.winit_window.clone())
-    }
-
-    fn constraints(&self) -> (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo) {
-        self.borrow_mapped_window().map(|window| window.constraints.get()).unwrap_or_default()
-    }
-
-    fn set_constraints(
-        &self,
-        constraints: (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo),
-    ) {
-        if let Some(window) = self.borrow_mapped_window() {
-            window.constraints.set(constraints);
-        }
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -395,13 +379,18 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 // Use our scale factor instead of winit's logical size to take a scale factor override into account.
                 let sf = self.window.scale_factor();
 
-                let (min_inner_size, max_inner_size, resizable) =
-                    min_max_sizes_and_resizable(constraints_horizontal, constraints_vertical);
+                let (min_size, max_size) =
+                    i_slint_core::layout::min_max_size_for_layout_constraints(
+                        constraints_horizontal,
+                        constraints_vertical,
+                    );
 
-                winit_window.set_min_inner_size(min_inner_size.map(|logical_size| {
+                let resizable = window_is_resizable(min_size, max_size);
+
+                winit_window.set_min_inner_size(min_size.map(|logical_size| {
                     winit::dpi::PhysicalSize::new(logical_size.width * sf, logical_size.height * sf)
                 }));
-                winit_window.set_max_inner_size(max_inner_size.map(|logical_size| {
+                winit_window.set_max_inner_size(max_size.map(|logical_size| {
                     winit::dpi::PhysicalSize::new(
                         (logical_size.width * sf).min(65535.),
                         (logical_size.height * sf).min(65535.),
@@ -532,19 +521,23 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 window_builder = window_builder
                     .with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
             } else {
-                let (min_inner_size, max_inner_size, resizable) =
-                    min_max_sizes_and_resizable(layout_info_h, layout_info_v);
+                let (min_inner_size, max_inner_size) =
+                    i_slint_core::layout::min_max_size_for_layout_constraints(
+                        layout_info_h,
+                        layout_info_v,
+                    );
 
-                if let Some(logical_min_inner_size) = min_inner_size {
-                    window_builder =
-                        window_builder.with_min_inner_size(into_size(logical_min_inner_size))
+                if let Some(min_inner_size) = min_inner_size {
+                    window_builder = window_builder
+                        .with_min_inner_size(into_size(logical_size_to_winit(min_inner_size)))
                 }
-                if let Some(logical_max_inner_size) = max_inner_size {
-                    window_builder =
-                        window_builder.with_max_inner_size(into_size(logical_max_inner_size))
+                if let Some(max_inner_size) = max_inner_size {
+                    window_builder = window_builder
+                        .with_max_inner_size(into_size(logical_size_to_winit(max_inner_size)))
                 }
 
-                window_builder = window_builder.with_resizable(resizable);
+                window_builder = window_builder
+                    .with_resizable(window_is_resizable(min_inner_size, max_inner_size));
 
                 if let Some(requested_size) = &requested_size {
                     // It would be nice to bound this with our constraints, but those are in logical coordinates

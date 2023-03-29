@@ -1592,17 +1592,31 @@ impl WindowAdapterSealed for QtWindow {
         constraints_v: i_slint_core::layout::LayoutInfo,
     ) {
         let widget_ptr = self.widget_ptr();
-        let min_width: f32 = constraints_h.min.min(constraints_h.max);
-        let min_height: f32 = constraints_v.min.min(constraints_v.max);
-        let mut max_width: f32 = constraints_h.max.max(constraints_h.min);
-        let mut max_height: f32 = constraints_v.max.max(constraints_v.min);
-        cpp! {unsafe [widget_ptr as "QWidget*",  min_width as "float", min_height as "float", mut max_width as "float", mut max_height as "float"] {
-            widget_ptr->setMinimumSize(QSize(min_width, min_height));
-            if (max_width > QWIDGETSIZE_MAX)
-                max_width = QWIDGETSIZE_MAX;
-            if (max_height > QWIDGETSIZE_MAX)
-                max_height = QWIDGETSIZE_MAX;
-            widget_ptr->setMaximumSize(QSize(max_width, max_height).expandedTo({1,1}));
+
+        let (min_size, max_size) =
+            i_slint_core::layout::min_max_size_for_layout_constraints(constraints_h, constraints_v);
+
+        let min_size: qttypes::QSize = min_size.map_or_else(
+            || qttypes::QSize { width: 0, height: 0 }, // (0x0) means unset min size for QWidget
+            |LogicalSize { width, height, .. }| qttypes::QSize {
+                width: width as u32,
+                height: height as u32,
+            },
+        );
+
+        let widget_size_max: u32 = 16_777_215;
+
+        let max_size: qttypes::QSize = max_size.map_or_else(
+            || qttypes::QSize { width: widget_size_max, height: widget_size_max },
+            |LogicalSize { width, height, .. }| qttypes::QSize {
+                width: (width as u32).min(widget_size_max),
+                height: (height as u32).min(widget_size_max),
+            },
+        );
+
+        cpp! {unsafe [widget_ptr as "QWidget*",  min_size as "QSize", max_size as "QSize"] {
+            widget_ptr->setMinimumSize(min_size);
+            widget_ptr->setMaximumSize(max_size);
         }};
     }
 
