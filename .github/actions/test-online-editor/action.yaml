@@ -7,8 +7,8 @@
 # https://github.com/cypress-io/cypress-realworld-app/blob/develop/.github/workflows/main.yml
 
 ---
-name: Test slintpad (cypress)
-description: Test the slintpad using cypress
+name: Test Slintpad (cypress)
+description: Test Slintpad using cypress
 
 inputs:
   browser:
@@ -20,7 +20,7 @@ inputs:
     required: true
     default: wasm
   slintpad-artifact:
-    description: "The slintpad artifacts"
+    description: "The Slintpad artifacts"
     required: true
     default: slintpad
 
