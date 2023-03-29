@@ -201,3 +201,27 @@
 .dialog.report_export_url .url .url_text {
     font-family: monospace;
 }
+
+.dialog.manage_github_dialog .description_area {
+    width: 300px;
+    height: 100px;
+    display: flex;
+    align-items: center;
+}
+
+.dialog.manage_github_dialog .current_state {
+    display: flex;
+    gap: 5px;
+}
+
+.dialog.manage_github_dialog .current_state input {
+    flex: 3 1 0;
+}
+
+.dialog.manage_github_dialog .error_area {
+    width: 300px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    color: var(--error-bg);
+}

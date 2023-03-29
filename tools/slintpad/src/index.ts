@@ -13,7 +13,7 @@ import { WelcomeWidget } from "./welcome_widget";
 
 import {
     export_to_gist,
-    create_github_access_token,
+    manage_github_access,
     has_github_access_token,
 } from "./github";
 
@@ -110,7 +110,7 @@ function create_settings_menu(): Menu {
         label: "Manage Github login",
         iconClass: "fa-brands fa-github",
         execute: () => {
-            create_github_access_token();
+            manage_github_access();
         },
     });
 
