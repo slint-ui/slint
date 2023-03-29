@@ -172,12 +172,12 @@
                 margin: 0px;
                 width: 100%;
                 background: var(--SLINT_black);
-                background-image: url("./new_images/Header.svg");
+                background-image: url("https://slint-ui.com/new_images/Header.svg");
                 background-repeat: no-repeat;
                 background-size: cover;
                 background-position: center;
                 color: var(--SLINT_white);
-                padding: 8.5rem 5.3rem 7.5rem 5.3rem;
+                padding: 4rem 5.3rem 3rem 5.3rem;
             }
 
             #Header h2,
@@ -362,9 +362,7 @@
                     }
                 }
             }
-        </style>
 
-        <style>
             a.btn {
                 background: var(--LINK_Yellow_Green);
                 color: black;
@@ -376,53 +374,9 @@
                 font-size: 0.55rem;
                 text-align: center;
                 letter-spacing: -0.02em;
+                margin: 1ex 0;
             }
 
-            .arrow-link:after {
-                display: inline-block;
-                content: "";
-                background-image: url("/new_images/arrow-link.svg");
-                background-size: 1em 1em;
-                width: 1em;
-                height: 1em;
-                vertical-align: middle;
-                margin-left: 0.3em;
-            }
-
-            .contact-links {
-                flex-wrap: wrap;
-            }
-
-            .contact-links a:before {
-                display: inline-block;
-                background-size: 1em 1em;
-                width: 1em;
-                height: 1em;
-                margin: auto;
-                content: "";
-                vertical-align: middle;
-                margin-right: 0.2em;
-            }
-
-            .contact-links a[href^="mailto:"]:before {
-                background-image: url("/new_images/contact_email.svg");
-            }
-            .contact-links a[href^="https://github.com/"]:before
-            {
-                background-image: url("/new_images/contact_github.svg");
-            }
-            .contact-links a[href^="https://chat.slint-ui.com/"]:before
-            {
-                background-image: url("/new_images/contact_mattermost.svg");
-            }
-            .contact-links a[href^="https://twitter.com/"]:before
-            {
-                background-image: url("/new_images/contact_twitter.svg");
-            }
-            .contact-links a[href^="https://fosstodon.org/"]:before
-            {
-                background-image: url("/new_images/contact_mastodon.svg");
-            }
         </style>
 
         <meta name="description" content="Slint Toolkit" />
@@ -433,7 +387,7 @@
         <!-- Nav -->
         <nav id="Nav">
             <a href="https://slint-ui.com/" id="main_logo"
-                ><img src="/new_images/slint_logo_neg_RGB.svg" alt="Slint logo"
+                ><img src="https://slint-ui.com/new_images/slint_logo_neg_RGB.svg" alt="Slint logo"
             /></a>
         </nav>
 
@@ -454,7 +408,7 @@
             #docs li {
                 width: 100%;
                 display: grid;
-                grid-template-rows: 1tr 1tr 1tr 1tr;
+                grid-template-rows: 1fr .5fr auto;
                 justify-content: center;
                 margin: 0px;
                 padding: 0px 5px;
@@ -479,6 +433,7 @@
                 display: block;
                 align-self: end;
                 justify-self: center;
+
             }
 
             @media (max-width: 800px) {
@@ -500,83 +455,60 @@
 
             <ul>
                 <li>
-                    <img src="/new_images/slint_logo_white.svg" alt="Slint" />
-                    <strong class="card-title">Slint Language</strong>
-                    <a class="btn" href="slint/index.html"
-                        >Slint Language Documentation</a
-                    >
+                    <img src="https://slint-ui.com/new_images/slint_logo_white.svg" alt="Slint" />
+                    <strong>Slint Language</strong>
+                    <a class="btn" href="slint/index.html">📖 Slint Language Documentation</a>
                 </li>
                 <li>
                     <img
-                        src="/new_images/rust_logo_white.svg"
+                        src="https://slint-ui.com/new_images/rust_logo_white.svg"
                         alt="Rust Logo"
                     />
                     <strong>Using Slint in a Rust Project</strong>
-                    <a class="btn" href="rust/slint">Rust Documentation</a>
+                    <a class="btn" href="rust/slint">📖 Rust Documentation</a>
                     <br />
-                    <a class="btn" href="tutorial/rust">Rust Tutorial</a>
+                    <a class="btn" href="tutorial/rust">👨‍🏫 Rust Tutorial</a>
                     <br />
-                    <a class="btn" href="https://youtu.be/_-Hxr6ZrHyo"
-                        >Tutorial Video</a
-                    >
+                    <a class="btn" href="https://youtu.be/_-Hxr6ZrHyo" >🎬 Tutorial Video</a >
                     <br />
-                    <a
-                        class="btn"
-                        href="https://github.com/slint-ui/slint-rust-template"
-                        >Project Template</a
-                    >
+                    <a class="btn" href="https://github.com/slint-ui/slint-rust-template" >📝 Project Template</a >
                 </li>
                 <li>
-                    <img src="/new_images/cpp_logo_white.svg" alt="C++ Logo" />
+                    <img src="https://slint-ui.com/new_images/cpp_logo_white.svg" alt="C++ Logo" />
                     <strong>Using Slint in a C++ Project</strong>
-                    <a class="btn" href="cpp/">C++ Documentation</a>
+                    <a class="btn" href="cpp/">📖 C++ Documentation</a>
                     <br />
-                    <a class="btn" href="tutorial/cpp">C++ Tutorial</a>
+                    <a class="btn" href="tutorial/cpp">👨‍🏫 C++ Tutorial</a>
                     <br />
-                    <a class="btn" href="https://youtu.be/_-Hxr6ZrHyo"
-                        >Tutorial Video</a
-                    >
+                    <a class="btn" href="https://youtu.be/_-Hxr6ZrHyo" >🎬 Tutorial Video</a >
                     <br />
-                    <a
-                        class="btn"
-                        href="https://github.com/slint-ui/slint-rust-template"
-                        >Project Template</a
-                    >
+                    <a class="btn" href="https://github.com/slint-ui/slint-rust-template" >📝 Project Template</a >
                 </li>
                 <li>
-                    <img
-                        src="/new_images/node_logo_white.svg"
-                        alt="NodeJS Logo"
-                    />
+                    <img src="https://slint-ui.com/new_images/node_logo_white.svg" alt="NodeJS Logo" />
                     <strong>Using Slint in a NodeJS Project (Beta)</strong>
-                    <a class="btn" href="node">NodeJS Documentation</a>
+                    <a class="btn" href="node">📖 NodeJS Documentation</a>
                     <br />
-                    <a class="btn" href="tutorial/node">NodeJS Tutorial</a>
+                    <a class="btn" href="tutorial/node">👨‍🏫 NodeJS Tutorial</a>
                     <br />
-                    <a
-                        class="btn"
-                        href="https://github.com/slint-ui/slint-nodejs-template"
-                        >Project Template</a
-                    >
+                    <a class="btn" href="https://github.com/slint-ui/slint-nodejs-template" >📝 Project Template</a >
                 </li>
             </ul>
         </section>
 
         <div id="Footer">
             <div>
-                <a href="https://slint-ui.com/" id="main_logo"
-                    ><img
-                        src="/new_images/slint_logo_neg_RGB.svg"
-                        alt="Slint logo"
-                /></a>
+                <a href="https://slint-ui.com/" id="main_logo">
+                    <img src="https://slint-ui.com/new_images/slint_logo_neg_RGB.svg" alt="Slint logo" />
+                </a>
                 <address>Copyright © 2023 SixtyFPS GmbH</address>
             </div>
 
             <div>
                 <h6>Company</h6>
                 <a href="https://github.com/slint-ui/slint">GitHub</a>
-                <a href="/imprint.html">Imprint</a>
-                <a href="/imprint.html#privacy">Privacy Policy</a>
+                <a href="https://slint-ui.com/imprint.html">Imprint</a>
+                <a href="https://slint-ui.com/imprint.html#privacy">Privacy Policy</a>
             </div>
         </div>
     </body>
