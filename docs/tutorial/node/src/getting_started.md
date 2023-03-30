@@ -4,9 +4,10 @@ In this tutorial, we use JavaScript as the host programming language. We also su
 [Rust](https://slint-ui.com/docs/rust/slint/) or [C++](https://slint-ui.com/docs/cpp/).
 
 You'll need a development environment with [Node.js 16](https://nodejs.org/download/release/v16.19.1/) and [npm](https://www.npmjs.com/) installed. More recent
-versions of NodeJS are currently not supported, for details check [Issue #2220](https://github.com/slint-ui/slint/issues/2220).
+versions of NodeJS are currently not supported, for details check [Issue #961](https://github.com/slint-ui/slint/issues/961).
 Since Slint is implemented in the Rust programming language, you also need to install a Rust compiler (1.66 or newer). You can easily install a Rust compiler
 following the instruction from [the Rust website](https://www.rust-lang.org/learn/get-started).
+You will also need some additional platform-specific dependencies, see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>
 
 We're going to use `slint-ui` as `npm` dependency.
 

@@ -47,7 +47,7 @@ To use Slint from C++, the following extra dependencies are needed:
 
 To use Slint from Node.js, the following extra dependencies are needed.
 
-- **[Node.js](https://nodejs.org/en/)** (including npm) At this time you will need to use the LTS version.
+- **[Node.js](https://nodejs.org/en/)** (including npm) At this time you will need to use the version 16.
 - **[Python](https://www.python.org)**
 
 ### Symlinks in the repository (Windows)
