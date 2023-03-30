@@ -10,7 +10,7 @@ import { HeaderAdapter } from "blocks/blocks.slint";
 import { Navigation, MenuButton, Menu, Value } from "widgets/widgets.slint";
 import { BalanceAdapter, OverviewAdapter, UsageAdapter, WeatherAdapter, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter } from "pages/pages.slint";
 
-export { OverviewAdapter, UsageAdapter, Value, WeatherAdapter, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter, 
+export { OverviewAdapter, UsageAdapter, Value, WeatherAdapter, MenuPageAdapter, MenuOverviewAdapter, SettingsAdapter,
     BarTileModel, Images, HeaderAdapter }
 
 export component MainWindow inherits Window {
@@ -19,5 +19,8 @@ export component MainWindow inherits Window {
     min-height: 240px;
     background: Theme.palette.pure-black;
 
-    SmallMain {}
+    SmallMain {
+        preferred-width: 100%;
+        preferred-height: 100%;
+    }
 }
