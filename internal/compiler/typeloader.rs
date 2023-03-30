@@ -19,6 +19,10 @@ use core::future::Future;
 struct LoadedDocuments {
     /// maps from the canonical file name to the object_tree::Document
     docs: HashMap<PathBuf, Document>,
+    /// The .slint files that are currently being loaded, potentially asynchronously.
+    /// When a task start loading a file, it will add an empty vector to this map, and
+    /// the same task will remove the entry from the map when finished, and awake all
+    /// wakers.
     currently_loading: HashMap<PathBuf, Vec<std::task::Waker>>,
 }
 
@@ -316,7 +320,10 @@ impl TypeLoader {
             let all_documents = &mut state.tl.all_documents;
             match all_documents.currently_loading.entry(path_canon.clone()) {
                 std::collections::hash_map::Entry::Occupied(mut e) => {
-                    e.get_mut().push(cx.waker().clone());
+                    let waker = cx.waker();
+                    if !e.get().iter().any(|w| w.will_wake(waker)) {
+                        e.get_mut().push(cx.waker().clone());
+                    }
                     core::task::Poll::Pending
                 }
                 std::collections::hash_map::Entry::Vacant(v) => {
