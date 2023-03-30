@@ -95,7 +95,7 @@ pub fn min_max_size_for_layout_constraints(
     };
     let max_size = if max_width > 0 as Coord
         && max_height > 0 as Coord
-        && (max_width < Coord::MAX || max_height < Coord::MAX)
+        && (max_width < i32::MAX as Coord || max_height < i32::MAX as Coord)
     {
         Some(crate::lengths::LogicalSize::new(max_width, max_height))
     } else {
