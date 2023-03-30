@@ -3,54 +3,60 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-### Changed
+### General
+
+ - `TextEdit` performs better with the FemtoVG renderer when showing many lines.
+ - Software renderer: Added support for linear-gradients.
+ - Software renderer: Fixed artifacts when components are deleted or elements become invisible.
+ - Fixed Infinite loop in the accessibility backend on Windows (#2195).
+ - Skia renderer: Enable anti-aliasing for rectangles with border radius.
+ - Fluent style: Adjust disabled scrollbar background color.
+ - Fixed several panics in the compiler (#2312, #2274, #2319).
+ - Winit backend: Fix rendering when moving windows between monitors with a different scale factor (#2282).
+
+
+
+### Slint Language
+
+ - The old syntax that declares component with `:=` is now deprecated
+ - `Flickable`: don't forward events if the flickable is dragged in a direction that can be dragged, even if at the bounds.
+ - The `TextEdit` and `LineEdit` elements now correctly handle double click and tripple click to select words or lines,
+   as well as support for the "primary" clipboard on X11 and wayland (select to copy, and middle click to paste).
+
+### Rust
 
  - Minimum Rust version is now 1.66.
- - Deprecated functions and enums were removed
- - The old syntax that declares component with `:=` is now deprecated
+ - Deprecated functions and enums were removed from the API.
  - `PointerEventButton::None` was renamed `PointerEventButton::Other`
- - In the Rust API, more functions now return Result, and the return value needs to be unwrap()'ed
- - In the Rust API, a lifetime parameter was added to `slint::ModelPeer`
- - In the Rust API, `StandardListViewItem` and `TableColumn` are now marked as `#[non_exhaustive]`
- - In the C++ API, functions that take a functor as argument are now using concepts
- - In the C++ API, the type for row indexes in models was changed from `int` to `size_t`.
-   This includes arguments of virtual functions in `slint::Model` that needs to be adjusted in
-   derived classes.
- - The order of C++ generated struct members is now preserved from the .slint source file.
- - Removed the `stride()` function from `slint::Image` in Rust - use `width()` instead.
+ - More functions now return `Result`, and the return value needs to be `unwrap()`'ed.
+ - A lifetime parameter was added to `slint::ModelPeer`.
+ - `StandardListViewItem` and `TableColumn` are now marked as `#[non_exhaustive]`.
+ - Removed the `stride()` function from `slint::Image` - use `width()` instead.
  - In `slint::platform::WindowEvent::KeyPressed` and `KeyReleased`, the `text` field is now
    a `slint::SharedString`.
  - `slint::platform::WindowEvent` does not derive from `Copy` anymore. You must `clone()` it
    explicitly if you want to create a copy.
- - In Rust, the MAX_BUFFER_AGE const parameter of `slint::platform::software_renderer::MinimalSoftwareWindow`
-   has been removed and replaced by an argument to the `new()` function
- - the `compat-0-3-0` mandatory cargo feature flag was renamed to `compat-1-0`
- - Flickable: don't forward event if the flickable is dragged in a direction that can be dragged, even if at the end
- - LSP: don't add spaces when auto-completing elements or callbacks, leads to better formatting
- - The online editor was renamed to Slintpad
-
-
-### Added
-
- - The TextEdit and LineEdit now correctly handle double click and tripple click to select words or lines,
-   as well as support for the "primary" clipboard on X11 and wayland (select to copy, and middle click to paste)
- - C++ API to create `slint::Image` from raw pixel data
- - Software renderer: support for linear-gradients
+ - The `MAX_BUFFER_AGE` const parameter of `slint::platform::software_renderer::MinimalSoftwareWindow`
+   has been removed and replaced by an argument to the `new()` function.
+ - The `compat-0-3-0` mandatory cargo feature flag was renamed to `compat-1-0`.
  - Added a `software-renderer-systemfonts` feature to the Rust crate, to enable the use of fonts from the operating system
    for text rendering with the software renderer.
+ - Fixed some clippy warnings in the generated Rust code.
 
-### Fixed
+### C++
 
- - Faster TextEdit with many lines with the femtovg backend
- - Fixed Infinite loop in the accessibility backend on Windows (#2195)
- - Software renderer: fixed artifacts when components are deleted or elements become invisible
- - Skia renderer: Enable anti-aliasing for rectangle with radius
- - Fixed some clippy warning in the generated Rust code
- - Fluent style: Adjust disabled scrollbar background color
- - Fix panics in the compiler (#2312, #2274, #2319)
- - winit backend: Fix rendering when moving windows between monitors with different scale factor (#2282)
- - C++: Support all image formats the Rust image-rs crate supports, not just png and jpeg.
+ - Functions that take a functor as argument are now using C++ 20 concepts.
+ - In the C++ API, the type for row indexes in models was changed from `int` to `size_t`.
+   This includes arguments of virtual functions in `slint::Model` that needs to be adjusted in
+   derived classes.
+ - The order of C++ generated struct members is now preserved from the .slint source file.
+ - Add constructors to `slint::Image` to create images from raw pixel data.
+ - In C++ builds, support all image formats the Rust image-rs crate supports, not just png and jpeg.
 
+### Tooling
+
+ - LSP: don't add spaces when auto-completing elements or callbacks, leads to better formatting.
+ - The online editor was renamed to SlintPad. 
 
 ## [0.3.5] - 2023-02-21
 
