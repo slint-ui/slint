@@ -400,6 +400,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 winit_window.set_resizable(resizable);
 
                 #[cfg(target_arch = "wasm32")]
+                if let Some((
+                    LogicalSize { width: min_width, height: min_height, .. },
+                    LogicalSize { width: max_width, height: max_height, .. },
+                )) = min_size.zip(max_size)
                 {
                     // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
                     let existing_size: winit::dpi::LogicalSize<f32> =
