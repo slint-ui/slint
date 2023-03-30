@@ -6,15 +6,15 @@ import { StateLayer } from "../components/state_layer.slint";
 
 export component FloatButton {
     in property <image> icon <=> i-icon.source;
-    
+    in property <bool> enabled <=> i-state-layer.enabled;
     callback clicked <=> i-state-layer.clicked;
 
     min_width: 50px;
     min_height: 50px;
 
-    i-container := Rectangle {   
+    i-container := Rectangle {
         background: Theme.palette.heliotrope-gradient;
-        border-radius: max(self.width, self.height) / 2; 
+        border-radius: max(self.width, self.height) / 2;
 
         i-icon := Image {
             colorize: Theme.palette.white;

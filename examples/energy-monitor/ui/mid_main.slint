@@ -9,74 +9,67 @@ import { MenuPage } from "pages/pages.slint";
 import { Balance, Overview, Usage, UsageAdapter, Weather, About } from "pages/pages.slint";
 
 export component MidMain {
-    private property <int> page-count: 5;
-    private property <length> item-width: i-page-scroll-view.viewport-width / page-count;
-    private property <length> max-viewport-x: i-page-scroll-view.width - i-page-scroll-view.viewport-width;
-    private property <bool> overlay-open;
-    private property <bool> hightlight-selected;
-
     Rectangle {
         background: Theme.palette.background-gradient;
 
         VerticalLayout {
             padding-bottom: 50px;
-            spacing: 35px;
 
             Header {}
 
             i-page-scroll-view := PageScrollView {
                 vertical-stretch: 1;
+                page-count: 5;
 
                 PageContainer {
-                    shrink: i-page-scroll-view.shrink(0);
-
+                    index: 0;
+                    selected <=> i-page-scroll-view.selection;
+                    selected-width: i-page-scroll-view.selected-width;
+                    selected-height: i-page-scroll-view.selected-height;
+                    selected-h-offset: i-page-scroll-view.selected-h-offset;
+                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
                     Overview {}
-
-                    clicked => {
-                        i-page-scroll-view.toggle-selection(0);
-                    }
                 }
 
                 PageContainer {
-                    shrink: i-page-scroll-view.shrink(1);
-
+                    index: 1;
+                    selected <=> i-page-scroll-view.selection;
+                    selected-width: i-page-scroll-view.selected-width;
+                    selected-height: i-page-scroll-view.selected-height;
+                    selected-h-offset: i-page-scroll-view.selected-h-offset;
+                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
                     Usage {}
-
-                    clicked => {
-                        i-page-scroll-view.toggle-selection(1);
-                    }
                 }
 
                 PageContainer {
-                    shrink: i-page-scroll-view.shrink(2);
-
+                    index: 2;
+                    selected <=> i-page-scroll-view.selection;
+                    selected-width: i-page-scroll-view.selected-width;
+                    selected-height: i-page-scroll-view.selected-height;
+                    selected-h-offset: i-page-scroll-view.selected-h-offset;
+                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
                     Balance {}
-
-                    clicked => {
-                        i-page-scroll-view.toggle-selection(2);
-                    }
                 }
 
                 PageContainer {
-                    shrink: i-page-scroll-view.shrink(3);
-
+                    index: 3;
+                    selected <=> i-page-scroll-view.selection;
+                    selected-width: i-page-scroll-view.selected-width;
+                    selected-height: i-page-scroll-view.selected-height;
+                    selected-h-offset: i-page-scroll-view.selected-h-offset;
+                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
                     Weather {}
-
-                    clicked => {
-                        i-page-scroll-view.toggle-selection(3);
-                    }
                 }
 
                 PageContainer {
-                    shrink: i-page-scroll-view.shrink(4);
+                    index: 4;
+                    selected <=> i-page-scroll-view.selection;
+                    selected-width: i-page-scroll-view.selected-width;
+                    selected-height: i-page-scroll-view.selected-height;
+                    selected-h-offset: i-page-scroll-view.selected-h-offset;
+                    clicked => { i-page-scroll-view.toggle-selection(self.index, self.x); }
                     About {}
-
-                    clicked => {
-                        i-page-scroll-view.toggle-selection(4);
-                    }
                 }
-
-                animate viewport-x { duration: Theme.durations.medium;  }
             }
         }
 
