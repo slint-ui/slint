@@ -3,6 +3,7 @@
 
 import { EditorWidget, UrlMapper, KnownUrlMapper } from "./editor_widget";
 import { modal_dialog } from "./dialogs";
+import { version as slint_version } from "../package.json";
 
 const local_storage_key_github_token = "github_token_v1";
 
@@ -150,6 +151,7 @@ export async function export_to_gist(
     const project_data = {
         main: urls[0].slice(to_strip),
         mappings: extras,
+        slint_version: slint_version, // use the slintpad version as a proxy!
     };
 
     files["slint.json"] = { content: JSON.stringify(project_data) };
