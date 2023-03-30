@@ -11,6 +11,7 @@ component ScrollBar {
     in-out property<length> page-size;
     in-out property<length> value;
     in-out property<length> maximum;
+    in property <bool> enabled <=> i-ta.enabled;
 
     min-height: 14px;
 
@@ -28,7 +29,7 @@ component ScrollBar {
         }
     }
 
-    TouchArea {
+    i-ta := TouchArea {
         property <length> pressed-value;
 
         width: parent.width;
@@ -55,63 +56,96 @@ export component PageContainer {
     in property <bool> transparent-background: true;
     out property <length> mouse-x: i-touch-area.mouse-x;
 
-    in property <bool> shrink;
+    in property <int> selected;
+    in property <int> index;
+    in property <length> selected-height;
+    in property <length> selected-width;
+    in property <length> selected-h-offset;
 
-    min-width: shrink ? 0 : 320px;
-    min-height: shrink ? 0 : 240px;
+    min-width: 320px;
+    min-height: 240px;
 
-    i-touch-area := TouchArea {}
+    i-rect := Rectangle {
+        height: parent.height;
+        animate opacity { duration: Theme.durations.medium; }
 
-    Rectangle {
-        border-radius: 6px;
-        background: Theme.palette.dark-deep-blue;
-        opacity: root.transparent-background ? 0.5 : 1.0;
-    }
+        i-touch-area := TouchArea {}
 
-    Rectangle {
-        y: 10px;
-        height: root.height - 20px;
+        Rectangle {
+            border-radius: 6px;
+            background: Theme.palette.dark-deep-blue;
+            opacity: root.transparent-background ? 0.5 : 1.0;
+        }
 
-        @children
+        Rectangle {
+            y: 10px;
+            height: i-rect.height - 20px;
+
+            @children
+        }
     }
 
     states [
-        shrink when shrink : {
+        selected when selected == index : {
+            min-width: selected-width;
+            i-rect.height: selected-height;
+            i-rect.y: (self.height - selected-height) /2 + selected-h-offset;
+            out { animate i-rect.y, i-rect.height { duration: Theme.durations.medium; } }
+            in { animate i-rect.y, i-rect.height { duration: Theme.durations.medium; } }
+        }
+        shrink when selected != -1 : {
             horizontal-stretch: 0;
-            opacity: 0.0;
+            i-rect.opacity: 0.0;
         }
     ]
 
-    animate min-width, opacity { duration: 400ms; }
+    animate min-width { duration: Theme.durations.medium; }
 }
 
 export component PageScrollView {
-    private property <bool> zoomed-in: selected-index > -1;
-    private property <float> navigation-opacity: 1.0;
+    in property <int> page-count: 1;
+    out property <int> selection: -1;
+    out property <length> selected-height : root.height - i-layout.spacing;
+    out property <length> selected-width: i-flickable.width - i-layout.spacing * 2;
+    out property <length> selected-h-offset:  (root.height - i-flick-container.height)/2;
+    private property <length> item-width: i-flickable.viewport-width / page-count;
+    private property <length> saved-item-width: item-width;
 
-    out property <length> viewport-width: i-flickable.viewport-width;
-    in-out property <length> viewport-x <=> i-flickable.viewport-x;
-    out property <int> selected-index: -1;
+    public function toggle-selection(idx: int, x: length) {
+        if (selection >= 0) {
+            i-flickable.viewport-x = min(0px, max(i-flickable.width - saved-item-width * page-count , -x + i-flickable.width / 2 - saved-item-width / 2));
+            selection = -1;
+        } else {
+            saved-item-width = item-width;
+            selection = idx;
+            i-flickable.viewport-x = -x + i-layout.spacing;
+        }
+    }
+
+    function scroll-left() {
+        i-flickable.viewport-x = min(i-flickable.viewport-x + item-width, 0);
+    }
+
+    function scroll-right() {
+        i-flickable.viewport-x = max(i-flickable.viewport-x - item-width,  i-flickable.width - i-flickable.viewport-width);
+    }
 
     VerticalLayout {
-        spacing: zoomed-in ? 0 : 10px;
-        padding-bottom: zoomed-in ? 20px : 0;
-
-        VerticalLayout {
-            vertical-stretch: 1;
-            alignment: zoomed-in ? stretch : center;
-
+        i-flick-container := Rectangle {
+            z: 1;
             i-flickable := Flickable {
-                vertical-stretch: 1;
-
+                y: 0;
+                height: selection == -1 ? parent.height : selected-height ;
+                animate viewport-x { duration: Theme.durations.medium;  }
+                viewport-height: i-flickable.height;
                 i-layout := HorizontalLayout {
-                    padding-left: 20px;
-                    padding-right: 20px;
-                    spacing: zoomed-in ? 0 : 20px;
+                    y: (i-flick-container.height - self.height)/2;
+                    height: i-layout.preferred-height;
+                    width:  i-layout.preferred-width;
+                    padding: 20px;
+                    spacing: 20px;
 
                     @children
-
-                    animate height { duration: 200ms; }
                 }
             }
         }
@@ -121,13 +155,14 @@ export component PageScrollView {
             spacing: 25px;
             padding-left: 25px;
             padding-right: 25px;
-            opacity: navigation-opacity;
+            opacity: selection != -1 ? 0 : 1;
+            animate opacity { duration: Theme.durations.medium; }
 
             FloatButton {
                 visible: i-flickable.viewport-x < 0;
                 horizontal-stretch: 0;
                 icon: Images.arrow-left;
-
+                enabled: selection == -1;
 
                 clicked => {
                     scroll-left();
@@ -142,6 +177,7 @@ export component PageScrollView {
                     maximum: i-flickable.viewport-width - i-flickable.width;
                     page-size: i-flickable.width;
                     value <=> i-flickable.viewport-x;
+                    enabled: selection == -1;
                 }
             }
 
@@ -149,6 +185,7 @@ export component PageScrollView {
                 visible: i-flickable.viewport-x > i-flickable.width - i-flickable.viewport-width;
                 horizontal-stretch: 0;
                 icon: Images.arrow-right;
+                enabled: selection == -1;
 
                 clicked => {
                     scroll-right();
@@ -157,35 +194,4 @@ export component PageScrollView {
         }
     }
 
-    pure public function shrink(index: int) -> bool {
-        return selected-index > -1 && index != selected-index;
-    }
-
-    public function toggle-selection(index: int) {
-       if(selected-index > -1) {
-            selected-index = -1;
-            return;
-       }
-
-       selected-index = index;
-    }
-
-    function scroll-left() {
-        i-flickable.viewport-x = min(i-flickable.viewport-x + 64px, 0);
-    }
-
-    function scroll-right() {
-        i-flickable.viewport-x = max(i-flickable.viewport-x - 64px,  i-flickable.width - i-flickable.viewport-width);
-    }
-
-    states [
-        zoomed-in when zoomed-in : {
-            i-layout.x: -viewport-x;
-            navigation-opacity: 0.0;
-
-            out {
-                animate navigation-opacity { duration: 400ms; }
-            }
-        }
-    ]
 }
