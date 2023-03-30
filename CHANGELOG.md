@@ -24,19 +24,19 @@ All notable changes to this project are documented in this file.
 ### Rust
 
  - Minimum Rust version is now 1.66.
- - Deprecated functions and enums were removed from the API.
- - `PointerEventButton::None` was renamed `PointerEventButton::Other`
- - More functions now return `Result`, and the return value needs to be `unwrap()`'ed.
- - A lifetime parameter was added to `slint::ModelPeer`.
- - `StandardListViewItem` and `TableColumn` are now marked as `#[non_exhaustive]`.
- - Removed the `stride()` function from `slint::Image` - use `width()` instead.
- - In `slint::platform::WindowEvent::KeyPressed` and `KeyReleased`, the `text` field is now
+ - **Breaking:** Deprecated functions and enums were removed from the API.
+ - **Breaking:** `PointerEventButton::None` was renamed `PointerEventButton::Other`
+ - **Breaking:** More functions now return `Result`, and the return value needs to be `unwrap()`'ed.
+ - **Breaking:** A lifetime parameter was added to `slint::ModelPeer`.
+ - **Breaking:** `StandardListViewItem` and `TableColumn` are now marked as `#[non_exhaustive]`.
+ - **Breaking:** Removed the `stride()` function from `slint::Image` - use `width()` instead.
+ - **Breaking:** In `slint::platform::WindowEvent::KeyPressed` and `KeyReleased`, the `text` field is now
    a `slint::SharedString`.
- - `slint::platform::WindowEvent` does not derive from `Copy` anymore. You must `clone()` it
+ - **Breaking:** `slint::platform::WindowEvent` does not derive from `Copy` anymore. You must `clone()` it
    explicitly if you want to create a copy.
- - The `MAX_BUFFER_AGE` const parameter of `slint::platform::software_renderer::MinimalSoftwareWindow`
+ - **Breaking:** The `MAX_BUFFER_AGE` const parameter of `slint::platform::software_renderer::MinimalSoftwareWindow`
    has been removed and replaced by an argument to the `new()` function.
- - The `compat-0-3-0` mandatory cargo feature flag was renamed to `compat-1-0`.
+ - **Breaking:** The `compat-0-3-0` mandatory cargo feature flag was renamed to `compat-1-0`.
  - Added a `software-renderer-systemfonts` feature to the Rust crate, to enable the use of fonts from the operating system
    for text rendering with the software renderer.
  - Fixed some clippy warnings in the generated Rust code.
@@ -44,10 +44,10 @@ All notable changes to this project are documented in this file.
 ### C++
 
  - Functions that take a functor as argument are now using C++ 20 concepts.
- - In the C++ API, the type for row indexes in models was changed from `int` to `size_t`.
+ - **Breaking:** In the C++ API, the type for row indexes in models was changed from `int` to `size_t`.
    This includes arguments of virtual functions in `slint::Model` that needs to be adjusted in
    derived classes.
- - The order of C++ generated struct members is now preserved from the .slint source file.
+ - **Breaking:** The order of C++ generated struct members is now preserved from the .slint source file.
  - Add constructors to `slint::Image` to create images from raw pixel data.
  - In C++ builds, support all image formats the Rust image-rs crate supports, not just png and jpeg.
 
