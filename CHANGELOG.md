@@ -14,8 +14,6 @@ All notable changes to this project are documented in this file.
  - Fixed several panics in the compiler (#2312, #2274, #2319).
  - Winit backend: Fix rendering when moving windows between monitors with a different scale factor (#2282).
 
-
-
 ### Slint Language
 
  - The old syntax that declares component with `:=` is now deprecated
