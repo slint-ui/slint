@@ -6,6 +6,9 @@
 Slint-node is the integration with node.
 
 The complete Node documentation can be viewed online at https://slint-ui.com/docs/node/.
+To get started you can use the [Walk-through tutorial](https://slint-ui.com/docs/tutorial/node).
+We also have a [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template) repository with
+the code of a minimal application using Slint that can be used as a starting point to your program.
 
 **Warning: Beta**
 Slint-node is still in the early stages of development: APIs will change and important features are still being developed.
@@ -17,6 +20,16 @@ Slint is available via NPM, so you can install by running the following command:
 ```sh
 npm install slint-ui
 ```
+
+### Dependencies
+
+You need to install the following components:
+
+  * **[Node.js](https://nodejs.org/download/release/v16.19.1/)** (v16. Newer versions currently not supported: [#961](https://github.com/slint-ui/slint/issues/961))
+  * **[npm](https://www.npmjs.com/)**
+  * **[Rust compiler](https://www.rust-lang.org/tools/install)** (1.66 or newer)
+
+You will also need a few more dependencies, see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>
 
 ## Using Slint
 
@@ -144,4 +157,4 @@ component.model = model;
 model.push(4); // this works
 // does NOT work, getting the model does not return the right object
 // component.model.push(5);
- ```
+```
