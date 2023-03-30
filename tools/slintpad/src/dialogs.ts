@@ -3,7 +3,9 @@
 
 export function modal_dialog(
     extra_class: string,
-    content: HTMLElement[],
+    content:
+        | HTMLElement[]
+        | ((_is_ready: (_ready: boolean) => void) => HTMLElement[]),
     trigger_text = "OK",
     trigger_action = () => {
         /**/
@@ -31,14 +33,24 @@ export function modal_dialog(
     const content_div = document.createElement("div");
     content_div.classList.add("dialog_content");
 
-    for (const c of content) {
+    const ok_button = document.createElement("button");
+
+    let content_elements: HTMLElement[] = [];
+    if (typeof content === "function") {
+        content_elements = content((r) => {
+            ok_button.disabled = !r;
+        });
+    } else {
+        content_elements = content;
+    }
+
+    for (const c of content_elements) {
         content_div.appendChild(c);
     }
 
     const button_div = document.createElement("div");
     button_div.classList.add("button_row");
 
-    const ok_button = document.createElement("button");
     ok_button.innerText = trigger_text;
     ok_button.onclick = () => {
         trigger_action();
