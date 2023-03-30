@@ -73,32 +73,38 @@ export function report_export_error_dialog(error: string) {
     alert(error);
 }
 
-export function report_export_url_dialog(url: string) {
+export function report_export_url_dialog(...urls: string[]) {
     const p_message = document.createElement("p");
     p_message.innerText = "Share this URL:";
 
-    const url_line_div = document.createElement("div");
-    url_line_div.classList.add("url");
+    const elements: HTMLElement[] = [p_message];
 
-    const p_url = document.createElement("p");
-    p_url.className = "url_text";
-    p_url.innerText = url;
+    for (const url of urls) {
+        const url_line_div = document.createElement("div");
+        url_line_div.classList.add("url");
 
-    const copy_button = document.createElement("button");
-    copy_button.classList.add("button");
-    copy_button.classList.add("copy_url");
-    copy_button.onclick = () => navigator.clipboard.writeText(url);
+        const p_url = document.createElement("p");
+        p_url.className = "url_text";
+        p_url.innerHTML = '<a href="' + url + '">' + url + "</a>";
 
-    const copy_i = document.createElement("i");
-    copy_i.classList.add("fa");
-    copy_i.classList.add("fa-copy");
+        const copy_button = document.createElement("button");
+        copy_button.classList.add("button");
+        copy_button.classList.add("copy_url");
+        copy_button.onclick = () => navigator.clipboard.writeText(url);
 
-    copy_button.appendChild(copy_i);
+        const copy_i = document.createElement("i");
+        copy_i.classList.add("fa");
+        copy_i.classList.add("fa-copy");
 
-    url_line_div.appendChild(p_url);
-    url_line_div.appendChild(copy_button);
+        copy_button.appendChild(copy_i);
 
-    modal_dialog("report_export_url", [p_message, url_line_div]);
+        url_line_div.appendChild(p_url);
+        url_line_div.appendChild(copy_button);
+
+        elements.push(url_line_div);
+    }
+
+    modal_dialog("report_export_url", elements);
 }
 
 export async function export_gist_dialog(

@@ -212,7 +212,16 @@ function create_share_menu(editor: EditorWidget): Menu {
             if (has_token) {
                 await export_gist_dialog((desc, is_public) => {
                     export_to_gist(editor, desc, is_public)
-                        .then((url) => report_export_url_dialog(url))
+                        .then((url) => {
+                            const params = new URLSearchParams();
+                            params.set("load_url", url);
+                            const extra_url = new URL(
+                                window.location.toString(),
+                            );
+                            extra_url.search = params.toString();
+
+                            report_export_url_dialog(url, extra_url.toString());
+                        })
                         .catch((e) => report_export_error_dialog(e));
                 });
             } else {
