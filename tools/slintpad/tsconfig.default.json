@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        "resolveJsonModule": true,
         "baseUrl": "./node_modules",
         "composite": true,
         "declaration": true,
