@@ -278,10 +278,13 @@ export component TabBarImpl {
     accessible-role: tab;
     accessible-delegate-focus: root.current;
 
-    HorizontalLayout {
-        spacing: 0px; // Qt renders Tabs next to each other and renders "spacing" as part of the tab itself
-        alignment: NativeStyleMetrics.tab-bar-alignment;
-        @children
+    Rectangle {
+        clip: true; // The breeze style draws outside of the tab bar, which is clip by default with Qt
+        HorizontalLayout {
+            spacing: 0px; // Qt renders Tabs next to each other and renders "spacing" as part of the tab itself
+            alignment: NativeStyleMetrics.tab-bar-alignment;
+            @children
+        }
     }
 
     fs := FocusScope {
