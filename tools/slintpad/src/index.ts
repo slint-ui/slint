@@ -36,6 +36,12 @@ import {
 
 function resolveControllerReady(resolve: () => void, count: number) {
     count += 1;
+    if (count >= 5) {
+        // Force a reload! We do not have any state yet, so we do not need to
+        // be creative to make the browser notice that we have an active
+        // service worker.
+        window.location.reload();
+    }
     if (navigator.serviceWorker.controller) {
         console.info(`Controller ready after ${count} attempts`);
         resolve();
