@@ -85,7 +85,8 @@ export function report_export_url_dialog(...urls: string[]) {
 
         const p_url = document.createElement("p");
         p_url.className = "url_text";
-        p_url.innerHTML = '<a href="' + url + '">' + url + "</a>";
+        p_url.innerHTML =
+            '<a href="' + url + '" target="_blank">' + url + "</a>";
 
         const copy_button = document.createElement("button");
         copy_button.classList.add("button");
