@@ -97,15 +97,10 @@ export class KnownUrlMapper implements UrlMapper {
 
 export class RelativeUrlMapper implements UrlMapper {
     #base_uri: monaco.Uri;
-    #base_path: string;
     #uuid: string;
 
     constructor(uuid: string, uri: monaco.Uri) {
-        const path = uri.path;
-
         this.#uuid = uuid;
-        this.#base_path = path.slice(0, path.lastIndexOf("/") ?? 0);
-        console.assert(this.#base_path.endsWith("/"));
         this.#base_uri = uri;
     }
 
@@ -113,7 +108,7 @@ export class RelativeUrlMapper implements UrlMapper {
         return monaco.Uri.from({
             scheme: this.#base_uri.scheme,
             authority: this.#base_uri.authority,
-            path: this.#base_path + file_from_internal_uri(this.#uuid, uri),
+            path: file_from_internal_uri(this.#uuid, uri),
         });
     }
 }
@@ -693,10 +688,7 @@ class EditorPaneWidget extends Widget {
             output_url,
             internal_file_uri(
                 this.#internal_uuid,
-                file_name ??
-                    output_url.path.slice(
-                        output_url.path.lastIndexOf("/") ?? 0,
-                    ),
+                file_name ?? output_url.path,
             ),
             true,
         );
