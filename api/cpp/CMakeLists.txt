@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 cmake_minimum_required(VERSION 3.21)
-project(Slint HOMEPAGE_URL "https://slint-ui.com/" LANGUAGES CXX)
+project(Slint HOMEPAGE_URL "https://slint-ui.com/" LANGUAGES CXX VERSION 1.0.0)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
@@ -26,6 +26,14 @@ endif()
 
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
     CRATES slint-cpp ${slint_compiler_crate})
+
+if (APPLE)
+    # corrosion could provide the Cargo.toml package version as a CMake target property.
+    corrosion_add_target_local_rustflags(slint-cpp -Clink-arg=-Wl,-install_name,@rpath/libslint_cpp.dylib,-current_version,${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR},-compatibility_version,${PROJECT_VERSION_MAJOR}.0)
+    # Set this one to false again explicitely because Corrosion will starting setting this property to true by default.
+    set_target_properties(slint-cpp-shared PROPERTIES IMPORTED_NO_SONAME 0)
+    set_target_properties(slint-cpp-shared PROPERTIES IMPORTED_SONAME libslint_cpp.dylib)
+endif()
 
 set_property(
     TARGET slint-cpp
