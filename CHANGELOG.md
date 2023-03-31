@@ -7,6 +7,10 @@ All notable changes to this project are documented in this file.
 
 - Fixed compiler panic when binding `Path`'s `commands` property to the field of a model entry.
 
+### C++
+
+- macOS: Fixed `install_name` for `libslint_cpp.dylib` use `@rpath` instead of absolute paths to the build directory.
+
 ## [1.0.0] - 2023-04-03
 
 ### General
