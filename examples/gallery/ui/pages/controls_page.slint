@@ -24,7 +24,7 @@ export component ControlsPage inherits Page {
             }   
 
             Button {
-                text: "Regular Button";
+                text: "Regular Button with Icon";
                 icon: @image-url("../../thumbsup.png");
                 enabled: !GallerySettings.widgets-disabled;
             }
@@ -41,7 +41,8 @@ export component ControlsPage inherits Page {
         title: "CheckBox - SpinBox - ComboBox";
         vertical-stretch: 0;
 
-        HorizontalBox {  
+        HorizontalBox {
+            alignment: start;
             checkbox := CheckBox {
                 text: checkbox.checked ? "(checked)" : "(unchecked)";
                 checked: true;
@@ -100,7 +101,7 @@ export component ControlsPage inherits Page {
                     GroupBox {  
                         title: "Content of tab 1";
 
-                        VerticalBox {  
+                        HorizontalBox {  
                             alignment: start;
                         
                             Button {  
