@@ -87,6 +87,7 @@ define_cargo_feature(backend-winit-wayland "Enable support for the winit create 
 define_cargo_feature(renderer-winit-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON)
 define_cargo_feature(renderer-winit-skia "Enable support for the Skia based rendering engine." OFF)
 define_cargo_feature(renderer-winit-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." OFF)
+define_cargo_feature(renderer-winit-software "Enable support for the software renderer with the winit backend" OFF)
 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
