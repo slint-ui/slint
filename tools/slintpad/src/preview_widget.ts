@@ -214,6 +214,8 @@ export class PreviewWidget extends Widget {
         this.#canvas.style.position = "absolute";
         this.#canvas.style.imageRendering = "pixelated";
 
+        this.#canvas.dataset.slintAutoResizeToPreferred = "true";
+
         this.scrollNode.appendChild(this.#canvas);
 
         const update_scroll_size = () => {

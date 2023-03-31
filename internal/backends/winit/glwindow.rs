@@ -418,6 +418,28 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                         winit_window.set_inner_size(new_size);
                     }
                 }
+
+                // Auto-resize to the preferred size if users (SlintPad) requests it
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let canvas = self.renderer.html_canvas_element();
+
+                    if canvas
+                        .dataset()
+                        .get("slint-auto-resize-to-preferred")
+                        .and_then(|val_str| val_str.parse().ok())
+                        .unwrap_or_default()
+                    {
+                        let pref_width = constraints_horizontal.preferred_bounded();
+                        let pref_height = constraints_vertical.preferred_bounded();
+                        if pref_width > 0 as Coord || pref_height > 0 as Coord {
+                            winit_window.set_inner_size(winit::dpi::LogicalSize::new(
+                                pref_width,
+                                pref_height,
+                            ));
+                        };
+                    }
+                }
             }
         });
     }
