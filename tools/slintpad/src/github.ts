@@ -120,6 +120,18 @@ function get_github_access_token(): string | null {
     return localStorage.getItem(local_storage_key_github_token);
 }
 
+function url_common_prefix(urls: string[]): number {
+    // check border cases size 1 array and empty first word)
+    if (urls.length == 1) return urls[0].lastIndexOf("/") + 1;
+    let i = 0;
+    // while all words have the same character at position i, increment i
+    while (urls[0][i] && urls.every((w) => w[i] === urls[0][i])) {
+        i++;
+    }
+
+    return i;
+}
+
 export async function export_to_gist(
     editor: EditorWidget,
     description: string,
@@ -135,10 +147,20 @@ export async function export_to_gist(
         return Promise.reject("Nothing to export");
     }
 
-    const to_strip = urls[0].lastIndexOf("/") + 1;
+    const to_strip = url_common_prefix(urls);
+
+    const main_url = urls[0];
+
+    urls.sort((a, b) => a.split("/").length - b.split("/").length);
 
     for (const u of urls) {
-        files[u.slice(to_strip)] = {
+        const filename = u.slice(to_strip);
+        if (filename.indexOf("/") >= -1) {
+            return Promise.reject(
+                "Gists do not allow to create folders via the API",
+            );
+        }
+        files[filename] = {
             content: editor.document_contents(u) ?? "",
         };
     }
@@ -149,7 +171,7 @@ export async function export_to_gist(
     });
 
     const project_data = {
-        main: urls[0].slice(to_strip),
+        main: main_url.slice(to_strip),
         mappings: extras,
         slint_version: slint_version, // use the slintpad version as a proxy!
     };
