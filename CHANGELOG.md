@@ -50,6 +50,7 @@ All notable changes to this project are documented in this file.
  - **Breaking:** The order of C++ generated struct members is now preserved from the .slint source file.
  - Add constructors to `slint::Image` to create images from raw pixel data.
  - In C++ builds, support all image formats the Rust image-rs crate supports, not just png and jpeg.
+ - Added the `SLINT_FEATURE_RENDERER_WINIT_SOFTWARE` option to enable the software renderer.
 
 ### Tooling
 

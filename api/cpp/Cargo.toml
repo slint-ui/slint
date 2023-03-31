@@ -33,6 +33,7 @@ backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland"]
 renderer-winit-femtovg = ["i-slint-backend-selector/renderer-winit-femtovg"]
 renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia"]
 renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl"]
+renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 
 experimental = ["i-slint-renderer-skia", "raw-window-handle"]
 
