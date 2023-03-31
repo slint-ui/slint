@@ -96,7 +96,9 @@ You can download one of our pre-built binaries for Linux or Windows on x86-64 ar
 4. Uncompress the downloaded archive or run the installer.
 
 
-After extracting the artifact or running the installer, you can place the `lib` sub-directory into your `CMAKE_PREFIX_PATH` and `find_package(Slint)` should succeed in locating the package.
+After extracting the artifact or running the installer, you can place the that directory into your
+`CMAKE_PREFIX_PATH` and `find_package(Slint)` should succeed in locating the package.
+
 
 ## Usage via CMake
 
@@ -195,8 +197,8 @@ This will generate a `my_application_ui.h` header file. It basically contains th
 #include <slint.h>
 
 struct TodoItem {
-    bool checked;
     slint::SharedString title;
+    bool checked;
 };
 
 struct MainWindow {

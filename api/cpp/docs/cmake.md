@@ -21,8 +21,9 @@ You can download one of our pre-built binaries for Linux or Windows on x86-64 ar
    or `slint-cpp-XXX-win64.exe` for a Windows installer. ("XXX" refers to the version of the latest release)
 4. Unpack the downloaded archive or run the installer.
 
-After extracting the artifact or running the installer, you need to place the
-`lib` sub-directory into your `CMAKE_PREFIX_PATH`. `find_package(Slint)` will
+After extracting the artifact or running the installer, you need to place that
+directory into your `CMAKE_PREFIX_PATH` by using the `-DCMAKE_PREFIX_PATH=/path/to/installed/slint`
+argument in your cmake invocation. `find_package(Slint)` will
 then be able to find Slint from within a `CMakeLists.txt` file.
 
 At runtime you might also need to add the `lib` sub-directory to the `PATH`
