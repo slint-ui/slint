@@ -8,6 +8,7 @@ To try it out locally type this in this directory:
 
 ```sh
 ## only need to run this once
+npm install
 npm run build:wasm_preview   # Build the wasm interpreter used by the preview
 npm run build:wasm_lsp       # Build the wasm LSP used by the text editor
 
