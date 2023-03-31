@@ -96,7 +96,7 @@ You can download one of our pre-built binaries for Linux or Windows on x86-64 ar
 4. Uncompress the downloaded archive or run the installer.
 
 
-After extracting the artifact or running the installer, you can place the that directory into your
+After extracting the artifact or running the installer, you can place the installation directory into your
 `CMAKE_PREFIX_PATH` and `find_package(Slint)` should succeed in locating the package.
 
 
