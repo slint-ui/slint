@@ -192,6 +192,7 @@
 .dialog.report_export_url .url {
     display: flex;
     align-items: center;
+    justify-content: space-between;
 }
 .dialog.report_export_url .copy_url {
     margin-left: 5px;
