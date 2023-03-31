@@ -194,11 +194,20 @@ export async function export_to_gist(
             return Promise.resolve(body.html_url);
         }
     } else {
+        let extra = "";
+        if (response.status == 422) {
+            if (data.length > 50000) {
+                extra = "\n\nYour project too big to create a Gist from.";
+            } else {
+                extra = "\n\nIs your project too big for a Gist?";
+            }
+        }
         return Promise.reject(
             "Failed to publish a Gist to Github with status code:" +
                 response.status +
                 "\n" +
-                response.statusText,
+                response.statusText +
+                extra,
         );
     }
 }
