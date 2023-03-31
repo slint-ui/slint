@@ -5,6 +5,8 @@ import { SettingsAdapter } from "../pages/menu_page/settings.slint";
 import { Theme } from "../theme.slint";
 
 export component KioskOverlay {
+    preferred-width: 100%;
+    preferred-height: 100%;
     TouchArea {
         clicked => {
             SettingsAdapter.kiosk-mode-checked = false;
