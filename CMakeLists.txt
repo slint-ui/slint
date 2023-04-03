@@ -21,11 +21,6 @@ if (WIN32)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin/debug)
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin/release)
-elseif(APPLE)
-    # On macOS, the slint_cpp.dylib's install_name uses @rpath. CMake doesn't set BUILD_RPATH for
-    # imported targets though, so include the directory here by hand in the rpath used to build binaries
-    # in the build tree (such as our examples or tests).
-    set(CMAKE_BUILD_RPATH ${CMAKE_BINARY_DIR}/api/cpp)
 endif()
 
 add_subdirectory(api/cpp/)
