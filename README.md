@@ -60,7 +60,7 @@ follows:
     customers (running on an Arm processor with Linux).
 - **Microcontrollers** (MCU): *Ready*. Slint apps can run on MCUs with less than
     300K of RAM.
-- **Desktop**: *In Progress*. While Slint is usable on Windows, Linux and Mac,
+- **Desktop**: *In Progress*. While Slint is a good fit on Windows, Linux and Mac,
     we are working on improving the platform support in subsequent releases.
 - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile
     platforms yet, but it is our intention to do so in the near future.
