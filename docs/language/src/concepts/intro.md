@@ -2,7 +2,7 @@
 
 Slint comes with a easy to learn and use language to describe user interfaces
 with. We designed this language to be readable to both humans and machines.
-Slant can thus have excellent tooling on one side, while also enabling
+Slint can thus have excellent tooling on one side, while also enabling
 designers and developers to see exactly what happens by reading the code
 the machine uses to provide the user interfaces with.
 
