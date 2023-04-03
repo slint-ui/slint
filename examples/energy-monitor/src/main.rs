@@ -17,10 +17,14 @@ pub mod ui {
 use slint::*;
 use ui::*;
 
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "mcu-board-support")))]
-mod controllers;
-
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "mcu-board-support")))]
+#[cfg(not(feature = "mcu-board-support"))]
+mod controllers {
+    #[cfg(feature = "chrono")]
+    pub mod header;
+    #[cfg(feature = "network")]
+    pub mod weather;
+}
+#[cfg(not(feature = "mcu-board-support"))]
 use controllers::*;
 
 #[cfg(not(feature = "mcu-board-support"))]
@@ -34,7 +38,7 @@ pub fn main() {
     let window = MainWindow::new().unwrap();
 
     // let _ to keep the timer alive.
-    #[cfg(all(not(target_arch = "wasm32"), not(feature = "mcu-board-support")))]
+    #[cfg(feature = "chrono")]
     let _timer = header::setup(&window);
 
     #[cfg(feature = "network")]

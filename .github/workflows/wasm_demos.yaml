@@ -74,7 +74,7 @@ jobs:
     - name: Energy Monitor example WASM build
       run: |
         sed -i "s/#wasm# //" Cargo.toml
-        wasm-pack build --release --target web --no-default-features --features slint/default
+        wasm-pack build --release --target web --no-default-features --features slint/default,chrono
       working-directory: examples/energy-monitor
     - name: "Upload Demo Artifacts"
       uses: actions/upload-artifact@v3
