@@ -37,12 +37,11 @@ pub fn compile_paths(
 
         let element_types = &accepted_type.additional_accepted_child_types;
 
-        let mut elem = elem_.borrow_mut();
+        let commands_binding =
+            elem_.borrow_mut().bindings.remove("commands").map(RefCell::into_inner);
 
-        let path_data_binding = if let Some(commands_expr) =
-            elem.bindings.remove("commands").map(RefCell::into_inner)
-        {
-            if let Some(path_child) = elem.children.iter().find(|child| {
+        let path_data_binding = if let Some(commands_expr) = commands_binding {
+            if let Some(path_child) = elem_.borrow().children.iter().find(|child| {
                 element_types
                     .contains_key(&child.borrow().base_type.as_builtin().native_class.class_name)
             }) {
@@ -72,11 +71,15 @@ pub fn compile_paths(
                 )
                 .into(),
                 _ => {
-                    diag.push_error("The commands property only accepts strings".into(), &*elem);
+                    diag.push_error(
+                        "The commands property only accepts strings".into(),
+                        &*elem_.borrow(),
+                    );
                     return;
                 }
             }
         } else {
+            let mut elem = elem_.borrow_mut();
             let new_children = Vec::with_capacity(elem.children.len());
             let old_children = std::mem::replace(&mut elem.children, new_children);
 
@@ -111,7 +114,7 @@ pub fn compile_paths(
             Expression::PathData(crate::expression_tree::Path::Elements(path_data)).into()
         };
 
-        elem.bindings.insert("elements".into(), RefCell::new(path_data_binding));
+        elem_.borrow_mut().bindings.insert("elements".into(), RefCell::new(path_data_binding));
     });
 }
 

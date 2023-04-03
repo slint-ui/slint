@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### General
+
+- Fixed compiler panic when binding `Path`'s `commands` property to the field of a model entry.
+
 ## [1.0.0] - 2023-04-03
 
 ### General

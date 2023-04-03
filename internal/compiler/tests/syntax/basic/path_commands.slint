@@ -32,4 +32,9 @@ export TestCase := Rectangle {
     }
 
     Test2 {}
+
+    property <[{commands: string}]> model: [{commands: "M 0 0 L 0 100 A 1 1 0 0 0 100 100 L 100 0 Z"}];
+    for entry in model: Path {
+        commands: entry.commands; // Don't panic
+    }
 }
