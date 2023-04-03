@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.3]
+## [0.1.3] - 2023-04-03
 
  - Upgraded syn to syn 2
 

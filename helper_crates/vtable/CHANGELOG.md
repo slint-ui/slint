@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
-## [0.1.10]
+## [0.1.10] - 2022-04-03
 
  - updated syn to syn 2.0
 
