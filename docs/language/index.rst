@@ -24,7 +24,7 @@ performance and storage.
 The Slint language enforces a separation of user interface from business logic,
 using interfaces you can define for your project. This enables a fearless
 cooperation between design-focused team members and those concentrating on the programming
-side of the project. The Slint
+side of the project.
 
 
 The Slint design markup language describes extensible graphical user interfaces using the
