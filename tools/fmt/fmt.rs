@@ -4,7 +4,7 @@
 use crate::writer::TokenWriter;
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 
-pub(crate) fn format_document(
+pub fn format_document(
     doc: syntax_nodes::Document,
     writer: &mut impl TokenWriter,
 ) -> Result<(), std::io::Error> {
