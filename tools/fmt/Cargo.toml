@@ -24,3 +24,6 @@ codemap-diagnostic = "0.1.1"
 [[bin]]
 name = "slint-fmt"
 path = "main.rs"
+
+[lib]
+path = "lib.rs"

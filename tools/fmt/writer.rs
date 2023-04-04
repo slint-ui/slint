@@ -5,7 +5,7 @@ use std::io::Write;
 
 /// The idea is that each token need to go through this, either with no changes,
 /// or with a new content.
-pub(crate) trait TokenWriter {
+pub trait TokenWriter {
     /// Write token to the writer without any change.
     fn no_change(&mut self, token: SyntaxToken) -> std::io::Result<()>;
 
@@ -17,8 +17,8 @@ pub(crate) trait TokenWriter {
 }
 
 /// Just write the token stream to a file
-pub(crate) struct FileWriter<'a, W> {
-    pub(super) file: &'a mut W,
+pub struct FileWriter<'a, W> {
+    pub file: &'a mut W,
 }
 
 impl<'a, W: Write> TokenWriter for FileWriter<'a, W> {
