@@ -33,7 +33,7 @@ corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.to
 # include the binary dir and thus our examples would have the correct rpath set, binaries
 # outside (i.e. applications using Slint via FetchContent) would not and the BUILD_RPATH
 # target property doesn't propagate :(
-if (APPLE AND DEFINED CACHE{SLINT_BUILD_TESTING})
+if (APPLE AND SLINT_IS_TOPLEVEL_BUILD)
     # corrosion could provide the Cargo.toml package version as a CMake target property.
     corrosion_add_target_local_rustflags(slint-cpp -Clink-arg=-Wl,-install_name,@rpath/libslint_cpp.dylib,-current_version,${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR},-compatibility_version,${PROJECT_VERSION_MAJOR}.0)
     # Set this one to false again explicitely because Corrosion will starting setting this property to true by default.

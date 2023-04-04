@@ -14,6 +14,8 @@ option(SLINT_BUILD_TESTING "Build tests" OFF)
 add_feature_info(SLINT_BUILD_TESTING SLINT_BUILD_TESTING "configure whether to build the test suite")
 include(CTest)
 
+set(SLINT_IS_TOPLEVEL_BUILD TRUE)
+
 # Place all compiled examples into the same bin directory
 # on Windows, where we'll also put the dll
 if (WIN32)
