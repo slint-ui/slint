@@ -57,7 +57,6 @@ to get started.
    :maxdepth: 2
    :caption: Concepts
 
-   src/concepts/intro.md
    src/concepts/file.md
    src/concepts/layouting.md
    src/concepts/container.md
