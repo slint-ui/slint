@@ -1408,6 +1408,11 @@ pub async fn load_configuration(ctx: &Context) -> Result<(), Error> {
             }
         }
     }
+
+    // Always load the widgets so we can auto-complete them
+    let mut diag = BuildDiagnostics::default();
+    document_cache.documents.import_component("std-widgets.slint", "StyleMetrics", &mut diag).await;
+
     #[cfg(feature = "preview")]
     crate::preview::config_changed(&document_cache.documents.compiler_config);
 
