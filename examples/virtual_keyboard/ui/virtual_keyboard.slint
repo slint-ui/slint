@@ -1,0 +1,197 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Button, StyleMetrics } from "std-widgets.slint";
+
+import { Icons } from "icons.slint";
+
+component VirtualKeyboardButton {
+    callback key-pressed(string /* key */);
+
+    in property <string> key;
+    in property <string> icon;
+
+    min-width: 32px;
+    min-height: 32px;
+    horizontal-stretch: 0;
+
+    i-container := Rectangle {
+        border-radius: 4px;
+        background: StyleMetrics.dark-color-scheme ? #373737 : #ffffff;
+
+        HorizontalLayout {
+            padding: 8px;
+
+            if (root.key != "") : Text {
+                text: root.key;
+                color: StyleMetrics.dark-color-scheme ? #ffffff : #000000;
+                font-size: 12px;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+            }
+
+            if (root.icon != "") : Path {
+                y: (parent.height - self.height) / 2;
+                commands: root.icon;
+                height: 12px;
+                fill: StyleMetrics.dark-color-scheme ? #ffffff : #000000;
+            }
+        }
+    }
+
+    i-state-area := Rectangle {
+        border-radius: i-container.border-radius;
+        opacity: 0;
+        background: #000000;
+
+        animate opacity { duration: 150ms; }
+    }
+
+    i-touch-area := TouchArea {
+        pointer-event(event) => {
+            if(event.kind == PointerEventKind.down) {
+                root.key-pressed(key);
+            }
+        }
+    }
+
+    states [
+        pressed when i-touch-area.pressed : {
+            i-state-area.opacity: 0.5;
+        }
+    ]
+}
+
+export struct KeyModel {
+    key: string,
+    shift-key: string,
+}
+
+export global VirtualKeyboardHandler {
+    private property <[[KeyModel]]> default-keys: [
+        [
+            { key: "q", shift-key: "Q" }, { key: "w", shift-key: "W"  }, { key: "e", shift-key: "E"  },
+            { key: "r", shift-key: "R"  }, { key: "t", shift-key: "T"  }, { key: "y", shift-key: "Y"  }, { key: "u", shift-key: "U"  },
+            { key: "i", shift-key: "I"  }, { key: "o", shift-key: "O"  }, { key: "p", shift-key: "P"  }
+        ],
+        [
+            { key: "a", shift-key: "A" }, { key: "s", shift-key: "S" }, { key: "d", shift-key: "D" }, { key: "f", shift-key: "F" },
+            { key: "g", shift-key: "G" }, { key: "h", shift-key: "H" }, { key: "j", shift-key: "J" }, { key: "k", shift-key: "K" },
+            { key: "l", shift-key: "L" }
+        ],
+        [
+            { key: "z", shift-key: "Z" }, { key: "x", shift-key: "X" }, { key: "c", shift-key: "C" }, { key: "v", shift-key: "V" }, { key: "b", shift-key: "B" },
+            { key: "n", shift-key: "N" }, { key: "m", shift-key: "M" }, { key: ",", shift-key: ";" }, { key: ".", shift-key: ":" }, { key: "?", shift-key: "?" }
+        ],
+    ];
+
+    in-out property <bool> open;
+    in property <bool> secondary;
+    in-out property <[[KeyModel]]> keys: default-keys;
+
+    callback key_pressed(string /* key */);
+    callback switch-keyboard();
+}
+
+export component VirtualKeyboard inherits Rectangle {
+    private property <bool> shift;
+
+    callback key_pressed <=> VirtualKeyboardHandler.key_pressed;
+
+    preferred-width: 100%;
+    height: 200px;
+    visible <=> VirtualKeyboardHandler.open;
+    background: StyleMetrics.dark-color-scheme ? #1c1c1c : #d4d4d4;
+
+    VerticalLayout {
+        padding: 8px;
+        spacing: 4px;
+
+        for row[index] in VirtualKeyboardHandler.keys : HorizontalLayout {
+            spacing: 4px;
+
+            if (index == 0) : VirtualKeyboardButton {
+                key: "ESC";
+                key-pressed => {
+                    root.key-pressed(Key.Escape);
+                }
+            }
+
+            if (index == 1) : VirtualKeyboardButton {
+                key: "Tab";
+                key-pressed => {
+                    root.key-pressed(Key.Tab);
+                }
+            }
+
+            // shift
+            if (index == 2) : VirtualKeyboardButton {
+                icon: Icons.arrow-up;
+                key-pressed => {
+                    root.shift = !root.shift;
+                }
+            }
+
+            for km in row : VirtualKeyboardButton {
+                key: root.shift ? km.shift-key : km.key;
+                key-pressed(key) => {
+                    root.key-pressed(key);
+                    root.shift = false;
+                }
+            }
+
+            if (index == 0) : VirtualKeyboardButton {
+                icon: Icons.chefron-left;
+                key-pressed => {
+                    root.key-pressed(Key.Backspace);
+                }
+            }
+
+            if (index == 1) : VirtualKeyboardButton {
+                icon: Icons.arrow-circle-o-left;
+                key-pressed => {
+                    root.key-pressed(Key.Return);
+                }
+            }
+
+            // shift
+            if (index == 2) : VirtualKeyboardButton {
+                icon: Icons.arrow-up;
+                key-pressed => {
+                    root.shift = !root.shift;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 4px;
+
+            VirtualKeyboardButton {
+                icon: Icons.globe;
+                key-pressed(key) => {
+                    VirtualKeyboardHandler.switch-keyboard();
+                }
+            }
+            VirtualKeyboardButton {
+                horizontal-stretch: 1;
+                key: " ";
+                key-pressed(key) => {
+                    root.shift = false;
+                    root.key-pressed(key);
+                }
+            }
+            VirtualKeyboardButton {
+                icon: Icons.arrow-left;
+                key-pressed(key) => {
+                    root.key-pressed(Key.LeftArrow);
+                }
+            }
+            VirtualKeyboardButton {
+                icon: Icons.arrow-right;
+                key-pressed(key) => {
+                    root.key-pressed(Key.RightArrow);
+                }
+            }
+        }
+    }
+}

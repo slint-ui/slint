@@ -465,6 +465,8 @@ impl Item for TextInput {
                 if let Some(keycode) = event.text.chars().next() {
                     if keycode == key_codes::Return && !self.read_only() && self.single_line() {
                         Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
+                        WindowInner::from_pub(window_adapter.window())
+                            .request_close_virtual_keyboard();
                         return KeyEventResult::EventAccepted;
                     }
                 }
@@ -562,12 +564,16 @@ impl Item for TextInput {
                 self.show_cursor(window_adapter);
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
                 window_adapter.enable_input_method(self.input_type());
+
+                WindowInner::from_pub(window_adapter.window())
+                    .request_open_virtual_keyboard(self.input_type());
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
                 self.hide_cursor();
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 window_adapter.disable_input_method();
+                WindowInner::from_pub(window_adapter.window()).request_close_virtual_keyboard();
             }
         }
         FocusEventResult::FocusAccepted
