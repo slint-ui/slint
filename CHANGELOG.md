@@ -11,6 +11,12 @@ All notable changes to this project are documented in this file.
 
 - macOS: Fixed `install_name` for `libslint_cpp.dylib` use `@rpath` instead of absolute paths to the build directory.
 
+### LSP
+
+- Always auto-complete widgets from the style even if no widgets is imported
+- Don't auto-complete reserved properties or sub components for globals
+
+
 ## [1.0.0] - 2023-04-03
 
 ### General
