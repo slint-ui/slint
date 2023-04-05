@@ -25,3 +25,7 @@ mod x {
 */
 #[cfg(doctest)]
 const basic: u32 = 0;
+
+#[cfg(doctest)]
+#[doc = include_str!("README.md")]
+const CHECK_README_EXAMPLES: () = ();
