@@ -11,9 +11,9 @@ use i_slint_core::window::WindowAdapter;
 use renderer::WinitCompatibleRenderer;
 use std::rc::Rc;
 
-mod glwindow;
-use glwindow::*;
+mod winitwindowadapter;
 use i_slint_core::platform::PlatformError;
+use winitwindowadapter::*;
 pub(crate) mod event_loop;
 
 mod renderer {
@@ -61,11 +61,11 @@ pub(crate) mod wasm_input_helper;
 
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<dyn WindowAdapter> {
-    GLWindow::<crate::renderer::femtovg::GlutinFemtoVGRenderer>::new(canvas_id)
+    WinitWindowAdapter::<crate::renderer::femtovg::GlutinFemtoVGRenderer>::new(canvas_id)
 }
 
 fn window_factory_fn<R: WinitCompatibleRenderer + 'static>() -> Rc<dyn WindowAdapter> {
-    GLWindow::<R>::new(
+    WinitWindowAdapter::<R>::new(
         #[cfg(target_arch = "wasm32")]
         "canvas".into(),
     )
