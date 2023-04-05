@@ -98,7 +98,7 @@ fn window_is_resizable(min_size: Option<LogicalSize>, max_size: Option<LogicalSi
 
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
-pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
+pub(crate) struct WinitWindowAdapter<Renderer: WinitCompatibleRenderer + 'static> {
     window: corelib::api::Window,
     self_weak: Weak<Self>,
     map_state: RefCell<GraphicsWindowBackendState>,
@@ -115,7 +115,7 @@ pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
+impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
     /// Creates a new reference-counted instance.
     ///
     /// Arguments:
@@ -213,7 +213,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
     }
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Renderer> {
+impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for WinitWindowAdapter<Renderer> {
     fn take_pending_redraw(&self) -> bool {
         self.pending_redraw.take()
     }
@@ -287,13 +287,15 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
     }
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapter for GLWindow<Renderer> {
+impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapter for WinitWindowAdapter<Renderer> {
     fn window(&self) -> &corelib::api::Window {
         &self.window
     }
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWindow<Renderer> {
+impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
+    for WinitWindowAdapter<Renderer>
+{
     fn request_redraw(&self) {
         self.pending_redraw.set(true);
         self.with_window_handle(&mut |window| window.request_redraw())
@@ -785,7 +787,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
     }
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> Drop for GLWindow<Renderer> {
+impl<Renderer: WinitCompatibleRenderer + 'static> Drop for WinitWindowAdapter<Renderer> {
     fn drop(&mut self) {
         self.unmap().expect("winit backend: error unmapping window");
     }

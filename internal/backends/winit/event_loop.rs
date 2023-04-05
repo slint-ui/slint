@@ -230,7 +230,7 @@ pub enum CustomEvent {
     WakeEventLoopWorkaround,
     UpdateWindowProperties(winit::window::WindowId),
     UserEvent(Box<dyn FnOnce() + Send>),
-    /// Called from `GLWindow::hide` so that we can check if we should quit the event loop
+    /// Sent from `WinitWindowAdapter::hide` so that we can check if we should quit the event loop
     WindowHidden,
     Exit,
 }
