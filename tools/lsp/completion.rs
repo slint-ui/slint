@@ -70,6 +70,11 @@ pub(crate) fn completion_at(
                 }
             }
 
+            let is_global = node
+                .parent()
+                .and_then(|n| n.child_text(SyntaxKind::Identifier))
+                .map_or(false, |k| k == "global");
+
             // add keywords
             r.extend(
                 [
@@ -81,22 +86,35 @@ pub(crate) fn completion_at(
                     ("function", "function $1() {}"),
                     ("public function", "public function $1() {}"),
                     ("callback", "callback $1();"),
-                    ("animate", "animate $1 { $2 }"),
-                    ("states", "states [ $1 ]"),
-                    ("transitions", "transitions [ $1 ]"),
-                    ("for", "for $1 in $2: $3 {}"),
-                    ("if", "if ($1) : $2 {}"),
-                    ("@children", "@children"),
                 ]
                 .iter()
                 .map(|(kw, ins_tex)| {
                     let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
                     c.kind = Some(CompletionItemKind::KEYWORD);
-                    with_insert_text(c, ins_tex, client_caps)
+                    with_insert_text(c, ins_tex, snippet_support)
                 }),
             );
 
-            if snippet_support {
+            if !is_global {
+                r.extend(
+                    [
+                        ("animate", "animate $1 { $2 }"),
+                        ("states", "states [ $1 ]"),
+                        ("transitions", "transitions [ $1 ]"),
+                        ("for", "for $1 in $2: $3 {}"),
+                        ("if", "if ($1) : $2 {}"),
+                        ("@children", "@children"),
+                    ]
+                    .iter()
+                    .map(|(kw, ins_tex)| {
+                        let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
+                        c.kind = Some(CompletionItemKind::KEYWORD);
+                        with_insert_text(c, ins_tex, snippet_support)
+                    }),
+                );
+            }
+
+            if !is_global && snippet_support {
                 add_components_to_import(&token, document_cache, available_types, &mut r);
             }
 
@@ -180,7 +198,7 @@ pub(crate) fn completion_at(
                     with_insert_text(
                         CompletionItem::new_simple(label.into(), String::new()),
                         insert,
-                        client_caps,
+                        snippet_support,
                     )
                 })
                 .collect::<Vec<_>>()
@@ -274,13 +292,9 @@ pub(crate) fn completion_at(
 fn with_insert_text(
     mut c: CompletionItem,
     ins_text: &str,
-    client_caps: Option<&CompletionClientCapabilities>,
+    snippet_support: bool,
 ) -> CompletionItem {
-    if client_caps
-        .and_then(|caps| caps.completion_item.as_ref())
-        .and_then(|caps| caps.snippet_support)
-        .unwrap_or(false)
-    {
+    if snippet_support {
         c.insert_text_format = Some(InsertTextFormat::SNIPPET);
         c.insert_text = Some(ins_text.to_string());
     }
@@ -298,61 +312,66 @@ fn resolve_element_scope(
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
     let element_type = lookup_current_element_type((*element).clone(), tr).unwrap_or_default();
-    Some(
-        element_type
-            .property_list()
-            .into_iter()
-            .map(|(k, t)| {
-                let mut c = CompletionItem::new_simple(k, t.to_string());
-                c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
-                    CompletionItemKind::METHOD
-                } else {
-                    CompletionItemKind::PROPERTY
-                });
-                c
-            })
-            .chain(element.PropertyDeclaration().map(|pr| {
-                let mut c = CompletionItem::new_simple(
-                    i_slint_compiler::parser::identifier_text(&pr.DeclaredIdentifier())
-                        .unwrap_or_default(),
-                    pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
-                );
-                c.kind = Some(CompletionItemKind::PROPERTY);
-                c
-            }))
-            .chain(element.CallbackDeclaration().map(|cd| {
-                let mut c = CompletionItem::new_simple(
-                    i_slint_compiler::parser::identifier_text(&cd.DeclaredIdentifier())
-                        .unwrap_or_default(),
-                    "callback".into(),
-                );
-                c.kind = Some(CompletionItemKind::METHOD);
-                c
-            }))
-            .chain(i_slint_compiler::typeregister::reserved_properties().filter_map(|(k, t)| {
-                if matches!(t, Type::Function { .. }) {
-                    return None;
-                }
-                let mut c = CompletionItem::new_simple(k.into(), t.to_string());
-                c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
-                    CompletionItemKind::METHOD
-                } else {
-                    CompletionItemKind::PROPERTY
-                });
-                Some(c)
-            }))
-            .chain(tr.all_elements().into_iter().filter_map(|(k, t)| {
-                match t {
-                    ElementType::Component(c) if !c.is_global() => (),
-                    ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
-                    _ => return None,
-                };
-                let mut c = CompletionItem::new_simple(k, "element".into());
-                c.kind = Some(CompletionItemKind::CLASS);
-                Some(c)
-            }))
-            .collect(),
-    )
+    let mut result = element_type
+        .property_list()
+        .into_iter()
+        .map(|(k, t)| {
+            let mut c = CompletionItem::new_simple(k, t.to_string());
+            c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
+                CompletionItemKind::METHOD
+            } else {
+                CompletionItemKind::PROPERTY
+            });
+            c
+        })
+        .chain(element.PropertyDeclaration().map(|pr| {
+            let mut c = CompletionItem::new_simple(
+                i_slint_compiler::parser::identifier_text(&pr.DeclaredIdentifier())
+                    .unwrap_or_default(),
+                pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
+            );
+            c.kind = Some(CompletionItemKind::PROPERTY);
+            c
+        }))
+        .chain(element.CallbackDeclaration().map(|cd| {
+            let mut c = CompletionItem::new_simple(
+                i_slint_compiler::parser::identifier_text(&cd.DeclaredIdentifier())
+                    .unwrap_or_default(),
+                "callback".into(),
+            );
+            c.kind = Some(CompletionItemKind::METHOD);
+            c
+        }))
+        .collect::<Vec<_>>();
+
+    if !matches!(element_type, ElementType::Global) {
+        result.extend(
+            i_slint_compiler::typeregister::reserved_properties()
+                .filter_map(|(k, t)| {
+                    if matches!(t, Type::Function { .. }) {
+                        return None;
+                    }
+                    let mut c = CompletionItem::new_simple(k.into(), t.to_string());
+                    c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
+                        CompletionItemKind::METHOD
+                    } else {
+                        CompletionItemKind::PROPERTY
+                    });
+                    Some(c)
+                })
+                .chain(tr.all_elements().into_iter().filter_map(|(k, t)| {
+                    match t {
+                        ElementType::Component(c) if !c.is_global() => (),
+                        ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
+                        _ => return None,
+                    };
+                    let mut c = CompletionItem::new_simple(k, "element".into());
+                    c.kind = Some(CompletionItemKind::CLASS);
+                    Some(c)
+                })),
+        );
+    };
+    Some(result)
 }
 
 fn resolve_expression_scope(lookup_context: &LookupCtx) -> Option<Vec<CompletionItem>> {
