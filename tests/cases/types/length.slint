@@ -47,7 +47,7 @@ assert(instance.get_test_zero());
 assert(instance.get_test());
 
 ratio = 2.;
-instance.m_window.window_handle().set_scale_factor(ratio);
+instance.m_window.set_scale_factor(ratio);
 assert_eq(instance.get_l1(), 12.);
 assert_eq(instance.get_l2(), 12. * ratio);
 assert_eq(instance.get_l3(), 100. + 12. * ratio);

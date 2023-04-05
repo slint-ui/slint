@@ -7,9 +7,14 @@ All notable changes to this project are documented in this file.
 
 - Fixed compiler panic when binding `Path`'s `commands` property to the field of a model entry.
 
+### Rust
+
+- Added `slint::Window::set_scale_factor()` setter to override the scale factor for use by custom platform backends.
+
 ### C++
 
 - macOS: Fixed `install_name` for `libslint_cpp.dylib` use `@rpath` instead of absolute paths to the build directory.
+- Added `slint::Window::scale_factor()` getter and `set_scale_factor` setter.
 
 ## [1.0.0] - 2023-04-03
 

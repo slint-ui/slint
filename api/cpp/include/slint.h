@@ -465,6 +465,12 @@ public:
     /// a window frame (if present).
     void set_size(const slint::PhysicalSize &size) { inner.set_physical_size(size); }
 
+    /// Returns the scale factor to map logical pixels to physical pixels. Note that this value
+    /// can change, for example when the window is moved to a different screen by the user.
+    float scale_factor() const { return inner.scale_factor(); }
+    /// Sets the scale factor and overrides any value reported by the windowing system.
+    void set_scale_factor(float value) const { inner.set_scale_factor(value); }
+
     /// \private
     private_api::WindowAdapterRc &window_handle() { return inner; }
     /// \private

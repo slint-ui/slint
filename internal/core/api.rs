@@ -372,10 +372,16 @@ impl Window {
         self.0.window_adapter().request_redraw();
     }
 
-    /// This function returns the scale factor that allows converting between logical and
-    /// physical pixels.
+    /// Returns the scale factor to map logical pixels to physical pixels. Note that this value
+    /// can change, for example when the window is moved to a different screen by the user.
     pub fn scale_factor(&self) -> f32 {
         self.0.scale_factor()
+    }
+
+    /// Sets the scale factor. Call this to override the value reported by the windowing system, or when
+    /// implementingy our own platform backend.
+    pub fn set_scale_factor(&self, factor: f32) {
+        self.0.set_scale_factor(factor)
     }
 
     /// Returns the position of the window on the screen, in physical screen coordinates and including

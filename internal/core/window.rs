@@ -716,12 +716,13 @@ impl WindowInner {
         }
     }
 
-    /// Returns the scale factor set on the window, as provided by the windowing system.
+    /// Returns the scale factor to map logical pixels to physical pixels. Note that this value
+    /// can change, for example when the window is moved to a different screen by the user.
     pub fn scale_factor(&self) -> f32 {
         self.scale_factor.as_ref().get()
     }
 
-    /// Sets the scale factor for the window. This is set by the backend or for testing.
+    /// Sets the scale factor.
     pub fn set_scale_factor(&self, factor: f32) {
         self.scale_factor.as_ref().set(factor)
     }

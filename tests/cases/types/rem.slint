@@ -32,7 +32,7 @@ assert(instance.get_test());
 
 assert_eq(instance.get_phx_to_rem(), 2.);
 assert_eq(instance.get_px_to_rem(), 2.);
-instance.m_window.window_handle().set_scale_factor(2.0);
+instance.m_window.set_scale_factor(2.0);
 assert_eq(instance.get_phys_pixel_size(), 20.);
 assert_eq(instance.get_phx_to_rem(), 1.);
 assert_eq(instance.get_px_to_rem(), 2.);
