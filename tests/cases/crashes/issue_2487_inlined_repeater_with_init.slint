@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// Inline components requires fixing up named references of repeated element's init code inside. For Rust/C++
+// this requires SLINT_INLINING=true to achieve test coverage.
+
+
+component Compo  {
+    callback dontcrash();
+    dontcrash() => {}
+    VerticalLayout {
+        if (true) : Rectangle {
+            init => {
+                dontcrash();
+            }
+        }
+    }
+}
+
+export component TestCase {
+    out property <bool> ok;
+    out property <bool> test: l.preferred-width == 0px && self.ok;
+    l := VerticalLayout {
+        Compo {
+            dontcrash => {
+                root.ok = true;
+            }
+        }
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/
+

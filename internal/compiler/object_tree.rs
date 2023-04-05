@@ -243,6 +243,9 @@ impl InitCode {
             .chain(self.focus_setting_code.iter_mut())
             .chain(self.constructor_code.iter_mut())
     }
+    pub fn visit_named_references(&mut self, vis: &mut impl FnMut(&mut NamedReference)) {
+        self.iter_mut().for_each(|expr| visit_named_references_in_expression(expr, vis))
+    }
 }
 
 /// A component is a type in the language which can be instantiated,
@@ -2038,6 +2041,12 @@ pub fn visit_all_named_references_in_element(
         pd.is_alias.as_mut().map(&mut vis);
     }
     elem.borrow_mut().property_declarations = property_declarations;
+
+    if elem.borrow().repeated.is_some() {
+        if let ElementType::Component(base) = &elem.borrow().base_type {
+            base.init_code.borrow_mut().visit_named_references(&mut |nr| vis(nr));
+        }
+    };
 }
 
 /// Visit all named reference in this component and sub component
