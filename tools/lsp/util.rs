@@ -31,10 +31,14 @@ pub fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> O
             return None;
         }
     }
-    let parent = node
-        .parent()
-        .and_then(|parent| lookup_current_element_type(parent, tr))
-        .unwrap_or_default();
+
+    let parent = node.parent()?;
+    if parent.kind() == SyntaxKind::Component {
+        if parent.child_text(SyntaxKind::Identifier).map_or(false, |x| x == "global") {
+            return Some(ElementType::Global);
+        }
+    }
+    let parent = lookup_current_element_type(parent, tr).unwrap_or_default();
     let qualname = object_tree::QualifiedTypeName::from_node(
         syntax_nodes::Element::from(node).QualifiedName()?,
     );
