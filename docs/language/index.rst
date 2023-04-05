@@ -7,7 +7,7 @@ Introduction
 The Slint Language
 ------------------
 
-Slint comes with an easy to learn and use language for you to describe user
+`Slint <https://slint-ui.com>`_ comes with an easy to learn and use language for you to describe user
 interfaces with. It is readable to both humans and machines.
 
 This way, we have excellent tooling on one side, while also enabling
