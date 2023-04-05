@@ -27,7 +27,7 @@ slint = "1.0.0"
 
 And in your `main.rs`:
 
-```rust
+```rust,no_run
 slint::slint!{
     export component HelloWorld {
         Text {
@@ -37,7 +37,7 @@ slint::slint!{
     }
 }
 fn main() {
-    HelloWorld::new().run();
+    HelloWorld::new().unwrap().run().unwrap();
 }
 ```
 
