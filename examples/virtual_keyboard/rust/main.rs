@@ -49,8 +49,7 @@ mod virtual_keyboard {
         });
 
         app.global::<VirtualKeyboardHandler>().on_switch_keyboard(move || {
-            let secondary =
-                !weak.unwrap().global::<VirtualKeyboardHandler>().get_secondary();
+            let secondary = !weak.unwrap().global::<VirtualKeyboardHandler>().get_secondary();
             weak.unwrap().global::<VirtualKeyboardHandler>().set_secondary(secondary);
 
             if !secondary {

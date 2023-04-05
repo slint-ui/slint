@@ -7,8 +7,8 @@
 //! Exposed Window API
 
 use crate::api::{
-    CloseRequestResponse, PhysicalPosition, PhysicalSize, PlatformError, Window, WindowPosition,
-    WindowSize, VirtualKeyboardEvent
+    CloseRequestResponse, PhysicalPosition, PhysicalSize, PlatformError, VirtualKeyboardEvent,
+    Window, WindowPosition, WindowSize,
 };
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::Point;
