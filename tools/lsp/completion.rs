@@ -27,6 +27,11 @@ pub(crate) fn completion_at(
 ) -> Option<CompletionResponse> {
     let node = token.parent();
 
+    let snippet_support = client_caps
+        .and_then(|caps| caps.completion_item.as_ref())
+        .and_then(|caps| caps.snippet_support)
+        .unwrap_or(false);
+
     if token.kind() == SyntaxKind::StringLiteral {
         if matches!(node.kind(), SyntaxKind::ImportSpecifier | SyntaxKind::AtImageUrl) {
             return complete_path_in_string(
@@ -46,10 +51,6 @@ pub(crate) fn completion_at(
 
         return resolve_element_scope(element, document_cache).map(|mut r| {
             let mut available_types = HashSet::new();
-            let snippet_support = client_caps
-                .and_then(|caps| caps.completion_item.as_ref())
-                .and_then(|caps| caps.snippet_support)
-                .unwrap_or(false);
             if snippet_support {
                 for c in r.iter_mut() {
                     c.insert_text_format = Some(InsertTextFormat::SNIPPET);
@@ -95,97 +96,8 @@ pub(crate) fn completion_at(
                 }),
             );
 
-            // Find out types that can be imported
-            let import_locations = (|| {
-                if !snippet_support {
-                    return None;
-                };
-                let current_file = token.source_file.path().to_owned();
-                let current_uri = lsp_types::Url::from_file_path(&current_file).ok()?;
-                let mapper = document_cache.offset_to_position_mapper(&current_uri).ok()?;
-                let current_doc =
-                    document_cache.documents.get_document(&current_file)?.node.as_ref()?;
-                let mut import_locations = HashMap::new();
-                let mut last = 0u32;
-                for import in current_doc.ImportSpecifier() {
-                    if let Some((loc, file)) = import.ImportIdentifierList().and_then(|list| {
-                        Some((
-                            mapper.map(list.ImportIdentifier().last()?.text_range().end()),
-                            import.child_token(SyntaxKind::StringLiteral)?,
-                        ))
-                    }) {
-                        import_locations
-                            .insert(file.text().to_string().trim_matches('\"').to_string(), loc);
-                    }
-                    last = import.text_range().end().into();
-                }
-                let last = if last == 0 { 0 } else { mapper.map_u32(last).line + 1 };
-                Some((import_locations, last, current_uri))
-            })();
-
-            if let Some((import_locations, last, current_uri)) = import_locations {
-                for file in document_cache.documents.all_files() {
-                    let doc = document_cache.documents.get_document(file).unwrap();
-                    let file = if file.starts_with("builtin:/") {
-                        match file.file_name() {
-                            Some(file) if file == "std-widgets.slint" => "std-widgets.slint".into(),
-                            _ => continue,
-                        }
-                    } else {
-                        match lsp_types::Url::make_relative(
-                            &current_uri,
-                            &lsp_types::Url::from_file_path(file).unwrap(),
-                        ) {
-                            Some(file) => file,
-                            None => continue,
-                        }
-                    };
-
-                    for (exported_name, ty) in &*doc.exports {
-                        if available_types.contains(&exported_name.name) {
-                            continue;
-                        }
-                        if let Some(c) = ty.as_ref().left() {
-                            if c.is_global() {
-                                continue;
-                            }
-                        } else {
-                            continue;
-                        }
-                        available_types.insert(exported_name.name.clone());
-                        let the_import = import_locations.get(&file).map_or_else(
-                            || {
-                                let pos = Position::new(last, 0);
-                                TextEdit::new(
-                                    Range::new(pos, pos),
-                                    format!(
-                                        "import {{ {} }} from \"{}\";\n",
-                                        exported_name.name, file
-                                    ),
-                                )
-                            },
-                            |pos| {
-                                TextEdit::new(
-                                    Range::new(*pos, *pos),
-                                    format!(", {}", exported_name.name),
-                                )
-                            },
-                        );
-                        r.push(CompletionItem {
-                            label: format!(
-                                "{} (import from from \"{}\")",
-                                exported_name.name, file
-                            ),
-                            insert_text: Some(format!("{} {{ $1 }}", exported_name.name)),
-                            insert_text_format: Some(InsertTextFormat::SNIPPET),
-                            filter_text: Some(exported_name.name.clone()),
-                            kind: Some(CompletionItemKind::CLASS),
-                            detail: Some(format!("(import from \"{}\")", file)),
-                            additional_text_edits: Some(vec![the_import.into()]),
-                            ..Default::default()
-                        });
-                    }
-                }
+            if snippet_support {
+                add_components_to_import(&token, document_cache, available_types, &mut r);
             }
 
             r.into()
@@ -282,29 +194,37 @@ pub(crate) fn completion_at(
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
             SyntaxKind::Element => {
-                // auto-complete the types
+                // auto-complete the components
                 let global_tr = document_cache.documents.global_type_registry.borrow();
                 let tr = q
                     .source_file()
                     .and_then(|sf| document_cache.documents.get_document(sf.path()))
                     .map(|doc| &doc.local_registry)
                     .unwrap_or(&global_tr);
-                return Some(
-                    tr.all_elements()
-                        .into_iter()
-                        .filter_map(|(k, t)| {
-                            match t {
-                                ElementType::Component(c) if !c.is_global() => (),
-                                ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
-                                _ => return None,
-                            };
-                            let mut c = CompletionItem::new_simple(k, "element".into());
-                            c.kind = Some(CompletionItemKind::CLASS);
-                            Some(c)
-                        })
-                        .collect::<Vec<_>>()
-                        .into(),
-                );
+
+                let mut result = tr
+                    .all_elements()
+                    .into_iter()
+                    .filter_map(|(k, t)| {
+                        match t {
+                            ElementType::Component(c) if !c.is_global() => (),
+                            ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
+                            _ => return None,
+                        };
+                        let mut c = CompletionItem::new_simple(k, "element".into());
+                        c.kind = Some(CompletionItemKind::CLASS);
+                        Some(c)
+                    })
+                    .collect::<Vec<_>>();
+
+                drop(global_tr);
+
+                if snippet_support {
+                    let available_types = result.iter().map(|c| c.label.clone()).collect();
+                    add_components_to_import(&token, document_cache, available_types, &mut result);
+                }
+
+                return Some(result.into());
             }
             SyntaxKind::Type => {
                 return resolve_type_scope(token, document_cache).map(Into::into);
@@ -533,4 +453,88 @@ fn complete_path_in_string(base: &Path, text: &str, offset: u32) -> Option<Vec<C
         })
         .collect(),
     )
+}
+
+/// Add the components that are available when adding import to the `result`
+///
+/// `available_types`  are the component which are already available and need no
+/// import and should already be in result
+fn add_components_to_import(
+    token: &SyntaxToken,
+    document_cache: &mut DocumentCache,
+    mut available_types: HashSet<String>,
+    result: &mut Vec<CompletionItem>,
+) -> Option<()> {
+    // Find out types that can be imported
+    let current_file = token.source_file.path().to_owned();
+    let current_uri = lsp_types::Url::from_file_path(&current_file).ok()?;
+    let mapper = document_cache.offset_to_position_mapper(&current_uri).ok()?;
+    let current_doc = document_cache.documents.get_document(&current_file)?.node.as_ref()?;
+    let mut import_locations = HashMap::new();
+    let mut last = 0u32;
+    for import in current_doc.ImportSpecifier() {
+        if let Some((loc, file)) = import.ImportIdentifierList().and_then(|list| {
+            Some((
+                mapper.map(list.ImportIdentifier().last()?.text_range().end()),
+                import.child_token(SyntaxKind::StringLiteral)?,
+            ))
+        }) {
+            import_locations.insert(file.text().to_string().trim_matches('\"').to_string(), loc);
+        }
+        last = import.text_range().end().into();
+    }
+    let last = if last == 0 { 0 } else { mapper.map_u32(last).line + 1 };
+
+    for file in document_cache.documents.all_files() {
+        let doc = document_cache.documents.get_document(file).unwrap();
+        let file = if file.starts_with("builtin:/") {
+            match file.file_name() {
+                Some(file) if file == "std-widgets.slint" => "std-widgets.slint".into(),
+                _ => continue,
+            }
+        } else {
+            match lsp_types::Url::make_relative(
+                &current_uri,
+                &lsp_types::Url::from_file_path(file).unwrap(),
+            ) {
+                Some(file) => file,
+                None => continue,
+            }
+        };
+
+        for (exported_name, ty) in &*doc.exports {
+            if available_types.contains(&exported_name.name) {
+                continue;
+            }
+            if let Some(c) = ty.as_ref().left() {
+                if c.is_global() {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+            available_types.insert(exported_name.name.clone());
+            let the_import = import_locations.get(&file).map_or_else(
+                || {
+                    let pos = Position::new(last, 0);
+                    TextEdit::new(
+                        Range::new(pos, pos),
+                        format!("import {{ {} }} from \"{}\";\n", exported_name.name, file),
+                    )
+                },
+                |pos| TextEdit::new(Range::new(*pos, *pos), format!(", {}", exported_name.name)),
+            );
+            result.push(CompletionItem {
+                label: format!("{} (import from \"{}\")", exported_name.name, file),
+                insert_text: Some(format!("{} {{ $1 }}", exported_name.name)),
+                insert_text_format: Some(InsertTextFormat::SNIPPET),
+                filter_text: Some(exported_name.name.clone()),
+                kind: Some(CompletionItemKind::CLASS),
+                detail: Some(format!("(import from \"{}\")", file)),
+                additional_text_edits: Some(vec![the_import.into()]),
+                ..Default::default()
+            });
+        }
+    }
+    Some(())
 }
