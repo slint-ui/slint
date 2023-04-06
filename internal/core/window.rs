@@ -807,12 +807,12 @@ impl WindowInner {
     }
 
     /// Runs the virtual_keyboard_event callback as open event.
-    pub fn request_open_virtual_keyboard(&self, input_type: InputType) {
+    pub(crate) fn request_open_virtual_keyboard(&self, input_type: InputType) {
         self.virtual_keyboard_event.call(&(&VirtualKeyboardEvent::Show { input_type }))
     }
 
     /// Runs the virtual_keyboard_event callback as close event.
-    pub fn request_close_virtual_keyboard(&self) {
+    pub(crate) fn request_close_virtual_keyboard(&self) {
         self.virtual_keyboard_event.call(&(VirtualKeyboardEvent::Hide))
     }
 
