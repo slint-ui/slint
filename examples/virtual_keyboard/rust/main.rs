@@ -9,8 +9,8 @@ pub fn main() {
 
     virtual_keyboard::init(&main_window);
 
-    let _ = main_window.show();
-    let _ = main_window.run();
+    main_window.show().unwrap();
+    main_window.run().unwrap();
 }
 
 mod virtual_keyboard {
