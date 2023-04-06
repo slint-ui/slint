@@ -23,6 +23,10 @@ All notable changes to this project are documented in this file.
 - Always auto-complete widgets from the style even if no widgets is imported
 - Don't auto-complete reserved properties or sub components for globals
 
+### VSCode extension
+
+ - Added an option to show the preview with wasm in a vscode tab (just like in the online version)
+
 
 ## [1.0.0] - 2023-04-03
 

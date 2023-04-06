@@ -93,6 +93,10 @@
                     "type": "string",
                     "description": "The style to be used for the preview (eg: 'fluent', 'material', or 'native')"
                 },
+                "slint.preview.providedByEditor": {
+                    "type": "boolean",
+                    "description": "Instead of letting the Language Server display the preview in a native window, show the preview in an editor tab using web-assembly.  This has no effect for the web extension where the preview is always provided by the editor."
+                },
                 "slint.includePaths": {
                     "type": "array",
                     "items": {

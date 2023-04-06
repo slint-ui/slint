@@ -10,15 +10,11 @@ import { existsSync } from "fs";
 import * as vscode from "vscode";
 
 import { PropertiesViewProvider, set_client } from "./common";
+import { PreviewSerializer, showPreview, initClientForPreview, refreshPreview } from "./web_preview";
 
 import {
     LanguageClient,
     LanguageClientOptions,
-    HandleWorkDoneProgressSignature,
-    ProgressToken,
-    WorkDoneProgressBegin,
-    WorkDoneProgressEnd,
-    WorkDoneProgressReport,
     ServerOptions,
     NotificationType,
     ExecutableOptions,
@@ -148,6 +144,17 @@ function startClient(context: vscode.ExtensionContext) {
 
     let clientOptions: LanguageClientOptions = {
         documentSelector: [{ language: "slint" }, { language: "rust" }],
+        middleware: {
+            executeCommand(command, args, next) {
+                if (command == "slint/showPreview") {
+                    if (vscode.workspace.getConfiguration("slint").get<boolean>("preview.providedByEditor")) {
+                        showPreview(context, vscode.Uri.parse(args[0]), args[1]);
+                        return;
+                    }
+                }
+                return next(command, args);
+            },
+        }
     };
 
     client = new LanguageClient(
@@ -160,6 +167,8 @@ function startClient(context: vscode.ExtensionContext) {
     client.start();
     let initClient = () => {
         set_client(client);
+        initClientForPreview(context, client);
+
         properties_provider.refresh_view();
         client.onNotification(serverStatus, (params) =>
             setServerStatus(params, statusBar),
@@ -183,10 +192,14 @@ export function activate(context: vscode.ExtensionContext) {
             if (!ae) {
                 return;
             }
-            client.sendNotification(
-                "slint/showPreview",
-                ae.document.uri.fsPath.toString(),
-            );
+            if (vscode.workspace.getConfiguration("slint").get<boolean>("preview.providedByEditor")) {
+                showPreview(context, ae.document.uri, "");
+            } else {
+                client.sendNotification(
+                    "slint/showPreview",
+                    ae.document.uri.fsPath.toString(),
+                );
+            }
         }),
     );
 
@@ -196,6 +209,11 @@ export function activate(context: vscode.ExtensionContext) {
             await client.stop();
             startClient(context);
         }),
+    );
+
+    vscode.window.registerWebviewPanelSerializer(
+        "slint-preview",
+        new PreviewSerializer(context),
     );
 
     properties_provider = new PropertiesViewProvider(context.extensionUri);
@@ -212,10 +230,13 @@ export function activate(context: vscode.ExtensionContext) {
             client?.sendNotification("workspace/didChangeConfiguration", {
                 settings: "",
             });
+            refreshPreview();
         }
     });
 
-    vscode.workspace.onDidChangeTextDocument(async (_) => {
+    vscode.workspace.onDidChangeTextDocument(async (ev) => {
+        refreshPreview(ev);
+
         // Send a request for properties information after passing through the
         // event loop once to make sure the LSP got signaled to update.
         setTimeout(() => {
