@@ -385,10 +385,7 @@ impl Window {
 
     /// This function allows registering a callback that's invoked when the user tries to open or close a virtual keyboard.
     /// The callback has to return a bool.
-    pub fn on_virtual_keyboard_event(
-        &self,
-        callback: impl FnMut(VirtualKeyboardEvent) -> bool + 'static,
-    ) {
+    pub fn on_virtual_keyboard_event(&self, callback: impl FnMut(VirtualKeyboardEvent) + 'static) {
         self.0.on_virtual_keyboard_event(callback);
     }
 

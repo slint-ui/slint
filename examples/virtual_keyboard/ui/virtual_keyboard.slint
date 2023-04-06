@@ -68,35 +68,98 @@ export struct KeyModel {
 }
 
 export global VirtualKeyboardHandler {
-    private property <[[KeyModel]]> default-keys: [
-        [
-            { key: "q", shift-key: "Q" }, { key: "w", shift-key: "W"  }, { key: "e", shift-key: "E"  },
-            { key: "r", shift-key: "R"  }, { key: "t", shift-key: "T"  }, { key: "y", shift-key: "Y"  }, { key: "u", shift-key: "U"  },
-            { key: "i", shift-key: "I"  }, { key: "o", shift-key: "O"  }, { key: "p", shift-key: "P"  }
-        ],
-        [
-            { key: "a", shift-key: "A" }, { key: "s", shift-key: "S" }, { key: "d", shift-key: "D" }, { key: "f", shift-key: "F" },
-            { key: "g", shift-key: "G" }, { key: "h", shift-key: "H" }, { key: "j", shift-key: "J" }, { key: "k", shift-key: "K" },
-            { key: "l", shift-key: "L" }
-        ],
-        [
-            { key: "z", shift-key: "Z" }, { key: "x", shift-key: "X" }, { key: "c", shift-key: "C" }, { key: "v", shift-key: "V" }, { key: "b", shift-key: "B" },
-            { key: "n", shift-key: "N" }, { key: "m", shift-key: "M" }, { key: ",", shift-key: ";" }, { key: ".", shift-key: ":" }, { key: "?", shift-key: "?" }
-        ],
+    callback key_pressed(string /* key */);
+
+    in property <[[[KeyModel]]]> default-key-sets: [
+       [
+            [
+                { key: "q", shift-key: "Q" },
+                { key: "w", shift-key: "W"  },
+                { key: "e", shift-key: "E"  },
+                { key: "r", shift-key: "R"  },
+                { key: "t", shift-key: "T"  },
+                { key: "y", shift-key: "Y"  },
+                { key: "u", shift-key: "U"  },
+                { key: "i", shift-key: "I"  },
+                { key: "o", shift-key: "O"  },
+                { key: "p", shift-key: "P"  }
+            ],
+            [
+                { key: "a", shift-key: "A" },
+                { key: "s", shift-key: "S" },
+                { key: "d", shift-key: "D" },
+                { key: "f", shift-key: "F" },
+                { key: "g", shift-key: "G" },
+                { key: "h", shift-key: "H" },
+                { key: "j", shift-key: "J" },
+                { key: "k", shift-key: "K" },
+                { key: "l", shift-key: "L" }
+            ],
+            [
+                { key: "z", shift-key: "Z" },
+                { key: "x", shift-key: "X" },
+                { key: "c", shift-key: "C" },
+                { key: "v", shift-key: "V" },
+                { key: "b", shift-key: "B" },
+                { key: "n", shift-key: "N" },
+                { key: "m", shift-key: "M" },
+                { key: ",", shift-key: ";" },
+                { key: ".", shift-key: ":" },
+                { key: "?", shift-key: "?" }
+            ],
+       ],
+       [
+            [
+                { key: "1", shift-key: "[" },
+                { key: "2", shift-key: "]" },
+                { key: "3", shift-key: "{" },
+                { key: "4", shift-key: "}" },
+                { key: "5", shift-key: "#" },
+                { key: "6", shift-key: "%" },
+                { key: "7", shift-key: "^" },
+                { key: "8", shift-key: "*" },
+                { key: "9", shift-key: "+" },
+                { key: "0", shift-key: "=" }
+            ],
+            [
+                { key: "-", shift-key: "_" },
+                { key: "/", shift-key: "\\" },
+                { key: ":", shift-key: "|" },
+                { key: ";", shift-key: "~" },
+                { key: "(", shift-key: "<" },
+                { key: ")", shift-key: ">" },
+                { key: "€", shift-key: "$" },
+                { key: "&", shift-key: "€" },
+                { key: "@", shift-key: "°" },
+                { key: "'", shift-key: "#" },
+            ],
+            [
+                { key: ".", shift-key: "." },
+                { key: ",", shift-key: "," },
+                { key: "?", shift-key: "?" },
+                { key: "!", shift-key: "!" },
+                { key: "'", shift-key: "'" },
+            ],
+       ]
     ];
 
     in-out property <bool> open;
-    in property <bool> secondary;
-    in-out property <[[KeyModel]]> keys: default-keys;
+    out property <int> current-key-set;
+    out property <[[KeyModel]]> keys: default-key-sets[self.current-key-set];
 
-    callback key_pressed(string /* key */);
-    callback switch-keyboard();
+    public function switch-keyboard() {
+        if (self.current-key-set < self.default-key-sets.length - 1) {
+            self.current-key-set += 1;
+        } else {
+            self.current-key-set -= 1;
+        }
+
+        self.current-key-set = min(self.default-key-sets.length - 1, max(0, self.current-key-set))
+    }
 }
 
 export component VirtualKeyboard inherits Rectangle {
     private property <bool> shift;
-
-    callback key_pressed <=> VirtualKeyboardHandler.key_pressed;
 
     preferred-width: 100%;
     height: 200px;
@@ -112,21 +175,24 @@ export component VirtualKeyboard inherits Rectangle {
 
             if (index == 0) : VirtualKeyboardButton {
                 key: "ESC";
+
                 key-pressed => {
-                    root.key-pressed(Key.Escape);
+                    VirtualKeyboardHandler.key-pressed(Key.Escape);
                 }
             }
 
             if (index == 1) : VirtualKeyboardButton {
                 key: "Tab";
+
                 key-pressed => {
-                    root.key-pressed(Key.Tab);
+                    VirtualKeyboardHandler.key-pressed(Key.Tab);
                 }
             }
 
             // shift
             if (index == 2) : VirtualKeyboardButton {
                 icon: Icons.arrow-up;
+
                 key-pressed => {
                     root.shift = !root.shift;
                 }
@@ -134,29 +200,33 @@ export component VirtualKeyboard inherits Rectangle {
 
             for km in row : VirtualKeyboardButton {
                 key: root.shift ? km.shift-key : km.key;
+
                 key-pressed(key) => {
-                    root.key-pressed(key);
+                    VirtualKeyboardHandler.key-pressed(key);
                     root.shift = false;
                 }
             }
 
             if (index == 0) : VirtualKeyboardButton {
                 icon: Icons.chefron-left;
+
                 key-pressed => {
-                    root.key-pressed(Key.Backspace);
+                    VirtualKeyboardHandler.key-pressed(Key.Backspace);
                 }
             }
 
             if (index == 1) : VirtualKeyboardButton {
                 icon: Icons.arrow-circle-o-left;
+
                 key-pressed => {
-                    root.key-pressed(Key.Return);
+                    VirtualKeyboardHandler.key-pressed(Key.Return);
                 }
             }
 
             // shift
             if (index == 2) : VirtualKeyboardButton {
                 icon: Icons.arrow-up;
+
                 key-pressed => {
                     root.shift = !root.shift;
                 }
@@ -168,6 +238,7 @@ export component VirtualKeyboard inherits Rectangle {
 
             VirtualKeyboardButton {
                 icon: Icons.globe;
+
                 key-pressed(key) => {
                     VirtualKeyboardHandler.switch-keyboard();
                 }
@@ -175,21 +246,24 @@ export component VirtualKeyboard inherits Rectangle {
             VirtualKeyboardButton {
                 horizontal-stretch: 1;
                 key: " ";
+
                 key-pressed(key) => {
                     root.shift = false;
-                    root.key-pressed(key);
+                    VirtualKeyboardHandler.key-pressed(key);
                 }
             }
             VirtualKeyboardButton {
                 icon: Icons.arrow-left;
+
                 key-pressed(key) => {
-                    root.key-pressed(Key.LeftArrow);
+                    VirtualKeyboardHandler.key-pressed(Key.LeftArrow);
                 }
             }
             VirtualKeyboardButton {
                 icon: Icons.arrow-right;
+
                 key-pressed(key) => {
-                    root.key-pressed(Key.RightArrow);
+                    VirtualKeyboardHandler.key-pressed(Key.RightArrow);
                 }
             }
         }

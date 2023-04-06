@@ -465,8 +465,6 @@ impl Item for TextInput {
                 if let Some(keycode) = event.text.chars().next() {
                     if keycode == key_codes::Return && !self.read_only() && self.single_line() {
                         Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
-                        WindowInner::from_pub(window_adapter.window())
-                            .request_close_virtual_keyboard();
                         return KeyEventResult::EventAccepted;
                     }
                 }

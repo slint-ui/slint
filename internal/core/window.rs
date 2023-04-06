@@ -239,7 +239,7 @@ pub struct WindowInner {
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
-    virtual_keyboard_event: Callback<VirtualKeyboardEvent, bool>,
+    virtual_keyboard_event: Callback<VirtualKeyboardEvent>,
     /// This is a cache of the size set by the set_inner_size setter.
     /// It should be mapping with the WindowItem::width and height (only in physical)
     pub(crate) inner_size: Cell<PhysicalSize>,
@@ -801,18 +801,18 @@ impl WindowInner {
     /// Sets the virtual_keyboard_event callback. The callback will be run when the user tries to open or close a virtual keyboard.
     pub fn on_virtual_keyboard_event(
         &self,
-        mut callback: impl FnMut(VirtualKeyboardEvent) -> bool + 'static,
+        mut callback: impl FnMut(VirtualKeyboardEvent) + 'static,
     ) {
         self.virtual_keyboard_event.set_handler(move |event| callback(*event));
     }
 
     /// Runs the virtual_keyboard_event callback as open event.
-    pub fn request_open_virtual_keyboard(&self, input_type: InputType) -> bool {
+    pub fn request_open_virtual_keyboard(&self, input_type: InputType) {
         self.virtual_keyboard_event.call(&(&VirtualKeyboardEvent::Show { input_type }))
     }
 
     /// Runs the virtual_keyboard_event callback as close event.
-    pub fn request_close_virtual_keyboard(&self) -> bool {
+    pub fn request_close_virtual_keyboard(&self) {
         self.virtual_keyboard_event.call(&(VirtualKeyboardEvent::Hide))
     }
 
