@@ -49,8 +49,13 @@ backend-gl-all = ["backend-winit", "renderer-winit-femtovg"]
 backend-gl-wayland = ["backend-winit-wayland", "renderer-winit-femtovg"]
 backend-gl-x11 = ["backend-winit-x11", "renderer-winit-femtovg"]
 
-preview = ["slint-interpreter", "i-slint-core", "i-slint-backend-selector", "image", "preview-lense", "preview-api"]
+## Enable the built-in preview, that will popup in a native window
+preview = ["slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image", "preview-lense", "preview-api"]
+## Enable the "Show Preview" lenses and action on components.
+## When this feature is enabled without the "preview" feature, the lenses do nothing, but the client can still interpret the command
+## to show the actual preview
 preview-lense = []
+## Open a notification channel so that the LSP can communicate with the preview (when the preview is handled by the client)
 preview-api = []
 
 default = ["backend-qt", "backend-winit", "renderer-winit-femtovg", "preview"]
