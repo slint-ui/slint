@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
 
 ### LSP
 
+- Don't throw a protocol error when using the rename function on a symbol that can't be renamed
 - Always auto-complete widgets from the style even if no widgets is imported
 - Don't auto-complete reserved properties or sub components for globals
 
