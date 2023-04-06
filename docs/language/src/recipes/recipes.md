@@ -443,8 +443,8 @@ In Rust you can set the callback like this:
 slint::slint!{
 import { HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint";
 
-export global Logic := {
-    callback to-upper-case(string) -> string;
+export global Logic {
+    pure callback to-upper-case(string) -> string;
     // You can collect other global properties here
 }
 
@@ -546,9 +546,9 @@ This example uses [gettext-rs](https://docs.rs/gettext-rs):
 slint::slint!{
 import { HorizontalBox , Button } from "std-widgets.slint";
 
-export global Tr := {
+export global Tr {
     // Do the translation of the first argument, with an array of string as supstitution
-    callback gettext(string, [string]) -> string;
+    pure callback gettext(string, [string]) -> string;
 }
 
 Example := Window {

@@ -115,7 +115,7 @@ similar to API that's created for your `.slint` component.
 For example the following `.slint` markup defines a global `Logic` singleton that's also exported:
 
 ```slint,ignore
-export global Logic := {
+export global Logic {
     callback to_uppercase(string) -> string;
 }
 ```

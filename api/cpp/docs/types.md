@@ -31,7 +31,7 @@ code.
 For example, this `struct` in a `.slint` file
 
 ```slint,ignore
-export struct MyStruct := {
+export struct MyStruct {
     foo: int,
     bar: string,
 }

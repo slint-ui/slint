@@ -1,6 +1,6 @@
 # Global Singletons
 
-Declare a global singleton with `global Name := { /* .. properties or callbacks .. */ }` to
+Declare a global singleton with `global Name { /* .. properties or callbacks .. */ }` to
 make properties and callbacks available throughout the entire project. Access them using `Name.property`.
 
 For example, this can be useful for a common color palette:
@@ -35,12 +35,12 @@ export global Logic  {
 
 ```rust
 slint::slint!{
-export global Logic := {
-    property <int> the-value;
-    callback magic-operation(int) -> int;
+export global Logic {
+    in-out property <int> the-value;
+    pure callback magic-operation(int) -> int;
 }
 
-export App := Window {
+export component App inherits Window {
     // ...
 }
 }

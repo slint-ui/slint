@@ -729,8 +729,8 @@ public:
     ///
     /// Example: imagine the .slint file contains the given global:
     /// ```slint,no-preview
-    ///    export global Logic := {
-    ///         callback to_uppercase(string) -> string;
+    ///    export global Logic {
+    ///         pure callback to_uppercase(string) -> string;
     ///    }
     /// ```
     /// Then you can set the callback handler

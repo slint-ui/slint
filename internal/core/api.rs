@@ -492,12 +492,12 @@ pub use crate::SharedString;
 /// ```rust
 /// # i_slint_backend_testing::init();
 /// slint::slint!{
-/// export global Palette := {
-///     property<color> foreground-color;
-///     property<color> background-color;
+/// export global Palette {
+///     in property<color> foreground-color;
+///     in property<color> background-color;
 /// }
 ///
-/// export App := Window {
+/// export component App inherits Window {
 ///    background: Palette.background-color;
 ///    Text {
 ///       text: "Hello";
@@ -647,7 +647,7 @@ mod weak_handle {
         /// # Example
         /// ```rust
         /// # i_slint_backend_testing::init();
-        /// slint::slint! { MyApp := Window { property <int> foo; /* ... */ } }
+        /// slint::slint! { export component MyApp inherits Window { in property <int> foo; /* ... */ } }
         /// let handle = MyApp::new().unwrap();
         /// let handle_weak = handle.as_weak();
         /// let thread = std::thread::spawn(move || {
@@ -701,7 +701,7 @@ pub use weak_handle::*;
 ///
 /// # Example
 /// ```rust
-/// slint::slint! { MyApp := Window { property <int> foo; /* ... */ } }
+/// slint::slint! { export component MyApp inherits Window { in property <int> foo; /* ... */ } }
 /// # i_slint_backend_testing::init();
 /// let handle = MyApp::new().unwrap();
 /// let handle_weak = handle.as_weak();

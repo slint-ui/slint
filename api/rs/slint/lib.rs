@@ -114,7 +114,7 @@ as a struct with the same name as the component.
 For example, if you have
 
 ```slint,no-preview
-export MyComponent := Window { /*...*/ }
+export component MyComponent inherits Window { /*...*/ }
 ```
 
 in the .slint file, it will create a
@@ -189,7 +189,7 @@ The follow table summarizes the entire mapping:
 For user defined structures in the .slint, an extra struct is generated.
 For example, if the `.slint` contains
 ```slint,ignore
-export struct MyStruct := {
+export struct MyStruct {
     foo: int,
     bar: string,
 }

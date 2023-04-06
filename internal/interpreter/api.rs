@@ -1390,7 +1390,7 @@ fn call_functions() {
     let definition = spin_on::spin_on(
         compiler.build_from_source(
             r#"
-    export global Gl := {
+    export global Gl {
         out property<string> q;
         public function foo-bar(a-a: string, b-b:int) -> string {
             q = a-a;
@@ -1436,7 +1436,7 @@ fn component_definition_struct_properties() {
     let comp_def = spin_on::spin_on(
         compiler.build_from_source(
             r#"
-    export struct Settings := {
+    export struct Settings {
         string_value: string,
     }
     export Dummy := Rectangle {
