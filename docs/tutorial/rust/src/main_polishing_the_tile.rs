@@ -27,6 +27,7 @@ component MemoryTile inherits Rectangle {
     // Left curtain
     Rectangle {
         background: #193076;
+        x: 0px;
         width: open_curtain ? 0px : (parent.width / 2);
         height: parent.height;
         animate width { duration: 250ms; easing: ease-in; }
