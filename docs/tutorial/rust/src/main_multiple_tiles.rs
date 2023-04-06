@@ -64,7 +64,7 @@ export component MainWindow inherits Window {
     width: 326px;
     height: 326px;
 
-    property <[TileData]> memory_tiles: [
+    in property <[TileData]> memory_tiles: [
         { image: @image-url("icons/at.png") },
         { image: @image-url("icons/balance-scale.png") },
         { image: @image-url("icons/bicycle.png") },
