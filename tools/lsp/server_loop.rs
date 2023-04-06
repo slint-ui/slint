@@ -567,7 +567,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 )));
             }
         };
-        Err("This symbol cannot be renamed. (Only element id can be renamed at the moment)".into())
+        Ok(None)
     });
 }
 
