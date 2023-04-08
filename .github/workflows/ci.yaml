@@ -60,14 +60,14 @@ jobs:
         toolchain: ${{ matrix.rust_version }}
         key: x-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
     - name: Build
-      run: cargo build --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel  # mcu backend requires nightly
+      run: cargo build --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude uefi-demo  # mcu backend requires nightly
     - name: Run tests
       uses: actions-rs/cargo@v1
       env:
           SLINT_CREATE_SCREENSHOTS: 1
       with:
         command: test
-        args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel   # mcu backend requires nightly
+        args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude uefi-demo  # mcu backend requires nightly
     - name: Archive screenshots after failed tests
       if: ${{ failure() }}
       uses: actions/upload-artifact@v3
@@ -232,6 +232,17 @@ jobs:
         crate: cross
     - name: Check
       run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter
+
+  uefi-demo:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/setup-rust
+      with:
+        toolchain: stable
+        target: x86_64-unknown-uefi
+    - name: Check
+      run: cargo check --target=x86_64-unknown-uefi -p uefi-demo
 
   docs:
     uses: ./.github/workflows/build_docs.yaml
