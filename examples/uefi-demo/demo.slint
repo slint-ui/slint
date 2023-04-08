@@ -1,0 +1,114 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import {
+    AboutSlint, Button, GridBox, HorizontalBox, LineEdit, Slider,
+    StandardButton, StandardListView, TabWidget, VerticalBox
+} from "std-widgets.slint";
+
+export component Demo inherits Window {
+    in property <string> firmware-vendor;
+    in property <string> firmware-version;
+    in property <string> uefi-version;
+    in property <bool> secure-boot;
+
+    default-font-size: 22px;
+    default-font-family: "Noto Sans";
+
+    TabWidget {
+        width: root.width;
+        height: root.height;
+
+        Tab {
+            title: "Info";
+            GridBox {
+                Row { Rectangle {} }
+                Row {
+                    Text {
+                        colspan: 2;
+                        text: "slint UEFI Demo";
+                        horizontal-alignment: center;
+                        font-size: 44px;
+                        font-weight: 600;
+                    }
+                }
+                Row {
+                    Text { text: "Firmware vendor:"; horizontal-alignment: right;  }
+                    Text { text: firmware-vendor; }
+                }
+                Row {
+                    Text { text: "Firmware version:"; horizontal-alignment: right; }
+                    Text { text: firmware-version; }
+                }
+                Row {
+                    Text { text: "UEFI version:"; horizontal-alignment: right; }
+                    Text { text: uefi-version; }
+                }
+                Row {
+                    Text { text: "Secure boot:"; horizontal-alignment: right; }
+                    Text { text: secure-boot ? "enabled" : "disabled"; }
+                }
+                Row {
+                    Text { text: "Resolution:"; horizontal-alignment: right; }
+                    Text { text: "\{floor(root.width / 1px)}x\{floor(root.height / 1px)}"; }
+                }
+                Row { Rectangle {} }
+            }
+        }
+
+        Tab {
+            title: "Widgets";
+            VerticalBox {
+                enabler := Button {
+                    checked: true;
+                    checkable: true;
+                    text: "Widgets enabled";
+                }
+                LineEdit {
+                    enabled: enabler.checked;
+                    placeholder-text: "Edit Me!";
+                }
+                Slider {
+                    enabled: enabler.checked;
+                }
+                StandardListView {
+                    vertical-stretch: 1;
+                    enabled: enabler.checked;
+                    model: [
+                        { text: "Abydos"}, { text: "Asuras" }, { text: "Athos" },
+                        { text: "Celestis" }, { text: "Chulak"}, { text: "Dakara"},
+                        { text: "Earth" }, { text: "Langara" },  { text: "Tollana"},
+                    ];
+                }
+                HorizontalBox {
+                    alignment: center;
+                    StandardButton { enabled: enabler.checked; kind: ok; }
+                    StandardButton { enabled: enabler.checked; kind: reset; }
+                    StandardButton { enabled: enabler.checked; kind: abort; }
+                }
+            }
+        }
+
+        Tab {
+            title: "V-Sync";
+            Rectangle {
+                for color[index] in [
+                        #fff, #f00, #0f0,
+                        #00f, #0ff, #ff0,
+                        #f0f]: Rectangle {
+                    y: 0;
+                    height: parent.height;
+                    x: (parent.width - self.width) * 0.5 *
+                       (1 + 1.1 * sin(animation-tick() * (index + 1) / 17ms * 1deg));
+                    width: 25px + 100px * abs(sin(animation-tick() / 25ms * 1deg));
+                    background: color;
+                }
+            }
+        }
+
+        Tab {
+            title: "About";
+            AboutSlint {}
+        }
+    }
+}

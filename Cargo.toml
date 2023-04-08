@@ -24,6 +24,7 @@ members = [
     'examples/carousel/rust',
     'examples/energy-monitor',
     'examples/mcu-board-support',
+    'examples/uefi-demo',
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',

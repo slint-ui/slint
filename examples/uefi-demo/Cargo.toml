@@ -1,0 +1,28 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+[package]
+name = "uefi-demo"
+version = "1.0.0"
+edition = "2021"
+license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+build = "build.rs"
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "uefi-demo"
+
+[dependencies]
+uefi = "0.20.0"
+uefi-services = "0.17.0"
+
+slint = { path = "../../api/rs/slint", default-features = false, features = [
+    "compat-1-0",
+    "libm",
+    "log",
+    "unsafe-single-threaded",
+] }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
