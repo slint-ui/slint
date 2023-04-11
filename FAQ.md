@@ -5,7 +5,9 @@
   - [Why are you creating a new markup language?](#why-are-you-creating-a-new-markup-language)
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
-  - [Can I license my code under an open-source license more permissive than GPL?](#can-i-license-my-code-under-an-open-source-license-more-permissive-than-gpl)
+  - [If I link my program with Slint GPLv3, does it mean that I have to GPL my program too?](#if-i-link-my-program-with-slint-gplv3-does-it-mean-that-i-have-to-gpl-my-program-too)
+  - [My MIT-licensed program links to Slint GPLv3. Can someone fork my program to build and distribute a proprietary program?](#my-mit-licensed-program-links-to-slint-gplv3-can-someone-fork-my-program-to-build-and-distribute-a-proprietary-program)
+  - [My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?](#my-mit-licensed-program-links-to-slint-gplv3-under-what-license-can-i-release-the-binary-of-my-program)
   - [What are the different proprietary licensing options?](#what-are-the-different-proprietary-licensing-options)
   - [What does perpetual mean?](#what-does-perpetual-mean)
   - [What are the different support options?](#what-are-the-different-support-options)
@@ -58,17 +60,21 @@ types of programming languages.
 Slint is available under either a [proprietary license](LICENSES/LicenseRef-Slint-commercial.md)
 or [GNU GPLv3](LICENSES/GPL-3.0-only.txt)
 
-### Can I license my code under an open-source license more permissive than GPL?
+### If I link my program with Slint GPLv3, does it mean that I have to GPL my program too?
 
-Yes. While the binary or the package containing Slint needs to be licensed under GPL,
-the code you write can be under any license compatible with the GPL, such as BSD, MIT, or Apache license.
-For more info, you can check the following GPL FAQs:
+No. You can license your program under any license compatible with the GPLv3 such
+as [https://www.gnu.org/licenses/license-list.en.html#GPLCompatibleLicenses](https://www.gnu.org/licenses/license-list.en.html#GPLCompatibleLicenses).
+Refer to GPL FAQ [https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL](https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL).
 
-- [https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL](https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL)
-- [https://www.gnu.org/licenses/gpl-faq.en.html#IfLibraryIsGPL](https://www.gnu.org/licenses/gpl-faq.en.html#IfLibraryIsGPL)
+### My MIT-licensed program links to Slint GPLv3. Can someone fork my program to build and distribute a proprietary program?
 
-In other words, you can still allow others to fork your code for proprietary software.
-The person doing that have the choice to either use Slint according to one of our proprietary options, or remove the dependency.
+Yes, provided the person distributing the proprietary program either links to 
+Slint proprietary license instead of Slint GPLv3 or removes the dependency to Slint.
+
+### My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?
+
+While your software modules can remain under the MIT-license, the work as a whole must be licensed under the GPL. 
+Hence, the binary must be made available under the GPLv3.
 
 ### What are the different proprietary licensing options?
 
