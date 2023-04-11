@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file.
 - Fixed compiler panic when binding `Path`'s `commands` property to the field of a model entry.
 - Qt renderer: Fixed support for horizontal alignment in `TextInput`.
 
+### Slint Language
+
+- Fixed parent `FocusScope` objects stealing the focus from inner `FocusScope`s when clicked.
+
 ### C++
 
 - macOS: Fixed `install_name` for `libslint_cpp.dylib` use `@rpath` instead of absolute paths to the build directory.

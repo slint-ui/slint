@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export component TestCase inherits Window {
+    width: 100phx;
+    height: 100phx;
+    f1 := FocusScope {
+
+        f2 := FocusScope {
+            x: 50px;
+            y: 50px;
+            width: 50px;
+            height: 50px;
+        }
+    }
+
+    out property<bool> correct_focus: !f1.has_focus && f2.has_focus;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+slint_testing::send_mouse_click(&instance, 70., 70.);
+assert!(instance.get_correct_focus());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint_testing::send_mouse_click(&instance, 70., 70.);
+assert(instance.get_correct_focus());
+```
+
+```js
+var instance = new slint.TestCase();
+instance.send_mouse_click(70., 70.);
+assert(instance.correct_focus);
+
+```
+*/
