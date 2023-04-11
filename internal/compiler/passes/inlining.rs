@@ -54,11 +54,9 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
     inline_components_recursively(&doc.root_component, inline_selection);
 
     if matches!(inline_selection, InlineSelection::InlineAllComponents) {
-        doc.root_component
-            .init_code
-            .borrow_mut()
-            .constructor_code
-            .splice(0..0, doc.root_component.inlined_init_code.borrow().values().cloned());
+        let mut init_code = doc.root_component.init_code.borrow_mut();
+        let inlined_init_code = core::mem::take(&mut init_code.inlined_init_code);
+        init_code.constructor_code.splice(0..0, inlined_init_code.into_values());
     }
 }
 
@@ -177,8 +175,9 @@ fn inline_element(
     core::mem::drop(elem_mut);
 
     let inlined_init_code = inlined_component
-        .inlined_init_code
+        .init_code
         .borrow()
+        .inlined_init_code
         .values()
         .cloned()
         .chain(inlined_component.init_code.borrow().constructor_code.iter().map(
@@ -195,8 +194,9 @@ fn inline_element(
         .collect();
 
     root_component
-        .inlined_init_code
+        .init_code
         .borrow_mut()
+        .inlined_init_code
         .insert(elem.borrow().span().offset, Expression::CodeBlock(inlined_init_code));
 
     // Now fixup all binding and reference
@@ -302,7 +302,6 @@ fn duplicate_sub_component(
         embedded_file_resources: component_to_duplicate.embedded_file_resources.clone(),
         root_constraints: component_to_duplicate.root_constraints.clone(),
         child_insertion_point: component_to_duplicate.child_insertion_point.clone(),
-        inlined_init_code: component_to_duplicate.inlined_init_code.clone(),
         init_code: component_to_duplicate.init_code.clone(),
         used_types: Default::default(),
         popup_windows: Default::default(),

@@ -228,6 +228,10 @@ pub struct InitCode {
     pub focus_setting_code: Vec<Expression>,
     /// Code to register embedded fonts.
     pub font_registration_code: Vec<Expression>,
+
+    /// Code inserted from inlined components, ordered by offset of the place where it was inlined from. This way
+    /// we can preserve the order across multiple inlining passes.
+    pub inlined_init_code: BTreeMap<usize, Expression>,
 }
 
 impl InitCode {
@@ -236,12 +240,14 @@ impl InitCode {
             .iter()
             .chain(self.focus_setting_code.iter())
             .chain(self.constructor_code.iter())
+            .chain(self.inlined_init_code.values())
     }
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
         self.font_registration_code
             .iter_mut()
             .chain(self.focus_setting_code.iter_mut())
             .chain(self.constructor_code.iter_mut())
+            .chain(self.inlined_init_code.values_mut())
     }
 }
 
@@ -271,10 +277,6 @@ pub struct Component {
     /// When creating this component and inserting "children", append them to the children of
     /// the element pointer to by this field.
     pub child_insertion_point: RefCell<Option<ChildrenInsertionPoint>>,
-
-    /// Code inserted from inlined components, ordered by offset of the place where it was inlined from. This way
-    /// we can preserve the order across multiple inlining passes.
-    pub inlined_init_code: RefCell<BTreeMap<usize, Expression>>,
 
     pub init_code: RefCell<InitCode>,
 
@@ -1956,6 +1958,13 @@ pub fn visit_element_expressions(
         }
     }
     elem.borrow_mut().transitions = transitions;
+
+    let component = elem.borrow().enclosing_component.upgrade().unwrap();
+    if Rc::ptr_eq(&component.root_element, elem) {
+        for e in component.init_code.borrow_mut().iter_mut() {
+            vis(e, None, &|| Type::Void);
+        }
+    }
 }
 
 pub fn visit_named_references_in_expression(
@@ -2062,11 +2071,6 @@ pub fn visit_all_named_references(
             compo
         },
     );
-    component
-        .init_code
-        .borrow_mut()
-        .iter_mut()
-        .for_each(|expr| visit_named_references_in_expression(expr, vis));
 }
 
 /// Visit all expression in this component and sub components
