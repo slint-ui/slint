@@ -143,6 +143,8 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 
 -   **`has-focus`** (_out_ _bool_): Is `true` when the element has keyboard
     focus.
+-   **`enabled`** (_in_ _bool_): When true, the `FocusScope` will make itself the focused element when clicked. Set this to false if you don't want the click-to-focus
+    behavior. A parent `FocusScope` will still receive key events from child `FocusScope`s that were rejected, even if `enabled` is set to false. (default value: true)
 
 ### Functions
 
