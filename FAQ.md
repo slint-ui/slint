@@ -7,7 +7,7 @@
 - [Licensing](#licensing)
   - [If I link my program with Slint GPLv3, does it mean that I have to license my program under the GPLv3, too?](#if-i-link-my-program-with-slint-gplv3-does-it-mean-that-i-have-to-license-my-program-under-the-gplv3-too)
   - [My MIT-licensed program links to Slint GPLv3. Can someone fork my program to build and distribute a proprietary program?](#my-mit-licensed-program-links-to-slint-gplv3-can-someone-fork-my-program-to-build-and-distribute-a-proprietary-program)
-  - [My MIT-licensed program links to Slint GPLv3. How can I convey to someone that they can fork my program to build and distribute a proprietary program?](#my-mit-licensed-program-links-to-slint-gplv3-how-can-i-convey-to-someone-that-they-can-fork-my-program-to-build-and-distribute-a-proprietary-program)
+  - [My MIT-licensed program links to Slint GPLv3. How can I convey to someone that they can distribute my program as part of a proprietary licensed program?](#my-mit-licensed-program-links-to-slint-gplv3-how-can-i-convey-to-someone-that-they-can-distribute-my-program-as-part-of-a-proprietary-licensed-program)
   - [My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?](#my-mit-licensed-program-links-to-slint-gplv3-under-what-license-can-i-release-the-binary-of-my-program)
   - [What are the different proprietary licensing options?](#what-are-the-different-proprietary-licensing-options)
   - [What does perpetual mean?](#what-does-perpetual-mean)
@@ -71,9 +71,9 @@ Refer to GPL FAQ [https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL](h
 
 Yes, provided the person distributing the proprietary program acquired a Slint proprietary license instead of using Slint under GPLv3, or removed the dependency to Slint altogether.
 
-### My MIT-licensed program links to Slint GPLv3. How can I convey to someone that they can fork my program to build and distribute a proprietary program?
+### My MIT-licensed program links to Slint GPLv3. How can I convey to someone that they can distribute my program as part of a proprietary licensed program?
 
-You can add a note as part of your license that to build a proprietary licensed program, either the Slint GPLv3 library should be replaced with a Slint proprietary licensed library or the dependency to Slint should be removed.
+You can add a note as part of your license that to distribute a proprietary licensed program, one can get a Slint proprietary license or the dependency to Slint should be removed.
 
 ### My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?
 
