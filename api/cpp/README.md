@@ -15,7 +15,7 @@ Slint comes with a CMake integration that automates the compilation step of the 
 offers a CMake target for convenient linkage.
 
 *Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.slint` dependency tracking.
-You can select the CMake Ninja backend by passing `-GNinja` or setting the `CMAKE_GENERATOR` environment variable to `Ninja`.
+Install [Ninja](https://ninja-build.org) and select the CMake Ninja backend by passing `-GNinja` or setting the `CMAKE_GENERATOR` environment variable to `Ninja`.
 
 ### Building from Sources
 

@@ -41,6 +41,7 @@ environment variable `RUST_FONTCONFIG_DLOPEN=on`. This can be useful for [cross-
 To use Slint from C++, the following extra dependencies are needed:
 
 - **[cmake](https://cmake.org/download/)** (3.21 or newer)
+- **[Ninja](https://ninja-build.org)** (Optional, or remove the `-GNinja` when invoking `cmake`)
 - A C++ compiler that supports C++20 (e.g., **MSVC 2022 17.3** on Windows, or **GCC 10**)
 
 ### Node.js API (optional)
