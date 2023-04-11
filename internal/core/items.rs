@@ -673,8 +673,10 @@ impl Item for FocusScope {
     ) -> InputEventResult {
         if self.enabled() && matches!(event, MouseEvent::Pressed { .. }) && !self.has_focus() {
             WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
+            InputEventResult::EventAccepted
+        } else {
+            InputEventResult::EventIgnored
         }
-        InputEventResult::EventIgnored
     }
 
     fn key_event(
