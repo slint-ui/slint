@@ -73,7 +73,7 @@ Yes, provided the person distributing the proprietary program acquired a Slint p
 
 ### My MIT-licensed program links to Slint GPLv3. How can I convey to someone that they can distribute my program as part of a proprietary licensed program?
 
-You can add a note as part of your license that to distribute a proprietary licensed program, one can get a Slint proprietary license or the dependency to Slint should be removed.
+You can add a note as part of your license that to distribute a proprietary licensed program, one can acquire a Slint proprietary license or the dependency to Slint should be removed.
 
 ### My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?
 
