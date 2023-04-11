@@ -3,7 +3,6 @@
 
 slint::include_modules!();
 
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     let main_window = MainWindow::new().unwrap();
 
@@ -15,19 +14,24 @@ pub fn main() {
 
 mod virtual_keyboard {
     use super::*;
-    use slint::*;
+    use slint::{platform::InputMethodRequestResult, *};
 
     pub fn init(app: &MainWindow) {
         let weak = app.as_weak();
 
-        app.window().on_virtual_keyboard_event({
-            move |event| match event {
-                VirtualKeyboardEvent::Show { .. } => {
-                    weak.unwrap().global::<VirtualKeyboardHandler>().set_open(true);
+        app.window().on_input_method_request({
+            move |event| {
+                match event {
+                    InputMethodRequest::Activate { .. } => {
+                        weak.unwrap().global::<VirtualKeyboardHandler>().set_open(true);
+                    }
+                    InputMethodRequest::Deactivate => {
+                        weak.unwrap().global::<VirtualKeyboardHandler>().set_open(false);
+                    }
+                    _ => unreachable!(),
                 }
-                VirtualKeyboardEvent::Hide => {
-                    weak.unwrap().global::<VirtualKeyboardHandler>().set_open(false);
-                }
+
+                InputMethodRequestResult::RequestAccepted
             }
         });
 

@@ -477,6 +477,19 @@ pub enum FocusEventResult {
     FocusIgnored,
 }
 
+/// Represents how an input method request is dealt with.
+/// An accepted request results in not further propagation of the input method request.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[repr(C)]
+#[non_exhaustive]
+pub enum InputMethodRequestResult {
+    /// The input method request was handled.
+    RequestAccepted,
+    /// The input method request was not handled and the request should be propagated further.
+    #[default]
+    RequestIgnored,
+}
+
 /// This event is sent to a component and items when they receive or loose
 /// the keyboard focus.
 #[derive(Debug, Clone, Copy, PartialEq)]

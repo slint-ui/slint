@@ -9,7 +9,7 @@ component VirtualKeyboardButton {
     callback key-pressed(string /* key */);
 
     in property <string> key;
-    in property <string> icon;
+    in property <image> icon;
 
     min-width: 32px;
     min-height: 32px;
@@ -30,11 +30,11 @@ component VirtualKeyboardButton {
                 horizontal-alignment: center;
             }
 
-            if (root.icon != "") : Path {
+            Image {
                 y: (parent.height - self.height) / 2;
-                commands: root.icon;
+                source: root.icon;
                 height: 12px;
-                fill: StyleMetrics.dark-color-scheme ? #ffffff : #000000;
+                colorize: StyleMetrics.dark-color-scheme ? #ffffff : #000000;
             }
         }
     }
@@ -210,7 +210,7 @@ export component VirtualKeyboard  {
             }
 
             if (index == 0) : VirtualKeyboardButton {
-                icon: Icons.chefron-left;
+                icon: Icons.chevron-left;
 
                 key-pressed => {
                     VirtualKeyboardHandler.key-pressed(Key.Backspace);

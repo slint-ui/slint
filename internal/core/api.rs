@@ -11,7 +11,7 @@ use alloc::boxed::Box;
 use alloc::string::String;
 
 use crate::component::ComponentVTable;
-use crate::input::{KeyEventType, KeyInputEvent, MouseEvent};
+use crate::input::{InputMethodRequestResult, KeyEventType, KeyInputEvent, MouseEvent};
 use crate::items::InputType;
 use crate::window::{WindowAdapter, WindowInner};
 
@@ -302,19 +302,19 @@ pub enum CloseRequestResponse {
     KeepWindowShown,
 }
 
-/// This enum describes whether a virtual should be shown or closed.
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
+/// This enum describes whether an input method should be activated or deactivated.
+#[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
-pub enum VirtualKeyboardEvent {
-    /// The virtual keyboard should be shown.
-    Show {
-        /// Defines the input type of the input element the virtual keyboard should interact with.
+#[non_exhaustive]
+pub enum InputMethodRequest {
+    /// The input method should be activated.
+    Activate {
+        /// Defines the input type of the input element the input method should interact with.
         input_type: InputType,
     },
 
-    /// The virtual keyboard should be closed.
-    #[default]
-    Hide,
+    /// The input method should be deactivated.
+    Deactivate,
 }
 
 impl Window {
@@ -383,10 +383,13 @@ impl Window {
         self.0.on_close_requested(callback);
     }
 
-    /// This function allows registering a callback that's invoked when the user tries to open or close a virtual keyboard.
+    /// This function allows registering a callback that's invoked when the user tries to activate or deactivate an input method.
     /// The callback has to return a bool.
-    pub fn on_virtual_keyboard_event(&self, callback: impl FnMut(VirtualKeyboardEvent) + 'static) {
-        self.0.on_virtual_keyboard_event(callback);
+    pub fn on_input_method_request(
+        &self,
+        callback: impl FnMut(InputMethodRequest) -> InputMethodRequestResult + 'static,
+    ) {
+        self.0.on_input_method_request(callback);
     }
 
     /// This function issues a request to the windowing system to redraw the contents of the window.

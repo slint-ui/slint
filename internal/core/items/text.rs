@@ -564,14 +564,14 @@ impl Item for TextInput {
                 window_adapter.enable_input_method(self.input_type());
 
                 WindowInner::from_pub(window_adapter.window())
-                    .request_open_virtual_keyboard(self.input_type());
+                    .request_activate_input_method(self.input_type());
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
                 self.hide_cursor();
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 window_adapter.disable_input_method();
-                WindowInner::from_pub(window_adapter.window()).request_close_virtual_keyboard();
+                WindowInner::from_pub(window_adapter.window()).request_deactivate_input_method();
             }
         }
         FocusEventResult::FocusAccepted
