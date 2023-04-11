@@ -313,7 +313,7 @@ pub enum InputMethodRequest {
         input_type: InputType,
     },
 
-    /// The input method should be deactivated.
+    /// The input method should be deactivated. This is typically sent when a input element looses focus.
     Deactivate,
 }
 
