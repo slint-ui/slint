@@ -5,7 +5,7 @@
   - [Why are you creating a new markup language?](#why-are-you-creating-a-new-markup-language)
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
-  - [If I link my program with Slint GPLv3, does it mean that I have to GPL my program too?](#if-i-link-my-program-with-slint-gplv3-does-it-mean-that-i-have-to-gpl-my-program-too)
+  - [If I link my program with Slint GPLv3, does it mean that I have to license my program under the GPLv3, too?](#if-i-link-my-program-with-slint-gplv3-does-it-mean-that-i-have-to-gpl-my-program-too)
   - [My MIT-licensed program links to Slint GPLv3. Can someone fork my program to build and distribute a proprietary program?](#my-mit-licensed-program-links-to-slint-gplv3-can-someone-fork-my-program-to-build-and-distribute-a-proprietary-program)
   - [My MIT-licensed program links to Slint GPLv3. How can I convey to someone that they can fork my program to build and distribute a proprietary program?](#my-mit-licensed-program-links-to-slint-gplv3-how-can-i-convey-to-someone-that-they-can-fork-my-program-to-build-and-distribute-a-proprietary-program)
   - [My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?](#my-mit-licensed-program-links-to-slint-gplv3-under-what-license-can-i-release-the-binary-of-my-program)
@@ -69,8 +69,8 @@ Refer to GPL FAQ [https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL](h
 
 ### My MIT-licensed program links to Slint GPLv3. Can someone fork my program to build and distribute a proprietary program?
 
-Yes, provided the person distributing the proprietary program either links to 
-Slint proprietary license instead of Slint GPLv3 or removes the dependency to Slint.
+Yes, provided the person distributing the proprietary program acquired a 
+Slint proprietary license instead of using Slint under GPLv3, or removes the dependency to Slint altogether.
 
 ### My MIT-licensed program links to Slint GPLv3. How can I convey to someone that they can fork my program to build and distribute a proprietary program?
 
