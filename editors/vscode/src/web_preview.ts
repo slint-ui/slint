@@ -6,11 +6,11 @@ import { Uri } from "vscode";
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
 
-let previewPanel: vscode.WebviewPanel | undefined = undefined;
+let previewPanel: vscode.WebviewPanel | null = null;
 let previewUrl: Uri | null = null;
 let previewAccessedFiles = new Set();
 let previewComponent: string = "";
-let queuedPreviewMsg: any = undefined;
+let queuedPreviewMsg: any | null = null;
 let previewBusy = false;
 
 /// Initialize the callback on the client to make the web preview work
@@ -303,7 +303,7 @@ function initPreviewPanel(
                 case "preview_ready":
                     if (queuedPreviewMsg) {
                         panel.webview.postMessage(queuedPreviewMsg);
-                        queuedPreviewMsg = undefined;
+                        queuedPreviewMsg = null;
                     } else {
                         previewBusy = false;
                     }
@@ -319,7 +319,7 @@ function initPreviewPanel(
     panel.webview.html = getPreviewHtml(slint_wasm_interpreter_url);
     panel.onDidDispose(
         () => {
-            previewPanel = undefined;
+            previewPanel = null;
         },
         undefined,
         context.subscriptions,
