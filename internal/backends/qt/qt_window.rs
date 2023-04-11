@@ -305,6 +305,12 @@ cpp! {{
     static int do_text_layout(QTextLayout &layout, int flags, const QRectF &rect, int line_for_y_pos = -1) {
         QTextOption options;
         options.setWrapMode((flags & Qt::TextWordWrap) ? QTextOption::WordWrap : QTextOption::NoWrap);
+        if (flags & Qt::AlignHCenter)
+            options.setAlignment(Qt::AlignCenter);
+        else if (flags & Qt::AlignLeft)
+            options.setAlignment(Qt::AlignLeft);
+        else if (flags & Qt::AlignRight)
+            options.setAlignment(Qt::AlignRight);
         options.setFlags(QTextOption::IncludeTrailingSpaces);
         layout.setTextOption(options);
         layout.setCacheEnabled(true);
