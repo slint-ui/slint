@@ -69,8 +69,7 @@ Refer to GPL FAQ [https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL](h
 
 ### My MIT-licensed program links to Slint GPLv3. Can someone fork my program to build and distribute a proprietary program?
 
-Yes, provided the person distributing the proprietary program acquired a 
-Slint proprietary license instead of using Slint under GPLv3, or removes the dependency to Slint altogether.
+Yes, provided the person distributing the proprietary program acquired a Slint proprietary license instead of using Slint under GPLv3, or removed the dependency to Slint altogether.
 
 ### My MIT-licensed program links to Slint GPLv3. How can I convey to someone that they can fork my program to build and distribute a proprietary program?
 
