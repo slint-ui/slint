@@ -5,15 +5,26 @@ export component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
     f1 := FocusScope {
+        key-pressed(event) => {
+            r1 += event.text;
+            return accept;
+        }
 
         f2 := FocusScope {
             x: 50px;
             y: 50px;
             width: 50px;
             height: 50px;
+            key-pressed(event) => {
+                r2 += event.text;
+                reject
+            }
         }
     }
 
+    in property<bool> click-to-focus-on-outer <=> f1.enabled;
+    out property<string> r1;
+    out property<string> r2;
     out property<bool> correct_focus: !f1.has_focus && f2.has_focus;
 }
 
@@ -22,6 +33,10 @@ export component TestCase inherits Window {
 let instance = TestCase::new().unwrap();
 slint_testing::send_mouse_click(&instance, 70., 70.);
 assert!(instance.get_correct_focus());
+instance.set_click_to_focus_on_outer(false);
+slint_testing::send_keyboard_string_sequence(&instance, "ok");
+assert_eq!(instance.get_r1(), "ok");
+assert_eq!(instance.get_r2(), "ok");
 ```
 
 ```cpp
@@ -29,12 +44,19 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 slint_testing::send_mouse_click(&instance, 70., 70.);
 assert(instance.get_correct_focus());
+instance.set_click_to_focus_on_outer(false);
+slint_testing::send_keyboard_string_sequence(&instance, "ok");
+assert_eq(instance.get_r1(), "ok");
+assert_eq(instance.get_r2(), "ok");
 ```
 
 ```js
 var instance = new slint.TestCase();
 instance.send_mouse_click(70., 70.);
 assert(instance.correct_focus);
-
+instance.click_to_focus_on_outer = false;
+instance.send_keyboard_string_sequence("ok");
+assert.equal(instance.r1, "ok");
+assert.equal(instance.r2, "ok");
 ```
 */
