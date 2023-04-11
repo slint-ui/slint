@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 ### General
 
 - Fixed compiler panic when binding `Path`'s `commands` property to the field of a model entry.
+- Qt renderer: Fixed support for horizontal alignment in `TextInput`.
 
 ### C++
 
