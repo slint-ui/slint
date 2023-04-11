@@ -161,6 +161,16 @@ fn analyze_element(
     for (_, nr) in &elem.borrow().accessibility_props.0 {
         process_property(&PropertyPath::from(nr.clone()), context, reverse_aliases, diag);
     }
+
+    if let Some(component) = elem.borrow().enclosing_component.upgrade() {
+        if Rc::ptr_eq(&component.root_element, elem) {
+            for e in component.init_code.borrow().iter() {
+                recurse_expression(e, &mut |prop| {
+                    process_property(prop, context, reverse_aliases, diag);
+                });
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone, dm::BitAnd, dm::BitOr, dm::BitAndAssign, dm::BitOrAssign)]
