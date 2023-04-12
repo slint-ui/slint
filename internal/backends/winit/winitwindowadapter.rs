@@ -611,6 +611,14 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
             runtime_window.set_window_item_geometry(LogicalSize::new(s.width, s.height));
             let id = winit_window.id();
 
+            // Make sure the dark color scheme property is up-to-date, as it may have been queried earlier when
+            // the window wasn't mapped yet.
+            if let Some(dark_color_scheme_prop) = self_.dark_color_scheme.get() {
+                if let Some(theme) = winit_window.theme() {
+                    dark_color_scheme_prop.as_ref().set(theme == winit::window::Theme::Dark)
+                }
+            }
+
             self_.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
                 constraints: Default::default(),
                 winit_window,
