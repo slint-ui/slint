@@ -483,11 +483,11 @@ pub enum FocusEventResult {
 #[repr(C)]
 #[non_exhaustive]
 pub enum InputMethodRequestResult {
-    /// The input method request was handled.
-    RequestAccepted,
-    /// The input method request was not handled and the request should be propagated further.
+    /// Prevents the default input method from being activated.
+    PreventDefault,
+    /// The input method request was not handled and the default input method should be activated.
     #[default]
-    RequestIgnored,
+    Ignored,
 }
 
 /// This event is sent to a component and items when they receive or loose

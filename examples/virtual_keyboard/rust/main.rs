@@ -8,7 +8,6 @@ pub fn main() {
 
     virtual_keyboard::init(&main_window);
 
-    main_window.show().unwrap();
     main_window.run().unwrap();
 }
 
@@ -31,7 +30,7 @@ mod virtual_keyboard {
                     _ => unreachable!(),
                 }
 
-                InputMethodRequestResult::RequestAccepted
+                InputMethodRequestResult::PreventDefault
             }
         });
 

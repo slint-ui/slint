@@ -306,7 +306,6 @@ pub enum CloseRequestResponse {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 #[non_exhaustive]
-#[non_exhaustive]
 pub enum InputMethodRequest {
     /// The input method should be activated. This is typically sent when an input element is focused by the user.
     Activate {
