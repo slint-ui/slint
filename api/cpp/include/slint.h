@@ -118,6 +118,12 @@ public:
 
     bool dark_color_scheme() const { return slint_windowrc_dark_color_scheme(&inner); }
 
+    bool text_input_focused() const { return slint_windowrc_get_text_input_focused(&inner); }
+    void set_text_input_focused(bool value) const
+    {
+        slint_windowrc_set_text_input_focused(&inner, value);
+    }
+
     template<typename Component, typename ItemArray>
     void unregister_component(Component *c, ItemArray items) const
     {

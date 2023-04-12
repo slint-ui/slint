@@ -221,6 +221,8 @@ struct WindowPinnedFields {
     scale_factor: Property<f32>,
     #[pin]
     active: Property<bool>,
+    #[pin]
+    text_input_focused: Property<bool>,
 }
 
 /// Inner datastructure for the [`crate::api::Window`]
@@ -282,6 +284,10 @@ impl WindowInner {
                 window_properties_tracker: window_properties_tracker,
                 scale_factor: Property::new_named(1., "i_slint_core::Window::scale_factor"),
                 active: Property::new_named(false, "i_slint_core::Window::active"),
+                text_input_focused: Property::new_named(
+                    false,
+                    "i_slint_core::Window::text_input_focused",
+                ),
             }),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
@@ -745,6 +751,16 @@ impl WindowInner {
         self.pinned_fields.scale_factor.set(factor)
     }
 
+    /// Returns the scale factor set on the window, as provided by the windowing system.
+    pub fn text_input_focused(&self) -> bool {
+        self.pinned_fields.as_ref().project_ref().text_input_focused.get()
+    }
+
+    /// Sets the scale factor for the window. This is set by the backend or for testing.
+    pub fn set_text_input_focused(&self, value: bool) {
+        self.pinned_fields.text_input_focused.set(value)
+    }
+
     /// Returns the window item that is the first item in the component.
     pub fn window_item(&self) -> Option<VRcMapped<ComponentVTable, crate::items::WindowItem>> {
         self.try_component().and_then(|component_rc| {
@@ -891,6 +907,29 @@ pub mod ffi {
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         WindowInner::from_pub(window_adapter.window()).set_scale_factor(value)
+    }
+
+    /// Returns the text-input-focused property value.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_get_text_input_focused(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> bool {
+        assert_eq!(
+            core::mem::size_of::<Rc<dyn WindowAdapter>>(),
+            core::mem::size_of::<WindowAdapterRcOpaque>()
+        );
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        WindowInner::from_pub(window_adapter.window()).text_input_focused()
+    }
+
+    /// Set the text-input-focused property.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_set_text_input_focused(
+        handle: *const WindowAdapterRcOpaque,
+        value: bool,
+    ) {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        WindowInner::from_pub(window_adapter.window()).set_text_input_focused(value)
     }
 
     /// Sets the focus item.

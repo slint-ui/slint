@@ -94,6 +94,7 @@ to get started.
    src/builtins/elements.md
    src/builtins/enums.md
    src/builtins/functions.md
+   src/builtins/globals.md
    src/builtins/namespaces.md
    src/builtins/structs.md
    src/builtins/widgets.md

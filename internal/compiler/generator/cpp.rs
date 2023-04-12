@@ -2728,6 +2728,12 @@ fn compile_builtin_function_call(
         BuiltinFunction::DarkColorScheme => {
             format!("{}.dark_color_scheme()", access_window_field(ctx))
         }
+        BuiltinFunction::SetTextInputFocused => {
+            format!("{}.set_text_input_focused({})", access_window_field(ctx), a.next().unwrap())
+        }
+        BuiltinFunction::TextInputFocused => {
+            format!("{}.text_input_focused()", access_window_field(ctx))
+        }
         BuiltinFunction::ShowPopupWindow => {
             if let [llr::Expression::NumberLiteral(popup_index), x, y, llr::Expression::PropertyReference(parent_ref)] =
                 arguments

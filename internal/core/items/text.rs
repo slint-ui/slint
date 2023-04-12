@@ -560,11 +560,13 @@ impl Item for TextInput {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
+                WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
                 window_adapter.enable_input_method(self.input_type());
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
                 self.hide_cursor();
+                WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 window_adapter.disable_input_method();
             }
         }

@@ -678,6 +678,25 @@ fn call_builtin_function(
                 panic!("Cannot get the window from a global component")
             }
         },
+        BuiltinFunction::TextInputFocused => match local_context.component_instance {
+            ComponentInstance::InstanceRef(component) => {
+                Value::Bool(window_ref(component).unwrap().text_input_focused() as _)
+            }
+            ComponentInstance::GlobalComponent(_) => {
+                panic!("Cannot get the window from a global component")
+            }
+        },
+        BuiltinFunction::SetTextInputFocused => match local_context.component_instance {
+            ComponentInstance::InstanceRef(component) => {
+                window_ref(component).unwrap().set_text_input_focused(
+                    eval_expression(&arguments[0], local_context).try_into().unwrap(),
+                );
+                Value::Void
+            }
+            ComponentInstance::GlobalComponent(_) => {
+                panic!("Cannot get the window from a global component")
+            }
+        },
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             let component = match local_context.component_instance {
                 ComponentInstance::InstanceRef(c) => c,

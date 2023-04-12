@@ -100,6 +100,8 @@ fn builtin_function_cost(function: BuiltinFunction) -> isize {
         BuiltinFunction::RegisterCustomFontByMemory => isize::MAX,
         BuiltinFunction::RegisterBitmapFont => isize::MAX,
         BuiltinFunction::DarkColorScheme => isize::MAX,
+        BuiltinFunction::SetTextInputFocused => PROPERTY_ACCESS_COST,
+        BuiltinFunction::TextInputFocused => PROPERTY_ACCESS_COST,
     }
 }
 

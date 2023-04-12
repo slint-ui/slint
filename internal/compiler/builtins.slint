@@ -415,6 +415,10 @@ export struct StateInfo {
     //-is_internal
 }
 
+export global TextInputInterface {
+    in property <bool> text-input-focused;
+}
+
 export component NativeButton {
     in property <length> x;
     in property <length> y;
