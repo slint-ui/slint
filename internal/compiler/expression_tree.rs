@@ -49,6 +49,8 @@ pub enum BuiltinFunction {
     ArrayLength,
     Rgb,
     DarkColorScheme,
+    TextInputFocused,
+    SetTextInputFocused,
     ImplicitLayoutInfo(Orientation),
     RegisterCustomFontByPath,
     RegisterCustomFontByMemory,
@@ -160,6 +162,12 @@ impl BuiltinFunction {
             BuiltinFunction::DarkColorScheme => {
                 Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
             }
+            BuiltinFunction::TextInputFocused => {
+                Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
+            }
+            BuiltinFunction::SetTextInputFocused => {
+                Type::Function { return_type: Box::new(Type::Void), args: vec![Type::Bool] }
+            }
             BuiltinFunction::RegisterCustomFontByPath => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
             }
@@ -209,6 +217,8 @@ impl BuiltinFunction {
             BuiltinFunction::ImageSize => false,
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
+            BuiltinFunction::SetTextInputFocused => false,
+            BuiltinFunction::TextInputFocused => false,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
             BuiltinFunction::RegisterCustomFontByPath
             | BuiltinFunction::RegisterCustomFontByMemory
@@ -247,6 +257,8 @@ impl BuiltinFunction {
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => true,
+            BuiltinFunction::SetTextInputFocused => false,
+            BuiltinFunction::TextInputFocused => true,
             BuiltinFunction::RegisterCustomFontByPath
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,

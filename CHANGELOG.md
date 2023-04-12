@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
 ### Slint Language
 
 - Fixed parent `FocusScope` objects stealing the focus from inner `FocusScope`s when clicked.
+- Added `TextInputInterface.text-input-focused` to detect when a virtual keyboard should open
 
 ### C++
 

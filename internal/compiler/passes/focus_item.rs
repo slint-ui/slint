@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 //! This pass follows the forward-focus property on the root element to determine the initial focus item
-//  as well as handle the forward for `focus()` calls in code.
+//! as well as handle the forward for `focus()` calls in code.
 
 use std::rc::Rc;
 

@@ -32,6 +32,7 @@ mod lower_property_to_element;
 mod lower_shadows;
 mod lower_states;
 mod lower_tabwidget;
+mod lower_text_input_interface;
 mod materialize_fake_properties;
 mod move_declarations;
 mod optimize_useless_rectangles;
@@ -90,6 +91,7 @@ pub async fn run_passes(
             diag,
         );
         lower_states::lower_states(component, &doc.local_registry, diag);
+        lower_text_input_interface::lower_text_input_interface(component);
     }
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents);

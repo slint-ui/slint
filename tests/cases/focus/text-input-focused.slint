@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { LineEdit } from "std-widgets.slint";
+
+TestCase := Rectangle {
+
+    public function focus_the_line_edit() {
+        le.focus();
+    }
+    public function focus_the_focus_scope() {
+        fs.focus();
+    }
+
+    public function set_manual(v:bool) {
+        TextInputInterface.text-input-focused = v;
+    }
+
+    le := LineEdit {  }
+    fs := FocusScope { }
+
+    out property<bool> focused: TextInputInterface.text-input-focused;
+
+
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_focused());
+instance.invoke_focus_the_line_edit();
+assert!(instance.get_focused());
+instance.invoke_focus_the_focus_scope();
+assert!(!instance.get_focused());
+instance.invoke_focus_the_line_edit();
+assert!(instance.get_focused());
+instance.invoke_set_manual(false);
+assert!(!instance.get_focused());
+instance.invoke_focus_the_focus_scope();
+assert!(!instance.get_focused());
+instance.invoke_focus_the_line_edit();
+assert!(instance.get_focused());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_focused());
+instance.invoke_focus_the_line_edit();
+assert(instance.get_focused());
+instance.invoke_focus_the_focus_scope();
+assert(!instance.get_focused());
+instance.invoke_focus_the_line_edit();
+assert(instance.get_focused());
+instance.invoke_set_manual(false);
+assert(!instance.get_focused());
+instance.invoke_focus_the_focus_scope();
+assert(!instance.get_focused());
+instance.invoke_focus_the_line_edit();
+assert(instance.get_focused());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(!instance.focused);
+instance.focus_the_line_edit();
+assert(instance.focused);
+instance.focus_the_focus_scope();
+assert(!instance.focused);
+instance.focus_the_line_edit();
+assert(instance.focused);
+instance.set_manual(false);
+assert(!instance.focused);
+instance.focus_the_focus_scope();
+assert(!instance.focused);
+instance.focus_the_line_edit();
+assert(instance.focused);
+```
+*/
