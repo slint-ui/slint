@@ -502,7 +502,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                 init.push('}');
 
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline uint8_t".into(),
+                    ty: "const inline uint8_t".into(),
                     name: format!("slint_embedded_resource_{}", er.id),
                     array_size: Some(data.len()),
                     init: Some(init),
