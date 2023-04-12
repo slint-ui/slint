@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file.
 ### C++
 
 - macOS: Fixed `install_name` for `libslint_cpp.dylib` use `@rpath` instead of absolute paths to the build directory.
+- Fixed memory corruption when embedding images in generated C++ code.
 
 ### LSP
 
