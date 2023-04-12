@@ -123,6 +123,17 @@ A Rust and C++ example that shows how render SixtyFPS on top of graphical effect
 
 ![Screenshot of the OpenGL Underlay Example on Windows](https://slint-ui.com/resources/opengl_underlay_screenshot.png "OpenGL Underlay")
 
+### [`virtual keyboard`](./virtual_keyboard)
+
+| `.slint` Design | Rust Source |
+| --- | --- |
+| [`main_window.slint`](./virtual_keyboard/ui/main_window.slint) | [`main.rs`](./virtual_keyboard/rust/main.rs) |
+
+A Rust example that shows how to implement a custom virtual keyboard in Slint. For more details check out the [Readme](./virtual_keyboard).
+
+![Screenshot of Virtual Keyboard Example on maxOS](https://user-images.githubusercontent.com/6715107/231472620-cf2fc8a7-ad4e-4f58-bb27-d7544d79c869.png "Virtual Keyboard")
+
+
 ### [`7guis`](./7guis)
 
 Our implementations of the ["7GUIs"](https://eugenkiss.github.io/7guis/) Tasks.
