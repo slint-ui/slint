@@ -210,21 +210,30 @@ struct PopupWindow {
     component: ComponentRc,
 }
 
+#[pin_project::pin_project]
+struct WindowPinnedFields {
+    #[pin]
+    redraw_tracker: PropertyTracker<WindowRedrawTracker>,
+    /// Gets dirty when the layout restrictions, or some other property of the windows change
+    #[pin]
+    window_properties_tracker: PropertyTracker<WindowPropertiesTracker>,
+    #[pin]
+    scale_factor: Property<f32>,
+    #[pin]
+    active: Property<bool>,
+}
+
 /// Inner datastructure for the [`crate::api::Window`]
 pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     component: RefCell<ComponentWeak>,
     mouse_input_state: Cell<MouseInputState>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
-    redraw_tracker: Pin<Box<PropertyTracker<WindowRedrawTracker>>>,
-    /// Gets dirty when the layout restrictions, or some other property of the windows change
-    window_properties_tracker: Pin<Box<PropertyTracker<WindowPropertiesTracker>>>,
 
     focus_item: RefCell<crate::item_tree::ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
 
-    scale_factor: Pin<Box<Property<f32>>>,
-    active: Pin<Box<Property<bool>>>,
+    pinned_fields: Pin<Box<WindowPinnedFields>>,
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
 
@@ -268,12 +277,14 @@ impl WindowInner {
             component: Default::default(),
             mouse_input_state: Default::default(),
             modifiers: Default::default(),
-            redraw_tracker: Box::pin(redraw_tracker),
-            window_properties_tracker: Box::pin(window_properties_tracker),
+            pinned_fields: Box::pin(WindowPinnedFields {
+                redraw_tracker: redraw_tracker,
+                window_properties_tracker: window_properties_tracker,
+                scale_factor: Property::new_named(1., "i_slint_core::Window::scale_factor"),
+                active: Property::new_named(false, "i_slint_core::Window::active"),
+            }),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
-            scale_factor: Box::pin(Property::new_named(1., "i_slint_core::Window::scale_factor")),
-            active: Box::pin(Property::new_named(false, "i_slint_core::Window::active")),
             active_popup: Default::default(),
             close_requested: Default::default(),
             inner_size: Default::default(),
@@ -289,7 +300,7 @@ impl WindowInner {
         self.mouse_input_state.replace(Default::default());
         self.modifiers.replace(Default::default());
         self.component.replace(ComponentRc::downgrade(component));
-        self.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
+        self.pinned_fields.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
         let window_adapter = self.window_adapter();
         {
             let component = ComponentRc::borrow_pin(component);
@@ -564,13 +575,13 @@ impl WindowInner {
     /// focus. One exception though is when a popup is shown, in which case the window may
     /// remain active but temporarily loose focus to the popup.
     pub fn set_active(&self, active: bool) {
-        self.active.as_ref().set(active);
+        self.pinned_fields.as_ref().project_ref().active.set(active);
     }
 
     /// Returns true of the window is the active window. That typically implies having the
     /// keyboard focus, except when a popup is shown and temporarily takes the focus.
     pub fn active(&self) -> bool {
-        self.active.as_ref().get()
+        self.pinned_fields.as_ref().project_ref().active.get()
     }
 
     /// If the component's root item is a Window element, then this function synchronizes its properties, such as the title
@@ -578,17 +589,21 @@ impl WindowInner {
     pub fn update_window_properties(&self) {
         // No `if !dirty { return; }` check here because the backend window may be newly mapped and not up-to-date, so force
         // an evaluation.
-        self.window_properties_tracker.as_ref().evaluate_as_dependency_root(|| {
-            let component = self.component();
-            let component = ComponentRc::borrow_pin(&component);
-            self.window_adapter().apply_geometry_constraint(
-                component.as_ref().layout_info(crate::layout::Orientation::Horizontal),
-                component.as_ref().layout_info(crate::layout::Orientation::Vertical),
-            );
-            if let Some(window_item) = self.window_item() {
-                self.window_adapter().apply_window_properties(window_item.as_pin_ref());
-            }
-        });
+        self.pinned_fields
+            .as_ref()
+            .project_ref()
+            .window_properties_tracker
+            .evaluate_as_dependency_root(|| {
+                let component = self.component();
+                let component = ComponentRc::borrow_pin(&component);
+                self.window_adapter().apply_geometry_constraint(
+                    component.as_ref().layout_info(crate::layout::Orientation::Horizontal),
+                    component.as_ref().layout_info(crate::layout::Orientation::Vertical),
+                );
+                if let Some(window_item) = self.window_item() {
+                    self.window_adapter().apply_window_properties(window_item.as_pin_ref());
+                }
+            });
     }
 
     /// Calls the render_components to render the main component and any sub-window components, tracked by a
@@ -618,7 +633,11 @@ impl WindowInner {
             }
         };
 
-        self.redraw_tracker.as_ref().evaluate_as_dependency_root(draw_fn)
+        self.pinned_fields
+            .as_ref()
+            .project_ref()
+            .redraw_tracker
+            .evaluate_as_dependency_root(draw_fn)
     }
 
     /// Registers the window with the windowing system, in order to render the component's items and react
@@ -718,12 +737,12 @@ impl WindowInner {
 
     /// Returns the scale factor set on the window, as provided by the windowing system.
     pub fn scale_factor(&self) -> f32 {
-        self.scale_factor.as_ref().get()
+        self.pinned_fields.as_ref().project_ref().scale_factor.get()
     }
 
     /// Sets the scale factor for the window. This is set by the backend or for testing.
     pub fn set_scale_factor(&self, factor: f32) {
-        self.scale_factor.as_ref().set(factor)
+        self.pinned_fields.scale_factor.set(factor)
     }
 
     /// Returns the window item that is the first item in the component.
