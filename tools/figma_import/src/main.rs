@@ -132,7 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .get(
                         prototypeStartNodeID
                             .as_ref()
-                            .ok_or_else(|| Error("No start node".into()))?
+                            .ok_or_else(|| Error("No start node in this project. Use '--node' to specify which node to render".into()))?
                             .as_str(),
                     )
                     .ok_or_else(|| Error("Start node not found".into()))?
