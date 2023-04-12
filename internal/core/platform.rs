@@ -208,7 +208,6 @@ pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
 
 // reexport key enum to the public api
 pub use crate::input::key_codes::Key;
-pub use crate::input::InputMethodRequestResult;
 pub use crate::input::PointerEventButton;
 
 /// A event that describes user input.

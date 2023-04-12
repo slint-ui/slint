@@ -13,27 +13,9 @@ pub fn main() {
 
 mod virtual_keyboard {
     use super::*;
-    use slint::{platform::InputMethodRequestResult, *};
+    use slint::*;
 
     pub fn init(app: &MainWindow) {
-        let weak = app.as_weak();
-
-        app.window().on_input_method_request({
-            move |event| {
-                match event {
-                    InputMethodRequest::Activate { .. } => {
-                        weak.unwrap().global::<VirtualKeyboardHandler>().set_open(true);
-                    }
-                    InputMethodRequest::Deactivate => {
-                        weak.unwrap().global::<VirtualKeyboardHandler>().set_open(false);
-                    }
-                    _ => unreachable!(),
-                }
-
-                InputMethodRequestResult::PreventDefault
-            }
-        });
-
         let weak = app.as_weak();
         app.global::<VirtualKeyboardHandler>().on_key_pressed({
             let weak = weak.clone();

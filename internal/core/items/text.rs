@@ -15,9 +15,8 @@ use super::{
 };
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
-    key_codes, FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult,
-    InputMethodRequestResult, KeyEvent, KeyboardModifiers, MouseEvent, StandardShortcut,
-    TextShortcut,
+    key_codes, FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
+    KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
@@ -563,21 +562,12 @@ impl Item for TextInput {
                 self.show_cursor(window_adapter);
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
                 window_adapter.enable_input_method(self.input_type());
-
-                // native virtual keyboard should be only shown if activate input method request is ignored
-                if let InputMethodRequestResult::Ignored =
-                    WindowInner::from_pub(window_adapter.window())
-                        .request_activate_input_method(self.input_type())
-                {
-                    window_adapter.enable_input_method(self.input_type());
-                };
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
                 self.hide_cursor();
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 window_adapter.disable_input_method();
-                WindowInner::from_pub(window_adapter.window()).request_deactivate_input_method();
             }
         }
         FocusEventResult::FocusAccepted

@@ -11,8 +11,7 @@ use alloc::boxed::Box;
 use alloc::string::String;
 
 use crate::component::ComponentVTable;
-use crate::input::{InputMethodRequestResult, KeyEventType, KeyInputEvent, MouseEvent};
-use crate::items::InputType;
+use crate::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use crate::window::{WindowAdapter, WindowInner};
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
@@ -302,21 +301,6 @@ pub enum CloseRequestResponse {
     KeepWindowShown,
 }
 
-/// This enum describes requests the user interface may send to an input method, such as a virtual keyboard.
-#[derive(Copy, Clone, Debug, PartialEq)]
-#[repr(C)]
-#[non_exhaustive]
-pub enum InputMethodRequest {
-    /// The input method should be activated. This is typically sent when an input element is focused by the user.
-    Activate {
-        /// Defines the input type of the input element the input method should interact with.
-        input_type: InputType,
-    },
-
-    /// The input method should be deactivated. This is typically sent when a input element looses focus.
-    Deactivate,
-}
-
 impl Window {
     /// Create a new window from a window adapter
     ///
@@ -381,15 +365,6 @@ impl Window {
     /// The callback has to return a [CloseRequestResponse].
     pub fn on_close_requested(&self, callback: impl FnMut() -> CloseRequestResponse + 'static) {
         self.0.on_close_requested(callback);
-    }
-
-    /// This function allows registering a callback that's invoked when the user tries to activate or deactivate an input method.
-    /// The callback has to return a bool.
-    pub fn on_input_method_request(
-        &self,
-        callback: impl FnMut(InputMethodRequest) -> InputMethodRequestResult + 'static,
-    ) {
-        self.0.on_input_method_request(callback);
     }
 
     /// This function issues a request to the windowing system to redraw the contents of the window.

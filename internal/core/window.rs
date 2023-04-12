@@ -7,17 +7,17 @@
 //! Exposed Window API
 
 use crate::api::{
-    CloseRequestResponse, InputMethodRequest, PhysicalPosition, PhysicalSize, PlatformError,
-    Window, WindowPosition, WindowSize,
+    CloseRequestResponse, PhysicalPosition, PhysicalSize, PlatformError, Window, WindowPosition,
+    WindowSize,
 };
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::Point;
 use crate::input::{
-    key_codes, ClickState, InputMethodRequestResult, InternalKeyboardModifierState, KeyEvent,
-    KeyEventType, KeyInputEvent, KeyboardModifiers, MouseEvent, MouseInputState, TextCursorBlinker,
+    key_codes, ClickState, InternalKeyboardModifierState, KeyEvent, KeyEventType, KeyInputEvent,
+    KeyboardModifiers, MouseEvent, MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
-use crate::items::{InputType, ItemRef, MouseCursor};
+use crate::items::{ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -239,7 +239,6 @@ pub struct WindowInner {
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
-    input_method_request: Callback<InputMethodRequest, InputMethodRequestResult>,
     /// This is a cache of the size set by the set_inner_size setter.
     /// It should be mapping with the WindowItem::width and height (only in physical)
     pub(crate) inner_size: Cell<PhysicalSize>,
@@ -295,7 +294,6 @@ impl WindowInner {
             close_requested: Default::default(),
             inner_size: Default::default(),
             click_state: ClickState::default(),
-            input_method_request: Default::default(),
         }
     }
 
@@ -796,27 +794,6 @@ impl WindowInner {
             CloseRequestResponse::HideWindow => true,
             CloseRequestResponse::KeepWindowShown => false,
         }
-    }
-
-    /// Sets the input_method_request callback. The callback will be run when the user tries to activate or deactivate an input method.
-    pub fn on_input_method_request(
-        &self,
-        mut callback: impl FnMut(InputMethodRequest) -> InputMethodRequestResult + 'static,
-    ) {
-        self.input_method_request.set_handler(move |event| callback(*event));
-    }
-
-    /// Runs the input_method_request callback as open event.
-    pub(crate) fn request_activate_input_method(
-        &self,
-        input_type: InputType,
-    ) -> InputMethodRequestResult {
-        self.input_method_request.call(&(&InputMethodRequest::Activate { input_type }))
-    }
-
-    /// Runs the input_method_request callback as close event.
-    pub(crate) fn request_deactivate_input_method(&self) -> InputMethodRequestResult {
-        self.input_method_request.call(&(InputMethodRequest::Deactivate))
     }
 
     /// Returns the upgraded window adapter

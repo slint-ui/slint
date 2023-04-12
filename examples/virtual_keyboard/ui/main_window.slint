@@ -33,16 +33,21 @@ export component MainWindow inherits Window {
 
             HorizontalLayout {
                 alignment: start;
+
                 Button {
                     text: self.checked ? "Click to close keyboard" : "Click to open keyboard";
                     checkable: true;
-                    checked <=> VirtualKeyboardHandler.open;
+
+                    clicked => {
+                        TextInputInterface.text-input-focused = !TextInputInterface.text-input-focused;
+                        self.checked = TextInputInterface.text-input-focused;
+                    }
                 }
             }
         }
 
         keyboard := VirtualKeyboard {
-            y: VirtualKeyboardHandler.open ? parent.height - self.height : parent.height;
+            y: TextInputInterface.text-input-focused ? parent.height - self.height : parent.height;
         }
     }
 }
