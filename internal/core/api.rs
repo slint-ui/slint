@@ -296,9 +296,9 @@ pub struct Window(pub(crate) WindowInner);
 pub enum CloseRequestResponse {
     /// The Window will be hidden (default action)
     #[default]
-    HideWindow,
+    HideWindow = 0,
     /// The close request is rejected and the window will be kept shown.
-    KeepWindowShown,
+    KeepWindowShown = 1,
 }
 
 impl Window {

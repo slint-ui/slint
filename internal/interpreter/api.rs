@@ -83,38 +83,38 @@ impl From<LangType> for ValueType {
 /// ```
 #[derive(Clone, Default)]
 #[non_exhaustive]
-#[repr(C)]
+#[repr(u8)]
 pub enum Value {
     /// There is nothing in this value. That's the default.
     /// For example, a function that do not return a result would return a Value::Void
     #[default]
-    Void,
+    Void = 0,
     /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
-    Number(f64),
+    Number(f64) = 1,
     /// Correspond to the `string` type in .slint
-    String(SharedString),
+    String(SharedString) = 2,
     /// Correspond to the `bool` type in .slint
-    Bool(bool),
+    Bool(bool) = 3,
     /// Correspond to the `image` type in .slint
-    Image(Image),
+    Image(Image) = 4,
     /// A model (that includes array in .slint)
-    Model(ModelRc<Value>),
+    Model(ModelRc<Value>) = 5,
     /// An object
-    Struct(Struct),
+    Struct(Struct) = 6,
     /// Correspond to `brush` or `color` type in .slint.  For color, this is then a [`Brush::SolidColor`]
-    Brush(Brush),
+    Brush(Brush) = 7,
     #[doc(hidden)]
     /// The elements of a path
-    PathData(PathData),
+    PathData(PathData) = 8,
     #[doc(hidden)]
     /// An easing curve
-    EasingCurve(i_slint_core::animations::EasingCurve),
+    EasingCurve(i_slint_core::animations::EasingCurve) = 9,
     #[doc(hidden)]
     /// An enumeration, like `TextHorizontalAlignment::align_center`, represented by `("TextHorizontalAlignment", "align_center")`.
     /// FIXME: consider representing that with a number?
-    EnumerationValue(String, String),
+    EnumerationValue(String, String) = 10,
     #[doc(hidden)]
-    LayoutCache(SharedVector<f32>),
+    LayoutCache(SharedVector<f32>) = 11,
 }
 
 impl Value {
