@@ -306,6 +306,7 @@ pub enum CloseRequestResponse {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 #[non_exhaustive]
+#[non_exhaustive]
 pub enum InputMethodRequest {
     /// The input method should be activated.
     Activate {
