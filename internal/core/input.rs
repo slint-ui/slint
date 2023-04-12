@@ -252,14 +252,14 @@ impl From<InternalKeyboardModifierState> for KeyboardModifiers {
 pub enum KeyEventType {
     /// A key on a keyboard was pressed.
     #[default]
-    KeyPressed,
+    KeyPressed = 0,
     /// A key on a keyboard was released.
-    KeyReleased,
+    KeyReleased = 1,
     /// The input method updates the currently composed text. The KeyEvent's text field is the pre-edit text and
     /// composition_selection specifies the placement of the cursor within the pre-edit text.
-    UpdateComposition,
+    UpdateComposition = 2,
     /// The input method replaces the currently composed text with the final result of the composition.
-    CommitComposition,
+    CommitComposition = 3,
 }
 
 /// Represents a key event sent by the windowing system.

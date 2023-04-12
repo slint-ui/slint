@@ -275,18 +275,18 @@ pub struct StaticTextures {
 /// ImageCacheKey encapsulates the different ways of indexing images in the
 /// cache of decoded images.
 #[derive(PartialEq, Eq, Debug, Hash, Clone)]
-#[repr(C)]
+#[repr(u8)]
 pub enum ImageCacheKey {
     /// This variant indicates that no image cache key can be created for the image.
     /// For example this is the case for programmatically created images.
-    Invalid,
+    Invalid = 0,
     /// The image is identified by its path on the file system.
-    Path(SharedString),
+    Path(SharedString) = 1,
     /// The image is identified by a URL.
     #[cfg(target_arch = "wasm32")]
-    URL(SharedString),
+    URL(SharedString) = 2,
     /// The image is identified by the static address of its encoded data.
-    EmbeddedData(usize),
+    EmbeddedData(usize) = 3,
 }
 
 impl ImageCacheKey {
