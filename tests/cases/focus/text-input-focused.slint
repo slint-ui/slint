@@ -3,16 +3,19 @@
 
 import { LineEdit } from "std-widgets.slint";
 
-TestCase := Rectangle {
+export component TestCase inherits Window {
 
-    public function focus_the_line_edit() {
+    callback focus_the_line_edit;
+    focus_the_line_edit => {
         le.focus();
     }
-    public function focus_the_focus_scope() {
+    callback focus_the_focus_scope;
+    focus_the_focus_scope => {
         fs.focus();
     }
 
-    public function set_manual(v:bool) {
+    callback set_manual(bool);
+    set_manual(v) => {
         TextInputInterface.text-input-focused = v;
     }
 
@@ -20,7 +23,6 @@ TestCase := Rectangle {
     fs := FocusScope { }
 
     out property<bool> focused: TextInputInterface.text-input-focused;
-
 
 }
 
