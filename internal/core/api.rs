@@ -302,7 +302,7 @@ pub enum CloseRequestResponse {
     KeepWindowShown,
 }
 
-/// This enum describes whether an input method should be activated or deactivated.
+/// This enum describes requests the user interface may send to an input method, such as a virtual keyboard.
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 #[non_exhaustive]
