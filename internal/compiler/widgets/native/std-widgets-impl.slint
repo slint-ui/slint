@@ -14,6 +14,8 @@ export component ScrollView {
     in property <bool> enabled <=> native.enabled;
     preferred-height: 100%;
     preferred-width: 100%;
+    min-height: native.min-height;
+    min-width: native.min-width;
 
     native := NativeScrollView {
         vertical-max: fli.viewport-height > fli.height ? fli.viewport-height - fli.height : 0phx;
