@@ -1,6 +1,6 @@
 # Slint UEFI demo
 
-This example demonstrates slint in a UEFI environment.
+This example demonstrates Slint in a UEFI environment.
 
 ![Screenshot](https://user-images.githubusercontent.com/1486/231705364-8c490e25-48cf-4626-a34b-2bf7239c1245.jpg)
 
