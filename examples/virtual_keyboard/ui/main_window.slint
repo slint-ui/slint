@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { LineEdit, Button } from "std-widgets.slint";
+
+import { VirtualKeyboardHandler, VirtualKeyboard, KeyModel } from "virtual_keyboard.slint";
+
+export { VirtualKeyboardHandler, KeyModel }
+
+export component MainWindow inherits Window {
+    title: "Virtual Keyboard example";
+    width: 600px;
+    height: 400px;
+
+    Rectangle {
+        VerticalLayout {
+            alignment: start;
+            padding: 16px;
+            spacing: 8px;
+
+            Text {
+                text: "Focus to open keyboard";
+                horizontal-alignment: left;
+            }
+            LineEdit {}
+
+            Text {
+                text: "Focus to open keyboard";
+                horizontal-alignment: left;
+            }
+
+            LineEdit {}
+
+            HorizontalLayout {
+                alignment: start;
+
+                Button {
+                    text: self.checked ? "Click to close keyboard" : "Click to open keyboard";
+                    checked: TextInputInterface.text-input-focused;
+
+                    clicked => {
+                        TextInputInterface.text-input-focused = !TextInputInterface.text-input-focused;
+
+                    }
+                }
+            }
+        }
+
+        keyboard := VirtualKeyboard {
+            y: TextInputInterface.text-input-focused ? parent.height - self.height : parent.height;
+        }
+    }
+}

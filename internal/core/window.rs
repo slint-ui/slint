@@ -238,7 +238,6 @@ pub struct WindowInner {
     pinned_fields: Pin<Box<WindowPinnedFields>>,
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
-
     click_state: ClickState,
     /// This is a cache of the size set by the set_inner_size setter.
     /// It should be mapping with the WindowItem::width and height (only in physical)
