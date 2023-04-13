@@ -36,11 +36,11 @@ export component MainWindow inherits Window {
 
                 Button {
                     text: self.checked ? "Click to close keyboard" : "Click to open keyboard";
-                    checkable: true;
+                    checked: TextInputInterface.text-input-focused;
 
                     clicked => {
                         TextInputInterface.text-input-focused = !TextInputInterface.text-input-focused;
-                        self.checked = TextInputInterface.text-input-focused;
+
                     }
                 }
             }

@@ -30,10 +30,10 @@ component VirtualKeyboardButton {
                 horizontal-alignment: center;
             }
 
-            Image {
+            if (root.key == "") : Image {
                 y: (parent.height - self.height) / 2;
                 source: root.icon;
-                height: 12px;
+                height: 18px;
                 colorize: StyleMetrics.dark-color-scheme ? #ffffff : #000000;
             }
         }

@@ -131,7 +131,7 @@ A Rust and C++ example that shows how render SixtyFPS on top of graphical effect
 
 A Rust example that shows how to implement a custom virtual keyboard in Slint. For more details check out the [Readme](./virtual_keyboard).
 
-![Screenshot of Virtual Keyboard Example on maxOS](https://user-images.githubusercontent.com/6715107/231472620-cf2fc8a7-ad4e-4f58-bb27-d7544d79c869.png "Virtual Keyboard")
+![Screenshot of Virtual Keyboard Example on macOS](https://user-images.githubusercontent.com/6715107/231668373-23faedf8-b42a-401d-b3a2-845d5e61252b.png "Virtual Keyboard")
 
 
 ### [`7guis`](./7guis)
