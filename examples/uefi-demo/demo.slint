@@ -26,10 +26,19 @@ export component Demo inherits Window {
                 Row {
                     Text {
                         colspan: 2;
-                        text: "slint UEFI Demo";
+                        text: "UEFI Demo";
                         horizontal-alignment: center;
                         font-size: 44px;
                         font-weight: 600;
+                    }
+                }
+                Row {
+                    HorizontalLayout {
+                        colspan: 2;
+                        alignment: center;
+                        AboutSlint {
+                            width: 50%;
+                        }
                     }
                 }
                 Row {
@@ -104,11 +113,6 @@ export component Demo inherits Window {
                     background: color;
                 }
             }
-        }
-
-        Tab {
-            title: "About";
-            AboutSlint {}
         }
     }
 }
