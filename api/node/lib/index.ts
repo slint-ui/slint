@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+import { threadId } from "worker_threads";
+
 // Load the native library with `process.dlopen` instead of with `require`.
 // This is only done for autotest that do not require nom or neon_cli to
 // copy the lib to its right place
@@ -51,6 +53,25 @@ class Component {
 
     send_keyboard_string_sequence(s: String) {
         this.comp.send_keyboard_string_sequence(s)
+    }
+}
+
+// Defines an image object.
+class SlintImage {
+    private _path: string | undefined;
+
+    private constructor() {}
+
+    // Creates an image from path.
+    public static loadFromPath(path: string): SlintImage {
+        let image = new SlintImage();
+        image._path = path;
+
+        return image;
+    }
+
+    get path(): string | undefined {
+        return this._path;
     }
 }
 
@@ -300,6 +321,7 @@ class ArrayModel<T> implements Model<T> {
 module.exports = {
     private_api: native,
     ArrayModel: ArrayModel,
+    Image: SlintImage,
     Timer: {
         singleShot: native.singleshot_timer,
     },

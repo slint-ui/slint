@@ -198,7 +198,12 @@ fn to_eval_value<'cx>(
             }
         },
         Type::Image => {
-            let path = val.to_string(cx)?.value();
+            let path = if let Ok(obj) = val.downcast::<JsObject>() {
+                obj.get(cx, "path")?.to_string(cx)?.value()
+            } else {
+                val.to_string(cx)?.value()
+            };
+
             Ok(Value::Image(
                 i_slint_core::graphics::Image::load_from_path(std::path::Path::new(&path))
                     .or_else(|_| cx.throw_error(format!("cannot load image {:?}", path)))?,
