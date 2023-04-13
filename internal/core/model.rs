@@ -1028,6 +1028,10 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 inner.components.splice(idx - new_offset.., core::iter::empty());
             }
 
+            if inner.components.is_empty() {
+                break;
+            }
+
             // Now re-compute some coordinate such a way that the scrollbar are adjusted.
             inner.cached_item_height = (y - new_offset_y) / inner.components.len() as Coord;
             inner.anchor_y = inner.cached_item_height * inner.offset as Coord;
