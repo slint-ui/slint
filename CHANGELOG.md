@@ -19,6 +19,8 @@ All notable changes to this project are documented in this file.
 
 - macOS: Fixed `install_name` for `libslint_cpp.dylib` use `@rpath` instead of absolute paths to the build directory.
 - Fixed memory corruption when embedding images in generated C++ code.
+- Add support for dispatching key press and key release events to `slint::Window` via `dispatch_key_*_event`. This replaces
+  the experimental `slint::experimental::platform::WindowAdapter::dispatch_key_event`.
 
 ### LSP
 

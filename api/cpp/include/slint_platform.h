@@ -142,16 +142,6 @@ public:
         }
     }
 
-    /// Send a key event to this window
-    // Note: in rust, this is on the Window. FIXME: use a public event type
-    void dispatch_key_event(const cbindgen_private::KeyInputEvent &event)
-    {
-        private_api::assert_main_thread();
-        if (was_initialized) {
-            cbindgen_private::slint_windowrc_dispatch_key_event(&self, event);
-        }
-    }
-
     /// Returns true if the window is currently animating
     bool has_active_animations() const
     {

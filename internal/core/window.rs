@@ -1138,10 +1138,10 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_dispatch_key_event(
         handle: *const WindowAdapterRcOpaque,
-        event: crate::input::KeyInputEvent,
+        event: &crate::input::KeyInputEvent,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().0.process_key_input(event);
+        window_adapter.window().0.process_key_input(event.clone());
     }
 
     /// Dispatch a mouse event

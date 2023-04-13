@@ -222,6 +222,12 @@ public:
         cbindgen_private::slint_windowrc_set_physical_size(&inner, &size);
     }
 
+    void dispatch_key_event(const cbindgen_private::KeyInputEvent &event)
+    {
+        private_api::assert_main_thread();
+        cbindgen_private::slint_windowrc_dispatch_key_event(&inner, &event);
+    }
+
     /// Registers a font by the specified path. The path must refer to an existing
     /// TrueType font.
     /// \returns an empty optional on success, otherwise an error string
@@ -470,6 +476,30 @@ public:
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
     void set_size(const slint::PhysicalSize &size) { inner.set_physical_size(size); }
+
+    /// Dispatch a key press event to the scene.
+    ///
+    /// Use this when you're implementing your own backend and want to forward user input events.
+    ///
+    /// The \a text is the unicode representation of the key.
+    void dispatch_key_press_event(const SharedString &text)
+    {
+        cbindgen_private::KeyInputEvent event { text, cbindgen_private::KeyEventType::KeyPressed, 0,
+                                                0 };
+        inner.dispatch_key_event(event);
+    }
+
+    /// Dispatch a key release event to the scene.
+    ///
+    /// Use this when you're implementing your own backend and want to forward user input events.
+    ///
+    /// The \a text is the unicode representation of the key.
+    void dispatch_key_release_event(const SharedString &text)
+    {
+        cbindgen_private::KeyInputEvent event { text, cbindgen_private::KeyEventType::KeyReleased,
+                                                0, 0 };
+        inner.dispatch_key_event(event);
+    }
 
     /// \private
     private_api::WindowAdapterRc &window_handle() { return inner; }
