@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 - Fixed compiler panic when binding `Path`'s `commands` property to the field of a model entry.
 - Qt renderer: Fixed support for horizontal alignment in `TextInput`.
 - Winit backend: Fix detect of dark color scheme in some circumstances.
+- ListView: fix resizing a ListView to empty height would make all items invisible even if resized back (#2545)
 
 ### Slint Language
 
@@ -84,7 +85,7 @@ All notable changes to this project are documented in this file.
 ### Tooling
 
  - LSP: don't add spaces when auto-completing elements or callbacks, leads to better formatting.
- - The online editor was renamed to SlintPad. 
+ - The online editor was renamed to SlintPad.
 
 ## [0.3.5] - 2023-02-21
 
