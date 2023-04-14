@@ -7,14 +7,14 @@ To check if the virtual keyboard should be open e.g. if a `TextInput` gets focus
 ## Example
 
 ```slint
-import { MyVirtualKeyboard } from "virtual_keyboard.slint"
+import { VirtualKeyboard } from "virtual_keyboard.slint"
 
 export MainWindow inherits Window {
     HorizontalLayout {
         TextInput {}
     }
 
-    MyVirtualKeyboard {
+    VirtualKeyboard {
         visible: TextInputInterface.text-input-focused;
     }
 }
