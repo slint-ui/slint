@@ -253,10 +253,14 @@ fn format_element(
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
 
-    if !(whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, "")?
-        && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?)
-    {
-        // There is an error finding the QualifiedName and LBrace when we do this branch.
+    let ok = if node.child_node(SyntaxKind::QualifiedName).is_some() {
+        whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?
+    } else {
+        whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")?
+    };
+
+    if !ok {
         finish_node(sub, writer, state)?;
         return Ok(());
     }
@@ -686,7 +690,7 @@ mod tests {
     fn components() {
         assert_formatting(
             "component   A   {}  export component  B  inherits  Text {  }",
-            "component A {}\nexport component B inherits Text { }",
+            "component A { }\n\nexport component B inherits Text { }",
         );
     }
 
@@ -959,7 +963,8 @@ component FooBar {
 component FooBar {
     states [
         dummy1 when a == true: {}
-]
+    ]
+
 }"#,
         );
     }
