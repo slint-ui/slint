@@ -332,6 +332,11 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
         winit_window.set_title(&window_item.title());
         winit_window
             .set_decorations(!window_item.no_frame() || winit_window.fullscreen().is_some());
+        winit_window.set_window_level(if window_item.always_on_top() {
+            winit::window::WindowLevel::AlwaysOnTop
+        } else {
+            winit::window::WindowLevel::Normal
+        });
 
         if width <= 0. || height <= 0. {
             must_resize = true;
@@ -466,6 +471,11 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
                 window_builder = window_builder
                     .with_title(window_item.title().to_string())
                     .with_decorations(!window_item.no_frame())
+                    .with_window_level(if window_item.always_on_top() {
+                        winit::window::WindowLevel::AlwaysOnTop
+                    } else {
+                        winit::window::WindowLevel::Normal
+                    })
                     .with_window_icon(icon_to_winit(window_item.icon()));
             } else {
                 window_builder = window_builder.with_title("Slint Window".to_string());
