@@ -58,6 +58,7 @@ exhale_args = {
     ),
     "doxygenStripFromPath": "..",
     "createTreeView": True,
+    "kindsWithContentsDirectives": [],
     "exhaleExecutesDoxygen": True,
     "exhaleDoxygenStdin": """INPUT = ../../api/cpp/include generated_include
 EXCLUDE_SYMBOLS = slint::cbindgen_private* slint::private_api* vtable* slint::testing* SLINT_DECL_ITEM
