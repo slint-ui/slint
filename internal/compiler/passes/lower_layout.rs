@@ -115,14 +115,11 @@ fn lower_element_layout(
         let prev_base = std::mem::replace(&mut elem.base_type, type_register.empty_type());
         elem.default_fill_parent = (true, true);
         // Create fake properties for the layout properties
-        for p in elem.bindings.keys() {
-            if !elem.base_type.lookup_property(p).is_valid()
-                && !elem.property_declarations.contains_key(p)
+        for (p, ty) in prev_base.property_list() {
+            if !elem.base_type.lookup_property(&p).is_valid()
+                && !elem.property_declarations.contains_key(&p)
             {
-                let ty = prev_base.lookup_property(p).property_type;
-                if ty != Type::Invalid {
-                    elem.property_declarations.insert(p.into(), ty.into());
-                }
+                elem.property_declarations.insert(p, ty.into());
             }
         }
     }
