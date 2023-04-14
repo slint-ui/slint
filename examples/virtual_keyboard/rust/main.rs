@@ -22,7 +22,10 @@ mod virtual_keyboard {
             move |key| {
                 weak.unwrap()
                     .window()
-                    .dispatch_event(slint::platform::WindowEvent::KeyPressed { text: key });
+                    .dispatch_event(slint::platform::WindowEvent::KeyPressed { text: key.clone() });
+                weak.unwrap()
+                    .window()
+                    .dispatch_event(slint::platform::WindowEvent::KeyReleased { text: key });
             }
         });
     }
