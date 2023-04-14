@@ -6,13 +6,14 @@ MaybeVisible := Rectangle {
     width: 10phx;
     height: 10phx;
     property <int> touch;
+    out property has-hover <=> ta.has-hover;
     Rectangle {
         background: red;
         x: 5phx;
         y: -10phx;
         width: 15phx;
         height: 15phx;
-        TouchArea {
+        ta := TouchArea {
             clicked => { touch+=1; }
         }
     }
@@ -28,6 +29,7 @@ TestCase := Rectangle {
     property <int> touch1 <=> el1.touch;
     property <int> touch2 <=> el2.touch;
     property <bool> el1visible : true;
+    out property el1-has-hover <=> el1.has-hover;
 
     el1 := MaybeVisible {
         visible <=> el1visible;
@@ -59,28 +61,33 @@ assert_eq(instance.get_el1visible(), true);
 slint_testing::send_mouse_click(&instance, 37., 27.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 0);
+assert(!instance.get_el1_has_hover());
 
 // el2 !visible, inside
 slint_testing::send_mouse_click(&instance, 37., 33.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 0);
+assert(!instance.get_el1_has_hover());
 
 
 // el1 visible, outside
 slint_testing::send_mouse_click(&instance, 17., 7.);
 assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 0);
+assert(instance.get_el1_has_hover());
 
 // el1 visible, inside
 slint_testing::send_mouse_click(&instance, 17., 13.);
 assert_eq(instance.get_touch1(), 2);
 assert_eq(instance.get_touch2(), 0);
+assert(instance.get_el1_has_hover());
 
 // now makes el invisible
 instance.set_el1visible(false);
 slint_testing::send_mouse_click(&instance, 17., 7.);
 assert_eq(instance.get_touch1(), 2);
 assert_eq(instance.get_touch2(), 0);
+assert(!instance.get_el1_has_hover());
 
 ```
 
@@ -101,23 +108,27 @@ assert_eq!(instance.get_touch2(), 0);
 slint_testing::send_mouse_click(&instance, 37., 33.);
 assert_eq!(instance.get_touch1(), 0);
 assert_eq!(instance.get_touch2(), 0);
+assert!(!instance.get_el1_has_hover());
 
 
 // el1 visible, outside
 slint_testing::send_mouse_click(&instance, 17., 7.);
 assert_eq!(instance.get_touch1(), 1);
 assert_eq!(instance.get_touch2(), 0);
+assert!(instance.get_el1_has_hover());
 
 // el1 visible, inside
 slint_testing::send_mouse_click(&instance, 17., 13.);
 assert_eq!(instance.get_touch1(), 2);
 assert_eq!(instance.get_touch2(), 0);
+assert!(instance.get_el1_has_hover());
 
 // now makes el invisible
 instance.set_el1visible(false);
 slint_testing::send_mouse_click(&instance, 17., 7.);
 assert_eq!(instance.get_touch1(), 2);
 assert_eq!(instance.get_touch2(), 0);
+assert!(!instance.get_el1_has_hover());
 ```
 
 */
