@@ -902,6 +902,19 @@ A := B {
     }
 
     #[test]
+    fn if_element() {
+        assert_formatting(
+            r#"
+component A {  if condition : Text {  }  }
+        "#,
+            r#"
+component A {
+    if condition: Text { }
+}"#,
+        );
+    }
+
+    #[test]
     fn array() {
         assert_formatting(
             r#"
