@@ -9,8 +9,5 @@ if (NOT TARGET Slint::Slint)
 endif()
 
 add_executable(virtual_keyboard main.cpp)
-if (MSVC)
-    target_compile_options(virtual_keyboard PRIVATE /bigobj)
-endif()
 target_link_libraries(virtual_keyboard PRIVATE Slint::Slint)
 slint_target_sources(virtual_keyboard ../ui/main_window.slint)

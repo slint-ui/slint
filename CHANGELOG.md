@@ -21,6 +21,8 @@ All notable changes to this project are documented in this file.
 - Fixed memory corruption when embedding images in generated C++ code.
 - Add support for dispatching key press and key release events to `slint::Window` via `dispatch_key_*_event`. This replaces
   the experimental `slint::experimental::platform::WindowAdapter::dispatch_key_event`.
+- MSVC: /bigobj is enabled by default as compile option when linking against the Slint CMake target, removing the need
+  for users who run into linking issues to add that to their build.
 
 ### LSP
 

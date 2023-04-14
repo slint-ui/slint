@@ -9,8 +9,5 @@ if (NOT TARGET Slint::Slint)
 endif()
 
 add_executable(printerdemo main.cpp)
-if (MSVC)
-    target_compile_options(printerdemo PRIVATE /bigobj)
-endif()
 target_link_libraries(printerdemo PRIVATE Slint::Slint)
 slint_target_sources(printerdemo ../ui/printerdemo.slint)

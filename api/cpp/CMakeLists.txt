@@ -59,6 +59,9 @@ add_library(Slint INTERFACE)
 add_library(Slint::Slint ALIAS Slint)
 target_link_libraries(Slint INTERFACE slint-cpp)
 target_compile_features(Slint INTERFACE cxx_std_20)
+if (MSVC)
+    target_compile_options(Slint INTERFACE /bigobj)
+endif()
 
 function(define_cargo_feature cargo-feature description default)
     # turn foo-bar into SLINT_FEATURE_FOO_BAR
