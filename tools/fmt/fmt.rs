@@ -108,6 +108,9 @@ fn format_node(
         SyntaxKind::Array => {
             return format_array(node, writer, state);
         }
+        SyntaxKind::State => {
+            return format_state(node, writer, state);
+        }
         _ => (),
     }
 
@@ -126,7 +129,7 @@ fn fold(
         NodeOrToken::Node(n) => format_node(&n, writer, state),
         NodeOrToken::Token(t) => {
             if t.kind() == SyntaxKind::Whitespace {
-                if state.skip_all_whitespace {
+                if state.skip_all_whitespace && !state.after_comment {
                     writer.with_new_content(t, "")?;
                     return Ok(());
                 }
@@ -145,9 +148,16 @@ fn fold(
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum SyntaxMatch {
     NotFound,
     Found(SyntaxKind),
+}
+
+impl SyntaxMatch {
+    fn is_found(self) -> bool {
+        matches!(self, SyntaxMatch::Found(..))
+    }
 }
 
 fn whitespace_to(
@@ -156,8 +166,9 @@ fn whitespace_to(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
     prefix_whitespace: &str,
-) -> Result<SyntaxMatch, std::io::Error> {
+) -> Result<bool, std::io::Error> {
     whitespace_to_one_of(sub, &[element], writer, state, prefix_whitespace)
+        .map(SyntaxMatch::is_found)
 }
 
 fn whitespace_to_one_of(
@@ -204,14 +215,33 @@ fn format_component(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    let mut sub = node.children_with_tokens();
+    if node.child_token(SyntaxKind::ColonEqual).is_some() {
+        // Legacy syntax
+        let mut sub = node.children_with_tokens();
+        let _ok = whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::ColonEqual, writer, state, " ")?
+            && whitespace_to(&mut sub, SyntaxKind::Element, writer, state, " ")?;
 
-    whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, "")?;
-    whitespace_to(&mut sub, SyntaxKind::ColonEqual, writer, state, " ")?;
-    whitespace_to(&mut sub, SyntaxKind::Element, writer, state, " ")?;
+        finish_node(sub, writer, state)?;
+        state.new_line();
+    } else {
+        let mut sub = node.children_with_tokens();
+        let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
+        let r = whitespace_to_one_of(
+            &mut sub,
+            &[SyntaxKind::Identifier, SyntaxKind::Element],
+            writer,
+            state,
+            " ",
+        )?;
+        if r == SyntaxMatch::Found(SyntaxKind::Identifier) {
+            whitespace_to(&mut sub, SyntaxKind::Element, writer, state, " ")?;
+        }
 
-    finish_node(sub, writer, state)?;
-    state.new_line();
+        finish_node(sub, writer, state)?;
+        state.new_line();
+    }
 
     Ok(())
 }
@@ -223,16 +253,12 @@ fn format_element(
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
 
-    let name_match = whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, "")?;
-    let brace_match = whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
-
-    match (name_match, brace_match) {
-        (SyntaxMatch::Found(_), SyntaxMatch::Found(_)) => {}
-        (_, _) => {
-            // There is an error finding the QualifiedName and LBrace when we do this branch.
-            finish_node(sub, writer, state)?;
-            return Ok(());
-        }
+    if !(whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?)
+    {
+        // There is an error finding the QualifiedName and LBrace when we do this branch.
+        finish_node(sub, writer, state)?;
+        return Ok(());
     }
 
     state.indentation_level += 1;
@@ -270,16 +296,12 @@ fn format_sub_element(
             if first_node_or_token.kind() == SyntaxKind::Identifier {
                 // In this branch the sub element starts with an identifier, eg.
                 // Something := Text {...}
-                let id_match = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
-                let ce_match = whitespace_to(&mut sub, SyntaxKind::ColonEqual, writer, state, " ")?;
-
-                match (id_match, ce_match) {
-                    (SyntaxMatch::Found(_), SyntaxMatch::Found(_)) => {}
-                    (_, _) => {
-                        // There is an error finding the QualifiedName and LBrace when we do this branch.
-                        finish_node(sub, writer, state)?;
-                        return Ok(());
-                    }
+                if !(whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+                    && whitespace_to(&mut sub, SyntaxKind::ColonEqual, writer, state, " ")?)
+                {
+                    // There is an error finding the QualifiedName and LBrace when we do this branch.
+                    finish_node(sub, writer, state)?;
+                    return Ok(());
                 }
                 state.insert_whitespace(" ");
             }
@@ -303,10 +325,24 @@ fn format_property_declaration(
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
     whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
-    whitespace_to(&mut sub, SyntaxKind::LAngle, writer, state, " ")?;
-    whitespace_to(&mut sub, SyntaxKind::Type, writer, state, "")?;
-    whitespace_to(&mut sub, SyntaxKind::RAngle, writer, state, "")?;
-    whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
+    while let SyntaxMatch::Found(x) = whitespace_to_one_of(
+        &mut sub,
+        &[SyntaxKind::Identifier, SyntaxKind::LAngle, SyntaxKind::DeclaredIdentifier],
+        writer,
+        state,
+        " ",
+    )? {
+        match x {
+            SyntaxKind::DeclaredIdentifier => break,
+            SyntaxKind::LAngle => {
+                let _ok = whitespace_to(&mut sub, SyntaxKind::Type, writer, state, "")?
+                    && whitespace_to(&mut sub, SyntaxKind::RAngle, writer, state, "")?
+                    && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
+                break;
+            }
+            _ => continue,
+        }
+    }
 
     state.skip_all_whitespace = true;
     // FIXME: more formatting
@@ -323,9 +359,9 @@ fn format_binding(
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
-    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
-    whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?;
-    whitespace_to(&mut sub, SyntaxKind::BindingExpression, writer, state, " ")?;
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::BindingExpression, writer, state, " ")?;
     // FIXME: more formatting
     for s in sub {
         fold(s, writer, state)?;
@@ -341,7 +377,14 @@ fn format_callback_declaration(
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
     whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
-    whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
+    while whitespace_to_one_of(
+        &mut sub,
+        &[SyntaxKind::Identifier, SyntaxKind::DeclaredIdentifier],
+        writer,
+        state,
+        " ",
+    )? == SyntaxMatch::Found(SyntaxKind::Identifier)
+    {}
 
     while let Some(n) = sub.next() {
         state.skip_all_whitespace = true;
@@ -428,28 +471,29 @@ fn format_binary_expression(
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
 
-    whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?;
-    whitespace_to_one_of(
-        &mut sub,
-        &[
-            SyntaxKind::Plus,
-            SyntaxKind::Minus,
-            SyntaxKind::Star,
-            SyntaxKind::Div,
-            SyntaxKind::AndAnd,
-            SyntaxKind::OrOr,
-            SyntaxKind::EqualEqual,
-            SyntaxKind::NotEqual,
-            SyntaxKind::LAngle,
-            SyntaxKind::LessEqual,
-            SyntaxKind::RAngle,
-            SyntaxKind::GreaterEqual,
-        ],
-        writer,
-        state,
-        " ",
-    )?;
-    whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
+        && whitespace_to_one_of(
+            &mut sub,
+            &[
+                SyntaxKind::Plus,
+                SyntaxKind::Minus,
+                SyntaxKind::Star,
+                SyntaxKind::Div,
+                SyntaxKind::AndAnd,
+                SyntaxKind::OrOr,
+                SyntaxKind::EqualEqual,
+                SyntaxKind::NotEqual,
+                SyntaxKind::LAngle,
+                SyntaxKind::LessEqual,
+                SyntaxKind::RAngle,
+                SyntaxKind::GreaterEqual,
+            ],
+            writer,
+            state,
+            " ",
+        )?
+        .is_found()
+        && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
 
     Ok(())
 }
@@ -566,6 +610,51 @@ fn format_array(
     Ok(())
 }
 
+fn format_state(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let has_when = node.child_text(SyntaxKind::Identifier).map_or(false, |x| x == "when");
+    let mut sub = node.children_with_tokens();
+    let ok = if has_when {
+        whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?
+            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?
+            && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?
+    } else {
+        whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?
+    };
+    if !ok {
+        finish_node(sub, writer, state)?;
+        return Ok(());
+    }
+
+    state.indentation_level += 1;
+    state.new_line();
+    let ins_ctn = state.insertion_count;
+
+    for n in sub {
+        if n.kind() == SyntaxKind::RBrace {
+            state.indentation_level -= 1;
+            state.whitespace_to_add = None;
+            if ins_ctn == state.insertion_count {
+                state.insert_whitespace("");
+            } else {
+                state.new_line();
+            }
+            fold(n, writer, state)?;
+            state.new_line();
+        } else {
+            fold(n, writer, state)?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -594,11 +683,40 @@ mod tests {
     }
 
     #[test]
+    fn components() {
+        assert_formatting(
+            "component   A   {}  export component  B  inherits  Text {  }",
+            "component A {}\nexport component B inherits Text { }",
+        );
+    }
+
+    #[test]
+    fn with_comments() {
+        assert_formatting(
+            r#"component /* */ Foo // aaa
+            inherits  /* x */  // bbb
+            Window // ccc
+            /*y*/ {   // c
+              Foo /*aa*/ /*bb*/ {}
+            }
+        "#,
+            r#"component /* */ Foo // aaa
+            inherits /* x */  // bbb
+            Window// ccc
+            /*y*/ {
+    // c
+              Foo/*aa*/ /*bb*/ { }
+}"#,
+        );
+    }
+
+    #[test]
     fn complex_formatting() {
         assert_formatting(
             r#"
 Main :=Window{callback some-fn(string,string)->bool;some-fn(a, b)=>{a<=b} property<bool>prop-x;
-    VerticalBox {      combo:=ComboBox{}    }}
+    VerticalBox {      combo:=ComboBox{}    }
+    pure   callback   some-fn  ({x: int},string);  in property <  int >  foo: 42; }
             "#,
             r#"
 Main := Window {
@@ -608,6 +726,9 @@ Main := Window {
     VerticalBox {
         combo := ComboBox { }
     }
+
+    pure callback some-fn({x: int}, string);
+    in property <int> foo: 42;
 }"#,
         );
     }
@@ -807,7 +928,7 @@ A := B {
         );
         assert_formatting(
             r#"
-A := B { c:   [  
+A := B { c:   [
 
 1,
 
@@ -818,6 +939,27 @@ A := B { c:   [
             r#"
 A := B {
     c: [1, 2];
+}"#,
+        );
+    }
+
+    #[test]
+    fn states() {
+        assert_formatting(
+            r#"
+component FooBar {
+    states [
+        dummy1    when    a == true   :{
+
+        }
+    ]
+}
+"#,
+            r#"
+component FooBar {
+    states [
+        dummy1 when a == true: {}
+]
 }"#,
         );
     }
