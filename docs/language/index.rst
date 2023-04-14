@@ -47,10 +47,20 @@ logic is written in a different programming language using the Slint API.
 Getting Started
 ---------------
 
-To use `Slint <https://slint-ui.com>`_ you will need to embed your slint files in a project written
-in a programming language. Refer to the `Slint documentation specific to that programming language <../>`_
-to get started.
+To use `Slint <https://slint-ui.com>`_ you need to embed your slint files in a project written
+in a supported programming language, like C++, Rust, or JavaScript. 
 
+There are three different pathways to get started with Slint:
+
+1. `SlintPad <https://slint-ui.com/editor>`` - Use this to get a feel of the Slint design markup language.
+   This is a web browser-based tool where you can try Slint out.
+
+2. As a UI Designer, working with Slint files locally - We recommend the following combination of software tools:
+   - Visual Studio Code 
+   - The Slint for Visual Studio Code Extension
+
+3. As a Software Developer, integrating Slint into a new or existing code base - refer to the `Slint documentation specific to that programming language <../>`_
+   to get started.
 
 .. toctree::
    :hidden:
