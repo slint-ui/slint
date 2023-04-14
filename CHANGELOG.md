@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file.
 - Qt renderer: Fixed support for horizontal alignment in `TextInput`.
 - Winit backend: Fix detect of dark color scheme in some circumstances.
 - ListView: fix resizing a ListView to empty height would make all items invisible even if resized back (#2545)
+- Fixed compiler panic when accessing unset layout properties such as `spacing` or `alignment` (#2483)
 
 ### Slint Language
 

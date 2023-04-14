@@ -1,0 +1,17 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export component Test {
+    VerticalLayout {
+        spacing: 1px;
+
+        hl :=  HorizontalLayout {
+            Rectangle {
+                // At first I didn't see that there was an HorizontalLayout in-between in the original code.
+                width: 20px - parent.spacing;
+            }
+        }
+
+        property <bool> test: hl.preferred-width == 20px;
+    }
+}
