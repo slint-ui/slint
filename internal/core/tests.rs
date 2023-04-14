@@ -5,9 +5,9 @@
 #![warn(missing_docs)]
 #![allow(unsafe_code)]
 
-use crate::input::{key_codes::Key, MouseEvent};
+use crate::api::LogicalPosition;
+use crate::input::key_codes::Key;
 use crate::platform::WindowEvent;
-use crate::Coord;
 
 /// Slint animations do not use real time, but use a mocked time.
 /// Normally, the event loop update the time of the animation using
@@ -27,41 +27,18 @@ pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
 /// Simulate a click on a position within the component.
 #[no_mangle]
 pub extern "C" fn slint_send_mouse_click(
-    component: &crate::component::ComponentRc,
-    x: Coord,
-    y: Coord,
+    _component: &crate::component::ComponentRc,
+    x: f32,
+    y: f32,
     window_adapter: &crate::window::WindowAdapterRc,
 ) {
-    let mut state = crate::input::MouseInputState::default();
-    let position = euclid::point2(x, y);
+    let position = LogicalPosition::new(x, y);
+    let button = crate::items::PointerEventButton::Left;
 
-    state = crate::input::process_mouse_input(
-        component.clone(),
-        MouseEvent::Moved { position },
-        window_adapter,
-        state,
-    );
-    state = crate::input::process_mouse_input(
-        component.clone(),
-        MouseEvent::Pressed {
-            position,
-            button: crate::items::PointerEventButton::Left,
-            click_count: 0,
-        },
-        window_adapter,
-        state,
-    );
+    window_adapter.window().dispatch_event(WindowEvent::PointerMoved { position });
+    window_adapter.window().dispatch_event(WindowEvent::PointerPressed { position, button });
     slint_mock_elapsed_time(50);
-    crate::input::process_mouse_input(
-        component.clone(),
-        MouseEvent::Released {
-            position,
-            button: crate::items::PointerEventButton::Left,
-            click_count: 0,
-        },
-        window_adapter,
-        state,
-    );
+    window_adapter.window().dispatch_event(WindowEvent::PointerReleased { position, button });
 }
 
 /// Simulate a character input event (pressed or released).

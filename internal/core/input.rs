@@ -631,6 +631,7 @@ fn send_exit_events(
     mut pos: Option<LogicalPoint>,
     window_adapter: &Rc<dyn WindowAdapter>,
 ) {
+    let mut clipped = false;
     for it in mouse_input_state.item_stack.iter() {
         let item = if let Some(item) = it.0.upgrade() { item } else { break };
         let g = item.geometry();
@@ -638,7 +639,10 @@ fn send_exit_events(
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
         }
-        if !contains {
+        if !contains || clipped {
+            if crate::item_rendering::is_clipping_item(item.borrow()) {
+                clipped = true;
+            }
             item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
         }
     }
