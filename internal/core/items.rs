@@ -1171,6 +1171,8 @@ impl Default for PropertyAnimation {
 pub struct WindowItem {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
+    pub position_x: Property<LogicalLength>,
+    pub position_y: Property<LogicalLength>,
     pub background: Property<Brush>,
     pub title: Property<SharedString>,
     pub no_frame: Property<bool>,

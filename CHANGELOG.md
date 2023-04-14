@@ -3,6 +3,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### General
+
+- Added `Window` `position-x` and `position-y` TODO-feature/2023-04-window-position-property
+
 ## [1.0.2] - 2023-04-26
 
 ### General

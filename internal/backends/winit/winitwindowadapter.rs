@@ -326,7 +326,8 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
         let mut width = window_item.width().get() as f32;
         let mut height = window_item.height().get() as f32;
 
-        let mut must_resize = false;
+        let position_x = window_item.position_x().get() as f32;
+        let position_y = window_item.position_y().get() as f32;
 
         winit_window.set_window_icon(icon_to_winit(window_item.icon()));
         winit_window.set_title(&window_item.title());
@@ -338,22 +339,19 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
             winit::window::WindowLevel::Normal
         });
 
+        let existing_size: winit::dpi::LogicalSize<f32> =
+            winit_window.inner_size().to_logical(self.window.scale_factor() as f64);
+        let mut must_resize = false;
         if width <= 0. || height <= 0. {
             must_resize = true;
 
-            let winit_size =
-                winit_window.inner_size().to_logical(self.window.scale_factor() as f64);
-
             if width <= 0. {
-                width = winit_size.width;
+                width = existing_size.width;
             }
             if height <= 0. {
-                height = winit_size.height;
+                height = existing_size.height;
             }
         }
-
-        let existing_size: winit::dpi::LogicalSize<f32> =
-            winit_window.inner_size().to_logical(self.window.scale_factor().into());
 
         if (existing_size.width - width).abs() > 1. || (existing_size.height - height).abs() > 1. {
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
@@ -366,6 +364,37 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
 
         if must_resize {
             self.window.set_size(i_slint_core::api::LogicalSize::new(width, height));
+        }
+
+        if let Ok(existing_position) =
+            winit_window.outer_position().map(|pp| pp.to_logical::<f32>(self.window.scale_factor() as f64))
+        {
+            // TODO-feature/2023-04-window-position-property
+            // // I think the window can be at negative positions
+            // // So, I'm not sure how important this is. I mean the initial position
+            // // shouldn't matter, right?
+            // let mut must_move = false;
+            // if position_x <= 0. || position_y <= 0. {
+            //     must_move = true;
+            //     if position_x <= 0. {
+            //         position_x = existing_position.x;
+            //     }
+            //     if position_y <= 0. {
+            //         position_y = existing_position.y;
+            //     }
+            // }
+
+            if (existing_position.x - position_x).abs() > 0.001
+                || (existing_position.y - position_y).abs() > 0.001
+            {
+                // If we're in fullscreen state, don't try to move the window but maintain the surface
+                // size we've been assigned to from the windowing system.
+                if winit_window.fullscreen().is_none() {
+                    winit_window.set_outer_position(winit::dpi::LogicalPosition::new(position_x, position_y));
+                }
+
+                self.window.set_position(i_slint_core::api::LogicalPosition::new(position_x, position_y));
+            }
         }
     }
 
@@ -627,6 +656,14 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
             // Make sure that the window's inner size is in sync with the root window item's
             // width/height.
             runtime_window.set_window_item_geometry(LogicalSize::new(s.width, s.height));
+
+            if let Ok(p) = winit_window.outer_position() {
+                let p = p.to_logical(scale_factor);
+                // Make sure that the window's outer position is in sync with the root window item's
+                // position_x/position_y.
+                runtime_window.set_window_item_position(LogicalPoint::new(p.x, p.y));
+            }
+
             let id = winit_window.id();
 
             // Make sure the dark color scheme property is up-to-date, as it may have been queried earlier when

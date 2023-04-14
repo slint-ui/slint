@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export component Demo inherits Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+    no-frame: true;
+
+    position-x: 100px;
+    position-y: 100px;
+
+    VerticalLayout {
+        Rectangle {
+            height: 30px;
+            background: gray;
+            touch := TouchArea {
+                property <bool> applying: false; // dirty fix issue with double applying between event loops
+                moved => {
+                    if (self.applying) {
+                        root.position-x = root.position-x + (self.mouse-x - self.pressed-x);
+                        root.position-y = root.position-y + (self.mouse-y - self.pressed-y);
+                        self.applying = false;
+                    } else {
+                        self.applying = true;
+                    }
+                }
+            }
+        }
+        VerticalLayout {
+            padding: 8px;
+            spacing: 2px;
+            Text { text: "width: \{root.width / 1px}px"; }
+            Text { text: "height: \{root.height / 1px}px"; }
+            Text { text: "x: \{root.position-x / 1px}px"; }
+            Text { text: "y: \{root.position-y / 1px}px"; }
+            Rectangle { height: 1px; width: 100%; background: gray; }
+            Text { text: "pressed-x: \{touch.pressed-x / 1px}px"; }
+            Text { text: "pressed-y: \{touch.pressed-y / 1px}px"; }
+            Text { text: "mouse-x: \{touch.mouse-x / 1px}px"; }
+            Text { text: "mouse-y: \{touch.mouse-y / 1px}px"; }
+        }
+    }
+}
