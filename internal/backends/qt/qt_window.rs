@@ -1535,6 +1535,7 @@ impl WindowAdapterSealed for QtWindow {
         let widget_ptr = self.widget_ptr();
         let title: qttypes::QString = window_item.title().as_str().into();
         let no_frame = window_item.no_frame();
+        let always_on_top = window_item.always_on_top();
         let mut size = qttypes::QSize {
             width: window_item.width().get().ceil() as _,
             height: window_item.height().get().ceil() as _,
@@ -1567,11 +1568,12 @@ impl WindowAdapterSealed for QtWindow {
             }
         };
 
-        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QBrush", no_frame as "bool"] {
+        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QBrush", no_frame as "bool", always_on_top as "bool"] {
             if (size != widget_ptr->size()) {
                 widget_ptr->resize(size.expandedTo({1, 1}));
             }
             widget_ptr->setWindowFlag(Qt::FramelessWindowHint, no_frame);
+            widget_ptr->setWindowFlag(Qt::WindowStaysOnTopHint, always_on_top);
             widget_ptr->setWindowTitle(title);
             auto pal = widget_ptr->palette();
 

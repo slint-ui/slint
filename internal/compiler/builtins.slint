@@ -152,6 +152,7 @@ component WindowItem {
     in property <brush> color <=> background;
     in property <string> title: "Slint Window";
     in property <bool> no-frame;
+    in property <bool> always-on-top;
     in property <string> default-font-family;
     in-out property <length> default-font-size; // <=> StyleMetrics.default-font-size  set in apply_default_properties_from_style
     in property <int> default-font-weight;

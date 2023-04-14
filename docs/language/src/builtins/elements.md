@@ -748,6 +748,7 @@ or smaller. The initial width can be controlled with the `preferred-width` prope
 
 ### Properties
 
+-   **`always-on-top`** (_in_ _bool_): Whether the window should be placed above all other windows on window managers supporting it.
 -   **`background`** (_in_ _brush_): The background brush of the `Window`. (default value: depends on the style)
 -   **`default-font-family`** (_in_ _string_): The font family to use as default in text elements inside this window, that don't have their `font-family` property set.
 -   **`default-font-size`** (_in-out_ _length_): The font size to use as default in text elements inside this window, that don't have their `font-size` property set. The value of this property also forms the basis for relative font sizes.
