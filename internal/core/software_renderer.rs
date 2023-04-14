@@ -25,7 +25,7 @@ use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use euclid::num::Zero;
-use euclid::{Length, Size2D};
+use euclid::Length;
 #[allow(unused)]
 use num_traits::Float;
 
@@ -1615,8 +1615,6 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
         let font = fonts::match_font(&font_request, self.scale_factor);
 
-        let visual_representation = text_input.visual_representation();
-
         match font {
             fonts::Font::PixelFont(pf) => {
                 let paragraph = TextParagraphLayout {
@@ -1633,6 +1631,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
                 self.draw_text_paragraph(paragraph, physical_clip, offset, color);
             }
+            #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
                 let paragraph = TextParagraphLayout {
                     string: &string,
