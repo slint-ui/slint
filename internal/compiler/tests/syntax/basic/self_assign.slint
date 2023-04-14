@@ -14,7 +14,7 @@ export SuperSimple := Rectangle {
     }
     TouchArea {
         clicked => { x += "string"; }
-//                       ^error{Cannot convert string to length}
+//                        ^error{Cannot convert string to length}
     }
 
     TouchArea {
@@ -59,7 +59,7 @@ export SuperSimple := Rectangle {
 
     TouchArea {
         clicked => { height /= height; }
-//                            ^error{Cannot convert length to float}
+//                             ^error{Cannot convert length to float}
     }
 
 }

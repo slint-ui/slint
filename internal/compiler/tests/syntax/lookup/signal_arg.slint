@@ -11,7 +11,7 @@ export Xxx := Rectangle {
         x = 42 + hello;
 //      ^error{Assignment needs to be done on a property}
         width = x;
-//             ^error{Cannot convert string to length}
+//              ^error{Cannot convert string to length}
         plop("hallo", #fff, 42);
         plop("hallo", #fff,);
 //      ^error{The callback or function expects 3 arguments, but 2 are provided}

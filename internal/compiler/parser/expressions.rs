@@ -32,6 +32,7 @@ use super::prelude::*;
 /// "foo".bar.something().something.xx({a: 1.foo}.a)
 /// ```
 pub fn parse_expression(p: &mut impl Parser) -> bool {
+    p.peek(); // consume the whitespace so they aren't part of the Expression node
     parse_expression_helper(p, OperatorPrecedence::Default)
 }
 
