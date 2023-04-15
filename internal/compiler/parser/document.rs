@@ -59,10 +59,16 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 /// component C inherits D { }
 /// ```
 pub fn parse_component(p: &mut impl Parser) -> bool {
-    let mut p = p.start_node(SyntaxKind::Component);
     let simple_component = p.nth(1).kind() == SyntaxKind::ColonEqual;
     let is_global = !simple_component && p.peek().as_str() == "global";
     let is_new_component = !simple_component && p.peek().as_str() == "component";
+    if !is_global && !simple_component && !is_new_component {
+        p.error(
+            "Parse error: expected a top-level item such as a component, a struct, or a global",
+        );
+        return false;
+    }
+    let mut p = p.start_node(SyntaxKind::Component);
     if is_global || is_new_component {
         p.consume();
     }
