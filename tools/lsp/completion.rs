@@ -39,6 +39,16 @@ pub(crate) fn completion_at(
                 token.text(),
                 offset.checked_sub(token.text_range().start().into())?,
             )
+            .map(|mut r| {
+                if node.kind() == SyntaxKind::ImportSpecifier && !token.text().contains('/') {
+                    let mut c =
+                        CompletionItem::new_simple("std-widgets.slint".into(), String::new());
+
+                    c.kind = Some(CompletionItemKind::FILE);
+                    r.push(c)
+                }
+                r
+            })
             .map(Into::into);
         }
     } else if let Some(element) = syntax_nodes::Element::new(node.clone()) {
@@ -285,6 +295,26 @@ pub(crate) fn completion_at(
             }
             _ => (),
         }
+    } else if node.kind() == SyntaxKind::Document {
+        let r: Vec<_> = [
+            // the $1 is first in the quote so the filename can be completed before the import names
+            ("import", "import { $2 } from \"$1\";"),
+            ("component", "component $1 {}"),
+            ("struct", "struct $1 {}"),
+            ("global", "global $1 {}"),
+            ("export", "export { $1 }"),
+            ("export component", "export component $1 { }"),
+            ("export struct", "export struct $1 {}"),
+            ("export global", "export global $1 {}"),
+        ]
+        .iter()
+        .map(|(kw, ins_tex)| {
+            let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
+            c.kind = Some(CompletionItemKind::KEYWORD);
+            with_insert_text(c, ins_tex, snippet_support)
+        })
+        .collect();
+        return Some(r.into());
     }
     None
 }
