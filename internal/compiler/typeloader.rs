@@ -174,7 +174,7 @@ impl TypeLoader {
                                 if imported_types.peek().is_some() {
                                     Self::register_imported_types(doc, &import, imported_types, registry_to_populate, &mut state.diag);
                                 } else {
-                                    state.diag.push_error("Import names are missing. Please specify which types you would like to import".into(), &import.import_uri_token);
+                                    state.diag.push_error("Import names are missing. Please specify which types you would like to import".into(), &import.import_uri_token.parent());
                                 }
                                 None
                             }

@@ -252,15 +252,15 @@ fn parse_import_specifier(p: &mut impl Parser) -> bool {
 /// { Type1 }
 /// { Type2, Type3 }
 /// { Type as Alias1, Type as AnotherAlias }
+/// {}
 /// ```
 fn parse_import_identifier_list(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::ImportIdentifierList);
     if !p.expect(SyntaxKind::LBrace) {
         return false;
     }
-    if p.peek().kind == SyntaxKind::RBrace {
-        p.error("Import names are missing. Please specify which types you would like to import");
-        return false;
+    if p.test(SyntaxKind::RBrace) {
+        return true;
     }
     loop {
         parse_import_identifier(&mut *p);
