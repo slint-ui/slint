@@ -11,14 +11,28 @@ For the C++ portion of the code base, we enforce the coding style via `clang-for
 
 ## Tooling
 
-`pre-commit` is set up and ready to be used in this repository. Simply install the pre-commit python script using:
+Pre-commit is a tool intended to help you in your local development, it is
+_not_ enforced on the repository side!
+
+`pre-commit` is set up and ready to be used in this repository. Simply install
+the pre-commit python script using:
 
 ```bash
 > pip install pre-commit
 > pre-commit install
 ```
 
-and the pre-commit git hooks will be active and do basic sanity checks on your code whenever you commit something.
+and the pre-commit git hooks will be active and do basic sanity checks on your
+code whenever you commit something.
+
+Not all parts of the code base are pre-commit clean, so use it as an early
+warning system: See what it reports, fix any issue you introduced (as those
+make sense to fix), and then feel free to skip pre-commit module still failing
+using
+
+`SKIP="module1,module2" git commit`
+
+Typical modules to skip include: `cspell`, `check-json` and `prettier`.
 
 ## Testing
 
