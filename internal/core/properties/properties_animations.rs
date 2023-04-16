@@ -184,19 +184,20 @@ impl InterpolatedPropertyValue for f32 {
 
 impl InterpolatedPropertyValue for i32 {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
-        self + (t * (target_value - self) as f32) as i32
+        self + (t * (target_value - self) as f32).round() as i32
     }
 }
 
 impl InterpolatedPropertyValue for i64 {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
-        self + (t * (target_value - self) as f32) as Self
+        self + (t * (target_value - self) as f32).round() as Self
     }
 }
 
 impl InterpolatedPropertyValue for u8 {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
-        ((*self as f32) + (t * ((*target_value as f32) - (*self as f32)))).min(255.).max(0.) as u8
+        ((*self as f32) + (t * ((*target_value as f32) - (*self as f32)))).round().min(255.).max(0.)
+            as u8
     }
 }
 

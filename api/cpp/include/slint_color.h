@@ -147,6 +147,33 @@ public:
     /// So for example `darker(0.3)` will decrease the brightness by 30%.
     inline Color darker(float factor) const;
 
+    /// Returns a new version of this color with the opacity decreased by \a factor,
+    /// meaning the new opacity will be the current one times \a factor.
+    ///
+    /// The reference is the opacity's normalized value as `u8` and \a factor is
+    /// clamped to be between `0.0` and `1.0` before applying it.
+    ///
+    /// For _increasing_ the opacity, see Color::opaque(float) and
+    /// Color::with_alpha(float).
+    inline Color translucent(float factor) const;
+    /// Returns a new version of this color with the opacity increased by \a factor,
+    /// meaning the new opacity will be scaled up by `1.0 + factor`.
+    ///
+    /// The reference is the opacity's normalized value as `u8` and \a factor is
+    /// changed to be at least `0.0` before applying it, and thus the current
+    /// value cannot be decreased.
+    ///
+    /// For _decreasing_ the opacity, see Color::translucent(float) and
+    /// Color::with_alpha(float).
+    inline Color opaque(float factor) const;
+
+    /// Returns a new color that is a mix of \a this and \a other, with a proportion
+    /// factor given by \a factor (which will be clamped to be between `0.0` and `1.0`).
+    inline Color mixed(const Color &other, float factor) const;
+
+    /// Returns a new version of this color with the opacity set to \a alpha.
+    inline Color with_alpha(float alpha) const;
+
     /// Returns true if \a lhs has the same values for the individual color channels as \a rhs;
     /// false otherwise.
     friend bool operator==(const Color &lhs, const Color &rhs) = default;
@@ -163,8 +190,7 @@ public:
 
 #if !defined(DOXYGEN)
     // FIXME: we need this to create GradientStop
-    operator const cbindgen_private::types::Color &() const
-    {
+    operator const cbindgen_private::types::Color &() const {
         return inner;
     }
 #endif
@@ -186,6 +212,34 @@ inline Color Color::darker(float factor) const
 {
     Color result;
     cbindgen_private::types::slint_color_darker(&inner, factor, &result.inner);
+    return result;
+}
+
+inline Color Color::translucent(float factor) const
+{
+    Color result;
+    cbindgen_private::types::slint_color_translucent(&inner, factor, &result.inner);
+    return result;
+}
+
+inline Color Color::opaque(float factor) const
+{
+    Color result;
+    cbindgen_private::types::slint_color_opaque(&inner, factor, &result.inner);
+    return result;
+}
+
+inline Color Color::mixed(const Color &other, float factor) const
+{
+    Color result;
+    cbindgen_private::types::slint_color_mixed(&inner, &other.inner, factor, &result.inner);
+    return result;
+}
+
+inline Color Color::with_alpha(float alpha) const
+{
+    Color result;
+    cbindgen_private::types::slint_color_with_alpha(&inner, alpha, &result.inner);
     return result;
 }
 

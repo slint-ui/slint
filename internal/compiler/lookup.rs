@@ -857,6 +857,10 @@ impl<'a> LookupObject for ColorExpression<'a> {
         };
         None.or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
             .or_else(|| f("darker", member_function(BuiltinFunction::ColorDarker)))
+            .or_else(|| f("translucent", member_function(BuiltinFunction::ColorTranslucent)))
+            .or_else(|| f("opaque", member_function(BuiltinFunction::ColorOpaque)))
+            .or_else(|| f("with-alpha", member_function(BuiltinFunction::ColorWithAlpha)))
+            .or_else(|| f("mixed", member_function(BuiltinFunction::ColorMixed)))
     }
 }
 

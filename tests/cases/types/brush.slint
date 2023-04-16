@@ -6,6 +6,10 @@ Test := Rectangle {
     property<brush> color_brush: blue;
     // allow to use brighter and darker on a brush
     property<brush> ligher: true ? color_brush.brighter(50%) : color_brush.darker(50%);
+    // allow to use `translucent` and `opaque` on brushes
+    property<brush> seethru: true ? color_brush.translucent(30%) : color_brush.opaque(200%);
+    // allow to use `with_alpha` on brushes
+    property<brush> invisible: color_brush.with-alpha(0%);
 
     VerticalLayout {
         r1 := Rectangle {

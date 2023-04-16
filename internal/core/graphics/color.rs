@@ -192,6 +192,139 @@ impl Color {
         let rgba: RgbaColor<f32> = hsva.into();
         rgba.into()
     }
+
+    /// Returns a new version of this color with the opacity decreased by `factor`,
+    /// meaning the new opacity will be the current one times `factor`.
+    ///
+    /// The reference is the opacity's normalized value as `u8` and `factor` is
+    /// clamped to be between `0.0` and `1.0` before applying it.
+    ///
+    /// For _increasing_ the opacity, see [`opaque`](fn@Color::opaque) and
+    /// [`with_alpha`](fn@Color::with_alpha).
+    ///
+    /// # Examples
+    /// Decreasing the opacity of a red color by half:
+    /// ```
+    /// # use i_slint_core::graphics::Color;
+    /// let red = Color::from_argb_u8(255, 255, 0, 0);
+    /// assert_eq!(red.translucent(0.5), Color::from_argb_u8(128, 255, 0, 0));
+    /// ```
+    ///
+    /// Decreasing the opacity of a blue color to be 20% of the current value:
+    /// ```
+    /// # use i_slint_core::graphics::Color;
+    /// let blue = Color::from_argb_u8(200, 0, 0, 255);
+    /// assert_eq!(blue.translucent(0.2), Color::from_argb_u8(40, 0, 0, 255));
+    /// ```
+    #[must_use]
+    pub fn translucent(&self, factor: f32) -> Self {
+        let mut rgba: RgbaColor<u8> = (*self).into();
+        rgba.alpha = scale_u8(rgba.alpha, factor.clamp(0.0, 1.0));
+        rgba.into()
+    }
+
+    /// Returns a new version of this color with the opacity increased by `factor`,
+    /// meaning the new opacity will be scaled up by `1.0 + factor`.
+    ///
+    /// The reference is the opacity's normalized value as `u8` and `factor` is
+    /// changed to be at least `0.0` before applying it, and thus the current
+    /// value cannot be decreased.
+    ///
+    /// For _decreasing_ the opacity, see [`translucent`](fn@Color::translucent) and
+    /// [`with_alpha`](fn@Color::with_alpha).
+    ///
+    /// # Examples
+    /// Increasing the opacity of a red color by 100% (doubling it):
+    /// ```
+    /// # use i_slint_core::graphics::Color;
+    /// let red = Color::from_argb_u8(128, 255, 0, 0);
+    /// assert_eq!(red.opaque(1.0), Color::from_argb_u8(255, 255, 0, 0));
+    /// ```
+    ///
+    /// Increasing the opacity of a blue color by 20% of the current value:
+    /// ```
+    /// # use i_slint_core::graphics::Color;
+    /// let blue = Color::from_argb_u8(150, 0, 0, 255);
+    /// assert_eq!(blue.opaque(0.2), Color::from_argb_u8(180, 0, 0, 255));
+    /// ```
+    #[must_use]
+    pub fn opaque(&self, factor: f32) -> Self {
+        let mut rgba: RgbaColor<u8> = (*self).into();
+        rgba.alpha = scale_u8(rgba.alpha, 1.0 + f32::max(factor, 0.0));
+        rgba.into()
+    }
+
+    /// Returns a new color that is a mix of `self` and `other`, with a proportion
+    /// factor given by `factor` (which will be clamped to be between `0.0` and `1.0`).
+    ///
+    /// # Examples
+    /// Mix red with black half-and-half:
+    /// ```
+    /// # use i_slint_core::graphics::Color;
+    /// let red = Color::from_rgb_u8(255, 0, 0);
+    /// let black = Color::from_rgb_u8(0, 0, 0);
+    /// assert_eq!(red.mixed(&black, 0.5), Color::from_rgb_u8(128, 0, 0));
+    /// ```
+    ///
+    /// Mix Purple with OrangeRed with `75%`:`25%` ratio:
+    /// ```
+    /// # use i_slint_core::graphics::Color;
+    /// let purple = Color::from_rgb_u8(128, 0, 128);
+    /// let orange_red = Color::from_rgb_u8(255, 69, 0);
+    /// assert_eq!(purple.mixed(&orange_red, 0.75), Color::from_rgb_u8(160, 17, 96));
+    /// ```
+    #[must_use]
+    pub fn mixed(&self, other: &Self, factor: f32) -> Self {
+        // * NOTE: The opacity (`alpha` as a "percentage") of each color involved
+        // *       must be taken into account when mixing them. Because of this,
+        // *       we cannot just interpolate between them.
+        // * NOTE: Considering the spec (textual):
+        // *       <https://github.com/sass/sass/blob/47d30713765b975c86fa32ec359ed16e83ad1ecc/spec/built-in-modules/color.md#mix>
+
+        fn lerp(v1: u8, v2: u8, f: f32) -> u8 {
+            (v1 as f32 * f + v2 as f32 * (1.0 - f)).clamp(u8::MIN as f32, u8::MAX as f32).round()
+                as u8
+        }
+
+        let original_factor = factor.clamp(0.0, 1.0);
+
+        let self_opacity = RgbaColor::<f32>::from(*self).alpha;
+        let other_opacity = RgbaColor::<f32>::from(*other).alpha;
+
+        let normal_weight = 2.0 * original_factor - 1.0;
+        let alpha_distance = self_opacity - other_opacity;
+        let weight_by_distance = normal_weight * alpha_distance;
+
+        // As to not divide by 0.0
+        let combined_weight = if weight_by_distance == -1.0 {
+            normal_weight
+        } else {
+            (normal_weight + alpha_distance) / (1.0 + weight_by_distance)
+        };
+
+        let channels_factor = (combined_weight + 1.0) / 2.0;
+
+        let red = lerp(self.red, other.red, channels_factor);
+        let green = lerp(self.green, other.green, channels_factor);
+        let blue = lerp(self.blue, other.blue, channels_factor);
+
+        let alpha = lerp(self.alpha, other.alpha, original_factor);
+
+        Self { red, green, blue, alpha }
+    }
+
+    /// Returns a new version of this color with the opacity set to `alpha`.
+    #[must_use]
+    pub fn with_alpha(&self, alpha: f32) -> Self {
+        let mut rgba: RgbaColor<f32> = (*self).into();
+        rgba.alpha = alpha.clamp(0.0, 1.0);
+        rgba.into()
+    }
+}
+
+fn scale_u8(value: u8, factor: f32) -> u8 {
+    let factor = f32::max(factor, 0.0); // Discard negative values
+    (value as f32 * factor).round().clamp(u8::MIN as f32, u8::MAX as f32) as u8
 }
 
 impl InterpolatedPropertyValue for Color {
@@ -316,5 +449,30 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_color_darker(col: &Color, factor: f32, out: *mut Color) {
         core::ptr::write(out, col.darker(factor))
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_color_translucent(col: &Color, factor: f32, out: *mut Color) {
+        core::ptr::write(out, col.translucent(factor))
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_color_opaque(col: &Color, factor: f32, out: *mut Color) {
+        core::ptr::write(out, col.opaque(factor))
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_color_mixed(
+        col1: &Color,
+        col2: &Color,
+        factor: f32,
+        out: *mut Color,
+    ) {
+        core::ptr::write(out, col1.mixed(col2, factor))
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_color_with_alpha(col: &Color, alpha: f32, out: *mut Color) {
+        core::ptr::write(out, col.with_alpha(alpha))
     }
 }
