@@ -24,6 +24,11 @@ Test := Rectangle {
 
     property<color> i1: rgb(0, 666, -85);
 
+    // allow to use `mixed` on colors
+    property<color> p1: true ? b1.mixed(r1, 30%) : y1.mixed(c1, 70%);
+    // allow to use `with_alpha` on colors
+    property<brush> invisible: b1.with-alpha(0%);
+
     property<bool> test: b1 == b2 && b2 == b5 && b3 == Colors.blue && Colors.red == r4 && y1 == Colors.rgba(255, 100%, 0, 100%);
 }
 

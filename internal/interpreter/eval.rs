@@ -680,6 +680,73 @@ fn call_builtin_function(
                 panic!("First argument not a color");
             }
         }
+        BuiltinFunction::ColorTranslucent => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ColorFaded")
+            }
+            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+                if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
+                    brush.translucent(factor as _).into()
+                } else {
+                    panic!("Second argument not a number");
+                }
+            } else {
+                panic!("First argument not a color");
+            }
+        }
+        BuiltinFunction::ColorOpaque => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ColorFaded")
+            }
+            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+                if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
+                    brush.opaque(factor as _).into()
+                } else {
+                    panic!("Second argument not a number");
+                }
+            } else {
+                panic!("First argument not a color");
+            }
+        }
+        BuiltinFunction::ColorMixed => {
+            if arguments.len() != 3 {
+                panic!("internal error: incorrect argument count to ColorMixed")
+            }
+
+            let arg0 = eval_expression(&arguments[0], local_context);
+            let arg1 = eval_expression(&arguments[1], local_context);
+            let arg2 = eval_expression(&arguments[2], local_context);
+
+            if !matches!(arg0, Value::Brush(Brush::SolidColor(_))) {
+                panic!("First argument not a color");
+            }
+            if !matches!(arg1, Value::Brush(Brush::SolidColor(_))) {
+                panic!("Second argument not a color");
+            }
+            if !matches!(arg2, Value::Number(_)) {
+                panic!("Third argument not a number");
+            }
+
+            let (Value::Brush(Brush::SolidColor(color_a)), Value::Brush(Brush::SolidColor(color_b)), Value::Number(factor)) = (arg0, arg1, arg2) else {
+                unreachable!()
+            };
+
+            color_a.mixed(&color_b, factor as _).into()
+        }
+        BuiltinFunction::ColorWithAlpha => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to ColorWithAlpha")
+            }
+            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
+                if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
+                    brush.with_alpha(factor as _).into()
+                } else {
+                    panic!("Second argument not a number");
+                }
+            } else {
+                panic!("First argument not a color");
+            }
+        }
         BuiltinFunction::ImageSize => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to ImageSize")

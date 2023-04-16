@@ -125,6 +125,79 @@ impl Brush {
             )),
         }
     }
+
+    /// Returns a new version of this brush with the opacity decreased by `factor`,
+    /// meaning the new opacity will be the current one times `factor`.
+    ///
+    /// The reference is the opacity's normalized value as `u8` and `factor` is
+    /// clamped to be between `0.0` and `1.0` before applying it.
+    ///
+    /// For _increasing_ the opacity, see [`opaque`](fn@Brush::opaque) and
+    /// [`with_alpha`](fn@Brush::with_alpha).
+    #[must_use]
+    pub fn translucent(&self, amount: f32) -> Self {
+        match self {
+            Brush::SolidColor(c) => Brush::SolidColor(c.translucent(amount)),
+            Brush::LinearGradient(g) => Brush::LinearGradient(LinearGradientBrush::new(
+                g.angle(),
+                g.stops().map(|s| GradientStop {
+                    color: s.color.translucent(amount),
+                    position: s.position,
+                }),
+            )),
+            Brush::RadialGradient(g) => {
+                Brush::RadialGradient(RadialGradientBrush::new_circle(g.stops().map(|s| {
+                    GradientStop { color: s.color.translucent(amount), position: s.position }
+                })))
+            }
+        }
+    }
+
+    /// Returns a new version of this brush with the opacity increased by `factor`,
+    /// meaning the new opacity will be scaled up by `1.0 + factor`.
+    ///
+    /// The reference is the opacity's normalized value as `u8` and `factor` is
+    /// changed to be at least `0.0` before applying it, and thus the current
+    /// value cannot be decreased.
+    ///
+    /// For _decreasing_ the opacity, see [`translucent`](fn@Brush::translucent) and
+    /// [`with_alpha`](fn@Brush::with_alpha).
+    #[must_use]
+    pub fn opaque(&self, amount: f32) -> Self {
+        match self {
+            Brush::SolidColor(c) => Brush::SolidColor(c.opaque(amount)),
+            Brush::LinearGradient(g) => Brush::LinearGradient(LinearGradientBrush::new(
+                g.angle(),
+                g.stops()
+                    .map(|s| GradientStop { color: s.color.opaque(amount), position: s.position }),
+            )),
+            Brush::RadialGradient(g) => Brush::RadialGradient(RadialGradientBrush::new_circle(
+                g.stops()
+                    .map(|s| GradientStop { color: s.color.opaque(amount), position: s.position }),
+            )),
+        }
+    }
+
+    /// Returns a new version of this brush with the related color's opacities
+    /// set to `alpha`.
+    #[must_use]
+    pub fn with_alpha(&self, alpha: f32) -> Self {
+        match self {
+            Brush::SolidColor(c) => Brush::SolidColor(c.with_alpha(alpha)),
+            Brush::LinearGradient(g) => Brush::LinearGradient(LinearGradientBrush::new(
+                g.angle(),
+                g.stops().map(|s| GradientStop {
+                    color: s.color.with_alpha(alpha),
+                    position: s.position,
+                }),
+            )),
+            Brush::RadialGradient(g) => {
+                Brush::RadialGradient(RadialGradientBrush::new_circle(g.stops().map(|s| {
+                    GradientStop { color: s.color.with_alpha(alpha), position: s.position }
+                })))
+            }
+        }
+    }
 }
 
 /// The LinearGradientBrush describes a way of filling a shape with different colors, which

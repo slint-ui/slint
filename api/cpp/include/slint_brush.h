@@ -136,6 +136,30 @@ public:
     /// all the colors of this brush.
     inline Brush darker(float factor) const;
 
+    /// Returns a new version of this brush with the opacity decreased by \a factor,
+    /// meaning the new opacity will be the current one times `factor`.
+    ///
+    /// The reference is the opacity's normalized value as `u8` and \a factor is
+    /// clamped to be between `0.0` and `1.0` before applying it.
+    ///
+    /// For _increasing_ the opacity, see Brush::opaque(float) and
+    /// Brush::with_alpha(float).
+    inline Brush translucent(float factor) const;
+    /// Returns a new version of this brush with the opacity increased by \a factor,
+    /// meaning the new opacity will be scaled up by `1.0 + factor`.
+    ///
+    /// The reference is the opacity's normalized value as `u8` and \a factor is
+    /// changed to be at least `0.0` before applying it, and thus the current
+    /// value cannot be decreased.
+    ///
+    /// For _decreasing_ the opacity, see Brush::translucent(float)
+    /// and Brush::with_alpha(float).
+    inline Brush opaque(float factor) const;
+
+    /// Returns a new version of this brush with the related color's opacities
+    /// set to \a alpha.
+    inline Brush with_alpha(float alpha) const;
+
     /// Returns true if \a a is equal to \a b. If \a a holds a color, then \a b must also hold a
     /// color that is identical to \a a's color. If it holds a gradient, then the gradients must be
     /// identical. Returns false if the brushes differ in what they hold or their respective color
@@ -213,6 +237,82 @@ inline Brush Brush::darker(float factor) const
         for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
             cbindgen_private::types::slint_color_darker(&data.radial_gradient._0[i].color, factor,
                                                         &result.data.radial_gradient._0[i].color);
+        }
+        break;
+    }
+    return result;
+}
+
+inline Brush Brush::translucent(float factor) const
+{
+    Brush result = *this;
+    switch (data.tag) {
+    case Tag::SolidColor:
+        cbindgen_private::types::slint_color_translucent(&data.solid_color._0, factor,
+                                                         &result.data.solid_color._0);
+        break;
+    case Tag::LinearGradient:
+        for (std::size_t i = 1; i < data.linear_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_translucent(
+                    &data.linear_gradient._0[i].color, factor,
+                    &result.data.linear_gradient._0[i].color);
+        }
+        break;
+    case Tag::RadialGradient:
+        for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_translucent(
+                    &data.radial_gradient._0[i].color, factor,
+                    &result.data.radial_gradient._0[i].color);
+        }
+        break;
+    }
+    return result;
+}
+
+inline Brush Brush::opaque(float factor) const
+{
+    Brush result = *this;
+    switch (data.tag) {
+    case Tag::SolidColor:
+        cbindgen_private::types::slint_color_opaque(&data.solid_color._0, factor,
+                                                    &result.data.solid_color._0);
+        break;
+    case Tag::LinearGradient:
+        for (std::size_t i = 1; i < data.linear_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_opaque(&data.linear_gradient._0[i].color, factor,
+                                                        &result.data.linear_gradient._0[i].color);
+        }
+        break;
+    case Tag::RadialGradient:
+        for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_opaque(&data.radial_gradient._0[i].color, factor,
+                                                        &result.data.radial_gradient._0[i].color);
+        }
+        break;
+    }
+    return result;
+}
+
+inline Brush Brush::with_alpha(float alpha) const
+{
+    Brush result = *this;
+    switch (data.tag) {
+    case Tag::SolidColor:
+        cbindgen_private::types::slint_color_with_alpha(&data.solid_color._0, alpha,
+                                                        &result.data.solid_color._0);
+        break;
+    case Tag::LinearGradient:
+        for (std::size_t i = 1; i < data.linear_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_with_alpha(
+                    &data.linear_gradient._0[i].color, alpha,
+                    &result.data.linear_gradient._0[i].color);
+        }
+        break;
+    case Tag::RadialGradient:
+        for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_with_alpha(
+                    &data.radial_gradient._0[i].color, alpha,
+                    &result.data.radial_gradient._0[i].color);
         }
         break;
     }

@@ -2365,6 +2365,27 @@ fn compile_builtin_function_call(
             let factor = a.next().unwrap();
             quote!(#x.darker(#factor as f32))
         }
+        BuiltinFunction::ColorTranslucent => {
+            let x = a.next().unwrap();
+            let factor = a.next().unwrap();
+            quote!(#x.translucent(#factor as f32))
+        }
+        BuiltinFunction::ColorOpaque => {
+            let x = a.next().unwrap();
+            let factor = a.next().unwrap();
+            quote!(#x.opaque(#factor as f32))
+        }
+        BuiltinFunction::ColorMixed => {
+            let x = a.next().unwrap();
+            let y = a.next().unwrap();
+            let factor = a.next().unwrap();
+            quote!(#x.mixed(&#y.into(), #factor as f32))
+        }
+        BuiltinFunction::ColorWithAlpha => {
+            let x = a.next().unwrap();
+            let alpha = a.next().unwrap();
+            quote!(#x.with_alpha(#alpha as f32))
+        }
         BuiltinFunction::ImageSize => quote!( #(#a)*.size()),
         BuiltinFunction::ArrayLength => {
             quote!(match &#(#a)* { x => {

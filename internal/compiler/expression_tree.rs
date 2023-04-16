@@ -47,6 +47,10 @@ pub enum BuiltinFunction {
     StringIsFloat,
     ColorBrighter,
     ColorDarker,
+    ColorTranslucent,
+    ColorOpaque,
+    ColorMixed,
+    ColorWithAlpha,
     ImageSize,
     ArrayLength,
     Rgb,
@@ -146,6 +150,22 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Brush),
                 args: vec![Type::Brush, Type::Float32],
             },
+            BuiltinFunction::ColorTranslucent => Type::Function {
+                return_type: Box::new(Type::Brush),
+                args: vec![Type::Brush, Type::Float32],
+            },
+            BuiltinFunction::ColorOpaque => Type::Function {
+                return_type: Box::new(Type::Brush),
+                args: vec![Type::Brush, Type::Float32],
+            },
+            BuiltinFunction::ColorMixed => Type::Function {
+                return_type: Box::new(Type::Color),
+                args: vec![Type::Color, Type::Color, Type::Float32],
+            },
+            BuiltinFunction::ColorWithAlpha => Type::Function {
+                return_type: Box::new(Type::Brush),
+                args: vec![Type::Brush, Type::Float32],
+            },
             BuiltinFunction::ImageSize => Type::Function {
                 return_type: Box::new(Type::Struct {
                     fields: IntoIterator::into_iter([
@@ -213,7 +233,12 @@ impl BuiltinFunction {
             BuiltinFunction::ShowPopupWindow => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
-            BuiltinFunction::ColorBrighter | BuiltinFunction::ColorDarker => true,
+            BuiltinFunction::ColorBrighter
+            | BuiltinFunction::ColorDarker
+            | BuiltinFunction::ColorTranslucent
+            | BuiltinFunction::ColorOpaque
+            | BuiltinFunction::ColorMixed
+            | BuiltinFunction::ColorWithAlpha => true,
             // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
             // we need to make sure that calls to this function stay within a binding, so that the property
             // notification when updating kicks in. Only Slintpad (wasm-interpreter) loads images via the network,
@@ -260,7 +285,12 @@ impl BuiltinFunction {
             BuiltinFunction::ShowPopupWindow => false,
             BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
-            BuiltinFunction::ColorBrighter | BuiltinFunction::ColorDarker => true,
+            BuiltinFunction::ColorBrighter
+            | BuiltinFunction::ColorDarker
+            | BuiltinFunction::ColorTranslucent
+            | BuiltinFunction::ColorOpaque
+            | BuiltinFunction::ColorMixed
+            | BuiltinFunction::ColorWithAlpha => true,
             BuiltinFunction::ImageSize => true,
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
