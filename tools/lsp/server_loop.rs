@@ -1051,7 +1051,7 @@ fn get_document_and_offset<'a>(
         + pos.character;
 
     let doc = document_cache.documents.get_document(&text_document_uri.to_file_path().ok()?)?;
-    doc.node.as_ref()?.text_range().contains(o.into()).then_some((doc, o))
+    doc.node.as_ref()?.text_range().contains_inclusive(o.into()).then_some((doc, o))
 }
 
 fn element_contains(element: &i_slint_compiler::object_tree::ElementRc, offset: u32) -> bool {
@@ -1091,7 +1091,7 @@ fn token_descr(
 
     let mut taf = node.token_at_offset(o.into());
     let token = match (taf.next(), taf.next()) {
-        (None, _) => return None,
+        (None, _) => node.last_token()?,
         (Some(t), None) => t,
         (Some(l), Some(r)) => match (l.kind(), r.kind()) {
             // Prioritize identifier
