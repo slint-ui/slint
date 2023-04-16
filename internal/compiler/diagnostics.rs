@@ -113,7 +113,9 @@ impl SourceFileInner {
                 .map(|s| {
                     s.bytes()
                         .enumerate()
-                        .filter_map(|(i, c)| if c == b'\n' { Some(i) } else { None })
+                        // Add the offset one past the '\n' into the index: That's the first char
+                        // of the new line!
+                        .filter_map(|(i, c)| if c == b'\n' { Some(i + 1) } else { None })
                         .collect()
                 })
                 .unwrap_or_default()
