@@ -128,7 +128,12 @@ fn fold(
     match n {
         NodeOrToken::Node(n) => format_node(&n, writer, state),
         NodeOrToken::Token(t) => {
-            if t.kind() == SyntaxKind::Whitespace {
+            if t.kind() == SyntaxKind::Eof {
+                if state.skip_all_whitespace {
+                    writer.with_new_content(t, "\n")?;
+                }
+                return Ok(());
+            } else if t.kind() == SyntaxKind::Whitespace {
                 if state.skip_all_whitespace && !state.after_comment {
                     writer.with_new_content(t, "")?;
                     return Ok(());
@@ -683,14 +688,14 @@ mod tests {
 
     #[test]
     fn basic_formatting() {
-        assert_formatting("A:=Text{}", "A := Text { }");
+        assert_formatting("A:=Text{}", "A := Text { }\n");
     }
 
     #[test]
     fn components() {
         assert_formatting(
             "component   A   {}  export component  B  inherits  Text {  }",
-            "component A { }\n\nexport component B inherits Text { }",
+            "component A { }\n\nexport component B inherits Text { }\n",
         );
     }
 
@@ -710,7 +715,8 @@ mod tests {
             /*y*/ {
     // c
               Foo/*aa*/ /*bb*/ { }
-}"#,
+}
+"#,
         );
     }
 
@@ -733,7 +739,8 @@ Main := Window {
 
     pure callback some-fn({x: int}, string);
     in property <int> foo: 42;
-}"#,
+}
+"#,
         );
     }
 
@@ -749,13 +756,14 @@ Main := Parent {
     Child {
         some-prop: parent.foo - 60px;
     }
-}"#,
+}
+"#,
         );
     }
 
     #[test]
     fn space_with_braces() {
-        assert_formatting("Main := Window{}", "Main := Window { }");
+        assert_formatting("Main := Window{}", "Main := Window { }\n");
         // Also in a child
         assert_formatting(
             r#"
@@ -763,7 +771,8 @@ Main := Window{Child{}}"#,
             r#"
 Main := Window {
     Child { }
-}"#,
+}
+"#,
         );
         assert_formatting(
             r#"
@@ -773,7 +782,8 @@ Main := VerticalLayout {
     HorizontalLayout {
         prop: 3;
     }
-}"#,
+}
+"#,
         );
     }
 
@@ -800,7 +810,8 @@ Main := Some {
     j: 3 >= 4;
     k: 3 && 4;
     l: 3 || 4;
-}"#,
+}
+"#,
         );
 
         assert_formatting(
@@ -825,7 +836,8 @@ Main := Some {
     m: 3 + 8;
     m: 3 + 8;
     m: 3 + 8;
-}"#,
+}
+"#,
         );
     }
 
@@ -844,7 +856,8 @@ A := Some {
     Text {
         x: 3px;
     }
-}"#,
+}
+"#,
         );
     }
 
@@ -863,7 +876,8 @@ A := B {
     C {
         @children
     }
-}"#,
+}
+"#,
         );
     }
 
@@ -878,7 +892,8 @@ A := B {
     for c in root.d: T {
         e: c.attr;
     }
-}"#,
+}
+"#,
         );
     }
 
@@ -897,7 +912,8 @@ A := B {
     for number [index] in [1, 2, 3]: C {
         d: number * index;
     }
-}"#,
+}
+"#,
         );
     }
 
@@ -910,7 +926,8 @@ component A {  if condition : Text {  }  }
             r#"
 component A {
     if condition: Text { }
-}"#,
+}
+"#,
         );
     }
 
@@ -923,7 +940,8 @@ A := B { c: [1,2,3]; }
             r#"
 A := B {
     c: [1, 2, 3];
-}"#,
+}
+"#,
         );
         assert_formatting(
             r#"
@@ -932,7 +950,8 @@ A := B { c: [    1    ]; }
             r#"
 A := B {
     c: [1];
-}"#,
+}
+"#,
         );
         assert_formatting(
             r#"
@@ -941,7 +960,8 @@ A := B { c:   [    ]  ; }
             r#"
 A := B {
     c: [];
-}"#,
+}
+"#,
         );
         assert_formatting(
             r#"
@@ -956,7 +976,8 @@ A := B { c:   [
             r#"
 A := B {
     c: [1, 2];
-}"#,
+}
+"#,
         );
     }
 
@@ -978,7 +999,8 @@ component FooBar {
         dummy1 when a == true: {}
     ]
 
-}"#,
+}
+"#,
         );
     }
 }
