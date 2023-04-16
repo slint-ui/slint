@@ -53,6 +53,14 @@
     overflow: "auto";
 }
 
+.preview .slint-preview {
+    filter: drop-shadow(0 0 1.5rem black);
+}
+
+.preview .slint-preview.picker-mode {
+    filter: drop-shadow(0 0 1.5rem var(--highlight-bg));
+}
+
 .preview .menu-area {
     position: absolute;
     border: none;

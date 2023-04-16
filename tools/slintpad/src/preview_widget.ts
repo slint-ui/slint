@@ -15,6 +15,7 @@ export class PreviewWidget extends Widget {
     #canvas_observer: MutationObserver | null = null;
     #zoom_level = 100;
     #previewer: Previewer;
+    #picker_mode = false;
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
@@ -132,9 +133,33 @@ export class PreviewWidget extends Widget {
             set_zoom_level(+zoom_level.value);
         });
 
+        const item_picker = document.createElement("button");
+        item_picker.innerHTML = '<i class="fa fa-eyedropper"></i>';
+
+        const toggle_button_state = (state: boolean): boolean => {
+            this.setPickerMode(state);
+            return state;
+        };
+
+        item_picker.addEventListener("click", () => {
+            this.#picker_mode = toggle_button_state(!this.#picker_mode);
+        });
+        item_picker.style.marginLeft = "20px";
+
+        toggle_button_state(this.#picker_mode);
+
         menu.appendChild(zoom_in);
         menu.appendChild(zoom_level);
         menu.appendChild(zoom_out);
+        menu.appendChild(item_picker);
+    }
+
+    protected setPickerMode(mode: boolean) {
+        this.canvasNode.classList.remove("picker-mode");
+        if (mode) {
+            this.canvasNode.classList.add("picker-mode");
+        }
+        this.#previewer.picker_mode = mode;
     }
 
     protected onCloseRequest(msg: Message): void {
