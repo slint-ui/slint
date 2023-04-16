@@ -19,33 +19,38 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Document);
 
     loop {
-        if p.nth(0).kind() == SyntaxKind::Eof {
+        if p.test(SyntaxKind::Eof) {
             return true;
         }
 
         match p.peek().as_str() {
             "export" => {
                 if !parse_export(&mut *p) {
-                    return false;
+                    break;
                 }
             }
             "import" => {
                 if !parse_import_specifier(&mut *p) {
-                    return false;
+                    break;
                 }
             }
             "struct" => {
                 if !parse_struct_declaration(&mut *p) {
-                    return false;
+                    break;
                 }
             }
             _ => {
                 if !parse_component(&mut *p) {
-                    return false;
+                    break;
                 }
             }
         }
     }
+    // Always consume the whole document
+    while !p.test(SyntaxKind::Eof) {
+        p.consume()
+    }
+    false
 }
 
 #[cfg_attr(test, parser_test)]

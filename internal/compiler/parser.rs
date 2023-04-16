@@ -636,7 +636,9 @@ impl Parser for DefaultParser<'_> {
     fn consume(&mut self) {
         let t = self.current_token();
         self.builder.token(t.kind.into(), t.text.as_str());
-        self.cursor += 1;
+        if t.kind != SyntaxKind::Eof {
+            self.cursor += 1;
+        }
     }
 
     /// Reports an error at the current token location
