@@ -3,8 +3,11 @@
 
 //! This module contains the code for the highlight of some elements
 
-use crate::dynamic_component::{ComponentBox, DynamicComponentVRc};
+// cSpell: ignore unerase
+
+use crate::dynamic_component::{ComponentBox, DynamicComponentVRc, ErasedComponentBox};
 use crate::Value;
+use i_slint_compiler::diagnostics::{SourceFile, Spanned};
 use i_slint_compiler::expression_tree::{Expression, Unit};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::namedreference::NamedReference;
@@ -12,13 +15,135 @@ use i_slint_compiler::object_tree::{
     BindingsMap, Component, Document, Element, ElementRc, PropertyAnalysis, PropertyDeclaration,
     PropertyVisibility, RepeatedElementInfo,
 };
+use i_slint_core::component::ComponentVTable;
 use i_slint_core::items::ItemRc;
+use i_slint_core::lengths::LogicalPoint;
 use i_slint_core::model::{ModelRc, VecModel};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
+use vtable::VRc;
 
 const HIGHLIGHT_PROP: &str = "$highlights";
+const CURRENT_ITEM_CALLBACK_PROP: &str = "$currentItem";
+const REQUEST_CURRENT_ITEM_PROP: &str = "$requestCurrentItem";
+
+fn find_item(item: &ItemRc, position: &LogicalPoint, offset: &LogicalPoint) -> Option<ItemRc> {
+    let geometry = item.geometry().translate(offset.to_vector());
+
+    if !geometry.contains(*position) {
+        return None;
+    }
+
+    let mut child = item.first_child();
+    while let Some(c) = &child {
+        let child_geometry = c.geometry();
+        let child_offset = *offset + child_geometry.min().to_vector();
+        if let Some(i) = find_item(c, position, &child_offset) {
+            return Some(i);
+        }
+
+        child = c.next_sibling();
+    }
+
+    return Some(item.clone());
+}
+
+fn item_at_position(component: &DynamicComponentVRc, position: &LogicalPoint) -> Option<ItemRc> {
+    let vrc = VRc::into_dyn(component.clone());
+    let root_item = ItemRc::new(vrc, 0); // Root item is at index 0
+    let offset = LogicalPoint::default();
+
+    return find_item(&root_item, position, &offset);
+}
+
+fn element_providing_item(component: &DynamicComponentVRc, index: usize) -> Option<ElementRc> {
+    generativity::make_guard!(guard);
+    let c = component.unerase(guard);
+
+    return c.description().original_elements.get(index).cloned();
+}
+
+fn map_offset_to_line(
+    source_file: Option<SourceFile>,
+    start_offset: usize,
+    end_offset: usize,
+) -> (String, u32, u32, u32, u32) {
+    if let Some(sf) = source_file {
+        let file_name = sf.path().to_string_lossy().to_string();
+        let (start_line, start_column) = sf.line_column(start_offset);
+        let (end_line, end_column) = sf.line_column(end_offset);
+        return (
+            file_name,
+            start_line as u32,
+            start_column as u32,
+            end_line as u32,
+            end_column as u32,
+        );
+    } else {
+        return (String::new(), 0, 0, 0, 0);
+    }
+}
+
+pub fn set_request_current_item_information_callback(
+    component_instance: &DynamicComponentVRc,
+    callback: Box<dyn Fn(String, u32, u32, u32, u32) -> ()>,
+) {
+    let weak_component = VRc::downgrade(component_instance);
+
+    generativity::make_guard!(guard);
+    let c = component_instance.unerase(guard);
+
+    let _ = c.description().set_callback_handler(
+        c.borrow(),
+        CURRENT_ITEM_CALLBACK_PROP,
+        Box::new(move |values: &[Value]| -> Value {
+            let position = LogicalPoint::new(
+                if let Some(Value::Number(n)) = values.get(0) { *n as f32 } else { f32::MAX },
+                if let Some(Value::Number(n)) = values.get(1) { *n as f32 } else { f32::MAX },
+            );
+
+            if let Some((file, start_line, start_column, end_line, end_column)) = weak_component
+                .upgrade()
+                .and_then(|c| item_at_position(&c, &position))
+                .and_then(|i| {
+                    element_providing_item(
+                        unsafe {
+                            std::mem::transmute::<
+                                &VRc<ComponentVTable>,
+                                &VRc<ComponentVTable, ErasedComponentBox>,
+                            >(&i.component())
+                        },
+                        i.index(),
+                    )
+                })
+                .and_then(|e| {
+                    let e = &e.borrow();
+                    e.node.as_ref().map(|n| {
+                        let offset = n.span().offset;
+                        let length: usize = n.text().len().into();
+                        map_offset_to_line(n.source_file().cloned(), offset, offset + length)
+                    })
+                })
+            {
+                callback(file, start_line, start_column, end_line, end_column);
+            } else {
+                callback(String::new(), 0, 0, 0, 0);
+            }
+
+            return Value::Void;
+        }),
+    );
+}
+
+pub fn request_current_item_information(component_instance: &DynamicComponentVRc, active: bool) {
+    generativity::make_guard!(guard);
+    let c = component_instance.unerase(guard);
+
+    c.description()
+        .set_binding(c.borrow(), REQUEST_CURRENT_ITEM_PROP, Box::new(move || active.into()))
+        .unwrap();
+}
 
 pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset: u32) {
     generativity::make_guard!(guard);
@@ -33,7 +158,7 @@ pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset
 
     let elements = elements.into_iter().map(|e| Rc::downgrade(&e)).collect::<Vec<_>>();
 
-    let component_instance = vtable::VRc::downgrade(component_instance);
+    let component_instance = VRc::downgrade(component_instance);
     let binding = move || {
         let component_instance = component_instance.upgrade().unwrap();
         generativity::make_guard!(guard);
@@ -70,7 +195,7 @@ fn fill_model(
             }
         }
     } else {
-        let vrc = vtable::VRc::into_dyn(
+        let vrc = VRc::into_dyn(
             component_instance.borrow_instance().self_weak().get().unwrap().upgrade().unwrap(),
         );
         let index = element.borrow().item_index.get().copied().unwrap();
@@ -116,7 +241,7 @@ fn repeater_path(elem: &ElementRc) -> Option<Vec<String>> {
     let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
     if let Some(parent) = enclosing.parent_element.upgrade() {
         if parent.borrow().repeated.is_none() {
-            // This is not a repeater, it is possibily a popup menu which is not supported ATM
+            // This is not a repeater, it is possibility a popup menu which is not supported ATM
             return None;
         }
         let mut r = repeater_path(&parent)?;
@@ -127,8 +252,22 @@ fn repeater_path(elem: &ElementRc) -> Option<Vec<String>> {
     }
 }
 
+pub(crate) fn add_highlighting(doc: &Document) {
+    add_highlight_items(doc);
+    add_current_item_callback(doc);
+
+    i_slint_compiler::passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
+
+    // Since we added a child, we must recompute the indices in the root component
+    clean_item_indices(&doc.root_component);
+    for p in doc.root_component.popup_windows.borrow().iter() {
+        clean_item_indices(&p.component);
+    }
+    i_slint_compiler::passes::generate_item_indices::generate_item_indices(&doc.root_component);
+}
+
 /// Add the `for rect in $highlights: $Highlight := Rectangle { ... }`
-pub(crate) fn add_highlight_items(doc: &Document) {
+fn add_highlight_items(doc: &Document) {
     let geom_props = ["width", "height", "x", "y"];
     doc.root_component.root_element.borrow_mut().property_declarations.insert(
         HIGHLIGHT_PROP.into(),
@@ -211,8 +350,6 @@ pub(crate) fn add_highlight_items(doc: &Document) {
             ..Default::default()
         });
 
-        i_slint_compiler::passes::resolve_native_classes::resolve_native_classes(&base);
-
         RefCell::new(Element {
             id: "$Highlight".into(),
             enclosing_component: Rc::downgrade(&doc.root_component),
@@ -232,13 +369,115 @@ pub(crate) fn add_highlight_items(doc: &Document) {
     });
 
     doc.root_component.root_element.borrow_mut().children.push(repeated);
+}
 
-    // Since we added a child, we must recompute the indices in the root component
-    clean_item_indices(&doc.root_component);
-    for p in doc.root_component.popup_windows.borrow().iter() {
-        clean_item_indices(&p.component);
-    }
-    i_slint_compiler::passes::generate_item_indices::generate_item_indices(&doc.root_component);
+/// Add the elements necessary to trigger the current item callback
+fn add_current_item_callback(doc: &Document) {
+    doc.root_component.root_element.borrow_mut().property_declarations.insert(
+        CURRENT_ITEM_CALLBACK_PROP.into(),
+        PropertyDeclaration {
+            property_type: Type::Callback {
+                return_type: None,
+                args: vec![Type::Int32, Type::Int32],
+            },
+            node: None,
+            expose_in_public_api: false,
+            is_alias: None,
+            visibility: PropertyVisibility::Private,
+            pure: None,
+        },
+    );
+    doc.root_component.root_element.borrow_mut().property_analysis.borrow_mut().insert(
+        CURRENT_ITEM_CALLBACK_PROP.into(),
+        PropertyAnalysis {
+            is_set: true,
+            is_set_externally: true,
+            is_read: true,
+            is_read_externally: true,
+            is_linked_to_read_only: false,
+        },
+    );
+    doc.root_component.root_element.borrow_mut().property_declarations.insert(
+        REQUEST_CURRENT_ITEM_PROP.into(),
+        PropertyDeclaration {
+            property_type: Type::Bool,
+            node: None,
+            expose_in_public_api: false,
+            is_alias: None,
+            visibility: PropertyVisibility::Input,
+            pure: None,
+        },
+    );
+    doc.root_component.root_element.borrow_mut().property_analysis.borrow_mut().insert(
+        REQUEST_CURRENT_ITEM_PROP.into(),
+        PropertyAnalysis {
+            is_set: true,
+            is_set_externally: true,
+            is_read: true,
+            is_read_externally: true,
+            is_linked_to_read_only: false,
+        },
+    );
+
+    let element = Rc::new(RefCell::new(Element {
+        enclosing_component: Rc::downgrade(&doc.root_component),
+        id: "$CurrentItem".into(),
+        base_type: doc.local_registry.lookup_builtin_element("TouchArea").unwrap(),
+        ..Default::default()
+    }));
+
+    let callback_prop =
+        NamedReference::new(&doc.root_component.root_element, CURRENT_ITEM_CALLBACK_PROP);
+    let request_prop =
+        NamedReference::new(&doc.root_component.root_element, REQUEST_CURRENT_ITEM_PROP);
+
+    let mut bindings: BindingsMap = Default::default();
+    bindings.insert("x".into(), RefCell::new(Expression::NumberLiteral(0.0, Unit::Px).into()));
+    bindings.insert("y".into(), RefCell::new(Expression::NumberLiteral(0.0, Unit::Px).into()));
+    bindings.insert(
+        "width".into(),
+        RefCell::new(
+            Expression::PropertyReference(NamedReference::new(
+                &doc.root_component.root_element,
+                "width",
+            ))
+            .into(),
+        ),
+    );
+    bindings.insert(
+        "height".into(),
+        RefCell::new(
+            Expression::PropertyReference(NamedReference::new(
+                &doc.root_component.root_element,
+                "height",
+            ))
+            .into(),
+        ),
+    );
+    bindings
+        .insert("enabled".into(), RefCell::new(Expression::PropertyReference(request_prop).into()));
+    bindings.insert(
+        "clicked".into(),
+        RefCell::new(
+            Expression::FunctionCall {
+                function: Box::new(Expression::CallbackReference(callback_prop, None)),
+                arguments: vec![
+                    Expression::PropertyReference(
+                        NamedReference::new(&element.clone(), "pressed-x").into(),
+                    ),
+                    Expression::PropertyReference(
+                        NamedReference::new(&element.clone(), "pressed-y").into(),
+                    ),
+                ],
+                source_location: None,
+            }
+            .into(),
+        ),
+    );
+
+    core::mem::swap(&mut element.borrow_mut().bindings, &mut bindings);
+
+    doc.root_component.root_element.borrow_mut().children.push(element);
 }
 
 fn clean_item_indices(cmp: &Rc<Component>) {

@@ -1017,6 +1017,25 @@ impl ComponentInstance {
     pub fn highlight(&self, path: PathBuf, offset: u32) {
         crate::highlight::highlight(&self.inner, path, offset);
     }
+
+    /// Request information on clicked object
+    ///
+    /// WARNING: this is not part of the public API
+    #[cfg(feature = "highlight")]
+    pub fn request_current_item_information(&self, active: bool) {
+        crate::highlight::request_current_item_information(&self.inner, active);
+    }
+
+    /// Register callback to handle current item information
+    ///
+    /// WARNING: this is not part of the public API
+    #[cfg(feature = "highlight")]
+    pub fn set_request_current_item_information_callback(
+        &self,
+        callback: Box<dyn Fn(String, u32, u32, u32, u32) -> ()>,
+    ) {
+        crate::highlight::set_request_current_item_information_callback(&self.inner, callback);
+    }
 }
 
 impl ComponentHandle for ComponentInstance {

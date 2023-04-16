@@ -37,11 +37,21 @@ impl CompilationResult {
 const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
 type ImportCallbackFunction = (url: string) => Promise<string>;
 "#;
+#[wasm_bindgen(typescript_custom_section)]
+const CURRENT_ITEM_INFORMATION_CALLBACK_FUNCTION_SECTION: &'static str = r#"
+type CurrentItemInformationCallbackFunction = (url: string, start_line: number, start_column: number, end_line: number, end_column: number) => void;
+"#;
 
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
     pub type ImportCallbackFunction;
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "CurrentItemInformationCallbackFunction")]
+    pub type CurrentItemInformationCallbackFunction;
 }
 
 /// Compile the content of a string.
@@ -202,6 +212,42 @@ impl WrappedInstance {
     pub fn highlight(&self, _path: &str, _offset: u32) {
         self.0.highlight(_path.into(), _offset);
         let _ = slint_interpreter::invoke_from_event_loop(|| {}); // wake event loop
+    }
+
+    /// THIS FUNCTION IS NOT PART THE PUBLIC API!
+    /// Request information on what to highlight in the editor based on clicks in the UI
+    #[cfg(feature = "highlight")]
+    #[wasm_bindgen]
+    pub fn request_current_item_information(&self, active: bool) {
+        self.0.request_current_item_information(active);
+        let _ = slint_interpreter::invoke_from_event_loop(|| {}); // wake event loop
+    }
+
+    /// THIS FUNCTION IS NOT PART THE PUBLIC API!
+    /// Request information on what to highlight in the editor based on clicks in the UI
+    #[cfg(feature = "highlight")]
+    #[wasm_bindgen]
+    pub fn set_current_item_information_callback(
+        &self,
+        callback: CurrentItemInformationCallbackFunction,
+    ) {
+        self.0.set_request_current_item_information_callback(Box::new(
+            move |url: String,
+                  start_line: u32,
+                  start_column: u32,
+                  end_line: u32,
+                  end_column: u32| {
+                let args = js_sys::Array::of5(
+                    &url.into(),
+                    &start_line.into(),
+                    &start_column.into(),
+                    &end_line.into(),
+                    &end_column.into(),
+                );
+                let callback = js_sys::Function::from(callback.clone());
+                let _ = callback.apply(&JsValue::UNDEFINED, &args);
+            },
+        ));
     }
 }
 
