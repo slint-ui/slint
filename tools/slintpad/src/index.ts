@@ -470,6 +470,10 @@ function setup(lsp: Lsp) {
         start: { line: number; column: number },
         end: { line: number; column: number },
     ) => {
+        if (url === "") {
+            return;
+        }
+
         editor.goto_position(
             url,
             LspRange.create(
