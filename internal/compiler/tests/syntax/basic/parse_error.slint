@@ -21,4 +21,13 @@ export SuperSimple := Rectangle {
         * .
 //      ^error{Parse error}
     }
-}
+  };
+// ^error{Extra semicolon. Remove this semicolon}
+
+struct F {};
+//         ^error{Extra semicolon. Remove this semicolon}
+
+export {F};
+//        ^error{Extra semicolon. Remove this semicolon}
+
+

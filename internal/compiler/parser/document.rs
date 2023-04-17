@@ -23,6 +23,12 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
             return true;
         }
 
+        if p.peek().kind() == SyntaxKind::Semicolon {
+            p.error("Extra semicolon. Remove this semicolon");
+            p.consume();
+            continue;
+        }
+
         match p.peek().as_str() {
             "export" => {
                 if !parse_export(&mut *p) {
