@@ -1063,7 +1063,45 @@ fn continue_lookup_within_element(
     } else if matches!(ctx.property_type, Type::ElementReference) {
         return Expression::ElementReference(Rc::downgrade(elem));
     } else {
-        ctx.diag.push_error("Cannot take reference of an element".into(), &node);
+        // Try to recover in case we wanted to access a property
+        let mut rest = String::new();
+        if let Some(LookupResult::Expression {
+            expression: Expression::PropertyReference(nr),
+            ..
+        }) = crate::lookup::InScopeLookup.lookup(ctx, &elem.borrow().id)
+        {
+            let e = nr.element();
+            let e_borrowed = e.borrow();
+            let mut id = e_borrowed.id.as_str();
+            if id.is_empty() {
+                if ctx.component_scope.last().map_or(false, |x| Rc::ptr_eq(&e, x)) {
+                    id = "self";
+                } else if ctx.component_scope.first().map_or(false, |x| Rc::ptr_eq(&e, x)) {
+                    id = "root";
+                } else if ctx
+                    .component_scope
+                    .iter()
+                    .nth_back(1)
+                    .map_or(false, |x| Rc::ptr_eq(&e, x))
+                {
+                    id = "parent";
+                }
+            };
+            if !id.is_empty() {
+                rest =
+                    format!(". Use '{id}.{}' to access the property with the same name", nr.name());
+            }
+        } else if let Some(LookupResult::Expression {
+            expression: Expression::EnumerationValue(value),
+            ..
+        }) = crate::lookup::ReturnTypeSpecificLookup.lookup(ctx, &elem.borrow().id)
+        {
+            rest = format!(
+                ". Use '{}.{value}' to access the enumeration value",
+                value.enumeration.name
+            );
+        }
+        ctx.diag.push_error(format!("Cannot take reference of an element{rest}"), &node);
         return Expression::Invalid;
     };
     let prop_name = crate::parser::normalize_identifier(second.text());
