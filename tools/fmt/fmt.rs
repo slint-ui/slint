@@ -93,8 +93,14 @@ fn format_node(
         SyntaxKind::BinaryExpression => {
             return format_binary_expression(node, writer, state);
         }
+        SyntaxKind::ConditionalExpression => {
+            return format_conditional_expression(node, writer, state);
+        }
         SyntaxKind::Expression => {
             return format_expression(node, writer, state);
+        }
+        SyntaxKind::CodeBlock => {
+            return format_codeblock(node, writer, state);
         }
         SyntaxKind::ChildrenPlaceholder => {
             return format_children_placeholder(node, writer, state);
@@ -507,6 +513,83 @@ fn format_binary_expression(
     Ok(())
 }
 
+fn format_conditional_expression(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let has_if = node.child_text(SyntaxKind::Identifier).map_or(false, |x| x == "if");
+
+    let mut sub = node.children_with_tokens();
+    if has_if {
+        let ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::LParent, writer, state, " ")?
+            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::RParent, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+        if !ok {
+            finish_node(sub, writer, state)?;
+            return Ok(());
+        }
+        while let Some(n) = sub.next() {
+            state.skip_all_whitespace = true;
+            match n.kind() {
+                // "else"
+                SyntaxKind::Identifier => {
+                    state.insert_whitespace(" ");
+                    fold(n, writer, state)?;
+                    let x = whitespace_to_one_of(
+                        &mut sub,
+                        &[SyntaxKind::Identifier, SyntaxKind::Expression],
+                        writer,
+                        state,
+                        " ",
+                    )?;
+                    let ok = match x {
+                        SyntaxMatch::NotFound => false,
+                        // "if"
+                        SyntaxMatch::Found(SyntaxKind::Identifier) => {
+                            whitespace_to(&mut sub, SyntaxKind::LParent, writer, state, " ")?
+                                && whitespace_to(
+                                    &mut sub,
+                                    SyntaxKind::Expression,
+                                    writer,
+                                    state,
+                                    "",
+                                )?
+                                && whitespace_to(&mut sub, SyntaxKind::RParent, writer, state, "")?
+                                && whitespace_to(
+                                    &mut sub,
+                                    SyntaxKind::CodeBlock,
+                                    writer,
+                                    state,
+                                    " ",
+                                )?
+                        }
+                        SyntaxMatch::Found(_) => true,
+                    };
+                    if !ok {
+                        finish_node(sub, writer, state)?;
+                        return Ok(());
+                    }
+                    continue;
+                }
+                _ => {}
+            }
+            fold(n, writer, state)?;
+        }
+        state.new_line();
+    } else {
+        let _ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
+            && whitespace_to(&mut sub, SyntaxKind::Question, writer, state, " ")?
+            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?
+            && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, " ")?
+            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+        finish_node(sub, writer, state)?;
+    }
+    Ok(())
+}
+
 fn format_expression(
     node: &SyntaxNode,
     writer: &mut impl TokenWriter,
@@ -520,7 +603,33 @@ fn format_expression(
         state.skip_all_whitespace = true;
         fold(n, writer, state)?;
     }
+    Ok(())
+}
 
+fn format_codeblock(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    if node.first_child_or_token().is_none() {
+        // empty CodeBlock happens when there is no `else` for example
+        return Ok(());
+    }
+    let mut sub = node.children_with_tokens();
+    if !whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")? {
+        finish_node(sub, writer, state)?;
+        return Ok(());
+    }
+    state.indentation_level += 1;
+    state.new_line();
+    while let Some(n) = sub.next() {
+        if n.kind() == SyntaxKind::RBrace {
+            state.indentation_level -= 1;
+            state.whitespace_to_add = None;
+            state.new_line();
+        }
+        fold(n, writer, state)?;
+    }
     Ok(())
 }
 
@@ -731,7 +840,9 @@ Main :=Window{callback some-fn(string,string)->bool;some-fn(a, b)=>{a<=b} proper
             r#"
 Main := Window {
     callback some-fn(string, string) -> bool;
-    some-fn(a, b) => {a <= b}
+    some-fn(a, b) => {
+        a <= b
+    }
     property <bool> prop-x;
     VerticalBox {
         combo := ComboBox { }
@@ -999,6 +1110,35 @@ component FooBar {
         dummy1 when a == true: {}
     ]
 
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn if_else() {
+        assert_formatting(
+            r#"
+A := B { c: true  ||false?  45 + 6:34+ 1; }
+"#,
+            r#"
+A := B {
+    c: true || false ? 45 + 6 : 34 + 1;
+}
+"#,
+        );
+        assert_formatting(
+            r#"A := B { c => { if(!abc){nothing}else   if  (true){if (0== 8) {}    } else{  } } } "#,
+            r#"A := B {
+    c => {
+        if (!abc) {
+            nothing
+        } else if (true) {
+            if (0 == 8) {
+            }
+        } else {
+        }
+    }
 }
 "#,
         );
