@@ -85,10 +85,10 @@ impl From<Color> for RgbaColor<f32> {
 impl From<RgbaColor<f32>> for Color {
     fn from(col: RgbaColor<f32>) -> Self {
         Self {
-            red: (col.red * 255.) as u8,
-            green: (col.green * 255.) as u8,
-            blue: (col.blue * 255.) as u8,
-            alpha: (col.alpha * 255.) as u8,
+            red: (col.red * 255.).round() as u8,
+            green: (col.green * 255.).round() as u8,
+            blue: (col.blue * 255.).round() as u8,
+            alpha: (col.alpha * 255.).round() as u8,
         }
     }
 }
