@@ -329,7 +329,7 @@ jobs:
       # Skip the path layout related tests as the element has been removed
       # Skip the booker as it use api from the LineEdit that wasn"t meant to be used
       run: |
-        cargo test --bin test-driver-interpreter -- \
+        cargo test -p test-driver-interpreter -- \
                   --skip test_interpreter_text_cursor_move \
                   --skip test_interpreter_text_cursor_move_grapheme \
                   --skip test_interpreter_text_cut \
@@ -349,3 +349,24 @@ jobs:
                   --skip test_interpreter_elements_path_fit \
                   --skip test_interpreter_layout_path \
                   --skip test_interpreter_7guis_booker \
+
+  # Test that the formater don't introduce slint compilation error
+  fmt_test:
+    env:
+      SLINT_NO_QT: 1
+      CARGO_INCREMENTAL: false
+      RUST_BACKTRACE: 1
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/install-linux-dependencies
+    - uses: ./.github/actions/setup-rust
+    - name: run the formatter
+      run: |
+        cargo run -p slint-fmt -- -i tests/cases/*/*.slint
+        cargo run -p slint-fmt -- -i examples/*/*.slint
+        cargo run -p slint-fmt -- -i examples/*/*/*.slint
+    - name: Show the diff
+      run: git diff
+    - name: Run the intepreter test to make sure that the test are passing after format
+      run: cargo test -p test-driver-interpreter
