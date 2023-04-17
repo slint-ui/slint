@@ -90,7 +90,7 @@ fn format_node(
         SyntaxKind::QualifiedName => {
             return format_qualified_name(node, writer, state);
         }
-        SyntaxKind::BinaryExpression => {
+        SyntaxKind::SelfAssignment | SyntaxKind::BinaryExpression => {
             return format_binary_expression(node, writer, state);
         }
         SyntaxKind::ConditionalExpression => {
@@ -101,6 +101,9 @@ fn format_node(
         }
         SyntaxKind::CodeBlock => {
             return format_codeblock(node, writer, state);
+        }
+        SyntaxKind::AtGradient => {
+            return format_at_gradient(node, writer, state);
         }
         SyntaxKind::ChildrenPlaceholder => {
             return format_children_placeholder(node, writer, state);
@@ -479,6 +482,7 @@ fn format_qualified_name(
     Ok(())
 }
 
+// Called both for BinaryExpression and SelfAssignment
 fn format_binary_expression(
     node: &SyntaxNode,
     writer: &mut impl TokenWriter,
@@ -502,6 +506,11 @@ fn format_binary_expression(
                 SyntaxKind::LessEqual,
                 SyntaxKind::RAngle,
                 SyntaxKind::GreaterEqual,
+                SyntaxKind::Equal,
+                SyntaxKind::PlusEqual,
+                SyntaxKind::MinusEqual,
+                SyntaxKind::StarEqual,
+                SyntaxKind::DivEqual,
             ],
             writer,
             state,
@@ -627,6 +636,29 @@ fn format_codeblock(
             state.indentation_level -= 1;
             state.whitespace_to_add = None;
             state.new_line();
+        }
+        fold(n, writer, state)?;
+    }
+    Ok(())
+}
+
+fn format_at_gradient(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    // ensure that two consecutive expression are separated with space
+    let mut seen_expression = false;
+    for n in node.children_with_tokens() {
+        state.skip_all_whitespace = true;
+        match n.kind() {
+            SyntaxKind::Expression => {
+                if seen_expression {
+                    state.insert_whitespace(" ");
+                }
+                seen_expression = true;
+            }
+            _ => {}
         }
         fold(n, writer, state)?;
     }
