@@ -2396,6 +2396,9 @@ fn compile_builtin_function_call(
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_adapter_tokens.window()).set_text_input_focused(#(#a)*))
         }
+        BuiltinFunction::Translate => {
+            todo!("BuiltinFunction::Translate in rust")
+        }
     }
 }
 

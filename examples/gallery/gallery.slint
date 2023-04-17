@@ -11,13 +11,13 @@ export { TableViewPageAdapter }
 component App inherits Window {
     preferred-width: 700px;
     preferred-height: 500px;
-    title: "Slint Widgets Gallery";
+    title: @tr("Slint Widgets Gallery");
     icon: @image-url("../../logo/slint-logo-small-light-128x128.png");
 
     HorizontalLayout {
         side-bar := SideBar {
-            title: "Slint Widgets Gallery";
-            model: ["Controls", "ListView", "TableView", "TextEdit", "About"];
+            title: @tr("Slint Widgets Gallery");
+            model: [@tr("Controls"), @tr("ListView"), @tr("TableView"), @tr("TextEdit"), @tr("About")];
         }
 
         if(side-bar.current-item == 0) : ControlsPage {}

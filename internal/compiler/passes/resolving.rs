@@ -241,6 +241,7 @@ impl Expression {
             .map(|n| Self::from_expression_node(n, ctx))
             .or_else(|| node.AtImageUrl().map(|n| Self::from_at_image_url_node(n, ctx)))
             .or_else(|| node.AtGradient().map(|n| Self::from_at_gradient(n, ctx)))
+            .or_else(|| node.AtTr().map(|n| Self::from_at_tr(n, ctx)))
             .or_else(|| {
                 node.QualifiedName().map(|n| {
                     let exp =
@@ -512,6 +513,36 @@ impl Expression {
         match grad_kind {
             GradKind::Linear { angle } => Expression::LinearGradient { angle, stops },
             GradKind::Radial => Expression::RadialGradient { stops },
+        }
+    }
+
+    fn from_at_tr(node: syntax_nodes::AtTr, ctx: &mut LookupCtx) -> Expression {
+        let Some(string) = node
+            .child_text(SyntaxKind::StringLiteral)
+            .and_then(|s| crate::literals::unescape_string(&s))
+        else {
+            ctx.diag.push_error("Cannot parse string literal".into(), &node);
+            return Expression::Invalid;
+        };
+
+        let subs = node.Expression().map(|n| {
+            Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
+                Type::String,
+                &n,
+                ctx.diag,
+            )
+        });
+
+        Expression::FunctionCall {
+            function: Box::new(Expression::BuiltinFunctionReference(
+                BuiltinFunction::Translate,
+                Some(node.to_source_location()),
+            )),
+            arguments: vec![
+                Expression::StringLiteral(string),
+                Expression::Array { element_ty: Type::String, values: subs.collect() },
+            ],
+            source_location: Some(node.to_source_location()),
         }
     }
 

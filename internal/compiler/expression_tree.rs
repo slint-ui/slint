@@ -57,6 +57,7 @@ pub enum BuiltinFunction {
     RegisterCustomFontByPath,
     RegisterCustomFontByMemory,
     RegisterBitmapFont,
+    Translate,
 }
 
 #[derive(Debug, Clone)]
@@ -183,6 +184,10 @@ impl BuiltinFunction {
             BuiltinFunction::RegisterBitmapFont => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::Int32] }
             }
+            BuiltinFunction::Translate => Type::Function {
+                return_type: Box::new(Type::String),
+                args: vec![Type::String, Type::Array(Type::String.into())],
+            },
         }
     }
 
@@ -230,6 +235,7 @@ impl BuiltinFunction {
             BuiltinFunction::RegisterCustomFontByPath
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
+            BuiltinFunction::Translate => false,
         }
     }
 
@@ -270,6 +276,7 @@ impl BuiltinFunction {
             BuiltinFunction::RegisterCustomFontByPath
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
+            BuiltinFunction::Translate => true,
         }
     }
 }

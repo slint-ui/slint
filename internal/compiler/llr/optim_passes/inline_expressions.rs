@@ -103,6 +103,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::DarkColorScheme => isize::MAX,
         BuiltinFunction::SetTextInputFocused => PROPERTY_ACCESS_COST,
         BuiltinFunction::TextInputFocused => PROPERTY_ACCESS_COST,
+        BuiltinFunction::Translate => 2 * ALLOC_COST + PROPERTY_ACCESS_COST,
     }
 }
 

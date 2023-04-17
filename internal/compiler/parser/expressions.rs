@@ -212,6 +212,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
 /// ```test
 /// @image-url("/foo/bar.png")
 /// @linear-gradient(0deg, blue, red)
+/// @tr("foo", bar)
 /// ```
 fn parse_at_keyword(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().kind(), SyntaxKind::At);
@@ -230,10 +231,13 @@ fn parse_at_keyword(p: &mut impl Parser) {
         "radial-gradient" | "radial_gradient" => {
             parse_gradient(p);
         }
+        "tr" => {
+            parse_tr(p);
+        }
         _ => {
             p.consume();
             p.test(SyntaxKind::Identifier); // consume the identifier, so that autocomplete works
-            p.error("Expected 'image-url', 'linear-gradient' or 'radial-gradient' after '@'");
+            p.error("Expected 'image-url', 'tr', 'linear-gradient' or 'radial-gradient' after '@'");
         }
     }
 }
@@ -350,4 +354,34 @@ fn parse_gradient(p: &mut impl Parser) {
         }
         p.test(SyntaxKind::Comma);
     }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,AtTr
+/// @tr("foo")
+/// @tr("foo", bar)
+/// ```
+fn parse_tr(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::AtTr);
+    p.expect(SyntaxKind::At);
+    debug_assert_eq!(p.peek().as_str(), "tr");
+    p.expect(SyntaxKind::Identifier); //"tr"
+    p.expect(SyntaxKind::LParent);
+    let peek = p.peek();
+
+    if peek.kind() != SyntaxKind::StringLiteral
+        || !peek.as_str().starts_with('"')
+        || !peek.as_str().ends_with('"')
+    {
+        p.error("Expected plain string literal");
+        return;
+    }
+    p.expect(SyntaxKind::StringLiteral);
+
+    while p.test(SyntaxKind::Comma) {
+        if !parse_expression(&mut *p) {
+            break;
+        }
+    }
+    p.expect(SyntaxKind::RParent);
 }

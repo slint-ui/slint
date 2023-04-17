@@ -19,14 +19,14 @@ export global TableViewPageAdapter  {
 }
 
 export component TableViewPage inherits Page {
-    title: "TableView";
-    description: "StandardTableView can be used to display a list of text elements in columns and rows. It can be imported from \"std-widgets.slint\"";
+    title: @tr("TableView");
+    description: @tr("StandardTableView can be used to display a list of text elements in columns and rows. It can be imported from \"std-widgets.slint\"");
 
     HorizontalBox {
         vertical-stretch: 1;
 
         GroupBox {
-            title: "StandardTableView";
+            title: @tr("StandardTableView");
             vertical-stretch: 0;
 
             StandardTableView {
@@ -39,10 +39,10 @@ export component TableViewPage inherits Page {
                 }
 
                 columns: [
-                    { title: "Header 1" },
-                    { title: "Header 2" },
-                    { title: "Header 3" },
-                    { title: "Header 4" },
+                    { title: @tr("Header 1") },
+                    { title: @tr("Header 2") },
+                    { title: @tr("Header 3") },
+                    { title: @tr("Header 4") },
                 ];
                 rows: TableViewPageAdapter.row_data;
             }

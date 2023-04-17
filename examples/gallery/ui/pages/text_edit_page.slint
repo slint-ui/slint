@@ -6,23 +6,23 @@ import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
 export component TextEditPage inherits Page {
-    title: "TextEdit";
-    description: "Similar to LineEdit, but can be used to enter several lines of text. The widget can be imported from \"std-widgets.slint\".";
+    title: @tr("TextEdit");
+    description: @tr("Similar to LineEdit, but can be used to enter several lines of text. The widget can be imported from \"std-widgets.slint\".");
 
     HorizontalBox {
         GroupBox {
             vertical-stretch: 0;
-            title: "Word-Wrap";
+            title: @tr("Word-Wrap");
             te1 := TextEdit {
                 // min-width: 200px;
-                text: "This is our TextEdit widget, which allows for editing text that spans over multiple paragraphs.\nFor example this line starts in a new paragraph.\n\nWhen the amount of lines - due to wrapping and number of paragraphs - exceeds the available vertical height, a vertical scrollbar is shown that allows scrolling.\nYou may want to enter a bit of text here then in order to make them visible.";
+                text: @tr("This is our TextEdit widget, which allows for editing text that spans over multiple paragraphs.\nFor example this line starts in a new paragraph.\n\nWhen the amount of lines - due to wrapping and number of paragraphs - exceeds the available vertical height, a vertical scrollbar is shown that allows scrolling.\nYou may want to enter a bit of text here then in order to make them visible.");
                 wrap: word-wrap;
                 enabled: GallerySettings.widgets-enabled;
             }
         }
 
         GroupBox {
-            title: "No-Wrap";
+            title: @tr("No-Wrap");
             vertical-stretch: 0;
             te2 := TextEdit {
                 // min-width: 200px;
