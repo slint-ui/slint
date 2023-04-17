@@ -277,7 +277,8 @@ impl LookupObject for IdLookup {
     // TODO: hash based lookup
 }
 
-struct InScopeLookup;
+/// In-scope properties, or model
+pub struct InScopeLookup;
 impl InScopeLookup {
     fn visit_scope<R>(
         ctx: &LookupCtx,
@@ -494,7 +495,8 @@ impl LookupType {
     }
 }
 
-struct ReturnTypeSpecificLookup;
+/// Lookup for things specific to the return type (eg: colors or enums)
+pub struct ReturnTypeSpecificLookup;
 impl LookupObject for ReturnTypeSpecificLookup {
     fn for_each_entry<R>(
         &self,

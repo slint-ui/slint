@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export component Test {
+    property <int> abc;
+    abc := Rectangle {
+        property <float> cde;
+        Rectangle {
+            property <float> abc;
+            cde := Rectangle {
+                y: cde * 1px
+            //     ^error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
+                    + abc * 1px;
+            //        ^error{Cannot take reference of an element. Use 'parent.abc' to access the property with the same name}
+                Rectangle {
+                    width: abc * 1px; // this would try to access the abc property of the un-named element, so no hint
+            //             ^error{Cannot take reference of an element$}
+                }
+            }
+
+            x: cde * 1px
+            // ^error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
+                + abc * 1px;
+            //    ^error{Cannot take reference of an element. Use 'self.abc' to access the property with the same name}
+        }
+        password := TextInput {
+            x: cde * 1px
+            // ^error{Cannot take reference of an element. Use 'abc.cde' to access the property with the same name}
+                + abc * 1px;
+            //    ^error{Cannot take reference of an element. Use 'root.abc' to access the property with the same name}
+            input-type: password;
+            //          ^error{Cannot take reference of an element. Use 'InputType.password' to access the enumeration value}
+        }
+    }
+}
+
