@@ -36,7 +36,7 @@ impl CompilationResult {
 #[wasm_bindgen(typescript_custom_section)]
 const CALLBACK_FUNCTION_SECTION: &'static str = r#"
 type ImportCallbackFunction = (url: string) => Promise<string>;
-type CurrentItemInformationCallbackFunction = (url: string, start_line: number, start_column: number, end_line: number, end_column: number) => void;
+type CurrentElementInformationCallbackFunction = (url: string, start_line: number, start_column: number, end_line: number, end_column: number) => void;
 "#;
 
 #[wasm_bindgen]
@@ -44,8 +44,8 @@ extern "C" {
     #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
     pub type ImportCallbackFunction;
 
-    #[wasm_bindgen(typescript_type = "CurrentItemInformationCallbackFunction")]
-    pub type CurrentItemInformationCallbackFunction;
+    #[wasm_bindgen(typescript_type = "CurrentElementInformationCallbackFunction")]
+    pub type CurrentElementInformationCallbackFunction;
 }
 
 /// Compile the content of a string.
@@ -221,11 +221,11 @@ impl WrappedInstance {
     /// Request information on what to highlight in the editor based on clicks in the UI
     #[cfg(feature = "highlight")]
     #[wasm_bindgen]
-    pub fn set_current_item_information_callback(
+    pub fn set_current_element_information_callback(
         &self,
-        callback: CurrentItemInformationCallbackFunction,
+        callback: CurrentElementInformationCallbackFunction,
     ) {
-        self.0.set_current_item_information_callback(Box::new(
+        self.0.set_current_element_information_callback(Box::new(
             move |url: String,
                   start_line: u32,
                   start_column: u32,

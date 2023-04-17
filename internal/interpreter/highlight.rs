@@ -16,6 +16,7 @@ use i_slint_compiler::object_tree::{
     PropertyVisibility, RepeatedElementInfo,
 };
 use i_slint_core::component::ComponentVTable;
+use i_slint_core::item_tree::ItemWeak;
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::LogicalPoint;
 use i_slint_core::model::{ModelRc, VecModel};
@@ -25,36 +26,43 @@ use std::rc::Rc;
 use vtable::VRc;
 
 const HIGHLIGHT_PROP: &str = "$highlights";
-const CURRENT_ITEM_CALLBACK_PROP: &str = "$currentItemCallback";
+const CURRENT_ELEMENT_CALLBACK_PROP: &str = "$currentElementCallback";
 const DESIGN_MODE_PROP: &str = "$designMode";
 
-fn find_item(item: &ItemRc, position: &LogicalPoint, offset: &LogicalPoint) -> Option<ItemRc> {
-    let geometry = item.geometry().translate(offset.to_vector());
-
-    if !geometry.contains(*position) {
-        return None;
+fn next_item(item: &ItemRc) -> ItemRc {
+    if let Some(s) = item.next_sibling() {
+        return next_item_down(&s);
     }
-
-    let mut child = item.first_child();
-    while let Some(c) = &child {
-        let child_geometry = c.geometry();
-        let child_offset = *offset + child_geometry.min().to_vector();
-        if let Some(i) = find_item(c, position, &child_offset) {
-            return Some(i);
-        }
-
-        child = c.next_sibling();
+    if let Some(p) = item.parent_item() {
+        return p;
+    } else {
+        return next_item_down(item);
     }
-
-    return Some(item.clone());
 }
 
-fn item_at_position(component: &DynamicComponentVRc, position: &LogicalPoint) -> Option<ItemRc> {
-    let vrc = VRc::into_dyn(component.clone());
-    let root_item = ItemRc::new(vrc, 0); // Root item is at index 0
-    let offset = LogicalPoint::default();
+fn next_item_down(item: &ItemRc) -> ItemRc {
+    if let Some(child) = item.first_child() {
+        return next_item_down(&child);
+    } else {
+        return item.clone();
+    }
+}
 
-    return find_item(&root_item, position, &offset);
+fn find_item(item: &ItemRc, position: &LogicalPoint) -> ItemRc {
+    let mut next = item.clone();
+    loop {
+        next = next_item(&next);
+
+        if next == *item {
+            return next;
+        }
+        let offset = next.map_to_window(LogicalPoint::default());
+        let geometry = next.geometry().translate(offset.to_vector());
+
+        if geometry.contains(*position) {
+            return next;
+        }
+    }
 }
 
 fn element_providing_item(component: &DynamicComponentVRc, index: usize) -> Option<ElementRc> {
@@ -85,7 +93,11 @@ fn map_offset_to_line(
     }
 }
 
-pub fn set_current_item_information_callback(
+struct DesignModeState {
+    pub current_item: Option<ItemWeak>,
+}
+
+pub fn set_current_element_information_callback(
     component_instance: &DynamicComponentVRc,
     callback: Box<dyn Fn(String, u32, u32, u32, u32) -> ()>,
 ) {
@@ -96,27 +108,39 @@ pub fn set_current_item_information_callback(
 
     let _ = c.description().set_callback_handler(
         c.borrow(),
-        CURRENT_ITEM_CALLBACK_PROP,
+        CURRENT_ELEMENT_CALLBACK_PROP,
         Box::new(move |values: &[Value]| -> Value {
+            static mut STATE: DesignModeState = DesignModeState { current_item: None };
+
             let position = LogicalPoint::new(
                 if let Some(Value::Number(n)) = values.get(0) { *n as f32 } else { f32::MAX },
                 if let Some(Value::Number(n)) = values.get(1) { *n as f32 } else { f32::MAX },
             );
 
-            if let Some((file, start_line, start_column, end_line, end_column)) = weak_component
-                .upgrade()
-                .and_then(|c| item_at_position(&c, &position))
-                .and_then(|i| {
-                    element_providing_item(
-                        unsafe {
-                            std::mem::transmute::<
-                                &VRc<ComponentVTable>,
-                                &VRc<ComponentVTable, ErasedComponentBox>,
-                            >(&i.component())
-                        },
-                        i.index(),
-                    )
-                })
+            let c = if let Some(c) = weak_component.upgrade() {
+                c
+            } else {
+                callback(String::new(), 0, 0, 0, 0);
+                return Value::Void;
+            };
+
+            let start_item = unsafe { STATE.current_item.take() }
+                .and_then(|i| i.upgrade())
+                .unwrap_or_else(|| ItemRc::new(VRc::into_dyn(c.clone()), 0));
+
+            let i = find_item(&start_item, &position);
+            unsafe { STATE.current_item = Some(i.downgrade()) };
+
+            if let Some((file, start_line, start_column, end_line, end_column)) =
+                element_providing_item(
+                    unsafe {
+                        std::mem::transmute::<
+                            &VRc<ComponentVTable>,
+                            &VRc<ComponentVTable, ErasedComponentBox>,
+                        >(&i.component())
+                    },
+                    i.index(),
+                )
                 .and_then(|e| {
                     let e = &e.borrow();
                     e.node.as_ref().map(|n| {
@@ -374,7 +398,7 @@ fn add_highlight_items(doc: &Document) {
 /// Add the elements necessary to trigger the current item callback
 fn add_current_item_callback(doc: &Document) {
     doc.root_component.root_element.borrow_mut().property_declarations.insert(
-        CURRENT_ITEM_CALLBACK_PROP.into(),
+        CURRENT_ELEMENT_CALLBACK_PROP.into(),
         PropertyDeclaration {
             property_type: Type::Callback {
                 return_type: None,
@@ -388,7 +412,7 @@ fn add_current_item_callback(doc: &Document) {
         },
     );
     doc.root_component.root_element.borrow_mut().property_analysis.borrow_mut().insert(
-        CURRENT_ITEM_CALLBACK_PROP.into(),
+        CURRENT_ELEMENT_CALLBACK_PROP.into(),
         PropertyAnalysis {
             is_set: true,
             is_set_externally: true,
@@ -427,7 +451,7 @@ fn add_current_item_callback(doc: &Document) {
     }));
 
     let callback_prop =
-        NamedReference::new(&doc.root_component.root_element, CURRENT_ITEM_CALLBACK_PROP);
+        NamedReference::new(&doc.root_component.root_element, CURRENT_ELEMENT_CALLBACK_PROP);
     let request_prop = NamedReference::new(&doc.root_component.root_element, DESIGN_MODE_PROP);
 
     let mut bindings: BindingsMap = Default::default();

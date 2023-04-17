@@ -209,7 +209,7 @@ class PreviewerBackend {
 
     protected configure_picker_mode() {
         if (this.#instance !== null) {
-            this.#instance.set_current_item_information_callback(
+            this.#instance.set_current_element_information_callback(
                 (
                     url: string,
                     start_line: number,
@@ -225,7 +225,7 @@ class PreviewerBackend {
                     });
                 },
             );
-            this.#instance.request_current_item_information(this.#picker_mode);
+            this.#instance.design_mode(this.#picker_mode);
         }
     }
 

@@ -1030,11 +1030,11 @@ impl ComponentInstance {
     ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "highlight")]
-    pub fn set_current_item_information_callback(
+    pub fn set_current_element_information_callback(
         &self,
         callback: Box<dyn Fn(String, u32, u32, u32, u32) -> ()>,
     ) {
-        crate::highlight::set_current_item_information_callback(&self.inner, callback);
+        crate::highlight::set_current_element_information_callback(&self.inner, callback);
     }
 }
 
