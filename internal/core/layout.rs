@@ -97,7 +97,12 @@ pub fn min_max_size_for_layout_constraints(
         && max_height > 0 as Coord
         && (max_width < i32::MAX as Coord || max_height < i32::MAX as Coord)
     {
-        Some(crate::lengths::LogicalSize::new(max_width, max_height))
+        // maximum widget size for Qt and a workaround for the winit api not allowing partial constraints
+        let window_size_max = 16_777_215 as Coord;
+        Some(crate::lengths::LogicalSize::new(
+            max_width.min(window_size_max),
+            max_height.min(window_size_max),
+        ))
     } else {
         None
     };
