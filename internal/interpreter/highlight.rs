@@ -106,12 +106,12 @@ pub fn set_current_element_information_callback(
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
+    let state = RefCell::new(DesignModeState { current_item: None });
+
     let _ = c.description().set_callback_handler(
         c.borrow(),
         CURRENT_ELEMENT_CALLBACK_PROP,
         Box::new(move |values: &[Value]| -> Value {
-            static mut STATE: DesignModeState = DesignModeState { current_item: None };
-
             let position = LogicalPoint::new(
                 if let Some(Value::Number(n)) = values.get(0) { *n as f32 } else { f32::MAX },
                 if let Some(Value::Number(n)) = values.get(1) { *n as f32 } else { f32::MAX },
@@ -124,16 +124,21 @@ pub fn set_current_element_information_callback(
                 return Value::Void;
             };
 
-            let start_item = unsafe { STATE.current_item.take() }
-                .and_then(|i| i.upgrade())
-                .unwrap_or_else(|| ItemRc::new(VRc::into_dyn(c.clone()), 0));
+            let start_item = {
+                let si = if let Ok(mut state) = state.try_borrow_mut() {
+                    state.current_item.take().and_then(|i| i.upgrade())
+                } else {
+                    None
+                };
+                si.unwrap_or_else(|| ItemRc::new(VRc::into_dyn(c.clone()), 0))
+            };
 
             let mut i = start_item.clone();
 
             let (f, sl, sc, el, ec) = loop {
                 i = find_item(&i, &position);
 
-                unsafe { STATE.current_item = Some(i.downgrade()) };
+                state.borrow_mut().current_item = Some(i.downgrade());
 
                 if i == start_item {
                     break (String::new(), 0, 0, 0, 0);
