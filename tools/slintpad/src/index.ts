@@ -34,7 +34,11 @@ import {
     Widget,
 } from "@lumino/widgets";
 
-function resolveControllerReady(resolve: () => void, count: number) {
+function resolveControllerReady(
+    resolve: () => void,
+    reject: () => void,
+    count: number,
+) {
     count += 1;
     if (count >= 5) {
         // Force a reload! We do not have any state yet, so we do not need to
@@ -42,19 +46,20 @@ function resolveControllerReady(resolve: () => void, count: number) {
         // service worker.
         window.location.reload();
     }
-    if (navigator.serviceWorker.controller) {
+    if (!navigator.serviceWorker) {
+        reject();
+    } else if (navigator.serviceWorker.controller) {
         console.info(`Controller ready after ${count} attempts`);
         resolve();
     } else {
-        console.warn(`Controller is not ready yet ! waiting ... - (${count})`);
-        return setTimeout(() => {
-            resolveControllerReady(resolve, count);
+        setTimeout(() => {
+            resolveControllerReady(resolve, reject, count);
         }, 500);
     }
 }
 
 function wait_for_service_worker(): Promise<void> {
-    return new Promise((res, _) => resolveControllerReady(res, 0));
+    return new Promise((res, rej) => resolveControllerReady(res, rej, 0));
 }
 
 const lsp_waiter = new LspWaiter();
@@ -559,12 +564,19 @@ function setup(lsp: Lsp) {
 }
 
 function main() {
-    Promise.all([wait_for_service_worker(), lsp_waiter.wait_for_lsp()]).then(
-        ([_, lsp]) => {
+    Promise.all([wait_for_service_worker(), lsp_waiter.wait_for_lsp()])
+        .then(([_sw, lsp]) => {
             setup(lsp);
             document.body.getElementsByClassName("loader")[0].remove();
-        },
-    );
+        })
+        .catch(() => {
+            const div = document.createElement("div");
+            div.className = "browser-error";
+            div.innerHTML =
+                "<p>No ServiceWorker available in your browser. Try disabling private browsing mode.</p>";
+            document.body.getElementsByClassName("loader")[0].remove();
+            document.body.appendChild(div);
+        });
 }
 
 window.onload = main;
