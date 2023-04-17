@@ -96,6 +96,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::ReturnStatement => Some((self::KEYWORD, 0)),
                 SyntaxKind::AtImageUrl => Some((self::MACRO, 0)),
                 SyntaxKind::AtGradient => Some((self::MACRO, 0)),
+                SyntaxKind::AtTr => Some((self::MACRO, 0)),
                 SyntaxKind::ConditionalExpression => Some((self::KEYWORD, 0)),
                 SyntaxKind::ObjectMember => Some((self::PROPERTY, 1 << self::DECLARATION)),
                 SyntaxKind::States => Some((self::KEYWORD, 0)),

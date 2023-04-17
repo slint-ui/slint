@@ -202,6 +202,7 @@ pub(crate) fn completion_at(
         {
             return Some(
                 [
+                    ("tr", "tr(\"$1\")"),
                     ("image-url", "image-url(\"$1\")"),
                     ("linear-gradient", "linear-gradient($1)"),
                     ("radial-gradient", "radial-gradient(circle, $1)"),

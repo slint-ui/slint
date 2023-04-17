@@ -867,6 +867,9 @@ fn call_builtin_function(
         BuiltinFunction::RegisterCustomFontByMemory | BuiltinFunction::RegisterBitmapFont => {
             unimplemented!()
         }
+        BuiltinFunction::Translate => {
+            todo!("translate in the interpeter");
+        }
     }
 }
 
