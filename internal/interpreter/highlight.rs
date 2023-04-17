@@ -150,6 +150,8 @@ pub fn set_current_element_information_callback(
                         i.index(),
                     )
                     .and_then(|e| {
+                        highlight_elements(&c, vec![Rc::downgrade(&e)]);
+
                         let e = &e.borrow();
                         e.node.as_ref().map(|n| {
                             let offset = n.span().offset;
@@ -179,20 +181,11 @@ pub fn design_mode(component_instance: &DynamicComponentVRc, active: bool) {
         .unwrap();
 }
 
-pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset: u32) {
-    generativity::make_guard!(guard);
-    let c = component_instance.unerase(guard);
-    let elements = find_element_at_offset(&c.description().original, path, offset);
-    if elements.is_empty() {
-        c.description()
-            .set_property(c.borrow(), HIGHLIGHT_PROP, Value::Model(ModelRc::default()))
-            .unwrap();
-        return;
-    };
-
-    let elements = elements.into_iter().map(|e| Rc::downgrade(&e)).collect::<Vec<_>>();
-
-    let component_instance = VRc::downgrade(component_instance);
+fn highlight_elements(
+    component: &DynamicComponentVRc,
+    elements: Vec<std::rc::Weak<RefCell<Element>>>,
+) {
+    let component_instance = VRc::downgrade(component);
     let binding = move || {
         let component_instance = component_instance.upgrade().unwrap();
         generativity::make_guard!(guard);
@@ -206,7 +199,27 @@ pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset
         Value::Model(ModelRc::new(VecModel::from(values)))
     };
 
+    generativity::make_guard!(guard);
+    let c = component.unerase(guard);
+
     c.description().set_binding(c.borrow(), HIGHLIGHT_PROP, Box::new(binding)).unwrap();
+}
+
+pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset: u32) {
+    generativity::make_guard!(guard);
+    let c = component_instance.unerase(guard);
+    let elements = find_element_at_offset(&c.description().original, path, offset);
+    if elements.is_empty() {
+        c.description()
+            .set_property(c.borrow(), HIGHLIGHT_PROP, Value::Model(ModelRc::default()))
+            .unwrap();
+        return;
+    };
+
+    highlight_elements(
+        component_instance,
+        elements.into_iter().map(|e| Rc::downgrade(&e)).collect::<Vec<_>>(),
+    );
 }
 
 fn fill_model(
