@@ -27,6 +27,16 @@ body {
     padding: 4px;
 }
 
+.browser-error {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+    background: var(--slint-blue);
+    color: var(--slint-white);
+}
+
 .loader {
     display: flex;
     width: 100%;
