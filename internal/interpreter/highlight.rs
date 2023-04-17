@@ -128,33 +128,43 @@ pub fn set_current_element_information_callback(
                 .and_then(|i| i.upgrade())
                 .unwrap_or_else(|| ItemRc::new(VRc::into_dyn(c.clone()), 0));
 
-            let i = find_item(&start_item, &position);
-            unsafe { STATE.current_item = Some(i.downgrade()) };
+            let mut i = start_item.clone();
 
-            if let Some((file, start_line, start_column, end_line, end_column)) =
-                element_providing_item(
-                    unsafe {
-                        std::mem::transmute::<
-                            &VRc<ComponentVTable>,
-                            &VRc<ComponentVTable, ErasedComponentBox>,
-                        >(&i.component())
-                    },
-                    i.index(),
-                )
-                .and_then(|e| {
-                    let e = &e.borrow();
-                    e.node.as_ref().map(|n| {
-                        let offset = n.span().offset;
-                        let length: usize = n.text().len().into();
-                        map_offset_to_line(n.source_file().cloned(), offset, offset + length)
+            let (f, sl, sc, el, ec) = loop {
+                i = find_item(&i, &position);
+
+                unsafe { STATE.current_item = Some(i.downgrade()) };
+
+                if i == start_item {
+                    break (String::new(), 0, 0, 0, 0);
+                }
+
+                if let Some((file, start_line, start_column, end_line, end_column)) =
+                    element_providing_item(
+                        unsafe {
+                            std::mem::transmute::<
+                                &VRc<ComponentVTable>,
+                                &VRc<ComponentVTable, ErasedComponentBox>,
+                            >(&i.component())
+                        },
+                        i.index(),
+                    )
+                    .and_then(|e| {
+                        let e = &e.borrow();
+                        e.node.as_ref().map(|n| {
+                            let offset = n.span().offset;
+                            let length: usize = n.text().len().into();
+                            map_offset_to_line(n.source_file().cloned(), offset, offset + length)
+                        })
                     })
-                })
-            {
-                callback(file, start_line, start_column, end_line, end_column);
-            } else {
-                callback(String::new(), 0, 0, 0, 0);
-            }
+                {
+                    if !file.starts_with("builtin:/") {
+                        break (file, start_line, start_column, end_line, end_column);
+                    }
+                }
+            };
 
+            callback(f, sl, sc, el, ec);
             return Value::Void;
         }),
     );
