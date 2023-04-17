@@ -638,13 +638,10 @@ fn format_children_placeholder(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    // Skips whitespace after a `@children` node.
-
     for n in node.children_with_tokens() {
         fold(n, writer, state)?;
     }
-    state.skip_all_whitespace = true;
-
+    state.new_line();
     Ok(())
 }
 
