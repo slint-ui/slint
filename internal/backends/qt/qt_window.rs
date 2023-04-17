@@ -1617,8 +1617,8 @@ impl WindowAdapterSealed for QtWindow {
         let max_size: qttypes::QSize = max_size.map_or_else(
             || qttypes::QSize { width: widget_size_max, height: widget_size_max },
             |LogicalSize { width, height, .. }| qttypes::QSize {
-                width: (width as u32).min(widget_size_max),
-                height: (height as u32).min(widget_size_max),
+                width: width as u32,
+                height: height as u32,
             },
         );
 
