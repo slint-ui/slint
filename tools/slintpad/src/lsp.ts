@@ -209,7 +209,7 @@ class PreviewerBackend {
 
     protected configure_picker_mode() {
         if (this.#instance !== null) {
-            this.#instance.set_current_element_information_callback(
+            this.#instance.on_element_selected(
                 (
                     url: string,
                     start_line: number,

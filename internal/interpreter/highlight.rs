@@ -97,7 +97,7 @@ struct DesignModeState {
     pub current_item: Option<ItemWeak>,
 }
 
-pub fn set_current_element_information_callback(
+pub fn on_element_selected(
     component_instance: &DynamicComponentVRc,
     callback: Box<dyn Fn(String, u32, u32, u32, u32) -> ()>,
 ) {

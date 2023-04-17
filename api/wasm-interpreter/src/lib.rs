@@ -221,11 +221,8 @@ impl WrappedInstance {
     /// Request information on what to highlight in the editor based on clicks in the UI
     #[cfg(feature = "highlight")]
     #[wasm_bindgen]
-    pub fn set_current_element_information_callback(
-        &self,
-        callback: CurrentElementInformationCallbackFunction,
-    ) {
-        self.0.set_current_element_information_callback(Box::new(
+    pub fn on_element_selected(&self, callback: CurrentElementInformationCallbackFunction) {
+        self.0.on_element_selected(Box::new(
             move |url: String,
                   start_line: u32,
                   start_column: u32,
