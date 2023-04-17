@@ -25,8 +25,8 @@ use std::rc::Rc;
 use vtable::VRc;
 
 const HIGHLIGHT_PROP: &str = "$highlights";
-const CURRENT_ITEM_CALLBACK_PROP: &str = "$currentItem";
-const REQUEST_CURRENT_ITEM_PROP: &str = "$requestCurrentItem";
+const CURRENT_ITEM_CALLBACK_PROP: &str = "$currentItemCallback";
+const DESIGN_MODE_PROP: &str = "$designMode";
 
 fn find_item(item: &ItemRc, position: &LogicalPoint, offset: &LogicalPoint) -> Option<ItemRc> {
     let geometry = item.geometry().translate(offset.to_vector());
@@ -85,7 +85,7 @@ fn map_offset_to_line(
     }
 }
 
-pub fn set_request_current_item_information_callback(
+pub fn set_current_item_information_callback(
     component_instance: &DynamicComponentVRc,
     callback: Box<dyn Fn(String, u32, u32, u32, u32) -> ()>,
 ) {
@@ -136,12 +136,12 @@ pub fn set_request_current_item_information_callback(
     );
 }
 
-pub fn request_current_item_information(component_instance: &DynamicComponentVRc, active: bool) {
+pub fn design_mode(component_instance: &DynamicComponentVRc, active: bool) {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
     c.description()
-        .set_binding(c.borrow(), REQUEST_CURRENT_ITEM_PROP, Box::new(move || active.into()))
+        .set_binding(c.borrow(), DESIGN_MODE_PROP, Box::new(move || active.into()))
         .unwrap();
 }
 
@@ -241,7 +241,7 @@ fn repeater_path(elem: &ElementRc) -> Option<Vec<String>> {
     let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
     if let Some(parent) = enclosing.parent_element.upgrade() {
         if parent.borrow().repeated.is_none() {
-            // This is not a repeater, it is possibility a popup menu which is not supported ATM
+            // This is not a repeater, it might be a popup menu which is not supported ATM
             return None;
         }
         let mut r = repeater_path(&parent)?;
@@ -398,7 +398,7 @@ fn add_current_item_callback(doc: &Document) {
         },
     );
     doc.root_component.root_element.borrow_mut().property_declarations.insert(
-        REQUEST_CURRENT_ITEM_PROP.into(),
+        DESIGN_MODE_PROP.into(),
         PropertyDeclaration {
             property_type: Type::Bool,
             node: None,
@@ -409,7 +409,7 @@ fn add_current_item_callback(doc: &Document) {
         },
     );
     doc.root_component.root_element.borrow_mut().property_analysis.borrow_mut().insert(
-        REQUEST_CURRENT_ITEM_PROP.into(),
+        DESIGN_MODE_PROP.into(),
         PropertyAnalysis {
             is_set: true,
             is_set_externally: true,
@@ -421,15 +421,14 @@ fn add_current_item_callback(doc: &Document) {
 
     let element = Rc::new(RefCell::new(Element {
         enclosing_component: Rc::downgrade(&doc.root_component),
-        id: "$CurrentItem".into(),
+        id: "$DesignModeArea".into(),
         base_type: doc.local_registry.lookup_builtin_element("TouchArea").unwrap(),
         ..Default::default()
     }));
 
     let callback_prop =
         NamedReference::new(&doc.root_component.root_element, CURRENT_ITEM_CALLBACK_PROP);
-    let request_prop =
-        NamedReference::new(&doc.root_component.root_element, REQUEST_CURRENT_ITEM_PROP);
+    let request_prop = NamedReference::new(&doc.root_component.root_element, DESIGN_MODE_PROP);
 
     let mut bindings: BindingsMap = Default::default();
     bindings.insert("x".into(), RefCell::new(Expression::NumberLiteral(0.0, Unit::Px).into()));

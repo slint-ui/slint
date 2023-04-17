@@ -34,11 +34,8 @@ impl CompilationResult {
 }
 
 #[wasm_bindgen(typescript_custom_section)]
-const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
+const CALLBACK_FUNCTION_SECTION: &'static str = r#"
 type ImportCallbackFunction = (url: string) => Promise<string>;
-"#;
-#[wasm_bindgen(typescript_custom_section)]
-const CURRENT_ITEM_INFORMATION_CALLBACK_FUNCTION_SECTION: &'static str = r#"
 type CurrentItemInformationCallbackFunction = (url: string, start_line: number, start_column: number, end_line: number, end_column: number) => void;
 "#;
 
@@ -46,10 +43,7 @@ type CurrentItemInformationCallbackFunction = (url: string, start_line: number, 
 extern "C" {
     #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
     pub type ImportCallbackFunction;
-}
 
-#[wasm_bindgen]
-extern "C" {
     #[wasm_bindgen(typescript_type = "CurrentItemInformationCallbackFunction")]
     pub type CurrentItemInformationCallbackFunction;
 }
@@ -218,8 +212,8 @@ impl WrappedInstance {
     /// Request information on what to highlight in the editor based on clicks in the UI
     #[cfg(feature = "highlight")]
     #[wasm_bindgen]
-    pub fn request_current_item_information(&self, active: bool) {
-        self.0.request_current_item_information(active);
+    pub fn design_mode(&self, active: bool) {
+        self.0.design_mode(active);
         let _ = slint_interpreter::invoke_from_event_loop(|| {}); // wake event loop
     }
 
@@ -231,7 +225,7 @@ impl WrappedInstance {
         &self,
         callback: CurrentItemInformationCallbackFunction,
     ) {
-        self.0.set_request_current_item_information_callback(Box::new(
+        self.0.set_current_item_information_callback(Box::new(
             move |url: String,
                   start_line: u32,
                   start_column: u32,
