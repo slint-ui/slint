@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-compiler"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 build = "build.rs"
@@ -32,7 +32,7 @@ software-renderer = ["image", "dep:resvg", "dep:fontdb", "fontdue", "libc", "yes
 
 
 [dependencies]
-i-slint-common = { version = "=1.0.0", path = "../common" }
+i-slint-common = { version = "=1.0.1", path = "../common" }
 
 num_enum = "0.5.1"
 strum = { version = "0.24.0", default-features = false, features = ["derive"] }

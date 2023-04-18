@@ -2,7 +2,7 @@
     "name": "slint",
     "displayName": "Slint",
     "description": "Slint Language extension",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "publisher": "Slint",
     "icon": "extension-logo.png",
     "license": "GPL-3.0",
