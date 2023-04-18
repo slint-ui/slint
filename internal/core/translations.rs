@@ -147,3 +147,23 @@ pub fn translate(
     write!(output, "{}", formatter::format(original, arguments)).unwrap();
     output
 }
+
+#[cfg(feature = "ffi")]
+mod ffi {
+    #![allow(unsafe_code)]
+    use super::*;
+    use crate::slice::Slice;
+
+    #[no_mangle]
+    /// Returns a nul-terminated pointer for this string.
+    /// The returned value is owned by the string, and should not be used after any
+    /// mutable function have been called on the string, and must not be freed.
+    pub extern "C" fn slint_translate(
+        to_translate: &mut SharedString,
+        context: &SharedString,
+        domain: &SharedString,
+        arguments: Slice<SharedString>,
+    ) {
+        *to_translate = translate(to_translate.as_str(), &context, &domain, arguments.as_slice())
+    }
+}

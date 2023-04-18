@@ -16,7 +16,7 @@ use std::rc::{Rc, Weak};
 pub use crate::namedreference::NamedReference;
 pub use crate::passes::resolving;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 /// A function built into the run-time
 pub enum BuiltinFunction {
     GetWindowScaleFactor,

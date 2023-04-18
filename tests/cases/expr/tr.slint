@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+ TestCase := Rectangle {
+    property <int> int_value: 42;
+
+    property <string> t1: @tr("Hello World{{}}.");
+    property <string> t2: @tr("Hello {}.", "World");
+    property <string> t3: @tr("{} Hello {}", int_value, "World");
+    property <string> t4: @tr("{1} Hello {0}🌍", @tr("World"), int_value + 1);
+
+    property <bool> test: t1 == "Hello World{}." && t2 == "Hello World." && t3 == "42 Hello World" && t4 == "43 Hello World🌍";
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

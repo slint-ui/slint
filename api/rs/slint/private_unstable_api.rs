@@ -144,6 +144,16 @@ pub fn create_window_adapter(
     i_slint_backend_selector::with_platform(|b| b.create_window_adapter())
 }
 
+/// Wrapper around i_slint_core::translations::translate for the generated code
+pub fn translate(
+    origin: SharedString,
+    context: SharedString,
+    domain: SharedString,
+    args: Slice<SharedString>,
+) -> SharedString {
+    i_slint_core::translations::translate(&origin, &context, &domain, args.as_slice())
+}
+
 /// internal re_exports used by the macro generated
 pub mod re_exports {
     pub use alloc::boxed::Box;
