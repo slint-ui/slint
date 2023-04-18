@@ -40,6 +40,7 @@ pub mod string;
 pub mod tests;
 pub mod textlayout;
 pub mod timers;
+pub mod translations;
 pub mod window;
 
 #[cfg(feature = "rtti")]

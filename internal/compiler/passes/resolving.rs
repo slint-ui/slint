@@ -540,6 +540,8 @@ impl Expression {
             )),
             arguments: vec![
                 Expression::StringLiteral(string),
+                Expression::StringLiteral(String::new()), // TODO
+                Expression::StringLiteral(String::new()), // TODO
                 Expression::Array { element_ty: Type::String, values: subs.collect() },
             ],
             source_location: Some(node.to_source_location()),

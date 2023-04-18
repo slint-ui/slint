@@ -868,7 +868,27 @@ fn call_builtin_function(
             unimplemented!()
         }
         BuiltinFunction::Translate => {
-            todo!("translate in the interpeter");
+            let original: SharedString =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            let context: SharedString =
+                eval_expression(&arguments[1], local_context).try_into().unwrap();
+            let domain: SharedString =
+                eval_expression(&arguments[2], local_context).try_into().unwrap();
+            let arguments = eval_expression(&arguments[3], local_context);
+            let Value::Model(arguments) = arguments else { panic!("Args to translate not a model {arguments:?}") };
+            struct StringModelWrapper(ModelRc<Value>);
+            impl corelib::translations::FormatArgs for StringModelWrapper {
+                type Output<'a> = SharedString;
+                fn from_index<'a>(&'a self, index: usize) -> Option<SharedString> {
+                    self.0.row_data(index).map(|x| x.try_into().unwrap())
+                }
+            }
+            Value::String(corelib::translations::translate(
+                &original,
+                &context,
+                &domain,
+                &StringModelWrapper(arguments),
+            ))
         }
     }
 }
