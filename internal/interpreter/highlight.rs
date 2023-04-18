@@ -28,14 +28,18 @@ const HIGHLIGHT_PROP: &str = "$highlights";
 const CURRENT_ELEMENT_CALLBACK_PROP: &str = "$currentElementCallback";
 const DESIGN_MODE_PROP: &str = "$designMode";
 
+/// We do a depth-first walk of the tree.
 fn next_item(item: &ItemRc) -> ItemRc {
+    // We have a sibling, so find the "deepest first_child"
     if let Some(s) = item.next_sibling() {
         return next_item_down(&s);
-    }
-    if let Some(p) = item.parent_item() {
-        return p;
+    } else if let Some(p) = item.parent_item() {
+        // Walk further up the tree once out of siblings...
+        p
     } else {
-        return next_item_down(item);
+        // We are at the root of the tree: Start over, going for the
+        // deepest first child again!
+        next_item_down(item)
     }
 }
 
@@ -47,19 +51,25 @@ fn next_item_down(item: &ItemRc) -> ItemRc {
     }
 }
 
-fn find_item(item: &ItemRc, position: &LogicalPoint) -> ItemRc {
+/// We want to look at all items that cover the point we clicked into, one at
+/// a time. The input item is the last item we were interested in, and we want
+/// to find the next one that also cover the area of that point.
+///
+/// So we find the next item to look at, breaking out if that is the item we
+/// started with.
+fn find_item(item: &ItemRc, position: &LogicalPoint) -> Option<ItemRc> {
     let mut next = item.clone();
     loop {
         next = next_item(&next);
 
         if next == *item {
-            return next;
+            return None;
         }
         let offset = next.map_to_window(LogicalPoint::default());
         let geometry = next.geometry().translate(offset.to_vector());
 
         if geometry.contains(*position) {
-            return next;
+            return Some(next);
         }
     }
 }
@@ -68,7 +78,7 @@ fn element_providing_item(component: &ErasedComponentBox, index: usize) -> Optio
     generativity::make_guard!(guard);
     let c = component.unerase(guard);
 
-    return c.description().original_elements.get(index).cloned();
+    c.description().original_elements.get(index).cloned()
 }
 
 fn map_offset_to_line(
@@ -80,15 +90,9 @@ fn map_offset_to_line(
         let file_name = sf.path().to_string_lossy().to_string();
         let (start_line, start_column) = sf.line_column(start_offset);
         let (end_line, end_column) = sf.line_column(end_offset);
-        return (
-            file_name,
-            start_line as u32,
-            start_column as u32,
-            end_line as u32,
-            end_column as u32,
-        );
+        (file_name, start_line as u32, start_column as u32, end_line as u32, end_column as u32)
     } else {
-        return (String::new(), 0, 0, 0, 0);
+        (String::new(), 0, 0, 0, 0)
     }
 }
 
@@ -116,39 +120,31 @@ pub fn on_element_selected(
                 if let Some(Value::Number(n)) = values.get(1) { *n as f32 } else { f32::MAX },
             );
 
-            let c = if let Some(c) = weak_component.upgrade() {
-                c
-            } else {
+            let Some(c) = weak_component.upgrade() else {
                 callback(String::new(), 0, 0, 0, 0);
                 return Value::Void;
             };
 
-            let start_item = {
-                let si = if let Ok(mut state) = state.try_borrow_mut() {
-                    state.current_item.take().and_then(|i| i.upgrade())
-                } else {
-                    None
-                };
-                si.unwrap_or_else(|| ItemRc::new(VRc::into_dyn(c.clone()), 0))
-            };
+            let start_item = state
+                .try_borrow_mut()
+                .ok()
+                .and_then(|mut s| s.current_item.take())
+                .and_then(|i| i.upgrade())
+                .unwrap_or_else(|| ItemRc::new(VRc::into_dyn(c.clone()), 0));
 
             let mut i = start_item.clone();
-
             let (f, sl, sc, el, ec) = loop {
-                i = find_item(&i, &position);
+                i = if let Some(next) = find_item(&i, &position) {
+                    next
+                } else {
+                    break (String::new(), 0, 0, 0, 0);
+                };
 
                 state.borrow_mut().current_item = Some(i.downgrade());
 
-                if i == start_item {
-                    break (String::new(), 0, 0, 0, 0);
-                }
-
                 let component = i.component();
                 let component_ref = VRc::borrow(&component);
-                let component_box = if let Some(c) = component_ref.downcast::<ErasedComponentBox>()
-                {
-                    c
-                } else {
+                let Some(component_box) = component_ref.downcast::<ErasedComponentBox>() else {
                     continue; // Skip components of unexpected type!
                 };
 
