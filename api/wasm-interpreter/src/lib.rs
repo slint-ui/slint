@@ -212,8 +212,8 @@ impl WrappedInstance {
     /// Request information on what to highlight in the editor based on clicks in the UI
     #[cfg(feature = "highlight")]
     #[wasm_bindgen]
-    pub fn design_mode(&self, active: bool) {
-        self.0.design_mode(active);
+    pub fn set_design_mode(&self, active: bool) {
+        self.0.set_design_mode(active);
         let _ = slint_interpreter::invoke_from_event_loop(|| {}); // wake event loop
     }
 
@@ -223,11 +223,7 @@ impl WrappedInstance {
     #[wasm_bindgen]
     pub fn on_element_selected(&self, callback: CurrentElementInformationCallbackFunction) {
         self.0.on_element_selected(Box::new(
-            move |url: String,
-                  start_line: u32,
-                  start_column: u32,
-                  end_line: u32,
-                  end_column: u32| {
+            move |url: &str, start_line: u32, start_column: u32, end_line: u32, end_column: u32| {
                 let args = js_sys::Array::of5(
                     &url.into(),
                     &start_line.into(),

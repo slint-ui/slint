@@ -102,7 +102,7 @@ struct DesignModeState {
 
 pub fn on_element_selected(
     component_instance: &DynamicComponentVRc,
-    callback: Box<dyn Fn(String, u32, u32, u32, u32) -> ()>,
+    callback: Box<dyn Fn(&str, u32, u32, u32, u32) -> ()>,
 ) {
     let weak_component = VRc::downgrade(component_instance);
 
@@ -121,7 +121,7 @@ pub fn on_element_selected(
             );
 
             let Some(c) = weak_component.upgrade() else {
-                callback(String::new(), 0, 0, 0, 0);
+                callback("", 0, 0, 0, 0);
                 return Value::Void;
             };
 
@@ -166,13 +166,13 @@ pub fn on_element_selected(
                 }
             };
 
-            callback(f, sl, sc, el, ec);
+            callback(&f, sl, sc, el, ec);
             return Value::Void;
         }),
     );
 }
 
-pub fn design_mode(component_instance: &DynamicComponentVRc, active: bool) {
+pub fn set_design_mode(component_instance: &DynamicComponentVRc, active: bool) {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 

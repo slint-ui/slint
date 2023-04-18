@@ -225,7 +225,7 @@ class PreviewerBackend {
                     });
                 },
             );
-            this.#instance.design_mode(this.#picker_mode);
+            this.#instance.set_design_mode(this.#picker_mode);
         }
     }
 
