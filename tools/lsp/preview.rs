@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore condvar
+
 use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::Notification;
@@ -169,6 +171,7 @@ struct ContentCache {
     current: PreviewComponent,
     sender: Option<crate::ServerNotifier>,
     highlight: Option<(PathBuf, u32)>,
+    design_mode: bool,
 }
 
 static CONTENT_CACHE: once_cell::sync::OnceCell<Mutex<ContentCache>> =
@@ -219,6 +222,71 @@ struct PreviewState {
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
+pub fn set_design_mode(sender: crate::ServerNotifier, enable: bool) {
+    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    cache.design_mode = enable;
+
+    configure_design_mode(enable, &sender);
+    send_notification(
+        &sender,
+        if enable { "Design mode enabled." } else { "Design mode disabled." },
+        Health::Ok,
+    );
+}
+
+fn show_document_request_from_element_callback(
+    url: &str,
+    start_line: u32,
+    start_column: u32,
+    end_line: u32,
+    end_column: u32,
+) -> lsp_types::ShowDocumentParams {
+    use lsp_types::{Position, Range, ShowDocumentParams, Url};
+
+    let start_pos = Position::new(start_line - 1, start_column);
+    let end_pos = Position::new(end_line - 1, end_column);
+    let selection = Some(Range::new(start_pos, end_pos));
+
+    let uri = Url::parse(url).unwrap_or_else(|_| Url::parse("file:///invalid").unwrap());
+
+    ShowDocumentParams { uri, external: Some(false), take_focus: Some(true), selection }
+}
+
+fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
+    let sender = sender.clone();
+    run_in_ui_thread(Box::pin(async move {
+        PREVIEW_STATE.with(|preview_state| {
+            let preview_state = preview_state.borrow();
+            if let Some(handle) = &preview_state.handle {
+                handle.set_design_mode(enabled);
+
+                handle.on_element_selected(Box::new(
+                    move |url: &str,
+                          start_line: u32,
+                          start_column: u32,
+                          end_line: u32,
+                          end_column: u32| {
+                        let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(
+                            show_document_request_from_element_callback(
+                                url,
+                                start_line,
+                                start_column - 1,
+                                end_line,
+                                end_column - 1,
+                            ),
+                        ) else { return; };
+
+                        let fut = Box::pin(async {
+                            let _ = fut.await;
+                        });
+                        Arc::new(FutureRunner { fut: Mutex::new(Some(fut)) }).wake();
+                    },
+                ));
+            }
+        })
+    }));
+}
+
 async fn reload_preview(
     sender: crate::ServerNotifier,
     preview_component: PreviewComponent,
@@ -226,10 +294,13 @@ async fn reload_preview(
 ) {
     send_notification(&sender, "Loading Preview…", Health::Ok);
 
+    let design_mode;
+
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.dependency.clear();
         cache.current = preview_component.clone();
+        design_mode = cache.design_mode;
     }
 
     let mut builder = slint_interpreter::ComponentCompiler::default();
@@ -284,6 +355,9 @@ async fn reload_preview(
     } else {
         send_notification(&sender, "Preview not updated", Health::Error);
     }
+
+    configure_design_mode(design_mode, &sender);
+
     CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().sender.replace(sender);
 }
 
