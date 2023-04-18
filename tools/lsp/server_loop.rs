@@ -164,6 +164,7 @@ const QUERY_PROPERTIES_COMMAND: &str = "slint/queryProperties";
 const REMOVE_BINDING_COMMAND: &str = "slint/removeBinding";
 const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
 const SET_BINDING_COMMAND: &str = "slint/setBinding";
+const SET_DESIGN_MODE_COMMAND: &str = "slint/setDesignMode";
 
 fn command_list() -> Vec<String> {
     vec![
@@ -171,6 +172,8 @@ fn command_list() -> Vec<String> {
         REMOVE_BINDING_COMMAND.into(),
         #[cfg(any(feature = "preview", feature = "preview-lense"))]
         SHOW_PREVIEW_COMMAND.into(),
+        #[cfg(any(feature = "preview", feature = "preview-lense"))]
+        SET_DESIGN_MODE_COMMAND.into(),
         SET_BINDING_COMMAND.into(),
     ]
 }
@@ -448,6 +451,11 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             show_preview_command(&params.arguments, &ctx)?;
             return Ok(None::<serde_json::Value>);
         }
+        if params.command.as_str() == SET_DESIGN_MODE_COMMAND {
+            #[cfg(feature = "preview")]
+            set_design_mode(&params.arguments, &ctx)?;
+            return Ok(None::<serde_json::Value>);
+        }
         if params.command.as_str() == QUERY_PROPERTIES_COMMAND {
             return Ok(Some(query_properties_command(&params.arguments, &ctx)?));
         }
@@ -598,6 +606,22 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
         },
         preview::PostLoadBehavior::ShowAfterLoad,
     );
+    Ok(())
+}
+
+#[cfg(feature = "preview")]
+pub fn set_design_mode(params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<(), Error> {
+    let connection = &ctx.server_notifier;
+
+    use crate::preview;
+    let e = || "InvalidParameter";
+    let enable = if let serde_json::Value::Bool(b) = params.get(0).ok_or_else(e)? {
+        b
+    } else {
+        return Err(e().into());
+    };
+
+    preview::set_design_mode(connection.clone(), *enable);
     Ok(())
 }
 
