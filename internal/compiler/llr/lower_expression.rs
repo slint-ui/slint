@@ -117,7 +117,13 @@ pub fn lower_expression(
                 lower_show_popup(arguments, ctx)
             }
             tree_Expression::BuiltinFunctionReference(f, _) => {
-                let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
+                let mut arguments =
+                    arguments.iter().map(|e| lower_expression(e, ctx)).collect::<Vec<_>>();
+                if *f == BuiltinFunction::Translate {
+                    if let llr_Expression::Array { as_model, .. } = &mut arguments[3] {
+                        *as_model = false;
+                    }
+                }
                 llr_Expression::BuiltinFunctionCall { function: f.clone(), arguments }
             }
             tree_Expression::CallbackReference(nr, _) => {

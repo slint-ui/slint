@@ -2442,7 +2442,7 @@ fn compile_builtin_function_call(
             quote!(slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_adapter_tokens.window()).set_text_input_focused(#(#a)*))
         }
         BuiltinFunction::Translate => {
-            todo!("BuiltinFunction::Translate in rust")
+            quote!(slint::private_unstable_api::translate(#(#a),*))
         }
     }
 }

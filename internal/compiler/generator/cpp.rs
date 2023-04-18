@@ -2834,7 +2834,7 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::Translate => {
-            format!("slint::private_api::translate({});", a.join(","))
+            format!("slint::private_api::translate({})", a.join(","))
         }
     }
 }
