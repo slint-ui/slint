@@ -15,7 +15,6 @@ use i_slint_compiler::object_tree::{
     BindingsMap, Component, Document, Element, ElementRc, PropertyAnalysis, PropertyDeclaration,
     PropertyVisibility, RepeatedElementInfo,
 };
-use i_slint_core::component::ComponentVTable;
 use i_slint_core::item_tree::ItemWeak;
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::LogicalPoint;
@@ -65,7 +64,7 @@ fn find_item(item: &ItemRc, position: &LogicalPoint) -> ItemRc {
     }
 }
 
-fn element_providing_item(component: &DynamicComponentVRc, index: usize) -> Option<ElementRc> {
+fn element_providing_item(component: &ErasedComponentBox, index: usize) -> Option<ElementRc> {
     generativity::make_guard!(guard);
     let c = component.unerase(guard);
 
@@ -144,17 +143,17 @@ pub fn on_element_selected(
                     break (String::new(), 0, 0, 0, 0);
                 }
 
+                let component = i.component();
+                let component_ref = VRc::borrow(&component);
+                let component_box = if let Some(c) = component_ref.downcast::<ErasedComponentBox>()
+                {
+                    c
+                } else {
+                    continue; // Skip components of unexpected type!
+                };
+
                 if let Some((file, start_line, start_column, end_line, end_column)) =
-                    element_providing_item(
-                        unsafe {
-                            std::mem::transmute::<
-                                &VRc<ComponentVTable>,
-                                &VRc<ComponentVTable, ErasedComponentBox>,
-                            >(&i.component())
-                        },
-                        i.index(),
-                    )
-                    .and_then(|e| {
+                    element_providing_item(component_box, i.index()).and_then(|e| {
                         highlight_elements(&c, vec![Rc::downgrade(&e)]);
 
                         let e = &e.borrow();
