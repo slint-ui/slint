@@ -295,7 +295,7 @@ class EditorPaneWidget extends Widget {
 
     goto_position(uri: string, position: LspPosition | LspRange) {
         const uri_ = monaco.Uri.parse(uri);
-        if (!this.set_model(uri_)) {
+        if (!monaco.editor.getModel(uri_) || !this.set_model(uri_)) {
             return;
         }
 

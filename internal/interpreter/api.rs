@@ -1017,6 +1017,22 @@ impl ComponentInstance {
     pub fn highlight(&self, path: PathBuf, offset: u32) {
         crate::highlight::highlight(&self.inner, path, offset);
     }
+
+    /// Request information on clicked object
+    ///
+    /// WARNING: this is not part of the public API
+    #[cfg(feature = "highlight")]
+    pub fn set_design_mode(&self, active: bool) {
+        crate::highlight::set_design_mode(&self.inner, active);
+    }
+
+    /// Register callback to handle current item information
+    ///
+    /// WARNING: this is not part of the public API
+    #[cfg(feature = "highlight")]
+    pub fn on_element_selected(&self, callback: Box<dyn Fn(&str, u32, u32, u32, u32) -> ()>) {
+        crate::highlight::on_element_selected(&self.inner, callback);
+    }
 }
 
 impl ComponentHandle for ComponentInstance {

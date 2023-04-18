@@ -12,7 +12,7 @@
 //!
 //! Meaning that there must an error following with an error message for that regular expression in the position
 //! on the line above at the column pointed by the caret.
-//! If there are two carets: ` ^^error{some_regexpr}`  then it means two line above, and so on with more carets.
+//! If there are two carets: ` ^^error{some_regexp}`  then it means two line above, and so on with more carets.
 //! `^warning{regexp}` is also supported.
 
 use std::path::{Path, PathBuf};
@@ -97,7 +97,7 @@ fn process_diagnostics(
     let lines = source
         .bytes()
         .enumerate()
-        .filter_map(|(i, c)| if c == b'\n' { Some(i) } else { None })
+        .filter_map(|(i, c)| if c == b'\n' { Some(i + 1) } else { None })
         .collect::<Vec<usize>>();
 
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of

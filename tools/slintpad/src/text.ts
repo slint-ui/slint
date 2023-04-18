@@ -29,3 +29,9 @@ export type GotoPositionCallback = (
 export type PositionChangeCallback = (
     _pos: VersionedDocumentAndPosition,
 ) => void;
+
+export type HighlightRequestCallback = (
+    _url: string,
+    _start: { line: number; column: number },
+    _end: { line: number; column: number },
+) => void;

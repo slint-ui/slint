@@ -465,6 +465,26 @@ function setup(lsp: Lsp) {
     const editor = new EditorWidget(lsp);
     const dock = new DockPanel();
 
+    lsp.previewer.on_highlight_request = (
+        url: string,
+        start: { line: number; column: number },
+        end: { line: number; column: number },
+    ) => {
+        if (url === "") {
+            return;
+        }
+
+        editor.goto_position(
+            url,
+            LspRange.create(
+                start.line - 1,
+                start.column,
+                end.line - 1,
+                end.column,
+            ),
+        );
+    };
+
     const dock_widgets = new DockWidgets(
         dock,
         [

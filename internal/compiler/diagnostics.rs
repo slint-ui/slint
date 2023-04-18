@@ -91,6 +91,21 @@ impl SourceFileInner {
         Rc::new(Self { path, ..Default::default() })
     }
 
+    /// Returns a tuple with the line (starting at 1) and column number (starting at 0)
+    pub fn line_column(&self, offset: usize) -> (usize, usize) {
+        let line_offsets = self.line_offsets();
+        line_offsets.binary_search(&offset).map_or_else(
+            |line| {
+                if line == 0 {
+                    (1, offset)
+                } else {
+                    (line + 1, line_offsets.get(line - 1).map_or(0, |x| offset - x))
+                }
+            },
+            |line| (line + 1, 0),
+        )
+    }
+
     fn line_offsets(&self) -> &[usize] {
         self.line_offsets.get_or_init(|| {
             self.source
@@ -98,7 +113,9 @@ impl SourceFileInner {
                 .map(|s| {
                     s.bytes()
                         .enumerate()
-                        .filter_map(|(i, c)| if c == b'\n' { Some(i) } else { None })
+                        // Add the offset one past the '\n' into the index: That's the first char
+                        // of the new line!
+                        .filter_map(|(i, c)| if c == b'\n' { Some(i + 1) } else { None })
                         .collect()
                 })
                 .unwrap_or_default()
@@ -205,20 +222,11 @@ impl Diagnostic {
     /// Returns a tuple with the line (starting at 1) and column number (starting at 0)
     pub fn line_column(&self) -> (usize, usize) {
         let offset = self.span.span.offset;
-        let line_offsets = match &self.span.source_file {
-            None => return (0, 0),
-            Some(sl) => sl.line_offsets(),
-        };
-        line_offsets.binary_search(&offset).map_or_else(
-            |line| {
-                if line == 0 {
-                    (line + 1, offset)
-                } else {
-                    (line + 1, line_offsets.get(line - 1).map_or(0, |x| offset - x))
-                }
-            },
-            |line| (line + 1, 0),
-        )
+
+        match &self.span.source_file {
+            None => (0, 0),
+            Some(sl) => sl.line_column(offset),
+        }
     }
 
     /// return the path of the source file where this error is attached

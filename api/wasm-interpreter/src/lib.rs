@@ -34,14 +34,18 @@ impl CompilationResult {
 }
 
 #[wasm_bindgen(typescript_custom_section)]
-const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
+const CALLBACK_FUNCTION_SECTION: &'static str = r#"
 type ImportCallbackFunction = (url: string) => Promise<string>;
+type CurrentElementInformationCallbackFunction = (url: string, start_line: number, start_column: number, end_line: number, end_column: number) => void;
 "#;
 
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
     pub type ImportCallbackFunction;
+
+    #[wasm_bindgen(typescript_type = "CurrentElementInformationCallbackFunction")]
+    pub type CurrentElementInformationCallbackFunction;
 }
 
 /// Compile the content of a string.
@@ -202,6 +206,35 @@ impl WrappedInstance {
     pub fn highlight(&self, _path: &str, _offset: u32) {
         self.0.highlight(_path.into(), _offset);
         let _ = slint_interpreter::invoke_from_event_loop(|| {}); // wake event loop
+    }
+
+    /// THIS FUNCTION IS NOT PART THE PUBLIC API!
+    /// Request information on what to highlight in the editor based on clicks in the UI
+    #[cfg(feature = "highlight")]
+    #[wasm_bindgen]
+    pub fn set_design_mode(&self, active: bool) {
+        self.0.set_design_mode(active);
+        let _ = slint_interpreter::invoke_from_event_loop(|| {}); // wake event loop
+    }
+
+    /// THIS FUNCTION IS NOT PART THE PUBLIC API!
+    /// Request information on what to highlight in the editor based on clicks in the UI
+    #[cfg(feature = "highlight")]
+    #[wasm_bindgen]
+    pub fn on_element_selected(&self, callback: CurrentElementInformationCallbackFunction) {
+        self.0.on_element_selected(Box::new(
+            move |url: &str, start_line: u32, start_column: u32, end_line: u32, end_column: u32| {
+                let args = js_sys::Array::of5(
+                    &url.into(),
+                    &start_line.into(),
+                    &start_column.into(),
+                    &end_line.into(),
+                    &end_column.into(),
+                );
+                let callback = js_sys::Function::from(callback.clone());
+                let _ = callback.apply(&JsValue::UNDEFINED, &args);
+            },
+        ));
     }
 }
 

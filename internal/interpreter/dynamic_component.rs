@@ -757,7 +757,7 @@ pub async fn load(
     }
 
     #[cfg(feature = "highlight")]
-    crate::highlight::add_highlight_items(&doc);
+    crate::highlight::add_highlighting(&doc);
 
     (Ok(generate_component(&doc.root_component, guard)), diag)
 }

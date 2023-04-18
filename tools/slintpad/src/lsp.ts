@@ -24,6 +24,7 @@ import {
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
 import slint_init, * as slint_preview from "@preview/slint_wasm_interpreter.js";
+import { HighlightRequestCallback } from "./text";
 
 let is_event_loop_running = false;
 
@@ -103,7 +104,14 @@ type RenderReply =
     | { type: "LoadUrl"; data: string }
     | { type: "Error"; data: string }
     | { type: "Result"; data: monaco.editor.IMarkerData[] };
-type BackendChatter = { type: "ErrorReport"; data: string };
+type BackendChatter =
+    | { type: "ErrorReport"; data: string }
+    | {
+          type: "HighlightRequest";
+          url: string;
+          start: { line: number; column: number };
+          end: { line: number; column: number };
+      };
 
 type HighlightInfo = { file: string; offset: number };
 
@@ -114,6 +122,7 @@ class PreviewerBackend {
     #instance: slint_preview.WrappedInstance | null = null;
     #to_highlight: HighlightInfo = { file: "", offset: 0 };
     #is_rendering = false;
+    #picker_mode = false;
 
     constructor(client_port: MessagePort, lsp_port: MessagePort) {
         this.#lsp_port = lsp_port;
@@ -126,6 +135,9 @@ class PreviewerBackend {
         this.#client_port = client_port;
         this.#client_port.onmessage = (m) => {
             try {
+                if (m.data.command === "set_picker_mode") {
+                    this.picker_mode = m.data.mode;
+                }
                 if (m.data.command === "set_canvas_id") {
                     this.canvas_id = m.data.canvas_id;
                 }
@@ -188,6 +200,33 @@ class PreviewerBackend {
                 client_port.postMessage({ type: "Error", data: e });
             }
         };
+    }
+
+    set picker_mode(state: boolean) {
+        this.#picker_mode = state;
+        this.configure_picker_mode();
+    }
+
+    protected configure_picker_mode() {
+        if (this.#instance !== null) {
+            this.#instance.on_element_selected(
+                (
+                    url: string,
+                    start_line: number,
+                    start_column: number,
+                    end_line: number,
+                    end_column: number,
+                ) => {
+                    this.#client_port.postMessage({
+                        type: "HighlightRequest",
+                        url: url,
+                        start: { line: start_line, column: start_column },
+                        end: { line: end_line, column: end_column },
+                    });
+                },
+            );
+            this.#instance.set_design_mode(this.#picker_mode);
+        }
     }
 
     set canvas_id(id: string | null) {
@@ -255,6 +294,7 @@ class PreviewerBackend {
                 this.#instance = component.create_with_existing_window(
                     this.#instance,
                 );
+                this.configure_picker_mode();
             }
         }
 
@@ -274,6 +314,9 @@ export class Previewer {
     #on_error: (_error: string) => void = () => {
         return;
     };
+    #on_highlight_request: HighlightRequestCallback = (_u, _s, _e) => {
+        return;
+    };
 
     constructor(channel: MessagePort) {
         this.#channel = channel;
@@ -281,6 +324,8 @@ export class Previewer {
             const data = m.data as BackendChatter;
             if (data.type == "ErrorReport") {
                 this.#on_error(data.data);
+            } else if (data.type == "HighlightRequest") {
+                this.#on_highlight_request(data.url, data.start, data.end);
             }
         };
     }
@@ -292,6 +337,14 @@ export class Previewer {
     set canvas_id(id: string | null) {
         this.#canvas_id = id;
         this.#channel.postMessage({ command: "set_canvas_id", canvas_id: id });
+    }
+
+    set picker_mode(state: boolean) {
+        this.#channel.postMessage({ command: "set_picker_mode", mode: state });
+    }
+
+    set on_highlight_request(cb: HighlightRequestCallback) {
+        this.#on_highlight_request = cb;
     }
 
     set on_error(callback: (_error: string) => void) {
