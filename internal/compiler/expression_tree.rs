@@ -186,7 +186,13 @@ impl BuiltinFunction {
             }
             BuiltinFunction::Translate => Type::Function {
                 return_type: Box::new(Type::String),
-                args: vec![Type::String, Type::Array(Type::String.into())],
+                // original, context, domain, args
+                args: vec![
+                    Type::String,
+                    Type::String,
+                    Type::String,
+                    Type::Array(Type::String.into()),
+                ],
             },
         }
     }
