@@ -433,7 +433,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
 
                     if canvas
                         .dataset()
-                        .get("slint-auto-resize-to-preferred")
+                        .get("slintAutoResizeToPreferred")
                         .and_then(|val_str| val_str.parse().ok())
                         .unwrap_or_default()
                     {
