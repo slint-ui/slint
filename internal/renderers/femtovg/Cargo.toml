@@ -10,7 +10,6 @@ license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 description = "FemtoVG based renderer for Slint"
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint-ui.com"
-build = "build.rs"
 rust-version.workspace = true
 
 [lib]
@@ -18,7 +17,7 @@ path = "lib.rs"
 
 [features]
 diskfonts = ["fontdb/memmap", "fontdb/fontconfig"]
-fontconfig = ["yeslogic-fontconfig-sys"]
+fontconfig = ["dep:yeslogic-fontconfig-sys"]
 
 [dependencies]
 i-slint-core = { version = "=1.0.1", path = "../../../internal/core", features = [ "box-shadow-cache" ] }
@@ -61,4 +60,4 @@ wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 libc = { version = "0.2" }
-yeslogic-fontconfig-sys = { version = "3.2", optional = true }
+yeslogic-fontconfig-sys = { workspace = true, optional = true }

@@ -28,7 +28,7 @@ proc_macro_span = ["quote", "proc-macro2"]
 display-diagnostics = ["codemap", "codemap-diagnostic"]
 
 # Enabled the support to render images and font in the binary
-software-renderer = ["image", "dep:resvg", "dep:fontdb", "fontdue", "libc", "yeslogic-fontconfig-sys"]
+software-renderer = ["image", "dep:resvg", "dep:fontdb", "fontdue", "libc", "dep:yeslogic-fontconfig-sys"]
 
 
 [dependencies]
@@ -63,7 +63,7 @@ fontdue = { version = "0.7.1", optional = true }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 libc = { version = "0.2", optional = true }
-yeslogic-fontconfig-sys = { version = "3.2.0", optional = true }
+yeslogic-fontconfig-sys = { workspace = true, optional = true }
 
 [dev-dependencies]
 i-slint-parser-test-macro = { path = "./parser-test-macro" }
