@@ -23,9 +23,6 @@ For Linux a few additional packages beyond the usual build essentials are needed
 
 `xcb` and `xcbcommon` aren't needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
 
-fontconfig can be `dlopen`ed at runtime instead of linking it at build time by setting the
-environment variable `RUST_FONTCONFIG_DLOPEN=on`. This can be useful for [cross-compiling](#cross-compiling).
-
 ### macOS
 
 - Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
