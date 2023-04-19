@@ -97,7 +97,7 @@ fn process_diagnostics(
     let lines = source
         .bytes()
         .enumerate()
-        .filter_map(|(i, c)| if c == b'\n' { Some(i + 1) } else { None })
+        .filter_map(|(i, c)| if c == b'\n' { Some(i) } else { None })
         .collect::<Vec<usize>>();
 
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of

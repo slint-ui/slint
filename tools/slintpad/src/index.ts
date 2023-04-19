@@ -478,9 +478,9 @@ function setup(lsp: Lsp) {
             url,
             LspRange.create(
                 start.line - 1,
-                start.column,
+                start.column - 1,
                 end.line - 1,
-                end.column,
+                end.column - 1,
             ),
         );
     };
