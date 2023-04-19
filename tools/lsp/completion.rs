@@ -532,7 +532,45 @@ fn add_components_to_import(
         }
         last = import.text_range().end().into();
     }
-    let last = if last == 0 { 0 } else { mapper.map_u32(last).line + 1 };
+
+    let new_import_position = if last == 0 {
+        // There are currently no input statement, place it at the location of the first non-empty token.
+        // This should also work in the slint! macro.
+        // consider this file:  We want to insert before the doc1 position
+        // ```
+        // //not doc (eg, license header)
+        //
+        // //doc1
+        // //doc2
+        // component Foo {
+        // ```
+        let mut offset = None;
+        for it in current_doc.children_with_tokens() {
+            match it.kind() {
+                SyntaxKind::Comment => {
+                    if offset == None {
+                        offset = Some(it.text_range().start());
+                    }
+                }
+                SyntaxKind::Whitespace => {
+                    // Single newline is just considered part of the comment
+                    // but more new lines means it splits that comment
+                    if it.as_token().unwrap().text() != "\n" {
+                        offset = None;
+                    }
+                }
+                _ => {
+                    if offset == None {
+                        offset = Some(it.text_range().start());
+                    }
+                    break;
+                }
+            }
+        }
+        mapper.map_u32(offset.unwrap_or_default().into())
+    } else {
+        Position::new(mapper.map_u32(last).line + 1, 0)
+    };
 
     for file in document_cache.documents.all_files() {
         let doc = document_cache.documents.get_document(file).unwrap();
@@ -565,9 +603,8 @@ fn add_components_to_import(
             available_types.insert(exported_name.name.clone());
             let the_import = import_locations.get(&file).map_or_else(
                 || {
-                    let pos = Position::new(last, 0);
                     TextEdit::new(
-                        Range::new(pos, pos),
+                        Range::new(new_import_position, new_import_position),
                         format!("import {{ {} }} from \"{}\";\n", exported_name.name, file),
                     )
                 },

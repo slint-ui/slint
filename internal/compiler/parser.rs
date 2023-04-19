@@ -840,6 +840,13 @@ impl NodeOrToken {
             _ => None,
         }
     }
+
+    pub fn text_range(&self) -> rowan::TextRange {
+        match self {
+            NodeOrToken::Node(n) => n.text_range(),
+            NodeOrToken::Token(t) => t.text_range(),
+        }
+    }
 }
 
 impl Spanned for SyntaxNode {
