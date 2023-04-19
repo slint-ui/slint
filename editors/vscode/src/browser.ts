@@ -8,9 +8,13 @@ import * as vscode from "vscode";
 import { LanguageClientOptions } from "vscode-languageclient";
 import { LanguageClient } from "vscode-languageclient/browser";
 
-import { set_client, PropertiesViewProvider } from "./common";
-import { PreviewSerializer, showPreview, initClientForPreview, refreshPreview } from "./web_preview";
-
+import { PropertiesViewProvider } from "./properties_webview";
+import {
+    PreviewSerializer,
+    showPreview,
+    initClientForPreview,
+    refreshPreview,
+} from "./web_preview";
 
 let client: LanguageClient;
 let statusBar: vscode.StatusBarItem;
@@ -47,7 +51,9 @@ function startClient(context: vscode.ExtensionContext) {
             context.subscriptions.push(disposable);
 
             client.onReady().then(() => {
-                set_client(client);
+                if (properties_provider) {
+                    properties_provider.client = client;
+                }
 
                 client.onRequest("slint/load_file", async (param: string) => {
                     return await vscode.workspace.fs.readFile(Uri.parse(param));
@@ -68,7 +74,6 @@ function startClient(context: vscode.ExtensionContext) {
         }
     };
 }
-
 
 // this method is called when vs code is activated
 export function activate(context: vscode.ExtensionContext) {
@@ -123,4 +128,3 @@ export function activate(context: vscode.ExtensionContext) {
 
     properties_provider.refresh_view();
 }
-
