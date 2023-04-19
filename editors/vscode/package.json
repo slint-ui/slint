@@ -118,15 +118,17 @@
         }
     },
     "dependencies": {
+        "@vscode/codicons": "0.0.32",
         "vscode-languageclient": "^7.0.0",
-        "vscode-languageserver": "^8.0.2",
-        "@vscode/codicons": "0.0.32"
+        "vscode-languageserver": "^8.0.2"
     },
     "files": [
         "bin/slint-lsp-*"
     ],
     "scripts": {
-        "vscode:prepublish": "wasm-pack build --target web --out-name index ../../tools/lsp --no-default-features --features preview-lense,preview-api && wasm-pack build --release --target web --out-dir $PWD/out ../../api/wasm-interpreter --features highlight && npm run compile",
+        "vscode:prepublish": "npm run build:wasm_lsp && npm run build:wasm_preview && npm run compile",
+        "build:wasm_lsp": "wasm-pack build --target web --out-name index ../../tools/lsp --no-default-features --features preview-lense,preview-api",
+        "build:wasm_preview": "env-var wasm-pack build --release --target web --out-dir {{npm_config_local_prefix}}/out ../../api/wasm-interpreter --features highlight",
         "compile": "node ./esbuild.js",
         "local-package": "mkdir -p bin && cp ../../target/debug/slint-lsp bin/ && npx vsce package",
         "watch": "tsc -watch -p ./",
@@ -135,6 +137,7 @@
         "test": "node ./out/test/runTest.js"
     },
     "devDependencies": {
+        "@rauschma/env-var": "^1.0.1",
         "@types/glob": "^7.2.0",
         "@types/mocha": "^8.2.3",
         "@types/node": "^12.20.55",
