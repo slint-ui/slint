@@ -155,10 +155,7 @@ pub fn to_lsp_diag(d: &i_slint_compiler::diagnostics::Diagnostic) -> lsp_types::
 }
 
 fn to_range(span: (usize, usize)) -> lsp_types::Range {
-    let pos = lsp_types::Position::new(
-        (span.0 as u32).saturating_sub(1),
-        (span.1 as u32).saturating_sub(1),
-    );
+    let pos = lsp_types::Position::new((span.0 as u32).saturating_sub(1), span.1 as u32);
     lsp_types::Range::new(pos, pos)
 }
 

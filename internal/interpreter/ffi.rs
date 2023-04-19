@@ -716,7 +716,7 @@ pub struct Diagnostic {
     source_file: SharedString,
     /// The line within the source file. Line numbers start at 1.
     line: usize,
-    /// The column within the source file. Column numbers start at 1.
+    /// The column within the source file. Column numbers start at 0.
     column: usize,
     /// The level of the diagnostic, such as a warning or an error.
     level: DiagnosticLevel,

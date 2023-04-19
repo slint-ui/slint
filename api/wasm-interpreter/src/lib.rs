@@ -128,7 +128,7 @@ pub async fn compile_from_string_with_style(
         let error_obj = js_sys::Object::new();
         js_sys::Reflect::set(&error_obj, &message_key, &JsValue::from_str(&d.message()))?;
         js_sys::Reflect::set(&error_obj, &line_key, &JsValue::from_f64(line as f64))?;
-        js_sys::Reflect::set(&error_obj, &column_key, &JsValue::from_f64(column as f64))?;
+        js_sys::Reflect::set(&error_obj, &column_key, &JsValue::from_f64(column as f64 + 1.))?;
         js_sys::Reflect::set(&error_obj, &file_key, &filename_js)?;
         js_sys::Reflect::set(&error_obj, &level_key, &JsValue::from_f64(d.level() as i8 as f64))?;
         array.push(&error_obj);
