@@ -77,14 +77,26 @@ struct DesignModeState {
     pub current_item: Option<ItemWeak>,
 }
 
-/// Use the last item we visited or the root element
-fn find_start_item(state: &RefCell<DesignModeState>, component: &DynamicComponentVRc) -> ItemRc {
+/// Use the last item we visited (if that covers the click area) or the root element
+fn find_start_item(
+    state: &RefCell<DesignModeState>,
+    component: &DynamicComponentVRc,
+    position: &LogicalPoint,
+) -> ItemRc {
     state
         .try_borrow()
         .ok()
         .and_then(|s| s.current_item.clone())
         .and_then(|i| i.upgrade())
+        .filter(|i| item_contains(i, position))
         .unwrap_or_else(|| ItemRc::new(VRc::into_dyn(component.clone()), 0))
+}
+
+fn item_contains(item: &ItemRc, position: &LogicalPoint) -> bool {
+    let offset = item.map_to_window(LogicalPoint::default());
+    let geometry = item.geometry().translate(offset.to_vector());
+
+    geometry.contains(*position)
 }
 
 pub fn on_element_selected(
@@ -111,7 +123,7 @@ pub fn on_element_selected(
                 return Value::Void;
             };
 
-            let start_item = find_start_item(&state, &c);
+            let start_item = find_start_item(&state, &c, &position);
 
             let mut i = start_item.clone();
             let (f, sl, sc, el, ec) = loop {
@@ -122,10 +134,7 @@ pub fn on_element_selected(
                     break (String::new(), 0, 0, 0, 0);
                 }
 
-                let offset = i.map_to_window(LogicalPoint::default());
-                let geometry = i.geometry().translate(offset.to_vector());
-
-                if !geometry.contains(position) {
+                if !item_contains(&i, &position) {
                     continue; // wrong position
                 }
 
