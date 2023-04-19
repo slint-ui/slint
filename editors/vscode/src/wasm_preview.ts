@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-
 import { Uri } from "vscode";
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
@@ -14,14 +13,14 @@ let queuedPreviewMsg: any | null = null;
 let previewBusy = false;
 
 /// Initialize the callback on the client to make the web preview work
-export function initClientForPreview(context: vscode.ExtensionContext, client: BaseLanguageClient) {
-    client.onRequest(
-        "slint/showPreview",
-        async (param: string[]) => {
-            showPreview(context, Uri.parse(param[0]), param[1]);
-            return;
-        }
-    );
+export function initClientForPreview(
+    context: vscode.ExtensionContext,
+    client: BaseLanguageClient,
+) {
+    client.onRequest("slint/showPreview", async (param: string[]) => {
+        showPreview(context, Uri.parse(param[0]), param[1]);
+        return;
+    });
     client.onRequest("slint/preview_message", async (msg: any) => {
         if (previewPanel) {
             // map urls to webview URL
@@ -44,9 +43,7 @@ function reload_preview(url: Uri, content: string, component: string) {
         content += "\ncomponent _Preview inherits " + component + " {}\n";
     }
     previewAccessedFiles.clear();
-    let webview_uri = previewPanel.webview
-        .asWebviewUri(url)
-        .toString();
+    let webview_uri = previewPanel.webview.asWebviewUri(url).toString();
     previewAccessedFiles.add(webview_uri);
     const style = vscode.workspace
         .getConfiguration("slint")
@@ -71,7 +68,12 @@ export async function refreshPreview(event?: vscode.TextDocumentChangeEvent) {
     if (!previewPanel || !previewUrl) {
         return;
     }
-    if (event && !previewAccessedFiles.has(previewPanel.webview.asWebviewUri(event.document.uri).toString())) {
+    if (
+        event &&
+        !previewAccessedFiles.has(
+            previewPanel.webview.asWebviewUri(event.document.uri).toString(),
+        )
+    ) {
         return;
     }
 
@@ -86,7 +88,6 @@ export async function refreshPreview(event?: vscode.TextDocumentChangeEvent) {
     }
     reload_preview(previewUrl, content_str, previewComponent);
 }
-
 
 /// Show the preview for the given path and component
 export async function showPreview(
@@ -116,9 +117,7 @@ export async function showPreview(
 
 async function getDocumentSource(url: Uri): Promise<string> {
     // FIXME: is there a faster way to get the document
-    let x = vscode.workspace.textDocuments.find(
-        (d) => d.uri === url,
-    );
+    let x = vscode.workspace.textDocuments.find((d) => d.uri === url);
     let source;
     if (x) {
         source = x.getText();

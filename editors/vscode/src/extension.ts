@@ -10,12 +10,7 @@ import { existsSync } from "fs";
 import * as vscode from "vscode";
 
 import { PropertiesViewProvider } from "./properties_webview";
-import {
-    PreviewSerializer,
-    showPreview,
-    initClientForPreview,
-    refreshPreview,
-} from "./web_preview";
+import * as wasm_preview from "./wasm_preview";
 
 import {
     LanguageClient,
@@ -157,7 +152,7 @@ function startClient(context: vscode.ExtensionContext) {
                             .getConfiguration("slint")
                             .get<boolean>("preview.providedByEditor")
                     ) {
-                        showPreview(
+                        wasm_preview.showPreview(
                             context,
                             vscode.Uri.parse(args[0]),
                             args[1],
@@ -182,7 +177,7 @@ function startClient(context: vscode.ExtensionContext) {
         if (properties_provider) {
             properties_provider.client = client;
         }
-        initClientForPreview(context, client);
+        wasm_preview.initClientForPreview(context, client);
 
         properties_provider.refresh_view();
         client.onNotification(serverStatus, (params) =>
@@ -212,7 +207,7 @@ export function activate(context: vscode.ExtensionContext) {
                     .getConfiguration("slint")
                     .get<boolean>("preview.providedByEditor")
             ) {
-                showPreview(context, ae.document.uri, "");
+                wasm_preview.showPreview(context, ae.document.uri, "");
             } else {
                 client.sendNotification(
                     "slint/showPreview",
@@ -232,7 +227,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.window.registerWebviewPanelSerializer(
         "slint-preview",
-        new PreviewSerializer(context),
+        new wasm_preview.PreviewSerializer(context),
     );
 
     properties_provider = new PropertiesViewProvider(context.extensionUri);
@@ -249,12 +244,12 @@ export function activate(context: vscode.ExtensionContext) {
             client?.sendNotification("workspace/didChangeConfiguration", {
                 settings: "",
             });
-            refreshPreview();
+            wasm_preview.refreshPreview();
         }
     });
 
     vscode.workspace.onDidChangeTextDocument(async (ev) => {
-        refreshPreview(ev);
+        wasm_preview.refreshPreview(ev);
 
         // Send a request for properties information after passing through the
         // event loop once to make sure the LSP got signaled to update.

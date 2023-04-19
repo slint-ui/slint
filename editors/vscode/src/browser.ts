@@ -9,12 +9,7 @@ import { LanguageClientOptions } from "vscode-languageclient";
 import { LanguageClient } from "vscode-languageclient/browser";
 
 import { PropertiesViewProvider } from "./properties_webview";
-import {
-    PreviewSerializer,
-    showPreview,
-    initClientForPreview,
-    refreshPreview,
-} from "./web_preview";
+import * as wasm_preview from "./wasm_preview";
 
 let client: LanguageClient;
 let statusBar: vscode.StatusBarItem;
@@ -58,7 +53,7 @@ function startClient(context: vscode.ExtensionContext) {
                 client.onRequest("slint/load_file", async (param: string) => {
                     return await vscode.workspace.fs.readFile(Uri.parse(param));
                 });
-                initClientForPreview(context, client);
+                wasm_preview.initClientForPreview(context, client);
                 //client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
 
                 vscode.workspace.onDidChangeConfiguration(async (ev) => {
@@ -67,7 +62,7 @@ function startClient(context: vscode.ExtensionContext) {
                             "workspace/didChangeConfiguration",
                             { settings: "" },
                         );
-                        refreshPreview();
+                        wasm_preview.refreshPreview();
                     }
                 });
             });
@@ -91,7 +86,7 @@ export function activate(context: vscode.ExtensionContext) {
             if (!ae) {
                 return;
             }
-            await showPreview(context, ae.document.uri, "");
+            await wasm_preview.showPreview(context, ae.document.uri, "");
         }),
     );
 
@@ -104,7 +99,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     vscode.workspace.onDidChangeTextDocument(async (event) => {
-        await refreshPreview(event);
+        await wasm_preview.refreshPreview(event);
 
         // Send a request for properties information after passing through the
         // event loop once to make sure the LSP got signaled to update.
@@ -115,7 +110,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.window.registerWebviewPanelSerializer(
         "slint-preview",
-        new PreviewSerializer(context),
+        new wasm_preview.PreviewSerializer(context),
     );
 
     properties_provider = new PropertiesViewProvider(context.extensionUri);
