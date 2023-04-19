@@ -96,8 +96,8 @@ The `docs` folder contains a lot more information, including
 
 Refer to the README of each language directory in the `api` folder:
 
-- [C++](api/cpp) ([Documentation](https://slint-ui.com/docs/cpp) | [Tutorial](https://slint-ui.com/docs/tutorial/cpp) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/slint-ui/slint-cpp-template))
-- [Rust](api/rs/slint) [![Crates.io](https://img.shields.io/crates/v/slint)](https://crates.io/crates/slint) ([Documentation](https://slint-ui.com/docs/rust/slint/) | [Tutorial](https://slint-ui.com/docs/tutorial/rust) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/slint-ui/slint-rust-template))
+- [C++](api/cpp) ([Documentation](https://slint-ui.com/docs/cpp) | [Tutorial](https://slint-ui.com/docs/tutorial/cpp) | [Getting Started Template](https://github.com/slint-ui/slint-cpp-template))
+- [Rust](api/rs/slint) [![Crates.io](https://img.shields.io/crates/v/slint)](https://crates.io/crates/slint) ([Documentation](https://slint-ui.com/docs/rust/slint/) | [Tutorial](https://slint-ui.com/docs/tutorial/rust) | [Tutorial Video](https://youtu.be/WBcv4V-whHk) | [Getting Started Template](https://github.com/slint-ui/slint-rust-template))
 - [JavaScript/NodeJS (Beta)](api/node) [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui) ([Documentation](https://slint-ui.com/docs/node) | [Tutorial](https://slint-ui.com/docs/tutorial/node) | [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template))
 
 ## Demos
