@@ -34,10 +34,10 @@ software-renderer = ["image", "dep:resvg", "dep:fontdb", "fontdue", "libc", "yes
 [dependencies]
 i-slint-common = { version = "=1.0.1", path = "../common" }
 
-num_enum = "0.5.1"
+num_enum = "0.6.1"
 strum = { version = "0.24.0", default-features = false, features = ["derive"] }
 rowan = "0.15.5"
-smol_str = "0.1.17"
+smol_str = "0.2.0"
 derive_more = "0.99.5"
 codemap-diagnostic = { version = "0.1.1", optional = true }
 codemap = { version = "0.1", optional = true }
