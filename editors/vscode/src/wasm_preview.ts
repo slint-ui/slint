@@ -17,16 +17,12 @@ export function initClientForPreview(
     context: vscode.ExtensionContext,
     client: BaseLanguageClient,
 ) {
-    client.onRequest("slint/showPreview", async (param: string[]) => {
-        showPreview(context, Uri.parse(param[0]), param[1]);
-        return;
-    });
     client.onRequest("slint/preview_message", async (msg: any) => {
         if (previewPanel) {
             // map urls to webview URL
             if (msg.command === "highlight") {
                 msg.data.path = previewPanel.webview
-                    .asWebviewUri(Uri.parse(msg.data.path))
+                    .asWebviewUri(Uri.parse(msg.data.path, true))
                     .toString();
             }
             previewPanel.webview.postMessage(msg);
@@ -92,10 +88,10 @@ export async function refreshPreview(event?: vscode.TextDocumentChangeEvent) {
 /// Show the preview for the given path and component
 export async function showPreview(
     context: vscode.ExtensionContext,
-    path: Uri,
+    url: Uri,
     component: string,
 ) {
-    previewUrl = path;
+    previewUrl = url;
     previewComponent = component;
 
     if (previewPanel) {
@@ -111,8 +107,8 @@ export async function showPreview(
         initPreviewPanel(context, panel);
     }
 
-    let content_str = await getDocumentSource(path);
-    reload_preview(path, content_str, previewComponent);
+    let content_str = await getDocumentSource(url);
+    reload_preview(url, content_str, previewComponent);
 }
 
 async function getDocumentSource(url: Uri): Promise<string> {
@@ -264,10 +260,12 @@ export class PreviewSerializer implements vscode.WebviewPanelSerializer {
         state: any,
     ) {
         initPreviewPanel(this.context, webviewPanel);
-        let content_str = await getDocumentSource(state.base_url);
-        previewComponent = state.component;
-        previewUrl = state.base_url;
-        reload_preview(state.base_url, content_str, state.component);
+        previewUrl = Uri.parse(state?.base_url, true);
+        if (previewUrl) {
+            let content_str = await getDocumentSource(previewUrl);
+            previewComponent = state.component ?? "";
+            reload_preview(previewUrl, content_str, previewComponent);
+        }
     }
 }
 
@@ -282,7 +280,7 @@ function initPreviewPanel(
         async (message) => {
             switch (message.command) {
                 case "load_file":
-                    let canonical = Uri.parse(message.url).toString();
+                    let canonical = Uri.parse(message.url, true).toString();
                     previewAccessedFiles.add(canonical);
                     let content_str = undefined;
                     let x = vscode.workspace.textDocuments.find(
