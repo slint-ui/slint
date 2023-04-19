@@ -51,29 +51,6 @@ fn next_item_down(item: &ItemRc) -> ItemRc {
     }
 }
 
-/// We want to look at all items that cover the point we clicked into, one at
-/// a time. The input item is the last item we were interested in, and we want
-/// to find the next one that also cover the area of that point.
-///
-/// So we find the next item to look at, breaking out if that is the item we
-/// started with.
-fn find_item(item: &ItemRc, position: &LogicalPoint) -> Option<ItemRc> {
-    let mut next = item.clone();
-    loop {
-        next = next_item(&next);
-
-        if next == *item {
-            return None;
-        }
-        let offset = next.map_to_window(LogicalPoint::default());
-        let geometry = next.geometry().translate(offset.to_vector());
-
-        if geometry.contains(*position) {
-            return Some(next);
-        }
-    }
-}
-
 fn element_providing_item(component: &ErasedComponentBox, index: usize) -> Option<ElementRc> {
     generativity::make_guard!(guard);
     let c = component.unerase(guard);
@@ -100,16 +77,25 @@ struct DesignModeState {
     pub current_item: Option<ItemWeak>,
 }
 
+/// Use the last item we visited or the root element
+fn find_start_item(state: &RefCell<DesignModeState>, component: &DynamicComponentVRc) -> ItemRc {
+    state
+        .try_borrow()
+        .ok()
+        .and_then(|s| s.current_item.clone())
+        .and_then(|i| i.upgrade())
+        .unwrap_or_else(|| ItemRc::new(VRc::into_dyn(component.clone()), 0))
+}
+
 pub fn on_element_selected(
     component_instance: &DynamicComponentVRc,
     callback: Box<dyn Fn(&str, u32, u32, u32, u32) -> ()>,
 ) {
-    let weak_component = VRc::downgrade(component_instance);
-
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
     let state = RefCell::new(DesignModeState { current_item: None });
+    let weak_component = VRc::downgrade(component_instance);
 
     let _ = c.description().set_callback_handler(
         c.borrow(),
@@ -125,20 +111,23 @@ pub fn on_element_selected(
                 return Value::Void;
             };
 
-            let start_item = state
-                .try_borrow_mut()
-                .ok()
-                .and_then(|mut s| s.current_item.take())
-                .and_then(|i| i.upgrade())
-                .unwrap_or_else(|| ItemRc::new(VRc::into_dyn(c.clone()), 0));
+            let start_item = find_start_item(&state, &c);
 
             let mut i = start_item.clone();
             let (f, sl, sc, el, ec) = loop {
-                i = if let Some(next) = find_item(&i, &position) {
-                    next
-                } else {
+                i = next_item(&i);
+
+                if i == start_item {
+                    // Break out: We went round once.
                     break (String::new(), 0, 0, 0, 0);
-                };
+                }
+
+                let offset = i.map_to_window(LogicalPoint::default());
+                let geometry = i.geometry().translate(offset.to_vector());
+
+                if !geometry.contains(position) {
+                    continue; // wrong position
+                }
 
                 state.borrow_mut().current_item = Some(i.downgrade());
 
@@ -148,7 +137,7 @@ pub fn on_element_selected(
                     continue; // Skip components of unexpected type!
                 };
 
-                if let Some((file, start_line, start_column, end_line, end_column)) =
+                let Some((file, start_line, start_column, end_line, end_column)) =
                     element_providing_item(component_box, i.index()).and_then(|e| {
                         highlight_elements(&c, vec![Rc::downgrade(&e)]);
 
@@ -156,14 +145,18 @@ pub fn on_element_selected(
                         e.node.as_ref().map(|n| {
                             let offset = n.span().offset;
                             let length: usize = n.text().len().into();
+
                             map_offset_to_line(n.source_file().cloned(), offset, offset + length)
                         })
-                    })
-                {
-                    if !file.starts_with("builtin:/") {
-                        break (file, start_line, start_column, end_line, end_column);
-                    }
+                    }) else {
+                    continue; // Skip any Item not part of an element with a node attached
+                };
+
+                if file.starts_with("builtin:/") {
+                    continue; // Skip builtins
                 }
+
+                break (file, start_line, start_column, end_line, end_column);
             };
 
             callback(&f, sl, sc, el, ec);
