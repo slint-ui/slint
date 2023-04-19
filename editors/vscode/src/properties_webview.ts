@@ -3,7 +3,7 @@
 
 // cSpell: ignore codicon codicons
 
-// This file contains the common code for both the normal and the browser extension
+// This file contains the properties web view component
 
 import {
     Property,
@@ -18,22 +18,22 @@ import {
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
 
-let client: BaseLanguageClient | null = null;
-export function set_client(c: BaseLanguageClient) {
-    client = c;
-}
-
 export class PropertiesViewProvider implements vscode.WebviewViewProvider {
     #current_uri = "";
     #current_version = -1;
     #current_cursor_line = -1;
     #current_cursor_character = -1;
+    #client: BaseLanguageClient | null = null;
 
     public static readonly viewType = "slint.propertiesView";
 
     private _view?: vscode.WebviewView;
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
+
+    public set client(c: BaseLanguageClient | null) {
+        this.#client = c;
+    }
 
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
@@ -65,13 +65,14 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                             p.defined_at &&
                             p.defined_at.property_definition_range
                         ) {
-                            if (client === null) {
+                            if (this.#client === null) {
                                 return;
                             }
 
-                            let range = client.protocol2CodeConverter.asRange(
-                                p.defined_at.property_definition_range,
-                            );
+                            let range =
+                                this.#client.protocol2CodeConverter.asRange(
+                                    p.defined_at.property_definition_range,
+                                );
                             vscode.window.activeTextEditor.revealRange(range);
                             vscode.window.activeTextEditor.selection =
                                 new vscode.Selection(range.start, range.end);
@@ -239,7 +240,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
             // We will get notified about this changing!
             return;
         }
-        if (client === null) {
+        if (this.#client === null) {
             this._view?.webview.postMessage({
                 command: "show_welcome",
                 message: "Waiting for Slint LSP",

@@ -9,8 +9,13 @@ import * as path from "path";
 import { existsSync } from "fs";
 import * as vscode from "vscode";
 
-import { PropertiesViewProvider, set_client } from "./common";
-import { PreviewSerializer, showPreview, initClientForPreview, refreshPreview } from "./web_preview";
+import { PropertiesViewProvider } from "./properties_webview";
+import {
+    PreviewSerializer,
+    showPreview,
+    initClientForPreview,
+    refreshPreview,
+} from "./web_preview";
 
 import {
     LanguageClient,
@@ -147,14 +152,22 @@ function startClient(context: vscode.ExtensionContext) {
         middleware: {
             executeCommand(command, args, next) {
                 if (command == "slint/showPreview") {
-                    if (vscode.workspace.getConfiguration("slint").get<boolean>("preview.providedByEditor")) {
-                        showPreview(context, vscode.Uri.parse(args[0]), args[1]);
+                    if (
+                        vscode.workspace
+                            .getConfiguration("slint")
+                            .get<boolean>("preview.providedByEditor")
+                    ) {
+                        showPreview(
+                            context,
+                            vscode.Uri.parse(args[0]),
+                            args[1],
+                        );
                         return;
                     }
                 }
                 return next(command, args);
             },
-        }
+        },
     };
 
     client = new LanguageClient(
@@ -166,7 +179,9 @@ function startClient(context: vscode.ExtensionContext) {
 
     client.start();
     let initClient = () => {
-        set_client(client);
+        if (properties_provider) {
+            properties_provider.client = client;
+        }
         initClientForPreview(context, client);
 
         properties_provider.refresh_view();
@@ -192,7 +207,11 @@ export function activate(context: vscode.ExtensionContext) {
             if (!ae) {
                 return;
             }
-            if (vscode.workspace.getConfiguration("slint").get<boolean>("preview.providedByEditor")) {
+            if (
+                vscode.workspace
+                    .getConfiguration("slint")
+                    .get<boolean>("preview.providedByEditor")
+            ) {
                 showPreview(context, ae.document.uri, "");
             } else {
                 client.sendNotification(
