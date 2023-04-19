@@ -91,18 +91,18 @@ impl SourceFileInner {
         Rc::new(Self { path, ..Default::default() })
     }
 
-    /// Returns a tuple with the line (starting at 1) and column number (starting at 0)
+    /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
     pub fn line_column(&self, offset: usize) -> (usize, usize) {
         let line_offsets = self.line_offsets();
         line_offsets.binary_search(&offset).map_or_else(
             |line| {
                 if line == 0 {
-                    (1, offset)
+                    (1, offset + 1)
                 } else {
-                    (line + 1, line_offsets.get(line - 1).map_or(0, |x| offset - x))
+                    (line + 1, line_offsets.get(line - 1).map_or(0, |x| offset - x + 1))
                 }
             },
-            |line| (line + 1, 0),
+            |line| (line + 1, 1),
         )
     }
 
@@ -219,7 +219,7 @@ impl Diagnostic {
         &self.message
     }
 
-    /// Returns a tuple with the line (starting at 1) and column number (starting at 0)
+    /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
     pub fn line_column(&self) -> (usize, usize) {
         let offset = self.span.span.offset;
 
