@@ -208,6 +208,7 @@ pub struct Diagnostic {
     level: DiagnosticLevel,
 }
 
+//NOTE! Diagnostic is re-exported in the public API of the interpreter
 impl Diagnostic {
     /// Return the level for this diagnostic
     pub fn level(&self) -> DiagnosticLevel {
@@ -220,7 +221,12 @@ impl Diagnostic {
     }
 
     /// Returns a tuple with the line (starting at 1) and column number (starting at 1)
+    ///
+    /// Can also return (0, 0) if the span is invalid
     pub fn line_column(&self) -> (usize, usize) {
+        if !self.span.span.is_valid() {
+            return (0, 0);
+        }
         let offset = self.span.span.offset;
 
         match &self.span.source_file {

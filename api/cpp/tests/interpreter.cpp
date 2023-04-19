@@ -304,6 +304,8 @@ SCENARIO("Component Compiler")
 
         REQUIRE(diags.size() == 1);
         REQUIRE(diags[0].message.starts_with("Could not load"));
+        REQUIRE(diags[0].line == 0);
+        REQUIRE(diags[0].column == 0);
     }
 
     SECTION("Compile from path")
