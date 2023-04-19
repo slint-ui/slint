@@ -9,11 +9,7 @@ import {
     Property,
     PropertyQuery,
 } from "../../../tools/slintpad/src/shared/properties";
-import {
-    change_property,
-    query_properties,
-    remove_binding,
-} from "./properties_client";
+import * as lsp_commands from "../../../tools/slintpad/src/shared/lsp_commands";
 
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
@@ -80,7 +76,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                     }
                     break;
                 case "change_property":
-                    change_property(
+                    lsp_commands.setBinding(
                         data.document,
                         data.element_range,
                         data.property_name,
@@ -94,7 +90,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                     });
                     break;
                 case "remove_binding":
-                    remove_binding(
+                    lsp_commands.removeBinding(
                         data.document,
                         data.element_range,
                         data.property_name,
@@ -181,7 +177,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
     refresh_view() {
         const editor = vscode.window.activeTextEditor;
-        if (editor == null) {
+        if (!editor) {
             this.update_view(
                 "NO EDITOR",
                 this.#current_uri,
@@ -192,7 +188,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
             return;
         }
         const doc = editor.document;
-        if (doc == null) {
+        if (!doc) {
             this.update_view(
                 "NO DOCUMENT",
                 this.#current_uri,
@@ -229,7 +225,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
         this.#current_cursor_line = line;
         this.#current_cursor_character = character;
 
-        if (this._view == null) {
+        if (!this._view) {
             return;
         }
         if (language !== "slint" && language !== "rust") {
@@ -253,7 +249,10 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
         // So retry once with 2s delay...
         // Ideally we could use the progress messages from the LSP to find out when to retry,
         // but we do not have those yet.
-        query_properties(uri, { line: line, character: character })
+        lsp_commands.queryProperties(uri, {
+            line: line,
+            character: character,
+        })
             .then((p: PropertyQuery) => {
                 const msg = {
                     command: "set_properties",

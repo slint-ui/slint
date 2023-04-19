@@ -11,25 +11,15 @@ import * as vscode from "vscode";
 
 import { PropertiesViewProvider } from "./properties_webview";
 import * as wasm_preview from "./wasm_preview";
+import * as common from "./common";
 
 import {
     LanguageClient,
-    LanguageClientOptions,
     ServerOptions,
-    NotificationType,
     ExecutableOptions,
 } from "vscode-languageclient/node";
 
-export interface ServerStatusParams {
-    health: "ok" | "warning" | "error";
-    quiescent: boolean;
-    message?: string;
-}
-export const serverStatus = new NotificationType<ServerStatusParams>(
-    "experimental/serverStatus",
-);
-
-let client: LanguageClient;
+let client = new common.ClientHandle();
 let statusBar: vscode.StatusBarItem;
 let properties_provider: PropertiesViewProvider;
 
@@ -142,153 +132,49 @@ function startClient(context: vscode.ExtensionContext) {
         debug: { command: serverModule, options: options, args: args },
     };
 
-    let clientOptions: LanguageClientOptions = {
-        documentSelector: [{ language: "slint" }, { language: "rust" }],
-        middleware: {
-            executeCommand(command, args, next) {
-                if (command == "slint/showPreview") {
-                    if (
-                        vscode.workspace
-                            .getConfiguration("slint")
-                            .get<boolean>("preview.providedByEditor")
-                    ) {
-                        wasm_preview.showPreview(
-                            context,
-                            vscode.Uri.parse(args[0]),
-                            args[1],
-                        );
-                        return;
-                    }
-                }
-                return next(command, args);
-            },
-        },
-    };
+    const clientOptions = common.languageClientOptions((args: any) => {
+        if (
+            vscode.workspace
+                .getConfiguration("slint")
+                .get<boolean>("preview.providedByEditor")
+        ) {
+            wasm_preview.showPreview(
+                context,
+                vscode.Uri.parse(args[0], true),
+                args[1],
+            );
+            return true;
+        }
+        return false;
+    });
 
-    client = new LanguageClient(
+    const cl = new LanguageClient(
         "slint-lsp",
         "Slint LSP",
         serverOptions,
         clientOptions,
     );
 
-    client.start();
+    cl.start();
+    client.client = cl;
+
     let initClient = () => {
-        if (properties_provider) {
-            properties_provider.client = client;
-        }
-        wasm_preview.initClientForPreview(context, client);
+        wasm_preview.initClientForPreview(context, cl);
 
         properties_provider.refresh_view();
-        client.onNotification(serverStatus, (params) =>
-            setServerStatus(params, statusBar),
+        cl.onNotification(common.serverStatus, (params: any) =>
+            common.setServerStatus(params, statusBar),
         );
     };
-    client.onReady().then(initClient);
+    cl.onReady().then(initClient);
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    statusBar = vscode.window.createStatusBarItem(
-        vscode.StatusBarAlignment.Left,
+    [statusBar, properties_provider] = common.activate(context, client, (ctx) =>
+        startClient(ctx),
     );
-    context.subscriptions.push(statusBar);
-    statusBar.text = "Slint";
-
-    startClient(context);
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand("slint.showPreview", function () {
-            let ae = vscode.window.activeTextEditor;
-            if (!ae) {
-                return;
-            }
-            if (
-                vscode.workspace
-                    .getConfiguration("slint")
-                    .get<boolean>("preview.providedByEditor")
-            ) {
-                wasm_preview.showPreview(context, ae.document.uri, "");
-            } else {
-                client.sendNotification(
-                    "slint/showPreview",
-                    ae.document.uri.fsPath.toString(),
-                );
-            }
-        }),
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand("slint.reload", async function () {
-            statusBar.hide();
-            await client.stop();
-            startClient(context);
-        }),
-    );
-
-    vscode.window.registerWebviewPanelSerializer(
-        "slint-preview",
-        new wasm_preview.PreviewSerializer(context),
-    );
-
-    properties_provider = new PropertiesViewProvider(context.extensionUri);
-    context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider(
-            PropertiesViewProvider.viewType,
-            properties_provider,
-        ),
-    );
-    properties_provider.refresh_view();
-
-    vscode.workspace.onDidChangeConfiguration(async (ev) => {
-        if (ev.affectsConfiguration("slint")) {
-            client?.sendNotification("workspace/didChangeConfiguration", {
-                settings: "",
-            });
-            wasm_preview.refreshPreview();
-        }
-    });
-
-    vscode.workspace.onDidChangeTextDocument(async (ev) => {
-        wasm_preview.refreshPreview(ev);
-
-        // Send a request for properties information after passing through the
-        // event loop once to make sure the LSP got signaled to update.
-        setTimeout(() => {
-            properties_provider.refresh_view();
-        }, 1);
-    });
 }
 
 export function deactivate(): Thenable<void> | undefined {
-    if (!client) {
-        return undefined;
-    }
-    return client.stop();
-}
-
-function setServerStatus(
-    status: ServerStatusParams,
-    statusBar: vscode.StatusBarItem,
-) {
-    let icon = "";
-    switch (status.health) {
-        case "ok":
-            statusBar.color = undefined;
-            break;
-        case "warning":
-            statusBar.color = new vscode.ThemeColor(
-                "notificationsWarningIcon.foreground",
-            );
-            icon = "$(warning) ";
-            break;
-        case "error":
-            statusBar.color = new vscode.ThemeColor(
-                "notificationsErrorIcon.foreground",
-            );
-            icon = "$(error) ";
-            break;
-    }
-    statusBar.tooltip = "Slint";
-    statusBar.text = `${icon} ${status.message ?? "Slint"}`;
-    statusBar.show();
+    return common.deactivate(client);
 }

@@ -7,20 +7,12 @@ import { GotoPositionCallback } from "./text";
 import { LspPosition, LspURI } from "./lsp_integration";
 
 import { PropertyQuery, PropertiesView } from "./shared/properties";
-import {
-    change_property,
-    query_properties,
-    remove_binding,
-} from "./properties_client";
+import * as lsp_commands from "./shared/lsp_commands";
 
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
-import { BaseLanguageClient } from "vscode-languageclient";
-
 export class PropertiesWidget extends Widget {
-    #language_client: BaseLanguageClient | null = null;
-
     #onGotoPosition: GotoPositionCallback = (_u, _p) => {
         return;
     };
@@ -39,8 +31,7 @@ export class PropertiesWidget extends Widget {
         this.#propertiesView = new PropertiesView(
             node,
             (doc, element, property_name, value, dry_run) => {
-                return change_property(
-                    this.#language_client,
+                return lsp_commands.setBinding(
                     doc,
                     element,
                     property_name,
@@ -50,8 +41,7 @@ export class PropertiesWidget extends Widget {
             },
             "fa fa-trash-o",
             (doc, element, property_name) => {
-                return remove_binding(
-                    this.#language_client,
+                return lsp_commands.removeBinding(
                     doc,
                     element,
                     property_name,
@@ -71,14 +61,8 @@ export class PropertiesWidget extends Widget {
         super.dispose();
     }
 
-    set_language_client(client: BaseLanguageClient | null) {
-        if (client != null) {
-            this.#language_client = client;
-        }
-    }
-
     position_changed(uri: LspURI, version: number, position: LspPosition) {
-        query_properties(this.#language_client, uri, position)
+        lsp_commands.queryProperties(uri, position)
             .then((r: PropertyQuery) => {
                 if (r.source_version < version) {
                     setTimeout(() => {

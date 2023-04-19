@@ -5,60 +5,64 @@
 
 import { Uri } from "vscode";
 import * as vscode from "vscode";
-import { LanguageClientOptions } from "vscode-languageclient";
 import { LanguageClient } from "vscode-languageclient/browser";
 
 import { PropertiesViewProvider } from "./properties_webview";
 import * as wasm_preview from "./wasm_preview";
+import * as common from "./common";
 
-let client: LanguageClient;
+let client = new common.ClientHandle();
 let statusBar: vscode.StatusBarItem;
 let properties_provider: PropertiesViewProvider;
 
 function startClient(context: vscode.ExtensionContext) {
     //let args = vscode.workspace.getConfiguration('slint').get<[string]>('lsp-args');
 
-    const documentSelector = [{ language: "slint" }, { language: "rust" }];
-
     // Options to control the language client
-    const clientOptions: LanguageClientOptions = {
-        documentSelector,
-        synchronize: {},
-        initializationOptions: {},
-    };
+    const clientOptions = common.languageClientOptions((args: any) => {
+        wasm_preview.showPreview(
+            context,
+            vscode.Uri.parse(args[0], true),
+            args[1],
+        );
+        return true;
+    });
+
+    clientOptions.synchronize = {};
+    clientOptions.initializationOptions = {};
 
     const serverMain = Uri.joinPath(
         context.extensionUri,
         "out/browserServerMain.js",
     );
+
     const worker = new Worker(serverMain.toString(true));
     worker.onmessage = (m) => {
         // We cannot start sending messages to the client before we start listening which
         // the server only does in a future after the wasm is loaded.
         if (m.data === "OK") {
-            client = new LanguageClient(
+            const cl = new LanguageClient(
                 "slint-lsp",
                 "Slint LSP",
                 clientOptions,
                 worker,
             );
-            const disposable = client.start();
+            const disposable = cl.start();
             context.subscriptions.push(disposable);
 
-            client.onReady().then(() => {
-                if (properties_provider) {
-                    properties_provider.client = client;
-                }
-
-                client.onRequest("slint/load_file", async (param: string) => {
-                    return await vscode.workspace.fs.readFile(Uri.parse(param));
+            cl.onReady().then(() => {
+                client.client = cl;
+                cl.onRequest("slint/load_file", async (param: string) => {
+                    return await vscode.workspace.fs.readFile(
+                        Uri.parse(param, true),
+                    );
                 });
-                wasm_preview.initClientForPreview(context, client);
+                wasm_preview.initClientForPreview(context, cl);
                 //client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
 
                 vscode.workspace.onDidChangeConfiguration(async (ev) => {
                     if (ev.affectsConfiguration("slint")) {
-                        client.sendNotification(
+                        cl.sendNotification(
                             "workspace/didChangeConfiguration",
                             { settings: "" },
                         );
@@ -72,54 +76,11 @@ function startClient(context: vscode.ExtensionContext) {
 
 // this method is called when vs code is activated
 export function activate(context: vscode.ExtensionContext) {
-    statusBar = vscode.window.createStatusBarItem(
-        vscode.StatusBarAlignment.Left,
+    [statusBar, properties_provider] = common.activate(context, client, (ctx) =>
+        startClient(ctx),
     );
-    context.subscriptions.push(statusBar);
-    statusBar.text = "Slint";
+}
 
-    startClient(context);
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand("slint.showPreview", async function () {
-            let ae = vscode.window.activeTextEditor;
-            if (!ae) {
-                return;
-            }
-            await wasm_preview.showPreview(context, ae.document.uri, "");
-        }),
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand("slint.reload", async function () {
-            statusBar.hide();
-            await client.stop();
-            startClient(context);
-        }),
-    );
-
-    vscode.workspace.onDidChangeTextDocument(async (event) => {
-        await wasm_preview.refreshPreview(event);
-
-        // Send a request for properties information after passing through the
-        // event loop once to make sure the LSP got signaled to update.
-        setTimeout(() => {
-            properties_provider.refresh_view();
-        }, 1);
-    });
-
-    vscode.window.registerWebviewPanelSerializer(
-        "slint-preview",
-        new wasm_preview.PreviewSerializer(context),
-    );
-
-    properties_provider = new PropertiesViewProvider(context.extensionUri);
-    context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider(
-            PropertiesViewProvider.viewType,
-            properties_provider,
-        ),
-    );
-
-    properties_provider.refresh_view();
+export function deactivate(): Thenable<void> | undefined {
+    return common.deactivate(client);
 }
