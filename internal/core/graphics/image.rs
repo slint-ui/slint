@@ -541,6 +541,26 @@ pub struct LoadImageError(());
 ///
 /// let image = Image::from_rgba8_premultiplied(pixel_buffer);
 /// ```
+///
+/// ### Sending Image to a thread
+///
+/// `Image` is not [`Send`], because it uses internal cache that are local to the Slint thread.
+/// If you want to create image data in a thread and send that to slint, you can construct the
+/// [`SharedPixelBuffer`] in a thread, and send that to slint
+///
+/// ```rust,no_run
+/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
+/// std::thread::spawn(move || {
+///     let mut pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::new(640, 480);
+///     // ... fill the pixel_buffer with data as shown in the previous example ...
+///     slint::invoke_from_event_loop(move || {
+///         // this will run in the Slint's UI thread
+///         let image = Image::from_rgba8_premultiplied(pixel_buffer);
+///         // ... use the image, eg:
+///         // my_ui_handle.upgrade().unwrap().set_image(image);
+///     });
+/// });
+/// ```
 #[repr(transparent)]
 #[derive(Default, Clone, Debug, PartialEq, derive_more::From)]
 pub struct Image(ImageInner);
