@@ -224,7 +224,7 @@ impl DocumentCache {
 
     pub fn offset_to_position_mapper(
         &mut self,
-        uri: &lsp_types::Url,
+        uri: &Url,
     ) -> Result<OffsetToPositionMapper, Error> {
         self.newline_offsets_of_url(uri)
             .map(OffsetToPositionMapper)
@@ -579,12 +579,14 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
 
     use crate::preview;
     let e = || "InvalidParameter";
-    let path = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
-        std::path::PathBuf::from(s)
+    let url = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
+        Url::parse(&s)?
     } else {
         return Err(e().into());
     };
-    let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
+
+    let path = std::path::PathBuf::from(url.path().to_owned());
+    let path_canon = dunce::canonicalize(&path).unwrap_or(path);
     let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
     preview::load_preview(
         connection.clone(),
