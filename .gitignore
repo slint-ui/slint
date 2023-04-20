@@ -10,3 +10,5 @@ tools/figma_import/figma_output
 package-lock.json
 .DS_Store
 Pipfile.lock
+
+*.node

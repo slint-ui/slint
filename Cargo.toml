@@ -5,6 +5,7 @@
 members = [
     'api/cpp',
     'api/node/native',
+    'api/napi',
     'api/rs/build',
     'api/rs/macros',
     'api/rs/slint',
