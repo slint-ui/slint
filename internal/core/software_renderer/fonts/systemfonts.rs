@@ -18,6 +18,7 @@ fn init_fontdb() -> FontDatabase {
     db.load_system_fonts();
 
     // load system fonts for redox
+    // will be removed after fontdb redox support is merged PR: https://github.com/RazrFalcon/fontdb/pull/53
     #[cfg(target_os = "redox")]
     db.load_fonts_dir("/ui/fonts");
 
