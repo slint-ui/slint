@@ -3,6 +3,8 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [1.0.1] - 2023-04-20
+
 ### General
 
 - Fixed compiler panic when binding `Path`'s `commands` property to the field of a model entry.
@@ -776,3 +778,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [0.3.4]: https://github.com/slint-ui/slint/releases/tag/v0.3.4
 [0.3.5]: https://github.com/slint-ui/slint/releases/tag/v0.3.5
 [1.0.0]: https://github.com/slint-ui/slint/releases/tag/v1.0.0
+[1.0.1]: https://github.com/slint-ui/slint/releases/tag/v1.0.1
