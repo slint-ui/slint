@@ -41,6 +41,12 @@ All notable changes to this project are documented in this file.
 ### VSCode extension
 
  - Added an option to show the preview with wasm in a vscode tab (just like in the online version)
+ - Make code lenses work better on Windows
+
+### SlintPad
+
+ - Warn when ServiceWorker could not get set up (e.g. in private browsing mode on Firefox)
+ - Add design mode
 
 
 ## [1.0.0] - 2023-04-03
