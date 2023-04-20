@@ -37,7 +37,10 @@ pub enum TimerMode {
 /// [`Timer::single_shot`] if you just want to call a function with a delay and do not
 /// need to be able to stop it.
 ///
-/// Note: the timer can only be used in the thread that runs the Slint event loop.
+/// The timer will automatically stop when dropped. You must keep the Timer object
+/// around for as long as you want the timer to keep firing.
+///
+/// The timer can only be used in the thread that runs the Slint event loop.
 /// They will not fire if used in another thread.
 ///
 /// ## Example
