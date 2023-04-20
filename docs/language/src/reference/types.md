@@ -44,6 +44,8 @@ export component Example inherits Text {
 }
 ```
 
+Note: The `\{...}` is not valid within the `slint!` macro in Rust.
+
 ## Colors and Brushes
 
 Color literals follow the syntax of CSS:

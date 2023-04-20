@@ -298,11 +298,19 @@ fn extract_include_paths(
     (remaining_stream, include_paths)
 }
 
-/// This macro allows you to use the `.slint` design markup language inline in Rust code. Within the braces of the macro
-/// you can use place `.slint` code and the named exported components will be available for instantiation.
+/// This macro allows you to use the Slint design markup language inline in Rust code. Within the braces of the macro
+/// you can use place Slint code and the named exported components will be available for instantiation.
 ///
-/// [The documentation of the `slint`](./index.html) crate contains more information about the language specification and
-/// how to use the generated code.
+/// For the documentation about the syntax of the language, see
+#[doc = concat!("[The Slint Language Documentation](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint)")]
+///
+/// When `import`ing `.slint` files or loading images with `@image-url`, the specified paths are relative to the
+/// cargo manifest dir (eg: the directory that contains the Cargo.toml)
+///
+/// ### Limitations
+///
+/// Within `.slint` files, it is possible to use `\{...}` within string literal to have interpolation.
+/// This is not possible in this macro as this wouldn't parse as a Rust string.
 #[proc_macro]
 pub fn slint(stream: TokenStream) -> TokenStream {
     let token_iter = stream.into_iter();
