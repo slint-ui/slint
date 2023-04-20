@@ -3,7 +3,7 @@
 
 [package]
 name = "plotter"
-version = "1.0.1"
+version = "1.0.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 publish = false

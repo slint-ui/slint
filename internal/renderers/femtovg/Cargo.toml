@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-renderer-femtovg"
-version = "1.0.1"
+version = "1.0.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -20,9 +20,9 @@ diskfonts = ["fontdb/memmap", "fontdb/fontconfig"]
 fontconfig = ["dep:yeslogic-fontconfig-sys"]
 
 [dependencies]
-i-slint-core = { version = "=1.0.1", path = "../../../internal/core", features = [ "box-shadow-cache" ] }
-i-slint-core-macros = { version = "=1.0.1", path = "../../../internal/core-macros" }
-i-slint-common = { version = "=1.0.1", path = "../../../internal/common" }
+i-slint-core = { version = "=1.0.2", path = "../../../internal/core", features = [ "box-shadow-cache" ] }
+i-slint-core-macros = { version = "=1.0.2", path = "../../../internal/core-macros" }
+i-slint-common = { version = "=1.0.2", path = "../../../internal/common" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
