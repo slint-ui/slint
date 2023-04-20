@@ -159,7 +159,7 @@ function startClient(context: vscode.ExtensionContext) {
     client.client = cl;
 
     let initClient = () => {
-        wasm_preview.initClientForPreview(context, cl);
+        wasm_preview.initClientForPreview(cl);
 
         properties_provider.refresh_view();
         cl.onNotification(common.serverStatus, (params: any) =>

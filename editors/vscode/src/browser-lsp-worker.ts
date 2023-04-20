@@ -41,13 +41,10 @@ slint_init(slint_wasm_data).then((_) => {
     }
 
     function highlight(path: string, offset: number) {
-        connection.sendRequest(
-            "slint/preview_message",
-            {
-                command: "highlight",
-                data: { path: path, offset: offset },
-            },
-        );
+        connection.sendRequest("slint/preview_message", {
+            command: "highlight",
+            data: { path: path, offset: offset },
+        });
     }
 
     connection.onInitialize((params: InitializeParams): InitializeResult => {
@@ -62,16 +59,6 @@ slint_init(slint_wasm_data).then((_) => {
     });
 
     connection.onRequest(async (method, params, token) => {
-        if (
-            method === "workspace/executeCommand" &&
-            (params as ExecuteCommandParams).command === "slint/showPreview"
-        ) {
-            // forward back to the client so it can send the command to the webview
-            return await connection.sendRequest(
-                "slint/showPreview",
-                (params as ExecuteCommandParams).arguments,
-            );
-        }
         return await the_lsp.handle_request(token, method, params);
     });
 

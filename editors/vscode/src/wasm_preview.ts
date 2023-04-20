@@ -13,10 +13,7 @@ let queuedPreviewMsg: any | null = null;
 let previewBusy = false;
 
 /// Initialize the callback on the client to make the web preview work
-export function initClientForPreview(
-    context: vscode.ExtensionContext,
-    client: BaseLanguageClient,
-) {
+export function initClientForPreview(client: BaseLanguageClient) {
     client.onRequest("slint/preview_message", async (msg: any) => {
         if (previewPanel) {
             // map urls to webview URL
@@ -36,7 +33,8 @@ function reload_preview(url: Uri, content: string, component: string) {
         return;
     }
     if (component) {
-        content += "\nexport component _Preview inherits " + component + " {}\n";
+        content +=
+            "\nexport component _Preview inherits " + component + " {}\n";
     }
     previewAccessedFiles.clear();
     let webview_uri = previewPanel.webview.asWebviewUri(url).toString();

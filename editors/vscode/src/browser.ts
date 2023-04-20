@@ -57,7 +57,7 @@ function startClient(context: vscode.ExtensionContext) {
                         Uri.parse(param, true),
                     );
                 });
-                wasm_preview.initClientForPreview(context, cl);
+                wasm_preview.initClientForPreview(cl);
                 //client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
 
                 vscode.workspace.onDidChangeConfiguration(async (ev) => {
