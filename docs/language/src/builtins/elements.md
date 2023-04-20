@@ -24,8 +24,38 @@ These properties are valid on all visible items and can be used to specify const
 
 -   **`cache-rendering-hint`** (_in_ _bool_): When set to `true`, this provides a hint to the renderer to cache the contents of the element and all the children into an intermediate cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the expense of increased memory consumption. Not all rendering backends support this, so this is merely a hint. (default value: `false`)
 -   **`dialog-button-role`** (_in_ _enum [`DialogButtonRole`](enums.md#dialogbuttonrole)_): Specify that this is a button in a `Dialog`.
--   **`opacity`** (_in_ _float_): A value between 0 and 1 (or a percentage) that is used to draw the element and its children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default value: 1)
+-   **`opacity`** (_in_ _float_): A value between 0 and 1 (or a percentage) that is used to draw
+    the element and its children with transparency.
+    0 is fully transparent (invisible), and 1 is fully opaque.
+    If the element has children, the opacity is applied to the whole tree of children as if they
+    were first drawn into an intermediate layer, and the whole layer is rendered with a different opacity.
+    (default value: 1)
 -   **`visible`** (_in_ _bool_): When set to `false`, the element and all his children won't be drawn and not react to mouse input (default value: `true`)
+
+The following example demonstrates the `opacity` property with children. An opacity is applied to the red rectangle. Since the green rectangle is a child of the red one, you can see the gradient underneath it, but you cannot see the red rectangle through the green one.
+
+```slint
+export component Example inherits Window {
+    width: 100px;
+    height: 100px;
+    background: @radial-gradient(circle, black, white, black, white);
+    Rectangle {
+        opacity: 0.5;
+        background: red;
+        border-color: #822;
+        border-width: 5px;
+        width: 50px; height: 50px;
+        x: 10px; y: 10px;
+        Rectangle {
+            background: green;
+            border-color: #050;
+            border-width: 5px;
+            width: 50px; height: 50px;
+            x: 25px; y: 25px;
+        }
+    }
+}
+```
 
 ### Accessibility
 
