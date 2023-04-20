@@ -63,18 +63,18 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 ## with support for the Wayland window system on Unix.
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
-## Make the winit backend capable of renderer using the [femtovg](https://crates.io/crates/femtovg) crate.
+## Make the winit backend capable of rendering using the [femtovg](https://crates.io/crates/femtovg) crate.
 ## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
 renderer-winit-femtovg = ["i-slint-backend-selector/renderer-winit-femtovg", "std"]
 
-## Make the winit backend capable of renderer using [Skia](https://skia.org/).
+## Make the winit backend capable of rendering using [Skia](https://skia.org/).
 ## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
 renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia", "std"]
 
 ## Same as `renderer-winit-skia`, but Skia will always use OpenGL.
 renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl", "std"]
 
-## Make the winit backend capable of renderer using the software renderer.
+## Make the winit backend capable of rendering using the software renderer.
 ## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
 renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 
