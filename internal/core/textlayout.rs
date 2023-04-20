@@ -82,6 +82,7 @@ pub struct PositionedGlyph<Length> {
     pub x: Length,
     pub y: Length,
     pub glyph_id: core::num::NonZeroU16,
+    pub text_byte_offset: usize,
 }
 
 pub struct TextParagraphLayout<'a, Font: AbstractFont> {
@@ -171,6 +172,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
                             x: glyph_x,
                             y: Font::Length::zero(),
                             glyph_id: elide_glyph.glyph_id.unwrap(), // checked earlier when initializing elide_glyph
+                            text_byte_offset: glyph.text_byte_offset,
                         });
                     } else {
                         return None;
@@ -183,6 +185,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
                     x,
                     y: Font::Length::zero(),
                     glyph_id: existing_glyph_id,
+                    text_byte_offset: glyph.text_byte_offset,
                 })
             });
 
