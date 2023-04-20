@@ -177,8 +177,9 @@ impl WasmInputHelper {
             crate::event_loop::GLOBAL_PROXY.with(|global_proxy| {
                 if let Ok(mut x) = global_proxy.try_borrow_mut() {
                     if let Some(proxy) = &mut *x {
-                        let _ = proxy
-                            .send_event(crate::event_loop::CustomEvent::WakeEventLoopWorkaround);
+                        let _ = proxy.send_event(crate::SlintUserEvent::CustomEvent {
+                            event: crate::event_loop::CustomEvent::WakeEventLoopWorkaround,
+                        });
                     }
                 }
             });

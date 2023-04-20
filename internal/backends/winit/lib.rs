@@ -6,6 +6,7 @@
 
 extern crate alloc;
 
+use event_loop::{CustomEvent, WinitWindow};
 use i_slint_core::platform::EventLoopProxy;
 use i_slint_core::window::WindowAdapter;
 use renderer::WinitCompatibleRenderer;
@@ -15,6 +16,12 @@ mod winitwindowadapter;
 use i_slint_core::platform::PlatformError;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
+
+/// Internal type used by the winit backend for thread communcation and window system updates.
+#[non_exhaustive]
+pub enum SlintUserEvent {
+    CustomEvent { event: CustomEvent },
+}
 
 mod renderer {
     use std::rc::{Rc, Weak};
@@ -166,7 +173,7 @@ impl i_slint_core::platform::Platform for Backend {
                 crate::event_loop::with_window_target(|event_loop| {
                     event_loop
                         .event_loop_proxy()
-                        .send_event(crate::event_loop::CustomEvent::Exit)
+                        .send_event(SlintUserEvent::CustomEvent { event: CustomEvent::Exit })
                         .map_err(|_| i_slint_core::api::EventLoopError::EventLoopTerminated)
                 })
             }
@@ -175,7 +182,7 @@ impl i_slint_core::platform::Platform for Backend {
                 &self,
                 event: Box<dyn FnOnce() + Send>,
             ) -> Result<(), i_slint_core::api::EventLoopError> {
-                let e = crate::event_loop::CustomEvent::UserEvent(event);
+                let e = SlintUserEvent::CustomEvent { event: CustomEvent::UserEvent(event) };
                 #[cfg(not(target_arch = "wasm32"))]
                 crate::event_loop::GLOBAL_PROXY
                     .get_or_init(Default::default)
@@ -196,8 +203,9 @@ impl i_slint_core::platform::Platform for Backend {
                         // frame a few moments later.
                         // This also allows batching multiple post_event calls and redraw their state changes
                         // all at once.
-                        proxy
-                            .send_event(crate::event_loop::CustomEvent::WakeEventLoopWorkaround)?;
+                        proxy.send_event(SlintUserEvent::CustomEvent {
+                            event: CustomEvent::WakeEventLoopWorkaround,
+                        })?;
                         proxy.send_event(e)?;
                         Ok(())
                     })?
@@ -219,4 +227,99 @@ impl i_slint_core::platform::Platform for Backend {
             event_loop_target.clipboard(clipboard)?.get_contents().ok()
         })
     }
+}
+
+/// Invokes the specified callback with a reference to the [`winit::event_loop::EventLoopWindowTarget`].
+/// Use this to get access to the display connection or create new windows with [`winit::window::WindowBuilder`].
+///
+/// *Note*: This function can only be called from within the Slint main thread.
+pub fn with_event_loop_window_target<R>(
+    callback: impl FnOnce(&winit::event_loop::EventLoopWindowTarget<SlintUserEvent>) -> R,
+) -> R {
+    crate::event_loop::with_window_target(|event_loop_interface| {
+        callback(event_loop_interface.event_loop_target())
+    })
+}
+
+#[doc = concat!("This helper trait can be used to obtain access to the [`winit::window::Window`] for a given [`slint::Window`](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/struct.window).")]
+pub trait WinitWindowAccessor {
+    /// Returns true if a [`winit::window::Window`] exists for this window. This is the case if the window is
+    /// backed by this winit backend and is shown on the screen.
+    fn has_winit_window(&self) -> bool;
+    /// Invokes the specified callback with a reference to the [`winit::window::Window`] that exists for this Slint window
+    /// and returns `Some(T)`; otherwise `None`.
+    fn with_winit_window<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T)
+        -> Option<T>;
+}
+
+impl WinitWindowAccessor for i_slint_core::api::Window {
+    fn has_winit_window(&self) -> bool {
+        winit_window_rc_for_window(self).is_some()
+    }
+
+    fn with_winit_window<T>(
+        &self,
+        callback: impl FnOnce(&winit::window::Window) -> T,
+    ) -> Option<T> {
+        winit_window_rc_for_window(self).as_ref().map(|w| callback(w))
+    }
+}
+
+fn winit_window_rc_for_window(
+    window: &i_slint_core::api::Window,
+) -> Option<Rc<winit::window::Window>> {
+    let runtime_window = i_slint_core::window::WindowInner::from_pub(&window);
+
+    let dyn_adapter = runtime_window.window_adapter();
+
+    let rc_winit_window = dyn_adapter
+        .as_any()
+        .downcast_ref::<WinitWindowAdapter<DefaultRenderer>>()
+        .and_then(|adapter| adapter.winit_window().clone());
+
+    #[cfg(feature = "renderer-winit-femtovg")]
+    let rc_winit_window = rc_winit_window.or_else(|| {
+        dyn_adapter
+            .as_any()
+            .downcast_ref::<WinitWindowAdapter<renderer::femtovg::GlutinFemtoVGRenderer>>()
+            .and_then(|adapter| adapter.winit_window().clone())
+    });
+
+    #[cfg(enable_skia_renderer)]
+    let rc_winit_window = rc_winit_window.or_else(|| {
+        dyn_adapter
+            .as_any()
+            .downcast_ref::<WinitWindowAdapter<renderer::skia::SkiaRenderer>>()
+            .and_then(|adapter| adapter.winit_window().clone())
+    });
+
+    #[cfg(feature = "renderer-winit-software")]
+    let rc_winit_window = rc_winit_window.or_else(|| {
+        dyn_adapter
+            .as_any()
+            .downcast_ref::<WinitWindowAdapter<renderer::sw::WinitSoftwareRenderer>>()
+            .and_then(|adapter| adapter.winit_window().clone())
+    });
+
+    rc_winit_window
+}
+
+#[cfg(test)]
+mod testui {
+    slint::slint! {
+        export component App inherits Window {
+            Text { text: "Ok"; }
+        }
+    }
+}
+
+#[test]
+fn test_window_accessor() {
+    use testui::*;
+    let app = App::new().unwrap();
+    let slint_window = app.window();
+    assert!(!slint_window.has_winit_window());
+    // Can't do this on macOS :-(
+    // slint_window.show();
+    // assert!(!slint_window.has_winit_window());
 }
