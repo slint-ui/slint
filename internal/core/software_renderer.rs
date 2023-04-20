@@ -1164,65 +1164,68 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         Font: crate::textlayout::TextShaper<Length = PhysicalLength>,
         Font: GlyphRenderer,
     {
-        paragraph.layout_lines(|glyphs, line_x, line_y| {
-            let baseline_y = line_y + paragraph.layout.font.ascent();
-            while let Some(positioned_glyph) = glyphs.next() {
-                let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);
+        paragraph
+            .layout_lines::<()>(|glyphs, line_x, line_y| {
+                let baseline_y = line_y + paragraph.layout.font.ascent();
+                while let Some(positioned_glyph) = glyphs.next() {
+                    let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);
 
-                let src_rect = PhysicalRect::new(
-                    PhysicalPoint::from_lengths(
-                        line_x + positioned_glyph.x + glyph.x,
-                        baseline_y - glyph.y - glyph.height,
-                    ),
-                    glyph.size(),
-                )
-                .cast();
+                    let src_rect = PhysicalRect::new(
+                        PhysicalPoint::from_lengths(
+                            line_x + positioned_glyph.x + glyph.x,
+                            baseline_y - glyph.y - glyph.height,
+                        ),
+                        glyph.size(),
+                    )
+                    .cast();
 
-                if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
-                    let geometry = clipped_src.translate(offset).round();
-                    let origin = (geometry.origin - offset.round()).cast::<usize>();
-                    let actual_x = origin.x - src_rect.origin.x as usize;
-                    let actual_y = origin.y - src_rect.origin.y as usize;
-                    let stride = glyph.width.get() as u16;
-                    let geometry = geometry.cast();
+                    if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
+                        let geometry = clipped_src.translate(offset).round();
+                        let origin = (geometry.origin - offset.round()).cast::<usize>();
+                        let actual_x = origin.x - src_rect.origin.x as usize;
+                        let actual_y = origin.y - src_rect.origin.y as usize;
+                        let stride = glyph.width.get() as u16;
+                        let geometry = geometry.cast();
 
-                    match &glyph.alpha_map {
-                        fonts::GlyphAlphaMap::Static(data) => {
-                            self.processor.process_texture(
-                                geometry,
-                                SceneTexture {
-                                    data: &data[actual_x + actual_y * stride as usize..],
-                                    stride,
-                                    source_size: geometry.size,
-                                    format: PixelFormat::AlphaMap,
-                                    color,
-                                    // color already is mixed with global alpha
-                                    alpha: color.alpha(),
-                                },
-                            );
-                        }
-                        fonts::GlyphAlphaMap::Shared(data) => {
-                            self.processor.process_shared_image_buffer(
-                                geometry,
-                                SharedBufferCommand {
-                                    buffer: SharedBufferData::AlphaMap {
-                                        data: data.clone(),
-                                        width: stride,
+                        match &glyph.alpha_map {
+                            fonts::GlyphAlphaMap::Static(data) => {
+                                self.processor.process_texture(
+                                    geometry,
+                                    SceneTexture {
+                                        data: &data[actual_x + actual_y * stride as usize..],
+                                        stride,
+                                        source_size: geometry.size,
+                                        format: PixelFormat::AlphaMap,
+                                        color,
+                                        // color already is mixed with global alpha
+                                        alpha: color.alpha(),
                                     },
-                                    source_rect: PhysicalRect::new(
-                                        PhysicalPoint::new(actual_x as _, actual_y as _),
-                                        geometry.size,
-                                    ),
-                                    colorize: color,
-                                    // color already is mixed with global alpha
-                                    alpha: color.alpha(),
-                                },
-                            );
-                        }
-                    };
+                                );
+                            }
+                            fonts::GlyphAlphaMap::Shared(data) => {
+                                self.processor.process_shared_image_buffer(
+                                    geometry,
+                                    SharedBufferCommand {
+                                        buffer: SharedBufferData::AlphaMap {
+                                            data: data.clone(),
+                                            width: stride,
+                                        },
+                                        source_rect: PhysicalRect::new(
+                                            PhysicalPoint::new(actual_x as _, actual_y as _),
+                                            geometry.size,
+                                        ),
+                                        colorize: color,
+                                        // color already is mixed with global alpha
+                                        alpha: color.alpha(),
+                                    },
+                                );
+                            }
+                        };
+                    }
                 }
-            }
-        });
+                core::ops::ControlFlow::Continue(())
+            })
+            .ok();
     }
 
     /// Returns the color, mixed with the current_state's alpha

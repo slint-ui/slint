@@ -99,15 +99,15 @@ pub struct TextParagraphLayout<'a, Font: AbstractFont> {
 impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
     /// Layout the given string in lines, and call the `layout_line` callback with the line to draw at position y.
     /// The signature of the `layout_line` function is: `(glyph_iterator, line_x, line_y)`.
-    /// Returns the baseline y coordinate.
-    pub fn layout_lines(
+    /// Returns the baseline y coordinate as Ok, or the break value if `line_callback` returns `core::ops::ControlFlow::Break`.
+    pub fn layout_lines<R>(
         &self,
         mut line_callback: impl FnMut(
             &mut dyn Iterator<Item = PositionedGlyph<Font::Length>>,
             Font::Length,
             Font::Length,
-        ),
-    ) -> Font::Length {
+        ) -> core::ops::ControlFlow<R>,
+    ) -> Result<Font::Length, R> {
         let wrap = self.wrap == TextWrap::WordWrap;
         let elide_glyph = if self.overflow == TextOverflow::Elide {
             self.layout.font.glyph_for_char('…').filter(|glyph| glyph.glyph_id.is_some())
@@ -186,21 +186,35 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
                 })
             });
 
-            line_callback(&mut positioned_glyph_it, x, y);
+            if let core::ops::ControlFlow::Break(break_val) =
+                line_callback(&mut positioned_glyph_it, x, y)
+            {
+                return core::ops::ControlFlow::Break(break_val);
+            }
             y += self.layout.font.height();
+
+            core::ops::ControlFlow::Continue(())
         };
 
         if let Some(lines_vec) = text_lines.take() {
             for line in lines_vec {
-                process_line(&line, &shape_buffer.glyphs);
+                if let core::ops::ControlFlow::Break(break_val) =
+                    process_line(&line, &shape_buffer.glyphs)
+                {
+                    return Err(break_val);
+                }
             }
         } else {
             for line in new_line_break_iter() {
-                process_line(&line, &shape_buffer.glyphs);
+                if let core::ops::ControlFlow::Break(break_val) =
+                    process_line(&line, &shape_buffer.glyphs)
+                {
+                    return Err(break_val);
+                }
             }
         }
 
-        baseline_y
+        Ok(baseline_y)
     }
 }
 
@@ -283,11 +297,16 @@ fn test_elision() {
         overflow: TextOverflow::Elide,
         single_line: true,
     };
-    paragraph.layout_lines(|glyphs, _, _| {
-        lines.push(
-            glyphs.map(|positioned_glyph| positioned_glyph.glyph_id.clone()).collect::<Vec<_>>(),
-        );
-    });
+    paragraph
+        .layout_lines::<()>(|glyphs, _, _| {
+            lines.push(
+                glyphs
+                    .map(|positioned_glyph| positioned_glyph.glyph_id.clone())
+                    .collect::<Vec<_>>(),
+            );
+            core::ops::ControlFlow::Continue(())
+        })
+        .unwrap();
 
     assert_eq!(lines.len(), 1);
     let rendered_text = lines[0]
@@ -319,11 +338,16 @@ fn test_exact_fit() {
         overflow: TextOverflow::Elide,
         single_line: true,
     };
-    paragraph.layout_lines(|glyphs, _, _| {
-        lines.push(
-            glyphs.map(|positioned_glyph| positioned_glyph.glyph_id.clone()).collect::<Vec<_>>(),
-        );
-    });
+    paragraph
+        .layout_lines::<()>(|glyphs, _, _| {
+            lines.push(
+                glyphs
+                    .map(|positioned_glyph| positioned_glyph.glyph_id.clone())
+                    .collect::<Vec<_>>(),
+            );
+            core::ops::ControlFlow::Continue(())
+        })
+        .unwrap();
 
     assert_eq!(lines.len(), 1);
     let rendered_text = lines[0]
@@ -355,11 +379,16 @@ fn test_no_line_separators_characters_rendered() {
         overflow: TextOverflow::Clip,
         single_line: true,
     };
-    paragraph.layout_lines(|glyphs, _, _| {
-        lines.push(
-            glyphs.map(|positioned_glyph| positioned_glyph.glyph_id.clone()).collect::<Vec<_>>(),
-        );
-    });
+    paragraph
+        .layout_lines::<()>(|glyphs, _, _| {
+            lines.push(
+                glyphs
+                    .map(|positioned_glyph| positioned_glyph.glyph_id.clone())
+                    .collect::<Vec<_>>(),
+            );
+            core::ops::ControlFlow::Continue(())
+        })
+        .unwrap();
 
     assert_eq!(lines.len(), 2);
     let rendered_text = lines
