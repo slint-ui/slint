@@ -45,7 +45,7 @@ In the snippet above, three features are selected:
 
 It might be necessary to enable the [Feature resolver version 2](https://doc.rust-lang.org/cargo/reference/features.html#feature-resolver-version-2)
 in your Cargo.toml if you notice that your dependencies are attempting to build with `std` support even when disabled.
-This is the default when using the Rust 2021 Edition or later.
+This is the default when using the Rust 2021 Edition, but not if you use a workspace.
 
 Then add the `slint-build` crate as a build dependency:
 
