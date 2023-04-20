@@ -13,7 +13,13 @@ use super::vectorfont::VectorFont;
 
 fn init_fontdb() -> FontDatabase {
     let mut db = fontdb::Database::new();
+
+    #[cfg(not(target_os = "redox"))]
     db.load_system_fonts();
+
+    // load system fonts for redox
+    #[cfg(target_os = "redox")]
+    db.load_fonts_dir("/ui/fonts");
 
     if db
         .query(&fontdb::Query {
