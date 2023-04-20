@@ -958,7 +958,7 @@ fn extract_rust_macro(content: String) -> Option<String> {
 
     begin += 1;
 
-    // Now find the matching closing delimitor
+    // Now find the matching closing delimiter
     // Technically, we should be lexing rust, not slint
     let mut state = i_slint_compiler::lexer::LexState::default();
     let mut end = begin;
@@ -1286,7 +1286,7 @@ fn get_code_lenses(
         r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
                 range: offset_mapper.map_range(c.root_element.borrow().node.as_ref()?.text_range()),
-                command: Some(create_show_preview_command(true, filepath.to_str()?, c.id.as_str())),
+                command: Some(create_show_preview_command(true, uri.as_str(), c.id.as_str())),
                 data: None,
             })
         }));
