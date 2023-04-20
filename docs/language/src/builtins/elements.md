@@ -27,12 +27,12 @@ These properties are valid on all visible items and can be used to specify const
 -   **`opacity`** (_in_ _float_): A value between 0 and 1 (or a percentage) that is used to draw
     the element and its children with transparency.
     0 is fully transparent (invisible), and 1 is fully opaque.
-    If the element has children, the opacity is applied to the whole tree of children as if they
-    were first drawn into an intermediate layer, and the whole layer is rendered with a different opacity.
+    The opacity is applied to the tree of child elements as if they
+    were first drawn into an intermediate layer, and then the whole layer is rendered with this opacity.
     (default value: 1)
 -   **`visible`** (_in_ _bool_): When set to `false`, the element and all his children won't be drawn and not react to mouse input (default value: `true`)
 
-The following example demonstrates the `opacity` property with children. An opacity is applied to the red rectangle. Since the green rectangle is a child of the red one, you can see the gradient underneath it, but you cannot see the red rectangle through the green one.
+The following example demonstrates the `opacity` property with children. An opacity is applied to the red rectangle. Since the green rectangle is a child of the red one, you can see the gradient underneath it, but you can't see the red rectangle through the green one.
 
 ```slint
 export component Example inherits Window {
