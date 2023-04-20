@@ -306,9 +306,9 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
             self_.with_window_handle(&mut |window| {
                 let window_id = window.id();
                 crate::event_loop::with_window_target(|event_loop| {
-                    event_loop.event_loop_proxy().send_event(
-                        crate::event_loop::CustomEvent::UpdateWindowProperties(window_id),
-                    )
+                    event_loop.event_loop_proxy().send_event(crate::SlintUserEvent::CustomEvent {
+                        event: crate::event_loop::CustomEvent::UpdateWindowProperties(window_id),
+                    })
                 })
                 .ok();
             });
@@ -656,9 +656,9 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
                 existing_blinker.stop();
             }*/
             crate::event_loop::with_window_target(|event_loop| {
-                event_loop
-                    .event_loop_proxy()
-                    .send_event(crate::event_loop::CustomEvent::WindowHidden)
+                event_loop.event_loop_proxy().send_event(crate::SlintUserEvent::CustomEvent {
+                    event: crate::event_loop::CustomEvent::WindowHidden,
+                })
             })
             .ok(); // It's okay to call hide() even after the event loop is closed. We don't need the logic for quitting the event loop anymore at this point.
             Ok(())
