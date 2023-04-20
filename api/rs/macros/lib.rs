@@ -305,11 +305,11 @@ fn extract_include_paths(
 #[doc = concat!("[The Slint Language Documentation](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint)")]
 ///
 /// When `import`ing `.slint` files or loading images with `@image-url`, the specified paths are relative to the
-/// cargo manifest dir (eg: the directory that contains the Cargo.toml)
+/// the directory that contains Cargo.toml.
 ///
 /// ### Limitations
 ///
-/// Within `.slint` files, it is possible to use `\{...}` within string literal to have interpolation.
+/// Within `.slint` files, you can interpolate string literals using `\{...}` syntax.
 /// This is not possible in this macro as this wouldn't parse as a Rust string.
 #[proc_macro]
 pub fn slint(stream: TokenStream) -> TokenStream {

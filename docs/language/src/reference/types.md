@@ -44,7 +44,7 @@ export component Example inherits Text {
 }
 ```
 
-Note: The `\{...}` is not valid within the `slint!` macro in Rust.
+Note: The `\{...}` syntax is not valid within the `slint!` macro in Rust.
 
 ## Colors and Brushes
 
