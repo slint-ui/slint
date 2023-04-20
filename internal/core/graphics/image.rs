@@ -545,8 +545,8 @@ pub struct LoadImageError(());
 /// ### Sending Image to a thread
 ///
 /// `Image` is not [`Send`], because it uses internal cache that are local to the Slint thread.
-/// If you want to create image data in a thread and send that to slint, you can construct the
-/// [`SharedPixelBuffer`] in a thread, and send that to slint
+/// If you want to create image data in a thread and send that to slint, construct the
+/// [`SharedPixelBuffer`] in a thread, and send that to Slint's UI thread.
 ///
 /// ```rust,no_run
 /// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
