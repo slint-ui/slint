@@ -1,0 +1,1 @@
+This utility extract `@tr` strings in a Slint file and generate a `.po` file
