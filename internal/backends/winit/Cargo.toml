@@ -79,3 +79,15 @@ cocoa = { version = "0.24.0" }
 
 [build-dependencies]
 cfg_aliases = "0.1.0"
+
+[dev-dependencies]
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-0", "backend-winit", "renderer-winit-software"] }
+
+[package.metadata.docs.rs]
+rustdoc-args = [
+  "--html-in-header",
+  "docs/resources/slint-docs-preview.html",
+  "--html-in-header",
+  "docs/resources/slint-docs-highlight.html",
+]
+features = ["wayland", "renderer-winit-software"]
