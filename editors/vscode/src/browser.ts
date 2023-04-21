@@ -19,14 +19,20 @@ function startClient(context: vscode.ExtensionContext) {
     //let args = vscode.workspace.getConfiguration('slint').get<[string]>('lsp-args');
 
     // Options to control the language client
-    const clientOptions = common.languageClientOptions((args: any) => {
-        wasm_preview.showPreview(
-            context,
-            vscode.Uri.parse(args[0], true),
-            args[1],
-        );
-        return true;
-    });
+    const clientOptions = common.languageClientOptions(
+        (args: any) => {
+            wasm_preview.showPreview(
+                context,
+                vscode.Uri.parse(args[0], true),
+                args[1],
+            );
+            return true;
+        },
+        (args: any) => {
+            wasm_preview.setDesignMode(args[0]);
+            return true;
+        },
+    );
 
     clientOptions.synchronize = {};
     clientOptions.initializationOptions = {};

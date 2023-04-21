@@ -62,6 +62,16 @@
                 "category": "Slint"
             },
             {
+                "command": "slint.enableDesignMode",
+                "title": "Enable Design Mode in Slint Preview",
+                "category": "Slint"
+            },
+            {
+                "command": "slint.disableDesignMode",
+                "title": "Disable Design Mode in Slint Preview",
+                "category": "Slint"
+            },
+            {
                 "command": "slint.reload",
                 "title": "Restart server",
                 "category": "Slint"

@@ -132,21 +132,34 @@ function startClient(context: vscode.ExtensionContext) {
         debug: { command: serverModule, options: options, args: args },
     };
 
-    const clientOptions = common.languageClientOptions((args: any) => {
-        if (
-            vscode.workspace
-                .getConfiguration("slint")
-                .get<boolean>("preview.providedByEditor")
-        ) {
-            wasm_preview.showPreview(
-                context,
-                vscode.Uri.parse(args[0], true),
-                args[1],
-            );
-            return true;
-        }
-        return false;
-    });
+    const clientOptions = common.languageClientOptions(
+        (args: any) => {
+            if (
+                vscode.workspace
+                    .getConfiguration("slint")
+                    .get<boolean>("preview.providedByEditor")
+            ) {
+                wasm_preview.showPreview(
+                    context,
+                    vscode.Uri.parse(args[0], true),
+                    args[1],
+                );
+                return true;
+            }
+            return false;
+        },
+        (args: any) => {
+            if (
+                vscode.workspace
+                    .getConfiguration("slint")
+                    .get<boolean>("preview.providedByEditor")
+            ) {
+                wasm_preview.setDesignMode(args[0]);
+                return true;
+            }
+            return false;
+        },
+    );
 
     const cl = new LanguageClient(
         "slint-lsp",
