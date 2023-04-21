@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 ### General
 
 - Fixed the compiler embedding images unnecessarily multiple times when referenced via different relative paths.
+- Winit backend: Adjust the window size automatically when an update minimum or maximum size would constrain the existing size.
 
 ## [1.0.1] - 2023-04-20
 

@@ -394,17 +394,25 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
 
                 let resizable = window_is_resizable(min_size, max_size);
 
-                winit_window.set_min_inner_size(min_size.map(|logical_size| {
+                let winit_min_inner = min_size.map(|logical_size| {
                     winit::dpi::PhysicalSize::new(logical_size.width * sf, logical_size.height * sf)
-                }));
-                winit_window.set_max_inner_size(max_size.map(|logical_size| {
+                });
+                winit_window.set_min_inner_size(winit_min_inner);
+                let winit_max_inner = max_size.map(|logical_size| {
                     winit::dpi::PhysicalSize::new(
                         (logical_size.width * sf).min(65535.),
                         (logical_size.height * sf).min(65535.),
                     )
-                }));
+                });
+                winit_window.set_max_inner_size(winit_max_inner);
                 self.set_constraints((constraints_horizontal, constraints_vertical));
                 winit_window.set_resizable(resizable);
+
+                adjust_window_size_to_satisfy_constraints(
+                    winit_window,
+                    winit_min_inner,
+                    winit_max_inner,
+                );
 
                 #[cfg(target_arch = "wasm32")]
                 if let Some((
@@ -834,5 +842,30 @@ struct WindowProperties {
 impl Default for WindowProperties {
     fn default() -> Self {
         Self { scale_factor: Property::new(1.0) }
+    }
+}
+
+// Winit doesn't automatically resize the window to satisfy constraints. Qt does it though, and so do we here.
+fn adjust_window_size_to_satisfy_constraints(
+    winit_window: &winit::window::Window,
+    min_size: Option<winit::dpi::PhysicalSize<f32>>,
+    max_size: Option<winit::dpi::PhysicalSize<f32>>,
+) {
+    let mut window_size = winit_window.inner_size();
+
+    if let Some(min_size) = min_size {
+        let min_size = min_size.cast();
+        window_size.width = window_size.width.max(min_size.width);
+        window_size.height = window_size.height.max(min_size.height);
+    }
+
+    if let Some(max_size) = max_size {
+        let max_size = max_size.cast();
+        window_size.width = window_size.width.min(max_size.width);
+        window_size.height = window_size.height.min(max_size.height);
+    }
+
+    if window_size != winit_window.inner_size() {
+        winit_window.set_inner_size(window_size);
     }
 }
