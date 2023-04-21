@@ -36,7 +36,7 @@ function reload_preview(url: Uri, content: string, component: string) {
         return;
     }
     if (component) {
-        content += "\ncomponent _Preview inherits " + component + " {}\n";
+        content += "\nexport component _Preview inherits " + component + " {}\n";
     }
     previewAccessedFiles.clear();
     let webview_uri = previewPanel.webview.asWebviewUri(url).toString();
