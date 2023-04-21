@@ -266,7 +266,7 @@ impl TypeLoader {
         &self,
         import_token: Option<&NodeOrToken>,
         maybe_relative_path_or_url: &str,
-    ) -> (std::path::PathBuf, Option<&'static [u8]>) {
+    ) -> (PathBuf, Option<&'static [u8]>) {
         let referencing_file_or_url =
             import_token.and_then(|tok| tok.source_file().map(|s| s.path()));
 
@@ -302,16 +302,14 @@ impl TypeLoader {
         import_token: Option<NodeOrToken>,
         mut import_stack: HashSet<PathBuf>,
     ) -> Option<PathBuf> {
-        let (path, builtin) =
+        let (path_canon, builtin) =
             { state.borrow().tl.resolve_import_path(import_token.as_ref(), file_to_import) };
 
-        let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
-
         if !import_stack.insert(path_canon.clone()) {
-            state
-                .borrow_mut()
-                .diag
-                .push_error(format!("Recursive import of \"{}\"", path.display()), &import_token);
+            state.borrow_mut().diag.push_error(
+                format!("Recursive import of \"{}\"", path_canon.display()),
+                &import_token,
+            );
             return None;
         }
 
@@ -370,7 +368,7 @@ impl TypeLoader {
             }
             Err(err) => {
                 state.borrow_mut().diag.push_error(
-                    format!("Error reading requested import \"{}\": {}", path.display(), err),
+                    format!("Error reading requested import \"{}\": {}", path_canon.display(), err),
                     &import_token,
                 );
                 return None;
@@ -380,7 +378,7 @@ impl TypeLoader {
         Self::load_file_impl(
             state,
             &path_canon,
-            &path,
+            &path_canon,
             source_code,
             builtin.is_some(),
             &import_stack,
@@ -518,7 +516,7 @@ impl TypeLoader {
     /// the current file directory
     pub fn find_file_in_include_path(
         &self,
-        referencing_file: Option<&std::path::Path>,
+        referencing_file: Option<&Path>,
         file_to_import: &str,
     ) -> Option<(PathBuf, Option<&'static [u8]>)> {
         // The directory of the current file is the first in the list of include directories.
@@ -539,8 +537,9 @@ impl TypeLoader {
             .chain(std::iter::once_with(|| format!("builtin:/{}", self.style).into()))
             .find_map(|include_dir| {
                 let candidate = include_dir.join(file_to_import);
-                crate::fileaccess::load_file(&candidate)
-                    .map(|virtual_file| (candidate, virtual_file.builtin_contents))
+                crate::fileaccess::load_file(&candidate).map(|virtual_file| {
+                    (virtual_file.canon_path.into(), virtual_file.builtin_contents)
+                })
             })
     }
 
@@ -608,7 +607,7 @@ impl TypeLoader {
 
 #[test]
 fn test_dependency_loading() {
-    let test_source_path: std::path::PathBuf =
+    let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
 
     let mut incdir = test_source_path.clone();
@@ -711,7 +710,7 @@ fn test_manual_import() {
 
 #[test]
 fn test_builtin_style() {
-    let test_source_path: std::path::PathBuf =
+    let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
 
     let incdir = test_source_path.join("custom_style");
@@ -730,7 +729,7 @@ fn test_builtin_style() {
 
 #[test]
 fn test_user_style() {
-    let test_source_path: std::path::PathBuf =
+    let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
 
     let incdir = test_source_path.join("custom_style");
@@ -749,7 +748,7 @@ fn test_user_style() {
 
 #[test]
 fn test_unknown_style() {
-    let test_source_path: std::path::PathBuf =
+    let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
 
     let incdir = test_source_path.join("custom_style");

@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+//include_path: ../../../examples/printerdemo/ui/images/
+
+TestCase := Rectangle {
+    property <image> img1: @image-url("cat.jpg");
+    property <image> img2: @image-url("../images/cat.jpg");
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+use slint::private_unstable_api::re_exports::{ImageInner, ImageCacheKey};
+
+let img1 = instance.get_img1();
+let img2 = instance.get_img2();
+let img1_inner: &ImageInner = (&img1).into();
+let img2_inner: &ImageInner = (&img2).into();
+
+match (img1_inner, img2_inner) {
+    (ImageInner::EmbeddedImage { cache_key: ImageCacheKey::Path(img1_path), .. }, ImageInner::EmbeddedImage { cache_key: ImageCacheKey::Path(img2_path), .. }) => {
+        assert_eq!(img1_path, img2_path)
+    },
+    (ImageInner::EmbeddedImage { cache_key: ImageCacheKey::EmbeddedData(img1_addr), .. }, ImageInner::EmbeddedImage { cache_key: ImageCacheKey::EmbeddedData(img2_addr), .. }) => {
+        assert_eq!(img1_addr, img2_addr)
+    },
+    _ => todo!("adjust this test to new image comparison"),
+}
+```
+*/

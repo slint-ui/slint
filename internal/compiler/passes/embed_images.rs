@@ -272,13 +272,16 @@ fn load_image(
     scale_factor: f64,
 ) -> image::ImageResult<(image::RgbaImage, Size)> {
     use resvg::{tiny_skia, usvg};
+    use std::ffi::OsStr;
     use usvg::TreeParsing;
-    if file.path.ends_with(".svg") || file.path.ends_with(".svgz") {
+    if file.canon_path.extension() == Some(OsStr::new("svg"))
+        || file.canon_path.extension() == Some(OsStr::new("svgz"))
+    {
         let options = usvg::Options::default();
         let tree = match file.builtin_contents {
             Some(data) => usvg::Tree::from_data(data, &options),
             None => usvg::Tree::from_data(
-                std::fs::read(file.path.as_ref()).map_err(image::ImageError::IoError)?.as_slice(),
+                std::fs::read(file.canon_path).map_err(image::ImageError::IoError)?.as_slice(),
                 &options,
             ),
         }
@@ -321,7 +324,7 @@ fn load_image(
     if let Some(buffer) = file.builtin_contents {
         image::load_from_memory(buffer)
     } else {
-        image::open(file.path.as_ref())
+        image::open(file.canon_path)
     }
     .map(|mut image| {
         let (original_width, original_height) = image.dimensions();
