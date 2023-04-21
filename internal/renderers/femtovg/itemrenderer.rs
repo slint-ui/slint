@@ -449,7 +449,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                         .to_vector(),
                         PhysicalSize::from_lengths(
                             selection_end_x - selection_start_x,
-                            font_height,
+                            font_height / self.scale_factor.get().ceil(),
                         ),
                     );
                     canvas.fill_path(
@@ -526,7 +526,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                 cursor_point.x,
                 cursor_point.y,
                 (text_input.text_cursor_width() * self.scale_factor).get(),
-                font_height.get(),
+                font_height.get() / self.scale_factor.get().ceil(),
             );
             canvas.fill_path(&mut cursor_rect, &paint);
         }

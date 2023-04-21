@@ -128,16 +128,17 @@ impl FemtoVGRenderer {
 
         let window_adapter = self.window_adapter_weak.upgrade().unwrap();
         let window = WindowInner::from_pub(window_adapter.window());
+        let scale = window.scale_factor().ceil();
 
         window.draw_contents(|components| -> Result<(), PlatformError> {
             let window_background_brush = window.window_item().map(|w| w.as_pin_ref().background());
 
             {
                 let mut femtovg_canvas = canvas.canvas.as_ref().borrow_mut();
-                // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
-                // text metrics. Since we do the entire translation from logical pixels to physical
-                // pixels on our end, we don't need femtovg to scale a second time.
-                femtovg_canvas.set_size(width, height, 1.0);
+                // We pass an integer that is greater than or equal to the scale factor as
+                // dpi / device pixel ratio as the anti-alias of femtovg needs that to draw text clearly.
+                // We need to care about that `ceil()` when calculating metrics.
+                femtovg_canvas.set_size(width, height, scale);
 
                 // Clear with window background if it is a solid color otherwise it will drawn as gradient
                 if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
@@ -159,7 +160,7 @@ impl FemtoVGRenderer {
 
                 femtovg_canvas.flush();
 
-                femtovg_canvas.set_size(width, height, 1.0);
+                femtovg_canvas.set_size(width, height, scale);
                 drop(femtovg_canvas);
 
                 callback()?;
