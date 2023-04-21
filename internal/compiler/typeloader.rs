@@ -266,7 +266,7 @@ impl TypeLoader {
         &self,
         import_token: Option<&NodeOrToken>,
         maybe_relative_path_or_url: &str,
-    ) -> (std::path::PathBuf, Option<&'static [u8]>) {
+    ) -> (PathBuf, Option<&'static [u8]>) {
         let referencing_file_or_url =
             import_token.and_then(|tok| tok.source_file().map(|s| s.path()));
 
@@ -516,9 +516,9 @@ impl TypeLoader {
     /// the current file directory
     pub fn find_file_in_include_path(
         &self,
-        referencing_file: Option<&std::path::Path>,
+        referencing_file: Option<&Path>,
         file_to_import: &str,
-    ) -> Option<(std::path::PathBuf, Option<&'static [u8]>)> {
+    ) -> Option<(PathBuf, Option<&'static [u8]>)> {
         // The directory of the current file is the first in the list of include directories.
         let maybe_current_directory =
             referencing_file.and_then(|path| path.parent()).map(|p| p.to_path_buf());
@@ -607,7 +607,7 @@ impl TypeLoader {
 
 #[test]
 fn test_dependency_loading() {
-    let test_source_path: std::path::PathBuf =
+    let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
 
     let mut incdir = test_source_path.clone();
@@ -710,7 +710,7 @@ fn test_manual_import() {
 
 #[test]
 fn test_builtin_style() {
-    let test_source_path: std::path::PathBuf =
+    let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
 
     let incdir = test_source_path.join("custom_style");
@@ -729,7 +729,7 @@ fn test_builtin_style() {
 
 #[test]
 fn test_user_style() {
-    let test_source_path: std::path::PathBuf =
+    let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
 
     let incdir = test_source_path.join("custom_style");
@@ -748,7 +748,7 @@ fn test_user_style() {
 
 #[test]
 fn test_unknown_style() {
-    let test_source_path: std::path::PathBuf =
+    let test_source_path: PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
 
     let incdir = test_source_path.join("custom_style");
