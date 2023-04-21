@@ -88,17 +88,37 @@ cfg_if::cfg_if! {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn use_modules() {}
 
+#[doc(hidden)]
 pub type NativeWidgets = ();
+#[doc(hidden)]
 pub type NativeGlobals = ();
+#[doc(hidden)]
 pub const HAS_NATIVE_STYLE: bool = false;
+#[doc(hidden)]
 pub mod native_widgets {}
 
+#[doc = concat!("This struct implements the Slint Platform trait. Use this in conjuction with [`slint::platform::set_platform`](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/platform/fn.set_platform.html) to initialize.")]
+/// Slint to use winit for all windowing system interaction.
+///
+/// ```rust
+/// # use i_slint_backend_winit::Backend;
+/// slint::platform::set_platform(Box::new(Backend::new()));
+/// ```
 pub struct Backend {
     window_factory_fn: fn() -> Rc<dyn WindowAdapter>,
 }
 
 impl Backend {
-    pub fn new(renderer_name: Option<&str>) -> Self {
+    #[doc = concat!("Creates a new winit backend with the default renderer that's compiled in. See the [backend documentation](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
+    /// details on how to select the default renderer.
+    pub fn new() -> Self {
+        Self::new_with_renderer_by_name(None)
+    }
+
+    #[doc = concat!("Creates a new winit backend with the renderer specified by name. See the [backend documentation](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
+    /// details on how to select the default renderer.
+    /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
+    pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Self {
         let window_factory_fn = match renderer_name {
             #[cfg(feature = "renderer-winit-femtovg")]
             Some("gl") | Some("femtovg") => {

@@ -21,7 +21,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
         fn create_default_backend() -> Box<dyn Platform + 'static> {
-            Box::new(i_slint_backend_winit::Backend::new(None))
+            Box::new(i_slint_backend_winit::Backend::new())
         }
     } else {
 
@@ -51,7 +51,7 @@ cfg_if::cfg_if! {
                 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
                 "qt" => return Ok(Box::new(i_slint_backend_qt::Backend)),
                 #[cfg(feature = "i-slint-backend-winit")]
-                "winit" => return Ok(Box::new(i_slint_backend_winit::Backend::new((!_renderer.is_empty()).then(|| _renderer)))),
+                "winit" => return Ok(Box::new(i_slint_backend_winit::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then(|| _renderer)))),
                 _ => {},
             }
 
