@@ -3,6 +3,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### General
+
+- Fixed the compiler embedding images unnecessarily multiple times when referenced via different relative paths.
+
 ## [1.0.1] - 2023-04-20
 
 ### General
