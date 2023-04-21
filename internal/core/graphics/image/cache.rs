@@ -112,7 +112,7 @@ impl ImageCache {
     pub(crate) fn load_image_from_embedded_data(
         &mut self,
         data: Slice<'static, u8>,
-        format: Slice<'static, u8>,
+        format: Slice<'_, u8>,
     ) -> Option<Image> {
         let cache_key = ImageCacheKey::from_embedded_image_data(data.as_slice());
         self.lookup_image_in_cache_or_create(cache_key, |cache_key| {

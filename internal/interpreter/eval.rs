@@ -289,8 +289,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
 
                     let virtual_file = i_slint_compiler::fileaccess::load_file(std::path::Path::new(path)).unwrap();  // embedding pass ensured that the file exists
 
-                    if let (std::borrow::Cow::Borrowed(static_path), Some(static_data)) = (virtual_file.path, virtual_file.builtin_contents) {
-                        let virtual_file_extension = std::path::Path::new(static_path).extension().unwrap().to_str().unwrap();
+                    if let (static_path, Some(static_data)) = (virtual_file.canon_path, virtual_file.builtin_contents) {
+                        let virtual_file_extension = static_path.extension().unwrap().to_str().unwrap();
                         debug_assert_eq!(virtual_file_extension, extension);
                         Ok(corelib::graphics::load_image_from_embedded_data(
                             corelib::slice::Slice::from_slice(static_data),

@@ -4,16 +4,16 @@
 use std::borrow::Cow;
 
 #[derive(Clone)]
-pub struct VirtualFile<'a> {
-    pub path: Cow<'a, str>,
+pub struct VirtualFile {
+    pub canon_path: std::path::PathBuf,
     pub builtin_contents: Option<&'static [u8]>,
 }
 
-impl<'a> VirtualFile<'a> {
+impl<'a> VirtualFile {
     pub fn read(&self) -> Cow<'static, [u8]> {
         match self.builtin_contents {
             Some(static_data) => Cow::Borrowed(static_data),
-            None => Cow::Owned(std::fs::read(self.path.as_ref()).unwrap()),
+            None => Cow::Owned(std::fs::read(&self.canon_path).unwrap()),
         }
     }
 
@@ -26,11 +26,11 @@ pub fn styles() -> Vec<&'static str> {
     builtin_library::styles()
 }
 
-pub fn load_file<'a>(path: &'a std::path::Path) -> Option<VirtualFile<'static>> {
+pub fn load_file<'a>(path: &'a std::path::Path) -> Option<VirtualFile> {
     match path.strip_prefix("builtin:/") {
         Ok(builtin_path) => builtin_library::load_builtin_file(builtin_path),
         Err(_) => path.exists().then(|| VirtualFile {
-            path: Cow::Owned(path.to_string_lossy().to_string()),
+            canon_path: dunce::canonicalize(path).unwrap_or_else(|_| path.into()),
             builtin_contents: None,
         }),
     }
@@ -61,9 +61,7 @@ mod builtin_library {
             .collect()
     }
 
-    pub(crate) fn load_builtin_file(
-        builtin_path: &std::path::Path,
-    ) -> Option<VirtualFile<'static>> {
+    pub(crate) fn load_builtin_file(builtin_path: &std::path::Path) -> Option<VirtualFile> {
         let mut components = vec![];
         for part in builtin_path.iter() {
             if part == ".." {
@@ -77,7 +75,9 @@ mod builtin_library {
             library.iter().find_map(|builtin_file| {
                 if builtin_file.path == file {
                     Some(VirtualFile {
-                        path: builtin_file.path.into(),
+                        canon_path: ["builtin:/", folder.to_str().unwrap(), builtin_file.path]
+                            .iter()
+                            .collect::<std::path::PathBuf>(),
                         builtin_contents: Some(builtin_file.contents),
                     })
                 } else {

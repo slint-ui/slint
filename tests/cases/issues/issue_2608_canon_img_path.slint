@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+//include_path: ../../../examples/printerdemo/ui/images/
+
+TestCase := Rectangle {
+    property <image> img1: @image-url("cat.jpg");
+    property <image> img2: @image-url("../images/cat.jpg");
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+let img1 = instance.get_img1();
+let img2 = instance.get_img2();
+
+assert!(img1.path().is_some());
+assert!(img2.path().is_some());
+assert_eq!(img1.path(), img2.path());
+```
+*/

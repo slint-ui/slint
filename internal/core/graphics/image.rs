@@ -645,10 +645,7 @@ impl Image {
 /// Load an image from an image embedded in the binary.
 /// This is called by the generated code.
 #[cfg(feature = "image-decoders")]
-pub fn load_image_from_embedded_data(
-    data: Slice<'static, u8>,
-    format: Slice<'static, u8>,
-) -> Image {
+pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_, u8>) -> Image {
     self::cache::IMAGE_CACHE.with(|global_cache| {
         global_cache.borrow_mut().load_image_from_embedded_data(data, format).unwrap_or_else(|| {
             panic!("internal error: embedded image data is not supported by run-time library",)
