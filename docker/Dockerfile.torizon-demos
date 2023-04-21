@@ -6,7 +6,7 @@
 ARG TOOLCHAIN_ARCH=arm64
 ARG IMAGE_ARCH=linux/arm64
 ARG BASE_NAME=wayland-base
-FROM torizon/debian-cross-toolchain-$TOOLCHAIN_ARCH:2-bullseye AS build
+FROM torizon/debian-cross-toolchain-$TOOLCHAIN_ARCH:3-bookworm AS build
 ARG TOOLCHAIN_ARCH
 ARG RUST_TOOLCHAIN_ARCH=aarch64-unknown-linux-gnu
 
@@ -42,7 +42,7 @@ RUN mkdir demos \
     done
 
 # Create container for target
-FROM --platform=$IMAGE_ARCH torizon/$BASE_NAME:2
+FROM --platform=$IMAGE_ARCH torizon/$BASE_NAME:3
 
 LABEL org.opencontainers.image.source=https://github.com/slint-ui/slint
 LABEL org.opencontainers.image.description="Container image providing Slint demos for use on Torizon. Run with 'docker run  --user=torizon -v /dev:/dev -v /tmp:/tmp --device-cgroup-rule='c 199:* rmw' --device-cgroup-rule='c 226:* rmw'. Available demos: printerdemo slide_puzzle gallery opengl_underlay carousel todo"
