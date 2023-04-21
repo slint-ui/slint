@@ -55,6 +55,7 @@ members = [
     'tools/lsp',
     'tools/updater',
     'tools/viewer',
+    'tools/tr-extractor',
     'xtask',
 ]
 
