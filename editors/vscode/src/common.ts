@@ -77,8 +77,13 @@ export function setServerStatus(
 }
 
 // LSP related:
+
+// Set up our middleware. It is used to redirect/forward to the WASM preview
+// as needed and makes the triggering side so much simpler!
+
 export function languageClientOptions(
     showPreview: (args: any) => boolean,
+    setDesignMode: (args: any) => boolean,
 ): LanguageClientOptions {
     return {
         documentSelector: [{ language: "slint" }, { language: "rust" }],
@@ -86,6 +91,10 @@ export function languageClientOptions(
             executeCommand(command: string, args: any, next: any) {
                 if (command === "slint/showPreview") {
                     if (showPreview(args)) {
+                        return;
+                    }
+                } else if (command == "slint/setDesignMode") {
+                    if (setDesignMode(args)) {
                         return;
                     }
                 }
@@ -126,6 +135,16 @@ export function activate(
             }
 
             lsp_commands.showPreview(ae.document.uri.toString(), "");
+        }),
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand("slint.enableDesignMode", function () {
+            lsp_commands.setDesignMode(true);
+        }),
+    );
+    context.subscriptions.push(
+        vscode.commands.registerCommand("slint.disableDesignMode", function () {
+            lsp_commands.setDesignMode(false);
         }),
     );
 
