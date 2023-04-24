@@ -7,6 +7,7 @@
 // cSpell: ignore iife lumino
 
 import { defineConfig, UserConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig(({ command }) => {
     const base_config: UserConfig = {
@@ -24,21 +25,29 @@ export default defineConfig(({ command }) => {
                 input: {
                     index: "./index.html",
                     preview: "./preview.html",
-                    service_worker: "./src/worker/service_worker.ts",
-                },
-                output: {
-                    entryFileNames: (assetInfo) => {
-                        return assetInfo.name === "service_worker"
-                            ? "[name].js"
-                            : "assets/[name]-[hash].js";
-                    },
                 },
             },
         },
-        worker: {
-            format: "iife",
-        },
         resolve: {},
+        plugins: [
+            VitePWA({
+                registerType: "autoUpdate",
+                injectRegister: "auto",
+                injectManifest: {
+                    injectionPoint: undefined,
+                },
+                srcDir: "src/service_worker",
+                filename: "service_worker.ts",
+                workbox: {
+                    swDest: "sw.js",
+                    maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+                },
+                strategies: "injectManifest",
+                devOptions: {
+                    enabled: true,
+                },
+            }),
+        ],
     };
 
     const global_aliases = {
