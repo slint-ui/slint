@@ -9,7 +9,7 @@ use crate::dynamic_component::{ComponentBox, DynamicComponentVRc, ErasedComponen
 use crate::Value;
 use i_slint_compiler::diagnostics::{SourceFile, Spanned};
 use i_slint_compiler::expression_tree::{Expression, Unit};
-use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::langtype::{ElementType, EnumerationValue, Type};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::{
     BindingsMap, Component, Document, Element, ElementRc, PropertyAnalysis, PropertyDeclaration,
@@ -499,6 +499,20 @@ fn add_current_item_callback(doc: &Document) {
                 &doc.root_component.root_element,
                 "height",
             ))
+            .into(),
+        ),
+    );
+    let mouse_cursor_enum =
+        i_slint_compiler::typeregister::BUILTIN_ENUMS.with(|e| e.MouseCursor.clone());
+    let mouse_cursor_value =
+        mouse_cursor_enum.values.iter().position(|v| v.as_str() == "crosshair").unwrap();
+    bindings.insert(
+        "mouse-cursor".into(),
+        RefCell::new(
+            Expression::EnumerationValue(EnumerationValue {
+                value: mouse_cursor_value,
+                enumeration: mouse_cursor_enum,
+            })
             .into(),
         ),
     );
