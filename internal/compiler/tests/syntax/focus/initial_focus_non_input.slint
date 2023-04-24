@@ -31,3 +31,13 @@ export X := Rectangle {
         someFocusScope.focus(); // OK!
     }
 }
+
+
+
+export Y := FocusScope {
+    forward-focus: self;
+//                ^error{forward-focus can't refer to itself}
+    x:= X { }
+    key-pressed => { x.focus(); accept }
+//                   ^error{focus\(\) can only be called on focusable elements}
+}
