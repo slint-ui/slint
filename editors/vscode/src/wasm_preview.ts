@@ -13,7 +13,6 @@ let previewComponent: string = "";
 let queuedPreviewMsg: any | null = null;
 let previewBusy = false;
 let uriMapping = new Map<string, string>();
-let design_mode = false;
 
 /// Initialize the callback on the client to make the web preview work
 export function initClientForPreview(client: BaseLanguageClient) {
@@ -60,7 +59,6 @@ function reload_preview(url: Uri, content: string, component: string) {
         component: component,
         content: content,
         style: style,
-        design_mode: design_mode,
     };
     if (previewBusy) {
         queuedPreviewMsg = msg;
@@ -99,11 +97,9 @@ export async function refreshPreview(event?: vscode.TextDocumentChangeEvent) {
 }
 
 /// Show the preview for the given path and component
-export async function setDesignMode(enable: boolean) {
-    design_mode = enable;
+export async function toggleDesignMode() {
     previewPanel?.webview.postMessage({
-        command: "set_design_mode",
-        data: enable,
+        command: "toggle_design_mode",
     });
 }
 
@@ -255,7 +251,7 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
     window.addEventListener('message', async event => {
         if (event.data.command === "preview") {
             design_mode = event.data.design_mode;
-            vscode.setState({base_url: event.data.base_url, component: event.data.component, design_mode: design_mode});
+            vscode.setState({base_url: event.data.base_url, component: event.data.component});
             await render(event.data.content, event.data.webview_uri, event.data.style);
         } else if (event.data.command === "file_loaded") {
             let resolve = promises[event.data.url];
@@ -267,9 +263,9 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
             if (current_instance) {
                 current_instance.highlight(event.data.data.path, event.data.data.offset);
             }
-        } else if (event.data.command === "set_design_mode") {
-            design_mode = event.data.data;
-            current_instance?.set_design_mode(event.data.data);
+        } else if (event.data.command === "toggle_design_mode") {
+            design_mode = !design_mode;
+            current_instance?.set_design_mode(design_mode);
             current_instance?.on_element_selected(element_selected);
         }
     });
@@ -295,7 +291,6 @@ export class PreviewSerializer implements vscode.WebviewPanelSerializer {
     ) {
         initPreviewPanel(this.context, webviewPanel);
         previewUrl = Uri.parse(state.base_url, true);
-        design_mode = state.design_mode;
 
         if (previewUrl) {
             let content_str = await getDocumentSource(previewUrl);

@@ -148,13 +148,13 @@ function startClient(context: vscode.ExtensionContext) {
             }
             return false;
         },
-        (args: any) => {
+        (_) => {
             if (
                 vscode.workspace
                     .getConfiguration("slint")
                     .get<boolean>("preview.providedByEditor")
             ) {
-                wasm_preview.setDesignMode(args[0]);
+                wasm_preview.toggleDesignMode();
                 return true;
             }
             return false;

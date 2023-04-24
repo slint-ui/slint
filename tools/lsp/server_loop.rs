@@ -165,6 +165,7 @@ const REMOVE_BINDING_COMMAND: &str = "slint/removeBinding";
 const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
 const SET_BINDING_COMMAND: &str = "slint/setBinding";
 const SET_DESIGN_MODE_COMMAND: &str = "slint/setDesignMode";
+const TOGGLE_DESIGN_MODE_COMMAND: &str = "slint/toggleDesignMode";
 
 fn command_list() -> Vec<String> {
     vec![
@@ -175,6 +176,8 @@ fn command_list() -> Vec<String> {
         #[cfg(any(feature = "preview", feature = "preview-lense"))]
         SET_DESIGN_MODE_COMMAND.into(),
         SET_BINDING_COMMAND.into(),
+        #[cfg(any(feature = "preview", feature = "preview-lense"))]
+        TOGGLE_DESIGN_MODE_COMMAND.into(),
     ]
 }
 
@@ -456,6 +459,11 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             set_design_mode(&params.arguments, &ctx)?;
             return Ok(None::<serde_json::Value>);
         }
+        if params.command.as_str() == TOGGLE_DESIGN_MODE_COMMAND {
+            #[cfg(feature = "preview")]
+            toggle_design_mode(&params.arguments, &ctx)?;
+            return Ok(None::<serde_json::Value>);
+        }
         if params.command.as_str() == QUERY_PROPERTIES_COMMAND {
             return Ok(Some(query_properties_command(&params.arguments, &ctx)?));
         }
@@ -624,6 +632,15 @@ pub fn set_design_mode(params: &[serde_json::Value], ctx: &Rc<Context>) -> Resul
     };
 
     preview::set_design_mode(connection.clone(), *enable);
+    Ok(())
+}
+
+#[cfg(feature = "preview")]
+pub fn toggle_design_mode(_params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<(), Error> {
+    let connection = &ctx.server_notifier;
+
+    use crate::preview;
+    preview::set_design_mode(connection.clone(), !preview::design_mode());
     Ok(())
 }
 
@@ -1310,7 +1327,7 @@ fn get_code_lenses(
 
         let mut r = vec![];
 
-        // Handle preview lense
+        // Handle preview lens
         r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
                 range: offset_mapper.map_range(c.root_element.borrow().node.as_ref()?.text_range()),
