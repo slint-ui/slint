@@ -241,8 +241,12 @@ pub fn with_event_loop_window_target<R>(
     })
 }
 
+mod private {
+    pub trait WinitWindowAccessorSealed {}
+}
+
 #[doc = concat!("This helper trait can be used to obtain access to the [`winit::window::Window`] for a given [`slint::Window`](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/struct.window).")]
-pub trait WinitWindowAccessor {
+pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// Returns true if a [`winit::window::Window`] exists for this window. This is the case if the window is
     /// backed by this winit backend and is shown on the screen.
     fn has_winit_window(&self) -> bool;
@@ -264,6 +268,8 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
         winit_window_rc_for_window(self).as_ref().map(|w| callback(w))
     }
 }
+
+impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
 
 fn winit_window_rc_for_window(
     window: &i_slint_core::api::Window,
