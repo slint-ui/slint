@@ -12,7 +12,10 @@ npm install
 npm run build:wasm_preview   # Build the wasm interpreter used by the preview
 npm run build:wasm_lsp       # Build the wasm LSP used by the text editor
 
-## Run this to refresh slintpad
+## Run this to refresh slintpad (dev mode!)
+npm run start                # Run in development mode
+
+## Run this to refresh slintpad (build mode!)
 npm run build                # Build the web UI code
 cp -r ../../api/wasm-interpreter/pkg dist/wasm-interpreter # To make the LSP available
 npx vite preview             # Start a server serving the slintpad UI
