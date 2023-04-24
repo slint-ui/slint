@@ -10,6 +10,8 @@ use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
 use crate::langtype::ElementType;
 use crate::object_tree::*;
+use by_address::ByAddress;
+use std::collections::HashSet;
 
 enum FocusCheckResult {
     ElementIsFocusable,
@@ -53,6 +55,8 @@ fn find_focusable_element(
     diag: &mut BuildDiagnostics,
 ) -> Option<ElementRc> {
     let mut last_focus_forward_location = None;
+    let mut visited = HashSet::new();
+    visited.insert(ByAddress(element.clone()));
     loop {
         match element_focus_check(&element) {
             FocusCheckResult::ElementIsFocusable => break Some(element),
@@ -60,6 +64,10 @@ fn find_focusable_element(
                 if Rc::ptr_eq(&element, &forwarded_element) {
                     diag.push_error("forward-focus can't refer to itself".into(), &location);
                     break Some(element);
+                }
+                if !visited.insert(ByAddress(forwarded_element.clone())) {
+                    diag.push_error("forward-focus loop".into(), &location);
+                    break Some(forwarded_element);
                 }
                 element = forwarded_element;
                 last_focus_forward_location = Some(location);
