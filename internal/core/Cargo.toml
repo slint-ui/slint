@@ -98,4 +98,4 @@ fontdb = { workspace = true }
 
 image = { version = "0.24.0", default-features = false, features = [ "png" ] }
 pin-weak = "1"
-tiny-skia = "0.8.2"
+tiny-skia = "0.9.0"
