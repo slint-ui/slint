@@ -486,6 +486,12 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         return true;
     }
 
+    // the focus_item pass needs to refer to elements that are focusable, if it is not inline
+    // it is not possible to refer to them in an  Expression::ElementReference
+    if matches!(&root_element.borrow().base_type, ElementType::Builtin(b) if b.accepts_focus) {
+        return true;
+    }
+
     for (prop, binding) in &root_element.borrow().bindings {
         let binding = binding.borrow();
         // The passes that dp the drop shadow or the opacity currently won't allow this property

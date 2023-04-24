@@ -1,10 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+MyTextInput := TextInput { }
+
 TextComponent := Rectangle {
     property<bool> has_focus: my_text_input.has_focus;
     forward-focus: my_text_input;
-    my_text_input := TextInput { }
+    my_text_input := MyTextInput { }
 
     callback not_called;
     not_called => {
