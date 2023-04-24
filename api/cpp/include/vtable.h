@@ -9,6 +9,10 @@
 #include <optional>
 #include <atomic>
 
+#ifdef __APPLE__
+#include <AvailabilityMacros.h>
+#endif
+
 namespace vtable {
 
 template<typename T>
@@ -119,8 +123,12 @@ public:
     template<typename... Args>
     static VRc make(Args... args)
     {
+#if !defined(__APPLE__) || MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_14
         auto mem = ::operator new(sizeof(VRcInner<VTable, X>),
                                   static_cast<std::align_val_t>(alignof(VRcInner<VTable, X>)));
+#else
+        auto mem = ::operator new(sizeof(VRcInner<VTable, X>));
+#endif
         auto inner = new (mem) VRcInner<VTable, X>;
         new (&inner->data) X(args...);
         return VRc(inner);

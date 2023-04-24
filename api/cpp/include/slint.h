@@ -147,7 +147,7 @@ public:
     template<typename Component>
     void set_component(const Component &c) const
     {
-        auto self_rc = c.self_weak.lock().value().into_dyn();
+        auto self_rc = (*c.self_weak.lock()).into_dyn();
         slint_windowrc_set_component(&inner, &self_rc);
     }
 
@@ -289,8 +289,10 @@ inline void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout
 #ifdef __cpp_sized_deallocation
     ::operator delete(reinterpret_cast<void *>(ptr), layout.size,
                       static_cast<std::align_val_t>(layout.align));
-#else
+#elif !defined(__APPLE__) || MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_14
     ::operator delete(reinterpret_cast<void *>(ptr), static_cast<std::align_val_t>(layout.align));
+#else
+    ::operator delete(reinterpret_cast<void *>(ptr));
 #endif
 }
 
