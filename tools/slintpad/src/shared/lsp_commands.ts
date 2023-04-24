@@ -43,6 +43,10 @@ export async function setDesignMode(
     return vscode.commands.executeCommand("slint/setDesignMode", enable);
 }
 
+export async function toggleDesignMode(): Promise<SetBindingResponse> {
+    return vscode.commands.executeCommand("slint/toggleDesignMode");
+}
+
 export async function setBinding(
     doc: OptionalVersionedTextDocumentIdentifier,
     element_range: LspRange,
