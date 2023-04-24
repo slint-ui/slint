@@ -36,7 +36,7 @@ std::string WidgetLocation::location_bindings() const
 {
     auto maybe_binding = [](std::string_view name, const auto &opt_value) -> std::string {
         if (opt_value.has_value()) {
-            return fmt::format("               {}: {};\n", name, opt_value.value());
+            return fmt::format("               {}: {};\n", name, *opt_value);
         } else {
             return "";
         }

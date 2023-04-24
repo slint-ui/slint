@@ -94,7 +94,7 @@ int main(int argc, char **argv)
                 break;
 
             case slint::interpreter::Value::Type::Number:
-                ui.prop_value->setText(QString::number(val->to_number().value()));
+                ui.prop_value->setText(QString::number(*val->to_number()));
                 break;
 
             default:
