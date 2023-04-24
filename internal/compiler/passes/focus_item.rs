@@ -41,7 +41,7 @@ fn element_focus_check(element: &ElementRc) -> FocusCheckResult {
         }
     }
 
-    if matches!(&element.borrow().base_type.clone(), ElementType::Builtin(b) if b.accepts_focus) {
+    if matches!(&element.borrow().base_type, ElementType::Builtin(b) if b.accepts_focus) {
         return FocusCheckResult::ElementIsFocusable;
     }
 
@@ -57,6 +57,10 @@ fn find_focusable_element(
         match element_focus_check(&element) {
             FocusCheckResult::ElementIsFocusable => break Some(element),
             FocusCheckResult::FocusForwarded(forwarded_element, location) => {
+                if Rc::ptr_eq(&element, &forwarded_element) {
+                    diag.push_error("forward-focus can't refer to itself".into(), &location);
+                    break Some(element);
+                }
                 element = forwarded_element;
                 last_focus_forward_location = Some(location);
             }
