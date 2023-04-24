@@ -83,7 +83,7 @@ export function setServerStatus(
 
 export function languageClientOptions(
     showPreview: (args: any) => boolean,
-    setDesignMode: (args: any) => boolean,
+    toggleDesignMode: (args: any) => boolean,
 ): LanguageClientOptions {
     return {
         documentSelector: [{ language: "slint" }, { language: "rust" }],
@@ -93,8 +93,8 @@ export function languageClientOptions(
                     if (showPreview(args)) {
                         return;
                     }
-                } else if (command == "slint/setDesignMode") {
-                    if (setDesignMode(args)) {
+                } else if (command == "slint/toggleDesignMode") {
+                    if (toggleDesignMode(args)) {
                         return;
                     }
                 }
@@ -138,13 +138,8 @@ export function activate(
         }),
     );
     context.subscriptions.push(
-        vscode.commands.registerCommand("slint.enableDesignMode", function () {
-            lsp_commands.setDesignMode(true);
-        }),
-    );
-    context.subscriptions.push(
-        vscode.commands.registerCommand("slint.disableDesignMode", function () {
-            lsp_commands.setDesignMode(false);
+        vscode.commands.registerCommand("slint.toggleDesignMode", function () {
+            lsp_commands.toggleDesignMode();
         }),
     );
 

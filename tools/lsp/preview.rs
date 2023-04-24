@@ -222,6 +222,11 @@ struct PreviewState {
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
+pub fn design_mode() -> bool {
+    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    cache.design_mode
+}
+
 pub fn set_design_mode(sender: crate::ServerNotifier, enable: bool) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     cache.design_mode = enable;

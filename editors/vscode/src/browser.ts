@@ -28,8 +28,8 @@ function startClient(context: vscode.ExtensionContext) {
             );
             return true;
         },
-        (args: any) => {
-            wasm_preview.setDesignMode(args[0]);
+        (_) => {
+            wasm_preview.toggleDesignMode();
             return true;
         },
     );
