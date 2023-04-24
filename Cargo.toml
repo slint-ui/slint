@@ -91,7 +91,7 @@ rust-version = "1.66"
 
 [workspace.dependencies]
 resvg = { version= "0.32.0", default-features = false }
-fontdb = { version = "0.13", features = ["fontconfig"] }
+fontdb = { version = "0.13.1", features = ["fontconfig"] }
 yeslogic-fontconfig-sys = { version = "3.2.0", features = ["dlopen"] }
 
 [profile.release]
