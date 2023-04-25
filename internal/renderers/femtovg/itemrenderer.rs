@@ -13,8 +13,7 @@ use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{Image, IntRect, Point, Size};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
-    self, Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
-    RenderingResult,
+    self, Clip, FillRule, ImageFit, ImageRendering, Item, ItemRc, Layer, Opacity, RenderingResult,
 };
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
@@ -373,15 +372,17 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             None => return,
         };
 
-        let visual_representation = text_input.visual_representation();
+        let mut visual_representation = text_input.visual_representation();
 
-        let (mut min_select, mut max_select) = if !visual_representation.preedit_range.is_empty() {
+        visual_representation.apply_password_character_substitution(text_input, PASSWORD_CHARACTER);
+
+        let (min_select, max_select) = if !visual_representation.preedit_range.is_empty() {
             (visual_representation.preedit_range.start, visual_representation.preedit_range.end)
         } else {
-            text_input.selection_anchor_and_cursor()
+            (visual_representation.selection_range.start, visual_representation.selection_range.end)
         };
 
-        let (cursor_visible, mut cursor_pos) =
+        let (cursor_visible, cursor_pos) =
             if let Some(cursor_pos) = visual_representation.cursor_position {
                 (true, cursor_pos)
             } else {
@@ -390,14 +391,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let mut canvas = self.canvas.borrow_mut();
         let font_height = PhysicalLength::new(canvas.measure_font(&paint).unwrap().height());
-        let mut text: SharedString = visual_representation.text.into();
-
-        if let InputType::Password = text_input.input_type() {
-            min_select = text[..min_select].chars().count() * PASSWORD_CHARACTER.len();
-            max_select = text[..max_select].chars().count() * PASSWORD_CHARACTER.len();
-            cursor_pos = text[..cursor_pos].chars().count() * PASSWORD_CHARACTER.len();
-            text = SharedString::from(PASSWORD_CHARACTER.repeat(text.chars().count()));
-        };
+        let text: SharedString = visual_representation.text.into();
 
         let mut cursor_point: Option<PhysicalPoint> = None;
 
