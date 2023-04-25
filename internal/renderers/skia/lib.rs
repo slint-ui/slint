@@ -270,9 +270,7 @@ impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<Nati
             return 0;
         }
 
-        let mut visual_representation = text_input.visual_representation();
-
-        visual_representation.apply_password_character_substitution(text_input, None);
+        let visual_representation = text_input.visual_representation(None);
 
         let font_request = text_input.font_request(&window_adapter);
 

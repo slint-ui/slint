@@ -675,10 +675,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
 
-        let mut visual_representation = text_input.visual_representation();
-
-        visual_representation
-            .apply_password_character_substitution(text_input, Some(qt_password_character));
+        let visual_representation = text_input.visual_representation(Some(qt_password_character));
 
         let text = &visual_representation.text;
         let mut string: qttypes::QString = text.as_str().into();
@@ -1817,10 +1814,7 @@ impl Renderer for QtWindow {
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
         );
 
-        let mut visual_representation = text_input.visual_representation();
-
-        visual_representation
-            .apply_password_character_substitution(text_input, Some(qt_password_character));
+        let visual_representation = text_input.visual_representation(Some(qt_password_character));
 
         let string = qttypes::QString::from(visual_representation.text.as_str());
 
