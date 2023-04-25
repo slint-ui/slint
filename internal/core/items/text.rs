@@ -674,6 +674,8 @@ pub struct TextInputVisualRepresentation {
     pub selection_range: core::ops::Range<usize>,
     /// The position where to draw the cursor, as byte offset within the text.
     pub cursor_position: Option<usize>,
+    text_without_password: Option<String>,
+    password_character: char,
 }
 
 impl TextInputVisualRepresentation {
@@ -702,7 +704,22 @@ impl TextInputVisualRepresentation {
         if let Some(cursor_pos) = self.cursor_position.as_mut() {
             *cursor_pos = text[..*cursor_pos].chars().count() * password_character.len_utf8();
         }
-        *text = core::iter::repeat(password_character).take(text.chars().count()).collect();
+        self.text_without_password = Some(core::mem::replace(
+            text,
+            core::iter::repeat(password_character).take(text.chars().count()).collect(),
+        ));
+        self.password_character = password_character;
+    }
+
+    pub fn map_byte_offset_from_byte_offset_in_visual_text(&self, byte_offset: usize) -> usize {
+        if let Some(text_without_password) = self.text_without_password.as_ref() {
+            text_without_password
+                .char_indices()
+                .nth(byte_offset / self.password_character.len_utf8())
+                .map_or(text_without_password.len(), |(r, _)| r)
+        } else {
+            byte_offset
+        }
     }
 }
 
@@ -1092,7 +1109,14 @@ impl TextInput {
             (preedit_range, selection_range, cursor_position)
         };
 
-        TextInputVisualRepresentation { text, preedit_range, selection_range, cursor_position }
+        TextInputVisualRepresentation {
+            text,
+            preedit_range,
+            selection_range,
+            cursor_position,
+            text_without_password: None,
+            password_character: Default::default(),
+        }
     }
 }
 

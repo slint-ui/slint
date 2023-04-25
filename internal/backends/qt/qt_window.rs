@@ -14,7 +14,7 @@ use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Image, Point, Sh
 use i_slint_core::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
-    self, FillRule, ImageRendering, InputType, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
+    self, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
     PointerEventButton, RenderingResult, TextOverflow, TextWrap, WindowItem,
 };
 use i_slint_core::layout::Orientation;
@@ -677,12 +677,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
         let mut visual_representation = text_input.visual_representation();
 
-        visual_representation.apply_password_character_substitution(text_input, || {
-            char::from_u32(cpp! { unsafe [] -> i32 as "int" {
-                return qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr);
-            }} as u32)
-            .unwrap_or('●')
-        });
+        visual_representation
+            .apply_password_character_substitution(text_input, qt_password_character);
 
         let text = &visual_representation.text;
         let mut string: qttypes::QString = text.as_str().into();
@@ -1820,7 +1816,14 @@ impl Renderer for QtWindow {
         let font: QFont = get_font(
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
         );
-        let string = qttypes::QString::from(text_input.text().as_str());
+
+        let mut visual_representation = text_input.visual_representation();
+
+        visual_representation
+            .apply_password_character_substitution(text_input, qt_password_character);
+
+        let string = qttypes::QString::from(visual_representation.text.as_str());
+
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -1834,14 +1837,10 @@ impl Renderer for QtWindow {
             TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
         let single_line: bool = text_input.single_line();
-        let is_password: bool = matches!(text_input.input_type(), InputType::Password);
-        cpp! { unsafe [font as "QFont", string as "QString", pos as "QPointF", flags as "int",
-                rect as "QRectF", single_line as "bool", is_password as "bool"] -> usize as "size_t" {
+        let byte_offset = cpp! { unsafe [font as "QFont", string as "QString", pos as "QPointF", flags as "int",
+                rect as "QRectF", single_line as "bool"] -> usize as "size_t" {
             // we need to do the \n replacement in a copy because the original need to be kept to know the utf8 offset
             auto copy = string;
-            if (is_password) {
-                copy.fill(QChar(qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr)));
-            }
             if (!single_line) {
                 copy.replace(QChar('\n'), QChar::LineSeparator);
             }
@@ -1865,7 +1864,8 @@ impl Renderer for QtWindow {
                 cur++;
             // convert to an utf8 pos;
             return QStringView(string).left(cur).toUtf8().size();
-        }}
+        }};
+        visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -2210,4 +2210,11 @@ fn test_utf8_byte_offset_to_utf16_units() {
             3
         );
     }
+}
+
+fn qt_password_character() -> char {
+    char::from_u32(cpp! { unsafe [] -> i32 as "int" {
+        return qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr);
+    }} as u32)
+    .unwrap_or('●')
 }
