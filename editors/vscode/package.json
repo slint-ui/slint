@@ -131,15 +131,16 @@
         "bin/slint-lsp-*"
     ],
     "scripts": {
-        "vscode:prepublish": "npm run build:wasm_lsp && npm run build:wasm_preview && npm run compile",
+        "vscode:prepublish": "npm run build:wasm_lsp && npm run build:wasm_preview && npm run compile && shx echo \"GPL-3.0-only OR LicenseRef-Slint-commercial\" > LICENSE.txt",
         "build:wasm_lsp": "wasm-pack build --target web --out-name index ../../tools/lsp --no-default-features --features preview-lense,preview-api",
         "build:wasm_preview": "env-var wasm-pack build --release --target web --out-dir {{npm_config_local_prefix}}/out ../../api/wasm-interpreter --features highlight",
         "compile": "node ./esbuild.js",
-        "local-package": "mkdir -p bin && cp ../../target/debug/slint-lsp bin/ && npx vsce package",
+        "local-package": "shx mkdir -p bin && shx cp ../../target/debug/slint-lsp* bin/ && npx vsce package",
         "watch": "tsc -watch -p ./",
         "pretest": "npm run compile && npm run lint",
         "lint": "eslint src --ext ts",
-        "test": "node ./out/test/runTest.js"
+        "test": "node ./out/test/runTest.js",
+        "clean": "shx rm -rf out bin LICENSE.txt slint-*.vsix"
     },
     "devDependencies": {
         "@rauschma/env-var": "^1.0.1",
@@ -154,6 +155,7 @@
         "glob": "^7.2.3",
         "mocha": "^8.4.0",
         "path-browserify": "^1.0.1",
+        "shx": "^0.3.4",
         "ts-loader": "^9.4.1",
         "typescript": "^4.9.3",
         "vscode-test": "^1.6.1",
