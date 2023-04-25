@@ -23,8 +23,8 @@ use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 
 use super::images::{Texture, TextureCacheKey};
+use super::PhysicalSize;
 use super::{fonts, PhysicalLength, PhysicalPoint, PhysicalRect};
-use super::{PhysicalSize, PASSWORD_CHARACTER};
 
 type FemtovgBoxShadowCache = BoxShadowCache<ItemGraphicsCacheEntry>;
 
@@ -374,8 +374,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let mut visual_representation = text_input.visual_representation();
 
-        visual_representation
-            .apply_password_character_substitution(text_input, || PASSWORD_CHARACTER);
+        visual_representation.apply_password_character_substitution(text_input, None);
 
         let (min_select, max_select) = if !visual_representation.preedit_range.is_empty() {
             (visual_representation.preedit_range.start, visual_representation.preedit_range.end)

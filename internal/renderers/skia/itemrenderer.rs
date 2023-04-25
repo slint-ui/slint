@@ -506,8 +506,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
         let mut visual_representation = text_input.visual_representation();
 
-        visual_representation
-            .apply_password_character_substitution(text_input, || crate::PASSWORD_CHARACTER);
+        visual_representation.apply_password_character_substitution(text_input, None);
 
         let selection = if !visual_representation.preedit_range.is_empty() {
             Some(super::textlayout::Selection {
