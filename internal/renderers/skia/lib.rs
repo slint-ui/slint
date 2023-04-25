@@ -31,8 +31,6 @@ mod cached_image;
 mod itemrenderer;
 mod textlayout;
 
-const PASSWORD_CHARACTER: char = '●';
-
 #[cfg(target_os = "macos")]
 mod metal_surface;
 
@@ -274,8 +272,7 @@ impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<Nati
 
         let mut visual_representation = text_input.visual_representation();
 
-        visual_representation
-            .apply_password_character_substitution(text_input, || PASSWORD_CHARACTER);
+        visual_representation.apply_password_character_substitution(text_input, None);
 
         let font_request = text_input.font_request(&window_adapter);
 

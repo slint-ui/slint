@@ -678,7 +678,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let mut visual_representation = text_input.visual_representation();
 
         visual_representation
-            .apply_password_character_substitution(text_input, qt_password_character);
+            .apply_password_character_substitution(text_input, Some(qt_password_character));
 
         let text = &visual_representation.text;
         let mut string: qttypes::QString = text.as_str().into();
@@ -1820,7 +1820,7 @@ impl Renderer for QtWindow {
         let mut visual_representation = text_input.visual_representation();
 
         visual_representation
-            .apply_password_character_substitution(text_input, qt_password_character);
+            .apply_password_character_substitution(text_input, Some(qt_password_character));
 
         let string = qttypes::QString::from(visual_representation.text.as_str());
 

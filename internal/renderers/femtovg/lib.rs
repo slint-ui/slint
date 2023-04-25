@@ -30,8 +30,6 @@ mod fonts;
 mod images;
 mod itemrenderer;
 
-const PASSWORD_CHARACTER: char = '●';
-
 /// Use the FemtoVG renderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using OpenGL and the FemtoVG renderer.
 pub struct FemtoVGRenderer {
@@ -252,8 +250,7 @@ impl Renderer for FemtoVGRenderer {
 
         let mut visual_representation = text_input.visual_representation();
 
-        visual_representation
-            .apply_password_character_substitution(text_input, || PASSWORD_CHARACTER);
+        visual_representation.apply_password_character_substitution(text_input, None);
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
         let text_context =

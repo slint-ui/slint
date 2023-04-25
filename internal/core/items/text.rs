@@ -684,13 +684,13 @@ impl TextInputVisualRepresentation {
     pub fn apply_password_character_substitution(
         &mut self,
         text_input: Pin<&TextInput>,
-        password_character_fn: fn() -> char,
+        password_character_fn: Option<fn() -> char>,
     ) {
         if !matches!(text_input.input_type(), InputType::Password) {
             return;
         }
 
-        let password_character = password_character_fn();
+        let password_character = password_character_fn.map_or('●', |f| f());
 
         let text = &mut self.text;
         let fixup_range = |r: &mut core::ops::Range<usize>| {
