@@ -329,7 +329,7 @@ jobs:
 
 
   prepare_release:
-#    if: github.event.inputs.release == 'true'
+    if: github.event.inputs.private != 'true'
     needs: [cpp_package, slint-viewer-binary, slint-lsp-binary]
     runs-on: ubuntu-22.04
     permissions:
@@ -337,13 +337,19 @@ jobs:
     steps:
       - uses: actions/download-artifact@v3
         with:
-          name: cpp_package
+          name: cpp_bin
       - uses: actions/download-artifact@v3
         with:
-          name: slint-viewer-binary
+          name: slint-viewer-linux
       - uses: actions/download-artifact@v3
         with:
-          name: slint-lsp-binary
+          name: slint-viewer-windows
+      - uses: actions/download-artifact@v3
+        with:
+          name: slint-lsp-linux
+      - uses: actions/download-artifact@v3
+        with:
+          name: slint-lsp-windows
       - name: Extract files
         run: |
             ls -R
