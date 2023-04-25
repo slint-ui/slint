@@ -248,9 +248,7 @@ impl Renderer for FemtoVGRenderer {
             )
         });
 
-        let mut visual_representation = text_input.visual_representation();
-
-        visual_representation.apply_password_character_substitution(text_input, None);
+        let visual_representation = text_input.visual_representation(None);
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
         let text_context =

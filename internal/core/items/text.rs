@@ -681,7 +681,7 @@ pub struct TextInputVisualRepresentation {
 impl TextInputVisualRepresentation {
     /// If the given `TextInput` renders a password, then all characters in this `TextInputVisualRepresentation` are replaced
     /// with the given password character and the selection/preedit-ranges/cursor position are adjusted.
-    pub fn apply_password_character_substitution(
+    fn apply_password_character_substitution(
         &mut self,
         text_input: Pin<&TextInput>,
         password_character_fn: Option<fn() -> char>,
@@ -1075,7 +1075,10 @@ impl TextInput {
         }
     }
 
-    pub fn visual_representation(self: Pin<&Self>) -> TextInputVisualRepresentation {
+    pub fn visual_representation(
+        self: Pin<&Self>,
+        password_character_fn: Option<fn() -> char>,
+    ) -> TextInputVisualRepresentation {
         let mut text: String = self.text().into();
 
         let preedit_text = self.preedit_text();
@@ -1109,14 +1112,16 @@ impl TextInput {
             (preedit_range, selection_range, cursor_position)
         };
 
-        TextInputVisualRepresentation {
+        let mut repr = TextInputVisualRepresentation {
             text,
             preedit_range,
             selection_range,
             cursor_position,
             text_without_password: None,
             password_character: Default::default(),
-        }
+        };
+        repr.apply_password_character_substitution(self, password_character_fn);
+        repr
     }
 }
 
