@@ -158,7 +158,7 @@ jobs:
     - uses: ./.github/actions/setup-rust
       with:
         target: ${{ matrix.target }}
-    - uses: baptiste0928/cargo-install@v1
+    - uses: baptiste0928/cargo-install@v2
       with:
         crate: cross
     - name: Build LSP

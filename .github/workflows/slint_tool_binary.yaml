@@ -30,7 +30,7 @@ jobs:
         uses: jurplel/install-qt-action@v3
         with:
           version: 6.2.1
-      - uses: baptiste0928/cargo-install@v1
+      - uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-about
       - name: Build
@@ -74,7 +74,7 @@ jobs:
         uses: jurplel/install-qt-action@v3
         with:
           version: 5.15.2
-      - uses: baptiste0928/cargo-install@v1
+      - uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-about
       - name: Build
@@ -106,7 +106,7 @@ jobs:
         uses: jurplel/install-qt-action@v3
         with:
           version: 6.2.1
-      - uses: baptiste0928/cargo-install@v1
+      - uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-about
       - name: Build x86_64

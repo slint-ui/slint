@@ -64,7 +64,7 @@ jobs:
       if: matrix.target != 'riscv64gc-unknown-linux-gnu'
       run: |
           echo "EXTRA_ARGS=--features slint/renderer-winit-skia" >> $GITHUB_ENV
-    - uses: baptiste0928/cargo-install@v1
+    - uses: baptiste0928/cargo-install@v2
       with:
         crate: cross
     - name: Build
