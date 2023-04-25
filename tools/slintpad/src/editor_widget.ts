@@ -633,7 +633,7 @@ class EditorPaneWidget extends Widget {
         internal_uri: monaco.Uri,
         raise_alert: boolean,
     ): Promise<string> {
-        let model = monaco.editor.getModel(uri);
+        let model = monaco.editor.getModel(internal_uri);
         if (model != null) {
             return model.getValue();
         }
@@ -662,7 +662,7 @@ class EditorPaneWidget extends Widget {
             return "";
         }
 
-        model = monaco.editor.getModel(uri);
+        model = monaco.editor.getModel(internal_uri);
         if (model != null) {
             return model.getValue();
         }
