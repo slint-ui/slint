@@ -676,6 +676,34 @@ pub struct TextInputVisualRepresentation {
     pub cursor_position: Option<usize>,
 }
 
+impl TextInputVisualRepresentation {
+    /// If the given `TextInput` renders a password, then all characters in this `TextInputVisualRepresentation` are replaced
+    /// with the given password character and the selection/preedit-ranges/cursor position are adjusted.
+    pub fn apply_password_character_substitution(
+        &mut self,
+        text_input: Pin<&TextInput>,
+        password_character: &str,
+    ) {
+        if !matches!(text_input.input_type(), InputType::Password) {
+            return;
+        }
+
+        let text = &mut self.text;
+        let fixup_range = |r: &mut core::ops::Range<usize>| {
+            if !core::ops::Range::is_empty(&r) {
+                r.start = text[..r.start].chars().count() * password_character.len();
+                r.end = text[..r.end].chars().count() * password_character.len();
+            }
+        };
+        fixup_range(&mut self.preedit_range);
+        fixup_range(&mut self.selection_range);
+        if let Some(cursor_pos) = self.cursor_position.as_mut() {
+            *cursor_pos = text[..*cursor_pos].chars().count() * password_character.len();
+        }
+        *text = String::from(password_character.repeat(text.chars().count()));
+    }
+}
+
 impl TextInput {
     fn show_cursor(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         WindowInner::from_pub(window_adapter.window())
