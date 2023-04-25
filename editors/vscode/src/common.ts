@@ -180,6 +180,12 @@ export function activate(
     });
 
     vscode.workspace.onDidChangeTextDocument(async (ev) => {
+        if (
+            ev.document.languageId !== "slint" &&
+            ev.document.languageId !== "rust"
+        ) {
+            return;
+        }
         wasm_preview.refreshPreview(ev);
 
         // Send a request for properties information after passing through the
