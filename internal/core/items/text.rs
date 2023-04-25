@@ -682,25 +682,27 @@ impl TextInputVisualRepresentation {
     pub fn apply_password_character_substitution(
         &mut self,
         text_input: Pin<&TextInput>,
-        password_character: &str,
+        password_character_fn: fn() -> char,
     ) {
         if !matches!(text_input.input_type(), InputType::Password) {
             return;
         }
 
+        let password_character = password_character_fn();
+
         let text = &mut self.text;
         let fixup_range = |r: &mut core::ops::Range<usize>| {
             if !core::ops::Range::is_empty(&r) {
-                r.start = text[..r.start].chars().count() * password_character.len();
-                r.end = text[..r.end].chars().count() * password_character.len();
+                r.start = text[..r.start].chars().count() * password_character.len_utf8();
+                r.end = text[..r.end].chars().count() * password_character.len_utf8();
             }
         };
         fixup_range(&mut self.preedit_range);
         fixup_range(&mut self.selection_range);
         if let Some(cursor_pos) = self.cursor_position.as_mut() {
-            *cursor_pos = text[..*cursor_pos].chars().count() * password_character.len();
+            *cursor_pos = text[..*cursor_pos].chars().count() * password_character.len_utf8();
         }
-        *text = String::from(password_character.repeat(text.chars().count()));
+        *text = core::iter::repeat(password_character).take(text.chars().count()).collect();
     }
 }
 

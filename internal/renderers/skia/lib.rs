@@ -31,7 +31,7 @@ mod cached_image;
 mod itemrenderer;
 mod textlayout;
 
-const PASSWORD_CHARACTER: &str = "●";
+const PASSWORD_CHARACTER: char = '●';
 
 #[cfg(target_os = "macos")]
 mod metal_surface;
@@ -277,7 +277,9 @@ impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<Nati
             matches!(text_input.input_type(), i_slint_core::items::InputType::Password);
         let password_string;
         let actual_text = if is_password {
-            password_string = PASSWORD_CHARACTER.repeat(text.chars().count());
+            password_string = core::iter::repeat(PASSWORD_CHARACTER)
+                .take(text.chars().count())
+                .collect::<String>();
             password_string.as_str()
         } else {
             text.as_str()
@@ -312,7 +314,7 @@ impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<Nati
 
         if is_password {
             text.char_indices()
-                .nth(byte_offset / PASSWORD_CHARACTER.len())
+                .nth(byte_offset / PASSWORD_CHARACTER.len_utf8())
                 .map_or(text.len(), |(r, _)| r)
         } else {
             byte_offset

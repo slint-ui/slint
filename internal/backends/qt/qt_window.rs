@@ -675,23 +675,24 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
 
-        let visual_representation = text_input.visual_representation();
+        let mut visual_representation = text_input.visual_representation();
+
+        visual_representation.apply_password_character_substitution(text_input, || {
+            char::from_u32(cpp! { unsafe [] -> i32 as "int" {
+                return qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr);
+            }} as u32)
+            .unwrap_or('●')
+        });
 
         let text = &visual_representation.text;
         let mut string: qttypes::QString = text.as_str().into();
-
-        if let InputType::Password = text_input.input_type() {
-            cpp! { unsafe [mut string as "QString"] {
-                string.fill(QChar(qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr)));
-            }}
-        }
 
         // convert byte offsets to offsets in Qt UTF-16 encoded string, as that's
         // what QTextLayout expects.
 
         let (
-            cursor_position_as_offset,
-            anchor_position_as_offset,
+            selection_start_as_offset,
+            selection_end_as_offset,
             selection_foreground_color,
             selection_background_color,
             underline_selection,
@@ -705,30 +706,34 @@ impl ItemRenderer for QtItemRenderer<'_> {
             )
         } else {
             (
-                text_input.cursor_position(text),
-                text_input.anchor_position(text),
+                visual_representation.selection_range.start,
+                visual_representation.selection_range.end,
                 text_input.selection_foreground_color().as_argb_encoded(),
                 text_input.selection_background_color().as_argb_encoded(),
                 false,
             )
         };
 
-        let cursor_position: i32 = if cursor_position_as_offset > 0 {
-            utf8_byte_offset_to_utf16_units(text.as_str(), cursor_position_as_offset) as i32
+        let selection_start_position: i32 = if selection_start_as_offset > 0 {
+            utf8_byte_offset_to_utf16_units(text.as_str(), selection_start_as_offset) as i32
         } else {
             0
         };
-        let anchor_position: i32 = if anchor_position_as_offset > 0 {
-            utf8_byte_offset_to_utf16_units(text.as_str(), anchor_position_as_offset) as i32
+        let selection_end_position: i32 = if selection_end_as_offset > 0 {
+            utf8_byte_offset_to_utf16_units(text.as_str(), selection_end_as_offset) as i32
         } else {
             0
         };
 
-        let text_cursor_width: f32 = if visual_representation.cursor_position.is_some() {
-            text_input.text_cursor_width().get()
-        } else {
-            0.
-        };
+        let (text_cursor_width, cursor_position): (f32, i32) =
+            if let Some(cursor_offset) = visual_representation.cursor_position {
+                (
+                    text_input.text_cursor_width().get(),
+                    utf8_byte_offset_to_utf16_units(text.as_str(), cursor_offset) as i32,
+                )
+            } else {
+                (0., 0)
+            };
 
         let single_line: bool = text_input.single_line();
 
@@ -744,8 +749,9 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 flags as "int",
                 single_line as "bool",
                 font as "QFont",
+                selection_start_position as "int",
+                selection_end_position as "int",
                 cursor_position as "int",
-                anchor_position as "int",
                 text_cursor_width as "float"] {
             if (!single_line) {
                 string.replace(QChar('\n'), QChar::LineSeparator);
@@ -754,7 +760,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             do_text_layout(layout, flags, rect);
             (*painter)->setPen(QPen(fill_brush, 0));
             QVector<QTextLayout::FormatRange> selections;
-            if (anchor_position != cursor_position) {
+            if (selection_end_position != selection_start_position) {
                 QTextCharFormat fmt;
                 if (qAlpha(selection_background_color) != 0) {
                     fmt.setBackground(QColor::fromRgba(selection_background_color));
@@ -766,8 +772,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     fmt.setFontUnderline(true);
                 }
                 selections << QTextLayout::FormatRange{
-                    std::min(anchor_position, cursor_position),
-                    std::abs(anchor_position - cursor_position),
+                    std::min(selection_end_position, selection_start_position),
+                    std::abs(selection_end_position - selection_start_position),
                     fmt
                 };
             }
