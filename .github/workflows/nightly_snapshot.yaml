@@ -16,7 +16,7 @@ on:
         type: boolean
         default: "false"
         required: false
-        description: "Enable options for building binaries for a release (i.e. don't have a -nightly suffix for the extension)"
+        description: "Release? Enable options for building binaries for a release (i.e. don't have a -nightly suffix for the extension)"
 
   schedule:
     - cron: '0 4 * * *'
@@ -126,10 +126,10 @@ jobs:
     needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
     runs-on: macos-11
     steps:
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-x86_64-apple-darwin
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-aarch64-apple-darwin
         path: bin
@@ -179,23 +179,23 @@ jobs:
     runs-on: macos-11
     steps:
     - uses: actions/checkout@v3
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-x86_64-unknown-linux-gnu
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-x86_64-pc-windows-gnu
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-darwin
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-aarch64-unknown-linux-gnu
         path: editors/vscode/bin
@@ -254,17 +254,17 @@ jobs:
     needs: [docs, wasm_demo, wasm]
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: docs
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: slintpad
           path: slintpad
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: wasm
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: wasm_demo
       - name: Publish Docs and Demos
@@ -326,3 +326,42 @@ jobs:
 
             git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
             git push origin master
+
+
+  prepare_release:
+#    if: github.event.inputs.release == 'true'
+    needs: [cpp_package, slint-viewer-binary, slint-lsp-binary]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: cpp_package
+      - uses: actions/download-artifact@v3
+        with:
+          name: slint-viewer-binary
+      - uses: actions/download-artifact@v3
+        with:
+          name: slint-lsp-binary
+      - name: Extract files
+        run: |
+            ls -R
+            mkdir artifacts
+            mv Slint-cpp-*-win64.exe artifacts/
+            mv Slint-cpp-*-Linux-x86_64.tar.gz artifacts/
+            mv slint-viewer-linux.tar.gz artifacts/
+            mv slint-lsp-linux.tar.gz artifacts/
+      - uses: montudor/action-zip@v1
+        with:
+          args: zip -r slint-viewer-windows.zip slint-viewer
+      - uses: montudor/action-zip@v1
+        with:
+          args: zip -r slint-lsp-windows.zip slint-lsp
+      - uses: ncipollo/release-action@v1
+#       if: github.event.inputs.release == 'true'
+        with:
+          draft: true
+          artifacts: "artifacts/*"
+          body: "[ChangeLog](https://github.com/slint-ui/slint/blob/master/CHANGELOG.md)"
+          name: "Draft Release"
