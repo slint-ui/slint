@@ -10,7 +10,7 @@ All notable changes to this project are documented in this file.
 - Winit backend: Added internal API in the `i-slint-backend-winit` crate to access the winit window
 - Fix focussing element whose base is focusable (#2622)
 - Fix infinite loop in the compiler when there is a loop in `forward-focus`
-
+- Skia renderer: Add support for password input fields.
 
 ### C++
 

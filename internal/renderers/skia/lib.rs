@@ -31,6 +31,8 @@ mod cached_image;
 mod itemrenderer;
 mod textlayout;
 
+const PASSWORD_CHARACTER: &str = "●";
+
 #[cfg(target_os = "macos")]
 mod metal_surface;
 
@@ -270,14 +272,22 @@ impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<Nati
             return 0;
         }
 
-        let string = text_input.text();
-        let string = string.as_str();
+        let text = text_input.text();
+        let is_password =
+            matches!(text_input.input_type(), i_slint_core::items::InputType::Password);
+        let password_string;
+        let actual_text = if is_password {
+            password_string = PASSWORD_CHARACTER.repeat(text.chars().count());
+            password_string.as_str()
+        } else {
+            text.as_str()
+        };
         let font_request = text_input.font_request(&window_adapter);
 
         let (layout, layout_top_left) = textlayout::create_layout(
             font_request,
             scale_factor,
-            string,
+            actual_text,
             None,
             Some(max_width),
             max_height,
@@ -290,15 +300,23 @@ impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<Nati
         let utf16_index =
             layout.get_glyph_position_at_coordinate((pos.x, pos.y - layout_top_left.y)).position;
         let mut utf16_count = 0;
-        string
+        let byte_offset = actual_text
             .char_indices()
             .find(|(_, x)| {
                 let r = utf16_count >= utf16_index;
                 utf16_count += x.len_utf16() as i32;
                 r
             })
-            .unwrap_or((string.len(), '\0'))
-            .0
+            .unwrap_or((actual_text.len(), '\0'))
+            .0;
+
+        if is_password {
+            text.char_indices()
+                .nth(byte_offset / PASSWORD_CHARACTER.len())
+                .map_or(text.len(), |(r, _)| r)
+        } else {
+            byte_offset
+        }
     }
 
     fn text_input_cursor_rect_for_byte_offset(
