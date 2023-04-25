@@ -5,8 +5,27 @@ All notable changes to this project are documented in this file.
 
 ### General
 
-- Fixed the compiler embedding images unnecessarily multiple times when referenced via different relative paths.
+- Fixed the compiler embedding images unnecessarily multiple times when referenced via different relative paths. (#2608)
 - Winit backend: Adjust the window size automatically when an update minimum or maximum size would constrain the existing size.
+- Winit backend: Added internal API in the `i-slint-backend-winit` crate to access the winit window
+- Fix focussing element whose base is focusable (#2622)
+- Fix infinite loop in the compiler when there is a loop in `forward-focus`
+
+
+### C++
+
+- Fix build against macOS deployment target 10.10
+
+### VSCode extension
+
+- Fixed preview not working (#2609)
+- Added design mode commands
+- Browser extension: fix preview not previewing specific component
+
+### SlintPad
+
+- Fix editing in non-main files was getting ignored (#2630)
+
 
 ## [1.0.1] - 2023-04-20
 
