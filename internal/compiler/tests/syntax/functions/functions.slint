@@ -24,19 +24,19 @@ export Xxx := Rectangle {
 
 
     function background() {}
-//          ^error{Cannot declare function 'background' when a property with the same name exists}
+//           ^error{Cannot declare function 'background' when a property with the same name exists}
 
 
     Abc {
         property <int> par;
 //                     ^error{Cannot declare property 'par' when a callback with the same name exists}
         callback par();
-//              ^error{Cannot declare callback 'par' when a function with the same name exists}
+//               ^error{Cannot declare callback 'par' when a function with the same name exists}
     }
 
     TouchArea {
         function clicked() {}
-//              ^error{Cannot override 'clicked'}
+//               ^error{Cannot override 'clicked'}
     }
 
     Abc {  par => {} }

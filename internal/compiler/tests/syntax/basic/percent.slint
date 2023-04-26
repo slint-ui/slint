@@ -5,7 +5,7 @@ Foo := Rectangle {
     width: 30%;
 
     preferred-width: 50%;
-//                  ^error{preferred-width must either be a length, or the literal '100%'}
+//                   ^error{preferred-width must either be a length, or the literal '100%'}
 
 
     Rectangle {
@@ -13,19 +13,19 @@ Foo := Rectangle {
     }
 
     x: 30%;
-//    ^error{Automatic conversion from percentage to length is only possible for the following properties: width, height, preferred-width, preferred-height}
+//     ^error{Automatic conversion from percentage to length is only possible for the following properties: width, height, preferred-width, preferred-height}
 }
 
 export X := Rectangle {
     height: 30%;
-//         ^error{Cannot find parent property to apply relative length}
+//          ^error{Cannot find parent property to apply relative length}
     Foo {
         background: 30%;
-//                 ^error{Cannot convert percent to brush}
+//                  ^error{Cannot convert percent to brush}
         y: 30%;
-//        ^error{Automatic conversion from percentage to length is only possible for the following properties: width, height, preferred-width, preferred-height}
+//         ^error{Automatic conversion from percentage to length is only possible for the following properties: width, height, preferred-width, preferred-height}
 
         preferred-height: 50%;
-//                       ^error{preferred-height must either be a length, or the literal '100%'}
+//                        ^error{preferred-height must either be a length, or the literal '100%'}
     }
 }

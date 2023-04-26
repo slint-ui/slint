@@ -44,7 +44,7 @@ export Hello := Rectangle {
         x: plop * 1phx;
         Rectangle {
             background: plop;
-//                     ^error{Cannot convert float to brush}
+//                      ^error{Cannot convert float to brush}
         }
     }
 
@@ -57,9 +57,9 @@ export Hello := Rectangle {
         x: pp.a;
         text: pp.b;
         y: pp.b;
-//        ^error{Cannot convert string to length}
+//         ^error{Cannot convert string to length}
         property<int> ggg: pp;
-//                        ^error{Cannot convert \{ a: physical-length,b: string,\} to int}
+//                         ^error{Cannot convert \{ a: physical-length,b: string,\} to int}
     }
 
 

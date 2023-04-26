@@ -5,10 +5,10 @@ Foo := Rectangle {}
 Bar := Rectangle {}
 
 export { Foo }
-//      ^error{Duplicated export 'Foo'}
+//       ^error{Duplicated export 'Foo'}
 export { Foo }
-//      ^error{Duplicated export 'Foo'}
+//       ^error{Duplicated export 'Foo'}
 export { Bar }
-//      ^error{Duplicated export 'Bar'}
+//       ^error{Duplicated export 'Bar'}
 export { Foo as Bar }
-//             ^error{Duplicated export 'Bar'}
+//              ^error{Duplicated export 'Bar'}

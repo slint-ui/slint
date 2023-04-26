@@ -6,13 +6,13 @@ export Test := Rectangle {
     GridLayout {
         Rectangle {
             height: 42px;
-//                 ^error{Cannot specify both 'height' and 'min-height'}
+//                  ^error{Cannot specify both 'height' and 'min-height'}
             min-height: 42px;
             max-width: 42px;
         }
         Rectangle {
             width: 42px;
-//                ^error{Cannot specify both 'width' and 'max-width'}
+//                 ^error{Cannot specify both 'width' and 'max-width'}
             min-height: 42px;
             max-width: 42px;
         }

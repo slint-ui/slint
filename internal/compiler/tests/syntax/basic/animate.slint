@@ -26,7 +26,7 @@ export SuperSimple := Rectangle {
 //          ^error{catch-all property is only allowed within transitions}
 
     animate background, foo { duration: 100ms; }
-//                     ^error{'foo' is not a property that can be animated}
+//                      ^error{'foo' is not a property that can be animated}
 
     text := Text{ animate x { duration: 1000ms; } }
     animate text.x { duration: 100ms; }

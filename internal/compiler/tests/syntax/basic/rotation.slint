@@ -5,7 +5,7 @@ export Ex1 := Rectangle {
     Rectangle {
         rotation-origin-x: width / 2;
         rotation-angle: 45deg;
-//                     ^error{rotation properties can only be applied to the Image element}
+//                      ^error{rotation properties can only be applied to the Image element}
         rotation-origin-y: width / 2;
     }
     Rectangle {
@@ -31,7 +31,7 @@ export Ex2 := Rectangle {
         rotation-angle: 45deg;
         Rectangle {}
     }
-    RotImg { 
+    RotImg {
 //  ^error{Elements with rotation properties cannot have children elements}
         Rectangle {}
     }
@@ -49,11 +49,11 @@ export Ex2 := Rectangle {
 
 export Ex3 := Rectangle {
     i1 := Image {
-//       ^error{Elements with rotation properties cannot have children elements}
+//        ^error{Elements with rotation properties cannot have children elements}
         Rectangle {}
     }
     i2 := Rectangle {}
-//       ^error{rotation properties can only be applied to the Image element}
+//        ^error{rotation properties can only be applied to the Image element}
 
     TouchArea {
         clicked => {

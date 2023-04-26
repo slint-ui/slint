@@ -606,6 +606,9 @@ impl Parser for DefaultParser<'_> {
         checkpoint: Option<Self::Checkpoint>,
         _: NodeToken,
     ) {
+        if kind != SyntaxKind::Document {
+            self.consume_ws();
+        }
         match checkpoint {
             None => self.builder.start_node(kind.into()),
             Some(cp) => self.builder.start_node_at(cp, kind.into()),

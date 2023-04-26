@@ -4,7 +4,7 @@
 
 export X := Rectangle {
     forward-focus: someRect;
-//                ^error{element is not focusable}
+//                 ^error{element is not focusable}
 
     callback trigger_focus_change();
     trigger_focus_change => {
@@ -14,7 +14,7 @@ export X := Rectangle {
 
     indirect_focus_chain_rect := Rectangle {
        forward-focus: someRect;
-//                   ^error{element is not focusable}
+//                    ^error{element is not focusable}
     }
 
     callback trigger_focus_change_2();
@@ -36,7 +36,7 @@ export X := Rectangle {
 
 export Y := FocusScope {
     forward-focus: self;
-//                ^error{forward-focus can't refer to itself}
+//                 ^error{forward-focus can't refer to itself}
     x:= X { }
     key-pressed => {
         r0.focus();
@@ -56,6 +56,6 @@ export Y := FocusScope {
     }
     r3 := Rectangle {
         forward-focus: r1;
-//                    ^error{forward-focus loop}
+//                     ^error{forward-focus loop}
     }
 }
