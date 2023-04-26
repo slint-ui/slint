@@ -174,6 +174,16 @@ pub fn on_element_selected(
     );
 }
 
+fn _design_mode(component: &std::pin::Pin<&ComponentBox>) -> bool {
+    matches!(
+        component
+            .description()
+            .get_property(component.borrow(), DESIGN_MODE_PROP)
+            .unwrap_or_default(),
+        Value::Bool(true)
+    )
+}
+
 pub fn set_design_mode(component_instance: &DynamicComponentVRc, active: bool) {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
@@ -181,6 +191,8 @@ pub fn set_design_mode(component_instance: &DynamicComponentVRc, active: bool) {
     c.description()
         .set_binding(c.borrow(), DESIGN_MODE_PROP, Box::new(move || active.into()))
         .unwrap();
+
+    highlight_elements(component_instance, Vec::new());
 }
 
 fn highlight_elements(
@@ -210,6 +222,11 @@ fn highlight_elements(
 pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset: u32) {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
+
+    if _design_mode(&c) {
+        return;
+    }
+
     let elements = find_element_at_offset(&c.description().original, path, offset);
     if elements.is_empty() {
         c.description()
