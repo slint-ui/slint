@@ -42,6 +42,8 @@ pub trait SyntaxNodeVerify {
     }
 }
 
+pub use rowan::TextRange;
+
 /// Check that a node has the assumed children
 #[cfg(test)]
 macro_rules! verify_node {
@@ -841,7 +843,7 @@ impl NodeOrToken {
         }
     }
 
-    pub fn text_range(&self) -> rowan::TextRange {
+    pub fn text_range(&self) -> TextRange {
         match self {
             NodeOrToken::Node(n) => n.text_range(),
             NodeOrToken::Token(t) => t.text_range(),

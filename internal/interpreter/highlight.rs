@@ -15,6 +15,7 @@ use i_slint_compiler::object_tree::{
     BindingsMap, Component, Document, Element, ElementRc, PropertyAnalysis, PropertyDeclaration,
     PropertyVisibility, RepeatedElementInfo,
 };
+use i_slint_compiler::parser::TextRange;
 use i_slint_core::item_tree::ItemWeak;
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::LogicalPoint;
@@ -58,27 +59,31 @@ fn element_providing_item(component: &ErasedComponentBox, index: usize) -> Optio
     c.description().original_elements.get(index).cloned()
 }
 
-fn find_element_range(element: &ElementRc) -> Option<(Option<SourceFile>, usize, usize)> {
+fn find_element_range(element: &ElementRc) -> Option<(Option<SourceFile>, TextRange)> {
     let e = &element.borrow();
     e.node.as_ref().and_then(|n| {
-        let range = n.text_range();
-        Some((n.source_file().cloned(), range.start().into(), range.end().into()))
+        n.parent()
+            .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
+            .map_or_else(
+                || Some((n.source_file().cloned(), n.text_range())),
+                |p| Some((p.source_file().cloned(), p.text_range())),
+            )
     })
 }
 
-fn map_offset_to_line(
+fn map_range_to_line(
     source_file: Option<SourceFile>,
-    start_offset: usize,
-    end_offset: usize,
+    range: TextRange,
 ) -> (String, u32, u32, u32, u32) {
-    if let Some(sf) = source_file {
-        let file_name = sf.path().to_string_lossy().to_string();
-        let (start_line, start_column) = sf.line_column(start_offset);
-        let (end_line, end_column) = sf.line_column(end_offset);
-        (file_name, start_line as u32, start_column as u32, end_line as u32, end_column as u32)
-    } else {
-        (String::new(), 0, 0, 0, 0)
-    }
+    source_file.map_or_else(
+        || (String::new(), 0, 0, 0, 0),
+        |sf| {
+            let file_name = sf.path().to_string_lossy().to_string();
+            let (start_line, start_column) = sf.line_column(range.start().into());
+            let (end_line, end_column) = sf.line_column(range.end().into());
+            (file_name, start_line as u32, start_column as u32, end_line as u32, end_column as u32)
+        },
+    )
 }
 
 struct DesignModeState {
@@ -159,8 +164,8 @@ pub fn on_element_selected(
                     .and_then(|e| {
                         highlight_elements(&c, vec![Rc::downgrade(&e)]);
                         find_element_range(&e)
-                    }).and_then(|(sf, start_offset, end_offset)| {
-                        Some(map_offset_to_line(sf, start_offset, end_offset))
+                    }).map(|(sf, r)| {
+                        map_range_to_line(sf, r)
                     }) else {
                     continue; // Skip any Item not part of an element with a node attached
                 };
@@ -178,7 +183,7 @@ pub fn on_element_selected(
     );
 }
 
-fn _design_mode(component: &std::pin::Pin<&ComponentBox>) -> bool {
+fn design_mode(component: &std::pin::Pin<&ComponentBox>) -> bool {
     matches!(
         component
             .description()
@@ -227,7 +232,7 @@ pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
 
-    if _design_mode(&c) {
+    if design_mode(&c) {
         return;
     }
 
