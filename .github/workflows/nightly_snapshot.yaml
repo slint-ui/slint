@@ -371,3 +371,5 @@ jobs:
           artifacts: "artifacts/*"
           body: "[ChangeLog](https://github.com/slint-ui/slint/blob/master/CHANGELOG.md)"
           name: "Draft Release"
+          tag: "change_me"
+          commit: ${{ github.sha }}
