@@ -21,7 +21,7 @@ use corelib::items::MouseCursor;
 
 use corelib::layout::Orientation;
 use corelib::lengths::{LogicalLength, LogicalSize};
-use corelib::platform::PlatformError;
+use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
@@ -186,10 +186,10 @@ impl WinitWindowAdapter {
 
             let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
                 .ok()
-                .and_then(|x| x.parse::<f64>().ok())
+                .and_then(|x| x.parse::<f32>().ok())
                 .filter(|f| *f > 0.)
-                .unwrap_or_else(|| self_rc.winit_window().scale_factor());
-            WindowInner::from_pub(&self_rc.window()).set_scale_factor(scale_factor as _);
+                .unwrap_or_else(|| self_rc.winit_window().scale_factor() as f32);
+            self_rc.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
 
             Ok(self_rc as _)
         }

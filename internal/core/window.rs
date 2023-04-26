@@ -799,7 +799,7 @@ impl WindowInner {
     }
 
     /// Sets the scale factor for the window. This is set by the backend or for testing.
-    pub fn set_scale_factor(&self, factor: f32) {
+    pub(crate) fn set_scale_factor(&self, factor: f32) {
         self.pinned_fields.scale_factor.set(factor)
     }
 
