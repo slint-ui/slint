@@ -10,7 +10,7 @@ checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
 
 [[package]]
 name = "_7guis"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "chrono",
  "slint",
@@ -432,7 +432,7 @@ dependencies = [
 
 [[package]]
 name = "carousel"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "mcu-board-support",
  "slint",
@@ -1253,7 +1253,7 @@ dependencies = [
 
 [[package]]
 name = "doctests"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "i-slint-compiler",
  "lazy_static",
@@ -1382,7 +1382,7 @@ dependencies = [
 
 [[package]]
 name = "energy-monitor"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "chrono",
  "futures",
@@ -1922,7 +1922,7 @@ dependencies = [
 
 [[package]]
 name = "gallery"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "slint",
  "slint-build",
@@ -2162,7 +2162,7 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "i-slint-backend-qt"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "const-field-offset",
  "cpp",
@@ -2180,7 +2180,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-selector"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "cfg-if 1.0.0",
  "i-slint-backend-qt",
@@ -2190,7 +2190,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-testing"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "i-slint-core",
  "image",
@@ -2199,7 +2199,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-winit"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "cfg-if 1.0.0",
  "cfg_aliases",
@@ -2234,11 +2234,11 @@ dependencies = [
 
 [[package]]
 name = "i-slint-common"
-version = "1.0.1"
+version = "1.0.2"
 
 [[package]]
 name = "i-slint-compiler"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "by_address",
  "codemap",
@@ -2274,7 +2274,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "atomic-polyfill 1.0.2",
  "auto_enums",
@@ -2321,7 +2321,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core-macros"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "quote",
  "syn 2.0.15",
@@ -2329,14 +2329,14 @@ dependencies = [
 
 [[package]]
 name = "i-slint-parser-test-macro"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "quote",
 ]
 
 [[package]]
 name = "i-slint-renderer-femtovg"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "cfg-if 1.0.0",
  "const-field-offset",
@@ -2371,7 +2371,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-skia"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "cfg-if 1.0.0",
  "cfg_aliases",
@@ -2464,7 +2464,7 @@ dependencies = [
 
 [[package]]
 name = "imagefilter"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "image",
  "slint",
@@ -2829,7 +2829,7 @@ dependencies = [
 
 [[package]]
 name = "mcu-board-support"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "cfg-if 1.0.0",
  "cortex-m",
@@ -2913,7 +2913,7 @@ dependencies = [
 
 [[package]]
 name = "memory"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "rand",
  "slint",
@@ -3370,7 +3370,7 @@ dependencies = [
 
 [[package]]
 name = "opengl_underlay"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "glow",
  "instant",
@@ -3571,7 +3571,7 @@ checksum = "6ac9a59f73473f1b8d852421e59e64809f025994837ef743615c6d0c5b305160"
 
 [[package]]
 name = "plotter"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "plotters",
  "slint",
@@ -3631,7 +3631,7 @@ checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 
 [[package]]
 name = "printerdemo"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "chrono",
  "slint",
@@ -3640,7 +3640,7 @@ dependencies = [
 
 [[package]]
 name = "printerdemo_mcu"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "mcu-board-support",
  "slint",
@@ -3649,7 +3649,7 @@ dependencies = [
 
 [[package]]
 name = "printerdemo_old"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "slint",
  "slint-build",
@@ -4376,7 +4376,7 @@ dependencies = [
 
 [[package]]
 name = "slide_puzzle"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "rand",
  "slint",
@@ -4385,7 +4385,7 @@ dependencies = [
 
 [[package]]
 name = "slint"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "const-field-offset",
  "document-features",
@@ -4402,7 +4402,7 @@ dependencies = [
 
 [[package]]
 name = "slint-build"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "i-slint-compiler",
  "spin_on",
@@ -4412,7 +4412,7 @@ dependencies = [
 
 [[package]]
 name = "slint-compiler"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "clap 4.2.4",
  "i-slint-compiler",
@@ -4422,7 +4422,7 @@ dependencies = [
 
 [[package]]
 name = "slint-cpp"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "anyhow",
  "cbindgen",
@@ -4439,7 +4439,7 @@ dependencies = [
 
 [[package]]
 name = "slint-fmt"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "clap 4.2.4",
  "codemap",
@@ -4449,7 +4449,7 @@ dependencies = [
 
 [[package]]
 name = "slint-interpreter"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "derive_more",
  "document-features",
@@ -4469,7 +4469,7 @@ dependencies = [
 
 [[package]]
 name = "slint-lsp"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "clap 4.2.4",
  "console_error_panic_hook",
@@ -4496,7 +4496,7 @@ dependencies = [
 
 [[package]]
 name = "slint-macros"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "i-slint-compiler",
  "proc-macro2",
@@ -4506,7 +4506,7 @@ dependencies = [
 
 [[package]]
 name = "slint-node"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "css-color-parser2",
  "generativity",
@@ -4525,7 +4525,7 @@ dependencies = [
 
 [[package]]
 name = "slint-updater"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "by_address",
  "clap 4.2.4",
@@ -4537,7 +4537,7 @@ dependencies = [
 
 [[package]]
 name = "slint-viewer"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "clap 4.2.4",
  "codemap",
@@ -4556,7 +4556,7 @@ dependencies = [
 
 [[package]]
 name = "slint-wasm-interpreter"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
@@ -4684,7 +4684,7 @@ dependencies = [
 
 [[package]]
 name = "src"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "rand",
  "slint",
@@ -4861,7 +4861,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-cpp"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "cc",
  "i-slint-compiler",
@@ -4874,7 +4874,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-interpreter"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "i-slint-backend-testing",
  "itertools",
@@ -4886,7 +4886,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-nodejs"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "lazy_static",
  "tempfile",
@@ -4896,7 +4896,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-rust"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "i-slint-backend-testing",
  "i-slint-compiler",
@@ -4907,7 +4907,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-screenshots"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "crossterm",
  "i-slint-backend-testing",
@@ -4922,7 +4922,7 @@ dependencies = [
 
 [[package]]
 name = "test_driver_lib"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "lazy_static",
  "regex",
@@ -5051,7 +5051,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "todo"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "slint",
  "slint-build",
@@ -5188,7 +5188,7 @@ dependencies = [
 
 [[package]]
 name = "uefi-demo"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "slint",
  "slint-build",
@@ -5403,7 +5403,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "virtual_keyboard"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "slint",
  "slint-build",
@@ -6083,7 +6083,7 @@ checksum = "1dbabb1cbd15a1d6d12d9ed6b35cc6777d4af87ab3ba155ea37215f20beab80c"
 
 [[package]]
 name = "xtask"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "anyhow",
  "cargo_metadata",
