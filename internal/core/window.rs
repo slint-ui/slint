@@ -65,18 +65,27 @@ pub trait WindowAdapter: WindowAdapterSealed {
 /// Implementation details behind [`WindowAdapter`], but since this
 /// trait is not exported in the public API, it is not possible for the
 /// users to call or re-implement these functions.
+// TODO: instead of a sealed trait, have an WindowAdapterInternal trait and have a secret function in WindowAdapter:
+// `#[doc(hidden)] fn internal(&self, InternalToken) -> Option<&WindowAdapterInternal> {None}`
+// TODO: add events for window receiving and loosing focus
 #[doc(hidden)]
 pub trait WindowAdapterSealed {
     /// Registers the window with the windowing system.
+    // TODO: make public, consider renaming to set_visible with a bool
     fn show(&self) -> Result<(), PlatformError> {
         Ok(())
     }
+
     /// De-registers the window from the windowing system.
+    // TODO: make public
     fn hide(&self) -> Result<(), PlatformError> {
         Ok(())
     }
+
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
     /// request.
+    // TODO: make public, but document clearly that an implementation cannot query other properties, etc. - we call it from
+    // a property tracker.
     fn request_redraw(&self) {}
 
     /// This function is called by the generated code when a component and therefore its tree of items are created.
@@ -102,12 +111,16 @@ pub trait WindowAdapterSealed {
     }
 
     /// Request for the event loop to wake up and call [`WindowInner::update_window_properties()`].
+    // TODO: remove this, use event loop proxy in corelib if available to call apply_window_properties
+    // or use a timer of 0
     fn request_window_properties_update(&self) {}
     /// Request for the given title string to be set to the windowing system for use as window title.
+    // Add API to the Window to query the properties which needs to be applied (title, flags, ...)
     fn apply_window_properties(&self, _window_item: Pin<&crate::items::WindowItem>) {}
 
     /// Apply the given horizontal and vertical constraints to the window. This typically involves communication
     /// minimum/maximum sizes to the windowing system, for example.
+    // TODO: Add API to the window to query the constraints, then merge with apply_window_properties
     fn apply_geometry_constraint(
         &self,
         _constraints_horizontal: crate::layout::LayoutInfo,
@@ -116,10 +129,13 @@ pub trait WindowAdapterSealed {
     }
 
     /// Set the mouse cursor
+    // TODO: Make the enum public and make public
     fn set_mouse_cursor(&self, _cursor: MouseCursor) {}
 
     /// This is called when an editable text input field has received the focus and input methods such as
     /// virtual keyboard should be shown.
+    // TODO: make a input_method_request that merge these three calls and takes an enum
+    // Make InputType public, and use public LogicalPosition
     fn enable_input_method(&self, _: crate::items::InputType) {}
     /// This is called when the widget that needed the keyboard loses focus and any active input method should
     /// be disabled.
@@ -129,17 +145,22 @@ pub trait WindowAdapterSealed {
     fn set_ime_position(&self, _: LogicalPoint) {}
 
     /// Return self as any so the backend can upcast
+    // TODO: consider using the as_any crate, or deriving the traint from Any to provide a better default
     fn as_any(&self) -> &dyn core::any::Any {
         &()
     }
 
     /// Handle focus change
+    // used for accessibility
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {}
 
     /// Returns the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     ///
     /// The default implementation returns `(0,0)`
+    ///
+    /// Called from [`Window::position()`]
+    // TODO: return an option, Make public
     fn position(&self) -> PhysicalPosition {
         Default::default()
     }
@@ -147,12 +168,21 @@ pub trait WindowAdapterSealed {
     /// a window frame (if present).
     ///
     /// The default implementation does nothing
+    ///
+    /// Called from [`Window::set_position()`]
     fn set_position(&self, _position: WindowPosition) {}
 
     /// Resizes the window to the specified size on the screen, in physical or logical pixels
     /// and excluding a window frame (if present).
     ///
     /// The default implementation does nothing
+    ///
+    /// Called from [`Window::set_size`], but contrary to it, does not change report the size to the Slint's Window element
+    ///
+    /// When you recieve a resize event from the windowing system, the platform implementation should call
+    /// [`Window::set_size`] to communicate the new window size to Slint.
+    /// [`Window::set_size`] will call this function again, so you must be prepared to get recursions.
+    // FIXME: before making that public, we need to add a WindowEvent::Resized to avoid the above recursion
     fn set_size(&self, _size: WindowSize) {}
 
     /// returns wether a dark theme is used
@@ -161,9 +191,11 @@ pub trait WindowAdapterSealed {
     }
 
     /// Return the renderer
+    // TODO: make the Renderer trait public, but sealed
     fn renderer(&self) -> &dyn Renderer;
 
     /// Get the visibility of the window
+    // todo: replace with WindowEvent::VisibilityChanged and require backend to dispatch event
     fn is_visible(&self) -> bool {
         false
     }
