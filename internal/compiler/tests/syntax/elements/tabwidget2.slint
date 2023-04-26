@@ -7,12 +7,12 @@ export Test2 := Rectangle {
     TabWidget {
         Tab {
             visible: false;
-//                  ^error{The property 'visible' cannot be set for Tabs inside a TabWidget}
+//                   ^error{The property 'visible' cannot be set for Tabs inside a TabWidget}
             Rectangle { }
         }
         f := Tab {
             height: 50%;
-//                 ^error{The property 'height' cannot be set for Tabs inside a TabWidget}
+//                  ^error{The property 'height' cannot be set for Tabs inside a TabWidget}
         }
         Tab {
             Rectangle { }

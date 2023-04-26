@@ -4,11 +4,11 @@
 import { StandardButton } from "std-widgets.slint";
 
 export Test := Dialog {
-//            ^error{A Dialog must have a single child element that is not StandardButton}
+//             ^error{A Dialog must have a single child element that is not StandardButton}
     StandardButton { kind: ok; }
     StandardButton { }
 //  ^error{The `kind` property of the StandardButton in a Dialog must be set}
     StandardButton { kind: true ? ok : cancel; }
-//                        ^error{The `kind` property of the StandardButton in a Dialog must be known at compile-time}
+//                         ^error{The `kind` property of the StandardButton in a Dialog must be known at compile-time}
 
 }

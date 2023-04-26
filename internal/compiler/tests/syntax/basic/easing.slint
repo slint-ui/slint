@@ -6,7 +6,7 @@ export X := Rectangle {
     animate y { easing: foo; }
     //                  ^error{Unknown unqualified identifier 'foo'}
     animate background { easing: a; }
-    //                          ^error{Cannot convert int to easing}
+    //                           ^error{Cannot convert int to easing}
     property <int> a; animate a { easing: cubic-bezier(0.01,1.46,0.94,1.37); }
     property <int> b; animate b { easing: cubic-bezier(0.01,1.46,0.94); }
     //                                    ^error{Not enough arguments}

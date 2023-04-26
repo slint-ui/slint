@@ -1605,7 +1605,7 @@ mod tests {
     fn test_element_at_position_root() {
         let (mut dc, url, _) = complex_document_cache("fluent");
 
-        assert_eq!(id_at_position(&mut dc, &url, 2, 29), Some("root".to_string())); // TODO: Seems one char too early..
+        assert_eq!(id_at_position(&mut dc, &url, 2, 30), Some("root".to_string()));
         assert_eq!(id_at_position(&mut dc, &url, 2, 32), Some("root".to_string()));
         assert_eq!(id_at_position(&mut dc, &url, 2, 42), Some("root".to_string()));
         assert_eq!(id_at_position(&mut dc, &url, 3, 0), Some("root".to_string()));

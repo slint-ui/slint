@@ -4,12 +4,12 @@
 Button1 := Rectangle {
     property <bool> cond;
     accessible-role: cond ? button : AccessibleRole.text;
-    //              ^error{The `accessible-role` property must be a constant expression}
+    //               ^error{The `accessible-role` property must be a constant expression}
 }
 
 Button2 := Rectangle {
     accessible-label: "the button";
-    //               ^error{The `accessible-label` property can only be set in combination to `accessible-role`}
+    //                ^error{The `accessible-label` property can only be set in combination to `accessible-role`}
 }
 
 Button3 := Rectangle {
@@ -27,5 +27,5 @@ export Test := Window {
     Button2 { }
     Button3 {}
     Button3 { accessible-description: "error";}
-    //                               ^error{The `accessible-description` property can only be set in combination to `accessible-role`}
+    //                                ^error{The `accessible-description` property can only be set in combination to `accessible-role`}
 }

@@ -10,17 +10,17 @@ export X := Rectangle {
                 text: lay.foo + parent.width;
 //                                     ^error{Element 'Row' does not have a property 'width'}
                 colspan: 1 + 1;
-//                      ^error{'colspan' must be an integer literal}
+//                       ^error{'colspan' must be an integer literal}
                 rowspan: 2;
             }
             Text {
                 row: 3;
                 col: -2;
-//                  ^error{'col' must be an integer literal}
+//                   ^error{'col' must be an integer literal}
                 rowspan: 2.2;
-//                      ^error{'rowspan' must be a positive integer}
+//                       ^error{'rowspan' must be a positive integer}
                 y: 0;
-//                ^error{The property 'y' cannot be set for elements placed in a layout, because the layout is already setting it}
+//                 ^error{The property 'y' cannot be set for elements placed in a layout, because the layout is already setting it}
 
                 animate x { duration: 100ms; }
 //                      ^error{The property 'x' cannot be set for elements placed in a layout, because the layout is already setting it}
@@ -29,19 +29,19 @@ export X := Rectangle {
         Row {
             Text {
                 x: 12px;
-//                ^error{The property 'x' cannot be set for elements placed in a layout, because the layout is already setting it}
+//                 ^error{The property 'x' cannot be set for elements placed in a layout, because the layout is already setting it}
             }}
         Text{
             row: 200000; // that's actually bigger than 65535
-//              ^error{'row' must be a positive integer}
+//               ^error{'row' must be a positive integer}
             Rectangle { row: 3; }
-//                          ^error{row used outside of a GridLayout}
+//                           ^error{row used outside of a GridLayout}
         }
     }
 
     Text { colspan: 3; }
-//                 ^error{colspan used outside of a GridLayout}
+//                  ^error{colspan used outside of a GridLayout}
     col: 3;
-//      ^error{col used outside of a GridLayout}
+//       ^error{col used outside of a GridLayout}
 
 }

@@ -6,11 +6,11 @@ MyTouchArea := TouchArea { }
 export SubElements := Rectangle {
     Rectangle {
         clip: 42;
-//           ^error{Cannot convert float to bool}
+//            ^error{Cannot convert float to bool}
     }
     Image {
         clip: false;
-//           ^error{The 'clip' property can only be applied to a Rectangle or a Path for now}
+//            ^error{The 'clip' property can only be applied to a Rectangle or a Path for now}
     }
     MyTouchArea {
 //  ^error{The 'clip' property can only be applied to a Rectangle or a Path for now}
