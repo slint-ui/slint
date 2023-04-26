@@ -605,6 +605,15 @@ impl Image {
         })
     }
 
+    /// Creates a new Image from the specified buffer, which contains SVG raw data.
+    #[cfg(feature = "svg")]
+    pub fn load_from_svg_data(buffer: &[u8]) -> Result<Self, LoadImageError> {
+        let cache_key = ImageCacheKey::Invalid;
+        Ok(Image(ImageInner::Svg(vtable::VRc::new(
+            svg::load_from_data(buffer, cache_key).map_err(|_| LoadImageError(()))?,
+        ))))
+    }
+
     /// Returns the size of the Image in pixels.
     pub fn size(&self) -> IntSize {
         match &self.0 {
@@ -663,6 +672,22 @@ fn test_image_size_from_buffer_without_backend() {
         let image = Image::from_rgb8(buffer);
         assert_eq!(image.size(), [320, 200].into())
     }
+}
+
+#[cfg(feature = "svg")]
+#[test]
+fn test_image_size_from_svg() {
+    let simple_svg = r#"<svg width="320" height="200" xmlns="http://www.w3.org/2000/svg"></svg>"#;
+    let image = Image::load_from_svg_data(simple_svg.as_bytes()).unwrap();
+    assert_eq!(image.size(), [320, 200].into());
+}
+
+#[cfg(feature = "svg")]
+#[test]
+fn test_image_invalid_svg() {
+    let invalid_svg = r#"AaBbCcDd"#;
+    let result = Image::load_from_svg_data(invalid_svg.as_bytes());
+    assert!(result.is_err());
 }
 
 /// Return an size that can be used to render an image in a buffer that matches a given ImageFit
