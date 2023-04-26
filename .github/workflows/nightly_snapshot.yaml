@@ -352,7 +352,6 @@ jobs:
           name: slint-lsp-windows
       - name: Extract files
         run: |
-            ls -R
             mkdir artifacts
             mv Slint-cpp-*-win64.exe artifacts/
             mv Slint-cpp-*-Linux-x86_64.tar.gz artifacts/
@@ -360,12 +359,12 @@ jobs:
             mv slint-lsp-linux.tar.gz artifacts/
       - uses: montudor/action-zip@v1
         with:
-          args: zip -r slint-viewer-windows.zip slint-viewer
+          args: zip -r artifacts/slint-viewer-windows.zip slint-viewer
       - uses: montudor/action-zip@v1
         with:
-          args: zip -r slint-lsp-windows.zip slint-lsp
+          args: zip -r artifacts/slint-lsp-windows.zip slint-lsp
       - uses: ncipollo/release-action@v1
-#       if: github.event.inputs.release == 'true'
+        if: github.event.inputs.release == 'true'
         with:
           draft: true
           artifacts: "artifacts/*"
