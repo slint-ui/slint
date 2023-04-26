@@ -674,6 +674,22 @@ fn test_image_size_from_buffer_without_backend() {
     }
 }
 
+#[cfg(feature = "svg")]
+#[test]
+fn test_image_size_from_svg() {
+    let simple_svg = r#"<svg width="320" height="200" xmlns="http://www.w3.org/2000/svg"></svg>"#;
+    let image = Image::load_from_svg_data(simple_svg.as_bytes()).unwrap();
+    assert_eq!(image.size(), [320, 200].into());
+}
+
+#[cfg(feature = "svg")]
+#[test]
+fn test_image_invalid_svg() {
+    let invalid_svg = r#"AaBbCcDd"#;
+    let result = Image::load_from_svg_data(invalid_svg.as_bytes());
+    assert!(result.is_err());
+}
+
 /// Return an size that can be used to render an image in a buffer that matches a given ImageFit
 pub fn fit_size(
     image_fit: ImageFit,
