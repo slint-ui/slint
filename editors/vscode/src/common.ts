@@ -47,6 +47,14 @@ export class ClientHandle {
         u(this.#client);
         this.#updaters.push(u);
     }
+
+    async stop() {
+        if (this.#client) {
+            // mark as stopped so that we don't detect it as a crash
+            Object.defineProperty(this.#client, "slint_stopped", { value: true });
+            await this.#client.stop();
+        }
+    }
 }
 
 export function setServerStatus(
@@ -146,10 +154,7 @@ export function activate(
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.reload", async function () {
             statusBar.hide();
-            const cl = client.client;
-            if (cl) {
-                await cl.stop();
-            }
+            await client.stop();
             startClient(context);
         }),
     );
@@ -202,5 +207,5 @@ export function deactivate(client: ClientHandle): Thenable<void> | undefined {
     if (!client.client) {
         return undefined;
     }
-    return client.client.stop();
+    return client.stop();
 }

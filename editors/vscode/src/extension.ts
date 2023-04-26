@@ -17,6 +17,7 @@ import {
     LanguageClient,
     ServerOptions,
     ExecutableOptions,
+    State,
 } from "vscode-languageclient/node";
 
 let client = new common.ClientHandle();
@@ -167,6 +168,16 @@ function startClient(context: vscode.ExtensionContext) {
         serverOptions,
         clientOptions,
     );
+
+    cl.onDidChangeState((event) => {
+        let properly_stopped = cl.hasOwnProperty("slint_stopped");
+        if (!properly_stopped && event.newState === State.Stopped && event.oldState == State.Running) {
+            cl.outputChannel.appendLine("The Slint Language Server crashed. This is a bug.\nPlease open an issue on https://github.com/slint-ui/slint/issues");
+            cl.outputChannel.show();
+            vscode.commands.executeCommand('workbench.action.output.focus');
+            vscode.window.showErrorMessage("The Slint Language Server crashed! Please open a bug on the Slint bug tracker with the panic message.");
+        }
+    });
 
     cl.start();
     client.client = cl;
