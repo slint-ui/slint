@@ -3,6 +3,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Rust
+
+- Added `slint::Image::load_from_svg_data(buffer: &[u8])` to load SVGs from memory.
+
 ## [1.0.2] - 2023-04-26
 
 ### General
