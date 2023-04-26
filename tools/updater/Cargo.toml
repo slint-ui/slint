@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-updater"
-version = "1.0.2"
+version = "1.0.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -13,7 +13,7 @@ homepage = "https://slint-ui.com"
 
 
 [dependencies]
-i-slint-compiler = { version = "=1.0.2", path = "../../internal/compiler", features = ["display-diagnostics"] }
+i-slint-compiler = { version = "=1.0.3", path = "../../internal/compiler", features = ["display-diagnostics"] }
 
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 codemap = "0.1"

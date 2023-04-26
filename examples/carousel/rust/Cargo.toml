@@ -3,7 +3,7 @@
 
 [package]
 name = "carousel"
-version = "1.0.2"
+version = "1.0.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 build = "build.rs"

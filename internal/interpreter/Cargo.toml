@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-interpreter"
-version = "1.0.2"
+version = "1.0.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -80,10 +80,10 @@ renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 
 
 [dependencies]
-i-slint-compiler = { version = "=1.0.2", path = "../compiler" }
-i-slint-common = { version = "=1.0.2", path = "../common" }
-i-slint-core = { version = "=1.0.2", path = "../core", features = ["rtti"] }
-i-slint-backend-selector = { version = "=1.0.2", path = "../../internal/backends/selector", features = ["rtti"] }
+i-slint-compiler = { version = "=1.0.3", path = "../compiler" }
+i-slint-common = { version = "=1.0.3", path = "../common" }
+i-slint-core = { version = "=1.0.3", path = "../core", features = ["rtti"] }
+i-slint-backend-selector = { version = "=1.0.3", path = "../../internal/backends/selector", features = ["rtti"] }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 
@@ -99,7 +99,7 @@ version = "0.1"
 optional = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-i-slint-backend-winit = { version = "=1.0.2", path = "../../internal/backends/winit" }
+i-slint-backend-winit = { version = "=1.0.3", path = "../../internal/backends/winit" }
 
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
