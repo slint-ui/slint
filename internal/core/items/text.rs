@@ -712,6 +712,8 @@ impl TextInputVisualRepresentation {
         self.password_character = password_character;
     }
 
+    /// Use this function to make a byte offset in the text used for rendering back to a byte offset in the
+    /// TextInput's text. The offsets might differ for example for password text input fields.
     pub fn map_byte_offset_from_byte_offset_in_visual_text(&self, byte_offset: usize) -> usize {
         if let Some(text_without_password) = self.text_without_password.as_ref() {
             text_without_password
@@ -1076,6 +1078,9 @@ impl TextInput {
         }
     }
 
+    /// Returns a [`TextInputVisualRepresentation`] struct that contains all the fields necessary for rendering the text input,
+    /// after making adjustments such as applying a substitution of characters for password input fields, or making sure
+    /// that the selection start is always less or equal than the selection end.
     pub fn visual_representation(
         self: Pin<&Self>,
         password_character_fn: Option<fn() -> char>,
