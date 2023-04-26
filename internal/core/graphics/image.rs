@@ -607,7 +607,7 @@ impl Image {
 
     /// Creates a new Image from the specified buffer, which contains SVG raw data.
     #[cfg(feature = "svg")]
-    pub fn from_svg(buffer: &[u8]) -> Result<Self, LoadImageError> {
+    pub fn load_from_svg_data(buffer: &[u8]) -> Result<Self, LoadImageError> {
         let cache_key = ImageCacheKey::Invalid;
         Ok(Image(ImageInner::Svg(vtable::VRc::new(
             svg::load_from_data(buffer, cache_key).map_err(|_| LoadImageError(()))?,
