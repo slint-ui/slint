@@ -680,7 +680,8 @@ pub struct TextInputVisualRepresentation {
 
 impl TextInputVisualRepresentation {
     /// If the given `TextInput` renders a password, then all characters in this `TextInputVisualRepresentation` are replaced
-    /// with the given password character and the selection/preedit-ranges/cursor position are adjusted.
+    /// with the password character and the selection/preedit-ranges/cursor position are adjusted.
+    /// If `password_character_fn` is Some, it is called lazily to query the password character, otherwise a default is used.
     fn apply_password_character_substitution(
         &mut self,
         text_input: Pin<&TextInput>,
