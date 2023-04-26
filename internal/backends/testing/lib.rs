@@ -158,6 +158,7 @@ pub fn init() {
 /// This module contains functions useful for unit tests
 mod for_unit_test {
     use i_slint_core::api::ComponentHandle;
+    use i_slint_core::platform::WindowEvent;
     pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
     use i_slint_core::window::WindowInner;
     use i_slint_core::SharedString;
@@ -220,7 +221,7 @@ mod for_unit_test {
         component: &Component,
         factor: f32,
     ) {
-        WindowInner::from_pub(component.window()).set_scale_factor(factor)
+        component.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: factor });
     }
 }
 

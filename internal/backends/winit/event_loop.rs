@@ -443,7 +443,11 @@ fn process_window_event(
             if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                 let size = new_inner_size.to_logical(scale_factor);
                 runtime_window.set_window_item_geometry(LogicalSize::new(size.width, size.height));
-                runtime_window.set_scale_factor(scale_factor as f32);
+                window.window().dispatch_event(
+                    i_slint_core::platform::WindowEvent::ScaleFactorChanged {
+                        scale_factor: scale_factor as f32,
+                    },
+                );
                 // Resize the underlying graphics surface
                 window.resize_event(*new_inner_size)?;
             }

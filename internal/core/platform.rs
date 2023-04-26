@@ -210,7 +210,7 @@ pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
 pub use crate::input::key_codes::Key;
 pub use crate::input::PointerEventButton;
 
-/// A event that describes user input.
+/// A event that describes user input or windowing system events.
 ///
 /// Slint backends typically receive events from the windowing system, translate them to this
 /// enum and deliver to the scene of items via [`slint::Window::dispatch_event()`](`crate::api::Window::dispatch_event()`).
@@ -268,6 +268,15 @@ pub enum WindowEvent {
         /// let _ = slint::platform::WindowEvent::KeyReleased { text: slint::platform::Key::Shift.into() };
         /// ```
         text: SharedString,
+    },
+    /// The window's scale factor has changed. This can happen for example when the display's resolution
+    /// changes, the user selects a new scale factor in the system settings, or the window is moved to a
+    /// different screen.
+    /// Platform implementations should dispatch this event also right after the initial window creation,
+    /// to set the initial scale factor the windowing system provided for the window.
+    ScaleFactorChanged {
+        /// The window system provided scale factor to map logical pixels to physical pixels.
+        scale_factor: f32,
     },
 }
 
