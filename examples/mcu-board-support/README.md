@@ -189,7 +189,7 @@ espflash --monitor target/xtensa-esp32s2-none-elf/release/printerdemo_mcu
 
 The device needs to be connected with the two USB cables (one for power, one for data)
 
-#### ESP32-S3-Box (Experimental)
+#### ESP32-S3-Box
 
 To compile and run the demo:
 
