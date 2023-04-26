@@ -58,6 +58,14 @@ fn element_providing_item(component: &ErasedComponentBox, index: usize) -> Optio
     c.description().original_elements.get(index).cloned()
 }
 
+fn find_element_range(element: &ElementRc) -> Option<(Option<SourceFile>, usize, usize)> {
+    let e = &element.borrow();
+    e.node.as_ref().and_then(|n| {
+        let range = n.text_range();
+        Some((n.source_file().cloned(), range.start().into(), range.end().into()))
+    })
+}
+
 fn map_offset_to_line(
     source_file: Option<SourceFile>,
     start_offset: usize,
@@ -147,16 +155,12 @@ pub fn on_element_selected(
                 };
 
                 let Some((file, start_line, start_column, end_line, end_column)) =
-                    element_providing_item(component_box, i.index()).and_then(|e| {
+                    element_providing_item(component_box, i.index())
+                    .and_then(|e| {
                         highlight_elements(&c, vec![Rc::downgrade(&e)]);
-
-                        let e = &e.borrow();
-                        e.node.as_ref().map(|n| {
-                            let offset = n.span().offset;
-                            let length: usize = n.text().len().into();
-
-                            map_offset_to_line(n.source_file().cloned(), offset, offset + length)
-                        })
+                        find_element_range(&e)
+                    }).and_then(|(sf, start_offset, end_offset)| {
+                        Some(map_offset_to_line(sf, start_offset, end_offset))
                     }) else {
                     continue; // Skip any Item not part of an element with a node attached
                 };
