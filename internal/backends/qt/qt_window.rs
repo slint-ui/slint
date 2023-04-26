@@ -1532,6 +1532,10 @@ impl WindowAdapterSealed for QtWindow {
 
     /// Apply windows property such as title to the QWidget*
     fn apply_window_properties(&self, window_item: Pin<&items::WindowItem>) {
+        // TODO-feature/2023-04-window-position-property something for moving the window
+        let _position_x = window_item.position_x();
+        let _position_y = window_item.position_y();
+
         let widget_ptr = self.widget_ptr();
         let title: qttypes::QString = window_item.title().as_str().into();
         let no_frame = window_item.no_frame();

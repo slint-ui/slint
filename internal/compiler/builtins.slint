@@ -148,6 +148,8 @@ export component Flickable inherits Empty {
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
+    in-out property <length> position-x;
+    in-out property <length> position-y;
     in property <brush> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
     in property <brush> color <=> background;
     in property <string> title: "Slint Window";

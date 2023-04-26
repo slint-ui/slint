@@ -101,6 +101,14 @@ impl WindowPosition {
             WindowPosition::Logical(pos) => pos.to_physical(scale_factor),
         }
     }
+
+    /// Turn the `WindowPosition` into a `LogicalPosition`.
+    pub fn to_logical(&self, scale_factor: f32) -> LogicalPosition {
+        match self {
+            WindowPosition::Physical(pos) => pos.to_logical(scale_factor),
+            WindowPosition::Logical(pos) => pos.clone(),
+        }
+    }
 }
 
 /// A size represented in the coordinate space of logical pixels. That is the space before applying
@@ -389,7 +397,13 @@ impl Window {
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
     pub fn set_position(&self, position: impl Into<WindowPosition>) {
         let position = position.into();
-        self.0.window_adapter().set_position(position)
+        let l = position.to_logical(self.scale_factor()).to_euclid();
+        let p = position.to_physical(self.scale_factor());
+
+        self.0.set_window_item_position(l);
+        if self.0.outer_position.replace(p) != p {
+            self.0.window_adapter().set_position(position);
+        }
     }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding

@@ -18,7 +18,7 @@ use crate::input::{
 };
 use crate::item_tree::ItemRc;
 use crate::items::{ItemRef, MouseCursor};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths, PointLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
 use crate::{Callback, Coord};
@@ -242,6 +242,9 @@ pub struct WindowInner {
     /// This is a cache of the size set by the set_inner_size setter.
     /// It should be mapping with the WindowItem::width and height (only in physical)
     pub(crate) inner_size: Cell<PhysicalSize>,
+    /// This is a cache of the position set by the set_outer_position setter.
+    /// It should be mapping with the WindowItem::position_x and position_y (only in physical)
+    pub(crate) outer_position: Cell<PhysicalPosition>,
 }
 
 impl Drop for WindowInner {
@@ -293,6 +296,7 @@ impl WindowInner {
             active_popup: Default::default(),
             close_requested: Default::default(),
             inner_size: Default::default(),
+            outer_position: Default::default(),
             click_state: ClickState::default(),
         }
     }
@@ -777,6 +781,20 @@ impl WindowInner {
             {
                 window_item.width.set(size.width_length());
                 window_item.height.set(size.height_length());
+            }
+        }
+    }
+
+    /// Sets the position of the window item. This method is typically called in response to receiving a
+    /// window move event from the windowing system.
+    pub fn set_window_item_position(&self, point: LogicalPoint) {
+        if let Some(component_rc) = self.try_component() {
+            let component = ComponentRc::borrow_pin(&component_rc);
+            let root_item = component.as_ref().get_item_ref(0);
+            if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+            {
+                window_item.position_x.set(point.x_length());
+                window_item.position_y.set(point.y_length());
             }
         }
     }
