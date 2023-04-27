@@ -21,6 +21,7 @@ use corelib::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
+use once_cell::unsync::OnceCell;
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -99,23 +100,42 @@ fn window_is_resizable(min_size: Option<LogicalSize>, max_size: Option<LogicalSi
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub(crate) struct WinitWindowAdapter<Renderer: WinitCompatibleRenderer + 'static> {
-    window: corelib::api::Window,
+    window: OnceCell<corelib::api::Window>,
     self_weak: Weak<Self>,
-    map_state: RefCell<GraphicsWindowBackendState>,
+    map_state: OnceCell<RefCell<GraphicsWindowBackendState>>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     pending_redraw: Cell<bool>,
     in_resize_event: Cell<bool>,
-    dark_color_scheme: once_cell::unsync::OnceCell<Pin<Box<Property<bool>>>>,
+    dark_color_scheme: OnceCell<Pin<Box<Property<bool>>>>,
 
-    renderer: once_cell::unsync::OnceCell<Renderer>,
+    renderer: OnceCell<Renderer>,
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
+}
 
-    /// Error that occured during construction. This is only used temporarily during new.
-    platform_error: Cell<Option<PlatformError>>,
+impl<Renderer: WinitCompatibleRenderer + 'static> Default for WinitWindowAdapter<Renderer> {
+    fn default() -> Self {
+        Self {
+            window: Default::default(),
+            self_weak: Default::default(),
+            map_state: OnceCell::with_value(RefCell::new(GraphicsWindowBackendState::Unmapped {
+                requested_position: None,
+                requested_size: None,
+            })),
+            currently_pressed_key_code: Default::default(),
+            pending_redraw: Default::default(),
+            in_resize_event: Default::default(),
+            dark_color_scheme: Default::default(),
+            renderer: Default::default(),
+            #[cfg(target_arch = "wasm32")]
+            canvas_id: Default::default(),
+            #[cfg(target_arch = "wasm32")]
+            virtual_keyboard_helper: Default::default(),
+        }
+    }
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
@@ -128,37 +148,25 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
     pub(crate) fn new(
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        // Error that occured during construction. This is only used temporarily during new.
+        let mut platform_error: Option<PlatformError> = None;
+
         let self_rc = Rc::new_cyclic(|self_weak| {
-            let platform_error: Cell<Option<PlatformError>> = Default::default();
-            let mut renderer: once_cell::unsync::OnceCell<Renderer> = Default::default();
+            let mut result = Self::default();
 
             match Renderer::new(&(self_weak.clone() as _)) {
-                Ok(new_renderer) => {
-                    renderer = once_cell::unsync::OnceCell::with_value(new_renderer)
+                Ok(new_renderer) => result.renderer = OnceCell::with_value(new_renderer),
+                Err(err) => {
+                    platform_error = Some(err);
+                    return Self::default();
                 }
-                Err(err) => platform_error.set(Some(err)),
             };
 
-            Self {
-                window: corelib::api::Window::new(self_weak.clone() as _),
-                self_weak: self_weak.clone(),
-                map_state: RefCell::new(GraphicsWindowBackendState::Unmapped {
-                    requested_position: None,
-                    requested_size: None,
-                }),
-                currently_pressed_key_code: Default::default(),
-                pending_redraw: Cell::new(false),
-                in_resize_event: Cell::new(false),
-                dark_color_scheme: Default::default(),
-                renderer,
-                #[cfg(target_arch = "wasm32")]
-                canvas_id,
-                #[cfg(target_arch = "wasm32")]
-                virtual_keyboard_helper: Default::default(),
-                platform_error,
-            }
+            result.window = OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _));
+            result.self_weak = self_weak.clone();
+            result
         });
-        if let Some(err) = self_rc.platform_error.take() {
+        if let Some(err) = platform_error.take() {
             Err(err)
         } else {
             Ok(self_rc as _)
@@ -166,12 +174,15 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
     }
 
     fn is_mapped(&self) -> bool {
-        matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped { .. })
+        matches!(
+            &*self.map_state.get().unwrap().borrow(),
+            GraphicsWindowBackendState::Mapped { .. }
+        )
     }
 
     fn borrow_mapped_window(&self) -> Option<std::cell::Ref<MappedWindow>> {
         if self.is_mapped() {
-            std::cell::Ref::map(self.map_state.borrow(), |state| match state {
+            std::cell::Ref::map(self.map_state.get().unwrap().borrow(), |state| match state {
                 GraphicsWindowBackendState::Unmapped{..} => {
                     panic!("borrow_mapped_window must be called after checking if the window is mapped")
                 }
@@ -183,13 +194,14 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
     }
 
     fn unmap(&self) -> Result<(), PlatformError> {
-        let old_mapped = match self.map_state.replace(GraphicsWindowBackendState::Unmapped {
-            requested_position: None,
-            requested_size: None,
-        }) {
-            GraphicsWindowBackendState::Unmapped { .. } => return Ok(()),
-            GraphicsWindowBackendState::Mapped(old_mapped) => old_mapped,
-        };
+        let old_mapped =
+            match self.map_state.get().unwrap().replace(GraphicsWindowBackendState::Unmapped {
+                requested_position: None,
+                requested_size: None,
+            }) {
+                GraphicsWindowBackendState::Unmapped { .. } => return Ok(()),
+                GraphicsWindowBackendState::Mapped(old_mapped) => old_mapped,
+            };
 
         crate::event_loop::unregister_window(old_mapped.winit_window.id());
 
@@ -298,7 +310,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for WinitWindowAda
         // which might panic when trying to create a zero-sized surface.
         if size.width > 0 && size.height > 0 {
             let physical_size = physical_size_to_slint(&size);
-            self.window.set_size(physical_size);
+            self.window().set_size(physical_size);
             self.renderer().resize_event(physical_size)
         } else {
             Ok(())
@@ -315,7 +327,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for WinitWindowAda
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapter for WinitWindowAdapter<Renderer> {
     fn window(&self) -> &corelib::api::Window {
-        &self.window
+        self.window.get().unwrap()
     }
 }
 
@@ -368,7 +380,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
             must_resize = true;
 
             let winit_size =
-                winit_window.inner_size().to_logical(self.window.scale_factor() as f64);
+                winit_window.inner_size().to_logical(self.window().scale_factor() as f64);
 
             if width <= 0. {
                 width = winit_size.width;
@@ -379,7 +391,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
         }
 
         let existing_size: winit::dpi::LogicalSize<f32> =
-            winit_window.inner_size().to_logical(self.window.scale_factor().into());
+            winit_window.inner_size().to_logical(self.window().scale_factor().into());
 
         if (existing_size.width - width).abs() > 1. || (existing_size.height - height).abs() > 1. {
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
@@ -391,7 +403,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
         }
 
         if must_resize {
-            self.window.set_size(i_slint_core::api::LogicalSize::new(width, height));
+            self.window().set_size(i_slint_core::api::LogicalSize::new(width, height));
         }
     }
 
@@ -410,7 +422,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
 
             if (constraints_horizontal, constraints_vertical) != self.constraints() {
                 // Use our scale factor instead of winit's logical size to take a scale factor override into account.
-                let sf = self.window.scale_factor();
+                let sf = self.window().scale_factor();
 
                 let (min_size, max_size) =
                     i_slint_core::layout::min_max_size_for_layout_constraints(
@@ -487,16 +499,17 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
 
     fn show(&self) -> Result<(), PlatformError> {
         self.call_with_event_loop(|self_| {
-            let (requested_position, requested_size) = match &*self_.map_state.borrow() {
-                GraphicsWindowBackendState::Unmapped { requested_position, requested_size } => {
-                    (requested_position.clone(), requested_size.clone())
-                }
-                GraphicsWindowBackendState::Mapped(_) => return Ok(()),
-            };
+            let (requested_position, requested_size) =
+                match &*self_.map_state.get().unwrap().borrow() {
+                    GraphicsWindowBackendState::Unmapped { requested_position, requested_size } => {
+                        (requested_position.clone(), requested_size.clone())
+                    }
+                    GraphicsWindowBackendState::Mapped(_) => return Ok(()),
+                };
 
             let mut window_builder = winit::window::WindowBuilder::new().with_transparent(true);
 
-            let runtime_window = WindowInner::from_pub(&self_.window);
+            let runtime_window = WindowInner::from_pub(&self_.window());
             let component_rc = runtime_window.component();
             let component = ComponentRc::borrow_pin(&component_rc);
 
@@ -648,7 +661,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
             )?;
 
             let scale_factor = scale_factor_override.unwrap_or_else(|| winit_window.scale_factor());
-            WindowInner::from_pub(&self_.window).set_scale_factor(scale_factor as _);
+            WindowInner::from_pub(&self_.window()).set_scale_factor(scale_factor as _);
             let s = winit_window.inner_size().to_logical(scale_factor);
             // Make sure that the window's inner size is in sync with the root window item's
             // width/height.
@@ -663,10 +676,9 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
                 }
             }
 
-            self_.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-                constraints: Default::default(),
-                winit_window,
-            }));
+            self_.map_state.get().unwrap().replace(GraphicsWindowBackendState::Mapped(
+                MappedWindow { constraints: Default::default(), winit_window },
+            ));
 
             crate::event_loop::register_window(id, self_.self_weak.upgrade().unwrap());
             Ok(())
@@ -769,10 +781,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
     }
 
     fn position(&self) -> corelib::api::PhysicalPosition {
-        match &*self.map_state.borrow() {
+        match &*self.map_state.get().unwrap().borrow() {
             GraphicsWindowBackendState::Unmapped { requested_position, .. } => requested_position
                 .as_ref()
-                .map(|p| p.to_physical(self.window.scale_factor()))
+                .map(|p| p.to_physical(self.window().scale_factor()))
                 .unwrap_or_default(),
             GraphicsWindowBackendState::Mapped(mapped_window) => {
                 match mapped_window.winit_window.outer_position() {
@@ -786,7 +798,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
     }
 
     fn set_position(&self, position: corelib::api::WindowPosition) {
-        let w = match &mut *self.map_state.borrow_mut() {
+        let w = match &mut *self.map_state.get().unwrap().borrow_mut() {
             GraphicsWindowBackendState::Unmapped { requested_position, .. } => {
                 *requested_position = Some(position);
                 return;
@@ -800,7 +812,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
         if self.in_resize_event.get() {
             return;
         }
-        let Ok(mut map_state) = self.map_state.try_borrow_mut() else { return };
+        let Ok(mut map_state) = self.map_state.get().unwrap().try_borrow_mut() else { return };
         let w = match &mut *map_state {
             GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
                 *requested_size = Some(size);
