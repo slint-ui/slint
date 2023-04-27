@@ -19,14 +19,14 @@ pub struct WinitSoftwareRenderer {
 impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     const NAME: &'static str = "Software";
 
-    fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
-        Self {
+    fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Result<Self, PlatformError> {
+        Ok(Self {
             renderer: SoftwareRenderer::new(
                 i_slint_core::software_renderer::RepaintBufferType::NewBuffer,
                 window_adapter_weak.clone(),
             ),
             canvas: Default::default(),
-        }
+        })
     }
 
     fn show(
