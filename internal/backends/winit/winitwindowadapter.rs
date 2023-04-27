@@ -107,12 +107,15 @@ pub(crate) struct WinitWindowAdapter<Renderer: WinitCompatibleRenderer + 'static
     in_resize_event: Cell<bool>,
     dark_color_scheme: once_cell::unsync::OnceCell<Pin<Box<Property<bool>>>>,
 
-    renderer: Renderer,
+    renderer: once_cell::unsync::OnceCell<Renderer>,
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
+
+    /// Error that occured during construction. This is only used temporarily during new.
+    platform_error: Cell<Option<PlatformError>>,
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
@@ -122,25 +125,44 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
     /// * `graphics_backend_factory`: The factor function stored in the GraphicsWindow that's called when the state
     ///   of the window changes to mapped. The event loop and window builder parameters can be used to create a
     ///   backing window.
-    pub(crate) fn new(#[cfg(target_arch = "wasm32")] canvas_id: String) -> Rc<dyn WindowAdapter> {
-        let self_rc = Rc::new_cyclic(|self_weak| Self {
-            window: corelib::api::Window::new(self_weak.clone() as _),
-            self_weak: self_weak.clone(),
-            map_state: RefCell::new(GraphicsWindowBackendState::Unmapped {
-                requested_position: None,
-                requested_size: None,
-            }),
-            currently_pressed_key_code: Default::default(),
-            pending_redraw: Cell::new(false),
-            in_resize_event: Cell::new(false),
-            dark_color_scheme: Default::default(),
-            renderer: Renderer::new(&(self_weak.clone() as _)),
-            #[cfg(target_arch = "wasm32")]
-            canvas_id,
-            #[cfg(target_arch = "wasm32")]
-            virtual_keyboard_helper: Default::default(),
+    pub(crate) fn new(
+        #[cfg(target_arch = "wasm32")] canvas_id: String,
+    ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        let self_rc = Rc::new_cyclic(|self_weak| {
+            let platform_error: Cell<Option<PlatformError>> = Default::default();
+            let mut renderer: once_cell::unsync::OnceCell<Renderer> = Default::default();
+
+            match Renderer::new(&(self_weak.clone() as _)) {
+                Ok(new_renderer) => {
+                    renderer = once_cell::unsync::OnceCell::with_value(new_renderer)
+                }
+                Err(err) => platform_error.set(Some(err)),
+            };
+
+            Self {
+                window: corelib::api::Window::new(self_weak.clone() as _),
+                self_weak: self_weak.clone(),
+                map_state: RefCell::new(GraphicsWindowBackendState::Unmapped {
+                    requested_position: None,
+                    requested_size: None,
+                }),
+                currently_pressed_key_code: Default::default(),
+                pending_redraw: Cell::new(false),
+                in_resize_event: Cell::new(false),
+                dark_color_scheme: Default::default(),
+                renderer,
+                #[cfg(target_arch = "wasm32")]
+                canvas_id,
+                #[cfg(target_arch = "wasm32")]
+                virtual_keyboard_helper: Default::default(),
+                platform_error,
+            }
         });
-        self_rc as _
+        if let Some(err) = self_rc.platform_error.take() {
+            Err(err)
+        } else {
+            Ok(self_rc as _)
+        }
     }
 
     fn is_mapped(&self) -> bool {
@@ -171,7 +193,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
 
         crate::event_loop::unregister_window(old_mapped.winit_window.id());
 
-        self.renderer.hide()
+        self.renderer().hide()
     }
 
     fn call_with_event_loop(
@@ -211,6 +233,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
             window.constraints.set(constraints);
         }
     }
+
+    fn renderer(&self) -> &Renderer {
+        self.renderer.get().unwrap()
+    }
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for WinitWindowAdapter<Renderer> {
@@ -231,7 +257,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for WinitWindowAda
 
         self.pending_redraw.set(false);
 
-        self.renderer.render(physical_size_to_slint(&window.winit_window.inner_size()))?;
+        self.renderer().render(physical_size_to_slint(&window.winit_window.inner_size()))?;
 
         Ok(self.pending_redraw.get())
     }
@@ -273,7 +299,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for WinitWindowAda
         if size.width > 0 && size.height > 0 {
             let physical_size = physical_size_to_slint(&size);
             self.window.set_size(physical_size);
-            self.renderer.resize_event(physical_size)
+            self.renderer().resize_event(physical_size)
         } else {
             Ok(())
         }
@@ -437,7 +463,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
                 // Auto-resize to the preferred size if users (SlintPad) requests it
                 #[cfg(target_arch = "wasm32")]
                 {
-                    let canvas = self.renderer.html_canvas_element();
+                    let canvas = self.renderer().html_canvas_element();
 
                     if canvas
                         .dataset()
@@ -615,7 +641,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
                 window_builder = window_builder.with_canvas(Some(html_canvas.clone()))
             };
 
-            let winit_window = self_.renderer.show(
+            let winit_window = self_.renderer().show(
                 window_builder,
                 #[cfg(target_arch = "wasm32")]
                 &self_.canvas_id,
@@ -704,7 +730,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
     }
 
     fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
-        self.renderer.as_core_renderer()
+        self.renderer().as_core_renderer()
     }
 
     fn enable_input_method(&self, _it: corelib::items::InputType) {
@@ -712,7 +738,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
         {
             let mut vkh = self.virtual_keyboard_helper.borrow_mut();
             let h = vkh.get_or_insert_with(|| {
-                let canvas = self.renderer.html_canvas_element();
+                let canvas = self.renderer().html_canvas_element();
                 super::wasm_input_helper::WasmInputHelper::new(self.self_weak.clone(), canvas)
             });
             h.show();

@@ -55,12 +55,12 @@ impl GlutinFemtoVGRenderer {
 impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
     const NAME: &'static str = "FemtoVG";
 
-    fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
-        Self {
+    fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Result<Self, PlatformError> {
+        Ok(Self {
             rendering_notifier: Default::default(),
             renderer: FemtoVGRenderer::new(window_adapter_weak),
             opengl_context: Default::default(),
-        }
+        })
     }
 
     fn show(
