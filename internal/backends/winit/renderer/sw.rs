@@ -5,6 +5,7 @@
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::graphics::Rgb8Pixel;
+use i_slint_core::platform::PlatformError;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
@@ -31,7 +32,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     fn show(
         &self,
         window_builder: winit::window::WindowBuilder,
-    ) -> Result<Rc<winit::window::Window>, i_slint_core::platform::PlatformError> {
+    ) -> Result<Rc<winit::window::Window>, PlatformError> {
         let window = crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for software rendering: {}", winit_os_error)
@@ -50,15 +51,12 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         Ok(window)
     }
 
-    fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+    fn hide(&self) -> Result<(), PlatformError> {
         self.canvas.borrow_mut().take();
         Ok(())
     }
 
-    fn render(
-        &self,
-        size: PhysicalWindowSize,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    fn render(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
         let mut canvas = if self.canvas.borrow().is_some() {
             std::cell::RefMut::map(self.canvas.borrow_mut(), |canvas_opt| {
                 canvas_opt.as_mut().unwrap()
@@ -112,10 +110,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         Ok(())
     }
 
-    fn resize_event(
-        &self,
-        _size: PhysicalWindowSize,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    fn resize_event(&self, _size: PhysicalWindowSize) -> Result<(), PlatformError> {
         Ok(())
     }
 

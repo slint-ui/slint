@@ -27,6 +27,7 @@ mod renderer {
     use std::rc::{Rc, Weak};
 
     use i_slint_core::api::PhysicalSize;
+    use i_slint_core::platform::PlatformError;
     use i_slint_core::window::WindowAdapter;
 
     pub(crate) trait WinitCompatibleRenderer {
@@ -38,17 +39,14 @@ mod renderer {
             &self,
             window_builder: winit::window::WindowBuilder,
             #[cfg(target_arch = "wasm32")] canvas_id: &str,
-        ) -> Result<Rc<winit::window::Window>, i_slint_core::platform::PlatformError>;
-        fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError>;
+        ) -> Result<Rc<winit::window::Window>, PlatformError>;
+        fn hide(&self) -> Result<(), PlatformError>;
 
-        fn render(&self, size: PhysicalSize) -> Result<(), i_slint_core::platform::PlatformError>;
+        fn render(&self, size: PhysicalSize) -> Result<(), PlatformError>;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
 
-        fn resize_event(
-            &self,
-            size: PhysicalSize,
-        ) -> Result<(), i_slint_core::platform::PlatformError>;
+        fn resize_event(&self, size: PhysicalSize) -> Result<(), PlatformError>;
 
         #[cfg(target_arch = "wasm32")]
         fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement;

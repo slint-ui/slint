@@ -4,6 +4,7 @@
 use std::rc::{Rc, Weak};
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
+use i_slint_core::platform::PlatformError;
 use i_slint_core::window::WindowAdapter;
 
 pub struct SkiaRenderer {
@@ -20,7 +21,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
     fn show(
         &self,
         window_builder: winit::window::WindowBuilder,
-    ) -> Result<Rc<winit::window::Window>, i_slint_core::platform::PlatformError> {
+    ) -> Result<Rc<winit::window::Window>, PlatformError> {
         let window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).unwrap()
         }));
@@ -31,14 +32,11 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         Ok(window)
     }
 
-    fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+    fn hide(&self) -> Result<(), PlatformError> {
         self.renderer.hide()
     }
 
-    fn render(
-        &self,
-        size: PhysicalWindowSize,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    fn render(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
         self.renderer.render(size)
     }
 
@@ -46,10 +44,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         &self.renderer
     }
 
-    fn resize_event(
-        &self,
-        size: PhysicalWindowSize,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
         self.renderer.resize_event(size)
     }
 }
