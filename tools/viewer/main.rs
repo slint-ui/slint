@@ -56,6 +56,9 @@ struct Cli {
     /// Translation domain
     #[arg(long = "translation-domain", action)]
     translation_domain: Option<String>,
+
+    #[arg(long = "translation-dir", action)]
+    translation_dir: Option<std::path::PathBuf>,
 }
 
 thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInstance>> = Default::default();}
@@ -73,6 +76,13 @@ fn main() -> Result<()> {
     if let Some(backend) = &args.backend {
         std::env::set_var("SLINT_BACKEND", backend);
     }
+
+    if let Some(dirname) = args.translation_dir.clone() {
+        i_slint_core::translations::gettext_bindtextdomain(
+            args.translation_domain.as_ref().map(String::as_str).unwrap_or_default(),
+            dirname,
+        )?;
+    };
 
     let fswatcher = if args.auto_reload { Some(start_fswatch_thread(args.clone())?) } else { None };
     let mut compiler = init_compiler(&args, fswatcher);
