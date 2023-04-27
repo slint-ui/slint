@@ -142,10 +142,43 @@ pub fn translate(
     _domain: &str,
     arguments: &(impl FormatArgs + ?Sized),
 ) -> SharedString {
-    use core::fmt::Write;
     let mut output = SharedString::default();
-    write!(output, "{}", formatter::format(original, arguments)).unwrap();
+    #[cfg(not(feature = "gettext-rs"))]
+    let translated = original;
+    #[cfg(feature = "gettext-rs")]
+    let translated = translate_gettext(original, _contextid, _domain);
+    use core::fmt::Write;
+    write!(output, "{}", formatter::format(&translated, arguments)).unwrap();
     output
+}
+
+#[cfg(feature = "gettext-rs")]
+fn translate_gettext(string: &str, ctx: &str, domain: &str) -> String {
+    fn mangle_context(ctx: &str, s: &str) -> String {
+        format!("{}\u{4}{}", ctx, s)
+    }
+    fn demangle_context(r: String) -> String {
+        if let Some(x) = r.split('\u{4}').last() {
+            return x.to_owned();
+        }
+        r
+    }
+
+    if !ctx.is_empty() {
+        demangle_context(gettextrs::dgettext(domain, &mangle_context(ctx, string)))
+    } else {
+        gettextrs::dgettext(domain, string)
+    }
+}
+
+#[cfg(feature = "gettext-rs")]
+pub fn gettext_bindtextdomain(domain: &str, dirname: std::path::PathBuf) -> std::io::Result<()> {
+    gettextrs::bindtextdomain(domain, dirname)?;
+    static START: std::sync::Once = std::sync::Once::new();
+    START.call_once(|| {
+        gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
+    });
+    Ok(())
 }
 
 #[cfg(feature = "ffi")]
