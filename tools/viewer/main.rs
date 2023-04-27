@@ -52,6 +52,10 @@ struct Cli {
     /// and so on.
     #[arg(long, value_names(&["callback", "handler"]), number_of_values = 2, action)]
     on: Vec<String>,
+
+    /// Translation domain
+    #[arg(long = "translation-domain", action)]
+    translation_domain: Option<String>,
 }
 
 thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInstance>> = Default::default();}
@@ -139,6 +143,9 @@ fn init_compiler(
     fswatcher: Option<Arc<Mutex<notify::RecommendedWatcher>>>,
 ) -> slint_interpreter::ComponentCompiler {
     let mut compiler = slint_interpreter::ComponentCompiler::default();
+    if let Some(domain) = args.translation_domain.clone() {
+        compiler.set_translation_domain(domain);
+    }
     compiler.set_include_paths(args.include_paths.clone());
     if let Some(style) = &args.style {
         compiler.set_style(style.clone());

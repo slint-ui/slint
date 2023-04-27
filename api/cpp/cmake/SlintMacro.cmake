@@ -32,6 +32,7 @@ function(SLINT_TARGET_SOURCES target)
                     -o ${_SLINT_BASE_NAME_REL}.h  --depfile ${_SLINT_BASE_NAME_REL}.d
                     --style ${_SLINT_STYLE}
                     --embed-resources=${embed}
+                    --translation-domain="${target}"
                 DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE}
                 COMMENT "Generating ${_SLINT_BASE_NAME}.h"
                 DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.d
@@ -46,6 +47,7 @@ function(SLINT_TARGET_SOURCES target)
                     -o ${CMAKE_CURRENT_BINARY_DIR}/${_SLINT_BASE_NAME}.h
                     --style ${_SLINT_STYLE}
                     --embed-resources=${embed}
+                    --translation-domain="${target}"
                 DEPENDS Slint::slint-compiler ${_SLINT_ABSOLUTE} ${ALL_SLINTS}
                 COMMENT "Generating ${_SLINT_BASE_NAME}.h"
             )

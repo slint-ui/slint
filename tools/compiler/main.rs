@@ -50,6 +50,10 @@ struct Cli {
     /// Sets the output file ('-' for stdout)
     #[arg(name = "file to generate", short = 'o', default_value = "-", action)]
     output: std::path::PathBuf,
+
+    /// Translation domain
+    #[arg(long = "translation-domain", action)]
+    translation_domain: Option<String>,
 }
 
 fn main() -> std::io::Result<()> {
@@ -63,6 +67,7 @@ fn main() -> std::io::Result<()> {
         std::process::exit(-1);
     }
     let mut compiler_config = CompilerConfiguration::new(args.format);
+    compiler_config.translation_domain = args.translation_domain;
 
     // Override defaults from command line:
     if let Some(embed) = args.embed_resources {

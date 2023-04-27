@@ -336,6 +336,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     //println!("{:#?}", syntax_node);
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
+    compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
 
     if std::env::var_os("SLINT_STYLE").is_none() {
         // This file is written by the i-slint-backend-selector's built script.
