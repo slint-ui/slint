@@ -1,17 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use crate::util::map_node_and_url;
+
 use std::path::Path;
 
 use super::DocumentCache;
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
+
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupObject, LookupResult};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
-use lsp_types::{GotoDefinitionResponse, LocationLink, Range, Url};
+
+use lsp_types::{GotoDefinitionResponse, LocationLink, Range};
 
 pub fn goto_definition(
     document_cache: &mut DocumentCache,
@@ -26,9 +28,7 @@ pub fn goto_definition(
                     let qual = i_slint_compiler::object_tree::QualifiedTypeName::from_node(n);
                     let doc = document_cache.documents.get_document(node.source_file.path())?;
                     match doc.local_registry.lookup_qualified(&qual.members) {
-                        Type::Struct { node: Some(node), .. } => {
-                            goto_node(document_cache, node.parent().as_ref()?)
-                        }
+                        Type::Struct { node: Some(node), .. } => goto_node(node.parent().as_ref()?),
                         _ => None,
                     }
                 }
@@ -37,7 +37,7 @@ pub fn goto_definition(
                     let doc = document_cache.documents.get_document(node.source_file.path())?;
                     match doc.local_registry.lookup_element(&qual.to_string()) {
                         Ok(ElementType::Component(c)) => {
-                            goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
+                            goto_node(&*c.root_element.borrow().node.as_ref()?)
                         }
                         _ => None,
                     }
@@ -91,7 +91,7 @@ pub fn goto_definition(
                         }
                         _ => return None,
                     };
-                    goto_node(document_cache, &gn)
+                    goto_node(&gn)
                 }
                 _ => None,
             };
@@ -100,7 +100,7 @@ pub fn goto_definition(
             let imp_name = i_slint_compiler::typeloader::ImportedName::from_node(n);
             return match doc.local_registry.lookup_element(&imp_name.internal_name) {
                 Ok(ElementType::Component(c)) => {
-                    goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
+                    goto_node(&*c.root_element.borrow().node.as_ref()?)
                 }
                 _ => None,
             };
@@ -114,7 +114,7 @@ pub fn goto_definition(
             let import_file = dunce::canonicalize(&import_file).unwrap_or(import_file);
             let doc = document_cache.documents.get_document(&import_file)?;
             let doc_node = doc.node.clone()?;
-            return goto_node(document_cache, &*doc_node);
+            return goto_node(&*doc_node);
         } else if syntax_nodes::BindingExpression::new(node.clone()).is_some() {
             // don't fallback to the Binding
             return None;
@@ -128,10 +128,10 @@ pub fn goto_definition(
                 (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
                     .then(|| p)
             }) {
-                return goto_node(document_cache, &p);
+                return goto_node(&p);
             }
             let n = find_property_declaration_in_base(document_cache, element, prop_name)?;
-            return goto_node(document_cache, &n);
+            return goto_node(&n);
         } else if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
             if token.kind() != SyntaxKind::Identifier {
                 return None;
@@ -145,10 +145,10 @@ pub fn goto_definition(
                 (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
                     .then(|| p)
             }) {
-                return goto_node(document_cache, &p);
+                return goto_node(&p);
             }
             let n = find_property_declaration_in_base(document_cache, element, prop_name)?;
-            return goto_node(document_cache, &n);
+            return goto_node(&n);
         } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
             if token.kind() != SyntaxKind::Identifier {
                 return None;
@@ -162,10 +162,10 @@ pub fn goto_definition(
                 (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
                     .then(|| p)
             }) {
-                return goto_node(document_cache, &p);
+                return goto_node(&p);
             }
             let n = find_property_declaration_in_base(document_cache, element, prop_name)?;
-            return goto_node(document_cache, &n);
+            return goto_node(&n);
         }
         node = node.parent()?;
     }
@@ -194,15 +194,9 @@ fn find_property_declaration_in_base(
     None
 }
 
-fn goto_node(
-    document_cache: &mut DocumentCache,
-    node: &SyntaxNode,
-) -> Option<GotoDefinitionResponse> {
-    let path = node.source_file.path();
-    let target_uri = Url::from_file_path(path).ok()?;
-    let offset = node.span().offset as u32;
-    let pos = document_cache.offset_to_position_mapper(&target_uri).ok()?.map_u32(offset);
-    let range = Range::new(pos, pos);
+fn goto_node(node: &SyntaxNode) -> Option<GotoDefinitionResponse> {
+    let (target_uri, range) = map_node_and_url(node)?;
+    let range = Range::new(range.start, range.start); // Shrink range to a position:-)
     Some(GotoDefinitionResponse::Link(vec![LocationLink {
         origin_selection_range: None,
         target_uri,

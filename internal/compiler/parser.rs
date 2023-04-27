@@ -42,7 +42,7 @@ pub trait SyntaxNodeVerify {
     }
 }
 
-pub use rowan::TextRange;
+pub use rowan::{TextRange, TextSize};
 
 /// Check that a node has the assumed children
 #[cfg(test)]

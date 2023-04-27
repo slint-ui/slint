@@ -3,7 +3,7 @@
 
 // cSpell: ignore rfind
 
-use super::util::lookup_current_element_type;
+use super::util::{lookup_current_element_type, map_position};
 use super::DocumentCache;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -517,14 +517,14 @@ fn add_components_to_import(
     // Find out types that can be imported
     let current_file = token.source_file.path().to_owned();
     let current_uri = lsp_types::Url::from_file_path(&current_file).ok()?;
-    let mapper = document_cache.offset_to_position_mapper(&current_uri).ok()?;
     let current_doc = document_cache.documents.get_document(&current_file)?.node.as_ref()?;
     let mut import_locations = HashMap::new();
     let mut last = 0u32;
     for import in current_doc.ImportSpecifier() {
         if let Some((loc, file)) = import.ImportIdentifierList().and_then(|list| {
+            let id = list.ImportIdentifier().last()?;
             Some((
-                mapper.map(list.ImportIdentifier().last()?.text_range().end()),
+                map_position(id.source_file()?, id.text_range().end()),
                 import.child_token(SyntaxKind::StringLiteral)?,
             ))
         }) {
@@ -567,9 +567,9 @@ fn add_components_to_import(
                 }
             }
         }
-        mapper.map_u32(offset.unwrap_or_default().into())
+        map_position(&token.source_file, offset.unwrap_or_default().into())
     } else {
-        Position::new(mapper.map_u32(last).line + 1, 0)
+        Position::new(map_position(&token.source_file, last.into()).line + 1, 0)
     };
 
     for file in document_cache.documents.all_files() {
