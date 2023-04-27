@@ -20,6 +20,7 @@ mod glcontext;
 pub struct GlutinFemtoVGRenderer {
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     renderer: FemtoVGRenderer,
+    winit_window: Rc<winit::window::Window>,
     opengl_context: RefCell<Option<glcontext::OpenGLContext>>,
 }
 
@@ -55,20 +56,12 @@ impl GlutinFemtoVGRenderer {
 impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
     const NAME: &'static str = "FemtoVG";
 
-    fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Result<Self, PlatformError> {
-        Ok(Self {
-            rendering_notifier: Default::default(),
-            renderer: FemtoVGRenderer::new(window_adapter_weak),
-            opengl_context: Default::default(),
-        })
-    }
-
-    fn show(
-        &self,
+    fn new(
+        window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> Result<Rc<winit::window::Window>, PlatformError> {
-        let (window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
+    ) -> Result<Self, PlatformError> {
+        let (winit_window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
             glcontext::OpenGLContext::new_context(
                 window_builder,
                 event_loop.event_loop_target(),
@@ -77,6 +70,21 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
             )
         })?;
 
+        Ok(Self {
+            rendering_notifier: Default::default(),
+            renderer: FemtoVGRenderer::new(window_adapter_weak),
+            winit_window: Rc::new(winit_window),
+            opengl_context: RefCell::new(Some(opengl_context)),
+        })
+    }
+
+    fn window(&self) -> Rc<winit::window::Window> {
+        self.winit_window.clone()
+    }
+
+    fn show(&self) -> Result<(), PlatformError> {
+        let opengl_context = self.opengl_context.borrow();
+        let opengl_context = opengl_context.as_ref().unwrap();
         self.renderer.show(
             #[cfg(not(target_arch = "wasm32"))]
             |name| opengl_context.get_proc_address(name) as *const _,
@@ -85,14 +93,12 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         );
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            Self::with_graphics_api(&opengl_context, |api| {
+            Self::with_graphics_api(&self.opengl_context.borrow().as_ref().unwrap(), |api| {
                 callback.notify(RenderingState::RenderingSetup, &api)
             })?;
         }
 
-        *self.opengl_context.borrow_mut() = Some(opengl_context);
-
-        Ok(Rc::new(window))
+        Ok(())
     }
 
     fn hide(&self) -> Result<(), PlatformError> {

@@ -35,7 +35,8 @@ pub trait WinitWindow: WindowAdapter {
     /// Returns true if during the drawing request_redraw() was called.
     fn draw(&self) -> Result<bool, i_slint_core::platform::PlatformError>;
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window));
-    fn winit_window(&self) -> Option<Rc<winit::window::Window>>;
+    fn winit_window(&self) -> Rc<winit::window::Window>;
+    fn is_shown(&self) -> bool;
 
     /// Called by the event loop when a WindowEvent::Resized is received.
     fn resize_event(
@@ -417,8 +418,7 @@ fn process_window_event(
             // https://github.com/slint-ui/slint/issues/2424: Work around winit reporting absolute coordinates for touch - until https://github.com/rust-windowing/winit/pull/2704 is merged & released.
             #[cfg(target_family = "wasm")]
             let location = {
-                let window_pos =
-                    window.winit_window().and_then(|w| w.inner_position().ok()).unwrap_or_default();
+                let window_pos = window.winit_window().inner_position().unwrap_or_default();
                 winit::dpi::PhysicalPosition::new(
                     location.x - window_pos.x as f64,
                     location.y - window_pos.y as f64,
@@ -554,7 +554,13 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
             }
             Event::UserEvent(SlintUserEvent::CustomEvent { event: CustomEvent::WindowHidden }) => {
                 if QUIT_ON_LAST_WINDOW_CLOSED.load(std::sync::atomic::Ordering::Relaxed) {
-                    let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
+                    let window_count = ALL_WINDOWS.with(|windows| {
+                        windows
+                            .borrow()
+                            .values()
+                            .filter(|window| window.upgrade().map_or(false, |w| w.is_shown()))
+                            .count()
+                    });
                     if window_count == 0 {
                         *control_flow = ControlFlow::Exit;
                     }

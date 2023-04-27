@@ -33,15 +33,17 @@ mod renderer {
     pub(crate) trait WinitCompatibleRenderer {
         const NAME: &'static str;
 
-        fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Result<Self, PlatformError>
+        fn new(
+            window_adapter_weak: &Weak<dyn WindowAdapter>,
+            window_builder: winit::window::WindowBuilder,
+            #[cfg(target_arch = "wasm32")] canvas_id: &str,
+        ) -> Result<Self, PlatformError>
         where
             Self: Sized;
 
-        fn show(
-            &self,
-            window_builder: winit::window::WindowBuilder,
-            #[cfg(target_arch = "wasm32")] canvas_id: &str,
-        ) -> Result<Rc<winit::window::Window>, PlatformError>;
+        fn window(&self) -> Rc<winit::window::Window>;
+
+        fn show(&self) -> Result<(), PlatformError>;
         fn hide(&self) -> Result<(), PlatformError>;
 
         fn render(&self, size: PhysicalSize) -> Result<(), PlatformError>;
@@ -68,7 +70,7 @@ pub(crate) mod wasm_input_helper;
 
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(
-    canvas_id: String,
+    canvas_id: &str,
 ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
     WinitWindowAdapter::<crate::renderer::femtovg::GlutinFemtoVGRenderer>::new(canvas_id)
 }
@@ -284,14 +286,14 @@ fn winit_window_rc_for_window(
     let rc_winit_window = dyn_adapter
         .as_any()
         .downcast_ref::<WinitWindowAdapter<DefaultRenderer>>()
-        .and_then(|adapter| adapter.winit_window().clone());
+        .map(|adapter| adapter.winit_window());
 
     #[cfg(feature = "renderer-winit-femtovg")]
     let rc_winit_window = rc_winit_window.or_else(|| {
         dyn_adapter
             .as_any()
             .downcast_ref::<WinitWindowAdapter<renderer::femtovg::GlutinFemtoVGRenderer>>()
-            .and_then(|adapter| adapter.winit_window().clone())
+            .map(|adapter| adapter.winit_window())
     });
 
     #[cfg(enable_skia_renderer)]
@@ -299,7 +301,7 @@ fn winit_window_rc_for_window(
         dyn_adapter
             .as_any()
             .downcast_ref::<WinitWindowAdapter<renderer::skia::SkiaRenderer>>()
-            .and_then(|adapter| adapter.winit_window().clone())
+            .map(|adapter| adapter.winit_window())
     });
 
     #[cfg(feature = "renderer-winit-software")]
@@ -307,7 +309,7 @@ fn winit_window_rc_for_window(
         dyn_adapter
             .as_any()
             .downcast_ref::<WinitWindowAdapter<renderer::sw::WinitSoftwareRenderer>>()
-            .and_then(|adapter| adapter.winit_window().clone())
+            .map(|adapter| adapter.winit_window())
     });
 
     rc_winit_window

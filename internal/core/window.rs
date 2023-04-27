@@ -681,8 +681,8 @@ impl WindowInner {
     /// Registers the window with the windowing system, in order to render the component's items and react
     /// to input events once the event loop spins.
     pub fn show(&self) -> Result<(), PlatformError> {
-        self.window_adapter().show()?;
         self.update_window_properties();
+        self.window_adapter().show()?;
         Ok(())
     }
 

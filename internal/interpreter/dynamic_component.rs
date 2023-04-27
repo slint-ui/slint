@@ -402,7 +402,7 @@ impl<'id> ComponentDescription<'id> {
     /// Instantiate a runtime component from this ComponentDescription
     pub fn create(
         self: Rc<Self>,
-        #[cfg(target_arch = "wasm32")] canvas_id: String,
+        #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> Result<DynamicComponentVRc, PlatformError> {
         let window_adapter = i_slint_backend_selector::with_platform(|_b| {
             #[cfg(not(target_arch = "wasm32"))]
