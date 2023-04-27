@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// Test that structs work if they are only referenced by functions
+
+struct Foo1 { member: int, }
+struct Foo2 { a: Foo1 }
+struct Foo3 { b: int }
+
+TestCase := TouchArea {
+    // Based on Issue #2655
+    public function fn1(foo2: Foo2) -> Foo3 {
+      return { b: foo2.a.member+1 };
+    }
+}
+
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+
+assert_eq!(instance.invoke_fn1(Foo2{ a: Foo1{ member: 123 } }).b, 124);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.invoke_fn1(Foo2{ Foo1{ 123 } }).b, 124);
+```
+
+*/

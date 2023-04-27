@@ -94,6 +94,12 @@ fn visit_named_object(ty: &Type, visitor: &mut impl FnMut(&String, &Type)) {
                 visit_named_object(a, visitor);
             }
         }
+        Type::Function { return_type, args } => {
+            visit_named_object(return_type, visitor);
+            for a in args {
+                visit_named_object(a, visitor);
+            }
+        }
         _ => {}
     }
 }

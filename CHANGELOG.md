@@ -3,6 +3,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### General
+
+ * Fixed missing items compilation error in the generated code related to public functions (#2655).
+
 ### Rust
 
 - Added `slint::Image::load_from_svg_data(buffer: &[u8])` to load SVGs from memory.
