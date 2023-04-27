@@ -106,6 +106,18 @@ impl SourceFileInner {
         )
     }
 
+    /// Returns the offset that corresponds to the line/column
+    pub fn offset(&self, line: usize, column: usize) -> usize {
+        let col_offset = column.saturating_sub(1);
+        if line <= 1 {
+            // line == 0 is actually invalid!
+            return col_offset;
+        }
+        let offsets = self.line_offsets();
+        let index = std::cmp::min(line.saturating_sub(1), offsets.len());
+        offsets.get(index.saturating_sub(1)).unwrap_or(&0).saturating_add(col_offset)
+    }
+
     fn line_offsets(&self) -> &[usize] {
         self.line_offsets.get_or_init(|| {
             self.source
