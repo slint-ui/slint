@@ -13,6 +13,7 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 pub struct WinitSoftwareRenderer {
+    winit_window: Rc<winit::window::Window>,
     renderer: SoftwareRenderer,
     canvas: RefCell<Option<softbuffer::GraphicsContext>>,
 }
@@ -20,8 +21,18 @@ pub struct WinitSoftwareRenderer {
 impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     const NAME: &'static str = "Software";
 
-    fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Result<Self, PlatformError> {
+    fn new(
+        window_adapter_weak: &Weak<dyn WindowAdapter>,
+        window_builder: winit::window::WindowBuilder,
+    ) -> Result<Self, PlatformError> {
+        let winit_window = crate::event_loop::with_window_target(|event_loop| {
+            window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
+                format!("Error creating native window for software rendering: {}", winit_os_error)
+            })
+        })?;
+
         Ok(Self {
+            winit_window: Rc::new(winit_window),
             renderer: SoftwareRenderer::new(
                 i_slint_core::software_renderer::RepaintBufferType::NewBuffer,
                 window_adapter_weak.clone(),
@@ -30,26 +41,19 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         })
     }
 
-    fn show(
-        &self,
-        window_builder: winit::window::WindowBuilder,
-    ) -> Result<Rc<winit::window::Window>, PlatformError> {
-        let window = crate::event_loop::with_window_target(|event_loop| {
-            window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
-                format!("Error creating native window for software rendering: {}", winit_os_error)
-            })
-        })?;
-        let window = Rc::new(window);
+    fn window(&self) -> Rc<winit::window::Window> {
+        self.winit_window.clone()
+    }
 
+    fn show(&self) -> Result<(), PlatformError> {
         *self.canvas.borrow_mut() = Some(unsafe {
-            softbuffer::GraphicsContext::new(window.as_ref(), window.as_ref()).map_err(
-                |softbuffer_error| {
+            softbuffer::GraphicsContext::new(self.winit_window.as_ref(), self.winit_window.as_ref())
+                .map_err(|softbuffer_error| {
                     format!("Error creating softbuffer graphics context: {}", softbuffer_error)
-                },
-            )?
+                })?
         });
 
-        Ok(window)
+        Ok(())
     }
 
     fn hide(&self) -> Result<(), PlatformError> {

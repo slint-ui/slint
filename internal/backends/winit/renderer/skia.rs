@@ -8,28 +8,38 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::window::WindowAdapter;
 
 pub struct SkiaRenderer {
+    winit_window: Rc<winit::window::Window>,
     renderer: i_slint_renderer_skia::SkiaRenderer<Rc<winit::window::Window>>,
 }
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
     const NAME: &'static str = "Skia";
 
-    fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Result<Self, PlatformError> {
-        Ok(Self { renderer: i_slint_renderer_skia::SkiaRenderer::new(window_adapter_weak.clone()) })
+    fn new(
+        window_adapter_weak: &Weak<dyn WindowAdapter>,
+        window_builder: winit::window::WindowBuilder,
+    ) -> Result<Self, PlatformError> {
+        let winit_window = crate::event_loop::with_window_target(|event_loop| {
+            window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
+                format!("Error creating native window for Skia rendering: {}", winit_os_error)
+            })
+        })?;
+
+        Ok(Self {
+            winit_window: Rc::new(winit_window),
+            renderer: i_slint_renderer_skia::SkiaRenderer::new(window_adapter_weak.clone()),
+        })
     }
 
-    fn show(
-        &self,
-        window_builder: winit::window::WindowBuilder,
-    ) -> Result<Rc<winit::window::Window>, PlatformError> {
-        let window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
-            window_builder.build(event_loop.event_loop_target()).unwrap()
-        }));
+    fn window(&self) -> Rc<winit::window::Window> {
+        self.winit_window.clone()
+    }
 
-        let size: winit::dpi::PhysicalSize<u32> = window.inner_size();
-        self.renderer.show(window.clone(), PhysicalWindowSize::new(size.width, size.height))?;
-
-        Ok(window)
+    fn show(&self) -> Result<(), PlatformError> {
+        let size: winit::dpi::PhysicalSize<u32> = self.winit_window.inner_size();
+        self.renderer
+            .show(self.winit_window.clone(), PhysicalWindowSize::new(size.width, size.height))?;
+        Ok(())
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
