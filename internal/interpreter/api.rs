@@ -480,6 +480,11 @@ impl ComponentCompiler {
         self.config.style.as_ref()
     }
 
+    /// The domain used for translations
+    pub fn set_translation_domain(&mut self, domain: String) {
+        self.config.translation_domain = Some(domain);
+    }
+
     /// Sets the callback that will be invoked when loading imported .slint files. The specified
     /// `file_loader_callback` parameter will be called with a canonical file path as argument
     /// and is expected to return a future that, when resolved, provides the source code of the

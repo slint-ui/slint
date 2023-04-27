@@ -77,6 +77,9 @@ pub struct CompilerConfiguration {
 
     /// expose the accessible role and properties
     pub accessibility: bool,
+
+    /// The domain used as one of the parameter to the translate function
+    pub translation_domain: Option<String>,
 }
 
 impl CompilerConfiguration {
@@ -128,6 +131,7 @@ impl CompilerConfiguration {
             inline_all_elements,
             scale_factor,
             accessibility: true,
+            translation_domain: None,
         }
     }
 }

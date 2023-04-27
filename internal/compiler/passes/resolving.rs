@@ -525,6 +525,11 @@ impl Expression {
             return Expression::Invalid;
         };
 
+        let domain = ctx
+            .type_loader
+            .and_then(|tl| tl.compiler_config.translation_domain.clone())
+            .unwrap_or_default();
+
         let subs = node.Expression().map(|n| {
             Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
                 Type::String,
@@ -541,7 +546,7 @@ impl Expression {
             arguments: vec![
                 Expression::StringLiteral(string),
                 Expression::StringLiteral(String::new()), // TODO
-                Expression::StringLiteral(String::new()), // TODO
+                Expression::StringLiteral(domain),
                 Expression::Array { element_ty: Type::String, values: subs.collect() },
             ],
             source_location: Some(node.to_source_location()),

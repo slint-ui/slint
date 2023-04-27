@@ -298,6 +298,8 @@ pub fn compile_with_config(
     }
 
     let mut compiler_config = config.config;
+    compiler_config.translation_domain = std::env::var("CARGO_PKG_NAME").ok();
+
     let mut rerun_if_changed = String::new();
 
     if std::env::var_os("SLINT_STYLE").is_none() && compiler_config.style.is_none() {

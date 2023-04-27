@@ -724,12 +724,12 @@ pub struct Diagnostic {
 
 #[repr(C)]
 #[cfg(target_pointer_width = "64")]
-pub struct ComponentCompilerOpaque([usize; 13]);
+pub struct ComponentCompilerOpaque([usize; 16]);
 
 #[repr(C)]
 #[cfg(target_pointer_width = "32")]
 #[repr(align(8))]
-pub struct ComponentCompilerOpaque([usize; 16]);
+pub struct ComponentCompilerOpaque([usize; 19]);
 
 /// Asserts that ComponentCompilerOpaque is as large as ComponentCompiler and has the same alignment, to make transmute safe.
 const _: [(); std::mem::size_of::<ComponentCompilerOpaque>()] =
