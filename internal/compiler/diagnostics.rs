@@ -102,7 +102,7 @@ impl SourceFileInner {
                     (line + 1, line_offsets.get(line - 1).map_or(0, |x| offset - x + 1))
                 }
             },
-            |line| (line + 1, 1),
+            |line| (line + 2, 1),
         )
     }
 
