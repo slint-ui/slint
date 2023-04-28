@@ -37,6 +37,14 @@ default = [
 ## Enable use of the Rust standard library.
 std = ["i-slint-core/std"]
 
+## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
+##
+## the `@tr(...)` code from .slint files will be transformed into call to `dgettext`
+## with the crate name as domain name
+##
+## translations must be enabled with the [`init_translations!`] macro
+gettext = ["i-slint-core/gettext-rs"]
+
 ## This feature enables floating point arithmetic emulation using the [libm](https://crates.io/crates/libm) crate. Use this
 ## in MCU environments where the processor does not support floating point arithmetic.
 libm = ["i-slint-core/libm"]
@@ -148,4 +156,4 @@ rustdoc-args = [
   "--html-in-header",
   "docs/resources/slint-docs-highlight.html",
 ]
-features = ["document-features", "log"]
+features = ["document-features", "log", "gettext"]
