@@ -1,0 +1,10 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// Test that cubic-bezier() can accept negative numbers
+
+TestCase := Rectangle {
+    animate background {
+      easing: cubic-bezier(0.600, -0.280, 0.735, 0.045); // ease-in-back
+    }
+}
