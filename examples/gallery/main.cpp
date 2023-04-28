@@ -3,8 +3,18 @@
 
 #include "gallery.h"
 
+#ifdef HAVE_GETTEXT
+#    include <locale>
+#    include <libintl.h>
+#endif
+
 int main()
 {
+#ifdef HAVE_GETTEXT
+    bindtextdomain("gallery", SRC_DIR "/lang/");
+    std::locale::global(std::locale(""));
+#endif
+
     auto demo = App::create();
 
     auto row_data = std::make_shared<
