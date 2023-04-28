@@ -78,6 +78,7 @@ There are three different pathways to get started with Slint:
    src/concepts/focus.md
    src/concepts/fonts.md
    src/concepts/purity.md
+   src/concepts/translations.md
 
 .. toctree::
    :hidden:
