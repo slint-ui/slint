@@ -164,6 +164,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
 
             result.window = OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _));
             result.self_weak = self_weak.clone();
+            #[cfg(target_arch = "wasm32")]
+            {
+                result.canvas_id = canvas_id;
+            }
             result
         });
         if let Some(err) = platform_error.take() {
