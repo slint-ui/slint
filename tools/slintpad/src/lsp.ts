@@ -9,10 +9,10 @@ import {
     ErrorAction,
     Message,
     MessageTransports,
-    MonacoLanguageClient,
     RequestMessage,
     ResponseMessage,
-} from "monaco-languageclient";
+} from "vscode-languageclient";
+import { MonacoLanguageClient } from "monaco-languageclient";
 
 import {
     BrowserMessageReader,
@@ -49,7 +49,6 @@ function createLanguageClient(
             },
         },
     });
-    client.registerProgressFeatures();
     return client;
 }
 

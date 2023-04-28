@@ -8,7 +8,7 @@ import {
     Disposable,
     Event,
     PartialMessageInfo,
-} from "monaco-languageclient";
+} from "vscode-languageclient";
 
 export class FilterProxyReader implements MessageReader {
     constructor(reader: MessageReader, callback: (_: Message) => boolean) {

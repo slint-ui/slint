@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 // cSpell: ignore lumino inmemory mimetypes printerdemo
+//
+import "monaco-editor/esm/vs/editor/edcore.main.js";
+import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
+
+import { StandaloneServices, ICodeEditorService } from "vscode/services";
 
 import { slint_language } from "./highlighting";
 import {
@@ -17,21 +22,7 @@ import * as github from "./github";
 import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
 import { Message as LuminoMessage } from "@lumino/messaging";
 
-import "monaco-editor/esm/vs/editor/editor.all.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/accessibilityHelp/accessibilityHelp.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/iPadShowKeyboard/iPadShowKeyboard.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/inspectTokens/inspectTokens.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneCommandsQuickAccess.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneGotoLineQuickAccess.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneGotoSymbolQuickAccess.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneHelpQuickAccess.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standaloneReferenceSearch.js";
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
-
 import { MonacoLanguageClient, MonacoServices } from "monaco-languageclient";
-
-import { commands } from "vscode";
-import { StandaloneServices, ICodeEditorService } from "vscode/services";
 
 const hello_world = `import { Button, VerticalBox } from "std-widgets.slint";
 export component Demo {
@@ -271,14 +262,6 @@ class EditorPaneWidget extends Widget {
 
     get current_editor_content(): string {
         return this.#editor?.getModel()?.getValue() || "";
-    }
-
-    get supported_actions(): string[] | undefined {
-        return this.#editor?.getSupportedActions().map((a) => a.id);
-    }
-
-    get supported_commands(): Thenable<string[]> {
-        return commands.getCommands();
     }
 
     get language_client(): MonacoLanguageClient | null {
@@ -830,14 +813,6 @@ export class EditorWidget extends Widget {
 
     get style() {
         return this.#editor.style;
-    }
-
-    get supported_actions(): string[] | undefined {
-        return this.#editor.supported_actions;
-    }
-
-    get supported_commands(): Thenable<string[]> {
-        return this.#editor.supported_commands;
     }
 
     async project_from_url(url: string | null) {
