@@ -138,21 +138,21 @@ mod formatter {
 /// Do the translation and formatting
 pub fn translate(
     original: &str,
-    _contextid: &str,
-    _domain: &str,
+    contextid: &str,
+    domain: &str,
     arguments: &(impl FormatArgs + ?Sized),
 ) -> SharedString {
+    #![allow(unused)]
     let mut output = SharedString::default();
-    #[cfg(not(feature = "gettext-rs"))]
     let translated = original;
-    #[cfg(feature = "gettext-rs")]
-    let translated = translate_gettext(original, _contextid, _domain);
+    #[cfg(all(target_family = "unix", feature = "gettext-rs"))]
+    let translated = translate_gettext(original, contextid, domain);
     use core::fmt::Write;
     write!(output, "{}", formatter::format(&translated, arguments)).unwrap();
     output
 }
 
-#[cfg(feature = "gettext-rs")]
+#[cfg(all(target_family = "unix", feature = "gettext-rs"))]
 fn translate_gettext(string: &str, ctx: &str, domain: &str) -> String {
     fn mangle_context(ctx: &str, s: &str) -> String {
         format!("{}\u{4}{}", ctx, s)
@@ -173,12 +173,15 @@ fn translate_gettext(string: &str, ctx: &str, domain: &str) -> String {
 
 #[cfg(feature = "gettext-rs")]
 /// Initialize the translation by calling the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext
-pub fn gettext_bindtextdomain(domain: &str, dirname: std::path::PathBuf) -> std::io::Result<()> {
-    gettextrs::bindtextdomain(domain, dirname)?;
-    static START: std::sync::Once = std::sync::Once::new();
-    START.call_once(|| {
-        gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
-    });
+pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> std::io::Result<()> {
+    #[cfg(target_family = "unix")]
+    {
+        gettextrs::bindtextdomain(_domain, _dirname)?;
+        static START: std::sync::Once = std::sync::Once::new();
+        START.call_once(|| {
+            gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
+        });
+    }
     Ok(())
 }
 
