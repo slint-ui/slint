@@ -7,6 +7,10 @@ All notable changes to this project are documented in this file.
 
  * Fixed missing items compilation error in the generated code related to public functions (#2655).
 
+### Slint Language
+
+- Support negative numbers in `cubic-bezier(...)` function.
+
 ### Rust
 
 - Added `slint::Image::load_from_svg_data(buffer: &[u8])` to load SVGs from memory.

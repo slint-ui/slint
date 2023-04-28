@@ -28,6 +28,8 @@ pub fn lower_macro(
         BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::CubicBezier => {
             let mut has_error = None;
+            let expected_argument_type_error =
+                "Arguments to cubic bezier curve must be number literal";
             // FIXME: this is not pretty to be handling there.
             // Maybe "cubic_bezier" should be a function that is lowered later
             let mut a = || match sub_expr.next() {
@@ -36,11 +38,16 @@ pub fn lower_macro(
                     0.
                 }
                 Some((Expression::NumberLiteral(val, Unit::None), _)) => val as f32,
+                // handle negative numbers
+                Some((Expression::UnaryOp { sub, op: '-' }, n)) => match *sub {
+                    Expression::NumberLiteral(val, Unit::None) => (-1.0 * val) as f32,
+                    _ => {
+                        has_error.get_or_insert((n, expected_argument_type_error));
+                        0.
+                    }
+                },
                 Some((_, n)) => {
-                    has_error.get_or_insert((
-                        n,
-                        "Arguments to cubic bezier curve must be number literal",
-                    ));
+                    has_error.get_or_insert((n, expected_argument_type_error));
                     0.
                 }
             };
