@@ -1,0 +1,266 @@
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+#
+# Olivier Goffart <olivier.goffart@slint-ui.com>, 2023.
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-04-28 10:19+0000\n"
+"PO-Revision-Date: 2023-04-28 12:19+0200\n"
+"Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>\n"
+"Language-Team: English <kde-i18n-doc@kde.org>\n"
+"Language: en_US\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Generator: Lokalize 22.12.3\n"
+
+#: gallery.slint:14 gallery.slint:19
+msgid "Slint Widgets Gallery"
+msgstr "Gallerie de widgets "
+
+#: gallery.slint:20 ui/pages/controls_page.slint:10
+msgid "Controls"
+msgstr "Contrôles"
+
+#: gallery.slint:20 ui/pages/list_view_page.slint:9
+msgid "ListView"
+msgstr "ListView"
+
+#: gallery.slint:20 ui/pages/table_view_page.slint:22
+msgid "TableView"
+msgstr "TableView"
+
+#: gallery.slint:20 ui/pages/text_edit_page.slint:9
+msgid "TextEdit"
+msgstr ""
+
+#: gallery.slint:20
+msgid "About"
+msgstr "À Propos"
+
+#: ui/pages/page.slint:24
+msgid "Disable widgets"
+msgstr "Désactive les widgets"
+
+#: ui/pages/controls_page.slint:11
+msgid ""
+"This page gives an overview of the default widget set provided by Slint. The "
+"widgets are available in different styles native, fluent-(dark/light) and "
+"material-(dark/light). The widgets can be imported from \"std-widgets."
+"slint\"."
+msgstr ""
+"Cette page donne un apreçus des widgets par défaut dans Slint. Les widgets "
+"sont disponible dans différent styles"
+
+#: ui/pages/controls_page.slint:15
+msgid "Buttons"
+msgstr "Boutons"
+
+#: ui/pages/controls_page.slint:22
+msgid "Regular Button"
+msgstr "Buton normal"
+
+#: ui/pages/controls_page.slint:27
+msgid "Button with Icon"
+msgstr "Bouton avec une image"
+
+#: ui/pages/controls_page.slint:34
+msgid "ON"
+msgstr ""
+
+#: ui/pages/controls_page.slint:34
+msgid "OFF"
+msgstr ""
+
+#: ui/pages/controls_page.slint:41
+msgid "CheckBox - SpinBox - ComboBox"
+msgstr ""
+
+#: ui/pages/controls_page.slint:47
+msgid "(checked)"
+msgstr "(coché)"
+
+#: ui/pages/controls_page.slint:47
+msgid "(unchecked)"
+msgstr "(non-coché)"
+
+#: ui/pages/controls_page.slint:60
+msgid "Select Something"
+msgstr "Selectionne quelque chose"
+
+#: ui/pages/controls_page.slint:60
+msgid "From this"
+msgstr "dans cette"
+
+#: ui/pages/controls_page.slint:60
+msgid "Combobox"
+msgstr "Combobox"
+
+#: ui/pages/controls_page.slint:69
+msgid "LineEdit"
+msgstr ""
+
+#: ui/pages/controls_page.slint:73
+msgid "Enter some text"
+msgstr "Entrez du texte"
+
+#: ui/pages/controls_page.slint:79
+msgid "Slider"
+msgstr ""
+
+#: ui/pages/controls_page.slint:92
+msgid "TabWidget"
+msgstr ""
+
+#: ui/pages/controls_page.slint:96
+msgid "Tab 1"
+msgstr "1ᵉʳ Onglet"
+
+#: ui/pages/controls_page.slint:102
+msgid "Content of tab 1"
+msgstr "Contennu du 1ᵉʳ onglet"
+
+#: ui/pages/controls_page.slint:108
+msgid "Click me"
+msgstr "Clickez moi"
+
+#: ui/pages/controls_page.slint:117
+msgid "Tab 2"
+msgstr "2ᵉ Onglet"
+
+#: ui/pages/controls_page.slint:123
+msgid "Content of tab 2"
+msgstr "Contenu du 2ᵉ onglet"
+
+#: ui/pages/controls_page.slint:129
+msgid "Check me"
+msgstr "Cochez moi"
+
+#: ui/pages/controls_page.slint:138
+msgid "Tab 3"
+msgstr "3ᵉ Onglet"
+
+#: ui/pages/controls_page.slint:142
+msgid "Content of tab 3"
+msgstr "Contenu du 3ᵉ conglet"
+
+#: ui/pages/list_view_page.slint:10
+msgid ""
+"ListViews can be used to display a list of elements. The StandardListBox is "
+"like the default ListView just with a default text based definition of the "
+"visual items. Both can be imported from \"std-widgets.slint\""
+msgstr ""
+"Les ListView peuvent être utilisées pour montrer une liste d'élémment.  "
+"StandardListBx est comme une ListView par dafaut mes basé sur une définition "
+"des items visuels"
+
+#: ui/pages/list_view_page.slint:25
+msgid "Item {}"
+msgstr "Élement {}"
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgid "Lorem"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgid "ipsum"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgid "dolor"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgid "sit"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgid "amet"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgid "consetetur"
+msgstr ""
+
+#: ui/pages/text_edit_page.slint:10
+msgid ""
+"Similar to LineEdit, but can be used to enter several lines of text. The "
+"widget can be imported from \"std-widgets.slint\"."
+msgstr "Silimaire à LineEdit mais utilisé pour entrer plusieurs ligne de texte"
+
+#: ui/pages/text_edit_page.slint:15
+msgid "Word-Wrap"
+msgstr "Retour à la ligne"
+
+#: ui/pages/text_edit_page.slint:18
+msgid ""
+"This is our TextEdit widget, which allows for editing text that spans over "
+"multiple paragraphs.\n"
+"For example this line starts in a new paragraph.\n"
+"\n"
+"When the amount of lines - due to wrapping and number of paragraphs - "
+"exceeds the available vertical height, a vertical scrollbar is shown that "
+"allows scrolling.\n"
+"You may want to enter a bit of text here then in order to make them visible."
+msgstr ""
+"Ceci est le widget TextEdit qui permet d'éditer du text qui va sur plusieurs "
+"paragaps\n"
+"Par example, cette ligne est un nouveau paragraph\n"
+"\n"
+"Quand le nombre de ligne dépasse la taille, il y a une bare de défilement "
+"qui apparaît\n"
+"\n"
+"Vous pouver entrer du texte ici et voir ce qui se passe"
+
+#: ui/pages/text_edit_page.slint:25
+msgid "No-Wrap"
+msgstr "Pas de retour à la ligne"
+
+#: ui/pages/table_view_page.slint:23
+msgid ""
+"StandardTableView can be used to display a list of text elements in columns "
+"and rows. It can be imported from \"std-widgets.slint\""
+msgstr ""
+"StandardTableView peut être utilisé pour afficher une liste d'éléments et "
+"colonnes"
+
+#: ui/pages/table_view_page.slint:29
+msgid "StandardTableView"
+msgstr "StandardTableView"
+
+#: ui/pages/table_view_page.slint:42
+msgid "Header 1"
+msgstr "En-tête 1"
+
+#: ui/pages/table_view_page.slint:43
+msgid "Header 2"
+msgstr "En-tête 2"
+
+#: ui/pages/table_view_page.slint:44
+msgid "Header 3"
+msgstr "En-tête 3"
+
+#: ui/pages/table_view_page.slint:45
+msgid "Header 4"
+msgstr "En-tête 4"
