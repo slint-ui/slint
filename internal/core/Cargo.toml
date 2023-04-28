@@ -83,8 +83,6 @@ resvg = { workspace = true, optional = true }
 fontdb = { workspace = true, optional = true }
 serde = { version = "1.0.163", features = ["derive"], optional = true }
 
-gettext-rs = { version = "0.7", optional = true }
-
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7", optional = true, features = ["gettext-system"] }
 
