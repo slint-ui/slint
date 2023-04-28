@@ -113,6 +113,7 @@
     "ignorePaths": [
         "api/cpp/docs/conf.py",
         "Cargo.toml",
+        "CHANGELOG.md",
         "cspell.json",
         ".github/workflows/*.yaml"
     ],
