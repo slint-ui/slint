@@ -20,6 +20,7 @@ The follow table summarizes the entire mapping:
  :code:`angle`               :code:`float`                       The value in degrees.
  :code:`relative-font-size`  :code:`float`                       Relative font size factor that is multiplied with the :code:`Window.default-font-size` and can be converted to a :code:`length`.
  structure                   A :code:`class` of the same name    The order of the data member are in the same as in the slint declaration
+ anonymous object            A :code:`std::tuple`                The order of the fields are in alphabetical order
 ===========================  ==================================  =======================================================================================================================================
 ```
 ## Structures
