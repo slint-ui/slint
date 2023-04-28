@@ -277,6 +277,35 @@ macro_rules! include_modules {
     };
 }
 
+/// Initialize translations when using the `gettext` feature
+///
+/// Call this in your main function with the path where to find the translations.
+/// This will internally call the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext
+///
+/// The translations will be found at `<dirname>/<locale>/LC_MESSAGES/<crate>.mo`
+/// where `dirname` is the directory passed as an argument to this macro,
+/// `locale` is a locale name (eg: `en` or `en_GB` or `fr`),
+///  and `crate` is the package obtained with the `CARGO_PKG_NAME` env variable
+///
+/// ### Example
+/// ```rust
+/// fn main() {
+///    slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/translations/"));
+///    // ...
+/// }
+/// ```
+///
+/// For example, assuming this is in a crate called example, and the default locale
+/// is configured to be french, it will load translation at runtime from
+/// `/path/to/example/translations/fr/LC_MESSAGES/example.mo`
+#[cfg(feature = "gettext")]
+#[macro_export]
+macro_rules! init_translations {
+    ($dirname:expr) => {
+        $crate::private_unstable_api::init_translations(env!("CARGO_PKG_NAME"), $dirname)
+    };
+}
+
 /// This module contains items that you need to use or implement if you want use Slint in an environment without
 /// one of the supplied platform backends such as qt or winit.
 ///

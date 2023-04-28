@@ -154,6 +154,11 @@ pub fn translate(
     i_slint_core::translations::translate(&origin, &context, &domain, args.as_slice())
 }
 
+#[cfg(feature = "gettext")]
+pub fn init_translations(domain: &str, dirname: impl Into<std::path::PathBuf>) {
+    i_slint_core::translations::gettext_bindtextdomain(domain, dirname.into()).unwrap()
+}
+
 /// internal re_exports used by the macro generated
 pub mod re_exports {
     pub use alloc::boxed::Box;

@@ -19,6 +19,8 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
+    slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
+
     let app = App::new().unwrap();
 
     let row_data: Rc<VecModel<slint::ModelRc<StandardListViewItem>>> = Rc::new(VecModel::default());

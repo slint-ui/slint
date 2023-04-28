@@ -172,6 +172,7 @@ fn translate_gettext(string: &str, ctx: &str, domain: &str) -> String {
 }
 
 #[cfg(feature = "gettext-rs")]
+/// Initialize the translation by calling the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext
 pub fn gettext_bindtextdomain(domain: &str, dirname: std::path::PathBuf) -> std::io::Result<()> {
     gettextrs::bindtextdomain(domain, dirname)?;
     static START: std::sync::Once = std::sync::Once::new();
