@@ -27,6 +27,6 @@ export component Example inherits Window {
 }
 ```
 
-## `debug(string) -> string`
+## `debug(...)`
 
-The debug function take a string as an argument and prints it
+The debug function can take one or multiple values as arguments, prints them, and returns nothing.
