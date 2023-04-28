@@ -987,6 +987,7 @@ pub(crate) fn generate_component<'id>(
             }
             Type::Struct { .. } => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
+            Type::Easing => property_info::<Value>(),
             Type::Percent => property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {
