@@ -130,6 +130,13 @@ pub(crate) fn completion_at(
             r
         });
     } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
+        if let Some(colon) = n.child_token(SyntaxKind::Colon) {
+            if offset >= colon.text_range().end().into() {
+                return crate::util::with_lookup_ctx(document_cache, node, |ctx| {
+                    resolve_expression_scope(ctx).map(Into::into)
+                })?;
+            }
+        }
         if token.kind() != SyntaxKind::Identifier {
             return None;
         }
@@ -638,8 +645,7 @@ mod tests {
 
     #[test]
     fn in_expression() {
-        let res = get_completions(
-            r#"
+        let with_semi = r#"
             component Bar inherits Text { nope := Rectangle {} property <string> red; }
             global Glib { property <int> gama; }
             component Foo {
@@ -650,23 +656,36 @@ mod tests {
                     width: 🔺;
                 }
             }
-        "#,
-        )
-        .unwrap();
-        res.iter().find(|ci| ci.label == "alpha").unwrap();
-        res.iter().find(|ci| ci.label == "beta").unwrap();
-        res.iter().find(|ci| ci.label == "funi").unwrap();
-        res.iter().find(|ci| ci.label == "Glib").unwrap();
-        res.iter().find(|ci| ci.label == "Colors").unwrap();
-        res.iter().find(|ci| ci.label == "Math").unwrap();
-        res.iter().find(|ci| ci.label == "animation-tick").unwrap();
-        res.iter().find(|ci| ci.label == "bobo").unwrap();
-        res.iter().find(|ci| ci.label == "true").unwrap();
-        res.iter().find(|ci| ci.label == "self").unwrap();
-        res.iter().find(|ci| ci.label == "root").unwrap();
+        "#;
+        let without_semi = r#"
+            component Bar inherits Text { nope := Rectangle {} property <string> red; }
+            global Glib { property <int> gama; }
+            component Foo {
+                property <int> alpha;
+                pure function funi() {}
+                bobo := Bar {
+                    property <int> beta;
+                    width: 🔺
+                }
+            }
+        "#;
+        for source in [with_semi, without_semi] {
+            let res = get_completions(source).unwrap();
+            res.iter().find(|ci| ci.label == "alpha").unwrap();
+            res.iter().find(|ci| ci.label == "beta").unwrap();
+            res.iter().find(|ci| ci.label == "funi").unwrap();
+            res.iter().find(|ci| ci.label == "Glib").unwrap();
+            res.iter().find(|ci| ci.label == "Colors").unwrap();
+            res.iter().find(|ci| ci.label == "Math").unwrap();
+            res.iter().find(|ci| ci.label == "animation-tick").unwrap();
+            res.iter().find(|ci| ci.label == "bobo").unwrap();
+            res.iter().find(|ci| ci.label == "true").unwrap();
+            res.iter().find(|ci| ci.label == "self").unwrap();
+            res.iter().find(|ci| ci.label == "root").unwrap();
 
-        assert!(res.iter().find(|ci| ci.label == "text").is_none());
-        assert!(res.iter().find(|ci| ci.label == "red").is_none());
-        assert!(res.iter().find(|ci| ci.label == "nope").is_none());
+            assert!(res.iter().find(|ci| ci.label == "text").is_none());
+            assert!(res.iter().find(|ci| ci.label == "red").is_none());
+            assert!(res.iter().find(|ci| ci.label == "nope").is_none());
+        }
     }
 }
