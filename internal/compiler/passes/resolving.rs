@@ -875,14 +875,33 @@ impl Expression {
         let exp_n = node.Expression();
         let exp = Self::from_expression_node(exp_n, ctx);
 
-        Expression::UnaryOp {
-            sub: Box::new(exp),
-            op: None
-                .or_else(|| node.child_token(SyntaxKind::Plus).and(Some('+')))
-                .or_else(|| node.child_token(SyntaxKind::Minus).and(Some('-')))
-                .or_else(|| node.child_token(SyntaxKind::Bang).and(Some('!')))
-                .unwrap_or('_'),
-        }
+        let op = None
+            .or_else(|| node.child_token(SyntaxKind::Plus).and(Some('+')))
+            .or_else(|| node.child_token(SyntaxKind::Minus).and(Some('-')))
+            .or_else(|| node.child_token(SyntaxKind::Bang).and(Some('!')))
+            .unwrap_or('_');
+
+        let exp = match op {
+            '!' => exp.maybe_convert_to(Type::Bool, &node, &mut ctx.diag),
+            '+' | '-' => {
+                let ty = exp.ty();
+                if ty.default_unit().is_none()
+                    && !matches!(
+                        ty,
+                        Type::Int32 | Type::Float32 | Type::UnitProduct(..) | Type::Invalid
+                    )
+                {
+                    ctx.diag.push_error(format!("Unary '{op}' not supported on {ty}"), &node);
+                }
+                exp
+            }
+            _ => {
+                assert!(ctx.diag.has_error());
+                exp
+            }
+        };
+
+        Expression::UnaryOp { sub: Box::new(exp), op }
     }
 
     fn from_conditional_expression_node(
