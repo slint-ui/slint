@@ -832,7 +832,7 @@ mod tests {
         line: u32,
         character: u32,
     ) -> Option<(ElementRc, Vec<PropertyInformation>, DocumentCache, lsp_types::Url)> {
-        let (mut dc, url, _) = complex_document_cache("fluent");
+        let (mut dc, url, _) = complex_document_cache();
         if let Some((e, p)) = properties_at_position_in_cache(line, character, &mut dc, &url) {
             Some((e, p, dc, url))
         } else {
@@ -870,7 +870,7 @@ mod tests {
 
     #[test]
     fn test_element_information() {
-        let (mut dc, url, _) = complex_document_cache("fluent");
+        let (mut dc, url, _) = complex_document_cache();
         let element =
             server_loop::element_at_position(&mut dc, &url, &lsp_types::Position::new(33, 4))
                 .unwrap();
@@ -900,7 +900,7 @@ mod tests {
         println!("   :           1         2         3         4         5");
         println!("   : 012345678901234567890123456789012345678901234567890123456789");
 
-        let (mut dc, url, _) = loaded_document_cache("fluent", content);
+        let (mut dc, url, _) = loaded_document_cache(content);
 
         let (_, result) = properties_at_position_in_cache(pos_l, pos_c, &mut dc, &url).unwrap();
 
@@ -1298,7 +1298,7 @@ component MainWindow inherits Window {
 
     #[test]
     fn test_get_property_definition() {
-        let (mut dc, url, _) = loaded_document_cache("fluent",
+        let (mut dc, url, _) = loaded_document_cache(
             r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
 component Base1 {
@@ -1380,7 +1380,6 @@ component MainWindow inherits Window {
     #[test]
     fn test_invalid_properties() {
         let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
             r#"
 global SomeGlobal := {
     property <int> glob: 77;
@@ -1428,10 +1427,8 @@ component SomeRect inherits Rectangle {
 
     #[test]
     fn test_invalid_property_panic() {
-        let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
-            r#"export component Demo { Text { text: } }"#.to_string(),
-        );
+        let (mut dc, url, _) =
+            loaded_document_cache(r#"export component Demo { Text { text: } }"#.to_string());
 
         let (_, result) = properties_at_position_in_cache(0, 35, &mut dc, &url).unwrap();
 
@@ -1442,7 +1439,6 @@ component SomeRect inherits Rectangle {
     #[test]
     fn test_codeblock_property_declaration() {
         let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
             r#"
 component Base {
     property <int> a1: { 1 + 1 }
@@ -1489,7 +1485,6 @@ component Base {
     #[test]
     fn test_codeblock_property_definitions() {
         let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
             r#"
 component Base {
     in property <int> a1;
@@ -1545,7 +1540,6 @@ component MyComp {
     #[test]
     fn test_output_properties() {
         let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
             r#"
 component Base {
     property <int> a: 1;

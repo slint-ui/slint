@@ -1357,7 +1357,7 @@ mod tests {
 
     #[test]
     fn test_reload_document_invalid_contents() {
-        let (_, url, diag) = loaded_document_cache("fluent", "This is not valid!".into());
+        let (_, url, diag) = loaded_document_cache("This is not valid!".into());
 
         assert!(diag.len() == 1); // Only one URL is known
 
@@ -1368,10 +1368,8 @@ mod tests {
 
     #[test]
     fn test_reload_document_valid_contents() {
-        let (_, url, diag) = loaded_document_cache(
-            "fluent",
-            r#"export component Main inherits Rectangle { }"#.into(),
-        );
+        let (_, url, diag) =
+            loaded_document_cache(r#"export component Main inherits Rectangle { }"#.into());
 
         assert!(diag.len() == 1); // Only one URL is known
         let diagnostics = diag.get(&url).expect("URL not found in result");
@@ -1381,7 +1379,6 @@ mod tests {
     #[test]
     fn test_text_document_color_no_color_set() {
         let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
             r#"
             component Main inherits Rectangle { }
             "#
@@ -1397,7 +1394,6 @@ mod tests {
     #[test]
     fn test_text_document_color_rgba_color() {
         let (mut dc, url, _) = loaded_document_cache(
-            "fluent",
             r#"
             component Main inherits Rectangle {
                 background: #1200FF80;
@@ -1451,7 +1447,7 @@ mod tests {
 
     #[test]
     fn test_element_at_position_no_element() {
-        let (mut dc, url, _) = complex_document_cache("fluent");
+        let (mut dc, url, _) = complex_document_cache();
         assert_eq!(id_at_position(&mut dc, &url, 0, 10), None);
         // TODO: This is past the end of the line and should thus return None
         assert_eq!(id_at_position(&mut dc, &url, 42, 90), Some(String::new()));
@@ -1462,7 +1458,7 @@ mod tests {
 
     #[test]
     fn test_element_at_position_no_such_document() {
-        let (mut dc, _, _) = complex_document_cache("fluent");
+        let (mut dc, _, _) = complex_document_cache();
         assert_eq!(
             id_at_position(&mut dc, &Url::parse("https://foo.bar/baz").unwrap(), 5, 0),
             None
@@ -1471,7 +1467,7 @@ mod tests {
 
     #[test]
     fn test_element_at_position_root() {
-        let (mut dc, url, _) = complex_document_cache("fluent");
+        let (mut dc, url, _) = complex_document_cache();
 
         assert_eq!(id_at_position(&mut dc, &url, 2, 30), Some("root".to_string()));
         assert_eq!(id_at_position(&mut dc, &url, 2, 32), Some("root".to_string()));
@@ -1491,7 +1487,7 @@ mod tests {
 
     #[test]
     fn test_element_at_position_child() {
-        let (mut dc, url, _) = complex_document_cache("fluent");
+        let (mut dc, url, _) = complex_document_cache();
 
         assert_eq!(base_type_at_position(&mut dc, &url, 12, 4), Some("VerticalBox".to_string()));
         assert_eq!(base_type_at_position(&mut dc, &url, 14, 22), Some("HorizontalBox".to_string()));
@@ -1503,7 +1499,7 @@ mod tests {
 
     #[test]
     fn test_document_symbols() {
-        let (mut dc, uri, _) = complex_document_cache("fluent");
+        let (mut dc, uri, _) = complex_document_cache();
 
         let result =
             get_document_symbols(&mut dc, &lsp_types::TextDocumentIdentifier { uri }).unwrap();
@@ -1521,7 +1517,6 @@ mod tests {
     #[test]
     fn test_document_symbols_hello_world() {
         let (mut dc, uri, _) = loaded_document_cache(
-            "fluent",
             r#"import { Button, VerticalBox } from "std-widgets.slint";
 component Demo {
     VerticalBox {
