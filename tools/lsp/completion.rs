@@ -688,4 +688,21 @@ mod tests {
             assert!(res.iter().find(|ci| ci.label == "nope").is_none());
         }
     }
+
+    #[test]
+    fn arguments_struct() {
+        let source = r#"
+            struct S1 { foo: int, bar: {xx: int, yy: string} }
+            component Bar { callback c(S1) }
+            component Foo {
+                Bar {
+                    c(param) => { param.bar.🔺 }
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "xx").unwrap();
+        res.iter().find(|ci| ci.label == "yy").unwrap();
+        assert_eq!(res.len(), 2);
+    }
 }

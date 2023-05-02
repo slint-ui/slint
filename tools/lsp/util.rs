@@ -157,6 +157,17 @@ pub fn with_property_lookup_ctx<R>(
     lookup_context.property_name = Some(prop_name);
     lookup_context.property_type = ty.unwrap_or_default();
     lookup_context.component_scope = &scope;
+
+    if let Some(cb) = element
+        .CallbackConnection()
+        .find(|p| (i_slint_compiler::parser::identifier_text(&p).map_or(false, |x| x == prop_name)))
+    {
+        lookup_context.arguments = cb
+            .DeclaredIdentifier()
+            .flat_map(|a| i_slint_compiler::parser::identifier_text(&a))
+            .collect();
+    }
+
     Some(f(&mut lookup_context))
 }
 
