@@ -84,6 +84,7 @@ impl<'a> LookupCtx<'a> {
     }
 }
 
+#[derive(Debug)]
 pub enum LookupResult {
     Expression {
         expression: Expression,
@@ -94,6 +95,7 @@ pub enum LookupResult {
     Namespace(BuiltinNamespace),
 }
 
+#[derive(Debug)]
 pub enum BuiltinNamespace {
     Colors,
     Math,
