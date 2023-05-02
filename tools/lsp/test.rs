@@ -10,20 +10,19 @@ use std::collections::HashMap;
 use crate::server_loop::{reload_document_impl, DocumentCache};
 
 /// Create an empty `DocumentCache`
-pub fn empty_document_cache(style: &str) -> DocumentCache {
+pub fn empty_document_cache() -> DocumentCache {
     let mut config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::Interpreter,
     );
-    config.style = Some(style.to_string());
+    config.style = Some("fluent".to_string());
     DocumentCache::new(config)
 }
 
 /// Create a `DocumentCache` with one document loaded into it.
 pub fn loaded_document_cache(
-    style: &str,
     content: String,
 ) -> (DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
-    let mut dc = empty_document_cache(style);
+    let mut dc = empty_document_cache();
     let dummy_absolute_path =
         if cfg!(target_family = "windows") { "c://foo/bar.slint" } else { "/foo/bar.slint" };
     let url = Url::from_file_path(dummy_absolute_path).unwrap();
@@ -36,8 +35,8 @@ pub fn loaded_document_cache(
 }
 
 /// Create a `DocumentCache` with one comparatively complex test document loaded into it.
-pub fn complex_document_cache(style: &str) -> (DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
-    loaded_document_cache(style,
+pub fn complex_document_cache() -> (DocumentCache, Url, HashMap<Url, Vec<Diagnostic>>) {
+    loaded_document_cache(
             r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
 component MainWindow inherits Window {
