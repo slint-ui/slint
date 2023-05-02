@@ -705,4 +705,20 @@ mod tests {
         res.iter().find(|ci| ci.label == "yy").unwrap();
         assert_eq!(res.len(), 2);
     }
+
+    #[test]
+    fn function_args() {
+        let source = r#"
+            component Foo {
+                function xxx(alpha: int, beta_gamma: string) -> color {
+                    🔺
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "alpha").unwrap();
+        res.iter().find(|ci| ci.label == "beta-gamma").unwrap();
+        res.iter().find(|ci| ci.label == "red").unwrap();
+        assert!(res.iter().find(|ci| ci.label == "width").is_none());
+    }
 }
