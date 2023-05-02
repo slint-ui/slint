@@ -324,6 +324,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     .as_ref()
                     .and_then(|t| t.completion.as_ref()),
             )
+            .map(Into::into)
         });
         Ok(result)
     });
@@ -1027,9 +1028,15 @@ fn token_descr(
     let (doc, o) = get_document_and_offset(document_cache, text_document_uri, pos)?;
     let node = doc.node.as_ref()?;
 
-    let mut taf = node.token_at_offset(o.into());
+    let token = token_at_offset(node, o)?;
+    Some((token, o))
+}
+
+/// Return the token that matches best the token at cursor position
+pub fn token_at_offset(doc: &syntax_nodes::Document, offset: u32) -> Option<SyntaxToken> {
+    let mut taf = doc.token_at_offset(offset.into());
     let token = match (taf.next(), taf.next()) {
-        (None, _) => node.last_token()?,
+        (None, _) => doc.last_token()?,
         (Some(t), None) => t,
         (Some(l), Some(r)) => match (l.kind(), r.kind()) {
             // Prioritize identifier
@@ -1046,7 +1053,7 @@ fn token_descr(
             _ => l,
         },
     };
-    Some((SyntaxToken { token, source_file: node.source_file.clone() }, o))
+    Some(SyntaxToken { token, source_file: doc.source_file.clone() })
 }
 
 fn get_code_actions(
