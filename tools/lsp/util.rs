@@ -124,7 +124,6 @@ pub fn with_property_lookup_ctx<R>(
                 .map(|el_ty| el_ty.lookup_property(prop_name).property_type)
         });
 
-    // FIXME: we need also to fill in the repeated element
     let component = {
         let mut n = element.parent()?;
         loop {
@@ -135,12 +134,22 @@ pub fn with_property_lookup_ctx<R>(
         }
     };
 
+    let mut scope = Vec::new();
     let component = i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())
         .and_then(|component_name| tr.lookup_element(&component_name).ok())?;
-    let scope = if let ElementType::Component(c) = component {
-        vec![c.root_element.clone()]
-    } else {
-        Vec::new()
+    if let ElementType::Component(c) = component {
+        let mut it = c.root_element.clone();
+        let offset = element.text_range().start().into();
+        loop {
+            scope.push(it.clone());
+            if let Some(c) = it.clone().borrow().children.iter().find(|c| {
+                c.borrow().node.as_ref().map_or(false, |n| n.text_range().contains(offset))
+            }) {
+                it = c.clone();
+            } else {
+                break;
+            }
+        }
     };
 
     let mut build_diagnostics = Default::default();
