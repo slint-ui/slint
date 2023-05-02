@@ -111,19 +111,6 @@ pub fn with_property_lookup_ctx<R>(
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
 
-    let ty = element
-        .PropertyDeclaration()
-        .find_map(|p| {
-            (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
-                .then(|| p)
-        })
-        .and_then(|p| p.Type())
-        .map(|n| object_tree::type_from_node(n, &mut Default::default(), tr))
-        .or_else(|| {
-            lookup_current_element_type((**element).clone(), tr)
-                .map(|el_ty| el_ty.lookup_property(prop_name).property_type)
-        });
-
     let component = {
         let mut n = element.parent()?;
         loop {
@@ -152,6 +139,16 @@ pub fn with_property_lookup_ctx<R>(
         }
     };
 
+    let ty = element
+        .PropertyDeclaration()
+        .find_map(|p| {
+            (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
+                .then(|| p)
+        })
+        .and_then(|p| p.Type())
+        .map(|n| object_tree::type_from_node(n, &mut Default::default(), tr))
+        .or_else(|| scope.last().map(|e| e.borrow().lookup_property(prop_name).property_type));
+
     let mut build_diagnostics = Default::default();
     let mut lookup_context = LookupCtx::empty_context(tr, &mut build_diagnostics);
     lookup_context.property_name = Some(prop_name);
@@ -160,14 +157,21 @@ pub fn with_property_lookup_ctx<R>(
 
     if let Some(cb) = element
         .CallbackConnection()
-        .find(|p| (i_slint_compiler::parser::identifier_text(&p).map_or(false, |x| x == prop_name)))
+        .find(|p| i_slint_compiler::parser::identifier_text(&p).map_or(false, |x| x == prop_name))
     {
         lookup_context.arguments = cb
             .DeclaredIdentifier()
             .flat_map(|a| i_slint_compiler::parser::identifier_text(&a))
             .collect();
+    } else if let Some(f) = element.Function().find(|p| {
+        i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())
+            .map_or(false, |x| x == prop_name)
+    }) {
+        lookup_context.arguments = f
+            .ArgumentDeclaration()
+            .flat_map(|a| i_slint_compiler::parser::identifier_text(&a.DeclaredIdentifier()))
+            .collect();
     }
-
     Some(f(&mut lookup_context))
 }
 
@@ -180,11 +184,15 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<(syntax_nodes::Element
             break (element, prop_name);
         }
         match n.kind() {
-            SyntaxKind::Binding
-            | SyntaxKind::TwoWayBinding
-            // FIXME: arguments of the callback
-            | SyntaxKind::CallbackConnection => {
+            SyntaxKind::Binding | SyntaxKind::TwoWayBinding | SyntaxKind::CallbackConnection => {
                 let prop_name = i_slint_compiler::parser::identifier_text(&n)?;
+                let element = syntax_nodes::Element::new(n.parent()?)?;
+                break (element, prop_name);
+            }
+            SyntaxKind::Function => {
+                let prop_name = i_slint_compiler::parser::identifier_text(
+                    &n.child_node(SyntaxKind::DeclaredIdentifier)?,
+                )?;
                 let element = syntax_nodes::Element::new(n.parent()?)?;
                 break (element, prop_name);
             }
@@ -198,7 +206,6 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<(syntax_nodes::Element
                 break (element, String::new());
             }
             _ => n = n.parent()?,
-
         }
     };
     Some((element, prop_name))
