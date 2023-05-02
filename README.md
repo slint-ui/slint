@@ -200,7 +200,7 @@ request to add yours)
 - **[Mastermind](https://github.com/ElevenJune/mastermind_Rust)**: Mastermind
   game coded in Rust.
 - **[Tetris](https://github.com/GaspardCulis/slint-tetris)**: Tetris
-  game coded in Rust.
+  game coded in Rust [online demo](https://gaspardculis.github.io/slint-tetris/).
 - **[coop_widgets](https://codeberg.org/flovansl/co_sl)**: Custom widget
   library for Slint
   [online demo](https://flovansl.codeberg.page/coop_sl/snapshots/examples/widgets/).
