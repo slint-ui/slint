@@ -6,6 +6,7 @@
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::software_renderer::PremultipliedRgbaColor;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
@@ -68,13 +69,21 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         let width = size.width as usize;
         let height = size.height as usize;
 
-        let mut buffer = vec![Rgb8Pixel::default(); width * height];
-
-        if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
+        let softbuffer_buffer = if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
+            let mut buffer = vec![PremultipliedRgbaColor::default(); width * height];
             self.renderer.render(buffer.as_mut_slice(), width);
+            buffer
+                .into_iter()
+                .map(|pixel| {
+                    (pixel.alpha as u32) << 24
+                        | ((pixel.red as u32) << 16)
+                        | ((pixel.green as u32) << 8)
+                        | (pixel.blue as u32)
+                })
+                .collect::<Vec<_>>()
         } else {
             struct FrameBuffer<'a> {
-                buffer: &'a mut [Rgb8Pixel],
+                buffer: &'a mut [u32],
                 line: Vec<i_slint_core::software_renderer::Rgb565Pixel>,
             }
             impl<'a> i_slint_core::software_renderer::LineBufferProvider for FrameBuffer<'a> {
@@ -89,24 +98,21 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                     let sub = &mut self.line[..range.len()];
                     render_fn(sub);
                     for (dst, src) in self.buffer[line_begin..][range].iter_mut().zip(sub) {
-                        *dst = (*src).into();
+                        let p = Rgb8Pixel::from(*src);
+                        *dst =
+                            0xff000000 | ((p.r as u32) << 16) | ((p.g as u32) << 8) | (p.b as u32);
                     }
                 }
             }
+            let mut softbuffer_buffer = vec![0u32; width * height];
             self.renderer.render_by_line(FrameBuffer {
-                buffer: &mut buffer,
+                buffer: &mut softbuffer_buffer,
                 line: vec![Default::default(); width],
             });
-        }
-
-        let mut softbuffer_buffer = Vec::with_capacity(width * height * 4);
-        softbuffer_buffer.extend(
-            buffer
-                .into_iter()
-                .map(|pixel| ((pixel.r as u32) << 16) | ((pixel.g as u32) << 8) | (pixel.b as u32)),
-        );
-
+            softbuffer_buffer
+        };
         canvas.set_buffer(&softbuffer_buffer, width as u16, height as u16);
+
         Ok(())
     }
 
