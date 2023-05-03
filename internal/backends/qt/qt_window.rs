@@ -88,6 +88,11 @@ cpp! {{
         SlintWidget() {
             setMouseTracking(true);
             setFocusPolicy(Qt::StrongFocus);
+            setAttribute(Qt::WA_TranslucentBackground);
+            // WA_TranslucentBackground sets WA_NoSystemBackground, but we actually need WA_NoSystemBackground
+            // to draw the window background which is set on the palette.
+            // (But the window background might not be opaque)
+            setAttribute(Qt::WA_NoSystemBackground, false);
         }
 
         void paintEvent(QPaintEvent *) override {
