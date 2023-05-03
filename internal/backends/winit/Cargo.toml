@@ -37,7 +37,7 @@ const-field-offset = { version = "0.1", path = "../../../helper_crates/const-fie
 vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
 
 cfg-if = "1"
-copypasta = { version = "0.8.1", default-features = false }
+copypasta = { version = "0.8.2", default-features = false }
 derive_more = "0.99.5"
 lyon_path = "1.0"
 once_cell = "1.5"
