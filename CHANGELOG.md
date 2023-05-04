@@ -5,78 +5,78 @@ All notable changes to this project are documented in this file.
 
 ### General
 
- * Fixed missing items compilation error in the generated code related to public functions (#2655).
+ - Fixed missing items compilation error in the generated code related to public functions (#2655).
 
 ### Slint Language
 
-- Support negative numbers in `cubic-bezier(...)` function.
+ - Support negative numbers in `cubic-bezier(...)` function.
 
 ### Rust
 
-- Added `slint::Image::load_from_svg_data(buffer: &[u8])` to load SVGs from memory.
+ - Added `slint::Image::load_from_svg_data(buffer: &[u8])` to load SVGs from memory.
 
 ## [1.0.2] - 2023-04-26
 
 ### General
 
-- Fixed the compiler embedding images unnecessarily multiple times when referenced via different relative paths. (#2608)
-- Winit backend: Adjust the window size automatically when an update minimum or maximum size would constrain the existing size.
-- Winit backend: Added internal API in the `i-slint-backend-winit` crate to access the winit window
-- Fix focussing element whose base is focusable (#2622)
-- Fix infinite loop in the compiler when there is a loop in `forward-focus`
-- Skia renderer: Add support for password input fields.
+ - Fixed the compiler embedding images unnecessarily multiple times when referenced via different relative paths. (#2608)
+ - Winit backend: Adjust the window size automatically when an update minimum or maximum size would constrain the existing size.
+ - Winit backend: Added internal API in the `i-slint-backend-winit` crate to access the winit window
+ - Fix focussing element whose base is focusable (#2622)
+ - Fix infinite loop in the compiler when there is a loop in `forward-focus`
+ - Skia renderer: Add support for password input fields.
 
 ### C++
 
-- Fix build against macOS deployment target 10.10
+ - Fix build against macOS deployment target 10.10
 
 ### VSCode extension
 
-- Fixed preview not working (#2609)
-- Added design mode commands
-- Browser extension: fix preview not previewing specific component
+ - Fixed preview not working (#2609)
+ - Added design mode commands
+ - Browser extension: fix preview not previewing specific component
 
 ### SlintPad
 
-- Fix editing in non-main files was getting ignored (#2630)
+ - Fix editing in non-main files was getting ignored (#2630)
 
 
 ## [1.0.1] - 2023-04-20
 
 ### General
 
-- Fixed compiler panic when binding `Path`'s `commands` property to the field of a model entry.
-- Qt renderer: Fixed support for horizontal alignment in `TextInput`.
-- Winit backend: Fix detect of dark color scheme in some circumstances.
-- ListView: fix resizing a ListView to empty height would make all items invisible even if resized back (#2545)
-- Fixed compiler panic when accessing unset layout properties such as `spacing` or `alignment` (#2483)
-- Fixed compiler panic when accessing property from parent context in a `init =>` callback
-- Load fontconfig with dlopen instead of dynamic linking.
-- Software renderer: renders the text in TextInput
-- Fixed `TouchArea::has-hover` not becoming false when items become invisible
+ - Fixed compiler panic when binding `Path`'s `commands` property to the field of a model entry.
+ - Qt renderer: Fixed support for horizontal alignment in `TextInput`.
+ - Winit backend: Fix detect of dark color scheme in some circumstances.
+ - ListView: fix resizing a ListView to empty height would make all items invisible even if resized back (#2545)
+ - Fixed compiler panic when accessing unset layout properties such as `spacing` or `alignment` (#2483)
+ - Fixed compiler panic when accessing property from parent context in a `init =>` callback
+ - Load fontconfig with dlopen instead of dynamic linking.
+ - Software renderer: renders the text in TextInput
+ - Fixed `TouchArea::has-hover` not becoming false when items become invisible
 
 ### Slint Language
 
-- Fixed parent `FocusScope` objects stealing the focus from inner `FocusScope`s when clicked.
-- Added `TextInputInterface.text-input-focused` to detect when a virtual keyboard should open
-- Added `always-on-top` property of a `Window` to show the window above others
-- The error message when referring to an id reports a suggestion if there is a enum value or a property with the same name.
+ - Fixed parent `FocusScope` objects stealing the focus from inner `FocusScope`s when clicked.
+ - Added `TextInputInterface.text-input-focused` to detect when a virtual keyboard should open
+ - Added `always-on-top` property of a `Window` to show the window above others
+ - The error message when referring to an id reports a suggestion if there is a enum value or a property with the same name.
 
 ### C++
 
-- macOS: Fixed `install_name` for `libslint_cpp.dylib` use `@rpath` instead of absolute paths to the build directory.
-- Fixed memory corruption when embedding images in generated C++ code.
-- Add support for dispatching key press and key release events to `slint::Window` via `dispatch_key_*_event`. This replaces
-  the experimental `slint::experimental::platform::WindowAdapter::dispatch_key_event`.
-- MSVC: /bigobj is enabled by default as compile option when linking against the Slint CMake target, removing the need
-  for users who run into linking issues to add that to their build.
+ - macOS: Fixed `install_name` for `libslint_cpp.dylib` use `@rpath` instead of absolute paths to the build directory.
+ - Fixed memory corruption when embedding images in generated C++ code.
+ - Add support for dispatching key press and key release events to `slint::Window` via `dispatch_key_*_event`. This replaces
+   the experimental `slint::experimental::platform::WindowAdapter::dispatch_key_event`.
+ - MSVC: /bigobj is enabled by default as compile option when linking against the Slint CMake target, removing the need
+   for users who run into linking issues to add that to their build.
 
 ### LSP
 
-- Don't throw a protocol error when using the rename function on a symbol that can't be renamed
-- Always auto-complete widgets from the style even if no widgets is imported
-- Don't auto-complete reserved properties or sub components for globals
-- Auto-completion in the document root (component, import, global)
+ - Don't throw a protocol error when using the rename function on a symbol that can't be renamed
+ - Always auto-complete widgets from the style even if no widgets is imported
+ - Don't auto-complete reserved properties or sub components for globals
+ - Auto-completion in the document root (component, import, global)
 
 ### VSCode extension
 
