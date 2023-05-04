@@ -291,6 +291,12 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> Default for VWeak<VTable, X> {
     }
 }
 
+impl<VTable: VTableMetaDropInPlace + 'static, X> PartialEq for VWeak<VTable, X> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
 impl<VTable: VTableMetaDropInPlace + 'static, X> Clone for VWeak<VTable, X> {
     fn clone(&self) -> Self {
         if let Some(inner) = self.inner {
