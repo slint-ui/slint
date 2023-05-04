@@ -76,10 +76,10 @@ component MainWindow inherits Window {
             }
         }
 
-        if (root.show-header) : HorizontalBox { 
-            alignment: start; 
+        if (root.show-header) : HorizontalBox {
+            alignment: start;
 
-            CheckBox {  
+            CheckBox {
                 text: "Sort by name";
                 checked <=> root.is-sort-by-name;
 
@@ -88,7 +88,7 @@ component MainWindow inherits Window {
                 }
             }
 
-            CheckBox {  
+            CheckBox {
                 text: "Hide done items";
                 checked <=> root.hide-done-items;
 

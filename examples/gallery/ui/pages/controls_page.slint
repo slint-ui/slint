@@ -10,18 +10,18 @@ export component ControlsPage inherits Page {
     title: "Controls";
     description: "This page gives an overview of the default widget set provided by Slint. The widgets are available in different styles native, fluent-(dark/light) and material-(dark/light). The widgets can be imported from \"std-widgets.slint\".";
 
-    GroupBox { 
+    GroupBox {
         vertical-stretch: 0;
         title: "Buttons";
 
-        HorizontalLayout {  
+        HorizontalLayout {
             spacing: 8px;
             alignment: start;
 
             Button {
                 text: "Regular Button";
                 enabled: !GallerySettings.widgets-disabled;
-            }   
+            }
 
             Button {
                 text: "Button with Icon";
@@ -61,11 +61,11 @@ export component ControlsPage inherits Page {
                 enabled: !GallerySettings.widgets-disabled;
             }
         }
-                    
-        
+
+
     }
 
-    GroupBox {  
+    GroupBox {
         title: "LineEdit";
         vertical-stretch: 0;
 
@@ -75,7 +75,7 @@ export component ControlsPage inherits Page {
         }
     }
 
-    GroupBox {  
+    GroupBox {
         title: "Slider";
         vertical-stretch: 0;
 
@@ -88,23 +88,23 @@ export component ControlsPage inherits Page {
         }
     }
 
-    GroupBox {  
+    GroupBox {
         title: "TabWidget";
-        
-        TabWidget {  
+
+        TabWidget {
             Tab {
                 title: "Tab 1";
 
-                VerticalBox {  
+                VerticalBox {
                     alignment: start;
 
-                    GroupBox {  
+                    GroupBox {
                         title: "Content of tab 1";
 
-                        HorizontalBox {  
+                        HorizontalBox {
                             alignment: start;
-                        
-                            Button {  
+
+                            Button {
                                 text: "Click me";
                                 enabled: !GallerySettings.widgets-disabled;
                             }
@@ -116,33 +116,33 @@ export component ControlsPage inherits Page {
             Tab {
                 title: "Tab 2";
 
-                VerticalBox {  
+                VerticalBox {
                     alignment: start;
 
-                    GroupBox {  
+                    GroupBox {
                         title: "Content of tab 2";
 
-                        VerticalBox {  
+                        VerticalBox {
                             alignment: start;
-                        
-                            CheckBox {  
+
+                            CheckBox {
                                 text: "Check me";
                                 enabled: !GallerySettings.widgets-disabled;
                             }
                         }
                     }
-                }   
+                }
             }
 
             Tab {
                 title: "Tab 3";
 
-                VerticalBox {  
+                VerticalBox {
                     Text {
                         text: "Content of tab 3";
                     }
                 }
             }
-        }  
+        }
     }
 }

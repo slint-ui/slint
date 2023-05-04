@@ -48,7 +48,7 @@ Getting Started
 ---------------
 
 To use `Slint <https://slint-ui.com>`_ you need to embed your slint files in a project written
-in a supported programming language, like C++, Rust, or JavaScript. 
+in a supported programming language, like C++, Rust, or JavaScript.
 
 There are three different pathways to get started with Slint:
 
@@ -56,8 +56,8 @@ There are three different pathways to get started with Slint:
    This is a web browser-based tool where you can try Slint out.
 
 2. As a UI Designer, working with Slint files locally, we recommend the following combination of software tools:
-   
-   - Visual Studio Code 
+
+   - Visual Studio Code
    - The Slint for Visual Studio Code Extension
 
 3. As a Software Developer, integrating Slint into a new or existing code base, choose one of these languages to

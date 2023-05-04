@@ -5,20 +5,20 @@ import { Theme } from "../theme.slint";
 
 export component StateLayer inherits TouchArea {
     in property <length> border-radius <=> i-container.border-radius;
-    
+
     width: 100%;
     height: 100%;
 
-    i-container := Rectangle {  
+    i-container := Rectangle {
         width: 100%;
         height: 100%;
         background: Theme.palette.pure-black;
         opacity: 0.0;
-    
+
         animate background { duration: Theme.durations.medium; }
     }
 
-    states [  
+    states [
         pressed when root.pressed : {
             i-container.opacity: 0.12;
         }

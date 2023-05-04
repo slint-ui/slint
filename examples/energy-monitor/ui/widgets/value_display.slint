@@ -11,31 +11,31 @@ component ValueDelegate {
     in property <string> unit <=> i-unit.text;
     in property <float> value;
     in property <bool> alternative-colors;
-    
-    HorizontalLayout {  
+
+    HorizontalLayout {
         spacing: 15px;
-        
+
         Rectangle {
             min_width: 1px;
             background: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.limon-green;
             horizontal-stretch: 0;
         }
 
-        VerticalLayout {  
+        VerticalLayout {
             alignment: center;
             horizontal-stretch: 1;
 
-            i-title := Text {  
+            i-title := Text {
                 color: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.limon-green;
                 font-size: Theme.typo.label.size;
                 font-weight: Theme.typo.label.weight;
             }
 
-            HorizontalLayout {  
+            HorizontalLayout {
                 alignment: start;
                 spacing: 5px;
 
-                Text {  
+                Text {
                     color: Theme.palette.white;
                     text: round(display-value * 100) / 100;
                     font-size: Theme.typo.value.size;
@@ -43,7 +43,7 @@ component ValueDelegate {
                     vertical-alignment: center;
                 }
 
-                i-unit := Text {  
+                i-unit := Text {
                     y: Theme.spaces.small;
                     vertical-alignment: center;
                     color: alternative-colors ? Theme.palette.slint-blue-300 : Theme.palette.limon-green;
@@ -54,7 +54,7 @@ component ValueDelegate {
         }
     }
 
-    states [  
+    states [
         active when active : {
             display-value: value;
 
@@ -80,7 +80,7 @@ export component ValueDisplay {
 
     min-height: 70px;
 
-    i-container := Rectangle {  
+    i-container := Rectangle {
         visible: !transparent-background;
         width: 100%;
         height: 100%;
@@ -88,13 +88,13 @@ export component ValueDisplay {
         background: alternative-colors ? Theme.palette.slint-blue-gradient : Theme.palette.limon-green-gradient;
     }
 
-    if(model.length > 0 && !vertical) : HorizontalLayout {  
+    if(model.length > 0 && !vertical) : HorizontalLayout {
         x: 15px;
         width: parent.width - 30px;
         height: 100%;
         padding-top: 12px;
         padding-bottom: 12px;
-      
+
         for value in root.model : ValueDelegate {
             width: parent.width / model.length;
             horizontal-stretch: 1;

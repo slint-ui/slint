@@ -36,7 +36,7 @@ export MainWindow inherits Window {
 ```rust
 fn main() {
     let app = App::new().unwrap();
-    
+
     let weak = app.as_weak();
     app.global::<VirtualKeyboardHandler>().on_key_pressed({
         let weak = weak.clone();

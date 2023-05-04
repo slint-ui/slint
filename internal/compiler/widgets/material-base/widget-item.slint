@@ -5,7 +5,7 @@ import { StateLayer } from "comp-state-layer.slint";
 import { md } from "md.slint";
 
 // A selectable item that is used by `StandardListView` and  `ComboBox`.
-export component Item inherits Rectangle { 
+export component Item inherits Rectangle {
     callback clicked <=> state-layer.clicked;
 
     in property<bool> selected;
@@ -17,7 +17,7 @@ export component Item inherits Rectangle {
     state-layer := StateLayer {
         checked: root.selected;
         background: md.sys.color.primary;
-        selection-background: md.sys.color.secondary-container; 
+        selection-background: md.sys.color.secondary-container;
         ripple-color: md.sys.color.primary-ripple;
         has-ripple: true;
     }
@@ -37,9 +37,9 @@ export component Item inherits Rectangle {
         }
     }
 
-    states [  
+    states [
         selected when root.selected : {
-            state-layer.background: md.sys.color.secondary-container; 
-        }    
-    ] 
+            state-layer.background: md.sys.color.secondary-container;
+        }
+    ]
 }

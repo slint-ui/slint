@@ -9,9 +9,9 @@ export component Page inherits VerticalBox {
     in property<string> title: "title";
     in property<string> description: "description";
 
-    HorizontalLayout {  
+    HorizontalLayout {
         height: 24px;
-        Text {  
+        Text {
             font-size: 20px;
             text <=> root.title;
         }
@@ -19,7 +19,7 @@ export component Page inherits VerticalBox {
         // Spacer
         Rectangle {}
 
-        CheckBox { 
+        CheckBox {
             horizontal-stretch: 0;
             text: "Disable widgets";
             checked <=> GallerySettings.widgets-disabled;

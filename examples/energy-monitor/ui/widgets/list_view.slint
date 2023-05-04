@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { StateLayer } from "../components/state_layer.slint"; 
-import { ScrollView } from "scroll_view.slint"; 
-import { Theme } from "../theme.slint"; 
-import { Images } from "../images.slint"; 
+import { StateLayer } from "../components/state_layer.slint";
+import { ScrollView } from "scroll_view.slint";
+import { Theme } from "../theme.slint";
+import { Images } from "../images.slint";
 import { StateLayer } from "../components/state_layer.slint";
 
 component ListViewItem {
@@ -21,14 +21,14 @@ component ListViewItem {
         border-color: Theme.palette.slint-blue-400;
     }
 
-    HorizontalLayout { 
+    HorizontalLayout {
         padding-left: Theme.spaces.medium;
         padding-top: Theme.spaces.medium;
         padding-bottom: Theme.spaces.medium;
         padding-right: Theme.spaces.medium;
         spacing: Theme.spaces.medium;
 
-        i-text := Text {  
+        i-text := Text {
             horizontal-stretch: 1;
             color: Theme.palette.white;
             font-size: Theme.typo.desciption.size;
@@ -36,7 +36,7 @@ component ListViewItem {
             vertical-alignment: center;
         }
 
-        i-icon := Image {  
+        i-icon := Image {
             horizontal-stretch: 0;
             visible: false;
             source: Images.check;
@@ -44,13 +44,13 @@ component ListViewItem {
         }
      }
 
-     i-state-layer := StateLayer {  
+     i-state-layer := StateLayer {
         width: i-container.width;
         height: i-container.height;
         border-radius: i-container.border-radius;
     }
 
-    states [  
+    states [
         selected when selected : {
             i-container.border-color: Theme.palette.limon-green;
             i-icon.visible: true;
@@ -60,13 +60,13 @@ component ListViewItem {
 
 export component ListView {
     callback selection-changed(int /* index */);
-    
+
     in property <[StandardListViewItem]> model;
     in-out property <int> selected-index;
 
     i-scroll-view := ScrollView {
        i-blub := VerticalLayout {
-            alignment: start;  
+            alignment: start;
             spacing: Theme.spaces.medium;
 
             for item[index] in model : ListViewItem {
@@ -77,7 +77,7 @@ export component ListView {
 
                 animate opacity { duration: Theme.durations.fast;  }
 
-                clicked => {  
+                clicked => {
                     select(index);
                 }
             }

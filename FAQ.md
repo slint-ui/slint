@@ -61,7 +61,7 @@ or [GNU GPLv3](LICENSES/GPL-3.0-only.txt)
 ### Can I license my code under an open-source license more permissive than GPL?
 
 Yes. While the binary or the package containing Slint needs to be licensed under GPL,
-the code you write can be under any license compatible with the GPL, such as BSD, MIT, or Apache license. 
+the code you write can be under any license compatible with the GPL, such as BSD, MIT, or Apache license.
 For more info, you can check the following GPL FAQs:
 
 - [https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL](https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL)

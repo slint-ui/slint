@@ -29,7 +29,7 @@ component ScrollBar inherits Rectangle {
 
         width: parent.width;
         height: parent.height;
-       
+
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
                 self.pressed-value = -root.value;
@@ -56,7 +56,7 @@ export component ScrollView {
     in property <bool> enabled: true;
     // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
     in-out property <bool> has-focus;
-    
+
     min-height: 50px;
     min-width: 50px;
     horizontal-stretch: 1;
@@ -95,7 +95,7 @@ export component ScrollView {
         page-size: i-flickable.width;
     }
 
-    Rectangle {  
+    Rectangle {
         visible: viewport-y < 0;
         x: 2px;
         y: 2px;
@@ -105,7 +105,7 @@ export component ScrollView {
         opacity: 0.1;
     }
 
-    Rectangle {  
+    Rectangle {
         visible: viewport-height > visible-height && viewport-y > visible-height - viewport-height;
         x: 2px;
         y: i-flickable.y + i-flickable.height - self.height;

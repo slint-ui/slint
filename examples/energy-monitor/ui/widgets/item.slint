@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { StateLayer } from "../components/state_layer.slint"; 
-import { ScrollView } from "scroll_view.slint"; 
-import { Theme } from "../theme.slint"; 
+import { StateLayer } from "../components/state_layer.slint";
+import { ScrollView } from "scroll_view.slint";
+import { Theme } from "../theme.slint";
 import { StateLayer } from "../components/state_layer.slint";
 
 export component Item {
     callback clicked <=> i-touch-area.clicked;
-    
+
     in property <string> text <=> i-text.text;
     in property <bool> has-separator;
 
@@ -21,14 +21,14 @@ export component Item {
 
     i-touch-area := TouchArea {}
 
-    HorizontalLayout { 
+    HorizontalLayout {
         padding-left: Theme.spaces.medium;
         padding-top: Theme.spaces.medium;
         padding-bottom: Theme.spaces.medium;
         padding-right: Theme.spaces.medium;
         spacing: Theme.spaces.medium;
 
-        i-text := Text {  
+        i-text := Text {
             horizontal-stretch: 1;
             color: Theme.palette.white;
             font-size: Theme.typo.desciption.size;
@@ -39,7 +39,7 @@ export component Item {
         @children
     }
 
-    if(has-separator) : Rectangle {  
+    if(has-separator) : Rectangle {
         width: parent.width - 2 * Theme.spaces.medium;
         height: 1px;
         x: Theme.spaces.medium;
@@ -51,8 +51,8 @@ export component Item {
 export component ItemGroupBox {
     in property <string> title <=> i-title.text;
 
-    VerticalLayout {  
-        HorizontalLayout {  
+    VerticalLayout {
+        HorizontalLayout {
             padding: Theme.spaces.medium;
 
             i-title := Text {
@@ -66,7 +66,7 @@ export component ItemGroupBox {
             background: Theme.palette.dark-deep-blue;
             border-radius: 4px;
 
-            VerticalLayout {  
+            VerticalLayout {
                 @children
             }
         }

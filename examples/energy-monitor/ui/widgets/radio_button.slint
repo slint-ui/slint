@@ -11,14 +11,14 @@ export component RadioButton {
     min-height: 18px;
     width: self.height;
 
-    i-container := Rectangle {  
+    i-container := Rectangle {
         border-color: Theme.palette.slint-blue-300;
         border-width: 2px;
         border-radius: self.height / 2;
 
-        i-indicator := Rectangle {  
+        i-indicator := Rectangle {
             height: parent.height - 4 * parent.border-width;
-            width: self.height; 
+            width: self.height;
             border-radius: self.height / 2;
 
             animate background { duration: Theme.durations.fast; }
@@ -29,7 +29,7 @@ export component RadioButton {
 
     i-touch-area := TouchArea {}
 
-    states [  
+    states [
         checked when checked : {
             i-container.border-color: Theme.palette.limon-green;
             i-indicator.background: Theme.palette.limon-green;

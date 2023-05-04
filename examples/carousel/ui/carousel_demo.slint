@@ -21,14 +21,14 @@ export component MainWindow inherits Window {
     forward-focus: carousel;
     default-font-family: Theme.font-family;
 
-    carousel := Carousel {  
+    carousel := Carousel {
         y: (root.height - self.height) / 2;
         height: 100%;
         itemWidth: Theme.size-medium;
         count: root.navigation-items.length;
         selected-index <=> root.selected-index;
         spacing: Theme.spacing-medium;
-       
+
         for item[index] in root.navigation-items : Card {
             is-selected: index == root.selected-index;
             title: item.title;
@@ -36,6 +36,6 @@ export component MainWindow inherits Window {
             y: (parent.height - self.height) / 2;
 
             clicked => { root.selected-index = index; }
-        }  
+        }
     }
 }

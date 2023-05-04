@@ -18,14 +18,14 @@ export component Carousel inherits FocusScope {
     forward-focus: focus-scope;
     height: Theme.size-big;
 
-    move-right => { 
+    move-right => {
         root.selected-index = min(root.selected-index + 1, root.count - 1);
     }
 
-    move-left => {  
+    move-left => {
         root.selected-index = max(root.selected-index - 1, 0);
     }
-    
+
     focus-scope:= FocusScope {
         key-pressed(event) => {
             if(event.text == Key.UpArrow) {
@@ -47,7 +47,7 @@ export component Carousel inherits FocusScope {
         }
     }
 
-    TouchArea { 
+    TouchArea {
         width: parent.width;
         height: parent.height;
 
@@ -57,20 +57,20 @@ export component Carousel inherits FocusScope {
      }
 
 
-    Rectangle {  
+    Rectangle {
         clip: true;
         background: transparent;
-       
+
         Flickable {
             interactive: false;
             animate viewport-x { duration: root.duation; easing: ease-in; }
             viewport-x: root.center-x - root.selected-index * (root.itemWidth + root.spacing);
-    
-            HorizontalLayout { 
+
+            HorizontalLayout {
                 spacing <=> root.spacing;
-        
+
                 @children
             }
         }
-    }  
+    }
 }
