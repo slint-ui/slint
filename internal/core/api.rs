@@ -10,7 +10,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 use alloc::boxed::Box;
 use alloc::string::String;
 
-use crate::component::ComponentVTable;
+use crate::component::{ComponentVTable, ComponentWeak};
 use crate::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use crate::window::{WindowAdapter, WindowInner};
 
@@ -539,6 +539,9 @@ pub trait ComponentHandle {
     fn as_weak(&self) -> Weak<Self>
     where
         Self: Sized;
+
+    /// Return a Weak handle to a `ComponentVTable`
+    fn as_weak_component(&self) -> ComponentWeak;
 
     /// Returns a clone of this handle that's a strong reference.
     #[must_use]

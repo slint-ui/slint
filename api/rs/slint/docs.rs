@@ -88,6 +88,11 @@ pub mod generated_code {
             unimplemented!()
         }
 
+        /// Returns a new weak pointer.
+        fn as_weak_component(&self) -> crate::private_unstable_api::re_exports::ComponentWeak {
+            unimplemented!()
+        }
+
         /// Returns a clone of this handle that's a strong reference.
         fn clone_strong(&self) -> Self {
             unimplemented!();
