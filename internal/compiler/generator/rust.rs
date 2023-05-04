@@ -374,6 +374,10 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
                 slint::Weak::new(&self.0)
             }
 
+            fn as_weak_component(&self) -> vtable::VWeak<slint::private_unstable_api::re_exports::ComponentVTable, Dyn> {
+                vtable::VRc::downgrade(&self.0).into_dyn()
+            }
+
             fn clone_strong(&self) -> Self {
                 Self(self.0.clone())
             }

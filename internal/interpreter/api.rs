@@ -3,6 +3,7 @@
 
 use core::convert::TryFrom;
 use i_slint_compiler::langtype::Type as LangType;
+use i_slint_core::component::ComponentWeak;
 use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::window::WindowInner;
@@ -353,6 +354,7 @@ impl From<i_slint_core::lengths::LogicalLength> for Value {
         Value::Number(l.get() as _)
     }
 }
+
 impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
     type Error = Value;
     #[inline]
@@ -1037,6 +1039,10 @@ impl ComponentInstance {
 
 impl ComponentHandle for ComponentInstance {
     type Inner = crate::dynamic_component::ErasedComponentBox;
+
+    fn as_weak_component(&self) -> ComponentWeak {
+        vtable::VRc::downgrade(&self.inner).into_dyn()
+    }
 
     fn as_weak(&self) -> Weak<Self>
     where
