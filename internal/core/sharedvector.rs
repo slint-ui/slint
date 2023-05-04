@@ -223,7 +223,7 @@ impl<T: Clone> SharedVector<T> {
         }
         self.detach(new_len);
         // Safety: detach ensured that the array is not shared.
-        let mut inner = unsafe { self.inner.as_mut() };
+        let inner = unsafe { self.inner.as_mut() };
 
         if inner.header.size >= new_len {
             self.shrink(new_len);
@@ -247,7 +247,7 @@ impl<T: Clone> SharedVector<T> {
             unsafe { self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) } == 1
         );
         // Safety: caller (and above debug_assert) must ensure that the array is not shared.
-        let mut inner = unsafe { self.inner.as_mut() };
+        let inner = unsafe { self.inner.as_mut() };
 
         while inner.header.size > new_len {
             inner.header.size -= 1;

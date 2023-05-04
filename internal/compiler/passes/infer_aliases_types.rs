@@ -116,7 +116,7 @@ fn resolve_alias(
             let nr = nr.unwrap();
             let purity = nr.element().borrow().lookup_property(nr.name()).declared_pure;
             let mut elem = elem.borrow_mut();
-            let mut decl = elem.property_declarations.get_mut(prop).unwrap();
+            let decl = elem.property_declarations.get_mut(prop).unwrap();
             if decl.pure.unwrap_or(false) != purity.unwrap_or(false) {
                 diag.push_error(
                     format!("Purity of callbacks '{prop}' and '{nr:?}' doesn't match"),
