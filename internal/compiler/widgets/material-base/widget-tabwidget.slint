@@ -4,7 +4,7 @@
 
 import { md } from "md.slint";
 
-export component TabWidgetImpl {
+export component TabWidgetImpl inherits Rectangle {
     out property <length> content-x: 0;
     out property <length> content-y: root.tabbar-preferred-height;
     out property <length> content-height: root.height - root.tabbar-preferred-height;
