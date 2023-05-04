@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 ### General
 
  - Fixed missing items compilation error in the generated code related to public functions (#2655).
+ - Added support for Window transparency on supported platform
 
 ### Slint Language
 
@@ -14,6 +15,14 @@ All notable changes to this project are documented in this file.
 ### Rust
 
  - Added `slint::Image::load_from_svg_data(buffer: &[u8])` to load SVGs from memory.
+
+### LSP
+
+ - Fix auto-completion of local properties or arguments in callbacks or functions
+
+### VSCode extension
+
+ - Make a visible error message when the `slint-lsp` panics
 
 ## [1.0.2] - 2023-04-26
 
