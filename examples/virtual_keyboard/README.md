@@ -18,9 +18,9 @@ It has three different building blocks:
 ## Example
 
 ```slint
-import { VirtualKeyboard } from "virtual_keyboard.slint"
+import { VirtualKeyboard } from "ui/virtual_keyboard.slint";
 
-export MainWindow inherits Window {
+export component MainWindow inherits Window {
     HorizontalLayout {
         TextInput {}
     }

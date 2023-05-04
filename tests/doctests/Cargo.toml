@@ -13,11 +13,9 @@ license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 path = "main.rs"
 name = "doctests"
 
-[dev-dependencies]
-i-slint-compiler = { path = "../../internal/compiler" }
-slint-interpreter = { path = "../../internal/interpreter", features = ["display-diagnostics"] }
-slint = { path = "../../api/rs/slint" }
+[build-dependencies]
+walkdir = "2"
 
-lazy_static = "1.4.0"
+[dev-dependencies]
+slint-interpreter = { path = "../../internal/interpreter", features = ["display-diagnostics"] }
 spin_on = "0.1"
-rand = "0.8"
