@@ -775,6 +775,7 @@ pub(crate) fn generate_component<'id>(
                 rtti_for::<Empty>(),
                 rtti_for::<ImageItem>(),
                 rtti_for::<ClippedImage>(),
+                rtti_for::<Embed>(),
                 rtti_for::<Text>(),
                 rtti_for::<Rectangle>(),
                 rtti_for::<BorderRectangle>(),
@@ -1004,7 +1005,6 @@ pub(crate) fn generate_component<'id>(
             }
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             Type::Function { .. } => continue,
-
             // These can't be used in properties
             Type::Invalid
             | Type::Void
@@ -1014,6 +1014,7 @@ pub(crate) fn generate_component<'id>(
             | Type::PathData
             | Type::UnitProduct(_)
             | Type::ElementReference => panic!("bad type {:?}", &decl.property_type),
+            Type::Component => property_info::<Option<ComponentWeak>>(),
         };
         custom_properties.insert(
             name.clone(),

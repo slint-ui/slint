@@ -57,6 +57,10 @@ export component ClippedImage inherits ImageItem {
     //-default_size_binding:implicit_size
 }
 
+export component Embed inherits Empty {
+    in property <component> component;
+}
+
 export { ClippedImage as Image }
 
 export component Rotate inherits Empty {

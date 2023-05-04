@@ -1024,6 +1024,7 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
             matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
         }
         Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
+        Type::Component => matches!(value, Value::Component(_)),
     }
 }
 
@@ -1316,6 +1317,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::UnitProduct(_) => Value::Number(0.),
         Type::PathData => Value::PathData(Default::default()),
         Type::LayoutCache => Value::LayoutCache(Default::default()),
+        Type::Component => Value::Component(Default::default()),
         Type::InferredProperty
         | Type::InferredCallback
         | Type::ElementReference

@@ -48,6 +48,8 @@ mod text;
 pub use text::*;
 mod image;
 pub use self::image::*;
+mod embed;
+pub use self::embed::*;
 #[cfg(feature = "std")]
 mod path;
 #[cfg(feature = "std")]
@@ -1401,6 +1403,10 @@ declare_item_vtable! {
 
 declare_item_vtable! {
     fn slint_get_ClippedImageVTable() -> ClippedImageVTable for ClippedImage
+}
+
+declare_item_vtable! {
+    fn slint_get_EmbedVTable() -> EmbedVTable for Embed
 }
 
 #[cfg(feature = "std")]

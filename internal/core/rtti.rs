@@ -41,6 +41,7 @@ macro_rules! declare_ValueType_2 {
             crate::graphics::Point,
             crate::items::PointerEvent,
             crate::lengths::LogicalLength,
+            Option<crate::component::ComponentWeak>,
             $(crate::items::$Name,)*
         ];
     };

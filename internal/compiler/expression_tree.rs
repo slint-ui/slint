@@ -1156,6 +1156,7 @@ impl Expression {
             Type::Invalid
             | Type::Callback { .. }
             | Type::Function { .. }
+            | Type::Component
             | Type::Void
             | Type::InferredProperty
             | Type::InferredCallback

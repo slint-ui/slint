@@ -34,6 +34,8 @@ pub enum Type {
         args: Vec<Type>,
     },
 
+    Component,
+
     // Other property types:
     Float32,
     Int32,
@@ -87,6 +89,7 @@ impl core::cmp::PartialEq for Type {
             Type::Function { return_type: lhs_rt, args: lhs_args } => {
                 matches!(other, Type::Function { return_type: rhs_rt, args: rhs_args } if lhs_rt == rhs_rt && lhs_args == rhs_args)
             }
+            Type::Component => matches!(other, Type::Component),
             Type::Float32 => matches!(other, Type::Float32),
             Type::Int32 => matches!(other, Type::Int32),
             Type::String => matches!(other, Type::String),
@@ -149,6 +152,7 @@ impl Display for Type {
                 }
                 write!(f, ") -> {}", return_type)
             }
+            Type::Component => write!(f, "component"),
             Type::Float32 => write!(f, "float"),
             Type::Int32 => write!(f, "int"),
             Type::String => write!(f, "string"),
@@ -207,6 +211,7 @@ impl Type {
                 | Self::Int32
                 | Self::String
                 | Self::Color
+                | Self::Component
                 | Self::Duration
                 | Self::Angle
                 | Self::PhysicalLength
@@ -309,6 +314,7 @@ impl Type {
             Type::InferredProperty | Type::InferredCallback => None,
             Type::Callback { .. } => None,
             Type::Function { .. } => None,
+            Type::Component => None,
             Type::Float32 => None,
             Type::Int32 => None,
             Type::String => None,

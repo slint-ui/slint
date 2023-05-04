@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export component TestCase inherits Rectangle {
+    embed1 := Embed { }
+
+    embed2 := Embed { }
+
+    in property<component> e1 <=> embed1.component;
+    in property<component> e2 <=> embed2.component;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+```
+
+```rust
+let _instance = TestCase::new().unwrap();
+```
+
+```js
+var _instance = new slint.TestCase();
+```
+*/

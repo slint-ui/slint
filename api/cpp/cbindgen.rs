@@ -120,6 +120,7 @@ fn gen_corelib(
         "BorderRectangle",
         "ImageItem",
         "ClippedImage",
+        "Embed",
         "TouchArea",
         "FocusScope",
         "Flickable",
