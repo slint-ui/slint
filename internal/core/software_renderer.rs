@@ -11,7 +11,7 @@ mod fonts;
 use crate::api::Window;
 use crate::graphics::{IntRect, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::ItemRenderer;
-use crate::items::{ImageFit, Item, ItemRc, TextOverflow};
+use crate::items::{ImageFit, ItemRc, TextOverflow};
 use crate::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, PointLengths,
     RectLengths, ScaleFactor, SizeLengths,
@@ -1248,8 +1248,13 @@ struct RenderState {
 }
 
 impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'a, T> {
-    fn draw_rectangle(&mut self, rect: Pin<&crate::items::Rectangle>, _: &ItemRc) {
-        let geom = LogicalRect::new(LogicalPoint::default(), rect.geometry().size_length());
+    fn draw_rectangle(
+        &mut self,
+        rect: Pin<&crate::items::Rectangle>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let clipped = match geom.intersection(&self.current_state.clip) {
                 Some(geom) => geom,
@@ -1369,8 +1374,13 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_border_rectangle(&mut self, rect: Pin<&crate::items::BorderRectangle>, _: &ItemRc) {
-        let geom = LogicalRect::new(LogicalPoint::default(), rect.geometry().size_length());
+    fn draw_border_rectangle(
+        &mut self,
+        rect: Pin<&crate::items::BorderRectangle>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let mut border = rect.border_width();
             let radius = rect.border_radius();
@@ -1480,9 +1490,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_image(&mut self, image: Pin<&crate::items::ImageItem>, _: &ItemRc) {
-        let geom =
-            LogicalRect::new(LogicalPoint::default(), image.as_ref().geometry().size_length());
+    fn draw_image(&mut self, image: Pin<&crate::items::ImageItem>, _: &ItemRc, size: LogicalSize) {
+        let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let source = image.source();
             self.draw_image_impl(
@@ -1495,8 +1504,13 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_clipped_image(&mut self, image: Pin<&crate::items::ClippedImage>, _: &ItemRc) {
-        let geom = LogicalRect::new(LogicalPoint::default(), image.geometry().size_length());
+    fn draw_clipped_image(
+        &mut self,
+        image: Pin<&crate::items::ClippedImage>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let source = image.source();
 
@@ -1523,12 +1537,12 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_text(&mut self, text: Pin<&crate::items::Text>, _: &ItemRc) {
+    fn draw_text(&mut self, text: Pin<&crate::items::Text>, _: &ItemRc, size: LogicalSize) {
         let string = text.text();
         if string.trim().is_empty() {
             return;
         }
-        let geom = LogicalRect::new(LogicalPoint::default(), text.geometry().size_length());
+        let geom = LogicalRect::from(size);
         if !self.should_draw(&geom) {
             return;
         }
@@ -1590,9 +1604,14 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_text_input(&mut self, text_input: Pin<&crate::items::TextInput>, _: &ItemRc) {
+    fn draw_text_input(
+        &mut self,
+        text_input: Pin<&crate::items::TextInput>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
         let string = text_input.text();
-        let geom = LogicalRect::new(LogicalPoint::default(), text_input.geometry().size_length());
+        let geom = LogicalRect::from(size);
         if !self.should_draw(&geom) {
             return;
         }
@@ -1651,13 +1670,16 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     }
 
     #[cfg(feature = "std")]
-    fn draw_path(&mut self, path: Pin<&crate::items::Path>, _: &ItemRc) {
-        path.geometry();
+    fn draw_path(&mut self, _path: Pin<&crate::items::Path>, _: &ItemRc, _size: LogicalSize) {
         // TODO
     }
 
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&crate::items::BoxShadow>, _: &ItemRc) {
-        box_shadow.geometry();
+    fn draw_box_shadow(
+        &mut self,
+        _box_shadow: Pin<&crate::items::BoxShadow>,
+        _: &ItemRc,
+        _size: LogicalSize,
+    ) {
         // TODO
     }
 

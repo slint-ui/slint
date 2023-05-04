@@ -14,7 +14,6 @@ use i_slint_core::api::{
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::item_rendering::ItemCache;
-use i_slint_core::items::Item;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
@@ -170,9 +169,12 @@ impl<
                 match window_background_brush {
                     Some(Brush::SolidColor(..)) | None => {}
                     Some(brush @ _) => {
-                        if let Some(window_item) = window_inner.window_item() {
-                            item_renderer.draw_rect(window_item.as_pin_ref().geometry(), brush);
-                        }
+                        item_renderer.draw_rect(
+                            i_slint_core::lengths::logical_size_from_api(
+                                size.to_logical(window_inner.scale_factor()),
+                            ),
+                            brush,
+                        );
                     }
                 }
 

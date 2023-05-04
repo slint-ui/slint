@@ -55,7 +55,7 @@ macro_rules! get_size {
 
 macro_rules! fn_render {
     ($this:ident $dpr:ident $size:ident $painter:ident $widget:ident $initial_state:ident => $($tt:tt)*) => {
-        fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, item_rc: &ItemRc) -> RenderingResult {
+        fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, item_rc: &ItemRc, size: LogicalSize) -> RenderingResult {
             let $dpr: f32 = backend.scale_factor();
 
             let active: bool = backend.window().active();
@@ -69,7 +69,12 @@ macro_rules! fn_render {
             });
 
             if let Some(painter) = backend.as_any().and_then(|any| <dyn std::any::Any>::downcast_mut::<QPainterPtr>(any)) {
-                let $size: qttypes::QSize = get_size!(self);
+                let width = size.width * $dpr;
+                let height = size.height * $dpr;
+                if width < 1. || height < 1. {
+                    return Default::default();
+                };
+                let $size = qttypes::QSize { width: width as _, height: height as _ };
                 let $this = self;
                 painter.save();
                 let $widget = cpp!(unsafe [painter as "QPainterPtr*"] -> * const () as "QWidget*" {

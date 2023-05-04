@@ -140,10 +140,10 @@ impl Item for Flickable {
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
-        let geometry = self.geometry();
         (*backend).combine_clip(
-            LogicalRect::new(LogicalPoint::default(), geometry.size),
+            LogicalRect::new(LogicalPoint::default(), size),
             LogicalLength::zero(),
             LogicalLength::zero(),
         );

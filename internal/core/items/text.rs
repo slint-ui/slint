@@ -163,8 +163,9 @@ impl Item for Text {
         self: Pin<&Self>,
         backend: &mut &mut dyn ItemRenderer,
         self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).draw_text(self, self_rc);
+        (*backend).draw_text(self, self_rc, size);
         RenderingResult::ContinueRenderingChildren
     }
 }
@@ -577,8 +578,9 @@ impl Item for TextInput {
         self: Pin<&Self>,
         backend: &mut &mut dyn ItemRenderer,
         self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).draw_text_input(self, self_rc);
+        (*backend).draw_text_input(self, self_rc, size);
         RenderingResult::ContinueRenderingChildren
     }
 }
