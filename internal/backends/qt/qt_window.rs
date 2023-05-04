@@ -14,7 +14,7 @@ use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Image, Point, Sh
 use i_slint_core::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
-    self, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
+    self, FillRule, ImageRendering, Item, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
     PointerEventButton, RenderingResult, TextOverflow, TextWrap, WindowItem,
 };
 use i_slint_core::layout::Orientation;
@@ -497,15 +497,13 @@ fn from_qt_button(qt_button: u32) -> PointerEventButton {
 
 /// Given a position offset and an object of a given type that has x,y,width,height properties,
 /// create a QRectF that fits it.
-macro_rules! get_geometry {
-    ($ty:ty, $obj:expr) => {{
-        type Ty = $ty;
-        let width = Ty::FIELD_OFFSETS.width.apply_pin($obj).get();
-        let height = Ty::FIELD_OFFSETS.height.apply_pin($obj).get();
-        if width <= LogicalLength::zero() || height <= LogicalLength::zero() {
+macro_rules! check_geometry {
+    ($size:expr) => {{
+        let size = $size;
+        if size.width <= 0. || size.height <= 0. {
             return Default::default();
         };
-        qttypes::QRectF { x: 0., y: 0., width: width.get() as _, height: height.get() as _ }
+        qttypes::QRectF { x: 0., y: 0., width: size.width as _, height: size.height as _ }
     }};
 }
 
@@ -527,8 +525,8 @@ struct QtItemRenderer<'a> {
 }
 
 impl ItemRenderer for QtItemRenderer<'_> {
-    fn draw_rectangle(&mut self, rect_: Pin<&items::Rectangle>, _: &ItemRc) {
-        let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect_);
+    fn draw_rectangle(&mut self, rect_: Pin<&items::Rectangle>, _: &ItemRc, size: LogicalSize) {
+        let rect: qttypes::QRectF = check_geometry!(size);
         let brush: qttypes::QBrush = into_qbrush(rect_.background(), rect.width, rect.height);
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [painter as "QPainterPtr*", brush as "QBrush", rect as "QRectF"] {
@@ -536,10 +534,15 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_border_rectangle(&mut self, rect: std::pin::Pin<&items::BorderRectangle>, _: &ItemRc) {
+    fn draw_border_rectangle(
+        &mut self,
+        rect: std::pin::Pin<&items::BorderRectangle>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
         Self::draw_rectangle_impl(
             &mut self.painter,
-            get_geometry!(items::BorderRectangle, rect),
+            check_geometry!(size),
             rect.background(),
             rect.border_color(),
             rect.border_width().get(),
@@ -547,8 +550,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_image(&mut self, image: Pin<&items::ImageItem>, item_rc: &ItemRc) {
-        let dest_rect: qttypes::QRectF = get_geometry!(items::ImageItem, image);
+    fn draw_image(&mut self, image: Pin<&items::ImageItem>, item_rc: &ItemRc, size: LogicalSize) {
+        let dest_rect: qttypes::QRectF = check_geometry!(size);
         self.draw_image_impl(
             item_rc,
             items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
@@ -562,8 +565,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_clipped_image(&mut self, image: Pin<&items::ClippedImage>, item_rc: &ItemRc) {
-        let dest_rect: qttypes::QRectF = get_geometry!(items::ClippedImage, image);
+    fn draw_clipped_image(
+        &mut self,
+        image: Pin<&items::ClippedImage>,
+        item_rc: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let dest_rect: qttypes::QRectF = check_geometry!(size);
         let source_rect = qttypes::QRectF {
             x: image.source_clip_x() as _,
             y: image.source_clip_y() as _,
@@ -583,8 +591,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_text(&mut self, text: std::pin::Pin<&items::Text>, _: &ItemRc) {
-        let rect: qttypes::QRectF = get_geometry!(items::Text, text);
+    fn draw_text(&mut self, text: std::pin::Pin<&items::Text>, _: &ItemRc, size: LogicalSize) {
+        let rect: qttypes::QRectF = check_geometry!(size);
         let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
         let mut string: qttypes::QString = text.text().as_str().into();
         let font: QFont = get_font(text.font_request(WindowInner::from_pub(self.window)));
@@ -661,8 +669,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_text_input(&mut self, text_input: std::pin::Pin<&items::TextInput>, _: &ItemRc) {
-        let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
+    fn draw_text_input(
+        &mut self,
+        text_input: std::pin::Pin<&items::TextInput>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let rect: qttypes::QRectF = check_geometry!(size);
         let fill_brush: qttypes::QBrush = into_qbrush(text_input.color(), rect.width, rect.height);
 
         let font: QFont =
@@ -782,12 +795,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc) {
+    fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc, size: LogicalSize) {
         let (offset, path_events) = match path.fitted_path_events() {
             Some(offset_and_events) => offset_and_events,
             None => return,
         };
-        let rect: qttypes::QRectF = get_geometry!(items::Path, path);
+        let rect: qttypes::QRectF = check_geometry!(size);
         let fill_brush: qttypes::QBrush = into_qbrush(path.fill(), rect.width, rect.height);
         let stroke_brush: qttypes::QBrush = into_qbrush(path.stroke(), rect.width, rect.height);
         let stroke_width: f32 = path.stroke_width().get();
@@ -843,9 +856,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>, item_rc: &ItemRc) {
+    fn draw_box_shadow(
+        &mut self,
+        box_shadow: Pin<&items::BoxShadow>,
+        item_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
         let pixmap : qttypes::QPixmap = self.cache.get_or_update_cache_entry( item_rc, || {
-                let shadow_rect = get_geometry!(items::BoxShadow, box_shadow);
+                let shadow_rect = check_geometry!(box_shadow.geometry().size);
 
                 let source_size = qttypes::QSize {
                     width: shadow_rect.width.ceil() as _,
@@ -930,7 +948,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, item_rc: &ItemRc) -> RenderingResult {
+    fn visit_opacity(
+        &mut self,
+        opacity_item: Pin<&Opacity>,
+        item_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
         let opacity = opacity_item.opacity();
         if Opacity::need_layer(item_rc, opacity) {
             self.render_and_blend_layer(opacity, item_rc)
@@ -941,7 +964,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }
     }
 
-    fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
+    fn visit_layer(
+        &mut self,
+        layer_item: Pin<&Layer>,
+        self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
         if layer_item.cache_rendering_hint() {
             self.render_and_blend_layer(1.0, self_rc)
         } else {
@@ -1813,7 +1841,7 @@ impl Renderer for QtWindow {
         if pos.y < 0. {
             return 0;
         }
-        let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
+        let rect: qttypes::QRectF = check_geometry!(text_input.geometry().size);
         let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
         let font: QFont = get_font(
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
@@ -1872,7 +1900,7 @@ impl Renderer for QtWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
     ) -> LogicalRect {
-        let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
+        let rect: qttypes::QRectF = check_geometry!(text_input.geometry().size);
         let font: QFont = get_font(
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
         );
