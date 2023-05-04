@@ -42,13 +42,13 @@ endif()
 
 Suppose `my_application_ui.slint` was a "Hello World" like this:
 
-```slint,ignore
+```slint,no-preview
 export component HelloWorld inherits Window {
     width: 400px;
     height: 400px;
 
     // Declare an alias that exposes the label's text property to C++
-    property my_label <=> label.text;
+    in property my_label <=> label.text;
 
     label := Text {
        y: parent.width / 2;

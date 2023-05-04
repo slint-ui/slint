@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+#![allow(uncommon_codepoints)]
+
 #[cfg(test)]
-fn do_test(snippet: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut compiler = slint_interpreter::ComponentCompiler::default();
-    let component =
-        spin_on::spin_on(compiler.build_from_source(snippet.into(), Default::default()));
+    let component = spin_on::spin_on(compiler.build_from_source(snippet.into(), path.into()));
 
     slint_interpreter::print_diagnostics(&compiler.diagnostics());
 
