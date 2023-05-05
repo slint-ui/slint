@@ -50,11 +50,17 @@ impl ModelTracker for () {
     fn track_row_data_changes(&self, _row: usize) {}
 }
 
-/// A Model is providing Data for the Repeater or ListView elements of the `.slint` language
+/// A Model is providing Data for the repeated elements with `for` in the `.slint` language
 ///
 /// If the model can be changed, the type implementing the Model trait should holds
 /// a [`ModelNotify`], and is responsible to call functions on it to let the UI know that
 /// something has changed.
+///
+/// Properties of type array will be mapped to a [`ModelRc<T>`] which wraps a `Rc<Model<Data = T>>`
+/// The [`ModelRc`] documentation has examples on how to set models to array properties
+///
+/// It is more efficient to operate on the model and send change through the `ModelNotify` rather than
+/// resetting the property with a different model.
 ///
 /// ## Example
 ///
@@ -170,7 +176,7 @@ pub trait Model {
     /// Note: the default implementation returns nothing interesting. this method should be
     /// implemented by model implementation to return something useful. For example:
     /// ```ignore
-    /// fn as_any(&self) -> &dyn core::any::Any { self }
+    ///     fn as_any(&self) -> &dyn core::any::Any { self }
     /// ```
     fn as_any(&self) -> &dyn core::any::Any {
         &()
@@ -296,7 +302,7 @@ impl<M: Model> Model for Rc<M> {
     }
 }
 
-/// A model backed by a `Vec<T>`
+/// A [`Model`] backed by a `Vec<T>`
 #[derive(Default)]
 pub struct VecModel<T> {
     array: RefCell<Vec<T>>,
@@ -502,12 +508,58 @@ impl Model for bool {
 /// The `ModelRc` struct holds something that implements the [`Model`] trait.
 /// This is used in `for` expressions in the .slint language.
 /// Array properties in the .slint language are holding a ModelRc.
+/// For example, a `property <[string]> foo` will be of type `ModelRc<SharedString>`
+/// and behind the scene, wraps a `Rc<dyn Model<Data = SharedString>>`
 ///
 /// An empty model can be constructed with [`ModelRc::default()`].
 /// Use [`ModelRc::new()`] To construct a ModelRc from something that implements the
 /// [`Model`] trait.
 /// It is also possible to use the [`From`] trait to convert from `Rc<dyn Model>`.
-
+///
+/// ## Example
+///
+/// ```rust
+/// # i_slint_backend_testing::init();
+/// use slint::{slint, SharedString, ModelRc, Model, VecModel};
+/// use std::rc::Rc;
+/// slint!{
+///     import { Button } from "std-widgets.slint";
+///     export component Example {
+///         callback add_item <=> btn.clicked;
+///         in property <[string]> the_model;
+///         HorizontalLayout {
+///             for it in the_model : Text { text: it; }
+///             btn := Button { text: "Add"; }
+///         }
+///     }
+/// }
+/// let ui = Example::new().unwrap();
+/// // create a VecModel and put it in a Rc
+/// let the_model : Rc<VecModel<SharedString>> =
+///         Rc::new(VecModel::from(vec!["Hello".into(), "World".into()]));
+/// // we can convert it to a ModelRc
+/// let the_model_rc = ModelRc::from(the_model.clone());
+/// // it can be set on our ui, the generated set_the_model setter from the
+/// // the_model property takes a ModelRc
+/// ui.set_the_model(the_model_rc);
+///
+/// // we have kept a strong reference to the_model, we can modify it in a callback
+/// ui.on_add_item(move || {
+///     // Uses VecModel API, VecModel uses the Model notification mechanism to let Slint
+///     // know it needs to refresh the UI
+///     the_model.push("SomeValue".into());
+/// });
+///
+/// // Alternative: we can re-use a getter
+/// let ui_weak = ui.as_weak();
+/// ui.on_add_item(move || {
+///     let ui = ui_weak.unwrap();
+///     let the_model_rc = ui.get_the_model();
+///     let the_model = the_model_rc.as_any().downcast_ref::<VecModel<SharedString>>()
+///         .expect("We know we set a VecModel earlier");
+///     the_model.push("An Item".into());
+/// });
+/// ```
 pub struct ModelRc<T>(Option<Rc<dyn Model<Data = T>>>);
 
 impl<T> core::fmt::Debug for ModelRc<T> {
