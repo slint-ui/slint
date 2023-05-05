@@ -500,7 +500,7 @@ fn from_qt_button(qt_button: u32) -> PointerEventButton {
 macro_rules! check_geometry {
     ($size:expr) => {{
         let size = $size;
-        if size.width <= 0. || size.height <= 0. {
+        if size.width < 1. || size.height < 1. {
             return Default::default();
         };
         qttypes::QRectF { x: 0., y: 0., width: size.width as _, height: size.height as _ }
