@@ -687,6 +687,7 @@ pub struct BuiltinElement {
     pub default_size_binding: DefaultSizeBinding,
     /// When true this is an internal type not shown in the auto-completion
     pub is_internal: bool,
+    pub is_embedding: bool,
 }
 
 impl BuiltinElement {

@@ -59,6 +59,9 @@ export component ClippedImage inherits ImageItem {
 
 export component Embed inherits Empty {
     in property <component> component;
+    //-default_size_binding:expands_to_parent_geometry
+    //-disallow_global_types_as_child_elements
+    //-is_embedding
 }
 
 export { ClippedImage as Image }

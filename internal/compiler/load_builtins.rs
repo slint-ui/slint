@@ -180,6 +180,7 @@ pub fn load_builtins(register: &mut TypeRegister) {
             parse_annotation("disallow_global_types_as_child_elements", &e).is_some();
         builtin.is_non_item_type = parse_annotation("is_non_item_type", &e).is_some();
         builtin.is_internal = parse_annotation("is_internal", &e).is_some();
+        builtin.is_embedding = parse_annotation("is_embedding", &e).is_some();
         builtin.accepts_focus = parse_annotation("accepts_focus", &e).is_some();
         builtin.default_size_binding = parse_annotation("default_size_binding", &e)
             .map(|size_type| match size_type.as_deref() {
