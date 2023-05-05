@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use super::lower_to_item_tree::EmbeddedIndex;
 use super::{EvaluationContext, Expression, ParentCtx};
 use crate::langtype::{NativeClass, Type};
 use std::cell::{Cell, RefCell};
@@ -142,6 +143,12 @@ pub struct RepeatedElement {
     pub listview: Option<ListViewInfo>,
 }
 
+#[derive(Debug)]
+pub struct EmbeddedElement {
+    /// The index of the item node in the parent tree
+    pub embedded_index: EmbeddedIndex,
+}
+
 pub struct Item {
     pub ty: Rc<NativeClass>,
     pub name: String,
@@ -224,6 +231,7 @@ pub struct SubComponent {
     pub functions: Vec<Function>,
     pub items: Vec<Item>,
     pub repeated: Vec<RepeatedElement>,
+    pub embedded: Vec<EmbeddedElement>,
     pub popup_windows: Vec<ItemTree>,
     pub sub_components: Vec<SubComponentInstance>,
     /// The initial value or binding for properties.

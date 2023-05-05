@@ -555,6 +555,8 @@ pub struct Element {
     /// true if this Element may have a popup as child meaning it cannot be optimized
     /// because the popup references it.
     pub has_popup_child: bool,
+    /// true if this Element embeds another component
+    pub is_embedding: bool,
 
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.
@@ -741,6 +743,7 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        let mut is_embedding = false;
         let base_type = if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_string();
@@ -751,6 +754,10 @@ impl Element {
                         &base_node,
                     );
                     ElementType::Error
+                }
+                Ok(ElementType::Builtin(b)) => {
+                    is_embedding = b.is_embedding;
+                    ElementType::Builtin(b)
                 }
                 Ok(ty) => ty,
                 Err(err) => {
@@ -796,6 +803,7 @@ impl Element {
             base_type,
             node: Some(node.clone()),
             is_legacy_syntax,
+            is_embedding,
             ..Default::default()
         };
 

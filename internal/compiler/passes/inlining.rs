@@ -252,6 +252,7 @@ fn duplicate_element_with_mapping(
         item_index_of_first_children: Default::default(),
         is_flickable_viewport: elem.is_flickable_viewport,
         has_popup_child: elem.has_popup_child,
+        is_embedding: elem.is_embedding,
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
     }));

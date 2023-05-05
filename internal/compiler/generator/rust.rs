@@ -73,9 +73,9 @@ fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Float32 => Some(quote!(f32)),
         Type::String => Some(quote!(slint::private_unstable_api::re_exports::SharedString)),
         Type::Color => Some(quote!(slint::private_unstable_api::re_exports::Color)),
-        Type::Component => Some(quote!(
-            Option<vtable::VWeak<slint::private_unstable_api::re_exports::ComponentVTable, Dyn>>
-        )),
+        Type::Component => {
+            Some(quote!(Option<slint::private_unstable_api::re_exports::ComponentWeak>))
+        }
         Type::Duration => Some(quote!(i64)),
         Type::Angle => Some(quote!(f32)),
         Type::PhysicalLength => Some(quote!(slint::private_unstable_api::re_exports::Coord)),
@@ -810,6 +810,40 @@ fn generate_sub_component(
         ));
         repeated_element_names.push(repeater_id);
         repeated_element_components.push(rep_inner_component_id);
+    }
+
+    for embedded in component.embedded.iter() {
+        let item_index = embedded.embedded_index.as_item_tree_index();
+        let repeater_index = embedded.embedded_index.as_repeater_index();
+
+        let component = access_member(
+            &llr::PropertyReference::InNativeItem {
+                sub_component_path: vec![],
+                item_index,
+                prop_name: "component".to_string(),
+            },
+            &ctx,
+        );
+
+        repeated_visit_branch.push(quote!(
+            #repeater_index => {
+                eprintln!("Visiting Embedded subtree");
+                let Some(component) = #component.get() else { return slint::private_unstable_api::re_exports::VisitChildrenResult::CONTINUE; };
+                vtable::VRc::borrow_pin(&component.upgrade().unwrap()).as_ref().visit_children_item(-1, order, visitor)
+            }
+        ));
+        repeated_subtree_ranges.push(quote!(
+            #repeater_index => {
+                eprintln!("Getting Embedded subtree_range");
+                if #component.get().is_some() { (0..1).into() } else { (0..0).into() }
+            }
+        ));
+        repeated_subtree_components.push(quote!(
+            #repeater_index => {
+                eprintln!("Getting Embedded subtree_component");
+                *result = #component.get().clone().unwrap()
+            }
+        ));
     }
 
     let mut accessible_role_branch = vec![];

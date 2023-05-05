@@ -26,6 +26,7 @@ pub mod generate_item_indices;
 pub mod infer_aliases_types;
 mod inlining;
 mod lower_accessibility;
+mod lower_embed;
 mod lower_layout;
 mod lower_popups;
 mod lower_property_to_element;
@@ -115,6 +116,7 @@ pub async fn run_passes(
         flickable::handle_flickable(component, &global_type_registry.borrow());
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
+        lower_embed::lower_embed(component, &doc.local_registry, diag);
         lower_layout::lower_layouts(component, type_loader, diag).await;
         default_geometry::default_geometry(component, diag);
         z_order::reorder_by_z_order(component, diag);

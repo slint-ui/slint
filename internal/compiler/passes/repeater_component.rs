@@ -45,6 +45,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 accessibility_props: std::mem::take(&mut elem.accessibility_props),
                 is_flickable_viewport: elem.is_flickable_viewport,
                 has_popup_child: elem.has_popup_child,
+                is_embedding: elem.is_embedding,
                 item_index: Default::default(), // Not determined yet
                 item_index_of_first_children: Default::default(),
                 is_legacy_syntax: elem.is_legacy_syntax,

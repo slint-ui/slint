@@ -43,6 +43,7 @@ pub fn ensure_window(
         transitions: Default::default(),
         child_of_layout: false,
         has_popup_child: false,
+        is_embedding: false,
         layout_info_prop: Default::default(),
         default_fill_parent: Default::default(),
         accessibility_props: Default::default(),
