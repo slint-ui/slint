@@ -537,6 +537,78 @@ impl Expression {
                 ctx.diag,
             )
         });
+        let values = subs.collect::<Vec<_>>();
+
+        // check format string
+        {
+            let mut arg_idx = 0;
+            let mut pos_max = 0;
+            let mut pos = 0;
+            while let Some(mut p) = string[pos..].find(|x| x == '{' || x == '}') {
+                if string.len() - pos < p + 1 {
+                    ctx.diag.push_error(
+                        "Unescaped trailing '{' in format string. Escape '{' with '{{'".into(),
+                        &node,
+                    );
+                    break;
+                }
+                p += pos;
+
+                // Skip escaped }
+                if string.get(p..=p) == Some("}") {
+                    if string.get(p + 1..=p + 1) == Some("}") {
+                        pos = p + 2;
+                        continue;
+                    } else {
+                        ctx.diag.push_error(
+                            "Unescaped '}' in format string. Escape '}' with '}}'".into(),
+                            &node,
+                        );
+                        break;
+                    }
+                }
+
+                // Skip escaped {
+                if string.get(p + 1..=p + 1) == Some("{") {
+                    pos = p + 2;
+                    continue;
+                }
+
+                // Find the argument
+                let end = if let Some(end) = string[p..].find('}') {
+                    end + p
+                } else {
+                    ctx.diag.push_error(
+                        "Unterminated placeholder in format string. '{' must be escaped with '{{'"
+                            .into(),
+                        &node,
+                    );
+                    break;
+                };
+                let argument = &string[p + 1..end];
+                if argument.is_empty() {
+                    arg_idx += 1;
+                } else if let Ok(n) = argument.parse::<u16>() {
+                    pos_max = pos_max.max(n as usize + 1);
+                } else {
+                    ctx.diag
+                        .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
+                    break;
+                };
+                pos = end + 1;
+            }
+            if arg_idx > 0 && pos_max > 0 {
+                ctx.diag.push_error(
+                    "Cannot mix positional and non-positional placeholder in format string".into(),
+                    &node,
+                );
+            } else if arg_idx > values.len() || pos_max > values.len() {
+                ctx.diag.push_error(
+                    format!("Format string contains {} placeholders, but only {} extra arguments were given", arg_idx.max(pos_max), values.len()),
+                    &node,
+                );
+            }
+        }
 
         Expression::FunctionCall {
             function: Box::new(Expression::BuiltinFunctionReference(
@@ -547,7 +619,7 @@ impl Expression {
                 Expression::StringLiteral(string),
                 Expression::StringLiteral(String::new()), // TODO
                 Expression::StringLiteral(domain),
-                Expression::Array { element_ty: Type::String, values: subs.collect() },
+                Expression::Array { element_ty: Type::String, values },
             ],
             source_location: Some(node.to_source_location()),
         }
