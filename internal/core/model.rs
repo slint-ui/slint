@@ -56,10 +56,10 @@ impl ModelTracker for () {
 /// a [`ModelNotify`], and is responsible to call functions on it to let the UI know that
 /// something has changed.
 ///
-/// Properties of type array will be mapped to a [`ModelRc<T>`] which wraps a `Rc<Model<Data = T>>`
-/// The [`ModelRc`] documentation has examples on how to set models to array properties
+/// Properties of type array will be mapped to a [`ModelRc<T>`], which wraps a `Rc<Model<Data = T>>.`
+/// The [`ModelRc`] documentation has examples on how to set models to array properties.
 ///
-/// It is more efficient to operate on the model and send change through the `ModelNotify` rather than
+/// It is more efficient to operate on the model and send changes through the `ModelNotify` rather than
 /// resetting the property with a different model.
 ///
 /// ## Example
@@ -509,7 +509,7 @@ impl Model for bool {
 /// This is used in `for` expressions in the .slint language.
 /// Array properties in the .slint language are holding a ModelRc.
 /// For example, a `property <[string]> foo` will be of type `ModelRc<SharedString>`
-/// and behind the scene, wraps a `Rc<dyn Model<Data = SharedString>>`
+/// and, behind the scenes, wraps a `Rc<dyn Model<Data = SharedString>>.`
 ///
 /// An empty model can be constructed with [`ModelRc::default()`].
 /// Use [`ModelRc::new()`] To construct a ModelRc from something that implements the
@@ -534,23 +534,23 @@ impl Model for bool {
 ///     }
 /// }
 /// let ui = Example::new().unwrap();
-/// // create a VecModel and put it in a Rc
+/// // Create a VecModel and put it in an Rc.
 /// let the_model : Rc<VecModel<SharedString>> =
 ///         Rc::new(VecModel::from(vec!["Hello".into(), "World".into()]));
-/// // we can convert it to a ModelRc
+/// // Convert it to a ModelRc.
 /// let the_model_rc = ModelRc::from(the_model.clone());
-/// // it can be set on our ui, the generated set_the_model setter from the
-/// // the_model property takes a ModelRc
+/// // Pass the model to the ui: The generated set_the_model setter from the
+/// // the_model property takes a ModelRc.
 /// ui.set_the_model(the_model_rc);
 ///
-/// // we have kept a strong reference to the_model, we can modify it in a callback
+/// // We have kept a strong reference to the_model, to modify it in a callback.
 /// ui.on_add_item(move || {
-///     // Uses VecModel API, VecModel uses the Model notification mechanism to let Slint
-///     // know it needs to refresh the UI
+///     // Use VecModel API: VecModel uses the Model notification mechanism to let Slint
+///     // know it needs to refresh the UI.
 ///     the_model.push("SomeValue".into());
 /// });
 ///
-/// // Alternative: we can re-use a getter
+/// // Alternative: we can re-use a getter.
 /// let ui_weak = ui.as_weak();
 /// ui.on_add_item(move || {
 ///     let ui = ui_weak.unwrap();
