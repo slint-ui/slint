@@ -33,6 +33,16 @@ runs:
       run: |
         echo "RUSTFLAGS=-C debuginfo=0" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       shell: powershell
+    - name: Enable long path support for git checkouts
+      if: runner.os == 'Windows'
+      run: |
+        git config --system core.longpaths true
+      shell: powershell
+    - name: Move cargo home to the same drive as the build, so that relative paths from build to cargo source are without drive letter
+      if: runner.os == 'Windows'
+      run: |
+        echo "CARGO_HOME=\cargo" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      shell: powershell
     - name: Install Rust ${{ inputs.toolchain }}
       uses: dtolnay/rust-toolchain@stable
       with:
