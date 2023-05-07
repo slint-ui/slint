@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
  - Fixed missing items compilation error in the generated code related to public functions (#2655).
  - Added support for Window transparency on supported platform
  - Fixed TabWidget not filling the parent in non-native style
+ - Skia: Add support for rendering with Vulkan
 
 ### Slint Language
 
