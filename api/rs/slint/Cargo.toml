@@ -113,6 +113,9 @@ renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia", "std"]
 ## Same as `renderer-winit-skia`, but Skia will always use OpenGL.
 renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl", "std"]
 
+## Same as `renderer-winit-skia`, but Skia will always use Vulkan.
+renderer-winit-skia-vulkan = ["i-slint-backend-selector/renderer-winit-skia-vulkan", "std"]
+
 ## Make the winit backend capable of rendering using the software renderer.
 ## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
 renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]

@@ -37,7 +37,10 @@ mod metal_surface;
 mod d3d_surface;
 
 cfg_if::cfg_if! {
-    if #[cfg(skia_backend_opengl)] {
+    if #[cfg(skia_backend_vulkan)] {
+        mod vulkan_surface;
+        type DefaultSurface = vulkan_surface::VulkanSurface;
+    } else if #[cfg(skia_backend_opengl)] {
         mod opengl_surface;
         type DefaultSurface = opengl_surface::OpenGLSurface;
     } else if #[cfg(skia_backend_metal)] {

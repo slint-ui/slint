@@ -89,7 +89,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "renderer-winit-software")] {
         type DefaultRenderer = renderer::sw::WinitSoftwareRenderer;
     } else {
-        compile_error!("Please select a feature to build with the winit backend: `renderer-winit-femtovg`, `renderer-winit-skia`, `renderer-winit-skia-opengl` or `renderer-winit-software`");
+        compile_error!("Please select a feature to build with the winit backend: `renderer-winit-femtovg`, `renderer-winit-skia`, `renderer-winit-skia-opengl`, `renderer-winit-skia-vulkan` or `renderer-winit-software`");
     }
 }
 

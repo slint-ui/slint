@@ -43,6 +43,7 @@ backend-winit-wayland = ["slint-interpreter/backend-winit-wayland", "preview"]
 renderer-winit-femtovg = ["slint-interpreter/renderer-winit-femtovg", "preview"]
 renderer-winit-skia = ["slint-interpreter/renderer-winit-skia", "preview"]
 renderer-winit-skia-opengl = ["slint-interpreter/renderer-winit-skia-opengl", "preview"]
+renderer-winit-skia-vulkan = ["slint-interpreter/renderer-winit-skia-vulkan", "preview"]
 
 # Compat
 backend-gl-all = ["backend-winit", "renderer-winit-femtovg"]

@@ -25,6 +25,7 @@ backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
 renderer-winit-femtovg = ["slint-interpreter/renderer-winit-femtovg"]
 renderer-winit-skia = ["slint-interpreter/renderer-winit-skia"]
 renderer-winit-skia-opengl = ["slint-interpreter/renderer-winit-skia-opengl"]
+renderer-winit-skia-vulkan = ["slint-interpreter/renderer-winit-skia-vulkan"]
 
 # Compat
 backend-gl-all = ["backend-winit", "renderer-winit-femtovg"]
