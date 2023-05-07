@@ -59,6 +59,7 @@ image = { version = "0.24", optional = true }
 resvg = { workspace = true, optional = true }
 # font embedding
 fontdue = { version = "0.7.1", optional = true }
+strum_macros = "0.24.3"
 
 [dev-dependencies]
 i-slint-parser-test-macro = { path = "./parser-test-macro" }
