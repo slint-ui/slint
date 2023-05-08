@@ -227,6 +227,53 @@ public:
     }
 };
 
+/// An opaque, low-level window handle that internalizes everything necessary to exchange messages
+/// with the windowing system. This includes the connection to the display server, if necessary.
+///
+/// Note that this class does not provide any kind of ownership. The caller is responsible for
+/// ensuring that the pointers supplied to the constructor are valid throughout the lifetime of the
+/// WindowHandle.
+class WindowHandle
+{
+    cbindgen_private::CppRawHandleOpaque inner;
+
+public:
+    WindowHandle() = delete;
+#    if !defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
+    WindowHandle(uint32_t /*xcb_window_t*/ window, uint32_t /*xcb_visualid_t*/ visual_id,
+                 xcb_connection_t *connection, int screen)
+    {
+        cbindgen_private::slint_new_raw_window_handle_x11(window, visual_id, connection, screen,
+                                                          &inner);
+    }
+
+    WindowHandle(wl_surface *surface, wl_display *display)
+    {
+
+        cbindgen_private::slint_new_raw_window_handle_wayland(surface, display, size, &inner);
+    }
+
+#    elif defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
+
+    WindowHandle(void *nsview, void *nswindow)
+    {
+
+        cbindgen_private::slint_new_raw_window_handle_appkit(nsview, nswindow, &inner);
+    }
+
+#    elif !defined(__APPLE__) && (defined(_WIN32) || !defined(_WIN64))
+
+    /// Windows handle
+    WindowHandle(void *hwnd, void *hinstance)
+    {
+        cbindgen_private::slint_new_raw_window_handle_win32(hwnd, hinstance, &inner);
+    }
+#    endif
+
+    /// \private
+    cbindgen_private::CppRawHandleOpaque handle() const { return inner; }
+};
+
 /// Slint's Skia renderer.
 ///
 /// To be used as a template parameter of the WindowAdapter.
@@ -235,10 +282,11 @@ public:
 /// of the homonymous functions
 ///
 /// Use render to perform the rendering.
-
 class SkiaRenderer
 {
-    mutable cbindgen_private::SkiaRendererOpaque inner;
+    mutable cbindgen_private::SkiaRendererOpaque inner = nullptr;
+    WindowHandle window_handle;
+    PhysicalSize initial_size;
 
 public:
     virtual ~SkiaRenderer()
@@ -249,7 +297,12 @@ public:
     };
     SkiaRenderer(const SkiaRenderer &) = delete;
     SkiaRenderer &operator=(const SkiaRenderer &) = delete;
-    SkiaRenderer() = default;
+    /// Constructs a new Skia renderer for the given window - referenced by the provided
+    /// WindowHandle - and the specified initial size.
+    SkiaRenderer(WindowHandle window_handle, PhysicalSize initial_size)
+        : window_handle(window_handle), initial_size(initial_size)
+    {
+    }
 
     /// \private
     void init(const cbindgen_private::WindowAdapterRcOpaque *win) const
@@ -257,7 +310,8 @@ public:
         if (inner) {
             cbindgen_private::slint_skia_renderer_drop(inner);
         }
-        inner = cbindgen_private::slint_skia_renderer_new(win);
+        inner = cbindgen_private::slint_skia_renderer_new(win, window_handle.handle(),
+                                                          initial_size);
     }
 
     /// \private
@@ -278,34 +332,7 @@ public:
 
     void hide() const { cbindgen_private::slint_skia_renderer_hide(inner); }
 
-#    if !defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
-    void show(uint32_t /*xcb_window_t*/ window, uint32_t /*xcb_visualid_t*/ visual_id,
-              xcb_connection_t *connection, int screen, PhysicalSize size) const
-    {
-        cbindgen_private::slint_skia_renderer_show_x11(inner, window, visual_id, connection, screen,
-                                                       size);
-    }
-
-    void show(wl_surface *surface, wl_display *display, PhysicalSize size) const
-    {
-        cbindgen_private::slint_skia_renderer_show_wayland(inner, surface, display, size);
-    }
-
-#    elif defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
-
-    void show(void *nsview, void *nswindow, PhysicalSize size) const
-    {
-        cbindgen_private::slint_skia_renderer_show_appkit(inner, nsview, nswindow, size);
-    }
-
-#    elif !defined(__APPLE__) && (defined(_WIN32) || !defined(_WIN64))
-
-    /// Windows handle
-    void show(void *HWND, void *hinstance, PhysicalSize size) const
-    {
-        cbindgen_private::slint_skia_renderer_show_win32(inner, HWND, hinstance, size);
-    }
-#    endif
+    void show() const { cbindgen_private::slint_skia_renderer_show(inner); }
 };
 
 /// Call this function at each iteration of the event loop to call the timer handler and advance

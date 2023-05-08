@@ -19,16 +19,34 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
     ) -> Result<Self, PlatformError> {
-        let winit_window = crate::event_loop::with_window_target(|event_loop| {
+        let winit_window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for Skia rendering: {}", winit_os_error)
             })
+        })?);
+
+        let size: winit::dpi::PhysicalSize<u32> = winit_window.inner_size();
+
+        let width: u32 = size.width.try_into().map_err(|_| {
+            format!(
+                "Attempting to create a Skia window surface with an invalid width: {}",
+                size.width
+            )
+        })?;
+        let height: u32 = size.height.try_into().map_err(|_| {
+            format!(
+                "Attempting to create a Skia window surface with an invalid height: {}",
+                size.height
+            )
         })?;
 
-        Ok(Self {
-            winit_window: Rc::new(winit_window),
-            renderer: i_slint_renderer_skia::SkiaRenderer::new(window_adapter_weak.clone()),
-        })
+        let renderer = i_slint_renderer_skia::SkiaRenderer::new(
+            window_adapter_weak.clone(),
+            winit_window.clone(),
+            PhysicalWindowSize::new(width, height),
+        )?;
+
+        Ok(Self { winit_window, renderer })
     }
 
     fn window(&self) -> Rc<winit::window::Window> {
@@ -36,10 +54,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
     }
 
     fn show(&self) -> Result<(), PlatformError> {
-        let size: winit::dpi::PhysicalSize<u32> = self.winit_window.inner_size();
-        self.renderer
-            .show(self.winit_window.clone(), PhysicalWindowSize::new(size.width, size.height))?;
-        Ok(())
+        self.renderer.show()
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
