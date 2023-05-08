@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Button, GroupBox, SpinBox, ComboBox, CheckBox, LineEdit, TabWidget, VerticalBox, HorizontalBox,
-    Slider, SpinBox } from "std-widgets.slint";
+    Slider, ProgressIndicator, SpinBox } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
@@ -61,8 +61,6 @@ export component ControlsPage inherits Page {
                 enabled: !GallerySettings.widgets-disabled;
             }
         }
-
-
     }
 
     GroupBox {
@@ -79,12 +77,33 @@ export component ControlsPage inherits Page {
         title: "Slider";
         vertical-stretch: 0;
 
-        Slider {
+        i-slider := Slider {
             min-width: 160px;
             minimum: -100;
             maximum: 100;
             value: 42;
             enabled: !GallerySettings.widgets-disabled;
+        }
+    }
+
+    GroupBox {
+        title: "ProgressIndicator";
+        vertical-stretch: 0;
+
+        VerticalLayout {
+            spacing: 16px;
+
+            i-progress-indicator := ProgressIndicator {
+                min-width: 160px;
+                minimum: i-slider.minimum;
+                maximum: i-slider.maximum;
+                value: i-slider.value;
+            }
+
+            CheckBox {
+                text: "indeterminate";
+                checked <=> i-progress-indicator.indeterminate;
+            }
         }
     }
 

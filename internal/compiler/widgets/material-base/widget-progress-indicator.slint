@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { md } from "md.slint";
+
+export component ProgressIndicator {
+    private property <float> progress: (value - minimum) / (maximum - minimum);
+
+    in property<float> maximum: 100;
+    in property<float> minimum: 0;
+    in-out property<float> value;
+    in property <bool> indeterminate;
+
+    min-height: 4px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    accessible-role: none;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+
+    container := Rectangle {
+        background: md.sys.color.surface-variant;
+        clip: true;
+
+        track := Rectangle {
+            background: md.sys.color.primary;
+            x: !root.indeterminate ? 0px : -parent.width + (parent.width * mod(animation-tick(), 2s) / 1s);
+            y: (parent.height - self.height) / 2;
+            width: !root.indeterminate ?  parent.width * root.progress : parent.width;
+            border-radius: container.border-radius;
+        }
+    }
+
+}

@@ -232,6 +232,32 @@ export component Example inherits Window {
 }
 ```
 
+## `ProgressIndicator`
+
+Indicates a progress of a process or an operation.
+
+### Properties
+
+-   **`indeterminate`**: (_in_ _bool_): Defaults to false. Displays an animation instead of the value if set to true.
+-   **`value`** (_in-out_ _float_): The value.
+-   **`minimum`** (_in_ _float_): The minimum value (default: 0)
+-   **`maximum`** (_in_ _float_): The maximum value (default: 100)
+
+### Example
+
+```slint
+import { ProgressIndicator } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 25px;
+    ProgressIndicator {
+        width: parent.width;
+        height: parent.height;
+        value: 50;
+    }
+}
+```
+
 ## `ScrollView`
 
 A Scrollview contains a viewport that is bigger than the view and can be
