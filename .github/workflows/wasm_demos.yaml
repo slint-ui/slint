@@ -10,6 +10,7 @@ on:
 jobs:
   wasm_demo:
     env:
+      RUSTFLAGS: "--cfg=web_sys_unstable_apis"
       CARGO_PROFILE_RELEASE_OPT_LEVEL: s
       CARGO_INCREMENTAL: false
     runs-on: ubuntu-20.04
