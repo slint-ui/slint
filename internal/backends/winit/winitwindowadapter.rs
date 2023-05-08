@@ -139,11 +139,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> Default for WinitWindowAdapter
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
     /// Creates a new reference-counted instance.
-    ///
-    /// Arguments:
-    /// * `graphics_backend_factory`: The factor function stored in the GraphicsWindow that's called when the state
-    ///   of the window changes to mapped. The event loop and window builder parameters can be used to create a
-    ///   backing window.
     pub(crate) fn new(
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
