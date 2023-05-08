@@ -81,6 +81,7 @@ clru = { version = "0.6.0", optional = true }
 
 resvg = { workspace = true, optional = true }
 fontdb = { workspace = true, optional = true }
+serde = { version = "1.0.163", features = ["derive"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
@@ -102,6 +103,7 @@ i-slint-backend-testing = { path="../backends/testing" }
 rustybuzz = "0.7.0"
 ttf-parser = "0.18.0"
 fontdb = { workspace = true, default-features = true, features = ["fontconfig"] }
+serde_json = "1.0.96"
 
 image = { version = "0.24.0", default-features = false, features = [ "png" ] }
 pin-weak = "1"
