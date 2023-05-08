@@ -217,6 +217,36 @@ export component SpinBox {
     }
 }
 
+export component ProgressIndicator {
+    private property <float> progress: (value - minimum) / (maximum - minimum);
+
+    in property<float> maximum: 100;
+    in property<float> minimum: 0;
+    in-out property<float> value;
+    in property <bool> indeterminate;
+
+    min-height: 2px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    accessible-role: none;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+
+    container := Rectangle {
+        background: Palette.neutralLight;
+        clip: true;
+
+        track := Rectangle {
+            background: !root.indeterminate ? Palette.themePrimary : Palette.primaryGradient;
+            x: !root.indeterminate ? 0px : (parent.width * mod(animation-tick(), 2s) / 1.5s);
+            y: (parent.height - self.height) / 2;
+            width: !root.indeterminate ?  parent.width * root.progress : parent.width * 0.3;
+            border-radius: container.border-radius;
+        }
+    }
+}
+
 export component Slider {
     in property<float> maximum: 100;
     in property<float> minimum: 0;
