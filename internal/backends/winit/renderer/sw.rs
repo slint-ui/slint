@@ -15,7 +15,7 @@ use std::rc::{Rc, Weak};
 pub struct WinitSoftwareRenderer {
     winit_window: Rc<winit::window::Window>,
     renderer: SoftwareRenderer,
-    canvas: RefCell<Option<softbuffer::GraphicsContext>>,
+    canvas: RefCell<softbuffer::GraphicsContext>,
 }
 
 impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
@@ -31,13 +31,18 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             })
         })?;
 
+        let canvas = unsafe { softbuffer::GraphicsContext::new(&winit_window, &winit_window) }
+            .map_err(|softbuffer_error| {
+                format!("Error creating softbuffer graphics context: {}", softbuffer_error)
+            })?;
+
         Ok(Self {
             winit_window: Rc::new(winit_window),
             renderer: SoftwareRenderer::new(
                 i_slint_core::software_renderer::RepaintBufferType::NewBuffer,
                 window_adapter_weak.clone(),
             ),
-            canvas: Default::default(),
+            canvas: RefCell::new(canvas),
         })
     }
 
@@ -46,30 +51,14 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     }
 
     fn show(&self) -> Result<(), PlatformError> {
-        *self.canvas.borrow_mut() = Some(unsafe {
-            softbuffer::GraphicsContext::new(self.winit_window.as_ref(), self.winit_window.as_ref())
-                .map_err(|softbuffer_error| {
-                    format!("Error creating softbuffer graphics context: {}", softbuffer_error)
-                })?
-        });
-
         Ok(())
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
-        self.canvas.borrow_mut().take();
         Ok(())
     }
 
     fn render(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
-        let mut canvas = if self.canvas.borrow().is_some() {
-            std::cell::RefMut::map(self.canvas.borrow_mut(), |canvas_opt| {
-                canvas_opt.as_mut().unwrap()
-            })
-        } else {
-            return Ok(());
-        };
-
         let width = size.width as usize;
         let height = size.height as usize;
 
@@ -115,7 +104,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             });
             softbuffer_buffer
         };
-        canvas.set_buffer(&softbuffer_buffer, width as u16, height as u16);
+        self.canvas.borrow_mut().set_buffer(&softbuffer_buffer, width as u16, height as u16);
 
         Ok(())
     }
