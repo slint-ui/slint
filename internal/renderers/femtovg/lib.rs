@@ -33,32 +33,26 @@ mod itemrenderer;
 /// Slint and want the scene to be rendered using OpenGL and the FemtoVG renderer.
 pub struct FemtoVGRenderer {
     window_adapter_weak: Weak<dyn WindowAdapter>,
-    canvas: RefCell<Option<FemtoVGCanvas>>,
+    canvas: CanvasRc,
+    graphics_cache: itemrenderer::ItemGraphicsCache,
+    texture_cache: RefCell<images::TextureCache>,
+    rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
 }
 
 impl FemtoVGRenderer {
     /// Creates a new renderer is associated with the provided window adapter.
-    pub fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
-        Self { window_adapter_weak: window_adapter_weak.clone(), canvas: Default::default() }
-    }
-
-    /// Prepare the renderer for on-screen rendering. This assumes that the correct OpenGL context is current.
-    /// The provided `get_proc_address` argument needs to provide the OpenGL ES API, typically this is forwarded to for
-    /// example eglGetProcAddress.
+    /// This assumes that the correct OpenGL context is current.
+    /// The provided `get_proc_address` argument needs to provide the OpenGL ES API,
+    /// typically this is forwarded to for example eglGetProcAddress.
     /// For WASM builds, the provided canvas needs to be inserted in the DOM.
-    pub fn show(
-        &self,
+    pub fn new(
+        window_adapter_weak: &Weak<dyn WindowAdapter>,
         #[cfg(not(target_arch = "wasm32"))] get_proc_address: impl FnMut(
             &std::ffi::CStr,
         )
             -> *const std::ffi::c_void,
         #[cfg(target_arch = "wasm32")] canvas: &web_sys::HtmlCanvasElement,
-    ) {
-        let rendering_metrics_collector = RenderingMetricsCollector::new(
-            self.window_adapter_weak.clone(),
-            &format!("FemtoVG renderer"),
-        );
-
+    ) -> Result<Self, PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let gl_renderer =
             unsafe { femtovg::renderer::OpenGl::new_from_function_cstr(get_proc_address).unwrap() };
@@ -91,21 +85,28 @@ impl FemtoVGRenderer {
             self::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
         )
         .unwrap();
-        let femtovg_canvas = Rc::new(RefCell::new(femtovg_canvas));
-        let canvas = FemtoVGCanvas {
-            canvas: femtovg_canvas,
+        let canvas = Rc::new(RefCell::new(femtovg_canvas));
+
+        Ok(Self {
+            window_adapter_weak: window_adapter_weak.clone(),
+            canvas,
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
-            rendering_metrics_collector,
-        };
-
-        *self.canvas.borrow_mut() = Some(canvas);
+            rendering_metrics_collector: Default::default(),
+        })
     }
 
-    /// Configure the renderer to release OpenGL resource, this is typically called when the window is hidden.
-    /// This function assumes that the OpenGL context is current.
+    /// Notifiers the renderer that the underlying window is becoming visible.
+    pub fn show(&self) {
+        *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(
+            self.window_adapter_weak.clone(),
+            &format!("FemtoVG renderer"),
+        );
+    }
+
+    /// Notifiers the renderer that the underlying window will be hidden soon.
     pub fn hide(&self) {
-        self.canvas.borrow_mut().take();
+        self.rendering_metrics_collector.borrow_mut().take();
     }
 
     /// Render the scene using OpenGL. This function assumes that the context is current.
@@ -117,12 +118,6 @@ impl FemtoVGRenderer {
         let width = size.width;
         let height = size.height;
 
-        let canvas = if self.canvas.borrow().is_some() {
-            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
-        } else {
-            return Err(format!("FemtoVG renderer: render() called before show()").into());
-        };
-
         let window_adapter = self.window_adapter_weak.upgrade().unwrap();
         let window = WindowInner::from_pub(window_adapter.window());
 
@@ -130,7 +125,7 @@ impl FemtoVGRenderer {
             let window_background_brush = window.window_item().map(|w| w.as_pin_ref().background());
 
             {
-                let mut femtovg_canvas = canvas.canvas.as_ref().borrow_mut();
+                let mut femtovg_canvas = self.canvas.borrow_mut();
                 // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
                 // text metrics. Since we do the entire translation from logical pixels to physical
                 // pixels on our end, we don't need femtovg to scale a second time.
@@ -149,7 +144,7 @@ impl FemtoVGRenderer {
             }
 
             if let Some(callback) = before_rendering_callback.take() {
-                let mut femtovg_canvas = canvas.canvas.as_ref().borrow_mut();
+                let mut femtovg_canvas = self.canvas.borrow_mut();
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // femtovg's clear_rect() will merely schedule a clear call, so flush right away to make it immediate.
@@ -165,7 +160,9 @@ impl FemtoVGRenderer {
             let window_adapter = self.window_adapter_weak.upgrade().unwrap();
 
             let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
-                &canvas,
+                &self.canvas,
+                &self.graphics_cache,
+                &self.texture_cache,
                 window_adapter.window(),
                 width,
                 height,
@@ -192,15 +189,15 @@ impl FemtoVGRenderer {
                 );
             }
 
-            if let Some(collector) = &canvas.rendering_metrics_collector {
+            if let Some(collector) = &self.rendering_metrics_collector.borrow().as_ref() {
                 collector.measure_frame_rendered(&mut item_renderer);
             }
 
-            canvas.canvas.borrow_mut().flush();
+            self.canvas.borrow_mut().flush();
 
             // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
             // avoid GPU memory leaks.
-            canvas.texture_cache.borrow_mut().drain();
+            self.texture_cache.borrow_mut().drain();
             drop(item_renderer);
             Ok(())
         })
@@ -378,25 +375,12 @@ impl Renderer for FemtoVGRenderer {
         component: i_slint_core::component::ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        let canvas = if self.canvas.borrow().is_some() {
-            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
-        } else {
-            return Ok(());
-        };
-
-        canvas.graphics_cache.component_destroyed(component);
+        self.graphics_cache.component_destroyed(component);
         Ok(())
     }
 }
 
-struct FemtoVGCanvas {
-    canvas: CanvasRc,
-    graphics_cache: itemrenderer::ItemGraphicsCache,
-    texture_cache: RefCell<images::TextureCache>,
-    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
-}
-
-impl Drop for FemtoVGCanvas {
+impl Drop for FemtoVGRenderer {
     fn drop(&mut self) {
         // Clear these manually to drop any Rc<Canvas>.
         self.graphics_cache.clear_all();

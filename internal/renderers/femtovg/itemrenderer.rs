@@ -1017,17 +1017,19 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
 impl<'a> GLItemRenderer<'a> {
     pub(super) fn new(
-        canvas: &'a super::FemtoVGCanvas,
+        canvas: &CanvasRc,
+        graphics_cache: &'a ItemGraphicsCache,
+        texture_cache: &'a RefCell<super::images::TextureCache>,
         window: &'a i_slint_core::api::Window,
         width: u32,
         height: u32,
     ) -> Self {
         let scale_factor = ScaleFactor::new(window.scale_factor());
         Self {
-            graphics_cache: &canvas.graphics_cache,
-            texture_cache: &canvas.texture_cache,
+            graphics_cache,
+            texture_cache,
             box_shadow_cache: Default::default(),
-            canvas: canvas.canvas.clone(),
+            canvas: canvas.clone(),
             layer_images_to_delete_after_flush: Default::default(),
             window,
             scale_factor,
