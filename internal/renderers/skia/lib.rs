@@ -55,7 +55,12 @@ cfg_if::cfg_if! {
 pub struct SkiaRenderer<NativeWindowWrapper> {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
-    canvas: RefCell<Option<SkiaCanvas<DefaultSurface, NativeWindowWrapper>>>,
+    image_cache: ItemCache<Option<skia_safe::Image>>,
+    path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
+    rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
+    surface: DefaultSurface,
+    // Kept here to make sure that the raw window handles used by the surface are kept alive
+    _native_window: NativeWindowWrapper,
 }
 
 impl<
@@ -63,61 +68,52 @@ impl<
     > SkiaRenderer<NativeWindowWrapper>
 {
     /// Creates a new renderer is associated with the provided window adapter.
-    pub fn new(window_adapter_weak: Weak<dyn WindowAdapter>) -> Self {
-        Self {
-            window_adapter_weak,
-            rendering_notifier: Default::default(),
-            canvas: Default::default(),
-        }
-    }
-
-    /// Use the provided window and display for rendering the Slint scene in future calls to [`Self::render()`].
-    /// The size must be identical to the size of the window in physical pixels that is providing the window handle.
-    pub fn show(
-        &self,
+    pub fn new(
+        window_adapter_weak: Weak<dyn WindowAdapter>,
         native_window: NativeWindowWrapper,
         size: PhysicalWindowSize,
-    ) -> Result<(), PlatformError> {
+    ) -> Result<Self, PlatformError> {
         let surface = DefaultSurface::new(&native_window, &native_window, size)?;
 
-        let rendering_metrics_collector = RenderingMetricsCollector::new(
+        Ok(Self {
+            window_adapter_weak,
+            rendering_notifier: Default::default(),
+            image_cache: Default::default(),
+            path_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            surface,
+            _native_window: native_window,
+        })
+    }
+
+    /// Notifiers the renderer that the underlying window is becoming visible.
+    pub fn show(&self) -> Result<(), PlatformError> {
+        *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(
             self.window_adapter_weak.clone(),
             &format!(
                 "Skia renderer (skia backend {}; surface: {} bpp)",
-                surface.name(),
-                surface.bits_per_pixel()?
+                self.surface.name(),
+                self.surface.bits_per_pixel()?
             ),
         );
 
-        let canvas = SkiaCanvas {
-            image_cache: Default::default(),
-            path_cache: Default::default(),
-            surface,
-            rendering_metrics_collector,
-            native_window,
-        };
-
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            canvas.with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))
+            self.surface
+                .with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))
         }
-
-        *self.canvas.borrow_mut() = Some(canvas);
 
         Ok(())
     }
 
-    /// Release any graphics resources and disconnect the rendere from a window that it was previously associated when when
-    /// calling [`Self::show()]`.
+    /// Notifiers the renderer that the underlying window will be hidden soon.
     pub fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError> {
-        if let Some(canvas) = self.canvas.borrow_mut().take() {
-            canvas.surface.with_active_surface(|| {
-                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                    canvas.with_graphics_api(|api| {
-                        callback.notify(RenderingState::RenderingTeardown, &api)
-                    })
-                }
-            })?;
-        }
+        self.surface.with_active_surface(|| {
+            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                self.surface.with_graphics_api(|api| {
+                    callback.notify(RenderingState::RenderingTeardown, &api)
+                })
+            }
+        })?;
         Ok(())
     }
 
@@ -126,16 +122,10 @@ impl<
         &self,
         size: PhysicalWindowSize,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        let canvas = if self.canvas.borrow().is_some() {
-            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
-        } else {
-            return Err(format!("Skia renderer: render() called before show()").into());
-        };
-
         let window_adapter = self.window_adapter_weak.upgrade().unwrap();
         let window_inner = WindowInner::from_pub(window_adapter.window());
 
-        canvas.surface.render(size, |skia_canvas, gr_context| {
+        self.surface.render(size, |skia_canvas, gr_context| {
             window_inner.draw_contents(|components| {
                 let window_background_brush =
                     window_inner.window_item().map(|w| w.as_pin_ref().background());
@@ -151,7 +141,7 @@ impl<
                     // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
                     gr_context.flush(None);
 
-                    canvas.with_graphics_api(|api| {
+                    self.surface.with_graphics_api(|api| {
                         callback.notify(RenderingState::BeforeRendering, &api)
                     })
                 }
@@ -163,8 +153,8 @@ impl<
                 let mut item_renderer = itemrenderer::SkiaRenderer::new(
                     skia_canvas,
                     window_adapter.window(),
-                    &canvas.image_cache,
-                    &canvas.path_cache,
+                    &self.image_cache,
+                    &self.path_cache,
                     &mut box_shadow_cache,
                 );
 
@@ -189,7 +179,7 @@ impl<
                     );
                 }
 
-                if let Some(collector) = &canvas.rendering_metrics_collector {
+                if let Some(collector) = &self.rendering_metrics_collector.borrow_mut().as_ref() {
                     collector.measure_frame_rendered(&mut item_renderer);
                 }
 
@@ -198,7 +188,7 @@ impl<
             });
 
             if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                canvas
+                self.surface
                     .with_graphics_api(|api| callback.notify(RenderingState::AfterRendering, &api))
             }
         })
@@ -209,22 +199,7 @@ impl<
         &self,
         size: PhysicalWindowSize,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        let canvas = if self.canvas.borrow().is_some() {
-            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
-        } else {
-            return Ok(());
-        };
-
-        canvas.surface.resize_event(size)
-    }
-}
-
-impl<
-        NativeWindowWrapper: raw_window_handle::HasRawWindowHandle + raw_window_handle::HasRawDisplayHandle + Clone,
-    > SkiaRenderer<NativeWindowWrapper>
-{
-    pub fn window(&self) -> Option<NativeWindowWrapper> {
-        self.canvas.borrow().as_ref().map(|canvas| canvas.native_window.clone())
+        self.surface.resize_event(size)
     }
 }
 
@@ -395,14 +370,8 @@ impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<Nati
         component: i_slint_core::component::ComponentRef,
         _items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        let canvas = if self.canvas.borrow().is_some() {
-            std::cell::Ref::map(self.canvas.borrow(), |canvas_opt| canvas_opt.as_ref().unwrap())
-        } else {
-            return Ok(());
-        };
-
-        canvas.image_cache.component_destroyed(component);
-        canvas.path_cache.component_destroyed(component);
+        self.image_cache.component_destroyed(component);
+        self.path_cache.component_destroyed(component);
         Ok(())
     }
 }
@@ -435,19 +404,4 @@ trait Surface {
         size: PhysicalWindowSize,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
     fn bits_per_pixel(&self) -> Result<u8, PlatformError>;
-}
-
-struct SkiaCanvas<SurfaceType: Surface, NativeWindowWrapper> {
-    image_cache: ItemCache<Option<skia_safe::Image>>,
-    path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
-    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
-    surface: SurfaceType,
-    // Kept here to make sure that the raw window handles used by the surface are kept alive
-    native_window: NativeWindowWrapper,
-}
-
-impl<SurfaceType: Surface, NativeWindowWrapper> SkiaCanvas<SurfaceType, NativeWindowWrapper> {
-    fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>)) {
-        self.surface.with_graphics_api(callback)
-    }
 }

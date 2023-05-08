@@ -19,57 +19,36 @@ struct Geometry
     uint32_t height = 0;
 };
 
-struct MyWindowAdapter : public slint_platform::WindowAdapter<slint_platform::SkiaRenderer>
+struct NativeWindowHandle
 {
-    HWND parentWindow;
-    HINSTANCE hInstance = GetModuleHandleW(nullptr);
-    mutable std::optional<HWND> hwnd;
+    HWND hwnd;
+};
+
+struct MyWindowAdapter : NativeWindowHandle,
+                         public slint_platform::WindowAdapter<slint_platform::SkiaRenderer>
+{
     Geometry geometry = { 0, 0, 600, 300 };
 
-    MyWindowAdapter(HWND winId) : parentWindow(winId) { }
+    MyWindowAdapter(HWND winId)
+        : NativeWindowHandle { MyWindowAdapter::create_window(winId) },
+          slint_platform::WindowAdapter<slint_platform::SkiaRenderer>(
+                  slint_platform::WindowHandle(hwnd, GetModuleHandleW(nullptr)),
+                  slint::PhysicalSize({ 600, 300 }))
+    {
+        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
+    }
 
     slint::PhysicalSize windowSize() const
     {
         RECT r;
-        GetWindowRect(*hwnd, &r);
+        GetWindowRect(hwnd, &r);
         return slint::PhysicalSize({ uint32_t(r.right - r.left), uint32_t(r.bottom - r.top) });
     }
 
     void show() const override
     {
-        if (hwnd)
-            return;
-        // Register the window class.
-        const wchar_t CLASS_NAME[] = L"Sample Window Class";
-
-        WNDCLASS wc = {};
-
-        wc.lpfnWndProc = MyWindowAdapter::windowProc;
-        wc.hInstance = hInstance;
-        wc.lpszClassName = CLASS_NAME;
-
-        RegisterClass(&wc);
-
-        // Create the window.
-
-        hwnd = CreateWindowEx(0, // Optional window styles.
-                              CLASS_NAME, // Window class
-                              L"Learn to Program Windows", // Window text
-                              WS_CHILDWINDOW, // Window style
-
-                              // Size and position
-                              geometry.x, geometry.y, geometry.width, geometry.height,
-
-                              parentWindow,
-                              NULL, // Menu
-                              hInstance, // Instance handle
-                              NULL // Additional application data
-        );
-
-        SetWindowLongPtr(*hwnd, GWLP_USERDATA, (LONG_PTR)this);
-
-        ShowWindow(*hwnd, SW_SHOWNORMAL);
-        renderer().show(*hwnd, hInstance, slint::PhysicalSize({ geometry.width, geometry.height }));
+        ShowWindow(hwnd, SW_SHOWNORMAL);
+        renderer().show();
     }
 
     void hide() const override
@@ -78,12 +57,7 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter<slint_platform::Sk
         renderer().hide();
     }
 
-    void request_redraw() const override
-    {
-        if (!hwnd)
-            return;
-        InvalidateRect(*hwnd, nullptr, false);
-    }
+    void request_redraw() const override { InvalidateRect(hwnd, nullptr, false); }
 
     void render()
     {
@@ -101,11 +75,7 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter<slint_platform::Sk
 
     void setGeometry(int x, int y, int width, int height)
     {
-        if (!hwnd) {
-            geometry = { x, y, uint32_t(width), uint32_t(height) };
-            return;
-        }
-        SetWindowPos(*hwnd, nullptr, x, y, width, height, 0);
+        SetWindowPos(hwnd, nullptr, x, y, width, height, 0);
     }
 
     std::optional<slint::cbindgen_private::MouseEvent> mouseEventForMessage(UINT uMsg,
@@ -232,5 +202,40 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter<slint_platform::Sk
             return 0;
         }
         return DefWindowProc(hwnd, uMsg, wParam, lParam);
+    }
+
+private:
+    static HWND create_window(HWND parentWindow)
+    {
+        HINSTANCE hInstance = GetModuleHandleW(nullptr);
+
+        // Register the window class.
+        const wchar_t CLASS_NAME[] = L"Sample Window Class";
+
+        WNDCLASS wc = {};
+
+        wc.lpfnWndProc = MyWindowAdapter::windowProc;
+        wc.hInstance = hInstance;
+        wc.lpszClassName = CLASS_NAME;
+
+        RegisterClass(&wc);
+
+        // Create the window.
+
+        HWND hwnd = CreateWindowEx(0, // Optional window styles.
+                                   CLASS_NAME, // Window class
+                                   L"Learn to Program Windows", // Window text
+                                   WS_CHILDWINDOW, // Window style
+
+                                   // Size and position
+                                   0, 0, 600, 300,
+
+                                   parentWindow,
+                                   NULL, // Menu
+                                   hInstance, // Instance handle
+                                   NULL // Additional application data
+        );
+
+        return hwnd;
     }
 };
