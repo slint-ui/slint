@@ -33,8 +33,12 @@ jobs:
   docs:
     uses: ./.github/workflows/build_docs.yaml
   wasm_demo:
+    env:
+      RUSTFLAGS: "--cfg=web_sys_unstable_apis"
     uses: ./.github/workflows/wasm_demos.yaml
   wasm:
+    env:
+      RUSTFLAGS: "--cfg=web_sys_unstable_apis"
     uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
   cpp_package:
     uses: ./.github/workflows/cpp_package.yaml

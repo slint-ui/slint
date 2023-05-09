@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file.
  - Added support for Window transparency on supported platform
  - Fixed TabWidget not filling the parent in non-native style
  - Skia: Add support for rendering with Vulkan
+ - Wasm: copy and paste support
 
 ### Slint Language
 

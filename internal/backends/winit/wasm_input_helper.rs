@@ -46,8 +46,6 @@ impl WasmInputHelper {
         canvas: web_sys::HtmlCanvasElement,
     ) -> Self {
         let window = web_sys::window().unwrap();
-        #[cfg(web_sys_unstable_apis)]
-        let clipboard = window.navigator().clipboard().unwrap();
         let input = window
             .document()
             .unwrap()
@@ -69,7 +67,7 @@ impl WasmInputHelper {
 
         let shared_state = Rc::new(RefCell::new(WasmInputState::default()));
         #[cfg(web_sys_unstable_apis)]
-        {
+        if let Some(clipboard) = window.navigator().clipboard() {
             let win = window_adapter.clone();
             let clip = clipboard.clone();
             let closure_copy = Closure::wrap(Box::new(move |e: web_sys::ClipboardEvent| {
@@ -91,7 +89,7 @@ impl WasmInputHelper {
                             }
                             let text = text_input.as_pin_ref().text();
                             let selected_text = &text[anchor..cursor];
-                            clip.write_text(selected_text.as_str());
+                            clip.write_text(selected_text);
                         }
                     }
                 }
