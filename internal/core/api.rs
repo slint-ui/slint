@@ -287,7 +287,7 @@ pub enum SetRenderingNotifierError {
 /// scene of a component. It provides API to control windowing system specific aspects such
 /// as the position on the screen.
 #[repr(transparent)]
-pub struct Window(pub WindowInner);
+pub struct Window(pub(crate) WindowInner);
 
 /// This enum describes whether a Window is allowed to be hidden when the user tries to close the window.
 /// It is the return type of the callback provided to [Window::on_close_requested].

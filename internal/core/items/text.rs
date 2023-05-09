@@ -483,7 +483,6 @@ impl Item for TextInput {
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Copy => {
-                            // 111
                             self.copy(Clipboard::DefaultClipboard);
                             return KeyEventResult::EventAccepted;
                         }
@@ -1025,7 +1024,6 @@ impl TextInput {
             return;
         }
         let text = self.text();
-        #[cfg(not(target_arch = "wasm32"))]
         crate::platform::PLATFORM_INSTANCE.with(|p| {
             if let Some(backend) = p.get() {
                 backend.set_clipboard_text(&text[anchor..cursor], clipboard);
@@ -1039,7 +1037,6 @@ impl TextInput {
         self_rc: &ItemRc,
         clipboard: Clipboard,
     ) {
-        #[cfg(not(target_arch = "wasm32"))]
         if let Some(text) = crate::platform::PLATFORM_INSTANCE
             .with(|p| p.get().and_then(|p| p.clipboard_text(clipboard)))
         {
