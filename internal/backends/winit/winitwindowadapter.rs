@@ -112,6 +112,7 @@ pub(crate) struct WinitWindowAdapter<Renderer: WinitCompatibleRenderer + 'static
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
     shown: Cell<bool>,
 
+    winit_window: Option<Rc<winit::window::Window>>,
     renderer: OnceCell<Renderer>,
 
     #[cfg(target_arch = "wasm32")]
@@ -130,6 +131,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> Default for WinitWindowAdapter
             dark_color_scheme: Default::default(),
             constraints: Default::default(),
             shown: Default::default(),
+            winit_window: Default::default(),
             renderer: Default::default(),
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
@@ -160,7 +162,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
                     canvas_id,
                 )
             }) {
-                Ok(new_renderer) => result.renderer = OnceCell::with_value(new_renderer),
+                Ok((new_renderer, winit_window)) => {
+                    result.renderer = OnceCell::with_value(new_renderer);
+                    result.winit_window = Some(winit_window);
+                }
                 Err(err) => {
                     platform_error = Some(err);
                     return Self::default();
@@ -177,7 +182,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
         if let Some(err) = platform_error.take() {
             Err(err)
         } else {
-            let id = self_rc.renderer().window().id();
+            let id = self_rc.winit_window().id();
             crate::event_loop::register_window(id, (self_rc.clone()) as _);
             Ok(self_rc as _)
         }
@@ -273,17 +278,17 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for WinitWindowAda
         self.pending_redraw.set(false);
 
         let renderer = self.renderer();
-        renderer.render(physical_size_to_slint(&renderer.window().inner_size()))?;
+        renderer.render(physical_size_to_slint(&self.winit_window().inner_size()))?;
 
         Ok(self.pending_redraw.get())
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
-        callback(&self.renderer().window());
+        callback(&self.winit_window());
     }
 
     fn winit_window(&self) -> Rc<winit::window::Window> {
-        self.renderer().window()
+        self.winit_window.as_ref().unwrap().clone()
     }
 
     fn is_shown(&self) -> bool {
@@ -503,7 +508,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
         self.call_with_event_loop(|self_| {
             self_.shown.set(true);
 
-            let winit_window = self_.renderer().window();
+            let winit_window = self_.winit_window();
 
             let runtime_window = WindowInner::from_pub(&self_.window());
 
@@ -686,7 +691,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
     }
 
     fn position(&self) -> corelib::api::PhysicalPosition {
-        match self.renderer().window().outer_position() {
+        match self.winit_window().outer_position() {
             Ok(outer_position) => {
                 corelib::api::PhysicalPosition::new(outer_position.x, outer_position.y)
             }
@@ -695,22 +700,21 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
     }
 
     fn set_position(&self, position: corelib::api::WindowPosition) {
-        self.renderer().window().set_outer_position(position_to_winit(&position))
+        self.winit_window().set_outer_position(position_to_winit(&position))
     }
 
     fn set_size(&self, size: corelib::api::WindowSize) {
         if self.in_resize_event.get() {
             return;
         }
-        self.renderer().window().set_inner_size(window_size_to_slint(&size))
+        self.winit_window().set_inner_size(window_size_to_slint(&size))
     }
 
     fn dark_color_scheme(&self) -> bool {
         self.dark_color_scheme
             .get_or_init(|| {
                 Box::pin(Property::new({
-                    self.renderer()
-                        .window()
+                    self.winit_window()
                         .theme()
                         .map_or(false, |theme| theme == winit::window::Theme::Dark)
                 }))
@@ -720,7 +724,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
     }
 
     fn is_visible(&self) -> bool {
-        self.renderer().window().is_visible().unwrap_or(true)
+        self.winit_window().is_visible().unwrap_or(true)
     }
 }
 
@@ -728,7 +732,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> Drop for WinitWindowAdapter<Re
     fn drop(&mut self) {
         if let Some(renderer) = self.renderer.get() {
             renderer.hide().ok(); // ignore errors here, we're going away anyway
-            crate::event_loop::unregister_window(renderer.window().id());
+            crate::event_loop::unregister_window(self.winit_window().id());
         }
     }
 }

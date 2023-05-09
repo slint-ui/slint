@@ -20,7 +20,6 @@ mod glcontext;
 pub struct GlutinFemtoVGRenderer {
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     renderer: FemtoVGRenderer,
-    winit_window: Rc<winit::window::Window>,
     // Last field, so that it's dropped last and context exists and is current when destroying the FemtoVG canvas
     opengl_context: glcontext::OpenGLContext,
 }
@@ -61,7 +60,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> Result<Self, PlatformError> {
+    ) -> Result<(Self, Rc<winit::window::Window>), PlatformError> {
         let (winit_window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
             glcontext::OpenGLContext::new_context(
                 window_builder,
@@ -79,16 +78,10 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
             &opengl_context.html_canvas_element(),
         )?;
 
-        Ok(Self {
-            rendering_notifier: Default::default(),
-            renderer,
-            winit_window: Rc::new(winit_window),
-            opengl_context,
-        })
-    }
-
-    fn window(&self) -> Rc<winit::window::Window> {
-        self.winit_window.clone()
+        Ok((
+            Self { rendering_notifier: Default::default(), renderer, opengl_context },
+            Rc::new(winit_window),
+        ))
     }
 
     fn show(&self) -> Result<(), PlatformError> {
