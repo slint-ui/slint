@@ -84,8 +84,14 @@ impl WasmInputHelper {
                         if let Some(text_input) =
                             focus_item.downcast::<i_slint_core::items::TextInput>()
                         {
-                            let copied_text = text_input.as_pin_ref().text();
-                            clip.write_text(copied_text.as_str());
+                            let (anchor, cursor) =
+                                text_input.as_pin_ref().selection_anchor_and_cursor();
+                            if anchor == cursor {
+                                return;
+                            }
+                            let text = text_input.as_pin_ref().text();
+                            let selected_text = &text[anchor..cursor];
+                            clip.write_text(selected_text.as_str());
                         }
                     }
                 }
