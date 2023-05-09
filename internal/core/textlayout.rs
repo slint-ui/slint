@@ -100,7 +100,7 @@ pub struct TextParagraphLayout<'a, Font: AbstractFont> {
 
 impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
     /// Layout the given string in lines, and call the `layout_line` callback with the line to draw at position y.
-    /// The signature of the `layout_line` function is: `(glyph_iterator, line_x, line_y)`.
+    /// The signature of the `layout_line` function is: `(glyph_iterator, line_x, line_y, text_line)`.
     /// Returns the baseline y coordinate as Ok, or the break value if `line_callback` returns `core::ops::ControlFlow::Break`.
     pub fn layout_lines<R>(
         &self,
@@ -108,6 +108,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
             &mut dyn Iterator<Item = PositionedGlyph<Font::Length>>,
             Font::Length,
             Font::Length,
+            &TextLine<Font::Length>,
         ) -> core::ops::ControlFlow<R>,
     ) -> Result<Font::Length, R> {
         let wrap = self.wrap == TextWrap::WordWrap;
@@ -193,7 +194,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
             });
 
             if let core::ops::ControlFlow::Break(break_val) =
-                line_callback(&mut positioned_glyph_it, x, y)
+                line_callback(&mut positioned_glyph_it, x, y, line)
             {
                 return core::ops::ControlFlow::Break(break_val);
             }
@@ -227,7 +228,11 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
         let mut last_glyph_right_edge = Font::Length::zero();
         let mut last_line_y = Font::Length::zero();
 
-        match self.layout_lines(|glyphs, line_x, line_y| {
+        match self.layout_lines(|glyphs, line_x, line_y, line| {
+            if line.byte_range.end < byte_offset {
+                return core::ops::ControlFlow::Continue(());
+            }
+
             while let Some(positioned_glyph) = glyphs.next() {
                 last_line_y = line_y;
                 if positioned_glyph.text_byte_offset == byte_offset {
@@ -327,7 +332,7 @@ fn test_elision() {
         single_line: true,
     };
     paragraph
-        .layout_lines::<()>(|glyphs, _, _| {
+        .layout_lines::<()>(|glyphs, _, _, _| {
             lines.push(
                 glyphs
                     .map(|positioned_glyph| positioned_glyph.glyph_id.clone())
@@ -368,7 +373,7 @@ fn test_exact_fit() {
         single_line: true,
     };
     paragraph
-        .layout_lines::<()>(|glyphs, _, _| {
+        .layout_lines::<()>(|glyphs, _, _, _| {
             lines.push(
                 glyphs
                     .map(|positioned_glyph| positioned_glyph.glyph_id.clone())
@@ -409,7 +414,7 @@ fn test_no_line_separators_characters_rendered() {
         single_line: true,
     };
     paragraph
-        .layout_lines::<()>(|glyphs, _, _| {
+        .layout_lines::<()>(|glyphs, _, _, _| {
             lines.push(
                 glyphs
                     .map(|positioned_glyph| positioned_glyph.glyph_id.clone())
