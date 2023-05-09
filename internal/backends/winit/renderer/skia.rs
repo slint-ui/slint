@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
@@ -17,12 +17,12 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
     fn new(
         window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
-    ) -> Result<(Self, Rc<winit::window::Window>), PlatformError> {
-        let winit_window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
+    ) -> Result<(Self, winit::window::Window), PlatformError> {
+        let winit_window = crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for Skia rendering: {}", winit_os_error)
             })
-        })?);
+        })?;
 
         let size: winit::dpi::PhysicalSize<u32> = winit_window.inner_size();
 

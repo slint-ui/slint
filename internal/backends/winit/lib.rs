@@ -24,7 +24,7 @@ pub enum SlintUserEvent {
 }
 
 mod renderer {
-    use std::rc::{Rc, Weak};
+    use std::rc::Weak;
 
     use i_slint_core::api::PhysicalSize;
     use i_slint_core::platform::PlatformError;
@@ -37,7 +37,7 @@ mod renderer {
             window_adapter_weak: &Weak<dyn WindowAdapter>,
             window_builder: winit::window::WindowBuilder,
             #[cfg(target_arch = "wasm32")] canvas_id: &str,
-        ) -> Result<(Self, Rc<winit::window::Window>), PlatformError>
+        ) -> Result<(Self, winit::window::Window), PlatformError>
         where
             Self: Sized;
 

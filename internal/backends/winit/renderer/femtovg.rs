@@ -3,7 +3,7 @@
 
 use std::cell::RefCell;
 use std::pin::Pin;
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 
 use i_slint_core::api::{
     GraphicsAPI, PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
@@ -60,7 +60,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> Result<(Self, Rc<winit::window::Window>), PlatformError> {
+    ) -> Result<(Self, winit::window::Window), PlatformError> {
         let (winit_window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
             glcontext::OpenGLContext::new_context(
                 window_builder,
@@ -80,7 +80,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
 
         Ok((
             Self { rendering_notifier: Default::default(), renderer, opengl_context },
-            Rc::new(winit_window),
+            winit_window,
         ))
     }
 

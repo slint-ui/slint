@@ -164,7 +164,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
             }) {
                 Ok((new_renderer, winit_window)) => {
                     result.renderer = OnceCell::with_value(new_renderer);
-                    result.winit_window = Some(winit_window);
+                    result.winit_window = Some(Rc::new(winit_window));
                 }
                 Err(err) => {
                     platform_error = Some(err);
