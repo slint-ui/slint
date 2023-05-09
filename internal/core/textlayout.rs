@@ -224,27 +224,29 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
         Ok(baseline_y)
     }
 
+    /// Returns the leading edge of the glyph at the given byte offset
     pub fn cursor_pos_for_byte_offset(&self, byte_offset: usize) -> (Font::Length, Font::Length) {
         let mut last_glyph_right_edge = Font::Length::zero();
         let mut last_line_y = Font::Length::zero();
 
         match self.layout_lines(|glyphs, line_x, line_y, line| {
-            if line.byte_range.end < byte_offset {
+            last_glyph_right_edge =
+                euclid::approxord::min(self.max_width, line.width_including_trailing_whitespace());
+            last_line_y = line_y;
+            if byte_offset >= line.byte_range.end + line.trailing_whitespace_bytes {
                 return core::ops::ControlFlow::Continue(());
             }
 
             while let Some(positioned_glyph) = glyphs.next() {
-                last_line_y = line_y;
                 if positioned_glyph.text_byte_offset == byte_offset {
                     return core::ops::ControlFlow::Break((
                         line_x + positioned_glyph.x,
                         last_line_y,
                     ));
                 }
-                last_glyph_right_edge = line_x + positioned_glyph.x + positioned_glyph.advance;
             }
 
-            core::ops::ControlFlow::Continue(())
+            core::ops::ControlFlow::Break((last_glyph_right_edge, last_line_y))
         }) {
             Ok(_) => (last_glyph_right_edge, last_line_y),
             Err(position) => position,
@@ -444,16 +446,16 @@ fn test_no_line_separators_characters_rendered() {
 #[test]
 fn test_cursor_position() {
     let font = FixedTestFont;
-    let text = "Hello\nWorld";
+    let text = "Hello                    World";
 
     let paragraph = TextParagraphLayout {
         string: text,
         layout: TextLayout { font: &font, letter_spacing: None },
-        max_width: 100. * 10.,
+        max_width: 10. * 10.,
         max_height: 10.,
         horizontal_alignment: TextHorizontalAlignment::Left,
         vertical_alignment: TextVerticalAlignment::Top,
-        wrap: TextWrap::NoWrap,
+        wrap: TextWrap::WordWrap,
         overflow: TextOverflow::Clip,
         single_line: false,
     };
@@ -470,7 +472,13 @@ fn test_cursor_position() {
         .char_indices()
         .find_map(|(offset, ch)| if ch == 'W' { Some(offset) } else { None })
         .unwrap();
-    assert_eq!(paragraph.cursor_pos_for_byte_offset(w_offset), (0., 10.));
+    assert_eq!(paragraph.cursor_pos_for_byte_offset(w_offset + 1), (10., 10.));
 
     assert_eq!(paragraph.cursor_pos_for_byte_offset(text.len()), (10. * 5., 10.));
+
+    let first_space_offset =
+        text.char_indices().find_map(|(offset, ch)| ch.is_whitespace().then(|| offset)).unwrap();
+    assert_eq!(paragraph.cursor_pos_for_byte_offset(first_space_offset), (5. * 10., 0.));
+    assert_eq!(paragraph.cursor_pos_for_byte_offset(first_space_offset + 15), (10. * 10., 0.));
+    assert_eq!(paragraph.cursor_pos_for_byte_offset(first_space_offset + 16), (10. * 10., 0.));
 }
