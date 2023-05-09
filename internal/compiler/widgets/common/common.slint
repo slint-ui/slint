@@ -86,9 +86,12 @@ export component TextEdit inherits ScrollView {
         }
     }
 }
-
 export component AboutSlint {
-    VerticalLayout {
+    preferred-height: 100%;
+    preferred-width: 100%;
+    min-height: lay.min-height;
+    min-width: lay.min-width;
+    lay := VerticalLayout {
         padding: 12px;
         spacing: 8px;
         alignment: start;
