@@ -1227,7 +1227,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         Font: GlyphRenderer,
     {
         paragraph
-            .layout_lines::<()>(|glyphs, line_x, line_y| {
+            .layout_lines::<()>(|glyphs, line_x, line_y, _| {
                 let baseline_y = line_y + paragraph.layout.font.ascent();
                 while let Some(positioned_glyph) = glyphs.next() {
                     let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);

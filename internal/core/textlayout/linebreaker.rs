@@ -11,7 +11,7 @@ use super::{ShapeBuffer, TextShaper};
 #[derive(Clone, Default, Debug)]
 pub struct TextLine<Length: Default + Clone> {
     // The range excludes trailing whitespace
-    byte_range: Range<usize>,
+    pub byte_range: Range<usize>,
     pub(crate) glyph_range: Range<usize>,
     trailing_whitespace: Length,
     pub(crate) text_width: Length, // with as occupied by the glyphs
