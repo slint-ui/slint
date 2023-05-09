@@ -52,28 +52,24 @@ cfg_if::cfg_if! {
 
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using Skia as underlying graphics library.
-pub struct SkiaRenderer<NativeWindowWrapper> {
+pub struct SkiaRenderer {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     image_cache: ItemCache<Option<skia_safe::Image>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     surface: DefaultSurface,
-    // Kept here to make sure that the raw window handles used by the surface are kept alive
-    _native_window: NativeWindowWrapper,
 }
 
-impl<
-        NativeWindowWrapper: raw_window_handle::HasRawWindowHandle + raw_window_handle::HasRawDisplayHandle,
-    > SkiaRenderer<NativeWindowWrapper>
-{
+impl SkiaRenderer {
     /// Creates a new renderer is associated with the provided window adapter.
     pub fn new(
         window_adapter_weak: Weak<dyn WindowAdapter>,
-        native_window: NativeWindowWrapper,
+        native_window: &impl raw_window_handle::HasRawWindowHandle,
+        native_display: &impl raw_window_handle::HasRawDisplayHandle,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
-        let surface = DefaultSurface::new(&native_window, &native_window, size)?;
+        let surface = DefaultSurface::new(&native_window, &native_display, size)?;
 
         Ok(Self {
             window_adapter_weak,
@@ -82,7 +78,6 @@ impl<
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             surface,
-            _native_window: native_window,
         })
     }
 
@@ -203,7 +198,7 @@ impl<
     }
 }
 
-impl<NativeWindowWrapper> i_slint_core::renderer::Renderer for SkiaRenderer<NativeWindowWrapper> {
+impl i_slint_core::renderer::Renderer for SkiaRenderer {
     fn text_size(
         &self,
         font_request: i_slint_core::graphics::FontRequest,

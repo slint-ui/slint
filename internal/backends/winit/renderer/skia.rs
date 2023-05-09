@@ -8,7 +8,7 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::window::WindowAdapter;
 
 pub struct SkiaRenderer {
-    renderer: i_slint_renderer_skia::SkiaRenderer<Rc<winit::window::Window>>,
+    renderer: i_slint_renderer_skia::SkiaRenderer,
 }
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
@@ -41,7 +41,8 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
 
         let renderer = i_slint_renderer_skia::SkiaRenderer::new(
             window_adapter_weak.clone(),
-            winit_window.clone(),
+            &winit_window,
+            &winit_window,
             PhysicalWindowSize::new(width, height),
         )?;
 
