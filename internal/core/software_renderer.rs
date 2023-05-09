@@ -17,7 +17,7 @@ use crate::lengths::{
     RectLengths, ScaleFactor, SizeLengths,
 };
 use crate::renderer::Renderer;
-use crate::textlayout::{AbstractFont, TextParagraphLayout};
+use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
@@ -314,12 +314,74 @@ impl Renderer for SoftwareRenderer {
     ) -> usize {
         0
     }
+
     fn text_input_cursor_rect_for_byte_offset(
         &self,
-        _text_input: Pin<&crate::items::TextInput>,
-        _byte_offset: usize,
+        text_input: Pin<&crate::items::TextInput>,
+        byte_offset: usize,
     ) -> LogicalRect {
-        Default::default()
+        let window_adapter = match self.window.upgrade() {
+            Some(window) => window,
+            None => return Default::default(),
+        };
+
+        let scale_factor = ScaleFactor::new(window_adapter.window().scale_factor()).cast();
+        let string = text_input.text();
+
+        let font_request = text_input.font_request(&window_adapter);
+        let font = fonts::match_font(&font_request, scale_factor);
+
+        let width = (text_input.width().cast() * scale_factor).cast();
+        let height = (text_input.height().cast() * scale_factor).cast();
+
+        let (cursor_position, cursor_height) = match font {
+            fonts::Font::PixelFont(pf) => {
+                let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: width,
+                    max_height: height,
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: false,
+                };
+
+                (paragraph.cursor_pos_for_byte_offset(byte_offset), pf.height())
+            }
+            #[cfg(feature = "software-renderer-systemfonts")]
+            fonts::Font::VectorFont(vf) => {
+                let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: width,
+                    max_height: height,
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: false,
+                };
+
+                (paragraph.cursor_pos_for_byte_offset(byte_offset), vf.height())
+            }
+        };
+
+        return (PhysicalRect::new(
+            PhysicalPoint::from_lengths(cursor_position.0, cursor_position.1),
+            PhysicalSize::from_lengths(
+                (text_input.text_cursor_width().cast() * scale_factor).cast(),
+                cursor_height,
+            ),
+        )
+        .cast()
+            / scale_factor)
+            .cast();
     }
 
     fn free_graphics_resources(
@@ -1156,7 +1218,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
     fn draw_text_paragraph<'b, Font: AbstractFont>(
         &mut self,
-        paragraph: TextParagraphLayout<'b, Font>,
+        paragraph: &TextParagraphLayout<'b, Font>,
         physical_clip: euclid::Rect<f32, PhysicalPx>,
         offset: euclid::Vector2D<f32, PhysicalPx>,
         color: Color,
@@ -1584,7 +1646,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: false,
                 };
 
-                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
@@ -1602,7 +1664,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: false,
                 };
 
-                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
             }
         }
     }
@@ -1613,7 +1675,6 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         _: &ItemRc,
         size: LogicalSize,
     ) {
-        let string = text_input.text();
         let geom = LogicalRect::from(size);
         if !self.should_draw(&geom) {
             return;
@@ -1637,10 +1698,12 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
         let font = fonts::match_font(&font_request, self.scale_factor);
 
-        match font {
+        let text_visual_representation = text_input.visual_representation(None);
+
+        let cursor_pos_and_height = match font {
             fonts::Font::PixelFont(pf) => {
                 let paragraph = TextParagraphLayout {
-                    string: &string,
+                    string: &text_visual_representation.text,
                     layout: fonts::text_layout_for_font(&pf, &font_request, self.scale_factor),
                     max_width: max_size.width_length(),
                     max_height: max_size.height_length(),
@@ -1651,12 +1714,16 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: text_input.single_line(),
                 };
 
-                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
+
+                text_visual_representation.cursor_position.map(|cursor_offset| {
+                    (paragraph.cursor_pos_for_byte_offset(cursor_offset), pf.height())
+                })
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
                 let paragraph = TextParagraphLayout {
-                    string: &string,
+                    string: &text_visual_representation.text,
                     layout: fonts::text_layout_for_font(&vf, &font_request, self.scale_factor),
                     max_width: max_size.width_length(),
                     max_height: max_size.height_length(),
@@ -1667,8 +1734,23 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: text_input.single_line(),
                 };
 
-                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
+
+                text_visual_representation.cursor_position.map(|cursor_offset| {
+                    (paragraph.cursor_pos_for_byte_offset(cursor_offset), vf.height())
+                })
             }
+        };
+
+        if let Some(((cursor_x, cursor_y), cursor_height)) = cursor_pos_and_height {
+            let cursor_rect = PhysicalRect::new(
+                PhysicalPoint::from_lengths(cursor_x, cursor_y),
+                PhysicalSize::from_lengths(
+                    (text_input.text_cursor_width().cast() * self.scale_factor).cast(),
+                    cursor_height,
+                ),
+            );
+            self.processor.process_rectangle(cursor_rect.translate(offset.cast()), color.into());
         }
     }
 
