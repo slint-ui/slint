@@ -264,7 +264,8 @@ pub struct WindowInner {
     mouse_input_state: Cell<MouseInputState>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
 
-    focus_item: RefCell<crate::item_tree::ItemWeak>,
+    /// itemRC will retrieve on wasms
+    pub focus_item: RefCell<crate::item_tree::ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
 
     pinned_fields: Pin<Box<WindowPinnedFields>>,

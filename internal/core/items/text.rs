@@ -7,7 +7,6 @@ This module contains the builtin text related items.
 When adding an item or a property, it needs to be kept in sync with different place.
 Lookup the [`crate::items`] module documentation.
 */
-
 use super::{
     InputType, Item, ItemConsts, ItemRc, KeyEventResult, KeyEventType, PointArg,
     PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow,
@@ -35,7 +34,6 @@ use core::pin::Pin;
 use euclid::num::Ceil;
 use i_slint_core_macros::*;
 use unicode_segmentation::UnicodeSegmentation;
-
 /// The implementation of the `Text` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
@@ -956,7 +954,7 @@ impl TextInput {
         anchor_pos != cursor_pos
     }
 
-    fn insert(
+    pub fn insert(
         self: Pin<&Self>,
         text_to_insert: &str,
         window_adapter: &Rc<dyn WindowAdapter>,

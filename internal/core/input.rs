@@ -309,8 +309,10 @@ impl KeyEvent {
     pub fn shortcut(&self) -> Option<StandardShortcut> {
         if self.modifiers.control && !self.modifiers.shift {
             match self.text.as_str() {
+                #[cfg(not(target_arch = "wasm32"))]
                 "c" => Some(StandardShortcut::Copy),
                 "x" => Some(StandardShortcut::Cut),
+                #[cfg(not(target_arch = "wasm32"))]
                 "v" => Some(StandardShortcut::Paste),
                 "a" => Some(StandardShortcut::SelectAll),
                 "f" => Some(StandardShortcut::Find),

@@ -45,8 +45,10 @@ impl WasmInputHelper {
         window_adapter: Weak<dyn WindowAdapter>,
         canvas: web_sys::HtmlCanvasElement,
     ) -> Self {
-        let input = web_sys::window()
-            .unwrap()
+        let window = web_sys::window().unwrap();
+        #[cfg(web_sys_unstable_apis)]
+        let clipboard = window.navigator().clipboard().unwrap();
+        let input = window
             .document()
             .unwrap()
             .create_element("input")
@@ -66,6 +68,70 @@ impl WasmInputHelper {
         let mut h = Self { input, canvas: canvas.clone() };
 
         let shared_state = Rc::new(RefCell::new(WasmInputState::default()));
+        #[cfg(web_sys_unstable_apis)]
+        {
+            let win = window_adapter.clone();
+            let clip = clipboard.clone();
+            let closure_copy = Closure::wrap(Box::new(move |e: web_sys::ClipboardEvent| {
+                if let Some(window_adapter) = win.upgrade() {
+                    e.prevent_default();
+                    let mut item = WindowInner::from_pub(&window_adapter.window())
+                        .focus_item
+                        .borrow()
+                        .clone()
+                        .upgrade();
+                    if let Some(focus_item) = item.clone() {
+                        if let Some(text_input) =
+                            focus_item.downcast::<i_slint_core::items::TextInput>()
+                        {
+                            let (anchor, cursor) =
+                                text_input.as_pin_ref().selection_anchor_and_cursor();
+                            if anchor == cursor {
+                                return;
+                            }
+                            let text = text_input.as_pin_ref().text();
+                            let selected_text = &text[anchor..cursor];
+                            clip.write_text(selected_text.as_str());
+                        }
+                    }
+                }
+            }) as Box<dyn Fn(_)>);
+            window.add_event_listener_with_callback("copy", closure_copy.as_ref().unchecked_ref());
+            closure_copy.forget();
+
+            let win = window_adapter.clone();
+            let closure_paste = Closure::wrap(Box::new(move |e: web_sys::ClipboardEvent| {
+                if let Some(window_adapter) = win.upgrade() {
+                    e.prevent_default();
+                    let mut item = WindowInner::from_pub(&window_adapter.window())
+                        .focus_item
+                        .borrow()
+                        .clone()
+                        .upgrade();
+                    if let Some(focus_item) = item.clone() {
+                        if let Some(text_input) =
+                            focus_item.downcast::<i_slint_core::items::TextInput>()
+                        {
+                            let copy =
+                                Closure::wrap(Box::new(move |result: wasm_bindgen::JsValue| {
+                                    let focus_item_clone = focus_item.clone();
+                                    text_input.as_pin_ref().insert(
+                                        &result.as_string().unwrap(),
+                                        &window_adapter,
+                                        &focus_item_clone,
+                                    );
+                                })
+                                    as Box<dyn FnMut(wasm_bindgen::JsValue)>);
+                            clipboard.read_text().then(&copy);
+                            copy.forget();
+                        }
+                    }
+                }
+            }) as Box<dyn Fn(_)>);
+            window
+                .add_event_listener_with_callback("paste", closure_paste.as_ref().unchecked_ref());
+            closure_paste.forget();
+        }
 
         let win = window_adapter.clone();
         h.add_event_listener("blur", move |_: web_sys::Event| {
