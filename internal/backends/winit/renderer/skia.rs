@@ -8,7 +8,6 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::window::WindowAdapter;
 
 pub struct SkiaRenderer {
-    winit_window: Rc<winit::window::Window>,
     renderer: i_slint_renderer_skia::SkiaRenderer<Rc<winit::window::Window>>,
 }
 
@@ -18,7 +17,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
     fn new(
         window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
-    ) -> Result<Self, PlatformError> {
+    ) -> Result<(Self, Rc<winit::window::Window>), PlatformError> {
         let winit_window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for Skia rendering: {}", winit_os_error)
@@ -46,11 +45,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
             PhysicalWindowSize::new(width, height),
         )?;
 
-        Ok(Self { winit_window, renderer })
-    }
-
-    fn window(&self) -> Rc<winit::window::Window> {
-        self.winit_window.clone()
+        Ok((Self { renderer }, winit_window))
     }
 
     fn show(&self) -> Result<(), PlatformError> {

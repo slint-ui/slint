@@ -37,11 +37,9 @@ mod renderer {
             window_adapter_weak: &Weak<dyn WindowAdapter>,
             window_builder: winit::window::WindowBuilder,
             #[cfg(target_arch = "wasm32")] canvas_id: &str,
-        ) -> Result<Self, PlatformError>
+        ) -> Result<(Self, Rc<winit::window::Window>), PlatformError>
         where
             Self: Sized;
-
-        fn window(&self) -> Rc<winit::window::Window>;
 
         fn show(&self) -> Result<(), PlatformError>;
         fn hide(&self) -> Result<(), PlatformError>;
