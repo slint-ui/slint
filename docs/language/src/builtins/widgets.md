@@ -21,8 +21,7 @@ This element displays a "Made with Slint" badge.
 ```slint
 import { AboutSlint } from "std-widgets.slint";
 export component Example inherits Window {
-    width: 128px;
-    height: 128px;
+    height: 175px;
     AboutSlint {
     }
 }
