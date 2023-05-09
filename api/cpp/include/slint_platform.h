@@ -271,7 +271,7 @@ public:
 #    endif
 
     /// \private
-    cbindgen_private::CppRawHandleOpaque handle() const { return inner; }
+    const cbindgen_private::CppRawHandleOpaque &handle() const { return inner; }
 };
 
 /// Slint's Skia renderer.
@@ -310,7 +310,7 @@ public:
         if (inner) {
             cbindgen_private::slint_skia_renderer_drop(inner);
         }
-        inner = cbindgen_private::slint_skia_renderer_new(win, window_handle.handle(),
+        inner = cbindgen_private::slint_skia_renderer_new(win, &window_handle.handle(),
                                                           initial_size);
     }
 

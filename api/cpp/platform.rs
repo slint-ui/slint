@@ -178,7 +178,7 @@ pub unsafe extern "C" fn slint_software_renderer_handle(r: SoftwareRendererOpaqu
 }
 
 type SkiaRendererOpaque = *const c_void;
-type SkiaRenderer = i_slint_renderer_skia::SkiaRenderer<CppRawHandle>;
+type SkiaRenderer = i_slint_renderer_skia::SkiaRenderer;
 
 struct CppRawHandle(RawWindowHandle, RawDisplayHandle);
 // Safety: the C++ code should ensure that the handle is valid
@@ -210,9 +210,9 @@ macro_rules! init_raw {
 pub struct CppRawHandleOpaque([usize; 7]);
 
 impl CppRawHandleOpaque {
-    fn into_raw_handle(self) -> CppRawHandle {
+    fn as_raw_handle(&self) -> &CppRawHandle {
         // Safety: there should be no way to construct a CppRawHandleOpaque without it holding an actual CppRawHandle
-        unsafe { std::mem::transmute::<CppRawHandleOpaque, CppRawHandle>(self) }
+        unsafe { std::mem::transmute::<&CppRawHandleOpaque, &CppRawHandle>(self) }
     }
 }
 
@@ -280,7 +280,7 @@ pub unsafe extern "C" fn slint_new_raw_window_handle_appkit(
 #[no_mangle]
 pub unsafe extern "C" fn slint_skia_renderer_new(
     window_adapter: &WindowAdapterRcOpaque,
-    handle_opaque: CppRawHandleOpaque,
+    handle_opaque: &CppRawHandleOpaque,
     size: IntSize,
 ) -> SkiaRendererOpaque {
     let window_adapter =
@@ -288,7 +288,8 @@ pub unsafe extern "C" fn slint_skia_renderer_new(
     let weak = Rc::downgrade(window_adapter);
     Box::into_raw(Box::new(SkiaRenderer::new(
         weak,
-        handle_opaque.into_raw_handle(),
+        handle_opaque.as_raw_handle(),
+        handle_opaque.as_raw_handle(),
         PhysicalSize { width: size.width, height: size.height },
     ))) as SkiaRendererOpaque
 }
