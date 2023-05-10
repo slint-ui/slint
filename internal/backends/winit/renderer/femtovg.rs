@@ -54,8 +54,6 @@ impl GlutinFemtoVGRenderer {
 }
 
 impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
-    const NAME: &'static str = "FemtoVG";
-
     fn new(
         window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,

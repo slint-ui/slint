@@ -12,8 +12,6 @@ pub struct SkiaRenderer {
 }
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
-    const NAME: &'static str = "Skia";
-
     fn new(
         window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
