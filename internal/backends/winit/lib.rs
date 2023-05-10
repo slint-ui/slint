@@ -313,6 +313,7 @@ fn winit_window_rc_for_window(
     rc_winit_window
 }
 
+/* FIXME: re-enable with thread-enabled event loop later
 #[cfg(test)]
 mod testui {
     slint::slint! {
@@ -332,3 +333,4 @@ fn test_window_accessor() {
     // slint_window.show();
     // assert!(!slint_window.has_winit_window());
 }
+*/
