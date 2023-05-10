@@ -69,7 +69,28 @@ struct NotRunningEventLoop {
 
 impl NotRunningEventLoop {
     fn new() -> Self {
-        let instance = winit::event_loop::EventLoopBuilder::with_user_event().build();
+        let mut builder = winit::event_loop::EventLoopBuilder::with_user_event();
+
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            #[cfg(feature = "wayland")]
+            {
+                use winit::platform::wayland::EventLoopBuilderExtWayland;
+                builder.with_any_thread(true);
+            }
+            #[cfg(feature = "x11")]
+            {
+                use winit::platform::x11::EventLoopBuilderExtX11;
+                builder.with_any_thread(true);
+            }
+        }
+        #[cfg(target_family = "windows")]
+        {
+            use winit::platform::windows::EventLoopBuilderExtWindows;
+            builder.with_any_thread(true);
+        }
+
+        let instance = builder.build();
         let event_loop_proxy = instance.create_proxy();
         let clipboard = RefCell::new(create_clipboard(&instance));
         Self { clipboard, instance, event_loop_proxy }

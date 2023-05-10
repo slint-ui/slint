@@ -251,7 +251,7 @@ mod private {
 #[doc = concat!("This helper trait can be used to obtain access to the [`winit::window::Window`] for a given [`slint::Window`](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/struct.window).")]
 pub trait WinitWindowAccessor: private::WinitWindowAccessorSealed {
     /// Returns true if a [`winit::window::Window`] exists for this window. This is the case if the window is
-    /// backed by this winit backend and is shown on the screen.
+    /// backed by this winit backend.
     fn has_winit_window(&self) -> bool;
     /// Invokes the specified callback with a reference to the [`winit::window::Window`] that exists for this Slint window
     /// and returns `Some(T)`; otherwise `None`.
@@ -284,7 +284,6 @@ fn winit_window_rc_for_window(
         .map(|adapter| adapter.winit_window())
 }
 
-/* FIXME: re-enable with thread-enabled event loop later
 #[cfg(test)]
 mod testui {
     slint::slint! {
@@ -294,14 +293,14 @@ mod testui {
     }
 }
 
+// Sorry, can't test with rust test harness and multiple threads.
+#[cfg(not(any(target_arch = "wasm32", target_os = "macos", target_os = "ios")))]
 #[test]
 fn test_window_accessor() {
+    slint::platform::set_platform(Box::new(crate::Backend::new())).unwrap();
+
     use testui::*;
     let app = App::new().unwrap();
     let slint_window = app.window();
-    assert!(!slint_window.has_winit_window());
-    // Can't do this on macOS :-(
-    // slint_window.show();
-    // assert!(!slint_window.has_winit_window());
+    assert!(slint_window.has_winit_window());
 }
-*/
