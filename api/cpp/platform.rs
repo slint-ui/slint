@@ -205,32 +205,20 @@ macro_rules! init_raw {
     };
 }
 
-// FIXME: This may need different values for a 32-bit build
-#[repr(C)]
-pub struct CppRawHandleOpaque([usize; 7]);
-
-impl CppRawHandleOpaque {
-    fn as_raw_handle(&self) -> &CppRawHandle {
-        // Safety: there should be no way to construct a CppRawHandleOpaque without it holding an actual CppRawHandle
-        unsafe { std::mem::transmute::<&CppRawHandleOpaque, &CppRawHandle>(self) }
-    }
-}
+type CppRawHandleOpaque = *const c_void;
 
 /// Asserts that CppRawHandleOpaque is as large as CppRawHandle and has the same alignment, to make transmute safe.
-const _: [(); std::mem::size_of::<CppRawHandleOpaque>()] =
-    [(); std::mem::size_of::<CppRawHandle>()];
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_new_raw_window_handle_win32(
     hwnd: *mut c_void,
     hinstance: *mut c_void,
-    handle_opaque: *mut CppRawHandleOpaque,
-) {
+) -> CppRawHandleOpaque {
     let handle = CppRawHandle(
         RawWindowHandle::Win32(init_raw!(raw_window_handle::Win32WindowHandle { hwnd, hinstance })),
         RawDisplayHandle::Windows(raw_window_handle::WindowsDisplayHandle::empty()),
     );
-    core::ptr::write(handle_opaque as *mut CppRawHandle, handle);
+    Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
 }
 
 #[no_mangle]
@@ -239,48 +227,50 @@ pub unsafe extern "C" fn slint_new_raw_window_handle_x11(
     visual_id: u32,
     connection: *mut c_void,
     screen: core::ffi::c_int,
-    handle_opaque: *mut CppRawHandleOpaque,
-) {
+) -> CppRawHandleOpaque {
     use raw_window_handle::{XcbDisplayHandle, XcbWindowHandle};
     let handle = CppRawHandle(
         RawWindowHandle::Xcb(init_raw!(XcbWindowHandle { window, visual_id })),
         RawDisplayHandle::Xcb(init_raw!(XcbDisplayHandle { connection, screen })),
     );
-    core::ptr::write(handle_opaque as *mut CppRawHandle, handle);
+    Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_new_raw_window_handle_wayland(
     surface: *mut c_void,
     display: *mut c_void,
-    handle_opaque: *mut CppRawHandleOpaque,
-) {
+) -> CppRawHandleOpaque {
     use raw_window_handle::{WaylandDisplayHandle, WaylandWindowHandle};
     let handle = CppRawHandle(
         RawWindowHandle::Wayland(init_raw!(WaylandWindowHandle { surface })),
         RawDisplayHandle::Wayland(init_raw!(WaylandDisplayHandle { display })),
     );
-    core::ptr::write(handle_opaque as *mut CppRawHandle, handle);
+    Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_new_raw_window_handle_appkit(
     ns_view: *mut c_void,
     ns_window: *mut c_void,
-    handle_opaque: *mut CppRawHandleOpaque,
-) {
+) -> CppRawHandleOpaque {
     use raw_window_handle::{AppKitDisplayHandle, AppKitWindowHandle};
     let handle = CppRawHandle(
         RawWindowHandle::AppKit(init_raw!(AppKitWindowHandle { ns_view, ns_window })),
         RawDisplayHandle::AppKit(AppKitDisplayHandle::empty()),
     );
-    core::ptr::write(handle_opaque as *mut CppRawHandle, handle);
+    Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn slint_raw_window_handle_drop(handle: CppRawHandleOpaque) {
+    drop(Box::from_raw(handle as *mut CppRawHandle))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_skia_renderer_new(
     window_adapter: &WindowAdapterRcOpaque,
-    handle_opaque: &CppRawHandleOpaque,
+    handle_opaque: CppRawHandleOpaque,
     size: IntSize,
 ) -> SkiaRendererOpaque {
     let window_adapter =
@@ -288,8 +278,8 @@ pub unsafe extern "C" fn slint_skia_renderer_new(
     let weak = Rc::downgrade(window_adapter);
     Box::into_raw(Box::new(SkiaRenderer::new(
         weak,
-        handle_opaque.as_raw_handle(),
-        handle_opaque.as_raw_handle(),
+        &*(handle_opaque as *const CppRawHandle),
+        &*(handle_opaque as *const CppRawHandle),
         PhysicalSize { width: size.width, height: size.height },
     ))) as SkiaRendererOpaque
 }

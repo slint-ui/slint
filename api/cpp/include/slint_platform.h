@@ -233,45 +233,68 @@ public:
 /// Note that this class does not provide any kind of ownership. The caller is responsible for
 /// ensuring that the pointers supplied to the constructor are valid throughout the lifetime of the
 /// WindowHandle.
-class WindowHandle
+class NativeWindowHandle
 {
     cbindgen_private::CppRawHandleOpaque inner;
+    friend class SkiaRenderer;
+
+    NativeWindowHandle(cbindgen_private::CppRawHandleOpaque inner) : inner(inner) { }
 
 public:
-    WindowHandle() = delete;
-#    if !defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
-    WindowHandle(uint32_t /*xcb_window_t*/ window, uint32_t /*xcb_visualid_t*/ visual_id,
-                 xcb_connection_t *connection, int screen)
+    NativeWindowHandle() = delete;
+    NativeWindowHandle(const NativeWindowHandle &) = delete;
+    NativeWindowHandle &operator=(const NativeWindowHandle &) = delete;
+    NativeWindowHandle(NativeWindowHandle &&other) { inner = std::exchange(other.inner, nullptr); }
+    NativeWindowHandle &operator=(NativeWindowHandle &&other)
     {
-        cbindgen_private::slint_new_raw_window_handle_x11(window, visual_id, connection, screen,
-                                                          &inner);
+        if (this == &other) {
+            return *this;
+        }
+        if (inner) {
+            cbindgen_private::slint_raw_window_handle_drop(inner);
+        }
+        inner = std::exchange(other.inner, nullptr);
+        return *this;
     }
 
-    WindowHandle(wl_surface *surface, wl_display *display)
+#    if !defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
+    static NativeWindowHandle from_x11(uint32_t /*xcb_window_t*/ window,
+                                       uint32_t /*xcb_visualid_t*/ visual_id,
+                                       xcb_connection_t *connection, int screen)
     {
 
-        cbindgen_private::slint_new_raw_window_handle_wayland(surface, display, size, &inner);
+        return { cbindgen_private::slint_new_raw_window_handle_x11(window, visual_id, connection,
+                                                                   screen) };
+    }
+
+    static NativeWindowHandle from_wayland(wl_surface *surface, wl_display *display)
+    {
+
+        return { cbindgen_private::slint_new_raw_window_handle_wayland(surface, display, size) };
     }
 
 #    elif defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
 
-    WindowHandle(void *nsview, void *nswindow)
+    static NativeWindowHandle from_appkit(void *nsview, void *nswindow)
     {
 
-        cbindgen_private::slint_new_raw_window_handle_appkit(nsview, nswindow, &inner);
+        return { cbindgen_private::slint_new_raw_window_handle_appkit(nsview, nswindow) };
     }
 
 #    elif !defined(__APPLE__) && (defined(_WIN32) || !defined(_WIN64))
 
     /// Windows handle
-    WindowHandle(void *hwnd, void *hinstance)
+    static NativeWindowHandle from_win32(void *hwnd, void *hinstance)
     {
-        cbindgen_private::slint_new_raw_window_handle_win32(hwnd, hinstance, &inner);
+        return { cbindgen_private::slint_new_raw_window_handle_win32(hwnd, hinstance) };
     }
 #    endif
-
-    /// \private
-    const cbindgen_private::CppRawHandleOpaque &handle() const { return inner; }
+    ~NativeWindowHandle()
+    {
+        if (inner) {
+            cbindgen_private::slint_raw_window_handle_drop(inner);
+        }
+    }
 };
 
 /// Slint's Skia renderer.
@@ -285,7 +308,7 @@ public:
 class SkiaRenderer
 {
     mutable cbindgen_private::SkiaRendererOpaque inner = nullptr;
-    WindowHandle window_handle;
+    NativeWindowHandle window_handle;
     PhysicalSize initial_size;
 
 public:
@@ -299,8 +322,8 @@ public:
     SkiaRenderer &operator=(const SkiaRenderer &) = delete;
     /// Constructs a new Skia renderer for the given window - referenced by the provided
     /// WindowHandle - and the specified initial size.
-    SkiaRenderer(WindowHandle window_handle, PhysicalSize initial_size)
-        : window_handle(window_handle), initial_size(initial_size)
+    SkiaRenderer(NativeWindowHandle &&window_handle, PhysicalSize initial_size)
+        : window_handle(std::move(window_handle)), initial_size(initial_size)
     {
     }
 
@@ -310,8 +333,7 @@ public:
         if (inner) {
             cbindgen_private::slint_skia_renderer_drop(inner);
         }
-        inner = cbindgen_private::slint_skia_renderer_new(win, &window_handle.handle(),
-                                                          initial_size);
+        inner = cbindgen_private::slint_skia_renderer_new(win, window_handle.inner, initial_size);
     }
 
     /// \private
