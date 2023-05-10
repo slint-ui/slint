@@ -137,6 +137,7 @@ log = { version = "0.4.17", optional = true }
 
 [dev-dependencies]
 slint-build = { path = "../build" }
+i-slint-backend-testing = { version = "=1.0.3", path = "../../../internal/backends/testing" }
 
 [package.metadata.docs.rs]
 rustdoc-args = [
