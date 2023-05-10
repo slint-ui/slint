@@ -31,8 +31,6 @@ mod renderer {
     use i_slint_core::window::WindowAdapter;
 
     pub(crate) trait WinitCompatibleRenderer {
-        const NAME: &'static str;
-
         fn new(
             window_adapter_weak: &Weak<dyn WindowAdapter>,
             window_builder: winit::window::WindowBuilder,
@@ -70,12 +68,12 @@ pub(crate) mod wasm_input_helper;
 pub fn create_gl_window_with_canvas_id(
     canvas_id: &str,
 ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-    WinitWindowAdapter::<crate::renderer::femtovg::GlutinFemtoVGRenderer>::new(canvas_id)
+    WinitWindowAdapter::new::<crate::renderer::femtovg::GlutinFemtoVGRenderer>(canvas_id)
 }
 
 fn window_factory_fn<R: WinitCompatibleRenderer + 'static>(
 ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-    WinitWindowAdapter::<R>::new(
+    WinitWindowAdapter::new::<R>(
         #[cfg(target_arch = "wasm32")]
         "canvas".into(),
     )
@@ -84,10 +82,13 @@ fn window_factory_fn<R: WinitCompatibleRenderer + 'static>(
 cfg_if::cfg_if! {
     if #[cfg(feature = "renderer-winit-femtovg")] {
         type DefaultRenderer = renderer::femtovg::GlutinFemtoVGRenderer;
+        const DEFAULT_RENDERER_NAME: &'static str = "FemtoVG";
     } else if #[cfg(enable_skia_renderer)] {
         type DefaultRenderer = renderer::skia::SkiaRenderer;
+        const DEFAULT_RENDERER_NAME: &'static str = "Skia";
     } else if #[cfg(feature = "renderer-winit-software")] {
         type DefaultRenderer = renderer::sw::WinitSoftwareRenderer;
+        const DEFAULT_RENDERER_NAME: &'static str = "Software";
     } else {
         compile_error!("Please select a feature to build with the winit backend: `renderer-winit-femtovg`, `renderer-winit-skia`, `renderer-winit-skia-opengl`, `renderer-winit-skia-vulkan` or `renderer-winit-software`");
     }
@@ -144,8 +145,7 @@ impl Backend {
             Some(renderer_name) => {
                 eprintln!(
                     "slint winit: unrecognized renderer {}, falling back to {}",
-                    renderer_name,
-                    DefaultRenderer::NAME
+                    renderer_name, DEFAULT_RENDERER_NAME
                 );
                 window_factory_fn::<DefaultRenderer>
             }
@@ -277,40 +277,11 @@ impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
 fn winit_window_rc_for_window(
     window: &i_slint_core::api::Window,
 ) -> Option<Rc<winit::window::Window>> {
-    let runtime_window = i_slint_core::window::WindowInner::from_pub(&window);
-
-    let dyn_adapter = runtime_window.window_adapter();
-
-    let rc_winit_window = dyn_adapter
+    i_slint_core::window::WindowInner::from_pub(&window)
+        .window_adapter()
         .as_any()
-        .downcast_ref::<WinitWindowAdapter<DefaultRenderer>>()
-        .map(|adapter| adapter.winit_window());
-
-    #[cfg(feature = "renderer-winit-femtovg")]
-    let rc_winit_window = rc_winit_window.or_else(|| {
-        dyn_adapter
-            .as_any()
-            .downcast_ref::<WinitWindowAdapter<renderer::femtovg::GlutinFemtoVGRenderer>>()
-            .map(|adapter| adapter.winit_window())
-    });
-
-    #[cfg(enable_skia_renderer)]
-    let rc_winit_window = rc_winit_window.or_else(|| {
-        dyn_adapter
-            .as_any()
-            .downcast_ref::<WinitWindowAdapter<renderer::skia::SkiaRenderer>>()
-            .map(|adapter| adapter.winit_window())
-    });
-
-    #[cfg(feature = "renderer-winit-software")]
-    let rc_winit_window = rc_winit_window.or_else(|| {
-        dyn_adapter
-            .as_any()
-            .downcast_ref::<WinitWindowAdapter<renderer::sw::WinitSoftwareRenderer>>()
-            .map(|adapter| adapter.winit_window())
-    });
-
-    rc_winit_window
+        .downcast_ref::<WinitWindowAdapter>()
+        .map(|adapter| adapter.winit_window())
 }
 
 /* FIXME: re-enable with thread-enabled event loop later

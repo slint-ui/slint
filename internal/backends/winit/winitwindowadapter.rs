@@ -101,7 +101,7 @@ fn window_is_resizable(min_size: Option<LogicalSize>, max_size: Option<LogicalSi
 
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
-pub(crate) struct WinitWindowAdapter<Renderer: WinitCompatibleRenderer + 'static> {
+pub(crate) struct WinitWindowAdapter {
     window: OnceCell<corelib::api::Window>,
     #[cfg(target_arch = "wasm32")]
     self_weak: Weak<Self>,
@@ -113,13 +113,13 @@ pub(crate) struct WinitWindowAdapter<Renderer: WinitCompatibleRenderer + 'static
     shown: Cell<bool>,
 
     winit_window: Option<Rc<winit::window::Window>>,
-    renderer: OnceCell<Renderer>,
+    renderer: OnceCell<Box<dyn WinitCompatibleRenderer>>,
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> Default for WinitWindowAdapter<Renderer> {
+impl Default for WinitWindowAdapter {
     fn default() -> Self {
         Self {
             window: Default::default(),
@@ -139,9 +139,9 @@ impl<Renderer: WinitCompatibleRenderer + 'static> Default for WinitWindowAdapter
     }
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
+impl WinitWindowAdapter {
     /// Creates a new reference-counted instance.
-    pub(crate) fn new(
+    pub(crate) fn new<R: WinitCompatibleRenderer + 'static>(
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
         // Error that occured during construction. This is only used temporarily during new.
@@ -155,7 +155,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
                 canvas_id,
             )
             .and_then(|builder| {
-                Renderer::new(
+                R::new(
                     &(self_weak.clone() as _),
                     builder,
                     #[cfg(target_arch = "wasm32")]
@@ -163,7 +163,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
                 )
             }) {
                 Ok((new_renderer, winit_window)) => {
-                    result.renderer = OnceCell::with_value(new_renderer);
+                    result.renderer = OnceCell::with_value(Box::new(new_renderer));
                     result.winit_window = Some(Rc::new(winit_window));
                 }
                 Err(err) => {
@@ -217,8 +217,8 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
         return callback(self);
     }
 
-    fn renderer(&self) -> &Renderer {
-        self.renderer.get().unwrap()
+    fn renderer(&self) -> &dyn WinitCompatibleRenderer {
+        self.renderer.get().unwrap().as_ref()
     }
 
     fn window_builder(
@@ -260,7 +260,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindowAdapter<Renderer> {
     }
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for WinitWindowAdapter<Renderer> {
+impl WinitWindow for WinitWindowAdapter {
     fn take_pending_redraw(&self) -> bool {
         self.pending_redraw.take()
     }
@@ -336,15 +336,13 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for WinitWindowAda
     }
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapter for WinitWindowAdapter<Renderer> {
+impl WindowAdapter for WinitWindowAdapter {
     fn window(&self) -> &corelib::api::Window {
         self.window.get().unwrap()
     }
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
-    for WinitWindowAdapter<Renderer>
-{
+impl WindowAdapterSealed for WinitWindowAdapter {
     fn request_redraw(&self) {
         self.pending_redraw.set(true);
         self.with_window_handle(&mut |window| window.request_redraw())
@@ -728,7 +726,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed
     }
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> Drop for WinitWindowAdapter<Renderer> {
+impl Drop for WinitWindowAdapter {
     fn drop(&mut self) {
         if let Some(renderer) = self.renderer.get() {
             renderer.hide().ok(); // ignore errors here, we're going away anyway

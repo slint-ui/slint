@@ -18,8 +18,6 @@ pub struct WinitSoftwareRenderer {
 }
 
 impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
-    const NAME: &'static str = "Software";
-
     fn new(
         window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
