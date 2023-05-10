@@ -1,0 +1,23 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+[package]
+name = "opengl_texture"
+version = "1.0.3"
+authors = ["Slint Developers <info@slint-ui.com>"]
+edition = "2021"
+build = "build.rs"
+license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "opengl_texture"
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+glow = { version = "0.12" }
+instant = { version = "0.1", features = [ "now" ] }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }

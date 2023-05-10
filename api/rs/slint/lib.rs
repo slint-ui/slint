@@ -245,6 +245,8 @@ compile_error!(
 pub use slint_macros::slint;
 
 pub use i_slint_core::api::*;
+#[cfg(not(target_arch = "wasm32"))]
+pub use i_slint_core::graphics::BorrowedOpenGLTexture;
 pub use i_slint_core::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };

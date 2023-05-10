@@ -304,6 +304,8 @@ impl ImageCacheKey {
             #[cfg(target_arch = "wasm32")]
             ImageInner::HTMLImage(htmlimage) => Self::URL(htmlimage.source().into()),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).cache_key(),
+            #[cfg(not(target_arch = "wasm32"))]
+            ImageInner::BorrowedOpenGLTexture(..) => return None,
         };
         if matches!(key, ImageCacheKey::Invalid) {
             None
@@ -339,6 +341,8 @@ pub enum ImageInner {
     #[cfg(target_arch = "wasm32")]
     HTMLImage(vtable::VRc<OpaqueImageVTable, htmlimage::HTMLImage>),
     BackendStorage(vtable::VRc<OpaqueImageVTable>),
+    #[cfg(not(target_arch = "wasm32"))]
+    BorrowedOpenGLTexture(BorrowedOpenGLTexture),
 }
 
 impl ImageInner {
@@ -450,6 +454,8 @@ impl PartialEq for ImageInner {
             (Self::StaticTextures(l0), Self::StaticTextures(r0)) => l0 == r0,
             #[cfg(target_arch = "wasm32")]
             (Self::HTMLImage(l0), Self::HTMLImage(r0)) => vtable::VRc::ptr_eq(l0, r0),
+            #[cfg(not(target_arch = "wasm32"))]
+            (Self::BorrowedOpenGLTexture(l0), Self::BorrowedOpenGLTexture(r0)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
@@ -625,6 +631,8 @@ impl Image {
             #[cfg(target_arch = "wasm32")]
             ImageInner::HTMLImage(htmlimage) => htmlimage.size().unwrap_or_default(),
             ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size(),
+            #[cfg(not(target_arch = "wasm32"))]
+            ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { size, .. }) => *size,
         }
     }
 
@@ -779,5 +787,40 @@ pub(crate) mod ffi {
         image: *mut Image,
     ) {
         core::ptr::write(image, Image::from(ImageInner::StaticTextures(textures)));
+    }
+}
+
+/// This structure contains fields to identify and render an OpenGL texture that Slint borrows from the applicatin code.
+/// Use this to embed a native OpenGL texture into a Slint scene, by creating the texture with [`Self::new()`] and
+/// converting it into an [`Image`] using `.into()`.
+///
+/// The ownership of the texture remains with the application. It is the application's responsibility to delete the texture
+/// when it is not used anymore.
+///
+/// Note that only 2D RGBA textures are supported.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+#[cfg(not(target_arch = "wasm32"))]
+#[repr(C)]
+pub struct BorrowedOpenGLTexture {
+    /// The id or name of the texture, as created by [`glGenTextures`](https://registry.khronos.org/OpenGL-Refpages/gl4/html/glGenTextures.xhtml).
+    pub texture_id: core::num::NonZeroU32,
+    /// The size of the texture in pixels.
+    pub size: IntSize,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl BorrowedOpenGLTexture {
+    /// Constructs a new OpenGL texture wrapper, where Slint borrows the provided native textured with the
+    /// specified texture_id and size.
+    pub fn new(texture_id: core::num::NonZeroU32, size: IntSize) -> Self {
+        Self { texture_id, size }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl From<BorrowedOpenGLTexture> for Image {
+    fn from(value: BorrowedOpenGLTexture) -> Self {
+        ImageInner::BorrowedOpenGLTexture(value).into()
     }
 }

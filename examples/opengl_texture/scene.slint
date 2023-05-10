@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Slider, GroupBox, HorizontalBox, VerticalBox, GridBox } from "std-widgets.slint";
+
+export component App inherits Window {
+    preferred-width: 500px;
+    preferred-height: 600px;
+    title: "Slint OpenGL Texture Example";
+    icon: @image-url("../../logo/slint-logo-small-light-128x128.png");
+
+    in property <image> texture <=> image.source;
+    out property <int> requested-texture-width: image.width/1phx;
+    out property <int> requested-texture-height: image.height/1phx;
+    out property <float> selected-red <=> red.value;
+    out property <float> selected-green <=> green.value;
+    out property <float> selected-blue <=> blue.value;
+
+    VerticalBox {
+        Text {
+            text: "This text is rendered using Slint. The rotating cube below is rendered into an OpenGL texture.";
+            wrap: word-wrap;
+        }
+
+        image := Image {
+            preferred-width: 640px;
+            preferred-height: 640px;
+            width: 100%;
+            //height: 100%;
+        }
+
+        GroupBox {
+            title: "Cube Color Controls";
+            GridBox {
+                Row {
+                    Text {
+                        text: "Red:";
+                        vertical-alignment: center;
+                    }
+                    red := Slider {
+                        minimum: 0.1;
+                        maximum: 1.0;
+                        value: 0.2;
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Green:";
+                        vertical-alignment: center;
+                    }
+                    green := Slider {
+                        minimum: 0.1;
+                        maximum: 1.0;
+                        value: 0.5;
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Blue:";
+                        vertical-alignment: center;
+                    }
+                    blue := Slider {
+                        minimum: 0.1;
+                        maximum: 1.0;
+                        value: 0.9;
+                    }
+                }
+            }
+        }
+    }
+}
