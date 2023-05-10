@@ -32,7 +32,7 @@ struct MyWindowAdapter : NativeWindowHandle,
     MyWindowAdapter(HWND winId)
         : NativeWindowHandle { MyWindowAdapter::create_window(winId) },
           slint_platform::WindowAdapter<slint_platform::SkiaRenderer>(
-                  slint_platform::WindowHandle(hwnd, GetModuleHandleW(nullptr)),
+                  slint_platform::NativeWindowHandle::from_win32(hwnd, GetModuleHandleW(nullptr)),
                   slint::PhysicalSize({ 600, 300 }))
     {
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);

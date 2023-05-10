@@ -25,16 +25,16 @@ slint::cbindgen_private::PointerEventButton convert_button(Qt::MouseButtons b)
     }
 }
 
-static slint_platform::WindowHandle window_handle_for_qt_window(QWindow *window)
+static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *window)
 {
 #ifdef __APPLE__
     QPlatformNativeInterface *native = qApp->platformNativeInterface();
     void *nsview = native->nativeResourceForWindow(QByteArray("nsview"), window);
     void *nswindow = native->nativeResourceForWindow(QByteArray("nswindow"), window);
-    return slint_platform::WindowHandle(nsview, nswindow);
+    return slint_platform::NativeWindowHandle::from_appkit(nsview, nswindow);
 #elif defined Q_OS_WIN
     auto wid = Qt::HANDLE(window->winId());
-    return slint_platform::WindowHandle(wid, GetModuleHandle(nullptr));
+    return slint_platform::NativeWindowHandle::from_win32(wid, GetModuleHandle(nullptr));
 #else
     auto wid = winId();
     auto visual_id = 0; // FIXME
@@ -43,7 +43,7 @@ static slint_platform::WindowHandle window_handle_for_qt_window(QWindow *window)
             native->nativeResourceForWindow(QByteArray("connection"), window));
     auto screen = quintptr(native->nativeResourceForWindow(QByteArray("screen"), window));
 
-    return slint_platform::WindowHandle(wid, wid, connection, screen);
+    return slint_platform::NativeWindowHandle::from_x11(wid, wid, connection, screen);
 #endif
 }
 
