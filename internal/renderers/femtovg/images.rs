@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use i_slint_core::graphics::euclid;
+#[cfg(not(target_arch = "wasm32"))]
+use i_slint_core::graphics::BorrowedOpenGLTexture;
 use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
 use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::{items::ImageRendering, ImageInner};
@@ -115,6 +117,21 @@ impl Texture {
                     return None;
                 }
             }
+            #[cfg(not(target_arch = "wasm32"))]
+            ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture {
+                texture_id, size, ..
+            }) => canvas
+                .borrow_mut()
+                .create_image_from_native_texture(
+                    glow::NativeTexture(*texture_id),
+                    femtovg::ImageInfo::new(
+                        image_flags,
+                        size.width as _,
+                        size.height as _,
+                        femtovg::PixelFormat::Rgba8,
+                    ),
+                )
+                .unwrap(),
             _ => {
                 let buffer = image.render_to_buffer(target_size_for_scalable_source)?;
                 let (image_source, flags) = image_buffer_to_image_source(&buffer);

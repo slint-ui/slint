@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+#[cfg(skia_backend_opengl)]
+use i_slint_core::graphics::BorrowedOpenGLTexture;
 use i_slint_core::graphics::{
     cache as core_cache, Image, ImageCacheKey, ImageInner, IntSize, OpaqueImage, OpaqueImageVTable,
     SharedImageBuffer,
@@ -33,6 +35,7 @@ pub(crate) fn as_skia_image(
     target_height: std::pin::Pin<&i_slint_core::Property<LogicalLength>>,
     image_fit: ImageFit,
     scale_factor: ScaleFactor,
+    _canvas: &mut skia_safe::Canvas,
 ) -> Option<skia_safe::Image> {
     let image_inner: &ImageInner = (&image).into();
     match image_inner {
@@ -77,6 +80,29 @@ pub(crate) fn as_skia_image(
         ImageInner::BackendStorage(x) => {
             vtable::VRc::borrow(x).downcast::<SkiaCachedImage>().map(|x| x.image.clone())
         }
+        #[cfg(skia_backend_opengl)]
+        ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { texture_id, size, .. }) => unsafe {
+            let mut texture_info = skia_safe::gpu::gl::TextureInfo::from_target_and_id(
+                glow::TEXTURE_2D,
+                texture_id.get(),
+            );
+            texture_info.format = glow::RGBA8;
+            let backend_texture = skia_safe::gpu::BackendTexture::new_gl(
+                (size.width as _, size.height as _),
+                skia_safe::gpu::Mipmapped::No,
+                texture_info,
+            );
+            skia_safe::image::Image::from_texture(
+                _canvas.recording_context().as_mut().unwrap(),
+                &backend_texture,
+                skia_safe::gpu::SurfaceOrigin::TopLeft,
+                skia_safe::ColorType::RGBA8888,
+                skia_safe::AlphaType::Unpremul,
+                None,
+            )
+        },
+        #[cfg(not(skia_backend_opengl))]
+        ImageInner::BorrowedOpenGLTexture(..) => None,
     }
 }
 

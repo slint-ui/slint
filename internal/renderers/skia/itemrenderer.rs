@@ -165,6 +165,7 @@ impl<'a> SkiaRenderer<'a> {
                 target_height,
                 image_fit,
                 self.scale_factor,
+                self.canvas,
             )
             .and_then(|skia_image| {
                 let brush = colorize_property.get();

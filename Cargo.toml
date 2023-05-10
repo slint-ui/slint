@@ -15,6 +15,7 @@ members = [
     'examples/imagefilter',
     'examples/memory',
     'examples/opengl_underlay',
+    'examples/opengl_texture',
     'examples/plotter',
     'examples/printerdemo_old/rust',
     'examples/printerdemo/rust',
