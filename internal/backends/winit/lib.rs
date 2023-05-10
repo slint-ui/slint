@@ -110,7 +110,7 @@ pub mod native_widgets {}
 #[doc = concat!("This struct implements the Slint Platform trait. Use this in conjuction with [`slint::platform::set_platform`](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/platform/fn.set_platform.html) to initialize.")]
 /// Slint to use winit for all windowing system interaction.
 ///
-/// ```rust
+/// ```rust,no_run
 /// # use i_slint_backend_winit::Backend;
 /// slint::platform::set_platform(Box::new(Backend::new()));
 /// ```
