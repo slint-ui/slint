@@ -232,7 +232,7 @@ public:
 ///
 /// Note that this class does not provide any kind of ownership. The caller is responsible for
 /// ensuring that the pointers supplied to the constructor are valid throughout the lifetime of the
-/// WindowHandle.
+/// NativeWindowHandle.
 class NativeWindowHandle
 {
     cbindgen_private::CppRawHandleOpaque inner;
