@@ -207,8 +207,6 @@ macro_rules! init_raw {
 
 type CppRawHandleOpaque = *const c_void;
 
-/// Asserts that CppRawHandleOpaque is as large as CppRawHandle and has the same alignment, to make transmute safe.
-
 #[no_mangle]
 pub unsafe extern "C" fn slint_new_raw_window_handle_win32(
     hwnd: *mut c_void,
