@@ -886,6 +886,14 @@ mod tests {
             }
         }
 
+        fn set_parent_node(
+            self: core::pin::Pin<&Self>,
+            _parent_component: &ComponentWeak,
+            _item_tree_index: usize,
+        ) {
+            unimplemented!();
+        }
+
         fn layout_info(self: core::pin::Pin<&Self>, _1: Orientation) -> LayoutInfo {
             unimplemented!("Not needed for this test")
         }

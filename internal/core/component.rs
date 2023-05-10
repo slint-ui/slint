@@ -82,6 +82,16 @@ pub struct ComponentVTable {
     /// strictly speaking not an Item at all!
     pub parent_node: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, result: &mut ItemWeak),
 
+    /// Set the parent node of the Component. This Component is part of `parent_component`
+    /// and is included fia a dynamic tree node there at `item_tree_index`.
+    ///
+    /// This uses interior mutability!
+    pub set_parent_node: extern "C" fn(
+        core::pin::Pin<VRef<ComponentVTable>>,
+        parent_component: &ComponentWeak,
+        item_tree_index: usize,
+    ),
+
     /// Return the index of the current subtree or usize::MAX if this is not a subtree
     pub subtree_index: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> usize,
 

@@ -195,6 +195,10 @@ impl Component for ErasedComponentBox {
         self.borrow().as_ref().parent_node(result)
     }
 
+    fn set_parent_node(self: Pin<&Self>, parent_component: &ComponentWeak, item_tree_index: usize) {
+        unimplemented!();
+    }
+
     fn subtree_index(self: Pin<&Self>) -> usize {
         self.borrow().as_ref().subtree_index()
     }
@@ -1091,6 +1095,7 @@ pub(crate) fn generate_component<'id>(
         get_subtree_range,
         get_subtree_component,
         parent_node,
+        set_parent_node,
         subtree_index,
         accessible_role,
         accessible_string_property,
@@ -1610,6 +1615,14 @@ unsafe extern "C" fn parent_node(component: ComponentRefPin, result: &mut ItemWe
             *result = ItemRc::new(parent_rc, parent_index).downgrade();
         };
     }
+}
+
+unsafe extern "C" fn set_parent_node(
+    component: ComponentRefPin,
+    parent_component: &ComponentWeak,
+    item_tree_index: usize,
+) {
+    unimplemented!();
 }
 
 extern "C" fn accessible_role(component: ComponentRefPin, item_index: usize) -> AccessibleRole {
