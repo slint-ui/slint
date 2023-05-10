@@ -112,7 +112,7 @@ public:
     Image() : data(Data::ImageInner_None()) { }
 
     /// Load an image from an image file
-    static Image load_from_path(const SharedString &file_path)
+    [[nodiscard]] static Image load_from_path(const SharedString &file_path)
     {
         Image img;
         cbindgen_private::types::slint_image_load_from_path(&file_path, &img.data);
