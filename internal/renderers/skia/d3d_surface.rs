@@ -9,7 +9,7 @@ use winapi::{
     shared::{
         dxgitype,
         guiddef::GUID,
-        winerror::{HRESULT, S_OK},
+        winerror::{HRESULT, S_OK, DXGI_STATUS_OCCLUDED},
     },
     um::{d3d12, d3dcommon},
     Interface,
@@ -164,7 +164,7 @@ impl SwapChain {
         self.gr_context.submit(None);
 
         let present_result = unsafe { self.swap_chain.Present(1, 0) };
-        if present_result != S_OK {
+        if present_result != S_OK && present_result != DXGI_STATUS_OCCLUDED {
             panic!("Error presenting d3d swap chain: {:x}", present_result);
         }
 
