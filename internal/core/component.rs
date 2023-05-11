@@ -88,7 +88,7 @@ pub struct ComponentVTable {
     /// This uses interior mutability!
     pub set_parent_node: extern "C" fn(
         core::pin::Pin<VRef<ComponentVTable>>,
-        parent_component: &ComponentWeak,
+        parent_component: Option<&ComponentWeak>,
         item_tree_index: usize,
     ),
 

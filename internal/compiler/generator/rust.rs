@@ -1489,7 +1489,7 @@ fn generate_item_tree(
                 #parent_item_expression
             }
 
-            fn set_parent_node(self: ::core::pin::Pin<&Self>, _parent_component: &slint::private_unstable_api::re_exports::ComponentWeak, _item_tree_index: usize) {
+            fn set_parent_node(self: ::core::pin::Pin<&Self>, _parent_component: Option<&slint::private_unstable_api::re_exports::ComponentWeak>, _item_tree_index: usize) {
                 unimplemented!();
             }
 

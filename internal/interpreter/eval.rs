@@ -573,6 +573,7 @@ fn call_builtin_function(
                         y.try_into().unwrap(),
                     ),
                     component.borrow(),
+                    component.self_dyn_weak().unwrap(),
                     window_adapter_ref(component).unwrap(),
                     &parent_item,
                 );

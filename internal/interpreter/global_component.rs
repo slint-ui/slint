@@ -128,6 +128,7 @@ pub fn instantiate(
             Rc::pin(GlobalComponentInstance(crate::dynamic_component::instantiate(
                 description.clone(),
                 None,
+                None,
                 window_adapter,
                 globals.clone(),
             )))

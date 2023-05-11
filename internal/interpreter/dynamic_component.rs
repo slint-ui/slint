@@ -195,8 +195,12 @@ impl Component for ErasedComponentBox {
         self.borrow().as_ref().parent_node(result)
     }
 
-    fn set_parent_node(self: Pin<&Self>, parent_component: &ComponentWeak, item_tree_index: usize) {
-        unimplemented!();
+    fn set_parent_node(
+        self: Pin<&Self>,
+        parent_component: Option<&ComponentWeak>,
+        item_tree_index: usize,
+    ) {
+        self.borrow().as_ref().set_parent_node(parent_component, item_tree_index)
     }
 
     fn subtree_index(self: Pin<&Self>) -> usize {
@@ -237,11 +241,24 @@ impl<'id> Drop for ErasedComponentBox {
 
 pub type DynamicComponentVRc = vtable::VRc<ComponentVTable, ErasedComponentBox>;
 
+/// This points to the dynamic item tree node that embeds this component.
+#[derive(Clone, Default)]
+pub enum ComponentKind {
+    #[default]
+    Root,
+    SubComponent {
+        parent: ComponentWeak,
+        item_tree_index: usize,
+    },
+}
+
 #[derive(Default)]
 pub(crate) struct ComponentExtraData {
     pub(crate) globals: crate::global_component::GlobalStorage,
     pub(crate) self_weak:
         once_cell::unsync::OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
+    /// This is the global (across all compilation units!) parent_node (if any)
+    pub(crate) parent: core::cell::RefCell<ComponentKind>,
     // resource id -> file path
     pub(crate) embedded_file_resources: HashMap<usize, String>,
 }
@@ -333,6 +350,7 @@ pub struct ComponentDescription<'id> {
     /// Map the Element::id of the repeater to the index in the `repeater` vec
     pub repeater_names: HashMap<String, usize>,
     /// Offset to a Option<ComponentPinRef>
+    /// This is inside the current compilation unit _only_!
     pub(crate) parent_component_offset:
         Option<FieldOffset<Instance<'id>, Option<ComponentRefPin<'id>>>>,
     /// Offset to the window reference
@@ -423,7 +441,7 @@ impl<'id> ComponentDescription<'id> {
         self: Rc<Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
     ) -> DynamicComponentVRc {
-        let component_ref = instantiate(self, None, window_adapter, Default::default());
+        let component_ref = instantiate(self, None, None, window_adapter, Default::default());
         WindowInner::from_pub(component_ref.as_pin_ref().window_adapter().window())
             .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
         component_ref.run_setup_code();
@@ -665,6 +683,7 @@ fn ensure_repeater_updated<'id>(
         let instance = instantiate(
             rep_in_comp.component_to_repeat.clone(),
             Some(instance_ref.borrow()),
+            instance_ref.self_dyn_weak(),
             window_adapter,
             Default::default(),
         );
@@ -1217,6 +1236,7 @@ fn make_binding_eval_closure(
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<ComponentRefPin>,
+    parent_weak: Option<ComponentWeak>,
     window_adapter: &Rc<dyn WindowAdapter>,
     mut globals: crate::global_component::GlobalStorage,
 ) -> DynamicComponentVRc {
@@ -1261,6 +1281,17 @@ pub fn instantiate(
     let comp = self_rc.unerase(guard);
     let instance_ref = comp.borrow_instance();
     instance_ref.self_weak().set(self_weak.clone()).ok();
+    if let Some(lp) = parent_weak {
+        let item_tree_index = component_type
+            .original
+            .parent_element
+            .upgrade()
+            .and_then(|e| e.borrow().item_index.get().cloned())
+            .unwrap_or(usize::MAX);
+        instance_ref.set_parent_node(Some(&lp), item_tree_index);
+    } else {
+        instance_ref.set_parent_node(None, usize::MAX);
+    };
     let component_type = comp.description();
 
     // Some properties are generated as Value, but for which the default constructed Value must be initialized
@@ -1598,31 +1629,21 @@ extern "C" fn subtree_index(component: ComponentRefPin) -> usize {
 unsafe extern "C" fn parent_node(component: ComponentRefPin, result: &mut ItemWeak) {
     generativity::make_guard!(guard);
     let instance_ref = InstanceRef::from_pin_ref(component, guard);
-    let parent_item_index = instance_ref
-        .component_type
-        .original
-        .parent_element
-        .upgrade()
-        .and_then(|e| e.borrow().item_index.get().cloned());
-    if let (Some(parent_offset), Some(parent_index)) =
-        (instance_ref.component_type.parent_component_offset, parent_item_index)
-    {
-        if let Some(parent) = parent_offset.apply(instance_ref.as_ref()) {
-            generativity::make_guard!(new_guard);
-            let parent_instance = InstanceRef::from_pin_ref(*parent, new_guard);
-            let parent_rc =
-                parent_instance.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
-            *result = ItemRc::new(parent_rc, parent_index).downgrade();
-        };
-    }
+
+    if let Some(ComponentKind::SubComponent { parent, item_tree_index }) = &instance_ref.parent() {
+        let Some(parent_rc) = parent.clone().upgrade() else { return; };
+        *result = ItemRc::new(parent_rc, *item_tree_index).downgrade();
+    };
 }
 
 unsafe extern "C" fn set_parent_node(
     component: ComponentRefPin,
-    parent_component: &ComponentWeak,
+    parent_component: Option<&ComponentWeak>,
     item_tree_index: usize,
 ) {
-    unimplemented!();
+    generativity::make_guard!(guard);
+    let instance_ref = InstanceRef::from_pin_ref(component, guard);
+    instance_ref.set_parent_node(parent_component, item_tree_index)
 }
 
 extern "C" fn accessible_role(component: ComponentRefPin, item_index: usize) -> AccessibleRole {
@@ -1723,6 +1744,44 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         &extra_data.self_weak
     }
 
+    pub fn self_dyn_weak(&self) -> Option<ComponentWeak> {
+        let extra_data = self.component_type.extra_data_offset.apply(self.as_ref());
+        extra_data.self_weak.get().cloned().map(|c| vtable::VWeak::into_dyn(c))
+    }
+
+    fn get_parent(&self) -> &core::cell::RefCell<ComponentKind> {
+        let extra_data = self.component_type.extra_data_offset.apply(self.as_ref());
+        &extra_data.parent
+    }
+
+    pub fn parent(&self) -> Option<ComponentKind> {
+        self.get_parent().try_borrow().ok().map(|r| (*r).clone())
+    }
+
+    pub fn set_parent_node(
+        &self,
+        parent_component: Option<&ComponentWeak>,
+        item_tree_index: usize,
+    ) {
+        let mut store = self.get_parent().borrow_mut();
+
+        // sanity check self:
+        assert!(matches!(*store, ComponentKind::Root));
+
+        if let Some(p) = parent_component {
+            {
+                // sanity check parent:
+                let prc = p.upgrade().unwrap();
+                let pref = vtable::VRc::borrow_pin(&prc);
+                let it = pref.as_ref().get_item_tree();
+                assert!(matches!(it.get(item_tree_index), Some(ItemTreeNode::DynamicTree { .. })));
+            }
+            *store = ComponentKind::SubComponent { parent: p.clone(), item_tree_index };
+        } else {
+            *store = ComponentKind::Root;
+        }
+    }
+
     pub fn window_adapter(&self) -> &Rc<dyn WindowAdapter> {
         self.component_type.window_adapter_offset.apply(self.as_ref()).as_ref().as_ref().unwrap()
     }
@@ -1760,13 +1819,20 @@ pub fn show_popup(
     popup: &object_tree::PopupWindow,
     pos: i_slint_core::graphics::Point,
     parent_comp: ComponentRefPin,
+    parent_weak: ComponentWeak,
     parent_window_adapter: &Rc<dyn WindowAdapter>,
     parent_item: &ItemRc,
 ) {
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_component(&popup.component, guard);
-    let inst = instantiate(compiled, Some(parent_comp), parent_window_adapter, Default::default());
+    let inst = instantiate(
+        compiled,
+        Some(parent_comp),
+        Some(parent_weak),
+        parent_window_adapter,
+        Default::default(),
+    );
     inst.run_setup_code();
     WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst),
