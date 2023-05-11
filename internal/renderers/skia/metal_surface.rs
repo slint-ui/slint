@@ -20,8 +20,6 @@ pub struct MetalSurface {
 }
 
 impl super::Surface for MetalSurface {
-    const SUPPORTS_GRAPHICS_API: bool = false;
-
     fn new(
         window_handle: raw_window_handle::WindowHandle<'_>,
         _display_handle: raw_window_handle::DisplayHandle<'_>,
@@ -70,10 +68,6 @@ impl super::Surface for MetalSurface {
         "metal"
     }
 
-    fn with_graphics_api(&self, _cb: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>)) {
-        unimplemented!()
-    }
-
     fn resize_event(
         &self,
         size: PhysicalWindowSize,
@@ -85,7 +79,7 @@ impl super::Surface for MetalSurface {
     fn render(
         &self,
         _size: PhysicalWindowSize,
-        callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
+        callback: &dyn Fn(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         autoreleasepool(|| {
             let drawable = match self.layer.next_drawable() {
