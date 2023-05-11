@@ -10,7 +10,6 @@ use winapi::{
         dxgitype,
         guiddef::GUID,
         winerror::{DXGI_STATUS_OCCLUDED, HRESULT, S_OK},
-        
     },
     um::{d3d12, d3dcommon},
     Interface,
