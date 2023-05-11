@@ -13,7 +13,6 @@ use std::rc::Rc;
 #[cfg(target_arch = "wasm32")]
 use std::rc::Weak;
 
-use crate::event_loop::WinitWindow;
 use crate::renderer::WinitCompatibleRenderer;
 use const_field_offset::FieldOffsets;
 
@@ -101,7 +100,7 @@ fn window_is_resizable(min_size: Option<LogicalSize>, max_size: Option<LogicalSi
 
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
-pub(crate) struct WinitWindowAdapter {
+pub struct WinitWindowAdapter {
     window: OnceCell<corelib::api::Window>,
     #[cfg(target_arch = "wasm32")]
     self_weak: Weak<Self>,
@@ -254,19 +253,17 @@ impl WinitWindowAdapter {
 
         Ok(window_builder)
     }
-}
 
-impl WinitWindow for WinitWindowAdapter {
-    fn take_pending_redraw(&self) -> bool {
+    pub fn take_pending_redraw(&self) -> bool {
         self.pending_redraw.take()
     }
 
-    fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>> {
+    pub fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>> {
         &self.currently_pressed_key_code
     }
 
     /// Draw the items of the specified `component` in the given window.
-    fn draw(&self) -> Result<bool, PlatformError> {
+    pub fn draw(&self) -> Result<bool, PlatformError> {
         if !self.shown.get() {
             return Ok(false); // caller bug, doesn't make sense to call draw() when not shown
         }
@@ -283,16 +280,16 @@ impl WinitWindow for WinitWindowAdapter {
         callback(&self.winit_window());
     }
 
-    fn winit_window(&self) -> Rc<winit::window::Window> {
+    pub fn winit_window(&self) -> Rc<winit::window::Window> {
         self.winit_window.as_ref().unwrap().clone()
     }
 
-    fn is_shown(&self) -> bool {
+    pub fn is_shown(&self) -> bool {
         self.shown.get()
     }
 
     #[cfg(target_arch = "wasm32")]
-    fn input_method_focused(&self) -> bool {
+    pub fn input_method_focused(&self) -> bool {
         match self.virtual_keyboard_helper.try_borrow() {
             Ok(vkh) => vkh.as_ref().map_or(false, |h| h.has_focus()),
             // the only location in which the virtual_keyboard_helper is mutably borrowed is from
@@ -301,7 +298,12 @@ impl WinitWindow for WinitWindowAdapter {
         }
     }
 
-    fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) -> Result<(), PlatformError> {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn input_method_focused(&self) -> bool {
+        false
+    }
+
+    pub fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) -> Result<(), PlatformError> {
         // slint::Window::set_size will call set_size() on this type, which would call
         // set_inner_size on the winit Window. On Windows that triggers an new resize event
         // in the next event loop iteration for mysterious reasons, with slightly different sizes.
@@ -324,7 +326,7 @@ impl WinitWindow for WinitWindowAdapter {
         }
     }
 
-    fn set_dark_color_scheme(&self, dark_mode: bool) {
+    pub fn set_dark_color_scheme(&self, dark_mode: bool) {
         self.dark_color_scheme
             .get_or_init(|| Box::pin(Property::new(false)))
             .as_ref()
