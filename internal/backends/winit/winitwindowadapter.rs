@@ -188,10 +188,6 @@ impl WinitWindowAdapter {
         }
     }
 
-    fn unmap(&self) -> Result<(), PlatformError> {
-        self.renderer().hide()
-    }
-
     fn call_with_event_loop(
         &self,
         callback: fn(&Self) -> Result<(), PlatformError>,
@@ -595,7 +591,7 @@ impl WindowAdapterSealed for WinitWindowAdapter {
         self.call_with_event_loop(|self_| {
             self_.shown.set(false);
 
-            self_.unmap()?;
+            self_.renderer().hide()?;
 
             /* FIXME:
             if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
