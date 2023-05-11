@@ -44,6 +44,8 @@ jobs:
       with:
         version: '5.15.2'
         setup-python: false
+    - name: Setup headless display
+      uses: pyvista/setup-headless-display-action@v1
     - name: Set default style
       if: matrix.os != 'windows-2022'
       run: |
