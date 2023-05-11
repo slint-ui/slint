@@ -9,7 +9,8 @@ use winapi::{
     shared::{
         dxgitype,
         guiddef::GUID,
-        winerror::{HRESULT, S_OK, DXGI_STATUS_OCCLUDED},
+        winerror::{DXGI_STATUS_OCCLUDED, HRESULT, S_OK},
+        
     },
     um::{d3d12, d3dcommon},
     Interface,
