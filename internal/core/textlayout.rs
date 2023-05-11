@@ -252,6 +252,39 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
             Err(position) => position,
         }
     }
+
+    /// Returns the bytes offset for the given position
+    pub fn byte_offset_for_position(
+        &self,
+        pos: (Font::Length, Font::Length),
+        font_height: Font::Length,
+    ) -> usize {
+        let byte_offset = 0;
+        let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
+
+        match self.layout_lines(|glyphs, _, line_y, line| {
+            if pos.1 > line_y + font_height {
+                return core::ops::ControlFlow::Continue(());
+            }
+
+            while let Some(positioned_glyph) = glyphs.next() {
+                if pos.0 >= positioned_glyph.x
+                    && pos.0 <= positioned_glyph.x + positioned_glyph.advance
+                {
+                    if pos.0 < positioned_glyph.x + positioned_glyph.advance / two {
+                        return core::ops::ControlFlow::Break(positioned_glyph.text_byte_offset);
+                    } else if let Some(next_glyph) = glyphs.next() {
+                        return core::ops::ControlFlow::Break(next_glyph.text_byte_offset);
+                    }
+                }
+            }
+
+            core::ops::ControlFlow::Break(line.byte_range.end)
+        }) {
+            Ok(_) => byte_offset,
+            Err(position) => position,
+        }
+    }
 }
 
 #[test]
@@ -481,4 +514,70 @@ fn test_cursor_position() {
     assert_eq!(paragraph.cursor_pos_for_byte_offset(first_space_offset), (5. * 10., 0.));
     assert_eq!(paragraph.cursor_pos_for_byte_offset(first_space_offset + 15), (10. * 10., 0.));
     assert_eq!(paragraph.cursor_pos_for_byte_offset(first_space_offset + 16), (10. * 10., 0.));
+}
+
+#[test]
+fn test_byte_offset() {
+    let font = FixedTestFont;
+    let text = "Hello                    World";
+    let mut end_helper_text = text.to_string();
+    end_helper_text.push_str("!");
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None },
+        max_width: 10. * 10.,
+        max_height: 10.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::WordWrap,
+        overflow: TextOverflow::Clip,
+        single_line: false,
+    };
+
+    assert_eq!(paragraph.byte_offset_for_position((0., 0.), 5.), 0);
+
+    let e_offset = text
+        .char_indices()
+        .find_map(|(offset, ch)| if ch == 'e' { Some(offset) } else { None })
+        .unwrap();
+
+    assert_eq!(paragraph.byte_offset_for_position((14., 0.), 5.), e_offset);
+
+    let l_offset = text
+        .char_indices()
+        .find_map(|(offset, ch)| if ch == 'l' { Some(offset) } else { None })
+        .unwrap();
+    assert_eq!(paragraph.byte_offset_for_position((15., 0.), 5.), l_offset);
+
+    let w_offset = text
+        .char_indices()
+        .find_map(|(offset, ch)| if ch == 'W' { Some(offset) } else { None })
+        .unwrap();
+
+    assert_eq!(paragraph.byte_offset_for_position((10., 10.), 5.), w_offset + 1);
+
+    let o_offset = text
+        .char_indices()
+        .rev()
+        .find_map(|(offset, ch)| if ch == 'o' { Some(offset) } else { None })
+        .unwrap();
+
+    assert_eq!(paragraph.byte_offset_for_position((15., 10.), 5.), o_offset + 1);
+
+    let d_offset = text
+        .char_indices()
+        .rev()
+        .find_map(|(offset, ch)| if ch == 'd' { Some(offset) } else { None })
+        .unwrap();
+
+    assert_eq!(paragraph.byte_offset_for_position((40., 10.), 5.), d_offset);
+
+    let end_offset = end_helper_text
+        .char_indices()
+        .rev()
+        .find_map(|(offset, ch)| if ch == '!' { Some(offset) } else { None })
+        .unwrap();
+
+    assert_eq!(paragraph.byte_offset_for_position((45., 10.), 5.), end_offset);
 }

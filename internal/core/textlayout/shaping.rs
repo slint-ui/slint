@@ -44,7 +44,8 @@ pub trait TextShaper {
         + euclid::num::Zero
         + euclid::num::One
         + core::convert::From<i16>
-        + Copy;
+        + Copy
+        + core::fmt::Debug;
     type Length: euclid::num::Zero
         + core::ops::AddAssign
         + core::ops::Add<Output = Self::Length>
@@ -54,7 +55,8 @@ pub trait TextShaper {
         + Copy
         + core::cmp::PartialOrd
         + core::ops::Mul<Self::LengthPrimitive, Output = Self::Length>
-        + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>;
+        + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>
+        + core::fmt::Debug;
     // Shapes the given string and emits the result into the given glyphs buffer.
     fn shape_text<GlyphStorage: core::iter::Extend<Glyph<Self::Length>>>(
         &self,
