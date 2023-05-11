@@ -18,8 +18,10 @@ use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
 use corelib::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use corelib::window::*;
-use std::cell::{Cell, RefCell, RefMut};
+use std::cell::{RefCell, RefMut};
 use std::rc::{Rc, Weak};
+
+use crate::winitwindowadapter::WinitWindowAdapter;
 
 use winit::event::WindowEvent;
 #[cfg(not(target_arch = "wasm32"))]
@@ -29,34 +31,6 @@ use crate::SlintUserEvent;
 
 pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(true);
-
-pub trait WinitWindow: WindowAdapter {
-    fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
-    /// Returns true if during the drawing request_redraw() was called.
-    fn draw(&self) -> Result<bool, i_slint_core::platform::PlatformError>;
-    fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window));
-    fn winit_window(&self) -> Rc<winit::window::Window>;
-    fn is_shown(&self) -> bool;
-
-    /// Called by the event loop when a WindowEvent::Resized is received.
-    fn resize_event(
-        &self,
-        _size: winit::dpi::PhysicalSize<u32>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
-        Ok(())
-    }
-
-    /// Return true if the proxy element used for input method has the focus
-    fn input_method_focused(&self) -> bool {
-        false
-    }
-    /// Returns true if request_redraw() was called since the last event loop iteration
-    /// and resets the state back to false.
-    fn take_pending_redraw(&self) -> bool;
-
-    /// Notify the window if the system theme has changed from light to dark mode
-    fn set_dark_color_scheme(&self, dark_mode: bool);
-}
 
 /// The Default, and the selection clippoard
 type ClipboardPair = (Box<dyn ClipboardProvider>, Box<dyn ClipboardProvider>);
@@ -163,7 +137,7 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
 }
 
 thread_local! {
-    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn WinitWindow>>> = RefCell::new(std::collections::HashMap::new());
+    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>> = RefCell::new(std::collections::HashMap::new());
     static MAYBE_LOOP_INSTANCE: RefCell<Option<NotRunningEventLoop>> = RefCell::new(Some(NotRunningEventLoop::new()));
 }
 
@@ -229,7 +203,7 @@ pub(crate) fn with_window_target<T>(callback: impl FnOnce(&dyn EventLoopInterfac
     }
 }
 
-pub fn register_window(id: winit::window::WindowId, window: Rc<dyn WinitWindow>) {
+pub fn register_window(id: winit::window::WindowId, window: Rc<WinitWindowAdapter>) {
     ALL_WINDOWS.with(|windows| {
         windows.borrow_mut().insert(id, Rc::downgrade(&window));
     })
@@ -241,7 +215,7 @@ pub fn unregister_window(id: winit::window::WindowId) {
     });
 }
 
-fn window_by_id(id: winit::window::WindowId) -> Option<Rc<dyn WinitWindow>> {
+fn window_by_id(id: winit::window::WindowId) -> Option<Rc<WinitWindowAdapter>> {
     ALL_WINDOWS.with(|windows| windows.borrow().get(&id).and_then(|weakref| weakref.upgrade()))
 }
 
@@ -290,7 +264,7 @@ mod key_codes {
 }
 
 fn process_window_event(
-    window: Rc<dyn WinitWindow>,
+    window: Rc<WinitWindowAdapter>,
     event: WindowEvent,
     cursor_pos: &mut LogicalPoint,
     pressed: &mut bool,

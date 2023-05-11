@@ -6,7 +6,7 @@
 
 extern crate alloc;
 
-use event_loop::{CustomEvent, WinitWindow};
+use event_loop::CustomEvent;
 use i_slint_core::platform::EventLoopProxy;
 use i_slint_core::window::WindowAdapter;
 use renderer::WinitCompatibleRenderer;
