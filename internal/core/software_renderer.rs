@@ -309,10 +309,63 @@ impl Renderer for SoftwareRenderer {
 
     fn text_input_byte_offset_for_position(
         &self,
-        _text_input: Pin<&crate::items::TextInput>,
-        _pos: LogicalPoint,
+        text_input: Pin<&crate::items::TextInput>,
+        pos: LogicalPoint,
     ) -> usize {
-        0
+        let window_adapter = match self.window.upgrade() {
+            Some(window) => window,
+            None => return Default::default(),
+        };
+
+        let scale_factor = ScaleFactor::new(window_adapter.window().scale_factor()).cast();
+        let visual_representation = text_input.visual_representation(None);
+
+        let font_request = text_input.font_request(&window_adapter);
+        let font = fonts::match_font(&font_request, scale_factor);
+
+        let width = (text_input.width().cast() * scale_factor).cast();
+        let height = (text_input.height().cast() * scale_factor).cast();
+
+        let pos = (pos.cast() * scale_factor).cast();
+        let pos = PhysicalPoint::from_lengths(pos.x_length(), pos.y_length());
+
+        match font {
+            fonts::Font::PixelFont(pf) => {
+                let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &visual_representation.text,
+                    layout,
+                    max_width: width,
+                    max_height: height,
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: false,
+                };
+
+                return paragraph.byte_offset_for_position((pos.x_length(), pos.y_length()), pf.height());
+            }
+            #[cfg(feature = "software-renderer-systemfonts")]
+            fonts::Font::VectorFont(vf) => {
+                let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &visual_representation.text,
+                    layout,
+                    max_width: width,
+                    max_height: height,
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: false,
+                };
+
+                return paragraph.byte_offset_for_position((pos.x_length(), pos.y_length()), vf.height());
+            }
+        };
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -326,7 +379,7 @@ impl Renderer for SoftwareRenderer {
         };
 
         let scale_factor = ScaleFactor::new(window_adapter.window().scale_factor()).cast();
-        let string = text_input.text();
+        let visual_representation = text_input.visual_representation(None);
 
         let font_request = text_input.font_request(&window_adapter);
         let font = fonts::match_font(&font_request, scale_factor);
@@ -339,7 +392,7 @@ impl Renderer for SoftwareRenderer {
                 let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
 
                 let paragraph = TextParagraphLayout {
-                    string: &string,
+                    string: &visual_representation.text,
                     layout,
                     max_width: width,
                     max_height: height,
@@ -357,7 +410,7 @@ impl Renderer for SoftwareRenderer {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
 
                 let paragraph = TextParagraphLayout {
-                    string: &string,
+                    string: &visual_representation.text,
                     layout,
                     max_width: width,
                     max_height: height,
