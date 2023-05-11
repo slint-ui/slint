@@ -58,7 +58,7 @@ pub struct SkiaRenderer {
     image_cache: ItemCache<Option<skia_safe::Image>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
-    surface: DefaultSurface,
+    surface: Box<dyn Surface>,
 }
 
 impl SkiaRenderer {
@@ -75,7 +75,7 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
-            surface,
+            surface: Box::new(surface),
         })
     }
 
@@ -89,7 +89,7 @@ impl SkiaRenderer {
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
             self.surface
-                .with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))
+                .with_graphics_api(&mut |api| callback.notify(RenderingState::RenderingSetup, &api))
         }
 
         Ok(())
@@ -97,9 +97,9 @@ impl SkiaRenderer {
 
     /// Notifiers the renderer that the underlying window will be hidden soon.
     pub fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError> {
-        self.surface.with_active_surface(|| {
+        self.surface.with_active_surface(&|| {
             if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                self.surface.with_graphics_api(|api| {
+                self.surface.with_graphics_api(&mut |api| {
                     callback.notify(RenderingState::RenderingTeardown, &api)
                 })
             }
@@ -115,7 +115,7 @@ impl SkiaRenderer {
         let size = window.size();
         let window_inner = WindowInner::from_pub(window);
 
-        self.surface.render(size, |skia_canvas, gr_context| {
+        self.surface.render(size, &|skia_canvas, gr_context| {
             window_inner.draw_contents(|components| {
                 let window_background_brush =
                     window_inner.window_item().map(|w| w.as_pin_ref().background());
@@ -131,7 +131,7 @@ impl SkiaRenderer {
                     // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
                     gr_context.flush(None);
 
-                    self.surface.with_graphics_api(|api| {
+                    self.surface.with_graphics_api(&mut |api| {
                         callback.notify(RenderingState::BeforeRendering, &api)
                     })
                 }
@@ -177,7 +177,7 @@ impl SkiaRenderer {
 
             if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
                 self.surface
-                    .with_graphics_api(|api| callback.notify(RenderingState::AfterRendering, &api))
+                    .with_graphics_api(&mut |api| callback.notify(RenderingState::AfterRendering, &api))
             }
         })
     }
@@ -321,7 +321,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         &self,
         callback: Box<dyn RenderingNotifier>,
     ) -> std::result::Result<(), SetRenderingNotifierError> {
-        if !DefaultSurface::SUPPORTS_GRAPHICS_API {
+        if !self.surface.supports_graphics_api() {
             return Err(SetRenderingNotifierError::Unsupported);
         }
         let mut notifier = self.rendering_notifier.borrow_mut();
@@ -348,7 +348,6 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 }
 
 trait Surface {
-    const SUPPORTS_GRAPHICS_API: bool;
     fn new(
         window_handle: raw_window_handle::WindowHandle<'_>,
         display_handle: raw_window_handle::DisplayHandle<'_>,
@@ -357,10 +356,13 @@ trait Surface {
     where
         Self: Sized;
     fn name(&self) -> &'static str;
-    fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>));
+    fn supports_graphics_api(&self) -> bool {
+        false
+    }
+    fn with_graphics_api(&self, _callback: &mut dyn FnMut(GraphicsAPI<'_>)) {}
     fn with_active_surface(
         &self,
-        callback: impl FnOnce(),
+        callback: &dyn Fn(),
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         callback();
         Ok(())
@@ -368,7 +370,7 @@ trait Surface {
     fn render(
         &self,
         size: PhysicalWindowSize,
-        callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
+        callback: &dyn Fn(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     ) -> Result<(), i_slint_core::platform::PlatformError>;
     fn resize_event(
         &self,

@@ -34,8 +34,6 @@ pub struct VulkanSurface {
 }
 
 impl super::Surface for VulkanSurface {
-    const SUPPORTS_GRAPHICS_API: bool = false;
-
     fn new(
         window_handle: raw_window_handle::WindowHandle<'_>,
         display_handle: raw_window_handle::DisplayHandle<'_>,
@@ -205,10 +203,6 @@ impl super::Surface for VulkanSurface {
         "vulkan"
     }
 
-    fn with_graphics_api(&self, _cb: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>)) {
-        unimplemented!()
-    }
-
     fn resize_event(
         &self,
         _size: PhysicalWindowSize,
@@ -220,7 +214,7 @@ impl super::Surface for VulkanSurface {
     fn render(
         &self,
         size: PhysicalWindowSize,
-        callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
+        callback: &dyn Fn(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         let gr_context = &mut self.gr_context.borrow_mut();
 
