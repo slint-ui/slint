@@ -674,7 +674,9 @@ unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
             "Const property marked as dirty"
         );
 
-        mark_dependencies_dirty(binding.dependencies.as_ptr() as *mut DependencyListHead)
+        if !was_dirty {
+            mark_dependencies_dirty(binding.dependencies.as_ptr() as *mut DependencyListHead)
+        }
     });
 }
 
