@@ -1,0 +1,13 @@
+// simple examples - hello5
+//
+// Here we are sending data from Slint to Rust using the 'out' property
+// on a global singleton.
+
+export global HelloString {
+	out property <string> data: "Hello World 5! This text is from Slint!";
+}
+
+export component Hello5 inherits Text {
+    text: HelloString.data;
+}
+

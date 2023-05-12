@@ -1,0 +1,12 @@
+// simple examples - hello4
+//
+// 
+
+export global HelloString {
+	in property <string> data: "Hello World 4!";
+}
+
+export component Hello4 inherits Text {
+    text: HelloString.data;
+}
+

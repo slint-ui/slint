@@ -1,0 +1,20 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+[package]
+name = "hello5"
+version = "1.0.3"
+authors = ["Slint Developers <info@slint-ui.com>"]
+edition = "2021"
+license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+publish = false
+
+[[example]]
+path = "hello5.rs"
+name = "hello5"
+
+[dependencies]
+slint = { path = "../../../api/rs/slint" }
+
+[build-dependencies]
+slint-build = { path = "../../../api/rs/build" }

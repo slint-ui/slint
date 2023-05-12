@@ -6,13 +6,13 @@
 //   cargo run
 //
 slint::slint!{
-	export component Hello inherits Text {
-    	text: "Hello World!";
+	export component Hello2 inherits Text {
+    	text: "Hello World 2!";
 	}
 }
 
 fn main () {
-    let hello = Hello::new().unwrap();
+    let hello = Hello2::new().unwrap();
 	hello.run().unwrap();
 }
 

@@ -1,0 +1,13 @@
+// simple examples - hello3
+//
+// this .slint user interface file gets compiled by cargo 
+// since "hello3.slint" is included in build.rs. 
+//
+// then this gets included into the binary created from hello3.rs
+// so we have a standalone executable that has user-interface file (.slint)
+// separated from the core logic of the program (.rs)
+
+export component Hello3 inherits Text {
+    text: "Hello World 3!";
+}
+
