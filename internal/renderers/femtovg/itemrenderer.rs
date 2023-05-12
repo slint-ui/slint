@@ -389,7 +389,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             };
 
         let mut canvas = self.canvas.borrow_mut();
-        let font_height = PhysicalLength::new(canvas.measure_font(&paint).unwrap().height());
+        let font_height = font.height();
         let mut text: SharedString = visual_representation.text.into();
 
         if let InputType::Password = text_input.input_type() {
@@ -449,7 +449,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                         .to_vector(),
                         PhysicalSize::from_lengths(
                             selection_end_x - selection_start_x,
-                            font_height / self.scale_factor.get().ceil(),
+                            font_height,
                         ),
                     );
                     canvas.fill_path(
@@ -526,7 +526,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                 cursor_point.x,
                 cursor_point.y,
                 (text_input.text_cursor_width() * self.scale_factor).get(),
-                font_height.get() / self.scale_factor.get().ceil(),
+                font_height.get(),
             );
             canvas.fill_path(&mut cursor_rect, &paint);
         }
