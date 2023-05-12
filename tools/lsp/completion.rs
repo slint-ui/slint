@@ -3,7 +3,7 @@
 
 // cSpell: ignore rfind
 
-use super::util::lookup_current_element_type;
+use super::util::{lookup_current_element_type, map_position};
 use super::DocumentCache;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -13,8 +13,8 @@ use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 use lsp_types::{
-    CompletionClientCapabilities, CompletionItem, CompletionItemKind, CompletionResponse,
-    InsertTextFormat, Position, Range, TextEdit,
+    CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat, Position,
+    Range, TextEdit,
 };
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -24,7 +24,7 @@ pub(crate) fn completion_at(
     token: SyntaxToken,
     offset: u32,
     client_caps: Option<&CompletionClientCapabilities>,
-) -> Option<CompletionResponse> {
+) -> Option<Vec<CompletionItem>> {
     let node = token.parent();
 
     let snippet_support = client_caps
@@ -48,15 +48,14 @@ pub(crate) fn completion_at(
                     r.push(c)
                 }
                 r
-            })
-            .map(Into::into);
+            });
         }
     } else if let Some(element) = syntax_nodes::Element::new(node.clone()) {
         if token.kind() == SyntaxKind::At
             || (token.kind() == SyntaxKind::Identifier
                 && token.prev_token().map_or(false, |t| t.kind() == SyntaxKind::At))
         {
-            return Some(vec![CompletionItem::new_simple("children".into(), String::new())].into());
+            return Some(vec![CompletionItem::new_simple("children".into(), String::new())]);
         }
 
         return resolve_element_scope(element, document_cache).map(|mut r| {
@@ -128,9 +127,16 @@ pub(crate) fn completion_at(
                 add_components_to_import(&token, document_cache, available_types, &mut r);
             }
 
-            r.into()
+            r
         });
     } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
+        if let Some(colon) = n.child_token(SyntaxKind::Colon) {
+            if offset >= colon.text_range().end().into() {
+                return crate::util::with_lookup_ctx(document_cache, node, |ctx| {
+                    resolve_expression_scope(ctx).map(Into::into)
+                })?;
+            }
+        }
         if token.kind() != SyntaxKind::Identifier {
             return None;
         }
@@ -138,8 +144,7 @@ pub(crate) fn completion_at(
         return Some(
             all.into_iter()
                 .filter(|ce| ce.kind == Some(CompletionItemKind::PROPERTY))
-                .collect::<Vec<_>>()
-                .into(),
+                .collect::<Vec<_>>(),
         );
     } else if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
@@ -149,8 +154,7 @@ pub(crate) fn completion_at(
         return Some(
             all.into_iter()
                 .filter(|ce| ce.kind == Some(CompletionItemKind::PROPERTY))
-                .collect::<Vec<_>>()
-                .into(),
+                .collect::<Vec<_>>(),
         );
     } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
@@ -160,8 +164,7 @@ pub(crate) fn completion_at(
         return Some(
             all.into_iter()
                 .filter(|ce| ce.kind == Some(CompletionItemKind::METHOD))
-                .collect::<Vec<_>>()
-                .into(),
+                .collect::<Vec<_>>(),
         );
     } else if matches!(
         node.kind(),
@@ -211,8 +214,7 @@ pub(crate) fn completion_at(
                         snippet_support,
                     )
                 })
-                .collect::<Vec<_>>()
-                .into(),
+                .collect::<Vec<_>>(),
             );
         }
 
@@ -252,7 +254,7 @@ pub(crate) fn completion_at(
                     add_components_to_import(&token, document_cache, available_types, &mut result);
                 }
 
-                return Some(result.into());
+                return Some(result);
             }
             SyntaxKind::Type => {
                 return resolve_type_scope(token, document_cache).map(Into::into);
@@ -289,7 +291,7 @@ pub(crate) fn completion_at(
                             r.push(completion_item_from_expression(str, expr));
                             None
                         });
-                        r.into()
+                        r
                     })
                 })?;
             }
@@ -314,7 +316,7 @@ pub(crate) fn completion_at(
             with_insert_text(c, ins_tex, snippet_support)
         })
         .collect();
-        return Some(r.into());
+        return Some(r);
     }
     None
 }
@@ -517,14 +519,14 @@ fn add_components_to_import(
     // Find out types that can be imported
     let current_file = token.source_file.path().to_owned();
     let current_uri = lsp_types::Url::from_file_path(&current_file).ok()?;
-    let mapper = document_cache.offset_to_position_mapper(&current_uri).ok()?;
     let current_doc = document_cache.documents.get_document(&current_file)?.node.as_ref()?;
     let mut import_locations = HashMap::new();
     let mut last = 0u32;
     for import in current_doc.ImportSpecifier() {
         if let Some((loc, file)) = import.ImportIdentifierList().and_then(|list| {
+            let id = list.ImportIdentifier().last()?;
             Some((
-                mapper.map(list.ImportIdentifier().last()?.text_range().end()),
+                map_position(id.source_file()?, id.text_range().end()),
                 import.child_token(SyntaxKind::StringLiteral)?,
             ))
         }) {
@@ -567,9 +569,9 @@ fn add_components_to_import(
                 }
             }
         }
-        mapper.map_u32(offset.unwrap_or_default().into())
+        map_position(&token.source_file, offset.unwrap_or_default().into())
     } else {
-        Position::new(mapper.map_u32(last).line + 1, 0)
+        Position::new(map_position(&token.source_file, last.into()).line + 1, 0)
     };
 
     for file in document_cache.documents.all_files() {
@@ -623,4 +625,100 @@ fn add_components_to_import(
         }
     }
     Some(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    /// Given a source text containing the unicode emoji `🔺`, the emoji will be removed and then an autocompletion request will be done as if the cursor was there
+    fn get_completions(file: &str) -> Option<Vec<CompletionItem>> {
+        const CURSOR_EMOJI: char = '🔺';
+        let offset = file.find(CURSOR_EMOJI).unwrap() as u32;
+        let source = file.replace(CURSOR_EMOJI, "");
+        let (mut dc, uri, _) = crate::test::loaded_document_cache(source);
+
+        let doc = dc.documents.get_document(&uri.to_file_path().unwrap()).unwrap();
+        let token = crate::server_loop::token_at_offset(doc.node.as_ref().unwrap(), offset)?;
+
+        completion_at(&mut dc, token, offset, None)
+    }
+
+    #[test]
+    fn in_expression() {
+        let with_semi = r#"
+            component Bar inherits Text { nope := Rectangle {} property <string> red; }
+            global Glib { property <int> gama; }
+            component Foo {
+                property <int> alpha;
+                pure function funi() {}
+                bobo := Bar {
+                    property <int> beta;
+                    width: 🔺;
+                }
+            }
+        "#;
+        let without_semi = r#"
+            component Bar inherits Text { nope := Rectangle {} property <string> red; }
+            global Glib { property <int> gama; }
+            component Foo {
+                property <int> alpha;
+                pure function funi() {}
+                bobo := Bar {
+                    property <int> beta;
+                    width: 🔺
+                }
+            }
+        "#;
+        for source in [with_semi, without_semi] {
+            let res = get_completions(source).unwrap();
+            res.iter().find(|ci| ci.label == "alpha").unwrap();
+            res.iter().find(|ci| ci.label == "beta").unwrap();
+            res.iter().find(|ci| ci.label == "funi").unwrap();
+            res.iter().find(|ci| ci.label == "Glib").unwrap();
+            res.iter().find(|ci| ci.label == "Colors").unwrap();
+            res.iter().find(|ci| ci.label == "Math").unwrap();
+            res.iter().find(|ci| ci.label == "animation-tick").unwrap();
+            res.iter().find(|ci| ci.label == "bobo").unwrap();
+            res.iter().find(|ci| ci.label == "true").unwrap();
+            res.iter().find(|ci| ci.label == "self").unwrap();
+            res.iter().find(|ci| ci.label == "root").unwrap();
+
+            assert!(res.iter().find(|ci| ci.label == "text").is_none());
+            assert!(res.iter().find(|ci| ci.label == "red").is_none());
+            assert!(res.iter().find(|ci| ci.label == "nope").is_none());
+        }
+    }
+
+    #[test]
+    fn arguments_struct() {
+        let source = r#"
+            struct S1 { foo: int, bar: {xx: int, yy: string} }
+            component Bar { callback c(S1) }
+            component Foo {
+                Bar {
+                    c(param) => { param.bar.🔺 }
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "xx").unwrap();
+        res.iter().find(|ci| ci.label == "yy").unwrap();
+        assert_eq!(res.len(), 2);
+    }
+
+    #[test]
+    fn function_args() {
+        let source = r#"
+            component Foo {
+                function xxx(alpha: int, beta_gamma: string) -> color {
+                    🔺
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "alpha").unwrap();
+        res.iter().find(|ci| ci.label == "beta-gamma").unwrap();
+        res.iter().find(|ci| ci.label == "red").unwrap();
+        assert!(res.iter().find(|ci| ci.label == "width").is_none());
+    }
 }

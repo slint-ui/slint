@@ -31,11 +31,11 @@ export TestCase := Rectangle {
         }
         out pressed: {
             animate color, foo.x { duration: 300ms; }
-///                       ^error{'foo' is not a valid element id}
+///                        ^error{'foo' is not a valid element id}
             //pause: 20ms;
             animate border { duration: 120ms; }
             animate color, text.text { duration: 300ms; }
-///                       ^error{'text.text' is not a property that can be animated}
+///                        ^error{'text.text' is not a property that can be animated}
 
         }
     ]
@@ -74,10 +74,10 @@ export component NewSyntax {
             }
             out {
                 animate color, foo.x { duration: 300ms; }
-///                           ^error{'foo' is not a valid element id}
+///                            ^error{'foo' is not a valid element id}
                 animate border { duration: 120ms; }
                 animate color, text.text { duration: 300ms; }
-///                           ^error{'text.text' is not a property that can be animated}
+///                            ^error{'text.text' is not a property that can be animated}
             }
         }
     ]
@@ -119,10 +119,10 @@ export component OldInNewSyntax {
         }
         out pressed: {
             animate color, foo.x { duration: 300ms; }
-///                       ^error{'foo' is not a valid element id}
+///                        ^error{'foo' is not a valid element id}
             animate border { duration: 120ms; }
             animate color, text.text { duration: 300ms; }
-///                       ^error{'text.text' is not a property that can be animated}
+///                        ^error{'text.text' is not a property that can be animated}
 
         }
     ]

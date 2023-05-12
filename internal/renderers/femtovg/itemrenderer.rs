@@ -13,19 +13,18 @@ use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{Image, IntRect, Point, Size};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
-    self, Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
-    RenderingResult,
+    self, Clip, FillRule, ImageFit, ImageRendering, Item, ItemRc, Layer, Opacity, RenderingResult,
 };
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
-    RectLengths, ScaleFactor,
+    RectLengths, ScaleFactor, SizeLengths,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 
 use super::images::{Texture, TextureCacheKey};
+use super::PhysicalSize;
 use super::{fonts, PhysicalLength, PhysicalPoint, PhysicalRect};
-use super::{PhysicalSize, PASSWORD_CHARACTER};
 
 type FemtovgBoxShadowCache = BoxShadowCache<ItemGraphicsCacheEntry>;
 
@@ -116,11 +115,6 @@ fn adjust_rect_and_border_for_inner_drawing(
     rect.size -= PhysicalSize::from_lengths(*border_width, *border_width);
 }
 
-fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: ScaleFactor) -> PhysicalRect {
-    let geometry = item.geometry();
-    PhysicalRect::new(PhysicalPoint::default(), geometry.size * scale_factor)
-}
-
 fn path_bounding_box(canvas: &CanvasRc, path: &mut femtovg::Path) -> euclid::default::Box2D<f32> {
     // `canvas.path_bbox()` applies the current transform. However we're not interested in that, since
     // we operate in item local coordinates with the `path` parameter as well as the resulting
@@ -166,8 +160,8 @@ impl<'a> GLItemRenderer<'a> {
     }
 
     /// Draws a `Rectangle` using the `GLItemRenderer`.
-    pub fn draw_rect(&mut self, rect: LogicalRect, brush: Brush) {
-        let geometry = PhysicalRect::new(PhysicalPoint::default(), rect.size * self.scale_factor);
+    pub fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
+        let geometry = PhysicalRect::from(size * self.scale_factor);
         if geometry.is_empty() {
             return;
         }
@@ -188,12 +182,17 @@ impl<'a> GLItemRenderer<'a> {
 }
 
 impl<'a> ItemRenderer for GLItemRenderer<'a> {
-    fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>, _: &ItemRc) {
-        self.draw_rect(rect.geometry(), rect.background());
+    fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>, _: &ItemRc, size: LogicalSize) {
+        self.draw_rect(size, rect.background());
     }
 
-    fn draw_border_rectangle(&mut self, rect: Pin<&items::BorderRectangle>, _: &ItemRc) {
-        let mut geometry = item_rect(rect, self.scale_factor);
+    fn draw_border_rectangle(
+        &mut self,
+        rect: Pin<&items::BorderRectangle>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let mut geometry = PhysicalRect::from(size * self.scale_factor);
         if geometry.is_empty() {
             return;
         }
@@ -270,7 +269,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         }
     }
 
-    fn draw_image(&mut self, image: Pin<&items::ImageItem>, item_rc: &ItemRc) {
+    fn draw_image(&mut self, image: Pin<&items::ImageItem>, item_rc: &ItemRc, _size: LogicalSize) {
         self.draw_image_impl(
             item_rc,
             items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
@@ -283,7 +282,12 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         );
     }
 
-    fn draw_clipped_image(&mut self, clipped_image: Pin<&items::ClippedImage>, item_rc: &ItemRc) {
+    fn draw_clipped_image(
+        &mut self,
+        clipped_image: Pin<&items::ClippedImage>,
+        item_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
         let source_clip_rect = IntRect::new(
             [clipped_image.source_clip_x(), clipped_image.source_clip_y()].into(),
             [clipped_image.source_clip_width(), clipped_image.source_clip_height()].into(),
@@ -301,9 +305,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         );
     }
 
-    fn draw_text(&mut self, text: Pin<&items::Text>, _: &ItemRc) {
-        let max_width = text.width() * self.scale_factor;
-        let max_height = text.height() * self.scale_factor;
+    fn draw_text(&mut self, text: Pin<&items::Text>, _: &ItemRc, size: LogicalSize) {
+        let max_width = size.width_length() * self.scale_factor;
+        let max_height = size.height_length() * self.scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -324,7 +328,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         });
 
         let paint = match self
-            .brush_to_paint(text.color(), &mut rect_to_path(item_rect(text, self.scale_factor)))
+            .brush_to_paint(text.color(), &mut rect_to_path((size * self.scale_factor).into()))
         {
             Some(paint) => font.init_paint(text.letter_spacing() * self.scale_factor, paint),
             None => return,
@@ -346,9 +350,14 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         );
     }
 
-    fn draw_text_input(&mut self, text_input: Pin<&items::TextInput>, _: &ItemRc) {
-        let width = text_input.width() * self.scale_factor;
-        let height = text_input.height() * self.scale_factor;
+    fn draw_text_input(
+        &mut self,
+        text_input: Pin<&items::TextInput>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let width = size.width_length() * self.scale_factor;
+        let height = size.height_length() * self.scale_factor;
         if width.get() <= 0. || height.get() <= 0. {
             return;
         }
@@ -367,21 +376,21 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let paint = match self.brush_to_paint(
             text_input.color(),
-            &mut rect_to_path(item_rect(text_input, self.scale_factor)),
+            &mut rect_to_path((size * self.scale_factor).into()),
         ) {
             Some(paint) => font.init_paint(text_input.letter_spacing() * self.scale_factor, paint),
             None => return,
         };
 
-        let visual_representation = text_input.visual_representation();
+        let visual_representation = text_input.visual_representation(None);
 
-        let (mut min_select, mut max_select) = if !visual_representation.preedit_range.is_empty() {
+        let (min_select, max_select) = if !visual_representation.preedit_range.is_empty() {
             (visual_representation.preedit_range.start, visual_representation.preedit_range.end)
         } else {
-            text_input.selection_anchor_and_cursor()
+            (visual_representation.selection_range.start, visual_representation.selection_range.end)
         };
 
-        let (cursor_visible, mut cursor_pos) =
+        let (cursor_visible, cursor_pos) =
             if let Some(cursor_pos) = visual_representation.cursor_position {
                 (true, cursor_pos)
             } else {
@@ -390,14 +399,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let mut canvas = self.canvas.borrow_mut();
         let font_height = font.height();
-        let mut text: SharedString = visual_representation.text.into();
-
-        if let InputType::Password = text_input.input_type() {
-            min_select = text[..min_select].chars().count() * PASSWORD_CHARACTER.len();
-            max_select = text[..max_select].chars().count() * PASSWORD_CHARACTER.len();
-            cursor_pos = text[..cursor_pos].chars().count() * PASSWORD_CHARACTER.len();
-            text = SharedString::from(PASSWORD_CHARACTER.repeat(text.chars().count()));
-        };
+        let text: SharedString = visual_representation.text.into();
 
         let mut cursor_point: Option<PhysicalPoint> = None;
 
@@ -532,7 +534,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         }
     }
 
-    fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc) {
+    fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc, _size: LogicalSize) {
         if self.global_alpha_transparent() {
             return;
         }
@@ -650,7 +652,12 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     ///  * Blur the image
     ///  * Fill the image with the shadow color and SourceIn as composition mode
     ///  * Draw the shadow image
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>, item_rc: &ItemRc) {
+    fn draw_box_shadow(
+        &mut self,
+        box_shadow: Pin<&items::BoxShadow>,
+        item_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
         if box_shadow.color().alpha() == 0
             || (box_shadow.blur() == LogicalLength::zero()
                 && box_shadow.offset_x() == LogicalLength::zero()
@@ -780,7 +787,12 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         });
     }
 
-    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, item_rc: &ItemRc) -> RenderingResult {
+    fn visit_opacity(
+        &mut self,
+        opacity_item: Pin<&Opacity>,
+        item_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
         let opacity = opacity_item.opacity();
         if Opacity::need_layer(item_rc, opacity) {
             self.render_and_blend_layer(opacity, item_rc)
@@ -791,7 +803,12 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         }
     }
 
-    fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
+    fn visit_layer(
+        &mut self,
+        layer_item: Pin<&Layer>,
+        self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
         if layer_item.cache_rendering_hint() {
             self.render_and_blend_layer(1.0, self_rc)
         } else {
@@ -800,12 +817,18 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         }
     }
 
-    fn visit_clip(&mut self, clip_item: Pin<&Clip>, item_rc: &ItemRc) -> RenderingResult {
+    fn visit_clip(
+        &mut self,
+        clip_item: Pin<&Clip>,
+        item_rc: &ItemRc,
+        size: LogicalSize,
+    ) -> RenderingResult {
         if !clip_item.clip() {
             return RenderingResult::ContinueRenderingChildren;
         }
 
-        let geometry = clip_item.as_ref().geometry();
+        // Note: This is correct, combine_clip and get_current_clip operate on logical coordinates.
+        let geometry = LogicalRect::from(size);
 
         // If clipping is enabled but the clip element is outside the visible range, then we don't
         // need to bother doing anything, not even rendering the children.
@@ -835,12 +858,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
             self.graphics_cache.release(item_rc);
-            // Note: This is correct, combine_clip is API and operates on logical coordinates.
-            self.combine_clip(
-                LogicalRect::new(LogicalPoint::zero(), geometry.size_length()),
-                radius,
-                border_width,
-            );
+            self.combine_clip(geometry, radius, border_width);
             RenderingResult::ContinueRenderingChildren
         }
     }
@@ -999,17 +1017,19 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
 impl<'a> GLItemRenderer<'a> {
     pub(super) fn new(
-        canvas: &'a super::FemtoVGCanvas,
+        canvas: &CanvasRc,
+        graphics_cache: &'a ItemGraphicsCache,
+        texture_cache: &'a RefCell<super::images::TextureCache>,
         window: &'a i_slint_core::api::Window,
         width: u32,
         height: u32,
     ) -> Self {
         let scale_factor = ScaleFactor::new(window.scale_factor());
         Self {
-            graphics_cache: &canvas.graphics_cache,
-            texture_cache: &canvas.texture_cache,
+            graphics_cache,
+            texture_cache,
             box_shadow_cache: Default::default(),
-            canvas: canvas.canvas.clone(),
+            canvas: canvas.clone(),
             layer_images_to_delete_after_flush: Default::default(),
             window,
             scale_factor,

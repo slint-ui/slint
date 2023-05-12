@@ -156,8 +156,8 @@ component StandardListViewBase inherits ListView {
         has-hover: ta.has-hover;
 
         ta := TouchArea {
-            clicked => { 
-                set-current-item(i);    
+            clicked => {
+                set-current-item(i);
             }
         }
     }
@@ -172,7 +172,7 @@ component StandardListViewBase inherits ListView {
         if(current-item-y < 0) {
             self.viewport-y += 0 - current-item-y;
         }
-        
+
         if(current-item-y + item-height > self.visible-height) {
             self.viewport-y -= current-item-y + item-height - self.visible-height;
         }

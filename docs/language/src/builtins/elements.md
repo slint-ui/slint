@@ -130,7 +130,7 @@ respectively, the element becomes scrollable. Note that the `Flickable`
 doesn't create a scrollbar. When unset, the `viewport-width` and `viewport-height` are
 calculated automatically based on the `Flickable`'s children. This isn't the
 case when using a `for` loop to populate the elements. This is a bug tracked in
-issue [#407]((https://github.com/slint-ui/slint/issues/407).
+issue [#407](https://github.com/slint-ui/slint/issues/407).
 The maximum and preferred size of the `Flickable` are based on the viewport.
 
 When not part of a layout, its width or height defaults to 100% of the parent

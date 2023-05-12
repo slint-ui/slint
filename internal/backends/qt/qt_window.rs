@@ -14,7 +14,7 @@ use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Image, Point, Sh
 use i_slint_core::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
-    self, FillRule, ImageRendering, InputType, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
+    self, FillRule, ImageRendering, Item, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
     PointerEventButton, RenderingResult, TextOverflow, TextWrap, WindowItem,
 };
 use i_slint_core::layout::Orientation;
@@ -88,6 +88,11 @@ cpp! {{
         SlintWidget() {
             setMouseTracking(true);
             setFocusPolicy(Qt::StrongFocus);
+            setAttribute(Qt::WA_TranslucentBackground);
+            // WA_TranslucentBackground sets WA_NoSystemBackground, but we actually need WA_NoSystemBackground
+            // to draw the window background which is set on the palette.
+            // (But the window background might not be opaque)
+            setAttribute(Qt::WA_NoSystemBackground, false);
         }
 
         void paintEvent(QPaintEvent *) override {
@@ -492,15 +497,13 @@ fn from_qt_button(qt_button: u32) -> PointerEventButton {
 
 /// Given a position offset and an object of a given type that has x,y,width,height properties,
 /// create a QRectF that fits it.
-macro_rules! get_geometry {
-    ($ty:ty, $obj:expr) => {{
-        type Ty = $ty;
-        let width = Ty::FIELD_OFFSETS.width.apply_pin($obj).get();
-        let height = Ty::FIELD_OFFSETS.height.apply_pin($obj).get();
-        if width <= LogicalLength::zero() || height <= LogicalLength::zero() {
+macro_rules! check_geometry {
+    ($size:expr) => {{
+        let size = $size;
+        if size.width < 1. || size.height < 1. {
             return Default::default();
         };
-        qttypes::QRectF { x: 0., y: 0., width: width.get() as _, height: height.get() as _ }
+        qttypes::QRectF { x: 0., y: 0., width: size.width as _, height: size.height as _ }
     }};
 }
 
@@ -522,8 +525,8 @@ struct QtItemRenderer<'a> {
 }
 
 impl ItemRenderer for QtItemRenderer<'_> {
-    fn draw_rectangle(&mut self, rect_: Pin<&items::Rectangle>, _: &ItemRc) {
-        let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect_);
+    fn draw_rectangle(&mut self, rect_: Pin<&items::Rectangle>, _: &ItemRc, size: LogicalSize) {
+        let rect: qttypes::QRectF = check_geometry!(size);
         let brush: qttypes::QBrush = into_qbrush(rect_.background(), rect.width, rect.height);
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [painter as "QPainterPtr*", brush as "QBrush", rect as "QRectF"] {
@@ -531,10 +534,15 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_border_rectangle(&mut self, rect: std::pin::Pin<&items::BorderRectangle>, _: &ItemRc) {
+    fn draw_border_rectangle(
+        &mut self,
+        rect: std::pin::Pin<&items::BorderRectangle>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
         Self::draw_rectangle_impl(
             &mut self.painter,
-            get_geometry!(items::BorderRectangle, rect),
+            check_geometry!(size),
             rect.background(),
             rect.border_color(),
             rect.border_width().get(),
@@ -542,8 +550,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_image(&mut self, image: Pin<&items::ImageItem>, item_rc: &ItemRc) {
-        let dest_rect: qttypes::QRectF = get_geometry!(items::ImageItem, image);
+    fn draw_image(&mut self, image: Pin<&items::ImageItem>, item_rc: &ItemRc, size: LogicalSize) {
+        let dest_rect: qttypes::QRectF = check_geometry!(size);
         self.draw_image_impl(
             item_rc,
             items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
@@ -557,8 +565,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_clipped_image(&mut self, image: Pin<&items::ClippedImage>, item_rc: &ItemRc) {
-        let dest_rect: qttypes::QRectF = get_geometry!(items::ClippedImage, image);
+    fn draw_clipped_image(
+        &mut self,
+        image: Pin<&items::ClippedImage>,
+        item_rc: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let dest_rect: qttypes::QRectF = check_geometry!(size);
         let source_rect = qttypes::QRectF {
             x: image.source_clip_x() as _,
             y: image.source_clip_y() as _,
@@ -578,8 +591,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_text(&mut self, text: std::pin::Pin<&items::Text>, _: &ItemRc) {
-        let rect: qttypes::QRectF = get_geometry!(items::Text, text);
+    fn draw_text(&mut self, text: std::pin::Pin<&items::Text>, _: &ItemRc, size: LogicalSize) {
+        let rect: qttypes::QRectF = check_geometry!(size);
         let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
         let mut string: qttypes::QString = text.text().as_str().into();
         let font: QFont = get_font(text.font_request(WindowInner::from_pub(self.window)));
@@ -656,8 +669,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_text_input(&mut self, text_input: std::pin::Pin<&items::TextInput>, _: &ItemRc) {
-        let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
+    fn draw_text_input(
+        &mut self,
+        text_input: std::pin::Pin<&items::TextInput>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let rect: qttypes::QRectF = check_geometry!(size);
         let fill_brush: qttypes::QBrush = into_qbrush(text_input.color(), rect.width, rect.height);
 
         let font: QFont =
@@ -675,23 +693,17 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
 
-        let visual_representation = text_input.visual_representation();
+        let visual_representation = text_input.visual_representation(Some(qt_password_character));
 
         let text = &visual_representation.text;
         let mut string: qttypes::QString = text.as_str().into();
-
-        if let InputType::Password = text_input.input_type() {
-            cpp! { unsafe [mut string as "QString"] {
-                string.fill(QChar(qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr)));
-            }}
-        }
 
         // convert byte offsets to offsets in Qt UTF-16 encoded string, as that's
         // what QTextLayout expects.
 
         let (
-            cursor_position_as_offset,
-            anchor_position_as_offset,
+            selection_start_as_offset,
+            selection_end_as_offset,
             selection_foreground_color,
             selection_background_color,
             underline_selection,
@@ -705,30 +717,34 @@ impl ItemRenderer for QtItemRenderer<'_> {
             )
         } else {
             (
-                text_input.cursor_position(text),
-                text_input.anchor_position(text),
+                visual_representation.selection_range.start,
+                visual_representation.selection_range.end,
                 text_input.selection_foreground_color().as_argb_encoded(),
                 text_input.selection_background_color().as_argb_encoded(),
                 false,
             )
         };
 
-        let cursor_position: i32 = if cursor_position_as_offset > 0 {
-            utf8_byte_offset_to_utf16_units(text.as_str(), cursor_position_as_offset) as i32
+        let selection_start_position: i32 = if selection_start_as_offset > 0 {
+            utf8_byte_offset_to_utf16_units(text.as_str(), selection_start_as_offset) as i32
         } else {
             0
         };
-        let anchor_position: i32 = if anchor_position_as_offset > 0 {
-            utf8_byte_offset_to_utf16_units(text.as_str(), anchor_position_as_offset) as i32
+        let selection_end_position: i32 = if selection_end_as_offset > 0 {
+            utf8_byte_offset_to_utf16_units(text.as_str(), selection_end_as_offset) as i32
         } else {
             0
         };
 
-        let text_cursor_width: f32 = if visual_representation.cursor_position.is_some() {
-            text_input.text_cursor_width().get()
-        } else {
-            0.
-        };
+        let (text_cursor_width, cursor_position): (f32, i32) =
+            if let Some(cursor_offset) = visual_representation.cursor_position {
+                (
+                    text_input.text_cursor_width().get(),
+                    utf8_byte_offset_to_utf16_units(text.as_str(), cursor_offset) as i32,
+                )
+            } else {
+                (0., 0)
+            };
 
         let single_line: bool = text_input.single_line();
 
@@ -744,8 +760,9 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 flags as "int",
                 single_line as "bool",
                 font as "QFont",
+                selection_start_position as "int",
+                selection_end_position as "int",
                 cursor_position as "int",
-                anchor_position as "int",
                 text_cursor_width as "float"] {
             if (!single_line) {
                 string.replace(QChar('\n'), QChar::LineSeparator);
@@ -754,7 +771,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             do_text_layout(layout, flags, rect);
             (*painter)->setPen(QPen(fill_brush, 0));
             QVector<QTextLayout::FormatRange> selections;
-            if (anchor_position != cursor_position) {
+            if (selection_end_position != selection_start_position) {
                 QTextCharFormat fmt;
                 if (qAlpha(selection_background_color) != 0) {
                     fmt.setBackground(QColor::fromRgba(selection_background_color));
@@ -766,8 +783,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     fmt.setFontUnderline(true);
                 }
                 selections << QTextLayout::FormatRange{
-                    std::min(anchor_position, cursor_position),
-                    std::abs(anchor_position - cursor_position),
+                    std::min(selection_end_position, selection_start_position),
+                    std::abs(selection_end_position - selection_start_position),
                     fmt
                 };
             }
@@ -778,12 +795,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc) {
+    fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc, size: LogicalSize) {
         let (offset, path_events) = match path.fitted_path_events() {
             Some(offset_and_events) => offset_and_events,
             None => return,
         };
-        let rect: qttypes::QRectF = get_geometry!(items::Path, path);
+        let rect: qttypes::QRectF = check_geometry!(size);
         let fill_brush: qttypes::QBrush = into_qbrush(path.fill(), rect.width, rect.height);
         let stroke_brush: qttypes::QBrush = into_qbrush(path.stroke(), rect.width, rect.height);
         let stroke_width: f32 = path.stroke_width().get();
@@ -839,9 +856,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>, item_rc: &ItemRc) {
+    fn draw_box_shadow(
+        &mut self,
+        box_shadow: Pin<&items::BoxShadow>,
+        item_rc: &ItemRc,
+        _size: LogicalSize,
+    ) {
         let pixmap : qttypes::QPixmap = self.cache.get_or_update_cache_entry( item_rc, || {
-                let shadow_rect = get_geometry!(items::BoxShadow, box_shadow);
+                let shadow_rect = check_geometry!(box_shadow.geometry().size);
 
                 let source_size = qttypes::QSize {
                     width: shadow_rect.width.ceil() as _,
@@ -926,7 +948,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, item_rc: &ItemRc) -> RenderingResult {
+    fn visit_opacity(
+        &mut self,
+        opacity_item: Pin<&Opacity>,
+        item_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
         let opacity = opacity_item.opacity();
         if Opacity::need_layer(item_rc, opacity) {
             self.render_and_blend_layer(opacity, item_rc)
@@ -937,7 +964,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }
     }
 
-    fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
+    fn visit_layer(
+        &mut self,
+        layer_item: Pin<&Layer>,
+        self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
         if layer_item.cache_rendering_hint() {
             self.render_and_blend_layer(1.0, self_rc)
         } else {
@@ -1809,12 +1841,16 @@ impl Renderer for QtWindow {
         if pos.y < 0. {
             return 0;
         }
-        let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
+        let rect: qttypes::QRectF = check_geometry!(text_input.geometry().size);
         let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
         let font: QFont = get_font(
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
         );
-        let string = qttypes::QString::from(text_input.text().as_str());
+
+        let visual_representation = text_input.visual_representation(Some(qt_password_character));
+
+        let string = qttypes::QString::from(visual_representation.text.as_str());
+
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -1828,14 +1864,10 @@ impl Renderer for QtWindow {
             TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
         let single_line: bool = text_input.single_line();
-        let is_password: bool = matches!(text_input.input_type(), InputType::Password);
-        cpp! { unsafe [font as "QFont", string as "QString", pos as "QPointF", flags as "int",
-                rect as "QRectF", single_line as "bool", is_password as "bool"] -> usize as "size_t" {
+        let byte_offset = cpp! { unsafe [font as "QFont", string as "QString", pos as "QPointF", flags as "int",
+                rect as "QRectF", single_line as "bool"] -> usize as "size_t" {
             // we need to do the \n replacement in a copy because the original need to be kept to know the utf8 offset
             auto copy = string;
-            if (is_password) {
-                copy.fill(QChar(qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr)));
-            }
             if (!single_line) {
                 copy.replace(QChar('\n'), QChar::LineSeparator);
             }
@@ -1859,7 +1891,8 @@ impl Renderer for QtWindow {
                 cur++;
             // convert to an utf8 pos;
             return QStringView(string).left(cur).toUtf8().size();
-        }}
+        }};
+        visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -1867,7 +1900,7 @@ impl Renderer for QtWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
     ) -> LogicalRect {
-        let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
+        let rect: qttypes::QRectF = check_geometry!(text_input.geometry().size);
         let font: QFont = get_font(
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
         );
@@ -2204,4 +2237,11 @@ fn test_utf8_byte_offset_to_utf16_units() {
             3
         );
     }
+}
+
+fn qt_password_character() -> char {
+    char::from_u32(cpp! { unsafe [] -> i32 as "int" {
+        return qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr);
+    }} as u32)
+    .unwrap_or('●')
 }

@@ -502,6 +502,21 @@ impl TargetPixel for crate::graphics::image::Rgb8Pixel {
     }
 }
 
+impl TargetPixel for PremultipliedRgbaColor {
+    fn blend(&mut self, color: PremultipliedRgbaColor) {
+        let a = (u8::MAX - color.alpha) as u16;
+        self.red = (self.red as u16 * a / 255) as u8 + color.red;
+        self.green = (self.green as u16 * a / 255) as u8 + color.green;
+        self.blue = (self.blue as u16 * a / 255) as u8 + color.blue;
+        self.alpha = (self.alpha as u16 + color.alpha as u16
+            - (self.alpha as u16 * color.alpha as u16) / 255) as u8;
+    }
+
+    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+        Self { red: r, green: g, blue: b, alpha: 255 }
+    }
+}
+
 /// A 16bit pixel that has 5 red bits, 6 green bits and  5 blue bits
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]

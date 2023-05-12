@@ -3,7 +3,7 @@
 
 [package]
 name = "slint"
-version = "1.0.1"
+version = "1.0.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -113,14 +113,17 @@ renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia", "std"]
 ## Same as `renderer-winit-skia`, but Skia will always use OpenGL.
 renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl", "std"]
 
+## Same as `renderer-winit-skia`, but Skia will always use Vulkan.
+renderer-winit-skia-vulkan = ["i-slint-backend-selector/renderer-winit-skia-vulkan", "std"]
+
 ## Make the winit backend capable of rendering using the software renderer.
 ## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
 renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 
 [dependencies]
-i-slint-core = { version = "=1.0.1", path = "../../../internal/core", default-features = false }
-slint-macros = { version = "=1.0.1", path = "../macros" }
-i-slint-backend-selector = { version = "=1.0.1", path = "../../../internal/backends/selector" }
+i-slint-core = { version = "=1.0.3", path = "../../../internal/core", default-features = false }
+slint-macros = { version = "=1.0.3", path = "../macros" }
+i-slint-backend-selector = { version = "=1.0.3", path = "../../../internal/backends/selector" }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
@@ -134,6 +137,7 @@ log = { version = "0.4.17", optional = true }
 
 [dev-dependencies]
 slint-build = { path = "../build" }
+i-slint-backend-testing = { version = "=1.0.3", path = "../../../internal/backends/testing" }
 
 [package.metadata.docs.rs]
 rustdoc-args = [

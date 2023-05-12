@@ -120,13 +120,14 @@ impl Item for Path {
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
         let clip = self.clip();
         if clip {
             (*backend).save_state();
-            (*backend).combine_clip(self.geometry(), LogicalLength::zero(), LogicalLength::zero());
+            (*backend).combine_clip(size.into(), LogicalLength::zero(), LogicalLength::zero());
         }
-        (*backend).draw_path(self, self_rc);
+        (*backend).draw_path(self, self_rc, size);
         if clip {
             (*backend).restore_state();
         }

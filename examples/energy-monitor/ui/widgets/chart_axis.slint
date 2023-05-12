@@ -23,11 +23,11 @@ export component ChartAxis {
     in property <int> y-max;
     in property <string> y-unit;
 
-    VerticalLayout { 
+    VerticalLayout {
         horizontal-stretch: 1;
         alignment: end;
-       
-        HorizontalLayout {  
+
+        HorizontalLayout {
             spacing: 1px;
 
             for text in  x-model : Rectangle {
@@ -37,16 +37,16 @@ export component ChartAxis {
                 }
             }
         }
-    }   
+    }
 
-    HorizontalLayout { 
+    HorizontalLayout {
         alignment: end;
-        
-        Rectangle {  
+
+        Rectangle {
             background: green;
-            
+
             for value in  y-model : AxisLabel {
-                y: (value >= 0 ? parent.height * (1 - (value - y-min) / (y-max - y-min)) : 
+                y: (value >= 0 ? parent.height * (1 - (value - y-min) / (y-max - y-min)) :
                     y-zero + parent.height * (-1 * value / (y-max - y-min))) - self.height  / 2;
                 text: "\{value}\{y-unit}";
             }

@@ -1,14 +1,56 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use i_slint_compiler::diagnostics::{DiagnosticLevel, Spanned};
+use crate::DocumentCache;
+
+use i_slint_compiler::diagnostics::{DiagnosticLevel, SourceFile, Spanned};
 use i_slint_compiler::langtype::ElementType;
 use i_slint_compiler::lookup::LookupCtx;
 use i_slint_compiler::object_tree;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+use i_slint_compiler::parser::{TextRange, TextSize};
 use i_slint_compiler::typeregister::TypeRegister;
 
-use crate::DocumentCache;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::UrlWasm;
+
+pub fn map_node_and_url(node: &SyntaxNode) -> Option<(lsp_types::Url, lsp_types::Range)> {
+    let range = node.text_range();
+    node.source_file().map(|sf| {
+        (
+            lsp_types::Url::from_file_path(sf.path()).unwrap_or_else(|_| invalid_url()),
+            map_range(sf, range),
+        )
+    })
+}
+
+pub fn map_node(node: &SyntaxNode) -> Option<lsp_types::Range> {
+    let range = node.text_range();
+    node.source_file().map(|sf| map_range(sf, range))
+}
+
+pub fn map_token(token: &SyntaxToken) -> Option<lsp_types::Range> {
+    let range = token.text_range();
+    token.parent().source_file().map(|sf| map_range(sf, range))
+}
+
+pub fn map_position(sf: &SourceFile, pos: TextSize) -> lsp_types::Position {
+    let (line, column) = sf.line_column(pos.into());
+    lsp_types::Position::new((line as u32).saturating_sub(1), (column as u32).saturating_sub(1))
+}
+
+pub fn map_range(sf: &SourceFile, range: TextRange) -> lsp_types::Range {
+    lsp_types::Range::new(map_position(sf, range.start()), map_position(sf, range.end()))
+}
+
+pub fn invalid_url() -> lsp_types::Url {
+    lsp_types::Url::parse("invalid:///").unwrap()
+}
+
+#[test]
+fn test_invalid_url() {
+    assert_eq!(invalid_url().scheme(), "invalid");
+}
 
 /// Given a node within an element, return the Type for the Element under that node.
 /// (If node is an element, return the Type for that element, otherwise the type of the element under it)
@@ -69,20 +111,6 @@ pub fn with_property_lookup_ctx<R>(
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
 
-    let ty = element
-        .PropertyDeclaration()
-        .find_map(|p| {
-            (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
-                .then(|| p)
-        })
-        .and_then(|p| p.Type())
-        .map(|n| object_tree::type_from_node(n, &mut Default::default(), tr))
-        .or_else(|| {
-            lookup_current_element_type((**element).clone(), tr)
-                .map(|el_ty| el_ty.lookup_property(prop_name).property_type)
-        });
-
-    // FIXME: we need also to fill in the repeated element
     let component = {
         let mut n = element.parent()?;
         loop {
@@ -93,19 +121,57 @@ pub fn with_property_lookup_ctx<R>(
         }
     };
 
+    let mut scope = Vec::new();
     let component = i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())
         .and_then(|component_name| tr.lookup_element(&component_name).ok())?;
-    let scope = if let ElementType::Component(c) = component {
-        vec![c.root_element.clone()]
-    } else {
-        Vec::new()
+    if let ElementType::Component(c) = component {
+        let mut it = c.root_element.clone();
+        let offset = element.text_range().start().into();
+        loop {
+            scope.push(it.clone());
+            if let Some(c) = it.clone().borrow().children.iter().find(|c| {
+                c.borrow().node.as_ref().map_or(false, |n| n.text_range().contains(offset))
+            }) {
+                it = c.clone();
+            } else {
+                break;
+            }
+        }
     };
+
+    let ty = element
+        .PropertyDeclaration()
+        .find_map(|p| {
+            (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
+                .then(|| p)
+        })
+        .and_then(|p| p.Type())
+        .map(|n| object_tree::type_from_node(n, &mut Default::default(), tr))
+        .or_else(|| scope.last().map(|e| e.borrow().lookup_property(prop_name).property_type));
 
     let mut build_diagnostics = Default::default();
     let mut lookup_context = LookupCtx::empty_context(tr, &mut build_diagnostics);
     lookup_context.property_name = Some(prop_name);
     lookup_context.property_type = ty.unwrap_or_default();
     lookup_context.component_scope = &scope;
+
+    if let Some(cb) = element
+        .CallbackConnection()
+        .find(|p| i_slint_compiler::parser::identifier_text(&p).map_or(false, |x| x == prop_name))
+    {
+        lookup_context.arguments = cb
+            .DeclaredIdentifier()
+            .flat_map(|a| i_slint_compiler::parser::identifier_text(&a))
+            .collect();
+    } else if let Some(f) = element.Function().find(|p| {
+        i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())
+            .map_or(false, |x| x == prop_name)
+    }) {
+        lookup_context.arguments = f
+            .ArgumentDeclaration()
+            .flat_map(|a| i_slint_compiler::parser::identifier_text(&a.DeclaredIdentifier()))
+            .collect();
+    }
     Some(f(&mut lookup_context))
 }
 
@@ -118,11 +184,15 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<(syntax_nodes::Element
             break (element, prop_name);
         }
         match n.kind() {
-            SyntaxKind::Binding
-            | SyntaxKind::TwoWayBinding
-            // FIXME: arguments of the callback
-            | SyntaxKind::CallbackConnection => {
+            SyntaxKind::Binding | SyntaxKind::TwoWayBinding | SyntaxKind::CallbackConnection => {
                 let prop_name = i_slint_compiler::parser::identifier_text(&n)?;
+                let element = syntax_nodes::Element::new(n.parent()?)?;
+                break (element, prop_name);
+            }
+            SyntaxKind::Function => {
+                let prop_name = i_slint_compiler::parser::identifier_text(
+                    &n.child_node(SyntaxKind::DeclaredIdentifier)?,
+                )?;
                 let element = syntax_nodes::Element::new(n.parent()?)?;
                 break (element, prop_name);
             }
@@ -136,7 +206,6 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<(syntax_nodes::Element
                 break (element, String::new());
             }
             _ => n = n.parent()?,
-
         }
     };
     Some((element, prop_name))

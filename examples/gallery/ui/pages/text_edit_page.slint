@@ -8,8 +8,8 @@ import { Page } from "page.slint";
 export component TextEditPage inherits Page {
     title: "TextEdit";
     description: "Similar to LineEdit, but can be used to enter several lines of text. The widget can be imported from \"std-widgets.slint\".";
-  
-    HorizontalBox {   
+
+    HorizontalBox {
         GroupBox {
             vertical-stretch: 0;
             title: "Word-Wrap";
@@ -30,6 +30,6 @@ export component TextEditPage inherits Page {
                 wrap: no-wrap;
                 enabled: !GallerySettings.widgets-disabled;
             }
-        }      
+        }
     }
 }

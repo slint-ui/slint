@@ -40,7 +40,11 @@ export async function showPreview(
 export async function setDesignMode(
     enable: boolean,
 ): Promise<SetBindingResponse> {
-    return vscode.commands.executeCommand("slint/designMode", enable);
+    return vscode.commands.executeCommand("slint/setDesignMode", enable);
+}
+
+export async function toggleDesignMode(): Promise<SetBindingResponse> {
+    return vscode.commands.executeCommand("slint/toggleDesignMode");
 }
 
 export async function setBinding(

@@ -222,6 +222,15 @@ impl OpenGLSurface {
 
                 let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
 
+                // On macOS, there's only one GL config and that's initialized based on the values in the config template
+                // builder. So if that one has transparency enabled, it'll show up in the config, and will be set on the
+                // context later. So we must enable it here, there's no way of enabling it later.
+                // On EGL/GLX/WGL there are system provided configs that may or may not support transparency. Here in case
+                // the system doesn't support transparency, we want to fall back to a config that doesn't - better than not
+                // rendering anything at all. So we don't want to limit the configurations we get to see early on.
+                #[cfg(target_os = "macos")]
+                let config_template_builder = config_template_builder.with_transparency(true);
+
                 // Upstream advises to use this only on Windows.
                 #[cfg(target_family = "windows")]
                 let config_template_builder = config_template_builder

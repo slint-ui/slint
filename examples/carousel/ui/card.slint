@@ -5,7 +5,7 @@ import { Theme } from "theme.slint";
 import { TitleLabel } from "title_label.slint";
 
 export component Card inherits Rectangle {
-    callback clicked <=> touch-area.clicked;  
+    callback clicked <=> touch-area.clicked;
 
     in property <string> title: "title";
     in property <bool> is-selected: false;
@@ -31,7 +31,7 @@ export component Card inherits Rectangle {
 
         animate colorize { duration: Theme.duration-fast; }
     }
-    
+
     // Selection text
     title-label := TitleLabel {
         x: (parent.width - self.width) / 2;

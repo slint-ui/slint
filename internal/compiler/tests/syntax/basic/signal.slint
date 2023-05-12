@@ -8,7 +8,7 @@ Base := Rectangle {
 export SubElements := Rectangle {
     callback foobar;
     callback foobar;
-//          ^error{Duplicated callback declaration}    
+//           ^error{Duplicated callback declaration}
 
     callback callback_with_arg(int, string);
 
@@ -43,13 +43,13 @@ export SubElements := Rectangle {
 
     Base {
         callback blah;
-//              ^error{Cannot override callback 'blah'}        
+//               ^error{Cannot override callback 'blah'}
     }
 
     property <bool> pressed;
     callback pressed;
-//          ^error{Cannot declare callback 'pressed' when a property with the same name exists}    
+//           ^error{Cannot declare callback 'pressed' when a property with the same name exists}
 
     callback init;
-//          ^error{Cannot override callback 'init'}
+//           ^error{Cannot override callback 'init'}
 }

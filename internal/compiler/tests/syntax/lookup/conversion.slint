@@ -3,13 +3,13 @@
 
 global Glob := {
     property <physical_length> len: 45px * 5;
-//                                 ^error{Cannot convert between logical and physical length in a global component, because the scale factor is not known}
+//                                  ^error{Cannot convert between logical and physical length in a global component, because the scale factor is not known}
     property <length> logic_len: 45phx * 5;
-//                              ^error{Cannot convert between logical and physical length in a global component, because the scale factor is not known}
+//                               ^error{Cannot convert between logical and physical length in a global component, because the scale factor is not known}
     property <float> ratio: allowed / 1phx;
-//                         ^error{Cannot convert between logical and physical length in a global component, because the scale factor is not known}
+//                          ^error{Cannot convert between logical and physical length in a global component, because the scale factor is not known}
     property <length> converted_rem: 2rem;
-//                                  ^error{Cannot convert between rem and logical length in a global component, because the default font size is not known}
+//                                   ^error{Cannot convert between rem and logical length in a global component, because the default font size is not known}
     property <float> should_work: 45px / 8px + (4rem / 2rem);
     property <length> allowed: 45px * 5;
     property <relative-font-size> rem_allowed: 42rem;
@@ -19,34 +19,34 @@ export X := Rectangle {
 
     t := Text {
         x: "hello";
-//        ^error{Cannot convert string to length$}
+//         ^error{Cannot convert string to length$}
         text: 45;
     }
 
     Text {
         x: t.text;
-//        ^error{Cannot convert string to length$}
+//         ^error{Cannot convert string to length$}
         y: 42;
-//        ^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
+//         ^error{Cannot convert float to length. Use an unit, or multiply by 1px to convert explicitly}
         text: x;
-//           ^error{Cannot convert length to string. Divide by 1px to convert to a plain number}
+//            ^error{Cannot convert length to string. Divide by 1px to convert to a plain number}
         property<int> foo: y;
-//                        ^error{Cannot convert length to int. Divide by 1px to convert to a plain number}
+//                         ^error{Cannot convert length to int. Divide by 1px to convert to a plain number}
         property<duration> bar: foo;
-//                             ^error{Cannot convert int to duration. Use an unit, or multiply by 1ms to convert explicitly}
+//                              ^error{Cannot convert int to duration. Use an unit, or multiply by 1ms to convert explicitly}
     }
 
     Rectangle {
         background: "blue";
-//                 ^error{Cannot convert string to brush$}
+//                  ^error{Cannot convert string to brush$}
         property<length> no_matching_parent: 50%;
-//                                          ^error{Automatic conversion from percentage to length is only possible for the following properties: width, height, preferred-width, preferred-height}
+//                                           ^error{Automatic conversion from percentage to length is only possible for the following properties: width, height, preferred-width, preferred-height}
     }
 
     property <{a: string, b: int}> object1: { a: "123", typo: 42};
-//                                         ^error{Cannot convert \{ a: string,typo: float,\} to \{ a: string,b: int,\}}
+//                                          ^error{Cannot convert \{ a: string,typo: float,\} to \{ a: string,b: int,\}}
 
     property <[{a: [int]}]> ccc: [{a: []}, {}, {a: ["123"]}, {a: [123]}];
-//                              ^error{Cannot convert string to int}  (FIXME: error location)
+//                               ^error{Cannot convert string to int}  (FIXME: error location)
 
 }

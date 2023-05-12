@@ -3,12 +3,12 @@
 
 
 export X := PopupWindow {
-//         ^error{PopupWindow cannot be the top level}
+//          ^error{PopupWindow cannot be the top level}
 
     Rectangle {
 
         popup := PopupWindow {
-//              ^error{Cannot access the inside of a PopupWindow from enclosing component}
+//               ^error{Cannot access the inside of a PopupWindow from enclosing component}
             r := Rectangle {
             }
         }

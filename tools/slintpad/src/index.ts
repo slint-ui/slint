@@ -468,7 +468,7 @@ function setup(lsp: Lsp) {
     lsp.previewer.on_highlight_request = (
         url: string,
         start: { line: number; column: number },
-        end: { line: number; column: number },
+        _end: { line: number; column: number },
     ) => {
         if (url === "") {
             return;
@@ -479,8 +479,8 @@ function setup(lsp: Lsp) {
             LspRange.create(
                 start.line - 1,
                 start.column - 1,
-                end.line - 1,
-                end.column - 1,
+                start.line - 1, // Highlight a position, not the entire range
+                start.column - 1,
             ),
         );
     };

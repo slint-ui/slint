@@ -80,3 +80,9 @@ impl<T: Copy, U> RectLengths for euclid::Rect<T, U> {
         self.size_length().height_length()
     }
 }
+
+/// Convert from the api size to the internal size
+/// (This doesn't use the `From` trait because it would expose the conversion to euclid in the public API)
+pub fn logical_size_from_api(size: crate::api::LogicalSize) -> LogicalSize {
+    size.to_euclid()
+}

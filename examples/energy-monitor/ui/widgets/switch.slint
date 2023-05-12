@@ -12,15 +12,15 @@ export component Switch {
     min-height: 18px;
     width: 2 * self.height;
 
-    i-container := Rectangle {  
+    i-container := Rectangle {
         border-color: Theme.palette.slint-blue-300;
         border-width: 2px;
         border-radius: self.height / 2;
-   
-        i-indicator := Rectangle {  
+
+        i-indicator := Rectangle {
             x: 2 * parent.border-width;
             height: parent.height - 4 * parent.border-width;
-            width: self.height; 
+            width: self.height;
             border-radius: self.height / 2;
             background: Theme.palette.slint-blue-300;
 
@@ -32,8 +32,8 @@ export component Switch {
         animate background { duration: Theme.durations.fast; }
     }
 
-    i-touch-area := TouchArea {  
-        clicked => {  
+    i-touch-area := TouchArea {
+        clicked => {
             toggle-checked();
         }
     }
@@ -43,7 +43,7 @@ export component Switch {
         changed(checked);
     }
 
-    states [  
+    states [
         checked when checked : {
             i-container.background: Theme.palette.limon-green-op10;
             i-container.border-color: Theme.palette.limon-green;

@@ -5,7 +5,7 @@ Test2 := Path {
     width: 640px;
     height: 480px;
     commands: "M 0 0 M -100 0 A 100 100 0 1 0 100 0 Å 100 100 0 1 0 100 0 Z";
-    //       ^error{Error parsing SVG commands}
+    //        ^error{Error parsing SVG commands}
 }
 
 export TestCase := Rectangle {
@@ -13,7 +13,7 @@ export TestCase := Rectangle {
         width: 100px;
         height: 100px;
         commands: "hello world";
-        //       ^error{Error parsing SVG commands}
+        //        ^error{Error parsing SVG commands}
         stroke: red;
         stroke-width: 1px;
     }
@@ -28,7 +28,7 @@ export TestCase := Rectangle {
         width: 640px;
         height: 480px;
         commands: "M 0 0 M -100 0 A 100 100 0 1 0 0 A 100 100 0 1 0 100 0 Z";
-        //       ^error{Error parsing SVG commands}
+        //        ^error{Error parsing SVG commands}
     }
 
     Test2 {}

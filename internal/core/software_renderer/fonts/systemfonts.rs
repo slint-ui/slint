@@ -14,13 +14,7 @@ use super::vectorfont::VectorFont;
 fn init_fontdb() -> FontDatabase {
     let mut db = fontdb::Database::new();
 
-    #[cfg(not(target_os = "redox"))]
     db.load_system_fonts();
-
-    // load system fonts for redox
-    // will be removed after fontdb redox support is merged PR: https://github.com/RazrFalcon/fontdb/pull/53
-    #[cfg(target_os = "redox")]
-    db.load_fonts_dir("/ui/fonts");
 
     if db
         .query(&fontdb::Query {

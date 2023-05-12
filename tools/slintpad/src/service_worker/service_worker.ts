@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 /// <reference lib="WebWorker" />
+//
+
 const sw = self as ServiceWorkerGlobalScope & typeof globalThis;
 
 const known_clients: [string, MessagePort][] = [];

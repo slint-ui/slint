@@ -3,13 +3,13 @@
 
 import { md } from "md.slint";
 
-export component Ripple inherits Rectangle { 
+export component Ripple inherits Rectangle {
     in property<length> ripple-x;
     in property<length> ripple-y;
     in property<bool> active;
     in property<bool> has-effect;
     in property<brush> ripple-color <=> circle.background;
-    
+
     circle := Rectangle {
         x: root.ripple-x  - self.width / 2;
         y: root.ripple-y  - self.width / 2;
@@ -26,7 +26,7 @@ export component Ripple inherits Rectangle {
         }
     ]
 
-    
+
 }
 
 // A touch area that also represents a visual state.
@@ -36,12 +36,12 @@ export component StateLayer inherits TouchArea {
     in property<brush> ripple-color;
     in property<bool> has-ripple;
     in property<length> border-radius;
-    
+
     out property<bool> has-focus <=> fs.has-focus;
 
     in-out property<brush> background;
     in-out property<bool> checked;
-  
+
     forward-focus: fs;
 
     ripple := Ripple {
@@ -60,7 +60,7 @@ export component StateLayer inherits TouchArea {
         animate opacity { duration: 250ms; easing: ease; }
         animate background { duration: 250ms; }
     }
-    
+
     fs := FocusScope {
         x:0;
         width: 0px; // Do not react on clicks

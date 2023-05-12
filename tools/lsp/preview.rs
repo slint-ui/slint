@@ -222,6 +222,11 @@ struct PreviewState {
 }
 thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
 
+pub fn design_mode() -> bool {
+    let cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    cache.design_mode
+}
+
 pub fn set_design_mode(sender: crate::ServerNotifier, enable: bool) {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
     cache.design_mode = enable;
@@ -235,21 +240,25 @@ pub fn set_design_mode(sender: crate::ServerNotifier, enable: bool) {
 }
 
 fn show_document_request_from_element_callback(
-    url: &str,
+    file: &str,
     start_line: u32,
     start_column: u32,
-    end_line: u32,
-    end_column: u32,
-) -> lsp_types::ShowDocumentParams {
+    _end_line: u32,
+    _end_column: u32,
+) -> Option<lsp_types::ShowDocumentParams> {
     use lsp_types::{Position, Range, ShowDocumentParams, Url};
 
     let start_pos = Position::new(start_line - 1, start_column);
-    let end_pos = Position::new(end_line - 1, end_column);
-    let selection = Some(Range::new(start_pos, end_pos));
+    // let end_pos = Position::new(end_line - 1, end_column);
+    // Place the cursor at the start of the range and do not mark up the entire range!
+    let selection = Some(Range::new(start_pos, start_pos));
 
-    let uri = Url::parse(url).unwrap_or_else(|_| Url::parse("file:///invalid").unwrap());
-
-    ShowDocumentParams { uri, external: Some(false), take_focus: Some(true), selection }
+    Url::from_file_path(file).ok().map(|uri| ShowDocumentParams {
+        uri,
+        external: Some(false),
+        take_focus: Some(true),
+        selection,
+    })
 }
 
 fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
@@ -261,20 +270,20 @@ fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
                 handle.set_design_mode(enabled);
 
                 handle.on_element_selected(Box::new(
-                    move |url: &str,
+                    move |file: &str,
                           start_line: u32,
                           start_column: u32,
                           end_line: u32,
                           end_column: u32| {
-                        let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(
+                        let Some(params) =
                             show_document_request_from_element_callback(
-                                url,
+                                file,
                                 start_line,
                                 start_column - 1,
                                 end_line,
                                 end_column - 1,
-                            ),
-                        ) else { return; };
+                            ) else { return; };
+                        let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else { return; };
 
                         let fut = Box::pin(async {
                             let _ = fut.await;

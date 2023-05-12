@@ -18,55 +18,53 @@ use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
 use corelib::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use corelib::window::*;
-use std::cell::{Cell, RefCell, RefMut};
+use std::cell::{RefCell, RefMut};
 use std::rc::{Rc, Weak};
+
+use crate::winitwindowadapter::WinitWindowAdapter;
 
 use winit::event::WindowEvent;
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::run_return::EventLoopExtRunReturn;
 
+use crate::SlintUserEvent;
+
 pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(true);
-
-pub trait WinitWindow: WindowAdapter {
-    fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
-    /// Returns true if during the drawing request_redraw() was called.
-    fn draw(&self) -> Result<bool, i_slint_core::platform::PlatformError>;
-    fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window));
-    fn winit_window(&self) -> Option<Rc<winit::window::Window>>;
-
-    /// Called by the event loop when a WindowEvent::Resized is received.
-    fn resize_event(
-        &self,
-        _size: winit::dpi::PhysicalSize<u32>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
-        Ok(())
-    }
-
-    /// Return true if the proxy element used for input method has the focus
-    fn input_method_focused(&self) -> bool {
-        false
-    }
-    /// Returns true if request_redraw() was called since the last event loop iteration
-    /// and resets the state back to false.
-    fn take_pending_redraw(&self) -> bool;
-
-    /// Notify the window if the system theme has changed from light to dark mode
-    fn set_dark_color_scheme(&self, dark_mode: bool);
-}
 
 /// The Default, and the selection clippoard
 type ClipboardPair = (Box<dyn ClipboardProvider>, Box<dyn ClipboardProvider>);
 
 struct NotRunningEventLoop {
     clipboard: RefCell<ClipboardPair>,
-    instance: winit::event_loop::EventLoop<CustomEvent>,
-    event_loop_proxy: winit::event_loop::EventLoopProxy<CustomEvent>,
+    instance: winit::event_loop::EventLoop<SlintUserEvent>,
+    event_loop_proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>,
 }
 
 impl NotRunningEventLoop {
     fn new() -> Self {
-        let instance = winit::event_loop::EventLoopBuilder::with_user_event().build();
+        let mut builder = winit::event_loop::EventLoopBuilder::with_user_event();
+
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            #[cfg(feature = "wayland")]
+            {
+                use winit::platform::wayland::EventLoopBuilderExtWayland;
+                builder.with_any_thread(true);
+            }
+            #[cfg(feature = "x11")]
+            {
+                use winit::platform::x11::EventLoopBuilderExtX11;
+                builder.with_any_thread(true);
+            }
+        }
+        #[cfg(target_family = "windows")]
+        {
+            use winit::platform::windows::EventLoopBuilderExtWindows;
+            builder.with_any_thread(true);
+        }
+
+        let instance = builder.build();
         let event_loop_proxy = instance.create_proxy();
         let clipboard = RefCell::new(create_clipboard(&instance));
         Self { clipboard, instance, event_loop_proxy }
@@ -74,14 +72,14 @@ impl NotRunningEventLoop {
 }
 
 struct RunningEventLoop<'a> {
-    event_loop_target: &'a winit::event_loop::EventLoopWindowTarget<CustomEvent>,
-    event_loop_proxy: &'a winit::event_loop::EventLoopProxy<CustomEvent>,
+    event_loop_target: &'a winit::event_loop::EventLoopWindowTarget<SlintUserEvent>,
+    event_loop_proxy: &'a winit::event_loop::EventLoopProxy<SlintUserEvent>,
     clipboard: &'a RefCell<ClipboardPair>,
 }
 
 pub(crate) trait EventLoopInterface {
-    fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<CustomEvent>;
-    fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<CustomEvent>;
+    fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<SlintUserEvent>;
+    fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<SlintUserEvent>;
     fn clipboard(
         &self,
         _: i_slint_core::platform::Clipboard,
@@ -89,11 +87,11 @@ pub(crate) trait EventLoopInterface {
 }
 
 impl EventLoopInterface for NotRunningEventLoop {
-    fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<CustomEvent> {
+    fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<SlintUserEvent> {
         &*self.instance
     }
 
-    fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<CustomEvent> {
+    fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<SlintUserEvent> {
         &self.event_loop_proxy
     }
 
@@ -114,11 +112,11 @@ impl EventLoopInterface for NotRunningEventLoop {
 }
 
 impl<'a> EventLoopInterface for RunningEventLoop<'a> {
-    fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<CustomEvent> {
+    fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<SlintUserEvent> {
         self.event_loop_target
     }
 
-    fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<CustomEvent> {
+    fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<SlintUserEvent> {
         self.event_loop_proxy
     }
 
@@ -139,19 +137,19 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
 }
 
 thread_local! {
-    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn WinitWindow>>> = RefCell::new(std::collections::HashMap::new());
+    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<WinitWindowAdapter>>> = RefCell::new(std::collections::HashMap::new());
     static MAYBE_LOOP_INSTANCE: RefCell<Option<NotRunningEventLoop>> = RefCell::new(Some(NotRunningEventLoop::new()));
 }
 
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_WINDOW_TARGET : for<'a> &'a RunningEventLoop<'a>);
 
 pub(crate) enum GlobalEventLoopProxyOrEventQueue {
-    Proxy(winit::event_loop::EventLoopProxy<CustomEvent>),
-    Queue(Vec<CustomEvent>),
+    Proxy(winit::event_loop::EventLoopProxy<SlintUserEvent>),
+    Queue(Vec<SlintUserEvent>),
 }
 
 impl GlobalEventLoopProxyOrEventQueue {
-    pub(crate) fn send_event(&mut self, event: CustomEvent) -> Result<(), EventLoopError> {
+    pub(crate) fn send_event(&mut self, event: SlintUserEvent) -> Result<(), EventLoopError> {
         match self {
             GlobalEventLoopProxyOrEventQueue::Proxy(proxy) => {
                 proxy.send_event(event).map_err(|_| EventLoopError::EventLoopTerminated)
@@ -163,7 +161,7 @@ impl GlobalEventLoopProxyOrEventQueue {
         }
     }
 
-    fn set_proxy(&mut self, proxy: winit::event_loop::EventLoopProxy<CustomEvent>) {
+    fn set_proxy(&mut self, proxy: winit::event_loop::EventLoopProxy<SlintUserEvent>) {
         match self {
             GlobalEventLoopProxyOrEventQueue::Proxy(_) => {}
             GlobalEventLoopProxyOrEventQueue::Queue(queue) => {
@@ -205,7 +203,7 @@ pub(crate) fn with_window_target<T>(callback: impl FnOnce(&dyn EventLoopInterfac
     }
 }
 
-pub fn register_window(id: winit::window::WindowId, window: Rc<dyn WinitWindow>) {
+pub fn register_window(id: winit::window::WindowId, window: Rc<WinitWindowAdapter>) {
     ALL_WINDOWS.with(|windows| {
         windows.borrow_mut().insert(id, Rc::downgrade(&window));
     })
@@ -217,7 +215,7 @@ pub fn unregister_window(id: winit::window::WindowId) {
     });
 }
 
-fn window_by_id(id: winit::window::WindowId) -> Option<Rc<dyn WinitWindow>> {
+fn window_by_id(id: winit::window::WindowId) -> Option<Rc<WinitWindowAdapter>> {
     ALL_WINDOWS.with(|windows| windows.borrow().get(&id).and_then(|weakref| weakref.upgrade()))
 }
 
@@ -228,7 +226,9 @@ pub enum CustomEvent {
     /// so that the event loop can run
     #[cfg(target_arch = "wasm32")]
     WakeEventLoopWorkaround,
+    /// Slint internal: Request an update of window properties for the given window id.
     UpdateWindowProperties(winit::window::WindowId),
+    /// Slint internal: Invoke the
     UserEvent(Box<dyn FnOnce() + Send>),
     /// Sent from `WinitWindowAdapter::hide` so that we can check if we should quit the event loop
     WindowHidden,
@@ -264,7 +264,7 @@ mod key_codes {
 }
 
 fn process_window_event(
-    window: Rc<dyn WinitWindow>,
+    window: Rc<WinitWindowAdapter>,
     event: WindowEvent,
     cursor_pos: &mut LogicalPoint,
     pressed: &mut bool,
@@ -413,8 +413,7 @@ fn process_window_event(
             // https://github.com/slint-ui/slint/issues/2424: Work around winit reporting absolute coordinates for touch - until https://github.com/rust-windowing/winit/pull/2704 is merged & released.
             #[cfg(target_family = "wasm")]
             let location = {
-                let window_pos =
-                    window.winit_window().and_then(|w| w.inner_position().ok()).unwrap_or_default();
+                let window_pos = window.winit_window().inner_position().unwrap_or_default();
                 winit::dpi::PhysicalPosition::new(
                     location.x - window_pos.x as f64,
                     location.y - window_pos.y as f64,
@@ -509,7 +508,7 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
     let outer_event_loop_error = Rc::new(RefCell::new(None));
     let inner_event_loop_error = outer_event_loop_error.clone();
 
-    let mut run_fn = move |event: Event<CustomEvent>, control_flow: &mut ControlFlow| {
+    let mut run_fn = move |event: Event<SlintUserEvent>, control_flow: &mut ControlFlow| {
         match event {
             Event::WindowEvent { event, window_id } => {
                 if let Some(window) = window_by_id(window_id) {
@@ -539,32 +538,44 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                 }
             }
 
-            Event::UserEvent(CustomEvent::UpdateWindowProperties(window_id)) => {
+            Event::UserEvent(SlintUserEvent::CustomEvent {
+                event: CustomEvent::UpdateWindowProperties(window_id),
+            }) => {
                 if let Err(insert_pos) =
                     windows_with_pending_property_updates.binary_search(&window_id)
                 {
                     windows_with_pending_property_updates.insert(insert_pos, window_id);
                 }
             }
-            Event::UserEvent(CustomEvent::WindowHidden) => {
+            Event::UserEvent(SlintUserEvent::CustomEvent { event: CustomEvent::WindowHidden }) => {
                 if QUIT_ON_LAST_WINDOW_CLOSED.load(std::sync::atomic::Ordering::Relaxed) {
-                    let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
+                    let window_count = ALL_WINDOWS.with(|windows| {
+                        windows
+                            .borrow()
+                            .values()
+                            .filter(|window| window.upgrade().map_or(false, |w| w.is_shown()))
+                            .count()
+                    });
                     if window_count == 0 {
                         *control_flow = ControlFlow::Exit;
                     }
                 }
             }
 
-            Event::UserEvent(CustomEvent::Exit) => {
+            Event::UserEvent(SlintUserEvent::CustomEvent { event: CustomEvent::Exit }) => {
                 *control_flow = ControlFlow::Exit;
             }
 
-            Event::UserEvent(CustomEvent::UserEvent(user)) => {
+            Event::UserEvent(SlintUserEvent::CustomEvent {
+                event: CustomEvent::UserEvent(user),
+            }) => {
                 user();
             }
 
             #[cfg(target_arch = "wasm32")]
-            Event::UserEvent(CustomEvent::WakeEventLoopWorkaround) => {
+            Event::UserEvent(SlintUserEvent::CustomEvent {
+                event: CustomEvent::WakeEventLoopWorkaround,
+            }) => {
                 *control_flow = ControlFlow::Poll;
             }
 
@@ -647,8 +658,8 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
     #[cfg(not(target_arch = "wasm32"))]
     {
         winit_loop.run_return(
-            |event: Event<CustomEvent>,
-             event_loop_target: &EventLoopWindowTarget<CustomEvent>,
+            |event: Event<SlintUserEvent>,
+             event_loop_target: &EventLoopWindowTarget<SlintUserEvent>,
              control_flow: &mut ControlFlow| {
                 let running_instance = RunningEventLoop {
                     event_loop_target,
@@ -675,8 +686,8 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
     #[cfg(target_arch = "wasm32")]
     {
         winit_loop.run(
-            move |event: Event<CustomEvent>,
-                  event_loop_target: &EventLoopWindowTarget<CustomEvent>,
+            move |event: Event<SlintUserEvent>,
+                  event_loop_target: &EventLoopWindowTarget<SlintUserEvent>,
                   control_flow: &mut ControlFlow| {
                 let running_instance = RunningEventLoop {
                     event_loop_target,

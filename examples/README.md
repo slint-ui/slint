@@ -126,7 +126,7 @@ A Rust and C++ example that shows how render SixtyFPS on top of graphical effect
 ### [`virtual keyboard`](./virtual_keyboard)
 
 | `.slint` Design | Rust Source | C++ Source |
-| --- | --- |
+| --- | --- | --- |
 | [`main_window.slint`](./virtual_keyboard/ui/main_window.slint) | [`main.rs`](./virtual_keyboard/rust/main.rs) | [`main.cpp`](./virtual_keyboard/cpp/main.cpp) |
 
 A Rust and C++ example that shows how to implement a custom virtual keyboard in Slint. For more details check out the [Readme](./virtual_keyboard).
@@ -136,7 +136,7 @@ A Rust and C++ example that shows how to implement a custom virtual keyboard in 
 
 ### [`7guis`](./7guis)
 
-Our implementations of the ["7GUIs"](https://eugenkiss.github.io/7guis/) Tasks.
+Our implementations of the ["7GUIs"](https://7guis.github.io/7guis/) Tasks.
 
 ![Composition of 7GUIs Screenshots](https://user-images.githubusercontent.com/22800467/169002497-5b90e63b-5717-4290-8ac7-c618d9e2a4f1.png "7GUIs")
 

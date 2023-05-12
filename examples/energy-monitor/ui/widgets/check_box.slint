@@ -11,12 +11,12 @@ export component CheckBox {
     min-height: 18px;
     width: self.height;
 
-    i-container := Rectangle {  
+    i-container := Rectangle {
         border-color: Theme.palette.slint-blue-300;
         border-width: 2px;
         border-radius: 2px;
 
-        i-check-icon := Image {  
+        i-check-icon := Image {
             opacity: 0.0;
             colorize: Theme.palette.pure-black;
             source: Images.check;
@@ -27,13 +27,13 @@ export component CheckBox {
         animate background { duration: Theme.durations.fast; }
     }
 
-    i-touch-area := TouchArea {  
-        clicked => {  
+    i-touch-area := TouchArea {
+        clicked => {
             checked = !checked;
         }
     }
 
-    states [  
+    states [
         checked when checked : {
             i-container.border-width: 0;
             i-container.background: Theme.palette.limon-green;

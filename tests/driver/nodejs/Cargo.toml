@@ -3,7 +3,7 @@
 
 [package]
 name = "test-driver-nodejs"
-version = "1.0.1"
+version = "1.0.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 publish = false

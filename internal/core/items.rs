@@ -162,6 +162,7 @@ pub struct ItemVTable {
         core::pin::Pin<VRef<ItemVTable>>,
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult,
 }
 
@@ -239,6 +240,7 @@ impl Item for Empty {
         self: Pin<&Self>,
         _backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
+        _size: LogicalSize,
     ) -> RenderingResult {
         RenderingResult::ContinueRenderingChildren
     }
@@ -326,8 +328,9 @@ impl Item for Rectangle {
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).draw_rectangle(self, self_rc);
+        (*backend).draw_rectangle(self, self_rc, size);
         RenderingResult::ContinueRenderingChildren
     }
 }
@@ -417,8 +420,9 @@ impl Item for BorderRectangle {
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).draw_border_rectangle(self, self_rc);
+        (*backend).draw_border_rectangle(self, self_rc, size);
         RenderingResult::ContinueRenderingChildren
     }
 }
@@ -605,6 +609,7 @@ impl Item for TouchArea {
         self: Pin<&Self>,
         _backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
+        _size: LogicalSize,
     ) -> RenderingResult {
         RenderingResult::ContinueRenderingChildren
     }
@@ -727,6 +732,7 @@ impl Item for FocusScope {
         self: Pin<&Self>,
         _backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
+        _size: LogicalSize,
     ) -> RenderingResult {
         RenderingResult::ContinueRenderingChildren
     }
@@ -826,8 +832,9 @@ impl Item for Clip {
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).visit_clip(self, self_rc)
+        (*backend).visit_clip(self, self_rc, size)
     }
 }
 
@@ -912,8 +919,9 @@ impl Item for Opacity {
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
-        backend.visit_opacity(self, self_rc)
+        backend.visit_opacity(self, self_rc, size)
     }
 }
 
@@ -1027,8 +1035,9 @@ impl Item for Layer {
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
-        backend.visit_layer(self, self_rc)
+        backend.visit_layer(self, self_rc, size)
     }
 }
 
@@ -1116,6 +1125,7 @@ impl Item for Rotate {
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
+        _size: LogicalSize,
     ) -> RenderingResult {
         let origin =
             LogicalVector::from_lengths(self.rotation_origin_x(), self.rotation_origin_y());
@@ -1240,6 +1250,7 @@ impl Item for WindowItem {
         self: Pin<&Self>,
         _backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
+        _size: LogicalSize,
     ) -> RenderingResult {
         RenderingResult::ContinueRenderingChildren
     }
@@ -1360,8 +1371,9 @@ impl Item for BoxShadow {
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
+        size: LogicalSize,
     ) -> RenderingResult {
-        (*backend).draw_box_shadow(self, self_rc);
+        (*backend).draw_box_shadow(self, self_rc, size);
         RenderingResult::ContinueRenderingChildren
     }
 }

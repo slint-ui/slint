@@ -11,14 +11,14 @@ MyDiag1 := Dialog {
 }
 
 MyDiag2 := Dialog {
-//        ^error{A Dialog must have a single child element that is not StandardButton}
+//         ^error{A Dialog must have a single child element that is not StandardButton}
     StandardButton { kind: reset; }
     StandardButton {
         kind: cancel;
         col: 42;
-//          ^error{col used outside of a GridLayout}
+//           ^error{col used outside of a GridLayout}
         rowspan: 2;
-//              ^error{rowspan used outside of a GridLayout}
+//               ^error{rowspan used outside of a GridLayout}
     }
 }
 
@@ -28,9 +28,9 @@ MyDiag3 := Dialog {
     StandardButton { }
 //  ^error{The `kind` property of the StandardButton in a Dialog must be set}
     StandardButton { kind: true ? ok : cancel; }
-//                        ^error{The `kind` property of the StandardButton in a Dialog must be known at compile-time}
+//                         ^error{The `kind` property of the StandardButton in a Dialog must be known at compile-time}
     StandardButton { kind: ok; }
-//                        ^error{Duplicated `kind`: There are two StandardButton in this Dialog with the same kind}
+//                         ^error{Duplicated `kind`: There are two StandardButton in this Dialog with the same kind}
 
 }
 
@@ -38,12 +38,12 @@ MyDialog4 := Dialog {
     StandardButton { kind: ok; }
     Rectangle { dialog-button-role: accept; }
     Rectangle { dialog-button-role: none; }
-//                                 ^error{The `dialog-button-role` cannot be set explicitly to none}
+//                                  ^error{The `dialog-button-role` cannot be set explicitly to none}
     Rectangle { dialog-button-role: true ? accept : reject; }
-//                                 ^error{The `dialog-button-role` property must be known at compile-time}
+//                                  ^error{The `dialog-button-role` property must be known at compile-time}
     Rectangle {
         Rectangle { dialog-button-role: accept; }
-//                                     ^error{dialog-button-role used outside of a Dialog}
+//                                      ^error{dialog-button-role used outside of a Dialog}
     }
 }
 

@@ -18,9 +18,9 @@ It has three different building blocks:
 ## Example
 
 ```slint
-import { VirtualKeyboard } from "virtual_keyboard.slint"
+import { VirtualKeyboard } from "ui/virtual_keyboard.slint";
 
-export MainWindow inherits Window {
+export component MainWindow inherits Window {
     HorizontalLayout {
         TextInput {}
     }
@@ -36,7 +36,7 @@ export MainWindow inherits Window {
 ```rust
 fn main() {
     let app = App::new().unwrap();
-    
+
     let weak = app.as_weak();
     app.global::<VirtualKeyboardHandler>().on_key_pressed({
         let weak = weak.clone();

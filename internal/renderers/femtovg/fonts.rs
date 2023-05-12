@@ -422,7 +422,10 @@ impl FontCache {
                     fallback_font.fontdb_face_id,
                 );
 
-                if matches!(coverage_result, GlyphCoverageCheckResult::Improved) {
+                if matches!(
+                    coverage_result,
+                    GlyphCoverageCheckResult::Improved | GlyphCoverageCheckResult::Complete
+                ) {
                     Some(fallback_font.femtovg_font_id)
                 } else {
                     None

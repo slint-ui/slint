@@ -25,11 +25,39 @@ slint::cbindgen_private::PointerEventButton convert_button(Qt::MouseButtons b)
     }
 }
 
+static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *window)
+{
+#ifdef __APPLE__
+    QPlatformNativeInterface *native = qApp->platformNativeInterface();
+    void *nsview = native->nativeResourceForWindow(QByteArray("nsview"), window);
+    void *nswindow = native->nativeResourceForWindow(QByteArray("nswindow"), window);
+    return slint_platform::NativeWindowHandle::from_appkit(nsview, nswindow);
+#elif defined Q_OS_WIN
+    auto wid = Qt::HANDLE(window->winId());
+    return slint_platform::NativeWindowHandle::from_win32(wid, GetModuleHandle(nullptr));
+#else
+    auto wid = winId();
+    auto visual_id = 0; // FIXME
+    QPlatformNativeInterface *native = qApp->platformNativeInterface();
+    auto *connection = reinterpret_cast<xcb_connection_t *>(
+            native->nativeResourceForWindow(QByteArray("connection"), window));
+    auto screen = quintptr(native->nativeResourceForWindow(QByteArray("screen"), window));
+
+    return slint_platform::NativeWindowHandle::from_x11(wid, wid, connection, screen);
+#endif
+}
+
 class MyWindow : public QWindow, public slint_platform::WindowAdapter<slint_platform::SkiaRenderer>
 {
 
 public:
-    MyWindow(QWindow *parentWindow = nullptr) : QWindow(parentWindow) { }
+    MyWindow(QWindow *parentWindow = nullptr)
+        : QWindow(parentWindow),
+          slint_platform::WindowAdapter<slint_platform::SkiaRenderer>(
+                  window_handle_for_qt_window(this),
+                  slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) }))
+    {
+    }
 
     /*void keyEvent(QKeyEvent *event) override
     {
@@ -62,29 +90,7 @@ public:
     {
         auto window = const_cast<QWindow *>(static_cast<const QWindow *>(this));
         window->QWindow::show();
-        auto windowSize = slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) });
-#ifdef __APPLE__
-        QPlatformNativeInterface *native = qApp->platformNativeInterface();
-        void *nsview = native->nativeResourceForWindow(QByteArray("nsview"), window);
-        void *nswindow = native->nativeResourceForWindow(QByteArray("nswindow"), window);
-        renderer().show(nsview, nswindow, windowSize);
-#elif defined Q_OS_WIN
-        auto wid = Qt::HANDLE(winId());
-        renderer().show(
-                wid, GetModuleHandle(nullptr),
-                slint_platform::WindowAdapter<slint_platform::SkiaRenderer>::window().size());
-#else
-        auto wid = winId();
-        auto visual_id = 0; // FIXME
-        QPlatformNativeInterface *native = qApp->platformNativeInterface();
-        auto *connection = reinterpret_cast<xcb_connection_t *>(
-                native->nativeResourceForWindow(QByteArray("connection"), window));
-        auto screen = quintptr(native->nativeResourceForWindow(QByteArray("screen"), window));
-
-        renderer().show(
-                wid, wid, connection, screen,
-                slint_platform::WindowAdapter<slint_platform::SkiaRenderer>::window().size());
-#endif
+        renderer().show();
     }
     void hide() const override
     {
@@ -92,10 +98,7 @@ public:
         const_cast<MyWindow *>(this)->QWindow::hide();
     }
 
-    void request_redraw() const override
-    {
-        const_cast<MyWindow *>(this)->requestUpdate();
-    }
+    void request_redraw() const override { const_cast<MyWindow *>(this)->requestUpdate(); }
 
     void resizeEvent(QResizeEvent *ev) override
     {

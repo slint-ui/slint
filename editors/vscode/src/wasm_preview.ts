@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { Uri } from "vscode";
+import { Uri, TextDocumentShowOptions } from "vscode";
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
+import { URI } from "vscode-languageserver";
 
 let previewPanel: vscode.WebviewPanel | null = null;
 let previewUrl: Uri | null = null;
@@ -11,12 +12,10 @@ let previewAccessedFiles = new Set();
 let previewComponent: string = "";
 let queuedPreviewMsg: any | null = null;
 let previewBusy = false;
+let uriMapping = new Map<string, string>();
 
 /// Initialize the callback on the client to make the web preview work
-export function initClientForPreview(
-    context: vscode.ExtensionContext,
-    client: BaseLanguageClient,
-) {
+export function initClientForPreview(client: BaseLanguageClient) {
     client.onRequest("slint/preview_message", async (msg: any) => {
         if (previewPanel) {
             // map urls to webview URL
@@ -31,15 +30,24 @@ export function initClientForPreview(
     });
 }
 
+function urlConvertToWebview(webview: vscode.Webview, url: Uri): Uri {
+    let webview_uri = webview.asWebviewUri(url);
+    uriMapping.set(webview_uri.toString(), url.toString());
+    return webview_uri;
+}
+
 function reload_preview(url: Uri, content: string, component: string) {
     if (!previewPanel) {
         return;
     }
     if (component) {
-        content += "\nexport component _Preview inherits " + component + " {}\n";
+        content +=
+            "\nexport component _Preview inherits " + component + " {}\n";
     }
     previewAccessedFiles.clear();
-    let webview_uri = previewPanel.webview.asWebviewUri(url).toString();
+    uriMapping.clear();
+
+    let webview_uri = urlConvertToWebview(previewPanel.webview, url).toString();
     previewAccessedFiles.add(webview_uri);
     const style = vscode.workspace
         .getConfiguration("slint")
@@ -67,7 +75,10 @@ export async function refreshPreview(event?: vscode.TextDocumentChangeEvent) {
     if (
         event &&
         !previewAccessedFiles.has(
-            previewPanel.webview.asWebviewUri(event.document.uri).toString(),
+            urlConvertToWebview(
+                previewPanel.webview,
+                event.document.uri,
+            ).toString(),
         )
     ) {
         return;
@@ -83,6 +94,13 @@ export async function refreshPreview(event?: vscode.TextDocumentChangeEvent) {
         content_str = await getDocumentSource(previewUrl);
     }
     reload_preview(previewUrl, content_str, previewComponent);
+}
+
+/// Show the preview for the given path and component
+export async function toggleDesignMode() {
+    previewPanel?.webview.postMessage({
+        command: "toggle_design_mode",
+    });
 }
 
 /// Show the preview for the given path and component
@@ -190,14 +208,19 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
     const vscode = acquireVsCodeApi();
     let promises = {};
     let current_instance = null;
+    let design_mode = false;
 
     async function load_file(url) {
         let promise = new Promise(resolve => {
             promises[url] = resolve;
         });
-        vscode.postMessage({ command: 'load_file',  url: url });
+        vscode.postMessage({ command: 'load_file', url: url });
         let from_editor = await promise;
         return from_editor || await (await fetch(url)).text();
+    }
+
+    async function element_selected(url, sl, sc, el, ec) {
+        vscode.postMessage({ command: 'element_selected',  data: { start: { line: sl, column: sc }, end: { line: el, column: ec }, url: url }});
     }
 
     async function render(source, base_url, style) {
@@ -220,11 +243,14 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
                 current_instance.show();
                 slint.run_event_loop();
             }
+            current_instance?.set_design_mode(design_mode);
+            current_instance?.on_element_selected(element_selected);
         }
     }
 
     window.addEventListener('message', async event => {
         if (event.data.command === "preview") {
+            design_mode = event.data.design_mode;
             vscode.setState({base_url: event.data.base_url, component: event.data.component});
             await render(event.data.content, event.data.webview_uri, event.data.style);
         } else if (event.data.command === "file_loaded") {
@@ -237,6 +263,10 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
             if (current_instance) {
                 current_instance.highlight(event.data.data.path, event.data.data.offset);
             }
+        } else if (event.data.command === "toggle_design_mode") {
+            design_mode = !design_mode;
+            current_instance?.set_design_mode(design_mode);
+            current_instance?.on_element_selected(element_selected);
         }
     });
 
@@ -260,7 +290,8 @@ export class PreviewSerializer implements vscode.WebviewPanelSerializer {
         state: any,
     ) {
         initPreviewPanel(this.context, webviewPanel);
-        previewUrl = Uri.parse(state?.base_url, true);
+        previewUrl = Uri.parse(state.base_url, true);
+
         if (previewUrl) {
             let content_str = await getDocumentSource(previewUrl);
             previewComponent = state.component ?? "";
@@ -285,8 +316,10 @@ function initPreviewPanel(
                     let content_str = undefined;
                     let x = vscode.workspace.textDocuments.find(
                         (d) =>
-                            panel.webview.asWebviewUri(d.uri).toString() ===
-                            canonical,
+                            urlConvertToWebview(
+                                panel.webview,
+                                d.uri,
+                            ).toString() === canonical,
                     );
                     if (x) {
                         content_str = x.getText();
@@ -305,6 +338,32 @@ function initPreviewPanel(
                         previewBusy = false;
                     }
                     return;
+                case "element_selected": {
+                    const d = message.data;
+
+                    const inside_uri = Uri.parse(d.url);
+                    const range = new vscode.Range(
+                        new vscode.Position(
+                            d.start.line - 1,
+                            d.start.column - 1,
+                        ),
+                        new vscode.Position(
+                            d.start.line - 1,
+                            d.start.column - 1,
+                        ), // Do not use range!
+                    );
+                    const outside_uri = Uri.parse(
+                        uriMapping.get(d.url) ??
+                            Uri.file(inside_uri.fsPath).toString(),
+                    );
+                    if (outside_uri.scheme !== "invalid") {
+                        vscode.window.showTextDocument(outside_uri, {
+                            selection: range,
+                            preserveFocus: false,
+                        } as TextDocumentShowOptions);
+                    }
+                    return;
+                }
             }
         },
         undefined,

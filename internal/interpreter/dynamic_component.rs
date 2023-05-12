@@ -402,13 +402,13 @@ impl<'id> ComponentDescription<'id> {
     /// Instantiate a runtime component from this ComponentDescription
     pub fn create(
         self: Rc<Self>,
-        #[cfg(target_arch = "wasm32")] canvas_id: String,
+        #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> Result<DynamicComponentVRc, PlatformError> {
         let window_adapter = i_slint_backend_selector::with_platform(|_b| {
             #[cfg(not(target_arch = "wasm32"))]
             return _b.create_window_adapter();
             #[cfg(target_arch = "wasm32")]
-            Ok(i_slint_backend_winit::create_gl_window_with_canvas_id(canvas_id))
+            i_slint_backend_winit::create_gl_window_with_canvas_id(canvas_id)
         })?;
 
         Ok(self.create_with_existing_window(&window_adapter))

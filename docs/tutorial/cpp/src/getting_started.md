@@ -3,7 +3,7 @@
 In this tutorial, we use C++ as the host programming language. We also support other programming languages like
 [Rust](https://slint-ui.com/docs/rust/slint/) or [JavaScript](https://slint-ui.com/docs/node/).
 
-You will need a development environment that can compile C++20, [CMake 3.21](https://cmake.org/download/), 
+You will need a development environment that can compile C++20, [CMake 3.21](https://cmake.org/download/),
 and we recommend [Ninja](https://ninja-build.org) for `-GNinja`.
 We don't provide binaries of Slint yet, so we will use the CMake integration that will automatically build
 the tools and library from source. Since it's implemented in the Rust programming language, this means that

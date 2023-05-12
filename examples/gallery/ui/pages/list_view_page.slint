@@ -9,12 +9,12 @@ export component ListViewPage inherits Page {
     title: "ListView";
     description: "ListViews can be used to display a list of elements. The StandardListBox is like the default ListView just with a default text based definition of the visual items. Both can be imported from \"std-widgets.slint\"";
 
-    HorizontalBox {   
+    HorizontalBox {
         vertical-stretch: 1;
-        GroupBox {  
+        GroupBox {
             title: "ListView";
 
-            ListView {  
+            ListView {
                 vertical-stretch: 0;
                 for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] : HorizontalBox {
                    Image {
@@ -28,7 +28,7 @@ export component ListViewPage inherits Page {
             }
         }
 
-        GroupBox {  
+        GroupBox {
             title: "StandardListView";
             vertical-stretch: 0;
 

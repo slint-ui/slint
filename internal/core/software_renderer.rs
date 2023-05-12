@@ -11,13 +11,13 @@ mod fonts;
 use crate::api::Window;
 use crate::graphics::{IntRect, PixelFormat, SharedImageBuffer, SharedPixelBuffer};
 use crate::item_rendering::ItemRenderer;
-use crate::items::{ImageFit, Item, ItemRc, TextOverflow};
+use crate::items::{ImageFit, ItemRc, TextOverflow};
 use crate::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, PointLengths,
     RectLengths, ScaleFactor, SizeLengths,
 };
 use crate::renderer::Renderer;
-use crate::textlayout::{AbstractFont, TextParagraphLayout};
+use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
@@ -314,12 +314,74 @@ impl Renderer for SoftwareRenderer {
     ) -> usize {
         0
     }
+
     fn text_input_cursor_rect_for_byte_offset(
         &self,
-        _text_input: Pin<&crate::items::TextInput>,
-        _byte_offset: usize,
+        text_input: Pin<&crate::items::TextInput>,
+        byte_offset: usize,
     ) -> LogicalRect {
-        Default::default()
+        let window_adapter = match self.window.upgrade() {
+            Some(window) => window,
+            None => return Default::default(),
+        };
+
+        let scale_factor = ScaleFactor::new(window_adapter.window().scale_factor()).cast();
+        let string = text_input.text();
+
+        let font_request = text_input.font_request(&window_adapter);
+        let font = fonts::match_font(&font_request, scale_factor);
+
+        let width = (text_input.width().cast() * scale_factor).cast();
+        let height = (text_input.height().cast() * scale_factor).cast();
+
+        let (cursor_position, cursor_height) = match font {
+            fonts::Font::PixelFont(pf) => {
+                let layout = fonts::text_layout_for_font(&pf, &font_request, scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: width,
+                    max_height: height,
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: false,
+                };
+
+                (paragraph.cursor_pos_for_byte_offset(byte_offset), pf.height())
+            }
+            #[cfg(feature = "software-renderer-systemfonts")]
+            fonts::Font::VectorFont(vf) => {
+                let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
+
+                let paragraph = TextParagraphLayout {
+                    string: &string,
+                    layout,
+                    max_width: width,
+                    max_height: height,
+                    horizontal_alignment: text_input.horizontal_alignment(),
+                    vertical_alignment: text_input.vertical_alignment(),
+                    wrap: text_input.wrap(),
+                    overflow: TextOverflow::Clip,
+                    single_line: false,
+                };
+
+                (paragraph.cursor_pos_for_byte_offset(byte_offset), vf.height())
+            }
+        };
+
+        return (PhysicalRect::new(
+            PhysicalPoint::from_lengths(cursor_position.0, cursor_position.1),
+            PhysicalSize::from_lengths(
+                (text_input.text_cursor_width().cast() * scale_factor).cast(),
+                cursor_height,
+            ),
+        )
+        .cast()
+            / scale_factor)
+            .cast();
     }
 
     fn free_graphics_resources(
@@ -1156,7 +1218,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
     fn draw_text_paragraph<'b, Font: AbstractFont>(
         &mut self,
-        paragraph: TextParagraphLayout<'b, Font>,
+        paragraph: &TextParagraphLayout<'b, Font>,
         physical_clip: euclid::Rect<f32, PhysicalPx>,
         offset: euclid::Vector2D<f32, PhysicalPx>,
         color: Color,
@@ -1164,65 +1226,68 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         Font: crate::textlayout::TextShaper<Length = PhysicalLength>,
         Font: GlyphRenderer,
     {
-        paragraph.layout_lines(|glyphs, line_x, line_y| {
-            let baseline_y = line_y + paragraph.layout.font.ascent();
-            while let Some(positioned_glyph) = glyphs.next() {
-                let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);
+        paragraph
+            .layout_lines::<()>(|glyphs, line_x, line_y, _| {
+                let baseline_y = line_y + paragraph.layout.font.ascent();
+                while let Some(positioned_glyph) = glyphs.next() {
+                    let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);
 
-                let src_rect = PhysicalRect::new(
-                    PhysicalPoint::from_lengths(
-                        line_x + positioned_glyph.x + glyph.x,
-                        baseline_y - glyph.y - glyph.height,
-                    ),
-                    glyph.size(),
-                )
-                .cast();
+                    let src_rect = PhysicalRect::new(
+                        PhysicalPoint::from_lengths(
+                            line_x + positioned_glyph.x + glyph.x,
+                            baseline_y - glyph.y - glyph.height,
+                        ),
+                        glyph.size(),
+                    )
+                    .cast();
 
-                if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
-                    let geometry = clipped_src.translate(offset).round();
-                    let origin = (geometry.origin - offset.round()).cast::<usize>();
-                    let actual_x = origin.x - src_rect.origin.x as usize;
-                    let actual_y = origin.y - src_rect.origin.y as usize;
-                    let stride = glyph.width.get() as u16;
-                    let geometry = geometry.cast();
+                    if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
+                        let geometry = clipped_src.translate(offset).round();
+                        let origin = (geometry.origin - offset.round()).cast::<usize>();
+                        let actual_x = origin.x - src_rect.origin.x as usize;
+                        let actual_y = origin.y - src_rect.origin.y as usize;
+                        let stride = glyph.width.get() as u16;
+                        let geometry = geometry.cast();
 
-                    match &glyph.alpha_map {
-                        fonts::GlyphAlphaMap::Static(data) => {
-                            self.processor.process_texture(
-                                geometry,
-                                SceneTexture {
-                                    data: &data[actual_x + actual_y * stride as usize..],
-                                    stride,
-                                    source_size: geometry.size,
-                                    format: PixelFormat::AlphaMap,
-                                    color,
-                                    // color already is mixed with global alpha
-                                    alpha: color.alpha(),
-                                },
-                            );
-                        }
-                        fonts::GlyphAlphaMap::Shared(data) => {
-                            self.processor.process_shared_image_buffer(
-                                geometry,
-                                SharedBufferCommand {
-                                    buffer: SharedBufferData::AlphaMap {
-                                        data: data.clone(),
-                                        width: stride,
+                        match &glyph.alpha_map {
+                            fonts::GlyphAlphaMap::Static(data) => {
+                                self.processor.process_texture(
+                                    geometry,
+                                    SceneTexture {
+                                        data: &data[actual_x + actual_y * stride as usize..],
+                                        stride,
+                                        source_size: geometry.size,
+                                        format: PixelFormat::AlphaMap,
+                                        color,
+                                        // color already is mixed with global alpha
+                                        alpha: color.alpha(),
                                     },
-                                    source_rect: PhysicalRect::new(
-                                        PhysicalPoint::new(actual_x as _, actual_y as _),
-                                        geometry.size,
-                                    ),
-                                    colorize: color,
-                                    // color already is mixed with global alpha
-                                    alpha: color.alpha(),
-                                },
-                            );
-                        }
-                    };
+                                );
+                            }
+                            fonts::GlyphAlphaMap::Shared(data) => {
+                                self.processor.process_shared_image_buffer(
+                                    geometry,
+                                    SharedBufferCommand {
+                                        buffer: SharedBufferData::AlphaMap {
+                                            data: data.clone(),
+                                            width: stride,
+                                        },
+                                        source_rect: PhysicalRect::new(
+                                            PhysicalPoint::new(actual_x as _, actual_y as _),
+                                            geometry.size,
+                                        ),
+                                        colorize: color,
+                                        // color already is mixed with global alpha
+                                        alpha: color.alpha(),
+                                    },
+                                );
+                            }
+                        };
+                    }
                 }
-            }
-        });
+                core::ops::ControlFlow::Continue(())
+            })
+            .ok();
     }
 
     /// Returns the color, mixed with the current_state's alpha
@@ -1248,8 +1313,13 @@ struct RenderState {
 }
 
 impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'a, T> {
-    fn draw_rectangle(&mut self, rect: Pin<&crate::items::Rectangle>, _: &ItemRc) {
-        let geom = LogicalRect::new(LogicalPoint::default(), rect.geometry().size_length());
+    fn draw_rectangle(
+        &mut self,
+        rect: Pin<&crate::items::Rectangle>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let clipped = match geom.intersection(&self.current_state.clip) {
                 Some(geom) => geom,
@@ -1369,8 +1439,13 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_border_rectangle(&mut self, rect: Pin<&crate::items::BorderRectangle>, _: &ItemRc) {
-        let geom = LogicalRect::new(LogicalPoint::default(), rect.geometry().size_length());
+    fn draw_border_rectangle(
+        &mut self,
+        rect: Pin<&crate::items::BorderRectangle>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let mut border = rect.border_width();
             let radius = rect.border_radius();
@@ -1480,9 +1555,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_image(&mut self, image: Pin<&crate::items::ImageItem>, _: &ItemRc) {
-        let geom =
-            LogicalRect::new(LogicalPoint::default(), image.as_ref().geometry().size_length());
+    fn draw_image(&mut self, image: Pin<&crate::items::ImageItem>, _: &ItemRc, size: LogicalSize) {
+        let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let source = image.source();
             self.draw_image_impl(
@@ -1495,8 +1569,13 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_clipped_image(&mut self, image: Pin<&crate::items::ClippedImage>, _: &ItemRc) {
-        let geom = LogicalRect::new(LogicalPoint::default(), image.geometry().size_length());
+    fn draw_clipped_image(
+        &mut self,
+        image: Pin<&crate::items::ClippedImage>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let geom = LogicalRect::from(size);
         if self.should_draw(&geom) {
             let source = image.source();
 
@@ -1523,12 +1602,12 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
-    fn draw_text(&mut self, text: Pin<&crate::items::Text>, _: &ItemRc) {
+    fn draw_text(&mut self, text: Pin<&crate::items::Text>, _: &ItemRc, size: LogicalSize) {
         let string = text.text();
         if string.trim().is_empty() {
             return;
         }
-        let geom = LogicalRect::new(LogicalPoint::default(), text.geometry().size_length());
+        let geom = LogicalRect::from(size);
         if !self.should_draw(&geom) {
             return;
         }
@@ -1567,7 +1646,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: false,
                 };
 
-                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
@@ -1585,14 +1664,18 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: false,
                 };
 
-                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
             }
         }
     }
 
-    fn draw_text_input(&mut self, text_input: Pin<&crate::items::TextInput>, _: &ItemRc) {
-        let string = text_input.text();
-        let geom = LogicalRect::new(LogicalPoint::default(), text_input.geometry().size_length());
+    fn draw_text_input(
+        &mut self,
+        text_input: Pin<&crate::items::TextInput>,
+        _: &ItemRc,
+        size: LogicalSize,
+    ) {
+        let geom = LogicalRect::from(size);
         if !self.should_draw(&geom) {
             return;
         }
@@ -1615,10 +1698,12 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
         let font = fonts::match_font(&font_request, self.scale_factor);
 
-        match font {
+        let text_visual_representation = text_input.visual_representation(None);
+
+        let cursor_pos_and_height = match font {
             fonts::Font::PixelFont(pf) => {
                 let paragraph = TextParagraphLayout {
-                    string: &string,
+                    string: &text_visual_representation.text,
                     layout: fonts::text_layout_for_font(&pf, &font_request, self.scale_factor),
                     max_width: max_size.width_length(),
                     max_height: max_size.height_length(),
@@ -1629,12 +1714,16 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: text_input.single_line(),
                 };
 
-                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
+
+                text_visual_representation.cursor_position.map(|cursor_offset| {
+                    (paragraph.cursor_pos_for_byte_offset(cursor_offset), pf.height())
+                })
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
                 let paragraph = TextParagraphLayout {
-                    string: &string,
+                    string: &text_visual_representation.text,
                     layout: fonts::text_layout_for_font(&vf, &font_request, self.scale_factor),
                     max_width: max_size.width_length(),
                     max_height: max_size.height_length(),
@@ -1645,19 +1734,37 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: text_input.single_line(),
                 };
 
-                self.draw_text_paragraph(paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
+
+                text_visual_representation.cursor_position.map(|cursor_offset| {
+                    (paragraph.cursor_pos_for_byte_offset(cursor_offset), vf.height())
+                })
             }
+        };
+
+        if let Some(((cursor_x, cursor_y), cursor_height)) = cursor_pos_and_height {
+            let cursor_rect = PhysicalRect::new(
+                PhysicalPoint::from_lengths(cursor_x, cursor_y),
+                PhysicalSize::from_lengths(
+                    (text_input.text_cursor_width().cast() * self.scale_factor).cast(),
+                    cursor_height,
+                ),
+            );
+            self.processor.process_rectangle(cursor_rect.translate(offset.cast()), color.into());
         }
     }
 
     #[cfg(feature = "std")]
-    fn draw_path(&mut self, path: Pin<&crate::items::Path>, _: &ItemRc) {
-        path.geometry();
+    fn draw_path(&mut self, _path: Pin<&crate::items::Path>, _: &ItemRc, _size: LogicalSize) {
         // TODO
     }
 
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&crate::items::BoxShadow>, _: &ItemRc) {
-        box_shadow.geometry();
+    fn draw_box_shadow(
+        &mut self,
+        _box_shadow: Pin<&crate::items::BoxShadow>,
+        _: &ItemRc,
+        _size: LogicalSize,
+    ) {
         // TODO
     }
 

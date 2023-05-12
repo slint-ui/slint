@@ -102,8 +102,20 @@ impl SourceFileInner {
                     (line + 1, line_offsets.get(line - 1).map_or(0, |x| offset - x + 1))
                 }
             },
-            |line| (line + 1, 1),
+            |line| (line + 2, 1),
         )
+    }
+
+    /// Returns the offset that corresponds to the line/column
+    pub fn offset(&self, line: usize, column: usize) -> usize {
+        let col_offset = column.saturating_sub(1);
+        if line <= 1 {
+            // line == 0 is actually invalid!
+            return col_offset;
+        }
+        let offsets = self.line_offsets();
+        let index = std::cmp::min(line.saturating_sub(1), offsets.len());
+        offsets.get(index.saturating_sub(1)).unwrap_or(&0).saturating_add(col_offset)
     }
 
     fn line_offsets(&self) -> &[usize] {
@@ -505,6 +517,56 @@ impl BuildDiagnostics {
         self.print();
         if has_error {
             std::process::exit(-1);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_source_file_offset_line_column_mapping() {
+        let content = r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
+
+component MainWindow inherits Window {
+    property <duration> total-time: slider.value * 1s;
+
+    callback tick(duration);
+    VerticalBox {
+        HorizontalBox {
+            padding-left: 0;
+            Text { text: "Elapsed Time:"; }
+            Rectangle {
+                Rectangle {
+                    height: 100%;
+                    background: lightblue;
+                }
+            }
+        }
+    }
+
+
+}
+
+
+    "#.to_string();
+        let sf = SourceFileInner::new(PathBuf::from("foo.slint"), content.clone());
+
+        let mut line = 1;
+        let mut column = 1;
+        for offset in 0..content.len() {
+            let b = *content.as_bytes().get(offset).unwrap();
+
+            assert_eq!(sf.offset(line, column), offset);
+            assert_eq!(sf.line_column(offset), (line, column));
+
+            if b == b'\n' {
+                line += 1;
+                column = 1;
+            } else {
+                column += 1;
+            }
         }
     }
 }

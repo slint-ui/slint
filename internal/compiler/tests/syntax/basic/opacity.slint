@@ -4,14 +4,14 @@
 export SuperSimple := Window {
 
     opacity: 0.5;
-//          ^warning{The opacity property cannot be used on the root element, it will not be applied}
+//           ^warning{The opacity property cannot be used on the root element, it will not be applied}
 
     Rectangle {
         opacity: false;
-//              ^error{Cannot convert bool to float}
+//               ^error{Cannot convert bool to float}
     }
 
     visible: false;
-//          ^warning{The visible property cannot be used on the root element, it will not be applied}
+//           ^warning{The visible property cannot be used on the root element, it will not be applied}
 
 }

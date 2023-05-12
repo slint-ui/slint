@@ -14,7 +14,7 @@ export component IconButton {
     min-width: 24px;
     min-height: 24px;
 
-    GridLayout {  
+    GridLayout {
         padding: 4px;
 
         i-icon := Image {
@@ -26,7 +26,7 @@ export component IconButton {
 
     i-touch-area := TouchArea {}
 
-    states [  
+    states [
         disabled when !root.enabled : {
             opacity: 0.25;
         }

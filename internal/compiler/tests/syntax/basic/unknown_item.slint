@@ -9,7 +9,7 @@ export SuperSimple := Rectangle {
     }
 
     dd := DoesNotExist2 {
-//       ^error{Unknown type DoesNotExist2}
+//        ^error{Unknown type DoesNotExist2}
         abc: 42;
         Hallo {}
 //      ^error{Unknown type Hallo}
@@ -29,7 +29,7 @@ export SuperSimple := Rectangle {
     }
 
     s := Struct {
-//      ^error{'Struct' cannot be used as an element}
+//       ^error{'Struct' cannot be used as an element}
         def: "42";
         xyz: "42";
         Hallo {}

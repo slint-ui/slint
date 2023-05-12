@@ -9,10 +9,10 @@ import {
     ErrorAction,
     Message,
     MessageTransports,
-    MonacoLanguageClient,
     RequestMessage,
     ResponseMessage,
-} from "monaco-languageclient";
+} from "vscode-languageclient";
+import { MonacoLanguageClient } from "monaco-languageclient";
 
 import {
     BrowserMessageReader,
@@ -49,7 +49,6 @@ function createLanguageClient(
             },
         },
     });
-    client.registerProgressFeatures();
     return client;
 }
 
@@ -67,7 +66,7 @@ export class LspWaiter {
 
         const worker = new Worker(
             new URL("worker/lsp_worker.ts", import.meta.url),
-            // { type: "module" }, // Do not force ES modules in web worker!
+            { type: "module" },
         );
         this.#lsp_promise = new Promise<Worker>((resolve) => {
             worker.onmessage = (m) => {

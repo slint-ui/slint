@@ -15,7 +15,7 @@ RUN apt-get update && \
 
 
 ENV RUSTUP_HOME=/rust
-ENV CARGO_HOME=/cargo 
+ENV CARGO_HOME=/cargo
 ENV PATH=/cargo/bin:/rust/bin:$PATH
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y

@@ -187,6 +187,7 @@ pub fn render_item_children(
                 item.as_ref().render(
                     &mut (renderer as &mut dyn ItemRenderer),
                     &ItemRc::new(component.clone(), index),
+                    item_geometry.size,
                 )
             } else {
                 RenderingResult::ContinueRenderingChildren
@@ -265,20 +266,50 @@ pub fn item_children_bounding_rect(
 /// draw_rectangle should draw a rectangle in `(pos.x + rect.x, pos.y + rect.y)`
 #[allow(missing_docs)]
 pub trait ItemRenderer {
-    fn draw_rectangle(&mut self, rect: Pin<&Rectangle>, _self_rc: &ItemRc);
-    fn draw_border_rectangle(&mut self, rect: Pin<&BorderRectangle>, _self_rc: &ItemRc);
-    fn draw_image(&mut self, image: Pin<&ImageItem>, _self_rc: &ItemRc);
-    fn draw_clipped_image(&mut self, image: Pin<&ClippedImage>, _self_rc: &ItemRc);
-    fn draw_text(&mut self, text: Pin<&Text>, _self_rc: &ItemRc);
-    fn draw_text_input(&mut self, text_input: Pin<&TextInput>, _self_rc: &ItemRc);
+    fn draw_rectangle(&mut self, rect: Pin<&Rectangle>, _self_rc: &ItemRc, _size: LogicalSize);
+    fn draw_border_rectangle(
+        &mut self,
+        rect: Pin<&BorderRectangle>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    );
+    fn draw_image(&mut self, image: Pin<&ImageItem>, _self_rc: &ItemRc, _size: LogicalSize);
+    fn draw_clipped_image(
+        &mut self,
+        image: Pin<&ClippedImage>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    );
+    fn draw_text(&mut self, text: Pin<&Text>, _self_rc: &ItemRc, _size: LogicalSize);
+    fn draw_text_input(
+        &mut self,
+        text_input: Pin<&TextInput>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    );
     #[cfg(feature = "std")]
-    fn draw_path(&mut self, path: Pin<&Path>, _self_rc: &ItemRc);
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>, _self_rc: &ItemRc);
-    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, _self_rc: &ItemRc) -> RenderingResult {
+    fn draw_path(&mut self, path: Pin<&Path>, _self_rc: &ItemRc, _size: LogicalSize);
+    fn draw_box_shadow(
+        &mut self,
+        box_shadow: Pin<&BoxShadow>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    );
+    fn visit_opacity(
+        &mut self,
+        opacity_item: Pin<&Opacity>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
         self.apply_opacity(opacity_item.opacity());
         RenderingResult::ContinueRenderingChildren
     }
-    fn visit_layer(&mut self, _layer_item: Pin<&Layer>, _self_rc: &ItemRc) -> RenderingResult {
+    fn visit_layer(
+        &mut self,
+        _layer_item: Pin<&Layer>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
         // Not supported
         RenderingResult::ContinueRenderingChildren
     }
@@ -286,7 +317,12 @@ pub trait ItemRenderer {
     // Apply the bounds of the Clip element, if enabled. The default implementation calls
     // combine_clip, but the render may choose an alternate way of implementing the clip.
     // For example the GL backend uses a layered rendering approach.
-    fn visit_clip(&mut self, clip_item: Pin<&Clip>, _self_rc: &ItemRc) -> RenderingResult {
+    fn visit_clip(
+        &mut self,
+        clip_item: Pin<&Clip>,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
         if clip_item.clip() {
             let geometry = clip_item.geometry();
 
@@ -531,19 +567,11 @@ impl<'a, T> PartialRenderer<'a, T> {
 
 macro_rules! forward_rendering_call {
     (fn $fn:ident($Ty:ty) $(-> $Ret:ty)?) => {
-        fn $fn(&mut self, obj: Pin<&$Ty>, item_rc: &ItemRc) $(-> $Ret)? {
+        fn $fn(&mut self, obj: Pin<&$Ty>, item_rc: &ItemRc, size: LogicalSize) $(-> $Ret)? {
             let mut ret = None;
             Self::do_rendering(&self.cache, &obj.cached_rendering_data, || {
-                ret = Some(self.actual_renderer.$fn(obj, item_rc));
-                type Ty = $Ty;
-                let width = Ty::FIELD_OFFSETS.width.apply_pin(obj).get_untracked();
-                let height = Ty::FIELD_OFFSETS.height.apply_pin(obj).get_untracked();
-                let x = Ty::FIELD_OFFSETS.x.apply_pin(obj).get_untracked();
-                let y = Ty::FIELD_OFFSETS.y.apply_pin(obj).get_untracked();
-                LogicalRect::new(
-                    LogicalPoint::from_lengths(x, y),
-                    LogicalSize::from_lengths(width, height),
-                )
+                ret = Some(self.actual_renderer.$fn(obj, item_rc, size));
+                obj.geometry()
             });
             ret.unwrap_or_default()
         }

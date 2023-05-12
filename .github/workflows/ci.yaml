@@ -44,6 +44,8 @@ jobs:
       with:
         version: '5.15.2'
         setup-python: false
+    - name: Setup headless display
+      uses: pyvista/setup-headless-display-action@v1
     - name: Set default style
       if: matrix.os != 'windows-2022'
       run: |
@@ -227,7 +229,7 @@ jobs:
     - uses: ./.github/actions/setup-rust
       with:
         target: armv7-unknown-linux-gnueabihf
-    - uses: baptiste0928/cargo-install@v1
+    - uses: baptiste0928/cargo-install@v2
       with:
         crate: cross
     - name: Check

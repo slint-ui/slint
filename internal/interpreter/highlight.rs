@@ -9,12 +9,13 @@ use crate::dynamic_component::{ComponentBox, DynamicComponentVRc, ErasedComponen
 use crate::Value;
 use i_slint_compiler::diagnostics::{SourceFile, Spanned};
 use i_slint_compiler::expression_tree::{Expression, Unit};
-use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::langtype::{ElementType, EnumerationValue, Type};
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::{
     BindingsMap, Component, Document, Element, ElementRc, PropertyAnalysis, PropertyDeclaration,
     PropertyVisibility, RepeatedElementInfo,
 };
+use i_slint_compiler::parser::TextRange;
 use i_slint_core::item_tree::ItemWeak;
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::LogicalPoint;
@@ -58,19 +59,31 @@ fn element_providing_item(component: &ErasedComponentBox, index: usize) -> Optio
     c.description().original_elements.get(index).cloned()
 }
 
-fn map_offset_to_line(
+fn find_element_range(element: &ElementRc) -> Option<(Option<SourceFile>, TextRange)> {
+    let e = &element.borrow();
+    e.node.as_ref().and_then(|n| {
+        n.parent()
+            .filter(|p| p.kind() == i_slint_compiler::parser::SyntaxKind::SubElement)
+            .map_or_else(
+                || Some((n.source_file().cloned(), n.text_range())),
+                |p| Some((p.source_file().cloned(), p.text_range())),
+            )
+    })
+}
+
+fn map_range_to_line(
     source_file: Option<SourceFile>,
-    start_offset: usize,
-    end_offset: usize,
+    range: TextRange,
 ) -> (String, u32, u32, u32, u32) {
-    if let Some(sf) = source_file {
-        let file_name = sf.path().to_string_lossy().to_string();
-        let (start_line, start_column) = sf.line_column(start_offset);
-        let (end_line, end_column) = sf.line_column(end_offset);
-        (file_name, start_line as u32, start_column as u32, end_line as u32, end_column as u32)
-    } else {
-        (String::new(), 0, 0, 0, 0)
-    }
+    source_file.map_or_else(
+        || (String::new(), 0, 0, 0, 0),
+        |sf| {
+            let file_name = sf.path().to_string_lossy().to_string();
+            let (start_line, start_column) = sf.line_column(range.start().into());
+            let (end_line, end_column) = sf.line_column(range.end().into());
+            (file_name, start_line as u32, start_column as u32, end_line as u32, end_column as u32)
+        },
+    )
 }
 
 struct DesignModeState {
@@ -147,16 +160,12 @@ pub fn on_element_selected(
                 };
 
                 let Some((file, start_line, start_column, end_line, end_column)) =
-                    element_providing_item(component_box, i.index()).and_then(|e| {
+                    element_providing_item(component_box, i.index())
+                    .and_then(|e| {
                         highlight_elements(&c, vec![Rc::downgrade(&e)]);
-
-                        let e = &e.borrow();
-                        e.node.as_ref().map(|n| {
-                            let offset = n.span().offset;
-                            let length: usize = n.text().len().into();
-
-                            map_offset_to_line(n.source_file().cloned(), offset, offset + length)
-                        })
+                        find_element_range(&e)
+                    }).map(|(sf, r)| {
+                        map_range_to_line(sf, r)
                     }) else {
                     continue; // Skip any Item not part of an element with a node attached
                 };
@@ -174,6 +183,16 @@ pub fn on_element_selected(
     );
 }
 
+fn design_mode(component: &std::pin::Pin<&ComponentBox>) -> bool {
+    matches!(
+        component
+            .description()
+            .get_property(component.borrow(), DESIGN_MODE_PROP)
+            .unwrap_or_default(),
+        Value::Bool(true)
+    )
+}
+
 pub fn set_design_mode(component_instance: &DynamicComponentVRc, active: bool) {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
@@ -181,6 +200,8 @@ pub fn set_design_mode(component_instance: &DynamicComponentVRc, active: bool) {
     c.description()
         .set_binding(c.borrow(), DESIGN_MODE_PROP, Box::new(move || active.into()))
         .unwrap();
+
+    highlight_elements(component_instance, Vec::new());
 }
 
 fn highlight_elements(
@@ -210,6 +231,11 @@ fn highlight_elements(
 pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset: u32) {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
+
+    if design_mode(&c) {
+        return;
+    }
+
     let elements = find_element_at_offset(&c.description().original, path, offset);
     if elements.is_empty() {
         c.description()
@@ -499,6 +525,20 @@ fn add_current_item_callback(doc: &Document) {
                 &doc.root_component.root_element,
                 "height",
             ))
+            .into(),
+        ),
+    );
+    let mouse_cursor_enum =
+        i_slint_compiler::typeregister::BUILTIN_ENUMS.with(|e| e.MouseCursor.clone());
+    let mouse_cursor_value =
+        mouse_cursor_enum.values.iter().position(|v| v.as_str() == "crosshair").unwrap();
+    bindings.insert(
+        "mouse-cursor".into(),
+        RefCell::new(
+            Expression::EnumerationValue(EnumerationValue {
+                value: mouse_cursor_value,
+                enumeration: mouse_cursor_enum,
+            })
             .into(),
         ),
     );

@@ -8,11 +8,10 @@ use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
-use i_slint_core::items::Item;
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize, LogicalVector, PhysicalPx,
-    RectLengths, ScaleFactor,
+    RectLengths, ScaleFactor, SizeLengths,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{items, Brush, Color, Property};
@@ -273,8 +272,8 @@ impl<'a> SkiaRenderer<'a> {
 
 impl<'a> SkiaRenderer<'a> {
     /// Draws a `Rectangle` using the `GLItemRenderer`.
-    pub fn draw_rect(&mut self, rect: LogicalRect, brush: Brush) {
-        let geometry = PhysicalRect::new(PhysicalPoint::default(), rect.size * self.scale_factor);
+    pub fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
+        let geometry = PhysicalRect::from(size * self.scale_factor);
         if geometry.is_empty() {
             return;
         }
@@ -293,16 +292,18 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         &mut self,
         rect: std::pin::Pin<&i_slint_core::items::Rectangle>,
         _self_rc: &i_slint_core::items::ItemRc,
+        size: LogicalSize,
     ) {
-        self.draw_rect(rect.geometry(), rect.background());
+        self.draw_rect(size, rect.background());
     }
 
     fn draw_border_rectangle(
         &mut self,
         rect: std::pin::Pin<&i_slint_core::items::BorderRectangle>,
         _self_rc: &i_slint_core::items::ItemRc,
+        size: LogicalSize,
     ) {
-        let mut geometry = item_rect(rect, self.scale_factor);
+        let mut geometry = PhysicalRect::from(size * self.scale_factor);
         if geometry.is_empty() {
             return;
         }
@@ -392,8 +393,9 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         &mut self,
         image: std::pin::Pin<&i_slint_core::items::ImageItem>,
         self_rc: &i_slint_core::items::ItemRc,
+        size: LogicalSize,
     ) {
-        let geometry = item_rect(image, self.scale_factor);
+        let geometry = PhysicalRect::from(size * self.scale_factor);
         if geometry.is_empty() {
             return;
         }
@@ -415,8 +417,9 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         &mut self,
         image: std::pin::Pin<&i_slint_core::items::ClippedImage>,
         self_rc: &i_slint_core::items::ItemRc,
+        size: LogicalSize,
     ) {
-        let geometry = item_rect(image, self.scale_factor);
+        let geometry = PhysicalRect::from(size * self.scale_factor);
         if geometry.is_empty() {
             return;
         }
@@ -445,9 +448,10 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         &mut self,
         text: std::pin::Pin<&i_slint_core::items::Text>,
         _self_rc: &i_slint_core::items::ItemRc,
+        size: LogicalSize,
     ) {
-        let max_width = text.width() * self.scale_factor;
-        let max_height = text.height() * self.scale_factor;
+        let max_width = size.width_length() * self.scale_factor;
+        let max_height = size.height_length() * self.scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -485,9 +489,10 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         &mut self,
         text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
         _self_rc: &i_slint_core::items::ItemRc,
+        size: LogicalSize,
     ) {
-        let max_width = text_input.width() * self.scale_factor;
-        let max_height = text_input.height() * self.scale_factor;
+        let max_width = size.width_length() * self.scale_factor;
+        let max_height = size.height_length() * self.scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -504,7 +509,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let mut text_style = skia_safe::textlayout::TextStyle::new();
         text_style.set_foreground_color(&paint);
 
-        let visual_representation = text_input.visual_representation();
+        let visual_representation = text_input.visual_representation(None);
 
         let selection = if !visual_representation.preedit_range.is_empty() {
             Some(super::textlayout::Selection {
@@ -565,8 +570,9 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         &mut self,
         path: std::pin::Pin<&i_slint_core::items::Path>,
         item_rc: &i_slint_core::items::ItemRc,
+        size: LogicalSize,
     ) {
-        let geometry = item_rect(path, self.scale_factor);
+        let geometry = PhysicalRect::from(size * self.scale_factor);
 
         let (physical_offset, skpath): (crate::euclid::Vector2D<f32, PhysicalPx>, _) =
             match self.path_cache.get_or_update_cache_entry(item_rc, || {
@@ -641,6 +647,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         &mut self,
         box_shadow: std::pin::Pin<&i_slint_core::items::BoxShadow>,
         self_rc: &i_slint_core::items::ItemRc,
+        _size: LogicalSize,
     ) {
         let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y())
             * self.scale_factor;
@@ -809,7 +816,12 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         None
     }
 
-    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, item_rc: &ItemRc) -> RenderingResult {
+    fn visit_opacity(
+        &mut self,
+        opacity_item: Pin<&Opacity>,
+        item_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
         let opacity = opacity_item.opacity();
         if Opacity::need_layer(item_rc, opacity) {
             self.canvas.save_layer_alpha(None, (opacity * 255.) as u32);
@@ -831,7 +843,12 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         }
     }
 
-    fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
+    fn visit_layer(
+        &mut self,
+        layer_item: Pin<&Layer>,
+        self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
         if layer_item.cache_rendering_hint() {
             self.render_and_blend_layer(self_rc)
         } else {
@@ -857,11 +874,6 @@ pub fn to_skia_point(point: PhysicalPoint) -> skia_safe::Point {
 
 pub fn to_skia_size(size: &PhysicalSize) -> skia_safe::Size {
     skia_safe::Size::new(size.width, size.height)
-}
-
-fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: ScaleFactor) -> PhysicalRect {
-    let geometry = item.geometry();
-    PhysicalRect::new(PhysicalPoint::default(), geometry.size * scale_factor)
 }
 
 pub fn to_skia_color(col: &Color) -> skia_safe::Color {

@@ -1,6 +1,6 @@
 {
     "name": "printerdemo",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "main": "main.js",
     "dependencies": {
         "slint-ui": "../../../api/node"

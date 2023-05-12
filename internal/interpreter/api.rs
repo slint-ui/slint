@@ -757,6 +757,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
+    /// # i_slint_backend_testing::init();
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
     ///     export component MyWin inherits Window {
@@ -823,6 +824,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
+    /// # i_slint_backend_testing::init();
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
     /// use core::convert::TryInto;
     /// let code = r#"
@@ -878,6 +880,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
+    /// # i_slint_backend_testing::init();
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
     ///     global Glob {
@@ -932,6 +935,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
+    /// # i_slint_backend_testing::init();
     /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// use core::convert::TryInto;
     /// let code = r#"

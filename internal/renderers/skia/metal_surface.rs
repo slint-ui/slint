@@ -32,6 +32,7 @@ impl super::Surface for MetalSurface {
         let layer = metal::MetalLayer::new();
         layer.set_device(&device);
         layer.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
+        layer.set_opaque(false);
         layer.set_presents_with_transaction(false);
 
         layer.set_drawable_size(CGSize::new(size.width as f64, size.height as f64));

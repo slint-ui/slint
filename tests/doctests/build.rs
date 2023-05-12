@@ -10,36 +10,46 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut tests_file = std::fs::File::create(&tests_file_path)?;
 
     let prefix = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize()?;
-    for entry in std::fs::read_dir(prefix.join("docs/language/src"))?
-        .chain(std::fs::read_dir(prefix.join("docs/language/src/concepts"))?)
-        .chain(std::fs::read_dir(prefix.join("docs/language/src/recipes"))?)
-        .chain(std::fs::read_dir(prefix.join("docs"))?)
+    for entry in walkdir::WalkDir::new(&prefix)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|entry| entry.file_name() != "target")
     {
         let entry = entry?;
         let path = entry.path();
         if path.extension().map_or(true, |e| e != "md") {
             continue;
         }
+
+        let file = std::fs::read_to_string(&path)?;
+        let file = file.replace('\r', ""); // Remove \r, because Windows.
+
+        const BEGIN_MARKER: &str = "\n```slint";
+        if !file.contains(BEGIN_MARKER) {
+            continue;
+        }
+
         let stem = path
             .strip_prefix(&prefix)?
             .to_string_lossy()
-            .replace(|c: char| !c.is_ascii_alphanumeric(), "_")
+            .replace('-', "ˍ")
+            .replace(['/', '\\'], "Ⳇ")
+            .replace(['.'], "ᐧ")
             .to_lowercase();
 
         writeln!(tests_file, "\nmod {} {{", stem)?;
 
-        let file = std::fs::read_to_string(&path)?;
-        let file = file.replace('\r', ""); // Remove \r, because Windows.
         let mut rest = file.as_str();
-        let mut count = 0;
-        const BEGIN_MARKER: &str = "\n```slint";
+        let mut line = 1;
+
         while let Some(begin) = rest.find(BEGIN_MARKER) {
+            line += rest[..begin].bytes().filter(|&c| c == b'\n').count() + 1;
             rest = rest[begin..].strip_prefix(BEGIN_MARKER).unwrap();
 
             // Permit `slint,no-preview` and `slint,no-auto-preview` but skip `slint,ignore` and others.
             rest = match rest.split_once('\n') {
                 Some((",no-preview", rest)) | Some((",no-auto-preview", rest)) => rest,
-                Some(("", _)) => rest,
+                Some(("", rest)) => rest,
                 _ => continue,
             };
 
@@ -47,21 +57,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 format!("Could not find the end of a code snippet in {}", path.display())
             })?;
             let snippet = &rest[..end];
+
+            if snippet.starts_with("{{#include") {
+                // Skip non literal slint text
+                continue;
+            }
+
             rest = &rest[end..];
-            count += 1;
+
             write!(
                 tests_file,
                 r##"
     #[test]
-    fn {}_{}() {{
-        crate::do_test("{}").unwrap();
+    fn line_{}() {{
+        crate::do_test("{}", "{}").unwrap();
     }}
 
                 "##,
-                stem,
-                count,
+                line,
                 snippet.escape_default(),
+                path.to_string_lossy().escape_default()
             )?;
+
+            line += snippet.bytes().filter(|&c| c == b'\n').count() + 1;
         }
         writeln!(tests_file, "}}")?;
         println!("cargo:rerun-if-changed={}", path.display());

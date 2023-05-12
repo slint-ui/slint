@@ -8,10 +8,10 @@ Alias := Rectangle {
 
 export Foo := Rectangle {
     property <int> base-prop: alias.viewport_width;
-    //                       ^error{The binding for the property 'base-prop' is part of a binding loop}
+    //                        ^error{The binding for the property 'base-prop' is part of a binding loop}
 
     alias := Alias { ps_width: base-prop; }
-    //                        ^error{The binding for the property 'ps-width' is part of a binding loop}
+    //                         ^error{The binding for the property 'ps-width' is part of a binding loop}
 
     Text {
         text: base-prop;

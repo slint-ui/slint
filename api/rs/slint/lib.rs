@@ -184,6 +184,7 @@ The follow table summarizes the entire mapping:
 | `angle` | `f32` | The value in degrees |
 | `relative-font-size` | `f32` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 | structure | `struct` of the same name | |
+| anonymous object | anonymous tuple | The fields are in alphabetical order. |
 | array | [`ModelRc`] |  |
 
 For user defined structures in the .slint, an extra struct is generated.
@@ -288,7 +289,7 @@ pub mod platform {
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_0_1;
+pub struct VersionCheck_1_0_3;
 
 #[cfg(doctest)]
 mod compile_fail_tests;

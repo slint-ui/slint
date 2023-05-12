@@ -3,7 +3,7 @@
 
 use std::cell::RefCell;
 use std::pin::Pin;
-use std::rc::{Rc, Weak};
+use std::rc::Weak;
 
 use i_slint_core::api::{
     GraphicsAPI, PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
@@ -20,7 +20,8 @@ mod glcontext;
 pub struct GlutinFemtoVGRenderer {
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     renderer: FemtoVGRenderer,
-    opengl_context: RefCell<Option<glcontext::OpenGLContext>>,
+    // Last field, so that it's dropped last and context exists and is current when destroying the FemtoVG canvas
+    opengl_context: glcontext::OpenGLContext,
 }
 
 impl GlutinFemtoVGRenderer {
@@ -53,22 +54,12 @@ impl GlutinFemtoVGRenderer {
 }
 
 impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
-    const NAME: &'static str = "FemtoVG";
-
-    fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
-        Self {
-            rendering_notifier: Default::default(),
-            renderer: FemtoVGRenderer::new(window_adapter_weak),
-            opengl_context: Default::default(),
-        }
-    }
-
-    fn show(
-        &self,
+    fn new(
+        window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> Result<Rc<winit::window::Window>, PlatformError> {
-        let (window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
+    ) -> Result<(Self, winit::window::Window), PlatformError> {
+        let (winit_window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
             glcontext::OpenGLContext::new_context(
                 window_builder,
                 event_loop.event_loop_target(),
@@ -77,53 +68,53 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
             )
         })?;
 
-        self.renderer.show(
+        let renderer = FemtoVGRenderer::new(
+            window_adapter_weak,
             #[cfg(not(target_arch = "wasm32"))]
             |name| opengl_context.get_proc_address(name) as *const _,
             #[cfg(target_arch = "wasm32")]
             &opengl_context.html_canvas_element(),
-        );
+        )?;
+
+        Ok((
+            Self { rendering_notifier: Default::default(), renderer, opengl_context },
+            winit_window,
+        ))
+    }
+
+    fn show(&self) -> Result<(), PlatformError> {
+        self.opengl_context.ensure_current()?;
+        self.renderer.show();
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            Self::with_graphics_api(&opengl_context, |api| {
+            Self::with_graphics_api(&self.opengl_context, |api| {
                 callback.notify(RenderingState::RenderingSetup, &api)
             })?;
         }
 
-        *self.opengl_context.borrow_mut() = Some(opengl_context);
-
-        Ok(Rc::new(window))
+        Ok(())
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
-        if let Some(opengl_context) = self.opengl_context.borrow_mut().take() {
-            opengl_context.ensure_current()?;
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-                Self::with_graphics_api(&opengl_context, |api| {
-                    callback.notify(RenderingState::RenderingTeardown, &api)
-                })?;
-            }
-            self.renderer.hide();
+        self.opengl_context.ensure_current()?;
+        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            Self::with_graphics_api(&self.opengl_context, |api| {
+                callback.notify(RenderingState::RenderingTeardown, &api)
+            })?;
         }
+        self.renderer.hide();
+
         Ok(())
     }
 
     fn render(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
-        let opengl_context = if self.opengl_context.borrow().is_some() {
-            std::cell::Ref::map(self.opengl_context.borrow(), |context_opt| {
-                context_opt.as_ref().unwrap()
-            })
-        } else {
-            return Ok(());
-        };
-
-        opengl_context.ensure_current()?;
+        self.opengl_context.ensure_current()?;
 
         self.renderer.render(
             size,
             self.rendering_notifier.borrow_mut().as_mut().map(|notifier_fn| {
                 || {
-                    Self::with_graphics_api(&opengl_context, |api| {
+                    Self::with_graphics_api(&self.opengl_context, |api| {
                         notifier_fn.notify(RenderingState::BeforeRendering, &api)
                     })
                 }
@@ -131,12 +122,12 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         )?;
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            Self::with_graphics_api(&opengl_context, |api| {
+            Self::with_graphics_api(&self.opengl_context, |api| {
                 callback.notify(RenderingState::AfterRendering, &api)
             })?;
         }
 
-        opengl_context.swap_buffers()
+        self.opengl_context.swap_buffers()
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {
@@ -144,20 +135,12 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
     }
 
     fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
-        let opengl_context = if self.opengl_context.borrow().is_some() {
-            std::cell::Ref::map(self.opengl_context.borrow(), |context_opt| {
-                context_opt.as_ref().unwrap()
-            })
-        } else {
-            return Ok(());
-        };
-
-        opengl_context.ensure_resized(size)
+        self.opengl_context.ensure_resized(size)
     }
 
     #[cfg(target_arch = "wasm32")]
     fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement {
-        self.opengl_context.borrow().as_ref().unwrap().html_canvas_element()
+        self.opengl_context.html_canvas_element()
     }
 }
 
@@ -223,15 +206,14 @@ impl Renderer for GlutinFemtoVGRenderer {
         component: i_slint_core::component::ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) -> Result<(), PlatformError> {
-        let opengl_context = if self.opengl_context.borrow().is_some() {
-            std::cell::Ref::map(self.opengl_context.borrow(), |context_opt| {
-                context_opt.as_ref().unwrap()
-            })
-        } else {
-            return Ok(());
-        };
-
-        opengl_context.ensure_current()?;
+        self.opengl_context.ensure_current()?;
         self.renderer.free_graphics_resources(component, _items)
+    }
+}
+
+impl Drop for GlutinFemtoVGRenderer {
+    fn drop(&mut self) {
+        // Ensure the context is current before the renderer is destroyed
+        self.opengl_context.ensure_current().ok();
     }
 }

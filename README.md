@@ -194,14 +194,16 @@ request to add yours)
 - **[Moiré](https://codeberg.org/moire/moire)** : Musical live performance
   application with a DAW-like timeline interface.
 - **[Chiptrack](https://github.com/jturcotte/chiptrack)**: A cross-platform
-  sequencer that internally uses a Game Boy emulator to synthesize the sound.
+  sequencer that internally uses a Game Boy emulator to synthesize the sound. ([online demo](https://jturcotte.github.io/chiptrack))
 - **[Project Trains Launcher](https://github.com/Project-Trains/launcher)**:
   Cross-platform game launcher made for Project Trains simulator.
 - **[Mastermind](https://github.com/ElevenJune/mastermind_Rust)**: Mastermind
   game coded in Rust.
+- **[Tetris](https://github.com/GaspardCulis/slint-tetris)**: Tetris
+  game coded in Rust. ([online demo](https://gaspardculis.github.io/slint-tetris/))
 - **[coop_widgets](https://codeberg.org/flovansl/co_sl)**: Custom widget
-  library for Slint
-  [online demo](https://flovansl.codeberg.page/coop_sl/snapshots/examples/widgets/).
+  library for Slint.
+  ([online demo](https://flovansl.codeberg.page/coop_sl/snapshots/examples/widgets/))
 
 ## License
 

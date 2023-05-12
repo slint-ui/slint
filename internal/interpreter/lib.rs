@@ -40,6 +40,7 @@ if let Some(definition) = definition {
 This example load a `.slint` from a string and set some properties:
 
 ```rust
+# i_slint_backend_testing::init();
 use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
 
 let code = r#"

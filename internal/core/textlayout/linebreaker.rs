@@ -11,7 +11,9 @@ use super::{ShapeBuffer, TextShaper};
 #[derive(Clone, Default, Debug)]
 pub struct TextLine<Length: Default + Clone> {
     // The range excludes trailing whitespace
-    byte_range: Range<usize>,
+    pub byte_range: Range<usize>,
+    // number of bytes in text after byte_range occupied by trailing whitespace
+    pub trailing_whitespace_bytes: usize,
     pub(crate) glyph_range: Range<usize>,
     trailing_whitespace: Length,
     pub(crate) text_width: Length, // with as occupied by the glyphs
@@ -53,9 +55,11 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
         if !fragment.byte_range.is_empty() {
             self.text_width += self.trailing_whitespace;
             self.trailing_whitespace = Length::default();
+            self.trailing_whitespace_bytes = 0;
         }
         self.text_width += fragment.width;
         self.trailing_whitespace += fragment.trailing_whitespace_width;
+        self.trailing_whitespace_bytes += fragment.trailing_whitespace_bytes;
     }
 }
 

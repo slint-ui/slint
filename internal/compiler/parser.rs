@@ -42,6 +42,8 @@ pub trait SyntaxNodeVerify {
     }
 }
 
+pub use rowan::{TextRange, TextSize};
+
 /// Check that a node has the assumed children
 #[cfg(test)]
 macro_rules! verify_node {
@@ -606,6 +608,9 @@ impl Parser for DefaultParser<'_> {
         checkpoint: Option<Self::Checkpoint>,
         _: NodeToken,
     ) {
+        if kind != SyntaxKind::Document {
+            self.consume_ws();
+        }
         match checkpoint {
             None => self.builder.start_node(kind.into()),
             Some(cp) => self.builder.start_node_at(cp, kind.into()),
@@ -841,7 +846,7 @@ impl NodeOrToken {
         }
     }
 
-    pub fn text_range(&self) -> rowan::TextRange {
+    pub fn text_range(&self) -> TextRange {
         match self {
             NodeOrToken::Node(n) => n.text_range(),
             NodeOrToken::Token(t) => t.text_range(),

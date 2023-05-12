@@ -7,39 +7,39 @@ SubElement := Rectangle {
     foo := Rectangle {
         background: yellow;
         hello := Rectangle {}
-//              ^error{duplicated element id 'hello'}
+//               ^error{duplicated element id 'hello'}
     }
 
     unique := Rectangle {
         background: yellow;
         world := Rectangle {}
-//              ^error{duplicated element id 'world'}
+//               ^error{duplicated element id 'world'}
     }
 
     if (true) : hello := Rectangle {
-//                      ^error{duplicated element id 'hello'}
+//                       ^error{duplicated element id 'hello'}
         world := Rectangle { }
-//              ^error{duplicated element id 'world'}
+//               ^error{duplicated element id 'world'}
     }
 
     hello := Rectangle {}
-//          ^error{duplicated element id 'hello'}
+//           ^error{duplicated element id 'hello'}
 }
 
 export TestCase := Rectangle {
 
     unique := Rectangle {
         foo := SubElement { }
-//            ^error{duplicated element id 'foo'}
+//             ^error{duplicated element id 'foo'}
     }
 
     bar := TouchArea {}
-//        ^error{duplicated element id 'bar'}
+//         ^error{duplicated element id 'bar'}
 
     Rectangle {
         foo := Text {}
-//            ^error{duplicated element id 'foo'}
+//             ^error{duplicated element id 'foo'}
         bar := Text {}
-//            ^error{duplicated element id 'bar'}
+//             ^error{duplicated element id 'bar'}
     }
 }

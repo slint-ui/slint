@@ -47,6 +47,14 @@ export class ClientHandle {
         u(this.#client);
         this.#updaters.push(u);
     }
+
+    async stop() {
+        if (this.#client) {
+            // mark as stopped so that we don't detect it as a crash
+            Object.defineProperty(this.#client, "slint_stopped", { value: true });
+            await this.#client.stop();
+        }
+    }
 }
 
 export function setServerStatus(
@@ -77,8 +85,13 @@ export function setServerStatus(
 }
 
 // LSP related:
+
+// Set up our middleware. It is used to redirect/forward to the WASM preview
+// as needed and makes the triggering side so much simpler!
+
 export function languageClientOptions(
     showPreview: (args: any) => boolean,
+    toggleDesignMode: (args: any) => boolean,
 ): LanguageClientOptions {
     return {
         documentSelector: [{ language: "slint" }, { language: "rust" }],
@@ -86,6 +99,10 @@ export function languageClientOptions(
             executeCommand(command: string, args: any, next: any) {
                 if (command === "slint/showPreview") {
                     if (showPreview(args)) {
+                        return;
+                    }
+                } else if (command == "slint/toggleDesignMode") {
+                    if (toggleDesignMode(args)) {
                         return;
                     }
                 }
@@ -128,14 +145,16 @@ export function activate(
             lsp_commands.showPreview(ae.document.uri.toString(), "");
         }),
     );
+    context.subscriptions.push(
+        vscode.commands.registerCommand("slint.toggleDesignMode", function () {
+            lsp_commands.toggleDesignMode();
+        }),
+    );
 
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.reload", async function () {
             statusBar.hide();
-            const cl = client.client;
-            if (cl) {
-                await cl.stop();
-            }
+            await client.stop();
             startClient(context);
         }),
     );
@@ -166,6 +185,12 @@ export function activate(
     });
 
     vscode.workspace.onDidChangeTextDocument(async (ev) => {
+        if (
+            ev.document.languageId !== "slint" &&
+            ev.document.languageId !== "rust"
+        ) {
+            return;
+        }
         wasm_preview.refreshPreview(ev);
 
         // Send a request for properties information after passing through the
@@ -182,5 +207,5 @@ export function deactivate(client: ClientHandle): Thenable<void> | undefined {
     if (!client.client) {
         return undefined;
     }
-    return client.client.stop();
+    return client.stop();
 }

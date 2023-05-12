@@ -9,7 +9,7 @@ export Unused := Rectangle {
 
 export Z := Rectangle {
     property <int> b1: b2;
-                    //^error{loop}
+                     //^error{loop}
     property <int> b2: b1;
-                    //^error{loop}
+                     //^error{loop}
 }

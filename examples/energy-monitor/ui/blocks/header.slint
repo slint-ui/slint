@@ -20,14 +20,14 @@ export component Header {
     min-height: 50px;
     vertical-stretch: 0;
 
-    HorizontalLayout {  
+    HorizontalLayout {
         padding: 20px;
         spacing: 5px;
 
-        Rectangle {  
+        Rectangle {
             horizontal-stretch: 1;
 
-            Text {  
+            Text {
                 x: 0px;
                 color: Theme.palette.white;
                 text: date;
@@ -36,19 +36,19 @@ export component Header {
             }
         }
 
-        Rectangle {  
+        Rectangle {
             horizontal-stretch: 1;
-            
+
             Image {
                 height: 30px;
                 source: logo;
             }
         }
-      
-        Rectangle { 
+
+        Rectangle {
             horizontal-stretch: 1;
 
-            Text {  
+            Text {
                 x:  i-time-suffix.x - 5px - self.width;
                 horizontal-alignment: right;
                 color: Theme.palette.white;
@@ -57,8 +57,8 @@ export component Header {
                 font-weight: Theme.typo.header-item.weight;
             }
 
-            i-time-suffix := Text {  
-                x: parent.width - self.width;   
+            i-time-suffix := Text {
+                x: parent.width - self.width;
                 horizontal-stretch: 0;
                 color: Theme.palette.shark-gray;
                 text: time-suffix;
