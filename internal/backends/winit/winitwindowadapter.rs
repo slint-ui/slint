@@ -595,6 +595,8 @@ impl WindowAdapterSealed for WinitWindowAdapter {
 
             self_.renderer().hide()?;
 
+            self_.winit_window().set_visible(false);
+
             /* FIXME:
             if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
                 existing_blinker.stop();
