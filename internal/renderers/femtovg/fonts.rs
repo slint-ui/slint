@@ -133,6 +133,14 @@ impl Font {
         }
         euclid::size2(width, lines as f32 * font_metrics.height())
     }
+
+    pub fn height(&self) -> PhysicalLength {
+        let mut paint = femtovg::Paint::default();
+        // These are the only two properties measure_font() needs
+        paint.set_font(&self.fonts);
+        paint.set_font_size(self.pixel_size.get());
+        PhysicalLength::new(self.text_context.measure_font(&paint).unwrap().height())
+    }
 }
 
 pub(crate) fn text_size(

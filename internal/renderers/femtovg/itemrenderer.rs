@@ -398,7 +398,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             };
 
         let mut canvas = self.canvas.borrow_mut();
-        let font_height = PhysicalLength::new(canvas.measure_font(&paint).unwrap().height());
+        let font_height = font.height();
         let text: SharedString = visual_representation.text.into();
 
         let mut cursor_point: Option<PhysicalPoint> = None;
