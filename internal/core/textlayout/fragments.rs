@@ -61,6 +61,8 @@ impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy> Iterator
         if first_glyph_cluster.is_whitespace {
             fragment.trailing_whitespace_width = first_glyph_cluster.width;
             fragment.trailing_whitespace_bytes = first_glyph_cluster.byte_range.len();
+            fragment.byte_range.start = first_glyph_cluster.byte_range.start;
+            fragment.byte_range.end = first_glyph_cluster.byte_range.start;
         } else {
             fragment.width = first_glyph_cluster.width;
             fragment.byte_range = first_glyph_cluster.byte_range.clone();
@@ -211,7 +213,7 @@ fn fragment_iterator_forced_break_multi() {
                 trailing_mandatory_break: true,
             },
             TextFragment {
-                byte_range: Range { start: 0, end: 0 },
+                byte_range: Range { start: 2, end: 2 },
                 glyph_range: Range { start: 2, end: 3 },
                 width: 0.,
                 trailing_whitespace_width: 10.,
@@ -219,7 +221,7 @@ fn fragment_iterator_forced_break_multi() {
                 trailing_mandatory_break: true,
             },
             TextFragment {
-                byte_range: Range { start: 0, end: 0 },
+                byte_range: Range { start: 3, end: 3 },
                 glyph_range: Range { start: 3, end: 4 },
                 width: 0.,
                 trailing_whitespace_width: 10.,
@@ -316,6 +318,35 @@ fn fragment_iterator_break_anywhere() {
                 trailing_whitespace_bytes: 0,
                 trailing_mandatory_break: false,
             },
+        ]
+    );
+}
+
+#[test]
+fn fragment_iterator_leading_nbsp() {
+    let font = FixedTestFont;
+    let text = "A\n\u{00a0}\u{00a0}AB";
+    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let fragments = TextFragmentIterator::new(text, &shape_buffer).collect::<Vec<_>>();
+    assert_eq!(
+        fragments,
+        vec![
+            TextFragment {
+                byte_range: Range { start: 0, end: 1 },
+                glyph_range: Range { start: 0, end: 1 },
+                width: 10.,
+                trailing_whitespace_width: 0.,
+                trailing_whitespace_bytes: 0,
+                trailing_mandatory_break: true,
+            },
+            TextFragment {
+                byte_range: Range { start: 2, end: 8 },
+                glyph_range: Range { start: 2, end: 6 },
+                width: 40.,
+                trailing_whitespace_width: 0.,
+                trailing_whitespace_bytes: 0,
+                trailing_mandatory_break: false,
+            }
         ]
     );
 }
