@@ -21,13 +21,12 @@ pub struct OpenGLContext {
     canvas: web_sys::HtmlCanvasElement,
 }
 
-impl OpenGLContext {
+impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
     #[cfg(target_arch = "wasm32")]
-    pub fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement {
+    fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement {
         self.canvas.clone()
     }
-
-    pub fn ensure_current(&self) -> Result<(), PlatformError> {
+    fn ensure_current(&self) -> Result<(), PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         if !self.context.is_current() {
             self.context.make_current(&self.surface).map_err(|glutin_error| -> PlatformError {
@@ -36,8 +35,7 @@ impl OpenGLContext {
         }
         Ok(())
     }
-
-    pub fn swap_buffers(&self) -> Result<(), PlatformError> {
+    fn swap_buffers(&self) -> Result<(), PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         self.surface.swap_buffers(&self.context).map_err(|glutin_error| -> PlatformError {
             format!("FemtoVG: Error swapping buffers: {glutin_error}").into()
@@ -46,7 +44,7 @@ impl OpenGLContext {
         Ok(())
     }
 
-    pub fn ensure_resized(&self, _size: PhysicalSize) -> Result<(), PlatformError> {
+    fn resize(&self, _size: PhysicalSize) -> Result<(), PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let width = _size.width.try_into().map_err(|_| {
@@ -68,6 +66,13 @@ impl OpenGLContext {
         Ok(())
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void {
+        self.context.display().get_proc_address(name)
+    }
+}
+
+impl OpenGLContext {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn new_context<T>(
         window_builder: winit::window::WindowBuilder,
@@ -212,10 +217,5 @@ impl OpenGLContext {
             })?;
 
         Ok((window, Self { canvas }))
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void {
-        self.context.display().get_proc_address(name)
     }
 }
