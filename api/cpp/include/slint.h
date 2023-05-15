@@ -256,6 +256,8 @@ public:
         }
     }
 
+    const cbindgen_private::WindowAdapterRcOpaque &handle() const { return inner; }
+
 private:
     cbindgen_private::WindowAdapterRcOpaque inner;
 };

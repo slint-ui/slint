@@ -54,11 +54,11 @@ class MyWindow : public QWindow, public slint_platform::WindowAdapter<slint_plat
 
 public:
     MyWindow(QWindow *parentWindow = nullptr)
-        : QWindow(parentWindow),
-          slint_platform::WindowAdapter<slint_platform::SkiaRenderer>(
-                  window_handle_for_qt_window(this),
-                  slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) }))
+        : QWindow(parentWindow), slint_platform::WindowAdapter<slint_platform::SkiaRenderer>()
     {
+        set_renderer(std::make_unique<slint_platform::SkiaRenderer>(
+                window_handle_for_qt_window(this),
+                slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) })));
     }
 
     /*void keyEvent(QKeyEvent *event) override
@@ -71,7 +71,7 @@ public:
         slint_platform::update_timers_and_animations();
 
         auto windowSize = slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) });
-        renderer().render(windowSize);
+        renderer().render(window(), windowSize);
 
         if (has_active_animations()) {
             requestUpdate();

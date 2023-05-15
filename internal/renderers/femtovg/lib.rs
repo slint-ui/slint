@@ -6,7 +6,7 @@
 
 use std::cell::RefCell;
 use std::pin::Pin;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use i_slint_core::api::{
     PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
@@ -20,7 +20,7 @@ use i_slint_core::lengths::{
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::Renderer;
 use i_slint_core::sharedfontdb;
-use i_slint_core::window::{WindowAdapter, WindowInner};
+use i_slint_core::window::WindowInner;
 use i_slint_core::Brush;
 
 type PhysicalLength = euclid::Length<f32, PhysicalPx>;
@@ -54,7 +54,6 @@ pub unsafe trait OpenGLContextWrapper {
 /// Use the FemtoVG renderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using OpenGL and the FemtoVG renderer.
 pub struct FemtoVGRenderer {
-    window_adapter_weak: Weak<dyn WindowAdapter>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     canvas: CanvasRc,
     graphics_cache: itemrenderer::ItemGraphicsCache,
@@ -65,14 +64,11 @@ pub struct FemtoVGRenderer {
 }
 
 impl FemtoVGRenderer {
-    /// Creates a new renderer is associated with the provided window adapter and an implementation
+    /// Creates a new renderer is associated with an implementation
     /// of the OpenGLContextWrapper trait. The trait serves the purpose of giving the renderer control
     /// over when the make the context current, how to retrieve the address of GL functions, and when
     /// to swap back and front buffers.
-    pub fn new(
-        window_adapter_weak: &Weak<dyn WindowAdapter>,
-        opengl_context: impl OpenGLContextWrapper + 'static,
-    ) -> Result<Self, PlatformError> {
+    pub fn new(opengl_context: impl OpenGLContextWrapper + 'static) -> Result<Self, PlatformError> {
         let opengl_context = Box::new(opengl_context);
         #[cfg(not(target_arch = "wasm32"))]
         let gl_renderer = unsafe {
@@ -116,7 +112,6 @@ impl FemtoVGRenderer {
         let canvas = Rc::new(RefCell::new(femtovg_canvas));
 
         Ok(Self {
-            window_adapter_weak: window_adapter_weak.clone(),
             rendering_notifier: Default::default(),
             canvas,
             graphics_cache: Default::default(),
@@ -154,6 +149,7 @@ impl FemtoVGRenderer {
     /// Render the scene using OpenGL. This function assumes that the context is current.
     pub fn render(
         &self,
+        window: &i_slint_core::api::Window,
         size: PhysicalWindowSize,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.opengl_context.ensure_current()?;
@@ -161,12 +157,12 @@ impl FemtoVGRenderer {
         let width = size.width;
         let height = size.height;
 
-        let window_adapter = self.window_adapter_weak.upgrade().unwrap();
-        let window = WindowInner::from_pub(window_adapter.window());
-        let scale = window.scale_factor().ceil();
+        let window_inner = WindowInner::from_pub(window);
+        let scale = window_inner.scale_factor().ceil();
 
-        window.draw_contents(|components| -> Result<(), PlatformError> {
-            let window_background_brush = window.window_item().map(|w| w.as_pin_ref().background());
+        window_inner.draw_contents(|components| -> Result<(), PlatformError> {
+            let window_background_brush =
+                window_inner.window_item().map(|w| w.as_pin_ref().background());
 
             {
                 let mut femtovg_canvas = self.canvas.borrow_mut();
@@ -203,13 +199,11 @@ impl FemtoVGRenderer {
                 })?;
             }
 
-            let window_adapter = self.window_adapter_weak.upgrade().unwrap();
-
             let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
                 &self.canvas,
                 &self.graphics_cache,
                 &self.texture_cache,
-                window_adapter.window(),
+                window,
                 width,
                 height,
             );
@@ -220,7 +214,7 @@ impl FemtoVGRenderer {
                 Some(brush @ _) => {
                     item_renderer.draw_rect(
                         i_slint_core::lengths::logical_size_from_api(
-                            size.to_logical(window.scale_factor()),
+                            size.to_logical(window_inner.scale_factor()),
                         ),
                         brush,
                     );

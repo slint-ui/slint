@@ -19,22 +19,46 @@ struct Geometry
     uint32_t height = 0;
 };
 
-struct NativeWindowHandle
+struct MyWindowAdapter : public slint_platform::WindowAdapter<slint_platform::SkiaRenderer>
 {
     HWND hwnd;
-};
-
-struct MyWindowAdapter : NativeWindowHandle,
-                         public slint_platform::WindowAdapter<slint_platform::SkiaRenderer>
-{
     Geometry geometry = { 0, 0, 600, 300 };
 
     MyWindowAdapter(HWND winId)
-        : NativeWindowHandle { MyWindowAdapter::create_window(winId) },
-          slint_platform::WindowAdapter<slint_platform::SkiaRenderer>(
-                  slint_platform::NativeWindowHandle::from_win32(hwnd, GetModuleHandleW(nullptr)),
-                  slint::PhysicalSize({ 600, 300 }))
     {
+        HINSTANCE hInstance = GetModuleHandleW(nullptr);
+
+        // Register the window class.
+        const wchar_t CLASS_NAME[] = L"Sample Window Class";
+
+        WNDCLASS wc = {};
+
+        wc.lpfnWndProc = MyWindowAdapter::windowProc;
+        wc.hInstance = hInstance;
+        wc.lpszClassName = CLASS_NAME;
+
+        RegisterClass(&wc);
+
+        // Create the window.
+
+        hwnd = CreateWindowEx(0, // Optional window styles.
+                              CLASS_NAME, // Window class
+                              L"Learn to Program Windows", // Window text
+                              WS_CHILDWINDOW, // Window style
+
+                              // Size and position
+                              0, 0, 600, 300,
+
+                              winId,
+                              NULL, // Menu
+                              hInstance, // Instance handle
+                              NULL // Additional application data
+        );
+
+        set_renderer(std::make_unique<slint_platform::SkiaRenderer>(
+                slint_platform::NativeWindowHandle::from_win32(hwnd, hInstance),
+                slint::PhysicalSize({ 600, 300 })));
+
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
     }
 
@@ -61,7 +85,7 @@ struct MyWindowAdapter : NativeWindowHandle,
 
     void render()
     {
-        renderer().render(physical_size());
+        renderer().render(window(), physical_size());
         if (has_active_animations())
             request_redraw();
     }
@@ -205,37 +229,4 @@ struct MyWindowAdapter : NativeWindowHandle,
     }
 
 private:
-    static HWND create_window(HWND parentWindow)
-    {
-        HINSTANCE hInstance = GetModuleHandleW(nullptr);
-
-        // Register the window class.
-        const wchar_t CLASS_NAME[] = L"Sample Window Class";
-
-        WNDCLASS wc = {};
-
-        wc.lpfnWndProc = MyWindowAdapter::windowProc;
-        wc.hInstance = hInstance;
-        wc.lpszClassName = CLASS_NAME;
-
-        RegisterClass(&wc);
-
-        // Create the window.
-
-        HWND hwnd = CreateWindowEx(0, // Optional window styles.
-                                   CLASS_NAME, // Window class
-                                   L"Learn to Program Windows", // Window text
-                                   WS_CHILDWINDOW, // Window style
-
-                                   // Size and position
-                                   0, 0, 600, 300,
-
-                                   parentWindow,
-                                   NULL, // Menu
-                                   hInstance, // Instance handle
-                                   NULL // Additional application data
-        );
-
-        return hwnd;
-    }
 };

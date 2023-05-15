@@ -8,9 +8,7 @@ use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::software_renderer::PremultipliedRgbaColor;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
-use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
-use std::rc::Weak;
 
 pub struct WinitSoftwareRenderer {
     renderer: SoftwareRenderer,
@@ -19,7 +17,6 @@ pub struct WinitSoftwareRenderer {
 
 impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     fn new(
-        window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
     ) -> Result<(Self, winit::window::Window), PlatformError> {
         let winit_window = crate::event_loop::with_window_target(|event_loop| {
@@ -35,9 +32,8 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
 
         Ok((
             Self {
-                renderer: SoftwareRenderer::new(
+                renderer: SoftwareRenderer::new_without_window(
                     i_slint_core::software_renderer::RepaintBufferType::NewBuffer,
-                    window_adapter_weak.clone(),
                 ),
                 canvas: RefCell::new(canvas),
             },
@@ -53,9 +49,15 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         Ok(())
     }
 
-    fn render(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
+    fn render(
+        &self,
+        window: &i_slint_core::api::Window,
+        size: PhysicalWindowSize,
+    ) -> Result<(), PlatformError> {
         let width = size.width as usize;
         let height = size.height as usize;
+
+        self.renderer.set_window(window);
 
         let softbuffer_buffer = if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
             let mut buffer = vec![PremultipliedRgbaColor::default(); width * height];

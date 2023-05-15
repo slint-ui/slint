@@ -121,7 +121,7 @@ pub struct SoftwareRenderer {
     /// This is the area which was dirty on the previous frame.
     /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
     prev_frame_dirty: Cell<DirtyRegion>,
-    window: Weak<dyn crate::window::WindowAdapter>,
+    window: RefCell<Option<Weak<dyn crate::window::WindowAdapter>>>,
 }
 
 impl SoftwareRenderer {
@@ -131,18 +131,49 @@ impl SoftwareRenderer {
     ///
     /// The `window` parameter can be coming from [`Rc::new_cyclic()`](alloc::rc::Rc::new_cyclic())
     /// since the `WindowAdapter` most likely own the Renderer
+    #[doc(hidden)]
+    #[deprecated(
+        since = "1.0.3",
+        note = "Use MinimalSoftwareWindow instead of constructing a SoftwareRenderer Directly"
+    )]
     pub fn new(
         repaint_buffer_type: RepaintBufferType,
         window: Weak<dyn crate::window::WindowAdapter>,
     ) -> Self {
         Self {
-            window: window.clone(),
+            window: RefCell::new(Some(window.clone())),
             repaint_buffer_type,
             partial_cache: Default::default(),
             force_dirty: Default::default(),
             force_screen_refresh: Default::default(),
             prev_frame_dirty: Default::default(),
         }
+    }
+
+    /// Create a new Renderer for a given window.
+    ///
+    /// The `repaint_buffer_type` parameter specify what kind of buffer are passed to [`Self::render`]
+    ///
+    /// The `window` parameter can be coming from [`Rc::new_cyclic()`](alloc::rc::Rc::new_cyclic())
+    /// since the `WindowAdapter` most likely own the Renderer
+    #[doc(hidden)]
+    pub fn new_without_window(repaint_buffer_type: RepaintBufferType) -> Self {
+        Self {
+            window: RefCell::new(None),
+            repaint_buffer_type,
+            partial_cache: Default::default(),
+            force_dirty: Default::default(),
+            force_screen_refresh: Default::default(),
+            prev_frame_dirty: Default::default(),
+        }
+    }
+
+    /// Sets the window to be use for future rendering operations. Call this before calling
+    /// rendering.
+    #[doc(hidden)]
+    pub fn set_window(&self, window: &crate::api::Window) {
+        *self.window.borrow_mut() =
+            Some(Rc::downgrade(&WindowInner::from_pub(window).window_adapter().clone()));
     }
 
     /// Internal function to apply a dirty region depending on the dirty_tracking_policy.
@@ -180,7 +211,12 @@ impl SoftwareRenderer {
     ///
     /// returns the dirty region for this frame (not including the extra_draw_region)
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
-        let window = self.window.upgrade().expect("render() called on a destroyed Window");
+        let window = self
+            .window
+            .borrow()
+            .as_ref()
+            .and_then(|w| w.upgrade())
+            .expect("render() called on a destroyed Window");
         let window_inner = WindowInner::from_pub(window.window());
         let factor = ScaleFactor::new(window_inner.scale_factor());
         let (size, background) = if let Some(window_item) =
@@ -272,7 +308,12 @@ impl SoftwareRenderer {
     /// # }
     /// ```
     pub fn render_by_line(&self, line_buffer: impl LineBufferProvider) -> PhysicalRegion {
-        let window = self.window.upgrade().expect("render() called on a destroyed Window");
+        let window = self
+            .window
+            .borrow()
+            .as_ref()
+            .and_then(|w| w.upgrade())
+            .expect("render() called on a destroyed Window");
         let window_inner = WindowInner::from_pub(window.window());
         let component_rc = window_inner.component();
         let component = crate::component::ComponentRc::borrow_pin(&component_rc);
@@ -1933,7 +1974,7 @@ impl MinimalSoftwareWindow {
     pub fn new(repaint_buffer_type: RepaintBufferType) -> Rc<Self> {
         Rc::new_cyclic(|w: &Weak<Self>| Self {
             window: Window::new(w.clone()),
-            renderer: SoftwareRenderer::new(repaint_buffer_type, w.clone()),
+            renderer: SoftwareRenderer::new_without_window(repaint_buffer_type),
             needs_redraw: Default::default(),
             size: Default::default(),
         })
@@ -1947,6 +1988,7 @@ impl MinimalSoftwareWindow {
     /// Return true if something was redrawn.
     pub fn draw_if_needed(&self, render_callback: impl FnOnce(&SoftwareRenderer)) -> bool {
         if self.needs_redraw.replace(false) {
+            self.renderer.set_window(&self.window);
             render_callback(&self.renderer);
             true
         } else {

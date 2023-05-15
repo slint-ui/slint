@@ -153,7 +153,6 @@ impl WinitWindowAdapter {
             )
             .and_then(|builder| {
                 R::new(
-                    &(self_weak.clone() as _),
                     builder,
                     #[cfg(target_arch = "wasm32")]
                     canvas_id,
@@ -277,7 +276,8 @@ impl WinitWindowAdapter {
         self.pending_redraw.set(false);
 
         let renderer = self.renderer();
-        renderer.render(physical_size_to_slint(&self.winit_window().inner_size()))?;
+        renderer
+            .render(self.window(), physical_size_to_slint(&self.winit_window().inner_size()))?;
 
         Ok(self.pending_redraw.get())
     }
