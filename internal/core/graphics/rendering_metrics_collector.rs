@@ -6,10 +6,9 @@ This module contains a simple helper type to measure the average number of frame
 */
 
 use crate::timers::*;
-use crate::window::WindowAdapter;
 use std::cell::RefCell;
 use std::convert::TryFrom;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 enum RefreshMode {
     Lazy,      // render only when necessary (default)
@@ -60,7 +59,6 @@ pub struct RenderingMetricsCollector {
     refresh_mode: RefreshMode,
     output_console: bool,
     output_overlay: bool,
-    window_adapter: Weak<dyn WindowAdapter>,
 }
 
 impl RenderingMetricsCollector {
@@ -73,7 +71,7 @@ impl RenderingMetricsCollector {
     ///
     /// If enabled, this will also print out some system information such as whether
     /// this is a debug or release build, as well as the provided winsys_info string.
-    pub fn new(window_adapter: Weak<dyn WindowAdapter>, winsys_info: &str) -> Option<Rc<Self>> {
+    pub fn new(winsys_info: &str) -> Option<Rc<Self>> {
         let options = match std::env::var("SLINT_DEBUG_PERFORMANCE") {
             Ok(var) => var,
             _ => return None,
@@ -102,7 +100,6 @@ impl RenderingMetricsCollector {
             refresh_mode,
             output_console,
             output_overlay,
-            window_adapter,
         });
 
         #[cfg(debug_assertions)]
@@ -171,9 +168,6 @@ impl RenderingMetricsCollector {
             .borrow_mut()
             .push(FrameData { timestamp: instant::Instant::now(), metrics: renderer.metrics() });
         if matches!(self.refresh_mode, RefreshMode::FullSpeed) {
-            if let Some(window) = self.window_adapter.upgrade() {
-                window.request_redraw();
-            }
             crate::animations::CURRENT_ANIMATION_DRIVER
                 .with(|driver| driver.set_has_active_animations());
         }

@@ -98,10 +98,8 @@ impl FemtoVGRenderer {
 
     /// Notifiers the renderer that the underlying window is becoming visible.
     pub fn show(&self) {
-        *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(
-            self.window_adapter_weak.clone(),
-            &format!("FemtoVG renderer"),
-        );
+        *self.rendering_metrics_collector.borrow_mut() =
+            RenderingMetricsCollector::new(&format!("FemtoVG renderer"));
     }
 
     /// Notifiers the renderer that the underlying window will be hidden soon.

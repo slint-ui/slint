@@ -613,7 +613,14 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                 if *control_flow != ControlFlow::Exit
                     && ALL_WINDOWS.with(|windows| {
                         windows.borrow().iter().any(|(_, w)| {
-                            w.upgrade().map_or(false, |w| w.window().has_active_animations())
+                            w.upgrade()
+                                .and_then(|w| {
+                                    w.window().has_active_animations().then(|| {
+                                        w.request_redraw();
+                                        true
+                                    })
+                                })
+                                .unwrap_or_default()
                         })
                     })
                 {

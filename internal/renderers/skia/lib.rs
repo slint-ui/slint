@@ -83,14 +83,11 @@ impl SkiaRenderer {
 
     /// Notifiers the renderer that the underlying window is becoming visible.
     pub fn show(&self) -> Result<(), PlatformError> {
-        *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(
-            self.window_adapter_weak.clone(),
-            &format!(
-                "Skia renderer (skia backend {}; surface: {} bpp)",
-                self.surface.name(),
-                self.surface.bits_per_pixel()?
-            ),
-        );
+        *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(&format!(
+            "Skia renderer (skia backend {}; surface: {} bpp)",
+            self.surface.name(),
+            self.surface.bits_per_pixel()?
+        ));
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
             self.surface
