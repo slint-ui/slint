@@ -26,6 +26,8 @@ pub trait Renderer {
         &self,
         text_input: Pin<&crate::items::TextInput>,
         pos: LogicalPoint,
+        font_request: crate::graphics::FontRequest,
+        scale_factor: ScaleFactor,
     ) -> usize;
 
     /// That's the opposite of [`Self::text_input_byte_offset_for_position`]
@@ -35,6 +37,8 @@ pub trait Renderer {
         &self,
         text_input: Pin<&crate::items::TextInput>,
         byte_offset: usize,
+        font_request: crate::graphics::FontRequest,
+        scale_factor: ScaleFactor,
     ) -> LogicalRect;
 
     /// Clear the caches for the items that are being removed

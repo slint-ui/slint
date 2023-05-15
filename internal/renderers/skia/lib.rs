@@ -13,6 +13,7 @@ use i_slint_core::api::{
 };
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
+use i_slint_core::graphics::FontRequest;
 use i_slint_core::item_rendering::ItemCache;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
@@ -224,16 +225,9 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         &self,
         text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
         pos: LogicalPoint,
+        font_request: FontRequest,
+        scale_factor: ScaleFactor,
     ) -> usize {
-        let window_adapter = match self.window_adapter_weak.upgrade() {
-            Some(window) => window,
-            None => return 0,
-        };
-
-        let window = WindowInner::from_pub(window_adapter.window());
-
-        let scale_factor = ScaleFactor::new(window.scale_factor());
-
         let max_width = text_input.width() * scale_factor;
         let max_height = text_input.height() * scale_factor;
         let pos = pos * scale_factor;
@@ -243,8 +237,6 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         }
 
         let visual_representation = text_input.visual_representation(None);
-
-        let font_request = text_input.font_request(&window_adapter);
 
         let (layout, layout_top_left) = textlayout::create_layout(
             font_request,
@@ -280,16 +272,9 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         &self,
         text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
+        font_request: FontRequest,
+        scale_factor: ScaleFactor,
     ) -> LogicalRect {
-        let window_adapter = match self.window_adapter_weak.upgrade() {
-            Some(window) => window,
-            None => return Default::default(),
-        };
-
-        let window = WindowInner::from_pub(window_adapter.window());
-
-        let scale_factor = ScaleFactor::new(window.scale_factor());
-
         let max_width = text_input.width() * scale_factor;
         let max_height = text_input.height() * scale_factor;
 
@@ -299,7 +284,6 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
         let string = text_input.text();
         let string = string.as_str();
-        let font_request = text_input.font_request(&window_adapter);
 
         let (layout, layout_top_left) = textlayout::create_layout(
             font_request,

@@ -1823,7 +1823,7 @@ impl WindowAdapterSealed for QtWindow {
 impl Renderer for QtWindow {
     fn text_size(
         &self,
-        font_request: i_slint_core::graphics::FontRequest,
+        font_request: FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
         _scale_factor: ScaleFactor,
@@ -1835,15 +1835,15 @@ impl Renderer for QtWindow {
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: LogicalPoint,
+        font_request: FontRequest,
+        _scale_factor: ScaleFactor,
     ) -> usize {
         if pos.y < 0. {
             return 0;
         }
         let rect: qttypes::QRectF = check_geometry!(text_input.geometry().size);
         let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
-        let font: QFont = get_font(
-            text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
-        );
+        let font: QFont = get_font(font_request);
 
         let visual_representation = text_input.visual_representation(Some(qt_password_character));
 
@@ -1897,11 +1897,11 @@ impl Renderer for QtWindow {
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
+        font_request: FontRequest,
+        _scale_factor: ScaleFactor,
     ) -> LogicalRect {
         let rect: qttypes::QRectF = check_geometry!(text_input.geometry().size);
-        let font: QFont = get_font(
-            text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
-        );
+        let font: QFont = get_font(font_request);
         let text = text_input.text();
         let mut string = qttypes::QString::from(text.as_str());
         let offset: u32 = utf8_byte_offset_to_utf16_units(text.as_str(), byte_offset) as _;

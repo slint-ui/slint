@@ -311,16 +311,11 @@ impl Renderer for SoftwareRenderer {
         &self,
         text_input: Pin<&crate::items::TextInput>,
         pos: LogicalPoint,
+        font_request: crate::graphics::FontRequest,
+        scale_factor: ScaleFactor,
     ) -> usize {
-        let window_adapter = match self.window.upgrade() {
-            Some(window) => window,
-            None => return Default::default(),
-        };
-
-        let scale_factor = ScaleFactor::new(window_adapter.window().scale_factor()).cast();
         let visual_representation = text_input.visual_representation(None);
 
-        let font_request = text_input.font_request(&window_adapter);
         let font = fonts::match_font(&font_request, scale_factor);
 
         let width = (text_input.width().cast() * scale_factor).cast();
@@ -373,16 +368,11 @@ impl Renderer for SoftwareRenderer {
         &self,
         text_input: Pin<&crate::items::TextInput>,
         byte_offset: usize,
+        font_request: crate::graphics::FontRequest,
+        scale_factor: ScaleFactor,
     ) -> LogicalRect {
-        let window_adapter = match self.window.upgrade() {
-            Some(window) => window,
-            None => return Default::default(),
-        };
-
-        let scale_factor = ScaleFactor::new(window_adapter.window().scale_factor()).cast();
         let visual_representation = text_input.visual_representation(None);
 
-        let font_request = text_input.font_request(&window_adapter);
         let font = fonts::match_font(&font_request, scale_factor);
 
         let width = (text_input.width().cast() * scale_factor).cast();
