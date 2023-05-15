@@ -1529,10 +1529,8 @@ impl WindowAdapterSealed for QtWindow {
         let qt_platform_name = cpp! {unsafe [] -> qttypes::QString as "QString" {
             return QGuiApplication::platformName();
         }};
-        *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(
-            self.self_weak.clone(),
-            &format!("Qt backend (platform {})", qt_platform_name),
-        );
+        *self.rendering_metrics_collector.borrow_mut() =
+            RenderingMetricsCollector::new(&format!("Qt backend (platform {})", qt_platform_name));
         Ok(())
     }
 
