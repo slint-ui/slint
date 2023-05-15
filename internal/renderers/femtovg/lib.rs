@@ -12,6 +12,7 @@ use i_slint_core::api::{
     PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
     SetRenderingNotifierError,
 };
+use i_slint_core::graphics::FontRequest;
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
@@ -306,15 +307,9 @@ impl Renderer for FemtoVGRenderer {
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: LogicalPoint,
+        font_request: FontRequest,
+        scale_factor: ScaleFactor,
     ) -> usize {
-        let window_adapter = match self.window_adapter_weak.upgrade() {
-            Some(window) => window,
-            None => return 0,
-        };
-
-        let window = WindowInner::from_pub(window_adapter.window());
-
-        let scale_factor = ScaleFactor::new(window.scale_factor());
         let pos = pos * scale_factor;
         let text = text_input.text();
 
@@ -326,13 +321,8 @@ impl Renderer for FemtoVGRenderer {
             return 0;
         }
 
-        let font = crate::fonts::FONT_CACHE.with(|cache| {
-            cache.borrow_mut().font(
-                text_input.font_request(&window_adapter),
-                scale_factor,
-                &text_input.text(),
-            )
-        });
+        let font = crate::fonts::FONT_CACHE
+            .with(|cache| cache.borrow_mut().font(font_request, scale_factor, &text_input.text()));
 
         let visual_representation = text_input.visual_representation(None);
 
@@ -371,19 +361,12 @@ impl Renderer for FemtoVGRenderer {
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
+        font_request: FontRequest,
+        scale_factor: ScaleFactor,
     ) -> LogicalRect {
-        let window_adapter = match self.window_adapter_weak.upgrade() {
-            Some(window) => window,
-            None => return Default::default(),
-        };
-
-        let window = WindowInner::from_pub(window_adapter.window());
-
         let text = text_input.text();
-        let scale_factor = ScaleFactor::new(window.scale_factor());
 
-        let font_size =
-            text_input.font_request(&window_adapter).pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
+        let font_size = font_request.pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
 
         let mut result = PhysicalPoint::default();
 
@@ -396,13 +379,8 @@ impl Renderer for FemtoVGRenderer {
             );
         }
 
-        let font = crate::fonts::FONT_CACHE.with(|cache| {
-            cache.borrow_mut().font(
-                text_input.font_request(&window_adapter),
-                scale_factor,
-                &text_input.text(),
-            )
-        });
+        let font = crate::fonts::FONT_CACHE
+            .with(|cache| cache.borrow_mut().font(font_request, scale_factor, &text_input.text()));
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
         fonts::layout_text_lines(

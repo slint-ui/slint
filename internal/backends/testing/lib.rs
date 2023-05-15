@@ -5,6 +5,7 @@
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
 use i_slint_core::graphics::euclid::{Point2D, Size2D};
+use i_slint_core::graphics::FontRequest;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::WindowAdapter;
@@ -108,6 +109,8 @@ impl Renderer for TestingWindow {
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: LogicalPoint,
+        _font_request: FontRequest,
+        _scale_factor: ScaleFactor,
     ) -> usize {
         let text_len = text_input.text().len();
         let result = pos.x / 10.;
@@ -119,6 +122,8 @@ impl Renderer for TestingWindow {
         &self,
         _text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
+        _font_request: FontRequest,
+        _scale_factor: ScaleFactor,
     ) -> LogicalRect {
         LogicalRect::new(Point2D::new(byte_offset as f32 * 10., 0.), Size2D::new(1., 10.))
     }

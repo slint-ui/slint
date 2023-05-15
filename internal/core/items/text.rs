@@ -329,9 +329,7 @@ impl Item for TextInput {
         }
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, click_count } => {
-                let clicked_offset =
-                    window_adapter.renderer().text_input_byte_offset_for_position(self, position)
-                        as i32;
+                let clicked_offset = self.byte_offset_for_position(position, window_adapter) as i32;
                 self.as_ref().pressed.set((click_count % 3) + 1);
 
                 if !window_adapter.window().0.modifiers.get().shift() {
@@ -351,9 +349,7 @@ impl Item for TextInput {
                 return InputEventResult::GrabMouse;
             }
             MouseEvent::Pressed { position, button: PointerEventButton::Middle, .. } => {
-                let clicked_offset =
-                    window_adapter.renderer().text_input_byte_offset_for_position(self, position)
-                        as i32;
+                let clicked_offset = self.byte_offset_for_position(position, window_adapter) as i32;
                 self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
                 self.paste(window_adapter, self_rc, Clipboard::SelectionClipboard);
@@ -373,10 +369,8 @@ impl Item for TextInput {
                 window_adapter.set_mouse_cursor(super::MouseCursor::Text);
                 let pressed = self.as_ref().pressed.get();
                 if pressed > 0 {
-                    let clicked_offset = window_adapter
-                        .renderer()
-                        .text_input_byte_offset_for_position(self, position)
-                        as i32;
+                    let clicked_offset =
+                        self.byte_offset_for_position(position, window_adapter) as i32;
 
                     self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
                     match (pressed - 1) % 3 {
@@ -749,14 +743,13 @@ impl TextInput {
             return false;
         }
 
-        let renderer = window_adapter.renderer();
-
         let last_cursor_pos = self.cursor_position(&text);
 
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
-        let font_height = renderer
+        let font_height = window_adapter
+            .renderer()
             .text_size(
                 self.font_request(window_adapter),
                 " ",
@@ -777,24 +770,22 @@ impl TextInput {
             TextCursorDirection::NextLine => {
                 reset_preferred_x_pos = false;
 
-                let cursor_rect =
-                    renderer.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.y += font_height;
                 cursor_xy_pos.x = self.preferred_x_pos.get();
-                renderer.text_input_byte_offset_for_position(self, cursor_xy_pos)
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
             }
             TextCursorDirection::PreviousLine => {
                 reset_preferred_x_pos = false;
 
-                let cursor_rect =
-                    renderer.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.y -= font_height;
                 cursor_xy_pos.x = self.preferred_x_pos.get();
-                renderer.text_input_byte_offset_for_position(self, cursor_xy_pos)
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
             }
             TextCursorDirection::PreviousCharacter => {
                 let mut i = last_cursor_pos;
@@ -811,20 +802,18 @@ impl TextInput {
                 prev_word_boundary(&text, last_cursor_pos.saturating_sub(1))
             }
             TextCursorDirection::StartOfLine => {
-                let cursor_rect =
-                    renderer.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.x = 0 as Coord;
-                renderer.text_input_byte_offset_for_position(self, cursor_xy_pos)
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
             }
             TextCursorDirection::EndOfLine => {
-                let cursor_rect =
-                    renderer.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                let cursor_rect = self.cursor_rect_for_byte_offset(last_cursor_pos, window_adapter);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.x = Coord::MAX;
-                renderer.text_input_byte_offset_for_position(self, cursor_xy_pos)
+                self.byte_offset_for_position(cursor_xy_pos, window_adapter)
             }
             TextCursorDirection::StartOfParagraph => {
                 prev_paragraph_boundary(&text, last_cursor_pos.saturating_sub(1))
@@ -865,9 +854,8 @@ impl TextInput {
     ) {
         self.cursor_position_byte_offset.set(new_position);
         if new_position >= 0 {
-            let pos = window_adapter
-                .renderer()
-                .text_input_cursor_rect_for_byte_offset(self, new_position as usize)
+            let pos = self
+                .cursor_rect_for_byte_offset(new_position as usize, window_adapter)
                 .origin
                 .to_untyped();
             if reset_preferred_x_pos {
@@ -884,11 +872,8 @@ impl TextInput {
         self_rc: &ItemRc,
     ) {
         let cursor_position = self.cursor_position(&self.text());
-        let cursor_point_relative = window_adapter
-            .renderer()
-            .text_input_cursor_rect_for_byte_offset(self, cursor_position)
-            .to_box2d()
-            .max;
+        let cursor_point_relative =
+            self.cursor_rect_for_byte_offset(cursor_position, window_adapter).to_box2d().max;
         let cursor_point_absolute = self_rc.map_to_window(cursor_point_relative);
         window_adapter.set_ime_position(cursor_point_absolute);
     }
@@ -1128,6 +1113,32 @@ impl TextInput {
         };
         repr.apply_password_character_substitution(self, password_character_fn);
         repr
+    }
+
+    fn cursor_rect_for_byte_offset(
+        self: Pin<&Self>,
+        byte_offset: usize,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> LogicalRect {
+        window_adapter.renderer().text_input_cursor_rect_for_byte_offset(
+            self,
+            byte_offset,
+            self.font_request(window_adapter),
+            ScaleFactor::new(window_adapter.window().scale_factor()),
+        )
+    }
+
+    fn byte_offset_for_position(
+        self: Pin<&Self>,
+        pos: LogicalPoint,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> usize {
+        window_adapter.renderer().text_input_byte_offset_for_position(
+            self,
+            pos,
+            self.font_request(window_adapter),
+            ScaleFactor::new(window_adapter.window().scale_factor()),
+        )
     }
 }
 
