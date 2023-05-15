@@ -354,8 +354,19 @@ impl TypeLoader {
             std::fs::read_to_string(&path_canon)
         };
 
-        let source_code = match source_code_result {
-            Ok(source) => source,
+        let ok = match source_code_result {
+            Ok(source) => {
+                Self::load_file_impl(
+                    state,
+                    &path_canon,
+                    &path_canon,
+                    source,
+                    builtin.is_some(),
+                    &import_stack,
+                )
+                .await;
+                true
+            }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 state.borrow_mut().diag.push_error(
                     format!(
@@ -364,26 +375,16 @@ impl TypeLoader {
                     ),
                     &import_token,
                 );
-                return None;
+                false
             }
             Err(err) => {
                 state.borrow_mut().diag.push_error(
                     format!("Error reading requested import \"{}\": {}", path_canon.display(), err),
                     &import_token,
                 );
-                return None;
+                false
             }
         };
-
-        Self::load_file_impl(
-            state,
-            &path_canon,
-            &path_canon,
-            source_code,
-            builtin.is_some(),
-            &import_stack,
-        )
-        .await;
 
         let wakers = state
             .borrow_mut()
@@ -396,7 +397,7 @@ impl TypeLoader {
             x.wake();
         }
 
-        Some(path_canon)
+        ok.then(|| path_canon)
     }
 
     /// Load a file, and its dependency not run the passes.
