@@ -327,7 +327,6 @@ impl Renderer for SoftwareRenderer {
         let height = (text_input.height().cast() * scale_factor).cast();
 
         let pos = (pos.cast() * scale_factor).cast();
-        let pos = PhysicalPoint::from_lengths(pos.x_length(), pos.y_length());
 
         match font {
             fonts::Font::PixelFont(pf) => {
@@ -345,7 +344,8 @@ impl Renderer for SoftwareRenderer {
                     single_line: false,
                 };
 
-                return paragraph.byte_offset_for_position((pos.x_length(), pos.y_length()), pf.height());
+                return paragraph
+                    .byte_offset_for_position((pos.x_length(), pos.y_length()), pf.height());
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
@@ -363,7 +363,8 @@ impl Renderer for SoftwareRenderer {
                     single_line: false,
                 };
 
-                return paragraph.byte_offset_for_position((pos.x_length(), pos.y_length()), vf.height());
+                return paragraph
+                    .byte_offset_for_position((pos.x_length(), pos.y_length()), vf.height());
             }
         };
     }
