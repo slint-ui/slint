@@ -256,22 +256,22 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
     /// Returns the bytes offset for the given position
     pub fn byte_offset_for_position(
         &self,
-        pos: (Font::Length, Font::Length),
+        (pos_x, pos_y): (Font::Length, Font::Length),
         font_height: Font::Length,
     ) -> usize {
         let byte_offset = 0;
         let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
 
         match self.layout_lines(|glyphs, _, line_y, line| {
-            if pos.1 > line_y + font_height {
+            if pos_y > line_y + font_height {
                 return core::ops::ControlFlow::Continue(());
             }
 
             while let Some(positioned_glyph) = glyphs.next() {
-                if pos.0 >= positioned_glyph.x
-                    && pos.0 <= positioned_glyph.x + positioned_glyph.advance
+                if pos_x >= positioned_glyph.x
+                    && pos_x <= positioned_glyph.x + positioned_glyph.advance
                 {
-                    if pos.0 < positioned_glyph.x + positioned_glyph.advance / two {
+                    if pos_x < positioned_glyph.x + positioned_glyph.advance / two {
                         return core::ops::ControlFlow::Break(positioned_glyph.text_byte_offset);
                     } else if let Some(next_glyph) = glyphs.next() {
                         return core::ops::ControlFlow::Break(next_glyph.text_byte_offset);
