@@ -24,15 +24,11 @@ pub enum SlintUserEvent {
 }
 
 mod renderer {
-    use std::rc::Weak;
-
     use i_slint_core::api::PhysicalSize;
     use i_slint_core::platform::PlatformError;
-    use i_slint_core::window::WindowAdapter;
 
     pub(crate) trait WinitCompatibleRenderer {
         fn new(
-            window_adapter_weak: &Weak<dyn WindowAdapter>,
             window_builder: winit::window::WindowBuilder,
             #[cfg(target_arch = "wasm32")] canvas_id: &str,
         ) -> Result<(Self, winit::window::Window), PlatformError>
@@ -42,7 +38,11 @@ mod renderer {
         fn show(&self) -> Result<(), PlatformError>;
         fn hide(&self) -> Result<(), PlatformError>;
 
-        fn render(&self, size: PhysicalSize) -> Result<(), PlatformError>;
+        fn render(
+            &self,
+            window: &i_slint_core::api::Window,
+            size: PhysicalSize,
+        ) -> Result<(), PlatformError>;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
 

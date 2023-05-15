@@ -1,11 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::rc::Weak;
-
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
-use i_slint_core::window::WindowAdapter;
 
 pub struct SkiaRenderer {
     renderer: i_slint_renderer_skia::SkiaRenderer,
@@ -13,7 +10,6 @@ pub struct SkiaRenderer {
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
     fn new(
-        window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
     ) -> Result<(Self, winit::window::Window), PlatformError> {
         let winit_window = crate::event_loop::with_window_target(|event_loop| {
@@ -38,7 +34,6 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         })?;
 
         let renderer = i_slint_renderer_skia::SkiaRenderer::new(
-            window_adapter_weak.clone(),
             &winit_window,
             &winit_window,
             PhysicalWindowSize::new(width, height),
@@ -55,8 +50,12 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         self.renderer.hide()
     }
 
-    fn render(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
-        self.renderer.render(size)
+    fn render(
+        &self,
+        window: &i_slint_core::api::Window,
+        size: PhysicalWindowSize,
+    ) -> Result<(), PlatformError> {
+        self.renderer.render(window, size)
     }
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {

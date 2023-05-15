@@ -160,19 +160,14 @@ pub extern "C" fn slint_platform_update_timers_and_animations() {
 type SoftwareRendererOpaque = *const c_void;
 
 #[no_mangle]
-pub unsafe extern "C" fn slint_software_renderer_new(
-    buffer_age: u32,
-    window: &WindowAdapterRcOpaque,
-) -> SoftwareRendererOpaque {
-    let window = core::mem::transmute::<&WindowAdapterRcOpaque, &Rc<dyn WindowAdapter>>(window);
-    let weak = Rc::downgrade(window);
+pub unsafe extern "C" fn slint_software_renderer_new(buffer_age: u32) -> SoftwareRendererOpaque {
     let repaint_buffer_type = match buffer_age {
         0 => RepaintBufferType::NewBuffer,
         1 => RepaintBufferType::ReusedBuffer,
         2 => RepaintBufferType::SwappedBuffers,
         _ => unreachable!(),
     };
-    Box::into_raw(Box::new(SoftwareRenderer::new(repaint_buffer_type, weak)))
+    Box::into_raw(Box::new(SoftwareRenderer::new_without_window(repaint_buffer_type)))
         as SoftwareRendererOpaque
 }
 
@@ -184,12 +179,16 @@ pub unsafe extern "C" fn slint_software_renderer_drop(r: SoftwareRendererOpaque)
 #[no_mangle]
 pub unsafe extern "C" fn slint_software_renderer_render_rgb8(
     r: SoftwareRendererOpaque,
+    window_adapter: *const WindowAdapterRcOpaque,
     buffer: *mut Rgb8Pixel,
     buffer_len: usize,
     pixel_stride: usize,
 ) {
     let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
-    (*(r as *const SoftwareRenderer)).render(buffer, pixel_stride);
+    let renderer = &*(r as *const SoftwareRenderer);
+    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+    renderer.set_window(window_adapter.window());
+    renderer.render(buffer, pixel_stride);
 }
 
 #[no_mangle]
@@ -288,16 +287,11 @@ pub unsafe extern "C" fn slint_raw_window_handle_drop(handle: CppRawHandleOpaque
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_skia_renderer_new(
-    window_adapter: &WindowAdapterRcOpaque,
     handle_opaque: CppRawHandleOpaque,
     size: IntSize,
 ) -> SkiaRendererOpaque {
-    let window_adapter =
-        core::mem::transmute::<&WindowAdapterRcOpaque, &Rc<dyn WindowAdapter>>(window_adapter);
-    let weak = Rc::downgrade(window_adapter);
     let boxed_renderer: Box<SkiaRenderer> = Box::new(
         SkiaRenderer::new(
-            weak,
             &*(handle_opaque as *const CppRawHandle),
             &*(handle_opaque as *const CppRawHandle),
             PhysicalSize { width: size.width, height: size.height },
@@ -331,9 +325,15 @@ pub unsafe extern "C" fn slint_skia_renderer_resize(r: SkiaRendererOpaque, size:
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn slint_skia_renderer_render(r: SkiaRendererOpaque, size: IntSize) {
+pub unsafe extern "C" fn slint_skia_renderer_render(
+    r: SkiaRendererOpaque,
+    window: *const WindowAdapterRcOpaque,
+    size: IntSize,
+) {
+    let window_adapter = &*(window as *const Rc<dyn WindowAdapter>);
     let r = &*(r as *const SkiaRenderer);
-    r.render(PhysicalSize { width: size.width, height: size.height }).unwrap();
+    r.render(window_adapter.window(), PhysicalSize { width: size.width, height: size.height })
+        .unwrap();
 }
 
 #[no_mangle]

@@ -5,7 +5,7 @@
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
 use std::cell::RefCell;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use i_slint_core::api::{
     GraphicsAPI, PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
@@ -19,7 +19,7 @@ use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
 use i_slint_core::platform::PlatformError;
-use i_slint_core::window::{WindowAdapter, WindowInner};
+use i_slint_core::window::WindowInner;
 use i_slint_core::Brush;
 
 type PhysicalLength = euclid::Length<f32, PhysicalPx>;
@@ -54,7 +54,6 @@ cfg_if::cfg_if! {
 /// Use the SkiaRenderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using Skia as underlying graphics library.
 pub struct SkiaRenderer {
-    window_adapter_weak: Weak<dyn WindowAdapter>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     image_cache: ItemCache<Option<skia_safe::Image>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
@@ -65,7 +64,6 @@ pub struct SkiaRenderer {
 impl SkiaRenderer {
     /// Creates a new renderer is associated with the provided window adapter.
     pub fn new(
-        window_adapter_weak: Weak<dyn WindowAdapter>,
         native_window: &impl raw_window_handle::HasRawWindowHandle,
         native_display: &impl raw_window_handle::HasRawDisplayHandle,
         size: PhysicalWindowSize,
@@ -73,7 +71,6 @@ impl SkiaRenderer {
         let surface = DefaultSurface::new(&native_window, &native_display, size)?;
 
         Ok(Self {
-            window_adapter_weak,
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
             path_cache: Default::default(),
@@ -113,10 +110,10 @@ impl SkiaRenderer {
     /// Render the scene in the previously associated window. The size parameter must match the size of the window.
     pub fn render(
         &self,
+        window: &i_slint_core::api::Window,
         size: PhysicalWindowSize,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
-        let window_adapter = self.window_adapter_weak.upgrade().unwrap();
-        let window_inner = WindowInner::from_pub(window_adapter.window());
+        let window_inner = WindowInner::from_pub(window);
 
         self.surface.render(size, |skia_canvas, gr_context| {
             window_inner.draw_contents(|components| {
@@ -141,11 +138,9 @@ impl SkiaRenderer {
 
                 let mut box_shadow_cache = Default::default();
 
-                let window_adapter = self.window_adapter_weak.upgrade().unwrap();
-
                 let mut item_renderer = itemrenderer::SkiaRenderer::new(
                     skia_canvas,
-                    window_adapter.window(),
+                    window,
                     &self.image_cache,
                     &self.path_cache,
                     &mut box_shadow_cache,

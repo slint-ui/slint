@@ -1,12 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::rc::Weak;
-
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::Renderer;
-use i_slint_core::window::WindowAdapter;
 use i_slint_renderer_femtovg::FemtoVGRenderer;
 
 mod glcontext;
@@ -17,7 +14,6 @@ pub struct GlutinFemtoVGRenderer {
 
 impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
     fn new(
-        window_adapter_weak: &Weak<dyn WindowAdapter>,
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> Result<(Self, winit::window::Window), PlatformError> {
@@ -30,7 +26,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
             )
         })?;
 
-        let renderer = FemtoVGRenderer::new(window_adapter_weak, opengl_context)?;
+        let renderer = FemtoVGRenderer::new(opengl_context)?;
 
         Ok((Self { renderer }, winit_window))
     }
@@ -43,8 +39,12 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         self.renderer.hide()
     }
 
-    fn render(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
-        self.renderer.render(size)
+    fn render(
+        &self,
+        window: &i_slint_core::api::Window,
+        size: PhysicalWindowSize,
+    ) -> Result<(), PlatformError> {
+        self.renderer.render(window, size)
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {

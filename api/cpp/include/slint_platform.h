@@ -31,7 +31,6 @@ namespace platform {
 template<typename R>
 concept Renderer = requires(R r)
 {
-    r.init(static_cast<const cbindgen_private::WindowAdapterRcOpaque *>(nullptr));
     cbindgen_private::RendererPtr { r.renderer_handle() };
 };
 
@@ -82,8 +81,8 @@ class WindowAdapter : public AbstractWindowAdapter
     // Note that we do not have ownership (there is no reference increase for this)
     // because it would otherwise be a reference loop
     cbindgen_private::WindowAdapterRcOpaque self {};
+    std::unique_ptr<R> m_renderer;
     // Whether this WindowAdapter was already given to the slint runtime
-    const R m_renderer;
     bool was_initialized = false;
 
 private:
@@ -93,7 +92,7 @@ private:
         cbindgen_private::slint_window_adapter_new(
                 this, [](void *wa) { delete reinterpret_cast<const WA *>(wa); },
                 [](void *wa) {
-                    return reinterpret_cast<const WA *>(wa)->m_renderer.renderer_handle();
+                    return reinterpret_cast<const WA *>(wa)->m_renderer->renderer_handle();
                 },
                 [](void *wa) { reinterpret_cast<const WA *>(wa)->show(); },
                 [](void *wa) { reinterpret_cast<const WA *>(wa)->hide(); },
@@ -102,20 +101,18 @@ private:
                     return reinterpret_cast<const WA *>(wa)->physical_size();
                 },
                 &self);
-        m_renderer.init(&self);
         was_initialized = true;
         return self;
     }
 
 public:
-    /// Construct a WindowAdapter.  The arguments are forwarded to initialize the renderer
-    template<typename... Args>
-    explicit WindowAdapter(Args... a) : m_renderer(std::forward<Args>(a)...)
-    {
-    }
+    /// Construct a WindowAdapter
+    explicit WindowAdapter() { }
+
+    void set_renderer(std::unique_ptr<R> renderer) { m_renderer = std::move(renderer); }
 
     /// Return a reference to the renderer that can be used to do the rendering.
-    const R &renderer() const { return m_renderer; }
+    const R &renderer() const { return *m_renderer; }
 
     /// Return the slint::Window associated with this window.
     ///
@@ -207,23 +204,12 @@ class SoftwareRenderer
     mutable cbindgen_private::SoftwareRendererOpaque inner;
 
 public:
-    virtual ~SoftwareRenderer()
-    {
-        if (inner) {
-            cbindgen_private::slint_software_renderer_drop(inner);
-        }
-    };
+    virtual ~SoftwareRenderer() { cbindgen_private::slint_software_renderer_drop(inner); };
     SoftwareRenderer(const SoftwareRenderer &) = delete;
     SoftwareRenderer &operator=(const SoftwareRenderer &) = delete;
-    SoftwareRenderer() = default;
-
-    /// \private
-    void init(const cbindgen_private::WindowAdapterRcOpaque *win, int max_buffer_age) const
+    SoftwareRenderer(int max_buffer_age)
     {
-        if (inner) {
-            cbindgen_private::slint_software_renderer_drop(inner);
-        }
-        inner = cbindgen_private::slint_software_renderer_new(max_buffer_age, win);
+        inner = cbindgen_private::slint_software_renderer_new(max_buffer_age);
     }
 
     /// \private
@@ -238,10 +224,12 @@ public:
     ///
     /// The stride is the amount of pixels between two lines in the buffer.
     /// It is must be at least as large as the width of the window.
-    void render(std::span<slint::Rgb8Pixel> buffer, std::size_t pixel_stride) const
+    void render(const Window &window, std::span<slint::Rgb8Pixel> buffer,
+                std::size_t pixel_stride) const
     {
-        cbindgen_private::slint_software_renderer_render_rgb8(inner, buffer.data(), buffer.size(),
-                                                              pixel_stride);
+        cbindgen_private::slint_software_renderer_render_rgb8(
+                inner, &window.window_handle().handle(), buffer.data(), buffer.size(),
+                pixel_stride);
     }
 };
 
@@ -325,33 +313,17 @@ public:
 /// Use render to perform the rendering.
 class SkiaRenderer
 {
-    mutable cbindgen_private::SkiaRendererOpaque inner = nullptr;
-    NativeWindowHandle window_handle;
-    PhysicalSize initial_size;
+    mutable cbindgen_private::SkiaRendererOpaque inner;
 
 public:
-    virtual ~SkiaRenderer()
-    {
-        if (inner) {
-            cbindgen_private::slint_skia_renderer_drop(inner);
-        }
-    };
+    virtual ~SkiaRenderer() { cbindgen_private::slint_skia_renderer_drop(inner); }
     SkiaRenderer(const SkiaRenderer &) = delete;
     SkiaRenderer &operator=(const SkiaRenderer &) = delete;
     /// Constructs a new Skia renderer for the given window - referenced by the provided
     /// WindowHandle - and the specified initial size.
-    SkiaRenderer(NativeWindowHandle &&window_handle, PhysicalSize initial_size)
-        : window_handle(std::move(window_handle)), initial_size(initial_size)
+    SkiaRenderer(const NativeWindowHandle &window_handle, PhysicalSize initial_size)
     {
-    }
-
-    /// \private
-    void init(const cbindgen_private::WindowAdapterRcOpaque *win) const
-    {
-        if (inner) {
-            cbindgen_private::slint_skia_renderer_drop(inner);
-        }
-        inner = cbindgen_private::slint_skia_renderer_new(win, window_handle.inner, initial_size);
+        inner = cbindgen_private::slint_skia_renderer_new(window_handle.inner, initial_size);
     }
 
     /// \private
@@ -360,9 +332,9 @@ public:
         return cbindgen_private::slint_skia_renderer_handle(inner);
     }
 
-    void render(PhysicalSize size) const
+    void render(const Window &window, PhysicalSize size) const
     {
-        cbindgen_private::slint_skia_renderer_render(inner, size);
+        cbindgen_private::slint_skia_renderer_render(inner, &window.window_handle().handle(), size);
     }
 
     void resize(PhysicalSize size) const
