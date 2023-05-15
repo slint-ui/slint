@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export component TestCase {
+    in property <int> xx : 1000;
+    out property <int> yy: xx * 10;
+    animate yy {
+        duration: 1s;
+        easing: linear;
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+instance.set_xx(500);
+// It's the first time we querty the value: so no animation
+assert_eq!(instance.get_yy(), 5000);
+instance.set_xx(1000);
+// now it is animated
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_yy(), 7500);
+instance.set_xx(500);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_yy(), 7500 - 2500/2);
+slint_testing::mock_elapsed_time(5000);
+instance.set_xx(1000);
+assert_eq!(instance.get_yy(), 7500 - 2500/2); // even if time has passed, since we reset the xx value, it is as if no time had passed
+slint_testing::mock_elapsed_time(500);
+instance.set_xx(1000);
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.get_yy(), 9062);
+slint_testing::mock_elapsed_time(250);
+assert_eq!(instance.get_yy(), 10000);
+```
+
+
+*/
