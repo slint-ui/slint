@@ -276,8 +276,6 @@ if(SLINT_FEATURE_COMPILER)
     install(PROGRAMS $<TARGET_FILE:slint-compiler> TYPE BIN)
 endif()
 
-set(SLINT_LIB_PROPERTIES "IMPORTED_NO_SONAME;1")
-
 # Corrosion sets the `IMPORTED` locations late to allow us to set OUTPUT_DIRECTORY
 # target properties. This function must be deferred until after Corrosion set the
 # locations. Since we are writing to a config file Generator expressions are not
