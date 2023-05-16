@@ -35,6 +35,10 @@ mod itemrenderer;
 
 /// Trait that the FemtoVGRenderer uses to ensure that the OpenGL context is current, before running
 /// OpenGL commands. The trait also provides access to the symbols of the OpenGL implementation.
+///
+/// Safety: This trait is unsafe because an implementation of get_proc_address could return dangling
+/// pointers. In practice an implementation of this trait should just forward to the EGL/WGL/CGL
+/// C library that implements EGL/CGL/WGL.
 pub unsafe trait OpenGLContextWrapper {
     /// Ensures that the GL context is current.
     fn ensure_current(&self) -> Result<(), PlatformError>;
