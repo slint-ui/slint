@@ -110,30 +110,11 @@ pub struct WinitWindowAdapter {
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
     shown: Cell<bool>,
 
-    winit_window: Option<Rc<winit::window::Window>>,
-    renderer: OnceCell<Box<dyn WinitCompatibleRenderer>>,
+    winit_window: Rc<winit::window::Window>,
+    renderer: Box<dyn WinitCompatibleRenderer>,
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
-}
-
-impl Default for WinitWindowAdapter {
-    fn default() -> Self {
-        Self {
-            window: Default::default(),
-            #[cfg(target_arch = "wasm32")]
-            self_weak: Default::default(),
-            currently_pressed_key_code: Default::default(),
-            pending_redraw: Default::default(),
-            dark_color_scheme: Default::default(),
-            constraints: Default::default(),
-            shown: Default::default(),
-            winit_window: Default::default(),
-            renderer: Default::default(),
-            #[cfg(target_arch = "wasm32")]
-            virtual_keyboard_helper: Default::default(),
-        }
-    }
 }
 
 impl WinitWindowAdapter {
@@ -141,55 +122,44 @@ impl WinitWindowAdapter {
     pub(crate) fn new<R: WinitCompatibleRenderer + 'static>(
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        // Error that occured during construction. This is only used temporarily during new.
-        let mut platform_error: Option<PlatformError> = None;
-
-        let self_rc = Rc::new_cyclic(|self_weak| {
-            let mut result = Self::default();
-
-            match Self::window_builder(
+        let (renderer, winit_window) = Self::window_builder(
+            #[cfg(target_arch = "wasm32")]
+            canvas_id,
+        )
+        .and_then(|builder| {
+            R::new(
+                builder,
                 #[cfg(target_arch = "wasm32")]
                 canvas_id,
             )
-            .and_then(|builder| {
-                R::new(
-                    builder,
-                    #[cfg(target_arch = "wasm32")]
-                    canvas_id,
-                )
-            }) {
-                Ok((new_renderer, winit_window)) => {
-                    result.renderer = OnceCell::with_value(Box::new(new_renderer));
-                    result.winit_window = Some(Rc::new(winit_window));
-                }
-                Err(err) => {
-                    platform_error = Some(err);
-                    return Self::default();
-                }
-            };
+        })?;
 
-            result.window = OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _));
+        let self_rc = Rc::new_cyclic(|self_weak| Self {
+            window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
             #[cfg(target_arch = "wasm32")]
-            {
-                result.self_weak = self_weak.clone();
-            }
-            result
+            self_weak: Default::default(),
+            currently_pressed_key_code: Default::default(),
+            pending_redraw: Default::default(),
+            dark_color_scheme: Default::default(),
+            constraints: Default::default(),
+            shown: Default::default(),
+            winit_window: Rc::new(winit_window),
+            renderer: Box::new(renderer),
+            #[cfg(target_arch = "wasm32")]
+            virtual_keyboard_helper: Default::default(),
         });
-        if let Some(err) = platform_error.take() {
-            Err(err)
-        } else {
-            let id = self_rc.winit_window().id();
-            crate::event_loop::register_window(id, (self_rc.clone()) as _);
 
-            let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
-                .ok()
-                .and_then(|x| x.parse::<f32>().ok())
-                .filter(|f| *f > 0.)
-                .unwrap_or_else(|| self_rc.winit_window().scale_factor() as f32);
-            self_rc.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
+        let id = self_rc.winit_window().id();
+        crate::event_loop::register_window(id, (self_rc.clone()) as _);
 
-            Ok(self_rc as _)
-        }
+        let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
+            .ok()
+            .and_then(|x| x.parse::<f32>().ok())
+            .filter(|f| *f > 0.)
+            .unwrap_or_else(|| self_rc.winit_window().scale_factor() as f32);
+        self_rc.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
+
+        Ok(self_rc as _)
     }
 
     fn call_with_event_loop(
@@ -218,7 +188,7 @@ impl WinitWindowAdapter {
     }
 
     fn renderer(&self) -> &dyn WinitCompatibleRenderer {
-        self.renderer.get().unwrap().as_ref()
+        self.renderer.as_ref()
     }
 
     fn window_builder(
@@ -287,7 +257,7 @@ impl WinitWindowAdapter {
     }
 
     pub fn winit_window(&self) -> Rc<winit::window::Window> {
-        self.winit_window.as_ref().unwrap().clone()
+        self.winit_window.clone()
     }
 
     pub fn is_shown(&self) -> bool {
@@ -695,10 +665,8 @@ impl WindowAdapterSealed for WinitWindowAdapter {
 
 impl Drop for WinitWindowAdapter {
     fn drop(&mut self) {
-        if let Some(renderer) = self.renderer.get() {
-            renderer.hide().ok(); // ignore errors here, we're going away anyway
-            crate::event_loop::unregister_window(self.winit_window().id());
-        }
+        self.renderer.hide().ok(); // ignore errors here, we're going away anyway
+        crate::event_loop::unregister_window(self.winit_window().id());
     }
 }
 
