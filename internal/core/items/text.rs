@@ -905,7 +905,7 @@ impl TextInput {
         self.delete_selection(window_adapter, self_rc);
     }
 
-    fn delete_selection(
+    pub fn delete_selection(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,

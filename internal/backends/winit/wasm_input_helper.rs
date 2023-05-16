@@ -67,18 +67,34 @@ impl WasmInputHelper {
 
         let shared_state = Rc::new(RefCell::new(WasmInputState::default()));
         #[cfg(web_sys_unstable_apis)]
-        if let Some(clipboard) = window.navigator().clipboard() {
+        {
             let win = window_adapter.clone();
-            let clip = clipboard.clone();
-            let closure_copy = Closure::wrap(Box::new(move |e: web_sys::ClipboardEvent| {
+            h.add_event_listener("paste", move |e: web_sys::ClipboardEvent| {
                 if let Some(window_adapter) = win.upgrade() {
+                    let Some(text) = e.clipboard_data().and_then(|data| data.get_data("text").ok()) else {return};
                     e.prevent_default();
-                    let mut item = WindowInner::from_pub(&window_adapter.window())
+                    if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
                         .focus_item
                         .borrow()
-                        .clone()
-                        .upgrade();
-                    if let Some(focus_item) = item.clone() {
+                        .upgrade()
+                    {
+                        if let Some(text_input) =
+                            focus_item.downcast::<i_slint_core::items::TextInput>()
+                        {
+                            text_input.as_pin_ref().insert(&text, &window_adapter, &focus_item);
+                        }
+                    }
+                }
+            });
+            let win = window_adapter.clone();
+            h.add_event_listener("copy", move |e: web_sys::ClipboardEvent| {
+                if let Some(window_adapter) = win.upgrade() {
+                    e.prevent_default();
+                    if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
+                        .focus_item
+                        .borrow()
+                        .upgrade()
+                    {
                         if let Some(text_input) =
                             focus_item.downcast::<i_slint_core::items::TextInput>()
                         {
@@ -88,47 +104,40 @@ impl WasmInputHelper {
                                 return;
                             }
                             let text = text_input.as_pin_ref().text();
-                            let selected_text = &text[anchor..cursor];
-                            clip.write_text(selected_text);
+                            if let Some(data) = e.clipboard_data() {
+                                data.set_data("text", &text[anchor..cursor]).ok();
+                            }
                         }
                     }
                 }
-            }) as Box<dyn Fn(_)>);
-            window.add_event_listener_with_callback("copy", closure_copy.as_ref().unchecked_ref());
-            closure_copy.forget();
+            });
 
             let win = window_adapter.clone();
-            let closure_paste = Closure::wrap(Box::new(move |e: web_sys::ClipboardEvent| {
+            h.add_event_listener("cut", move |e: web_sys::ClipboardEvent| {
                 if let Some(window_adapter) = win.upgrade() {
                     e.prevent_default();
-                    let mut item = WindowInner::from_pub(&window_adapter.window())
+                    if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
                         .focus_item
                         .borrow()
-                        .clone()
-                        .upgrade();
-                    if let Some(focus_item) = item.clone() {
+                        .upgrade()
+                    {
                         if let Some(text_input) =
                             focus_item.downcast::<i_slint_core::items::TextInput>()
                         {
-                            let copy =
-                                Closure::wrap(Box::new(move |result: wasm_bindgen::JsValue| {
-                                    let focus_item_clone = focus_item.clone();
-                                    text_input.as_pin_ref().insert(
-                                        &result.as_string().unwrap(),
-                                        &window_adapter,
-                                        &focus_item_clone,
-                                    );
-                                })
-                                    as Box<dyn FnMut(wasm_bindgen::JsValue)>);
-                            clipboard.read_text().then(&copy);
-                            copy.forget();
+                            let (anchor, cursor) =
+                                text_input.as_pin_ref().selection_anchor_and_cursor();
+                            if anchor == cursor {
+                                return;
+                            }
+                            let text = text_input.as_pin_ref().text();
+                            if let Some(data) = e.clipboard_data() {
+                                data.set_data("text", &text[anchor..cursor]).ok();
+                            }
+                            text_input.as_pin_ref().delete_selection(&window_adapter, &focus_item);
                         }
                     }
                 }
-            }) as Box<dyn Fn(_)>);
-            window
-                .add_event_listener_with_callback("paste", closure_paste.as_ref().unchecked_ref());
-            closure_paste.forget();
+            });
         }
 
         let win = window_adapter.clone();
@@ -146,7 +155,18 @@ impl WasmInputHelper {
         let shared_state2 = shared_state.clone();
         h.add_event_listener("keydown", move |e: web_sys::KeyboardEvent| {
             if let (Some(window_adapter), Some(text)) = (win.upgrade(), event_text(&e)) {
-                e.prevent_default();
+                // Same logic as in winit to prevent the default <https://github.com/rust-windowing/winit/blob/master/src/platform_impl/web/web_sys/canvas.rs#L202-L213>
+                let event_key = &e.key();
+                let is_key_string = event_key.len() == 1 || !event_key.is_ascii();
+                let is_shortcut_modifiers =
+                    (e.ctrl_key() || e.alt_key()) && !e.get_modifier_state("AltGr");
+                if !is_key_string || is_shortcut_modifiers {
+                    // Also let copy/paste/cut through
+                    if !matches!(text.as_str(), "c" | "v" | "x") {
+                        e.prevent_default();
+                    }
+                }
+
                 shared_state2.borrow_mut().has_key_down = true;
                 window_adapter.window().dispatch_event(WindowEvent::KeyPressed { text });
             }
