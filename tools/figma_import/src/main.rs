@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
