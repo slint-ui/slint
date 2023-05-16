@@ -7,12 +7,17 @@ name: Build and test the slintpad and required WASM binaries
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      rustflags:
+        type: string
+        description: extra rustflags
 
 jobs:
   wasm:
     env:
       CARGO_PROFILE_RELEASE_OPT_LEVEL: s
       CARGO_INCREMENTAL: false
+      RUSTFLAGS: ${{ github.event.inputs.rustflags || inputs.rustflags }}
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3

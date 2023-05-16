@@ -34,8 +34,12 @@ jobs:
     uses: ./.github/workflows/build_docs.yaml
   wasm_demo:
     uses: ./.github/workflows/wasm_demos.yaml
+    with:
+      rustflags: "--cfg=web_sys_unstable_apis"
   wasm:
     uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
+    with:
+      rustflags: "--cfg=web_sys_unstable_apis"
   cpp_package:
     uses: ./.github/workflows/cpp_package.yaml
 
