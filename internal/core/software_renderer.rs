@@ -339,7 +339,9 @@ impl Renderer for SoftwareRenderer {
                     single_line: false,
                 };
 
-                return paragraph.byte_offset_for_position((pos.x_length(), pos.y_length()));
+                return visual_representation.map_byte_offset_from_byte_offset_in_visual_text(
+                    paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
+                );
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
@@ -357,7 +359,9 @@ impl Renderer for SoftwareRenderer {
                     single_line: false,
                 };
 
-                return paragraph.byte_offset_for_position((pos.x_length(), pos.y_length()));
+                return visual_representation.map_byte_offset_from_byte_offset_in_visual_text(
+                    paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
+                );
             }
         };
     }

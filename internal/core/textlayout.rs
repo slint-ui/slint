@@ -255,12 +255,17 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
 
     /// Returns the bytes offset for the given position
     pub fn byte_offset_for_position(&self, (pos_x, pos_y): (Font::Length, Font::Length)) -> usize {
-        let byte_offset = 0;
+        let mut byte_offset = 0;
         let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
 
         match self.layout_lines(|glyphs, _, line_y, line| {
             if pos_y >= line_y + self.layout.font.height() {
+                byte_offset = line.byte_range.end;
                 return core::ops::ControlFlow::Continue(());
+            }
+
+            if line.is_empty() {
+                return core::ops::ControlFlow::Break(line.byte_range.start);
             }
 
             while let Some(positioned_glyph) = glyphs.next() {
