@@ -120,6 +120,7 @@ jobs:
       DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
+      RUST_BACKTRACE: 1
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-12, windows-2022]
