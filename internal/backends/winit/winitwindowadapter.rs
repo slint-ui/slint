@@ -183,6 +183,14 @@ impl WinitWindowAdapter {
         } else {
             let id = self_rc.winit_window().id();
             crate::event_loop::register_window(id, (self_rc.clone()) as _);
+
+            let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
+                .ok()
+                .and_then(|x| x.parse::<f64>().ok())
+                .filter(|f| *f > 0.)
+                .unwrap_or_else(|| self_rc.winit_window().scale_factor());
+            WindowInner::from_pub(&self_rc.window()).set_scale_factor(scale_factor as _);
+
             Ok(self_rc as _)
         }
     }
@@ -508,19 +516,7 @@ impl WindowAdapterSealed for WinitWindowAdapter {
 
             let runtime_window = WindowInner::from_pub(&self_.window());
 
-            let scale_factor_override = runtime_window.scale_factor();
-            // If the scale factor was already set programmatically, use that
-            // else, use the SLINT_SCALE_FACTOR if set, otherwise use the one from winit
-            let scale_factor_override = if scale_factor_override > 1. {
-                Some(scale_factor_override as f64)
-            } else {
-                std::env::var("SLINT_SCALE_FACTOR")
-                    .ok()
-                    .and_then(|x| x.parse::<f64>().ok())
-                    .filter(|f| *f > 0.)
-            };
-            let scale_factor = scale_factor_override.unwrap_or_else(|| winit_window.scale_factor());
-            WindowInner::from_pub(&self_.window()).set_scale_factor(scale_factor as _);
+            let scale_factor = runtime_window.scale_factor() as f64;
 
             let component_rc = runtime_window.component();
             let component = ComponentRc::borrow_pin(&component_rc);
@@ -558,14 +554,8 @@ impl WindowAdapterSealed for WinitWindowAdapter {
 
             if std::env::var("SLINT_FULLSCREEN").is_err() {
                 if preferred_size.width > 0 as Coord && preferred_size.height > 0 as Coord {
-                    let into_size = |s: winit::dpi::LogicalSize<Coord>| -> winit::dpi::Size {
-                        if let Some(f) = scale_factor_override {
-                            s.to_physical::<f32>(f).into()
-                        } else {
-                            s.into()
-                        }
-                    };
-                    winit_window.set_inner_size(into_size(preferred_size));
+                    // use the Slint's window Scale factor to take in account the override
+                    winit_window.set_inner_size(preferred_size.to_physical::<f32>(scale_factor));
                 }
             };
 
