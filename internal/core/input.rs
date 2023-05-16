@@ -311,6 +311,7 @@ impl KeyEvent {
             match self.text.as_str() {
                 #[cfg(not(target_arch = "wasm32"))]
                 "c" => Some(StandardShortcut::Copy),
+                #[cfg(not(target_arch = "wasm32"))]
                 "x" => Some(StandardShortcut::Cut),
                 #[cfg(not(target_arch = "wasm32"))]
                 "v" => Some(StandardShortcut::Paste),
