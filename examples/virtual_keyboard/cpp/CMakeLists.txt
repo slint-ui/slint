@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: MIT
 
 cmake_minimum_required(VERSION 3.21)
 project(slint_cpp_virtual_keyboard LANGUAGES CXX)
