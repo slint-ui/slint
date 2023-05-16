@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: MIT
 
 #![cfg_attr(feature = "mcu-board-support", no_std)]
 #![cfg_attr(all(feature = "mcu-board-support", not(feature = "simulator")), no_main)]
