@@ -35,7 +35,7 @@ mod itemrenderer;
 
 /// Trait that the FemtoVGRenderer uses to ensure that the OpenGL context is current, before running
 /// OpenGL commands. The trait also provides access to the symbols of the OpenGL implementation.
-pub trait OpenGLContextWrapper {
+pub unsafe trait OpenGLContextWrapper {
     /// Ensures that the GL context is current.
     fn ensure_current(&self) -> Result<(), PlatformError>;
     fn swap_buffers(&self) -> Result<(), PlatformError>;

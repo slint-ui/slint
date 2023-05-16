@@ -21,7 +21,7 @@ pub struct OpenGLContext {
     canvas: web_sys::HtmlCanvasElement,
 }
 
-impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
+unsafe impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
     #[cfg(target_arch = "wasm32")]
     fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement {
         self.canvas.clone()
