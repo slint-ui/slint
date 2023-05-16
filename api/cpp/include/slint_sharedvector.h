@@ -60,9 +60,8 @@ struct SharedVector
     SharedVector(InputIt first, InputIt last)
         : SharedVector(SharedVector::with_capacity(std::distance(first, last)))
     {
-        for (auto it = first; it != last; ++it) {
-            push_back(*it);
-        }
+        std::uninitialized_copy(first, last, begin());
+        inner->size = inner->capacity;
     }
 
     /// Creates a new vector that is a copy of \a other.
