@@ -237,4 +237,8 @@ TEST_CASE("SharedVector")
     SharedVector<int> vec4(5);
     REQUIRE(vec4.size() == 5);
     REQUIRE(vec4[3] == 0);
+
+    std::vector<SharedString> std_v(vec2.begin(), vec2.end());
+    SharedVector<SharedString> vec6(std_v.begin(), std_v.end());
+    REQUIRE(vec6 == vec2);
 }
