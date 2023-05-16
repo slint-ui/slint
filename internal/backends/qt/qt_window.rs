@@ -192,16 +192,6 @@ cpp! {{
             });
         }
 
-        void customEvent(QEvent *event) override {
-            if (event->type() == QEvent::User) {
-                rust!(Slint_updateWindowProps [rust_window: &QtWindow as "void*"] {
-                    WindowInner::from_pub(&rust_window.window).update_window_properties()
-                });
-            } else {
-                QWidget::customEvent(event);
-            }
-        }
-
         void changeEvent(QEvent *event) override {
             if (event->type() == QEvent::ActivationChange) {
                 bool active = isActiveWindow();
@@ -1464,6 +1454,8 @@ impl QtWindow {
                 if (accessible->isUsed()) { accessible->updateAccessibilityTree(); }
             }};
         }
+
+        timer_event();
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
@@ -1553,13 +1545,6 @@ impl WindowAdapterSealed for QtWindow {
         cpp! {unsafe [widget_ptr as "QWidget*"] {
             return widget_ptr->update();
         }}
-    }
-
-    fn request_window_properties_update(&self) {
-        let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "SlintWidget*"]  {
-            QCoreApplication::postEvent(widget_ptr, new QEvent(QEvent::User));
-        }};
     }
 
     /// Apply windows property such as title to the QWidget*

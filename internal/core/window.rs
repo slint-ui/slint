@@ -110,10 +110,6 @@ pub trait WindowAdapterSealed {
         None
     }
 
-    /// Request for the event loop to wake up and call [`WindowInner::update_window_properties()`].
-    // TODO: remove this, use event loop proxy in corelib if available to call apply_window_properties
-    // or use a timer of 0
-    fn request_window_properties_update(&self) {}
     /// Request for the given title string to be set to the windowing system for use as window title.
     // Add API to the Window to query the properties which needs to be applied (title, flags, ...)
     fn apply_window_properties(&self, _window_item: Pin<&crate::items::WindowItem>) {}
@@ -207,9 +203,12 @@ struct WindowPropertiesTracker {
 
 impl crate::properties::PropertyDirtyHandler for WindowPropertiesTracker {
     fn notify(&self) {
-        if let Some(window_adapter) = self.window_adapter_weak.upgrade() {
-            window_adapter.request_window_properties_update();
-        };
+        let win = self.window_adapter_weak.clone();
+        crate::timers::Timer::single_shot(Default::default(), move || {
+            if let Some(window_adapter) = win.upgrade() {
+                WindowInner::from_pub(window_adapter.window()).update_window_properties();
+            };
+        })
     }
 }
 
@@ -351,8 +350,13 @@ impl WindowInner {
                 default_font_size_prop.set(window_adapter.renderer().default_font_size());
             }
         }
-        window_adapter.request_window_properties_update();
         window_adapter.request_redraw();
+        let weak = Rc::downgrade(&window_adapter);
+        crate::timers::Timer::single_shot(Default::default(), move || {
+            if let Some(window_adapter) = weak.upgrade() {
+                WindowInner::from_pub(window_adapter.window()).update_window_properties();
+            }
+        })
     }
 
     /// return the component.
