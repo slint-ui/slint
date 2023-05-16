@@ -4,9 +4,11 @@
 TestCase := Rectangle {
     property <int> xx : 1000;
 
+    property <easing> ea: ease;
+
     animate x {
         duration: xx * 1ms;
-        easing: ease;
+        easing: ea;
     }
 
     property<int> hello: 40;

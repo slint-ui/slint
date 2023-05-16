@@ -987,6 +987,7 @@ pub(crate) fn generate_component<'id>(
             }
             Type::Struct { .. } => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
+            Type::Easing => property_info::<i_slint_core::animations::EasingCurve>(),
             Type::Percent => property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {
@@ -1003,7 +1004,16 @@ pub(crate) fn generate_component<'id>(
             }
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             Type::Function { .. } => continue,
-            _ => panic!("bad type {:?}", &decl.property_type),
+
+            // These can't be used in properties
+            Type::Invalid
+            | Type::Void
+            | Type::InferredProperty
+            | Type::InferredCallback
+            | Type::Model
+            | Type::PathData
+            | Type::UnitProduct(_)
+            | Type::ElementReference => panic!("bad type {:?}", &decl.property_type),
         };
         custom_properties.insert(
             name.clone(),
