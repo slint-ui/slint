@@ -226,8 +226,6 @@ pub enum CustomEvent {
     /// so that the event loop can run
     #[cfg(target_arch = "wasm32")]
     WakeEventLoopWorkaround,
-    /// Slint internal: Request an update of window properties for the given window id.
-    UpdateWindowProperties(winit::window::WindowId),
     /// Slint internal: Invoke the
     UserEvent(Box<dyn FnOnce() + Send>),
     /// Sent from `WinitWindowAdapter::hide` so that we can check if we should quit the event loop
@@ -240,7 +238,6 @@ impl std::fmt::Debug for CustomEvent {
         match self {
             #[cfg(target_arch = "wasm32")]
             Self::WakeEventLoopWorkaround => write!(f, "WakeEventLoopWorkaround"),
-            Self::UpdateWindowProperties(e) => write!(f, "UpdateWindowProperties({:?})", e),
             Self::UserEvent(_) => write!(f, "UserEvent"),
             Self::WindowHidden => write!(f, "WindowHidden"),
             Self::Exit => write!(f, "Exit"),
@@ -484,14 +481,6 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
     let mut winit_loop = not_running_loop_instance.instance;
     let clipboard = not_running_loop_instance.clipboard;
 
-    // Applying the property values of the `Window` item in .slint files to the underlying winit Window
-    // may for example set the width but preserve the height of the window. Winit only knows the entire
-    // size, so we need to query the existing size via `inner_size()`. The timing of when to call `inner_size()`
-    // is important to avoid jitter as described in https://github.com/slint-ui/slint/issues/1269 . We want to
-    // process pending resize events first. That is why this vector collects the window ids of windows that
-    // we have scheduled for a sync between the `Window` item properties the the winit window, so that we
-    // apply them at `MainEventsCleared` time.
-    let mut windows_with_pending_property_updates = Vec::new();
     // With winit on Windows and with wasm, calling winit::Window::request_redraw() will not always deliver an
     // Event::RedrawRequested (for example when the mouse cursor is outside of the window). So when we get woken
     // up by the event loop to process new events from the operating system (NewEvents), we take note of all windows
@@ -538,15 +527,6 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                 }
             }
 
-            Event::UserEvent(SlintUserEvent::CustomEvent {
-                event: CustomEvent::UpdateWindowProperties(window_id),
-            }) => {
-                if let Err(insert_pos) =
-                    windows_with_pending_property_updates.binary_search(&window_id)
-                {
-                    windows_with_pending_property_updates.insert(insert_pos, window_id);
-                }
-            }
             Event::UserEvent(SlintUserEvent::CustomEvent { event: CustomEvent::WindowHidden }) => {
                 if QUIT_ON_LAST_WINDOW_CLOSED.load(std::sync::atomic::Ordering::Relaxed) {
                     let window_count = ALL_WINDOWS.with(|windows| {
@@ -599,14 +579,6 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                 });
 
                 corelib::platform::update_timers_and_animations();
-            }
-
-            Event::MainEventsCleared => {
-                for window in
-                    windows_with_pending_property_updates.drain(..).filter_map(window_by_id)
-                {
-                    WindowInner::from_pub(window.window()).update_window_properties();
-                }
             }
 
             Event::RedrawEventsCleared => {

@@ -354,22 +354,6 @@ impl WindowAdapterSealed for WinitWindowAdapter {
         self.with_window_handle(&mut |window| window.request_redraw())
     }
 
-    fn request_window_properties_update(&self) {
-        self.call_with_event_loop(|self_| {
-            self_.with_window_handle(&mut |window| {
-                let window_id = window.id();
-                crate::event_loop::with_window_target(|event_loop| {
-                    event_loop.event_loop_proxy().send_event(crate::SlintUserEvent::CustomEvent {
-                        event: crate::event_loop::CustomEvent::UpdateWindowProperties(window_id),
-                    })
-                })
-                .ok();
-            });
-            Ok(()) // Doesn't matter if the eventloop is already closed, nothing to update then.
-        })
-        .ok();
-    }
-
     fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
         let winit_window = self.winit_window();
 
