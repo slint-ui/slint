@@ -798,18 +798,18 @@ fn maybe_goto_preview(
     }
 }
 
-pub async fn reload_document_impl(
+pub(crate) async fn reload_document_impl(
     mut content: String,
     uri: lsp_types::Url,
     version: i32,
     document_cache: &mut DocumentCache,
-) -> Result<HashMap<Url, Vec<lsp_types::Diagnostic>>, Error> {
-    let path = uri.to_file_path().unwrap();
+) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
+    let Ok(path) = uri.to_file_path() else { return Default::default() };
     if path.extension().map_or(false, |e| e == "rs") {
         content = match extract_rust_macro(content) {
             Some(content) => content,
             // A rust file without a rust macro, just ignore it
-            None => return Ok([(uri, vec![])].into_iter().collect()),
+            None => return [(uri, vec![])].into_iter().collect(),
         };
     }
 
@@ -839,7 +839,7 @@ pub async fn reload_document_impl(
         lsp_diags.entry(uri).or_default().push(util::to_lsp_diag(&d));
     }
 
-    Ok(lsp_diags)
+    lsp_diags
 }
 
 pub async fn reload_document(
@@ -849,7 +849,7 @@ pub async fn reload_document(
     version: i32,
     document_cache: &mut DocumentCache,
 ) -> Result<(), Error> {
-    let lsp_diags = reload_document_impl(content, uri, version, document_cache).await?;
+    let lsp_diags = reload_document_impl(content, uri, version, document_cache).await;
 
     for (uri, diagnostics) in lsp_diags {
         connection.send_notification(
