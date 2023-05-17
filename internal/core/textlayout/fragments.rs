@@ -105,6 +105,13 @@ impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy> Iterator
             end: last_glyph_cluster.glyph_range.end,
         };
 
+        // Make sure that adjacent fragments are adjanced in their byte range:
+        // this assertion should hold: fragment.byte_range.end + fragment.trailing_whitespace_bytes == next_fragment.byte_range.start
+        // That means characters causing mandatory breaks need to be included.
+        if fragment.trailing_mandatory_break {
+            fragment.trailing_whitespace_bytes = next_break_offset - fragment.byte_range.end;
+        }
+
         Some(fragment)
     }
 }
@@ -180,7 +187,7 @@ fn fragment_iterator_forced_break() {
                 glyph_range: Range { start: 0, end: 1 },
                 width: 10.,
                 trailing_whitespace_width: 0.,
-                trailing_whitespace_bytes: 0,
+                trailing_whitespace_bytes: 1,
                 trailing_mandatory_break: true,
             },
             TextFragment {
@@ -209,7 +216,7 @@ fn fragment_iterator_forced_break_multi() {
                 glyph_range: Range { start: 0, end: 1 },
                 width: 10.,
                 trailing_whitespace_width: 0.,
-                trailing_whitespace_bytes: 0,
+                trailing_whitespace_bytes: 1,
                 trailing_mandatory_break: true,
             },
             TextFragment {
@@ -282,7 +289,7 @@ fn fragment_iterator_break_anywhere() {
             glyph_range: Range { start: 0, end: 2 },
             width: 20.,
             trailing_whitespace_width: 0.,
-            trailing_whitespace_bytes: 0,
+            trailing_whitespace_bytes: 1,
             trailing_mandatory_break: true,
         })
     );
@@ -293,7 +300,7 @@ fn fragment_iterator_break_anywhere() {
             glyph_range: Range { start: 3, end: 5 },
             width: 20.,
             trailing_whitespace_width: 0.,
-            trailing_whitespace_bytes: 0,
+            trailing_whitespace_bytes: 1,
             trailing_mandatory_break: true,
         },)
     );
@@ -336,7 +343,7 @@ fn fragment_iterator_leading_nbsp() {
                 glyph_range: Range { start: 0, end: 1 },
                 width: 10.,
                 trailing_whitespace_width: 0.,
-                trailing_whitespace_bytes: 0,
+                trailing_whitespace_bytes: 1,
                 trailing_mandatory_break: true,
             },
             TextFragment {

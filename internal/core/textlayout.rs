@@ -513,6 +513,26 @@ fn test_cursor_position() {
 }
 
 #[test]
+fn test_cursor_position_with_newline() {
+    let font = FixedTestFont;
+    let text = "Hello\nWorld";
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None },
+        max_width: 100. * 10.,
+        max_height: 10.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::WordWrap,
+        overflow: TextOverflow::Clip,
+        single_line: false,
+    };
+
+    assert_eq!(paragraph.cursor_pos_for_byte_offset(5), (5. * 10., 0.));
+}
+
+#[test]
 fn test_byte_offset() {
     let font = FixedTestFont;
     let text = "Hello                    World";
