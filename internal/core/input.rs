@@ -565,19 +565,21 @@ pub struct MouseInputState {
     /// true if the top item of the stack has the mouse grab
     grabbed: bool,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
+    delayed_exit_items: Vec<ItemWeak>,
 }
 
-/// Try to handle the mouse grabber. Return true if the event has handled, or false otherwise
+/// Try to handle the mouse grabber. Return None if the event has been handled, otherwise
+/// return the event that must be handled
 fn handle_mouse_grab(
-    mouse_event: &MouseEvent,
+    mouse_event: MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
     mouse_input_state: &mut MouseInputState,
-) -> bool {
+) -> Option<MouseEvent> {
     if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
-        return false;
+        return Some(mouse_event);
     };
 
-    let mut event = *mouse_event;
+    let mut event = mouse_event;
     let mut intercept = false;
     let mut invalid = false;
 
@@ -616,27 +618,38 @@ fn handle_mouse_grab(
         true
     });
     if invalid {
-        return false;
+        return Some(mouse_event);
     }
 
     let grabber = mouse_input_state.item_stack.last().unwrap().0.upgrade().unwrap();
     let input_result = grabber.borrow().as_ref().input_event(event, window_adapter, &grabber);
     if input_result != InputEventResult::GrabMouse {
         mouse_input_state.grabbed = false;
-        send_exit_events(mouse_input_state, mouse_event.position(), window_adapter);
+        // Return a move event so that the new position can be registered properly
+        return Some(
+            mouse_event
+                .position()
+                .map_or(MouseEvent::Exit, |position| MouseEvent::Moved { position }),
+        );
     }
 
-    true
+    None
 }
 
 fn send_exit_events(
-    mouse_input_state: &MouseInputState,
+    old_input_state: &MouseInputState,
+    new_input_state: &mut MouseInputState,
     mut pos: Option<LogicalPoint>,
     window_adapter: &Rc<dyn WindowAdapter>,
 ) {
+    for it in core::mem::take(&mut new_input_state.delayed_exit_items) {
+        let Some(item) = it.upgrade() else { continue };
+        item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
+    }
+
     let mut clipped = false;
-    for it in mouse_input_state.item_stack.iter() {
-        let item = if let Some(item) = it.0.upgrade() { item } else { break };
+    for (idx, it) in old_input_state.item_stack.iter().enumerate() {
+        let Some(item) = it.0.upgrade() else { break };
         let g = item.geometry();
         let contains = pos.map_or(false, |p| g.contains(p));
         if let Some(p) = pos.as_mut() {
@@ -647,6 +660,13 @@ fn send_exit_events(
                 clipped = true;
             }
             item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
+        } else if new_input_state.item_stack.get(idx).map_or(true, |(x, _)| *x != it.0) {
+            // The item is still under the mouse, but no longer in the item stack. We should also sent the exit event, unless we delay it
+            if new_input_state.delayed.is_some() {
+                new_input_state.delayed_exit_items.push(it.0.clone());
+            } else {
+                item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
+            }
         }
     }
 }
@@ -664,9 +684,7 @@ pub fn process_mouse_input(
         mouse_input_state = process_delayed_event(window_adapter, mouse_input_state);
     }
 
-    if handle_mouse_grab(&mouse_event, window_adapter, &mut mouse_input_state) {
-        return mouse_input_state;
-    }
+    let Some(mouse_event) = handle_mouse_grab(mouse_event, window_adapter, &mut mouse_input_state) else { return mouse_input_state };
 
     let mut result = MouseInputState::default();
     let root = ItemRc::new(component, 0);
@@ -675,7 +693,7 @@ pub fn process_mouse_input(
         // Keep the delayed event
         return mouse_input_state;
     }
-    send_exit_events(&mouse_input_state, mouse_event.position(), window_adapter);
+    send_exit_events(&mouse_input_state, &mut result, mouse_event.position(), window_adapter);
 
     result
 }

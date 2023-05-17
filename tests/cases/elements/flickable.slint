@@ -99,7 +99,7 @@ assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), 0);
 // Release almost immediately
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(178.0, 173.0), button: PointerEventButton::Left });
-//assert!(!instance.get_inner_ta_pressed());
+assert!(!instance.get_inner_ta_pressed());
 assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), 18_00013);
 assert_eq!(instance.get_offset_x(), 0.);
@@ -125,8 +125,8 @@ assert_eq!(instance.get_offset_y(), 0.);
 
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 120.0) });
 assert!(!instance.get_inner_ta_pressed()); // We should no longer be pressed
-//FIXME: we currently loose the has-hover when the flickable is flicking
-// assert!(instance.get_inner_ta_has_hover()); // We still have the mouse
+// no hover when the flickable is flicking
+assert!(!instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), -1); // not clicked
 assert_eq!(instance.get_offset_x(), 75.);
 assert_eq!(instance.get_offset_y(), 55.);
@@ -135,7 +135,7 @@ slint_testing::mock_elapsed_time(10000);
 
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 120.0), button: PointerEventButton::Left });
 assert!(!instance.get_inner_ta_pressed());
-//FIXME: assert!(instance.get_inner_ta_has_hover());
+assert!(instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), -1); // not clicked
 assert_eq!(instance.get_offset_x(), 75.);
 assert_eq!(instance.get_offset_y(), 55.);
@@ -144,7 +144,7 @@ instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPo
 slint_testing::mock_elapsed_time(1000);
 
 assert!(!instance.get_inner_ta_pressed());
-//FIXME: assert!(!instance.get_inner_ta_has_hover());
+assert!(!instance.get_inner_ta_has_hover());
 assert_eq!(instance.get_clicked(), -1);
 assert!((instance.get_offset_x() - 75.).abs() < 5.); // only small animation on release
 assert!((instance.get_offset_y() - 55.).abs() < 5.);

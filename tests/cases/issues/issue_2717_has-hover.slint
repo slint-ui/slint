@@ -1,0 +1,113 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 600px;
+
+    out property has-hover1 <=> area.has-hover;
+    out property has-hover2 <=> secondArea.has-hover;
+    out property has-hover3 <=> area3.has-hover;
+
+    Rectangle {
+        width: 100px;
+        height: 100px;
+        background: area.has-hover ? red : orange;
+        y: 100px;
+        x: 220px;
+        opacity: 0.75;
+        area := TouchArea {}
+    }
+
+    Rectangle {
+        width: 100px;
+        height: 100px;
+        background: secondArea.has-hover ? blue : cyan;
+        opacity: 0.75;
+        y: 100px;
+        x: 280px;
+        secondArea := TouchArea {
+            Rectangle {
+                width: 100px;
+                height: 100px;
+                background: area3.has-hover ? green : lime;
+                opacity: 0.75;
+                x: 80px;
+                area3 := TouchArea {}
+            }
+
+        }
+    }
+}
+
+/*
+```rust
+use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton}};
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_has_hover1());
+assert!(!instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 50.0) });
+assert!(!instance.get_has_hover1());
+assert!(!instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(240.0, 150.0) });
+assert!(instance.get_has_hover1());
+assert!(!instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(290.0, 150.0) });
+// We Since the touch area are not children, only one is active
+assert!(!instance.get_has_hover1());
+assert!(instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(330.0, 150.0) });
+assert!(!instance.get_has_hover1());
+assert!(instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(370.0, 150.0) });
+assert!(!instance.get_has_hover1());
+// here 2 and 3 are both active since one is a children of the other
+assert!(instance.get_has_hover2());
+assert!(instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(390.0, 150.0) });
+assert!(!instance.get_has_hover1());
+assert!(!instance.get_has_hover2());
+assert!(instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(510.0, 150.0) });
+assert!(!instance.get_has_hover1());
+assert!(!instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+
+// Now grab
+let button = PointerEventButton::Left;
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(240.0, 150.0), button });
+assert!(instance.get_has_hover1());
+assert!(!instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(290.0, 150.0) });
+assert!(instance.get_has_hover1());
+assert!(!instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(330.0, 150.0) });
+assert!(instance.get_has_hover1());
+assert!(!instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(370.0, 150.0) });
+assert!(instance.get_has_hover1());
+assert!(!instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(390.0, 150.0) });
+assert!(instance.get_has_hover1());
+assert!(!instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(510.0, 150.0) });
+assert!(instance.get_has_hover1());
+assert!(!instance.get_has_hover2());
+assert!(!instance.get_has_hover3());
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(370.0, 150.0), button });
+assert!(!instance.get_has_hover1());
+assert!(instance.get_has_hover2());
+assert!(instance.get_has_hover3());
+
+```
+*/
