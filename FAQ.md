@@ -16,7 +16,7 @@
     - [If I link my program with Slint GPLv3, does it mean that I have to license my program under the GPLv3, too?](#if-i-link-my-program-with-slint-gplv3-does-it-mean-that-i-have-to-license-my-program-under-the-gplv3-too)
     - [My MIT-licensed program links to Slint GPLv3. Can someone fork my program to build and distribute a proprietary program?](#my-mit-licensed-program-links-to-slint-gplv3-can-someone-fork-my-program-to-build-and-distribute-a-proprietary-program)
     - [My MIT-licensed program links to Slint GPLv3. How can I convey to someone that they can distribute my program as part of a proprietary licensed program?](#my-mit-licensed-program-links-to-slint-gplv3-how-can-i-convey-to-someone-that-they-can-distribute-my-program-as-part-of-a-proprietary-licensed-program)
-    - [Scenario: My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?](#scenario-my-mit-licensed-program-links-to-slint-gplv3-under-what-license-can-i-release-the-binary-of-my-program)
+    - [My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?](#my-mit-licensed-program-links-to-slint-gplv3-under-what-license-can-i-release-the-binary-of-my-program)
     - [Scenario: Alice is a software developer, she wants her code to be licensed under MIT. She is developing an application "AliceApp" that links to Slint GPLv3. Alice also wants to allow that Bob, a user of AliceApp, can fork AliceApp into a proprietary application called BobApp](#scenario-alice-is-a-software-developer-she-wants-her-code-to-be-licensed-under-mit-she-is-developing-an-application-aliceapp-that-links-to-slint-gplv3-alice-also-wants-to-allow-that-bob-a-user-of-aliceapp-can-fork-aliceapp-into-a-proprietary-application-called-bobapp)
       - [Can Alice use the MIT license header to the source code of AliceApp application?](#can-alice-use-the-mit-license-header-to-the-source-code-of-aliceapp-application)
       - [Under what license should she distribute the AliceApp binary?](#under-what-license-should-she-distribute-the-aliceapp-binary)
@@ -104,7 +104,7 @@ Yes, provided the person distributing the proprietary program acquired a Slint p
 
 You can add a note as part of your license that to distribute a proprietary licensed program, one can acquire a Slint proprietary license or the dependency to Slint should be removed.
 
-#### Scenario: My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?
+#### My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?
 
 While your software modules can remain under the MIT-license, the work as a whole must be licensed under the GPL.
 Hence, the binary must be made available under the GPLv3.
