@@ -6,60 +6,35 @@
 [![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/slint)](https://api.reuse.software/info/github.com/slint-ui/slint)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
 
-Slint is a toolkit to efficiently develop fluid graphical user interfaces for
-any display: embedded devices and desktop applications. We support multiple
+Slint is a GUI toolkit to build native user interfaces. Slint supports multiple
 programming languages, such as Rust, C++, and JavaScript. We invite you
 to use Slint and be part of its community.
 
-## Design Goals
+The name *Slint* is derived from our design goals:
 
-We use the following design goals as a guide when developing Slint:
-
-- **Scalable**: Run on any screen connected to a device, from desktop computers
-    to low end embedded systems.
-- **Lightweight**: Fit into a few hundred kilobytes of RAM and require little
-    processing power.
-- **Intuitive**: Both developers and designers should feel productive and enjoy
-    the design and development process.
-    The APIs should be consistent and easy to use, no matter the target language.
+- **Scalable**: Support responsive UI design, cross-platform across operating
+    systems and processor architectures and support multiple programming languages.
+- **Lightweight**: Slint runtime should fit into a few hundred kilobytes of RAM
+    and require little processing power.
+- **Intuitive**: APIs should be consistent and easy to use, no matter which
+    programming language is used to integrate the UI with the business logic.
 - **Native**: Slint apps should match the users' expectations of a native
     application. Various target platforms such as embedded devices, desktops,
     mobile and web should be supported so that both the user and the developer
     feel comfortable on their platform of choice.
-
-## The .slint Markup Language
-
-Slint comes with a markup language that is specifically designed for user
-interfaces. This language is easy to learn, to read and write, and provides
-a powerful way to describe graphical elements, their placement, and the flow of
-data through the different states. It's a familiar syntax to describe the
-hierarchy of elements and property bindings.
-
-Here's the obligatory "Hello World":
-
-```slint
-export component HelloWorld inherits Window {
-    width: 400px;
-    height: 400px;
-
-    Text {
-       y: parent.width / 2;
-       x: parent.x + 200px;
-       text: "Hello, world";
-       color: blue;
-    }
-}
-```
+- **Tool Support**: Provide excellent tooling so that designers and developers
+    feel productive and enjoy the UI design and development process.
 
 ## Current Status
 
-Slint is in active development. The state of the toolkit for each platform is as
+Slint is in active development. The state of support for each platform is as
 follows:
 
-- **Embedded**: *Ready* Slint is already being used in production projects by
-    customers (running on an Arm processor with Linux).
-- **Microcontrollers** (MCU): *Ready*. Slint apps can run on MCUs with less than
-    300K of RAM.
+- **Embedded**: *Ready* Slint runtime requires less than 300KiB of RAM. Slint is
+    being used by customers in production projects on embedded devices running
+    embedded Linux and Windows. Slint can run on different processor architectures
+    such as ARM Cortex M, ESP32, STM32 from the MCU category to ARM Cortex A,
+    Intel x86 from the MPU category.
 - **Desktop**: *In Progress*. While Slint is a good fit on Windows, Linux and Mac,
     we are working on improving the platform support in subsequent releases.
 - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile
@@ -77,10 +52,28 @@ readers is in place, but currently requires the Qt backend.
 We're aware that more work is needed to get best-of-class support for users
 with special needs.
 
-### Stay up to date
+## The .slint Markup Language
 
-Follow [@slint-ui](https://twitter.com/slint_ui) on Twitter or keep an eye out
-for our [🥠 Weekly Status Updates](https://slint-ui.com/thisweek/).
+The UI is defined in a Domain Specific Language that is declarative, easy to use,
+intuitive, and provides a powerful way to describe graphical elements, their
+placement, their hierarchy, property bindings, and the flow of data through the
+different states.
+
+Here's the obligatory "Hello World":
+
+```slint
+export component HelloWorld inherits Window {
+    width: 400px;
+    height: 400px;
+
+    Text {
+       y: parent.width / 2;
+       x: parent.x + 200px;
+       text: "Hello, world";
+       color: blue;
+    }
+}
+```
 
 ## Documentation
 
@@ -106,8 +99,6 @@ Refer to the README of each language directory in the `api` folder:
 
 [Video of Slint on RaspberryPi](https://www.youtube.com/watch?v=_BDbNHrjK7g)
 
-### MCU
-
 | STM32                                                                  | RP2040                                                                  |
 | ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | [Video of Slint on STM32](https://www.youtube.com/watch?v=NNNOJJsOAis) | [Video of Slint on RP2040](https://www.youtube.com/watch?v=dkBwNocItGs) |
@@ -118,7 +109,7 @@ Refer to the README of each language directory in the `api` folder:
 | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | [![Screenshot of the Printer Demo](https://slint-ui.com/resources/printerdemo_screenshot.png "Printer Demo")](https://slint-ui.com/demos/printerdemo/) | [![Screenshot of the Slide Puzzle](https://slint-ui.com/resources/puzzle_screenshot.png "Slide Puzzle")](https://slint-ui.com/demos/slide_puzzle/) | [![Screenshot of the Energy Monitor Demo](https://slint-ui.com/resources/energy-monitor-screenshot.png "Energy Monitor Demo")](https://slint-ui.com/demos/energy-monitor/) | [![Screenshot of the Gallery Demo](https://slint-ui.com/resources/gallery_screenshot.png "Gallery Demo")](https://slint-ui.com/demos/gallery/) |
 
-### Desktop Native Widgets
+### Desktop Widgets
 
 | Windows                                                                                                      | macOS                                                                                                      | Linux                                                                                                        |
 | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -207,13 +198,11 @@ request to add yours)
 
 ## License
 
-Slint is available under either a [proprietary license](LICENSES/LicenseRef-Slint-commercial.md)
-or [GNU GPLv3](LICENSES/GPL-3.0-only.txt)
+Slint is available under a [royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-1.0.md)
+or [GNU GPLv3](LICENSES/GPL-3.0-only.txt), at your choice.
 
-The proprietary license is provided free-of-charge in exchange for (1) consent that we can showcase the application, (2) attribution of Slint in the application and (3) feedback to improve Slint.
-Check out our [ambassador program](https://slint-ui.com/ambassador-program.html).
-
-See also the [Licensing FAQ](FAQ.md#licensing)
+Please visit our website [https://slint-ui.com](https://slint-ui.com) or contact
+us at [info@slint-ui.com](mailto:info@slint-ui.com) for other license options.
 
 ## Contributions
 
@@ -221,8 +210,7 @@ We welcome your contributions: in the form of code, bug reports or feedback.
 
 - If you see an [RFC tag](https://github.com/slint-ui/slint/labels/rfc) on an
   issue, feel free to chime in.
-- For contribution guidelines see [CONTRIBUTING.md](CONTRIBUTING.md). The
-  dual-licensing of Slint requires the contributor to accept our CLA.
+- For contribution guidelines see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Frequently Asked Questions
 
@@ -237,6 +225,13 @@ way to UI/UX designers. We believe that software grows organically and keeping
 it open source is the best way to sustain that growth. Our team members are
 located remotely in Germany.
 
+### Stay up to date
+
+- Follow [@slint-ui](https://twitter.com/slint_ui) on Twitter 
+- Follow [@slint@fosstodon.org](https://mastodon.social/@slint@fosstodon.org) on Mastodon
+- Follow [@slint-ui](https://www.linkedin.com/company/slint-ui/) on LinkedIn
+- Keep an eye out for our [🥠 Weekly Status Updates](https://slint-ui.com/thisweek/).
+
 ## Contact us
 
 Feel free to join [Github discussions](https://github.com/slint-ui/slint/discussions)
@@ -246,5 +241,4 @@ to report public suggestions or bugs.
 We chat in [our Mattermost instance](https://chat.slint-ui.com) where you are
 welcome to listen in or ask your questions.
 
-You can of course also tweet at [@slint-ui](https://twitter.com/slint_ui) or
-contact us privately via email to [info@slint-ui.com](mailto://info@slint-ui.com).
+You can of course also contact us privately via email to [info@slint-ui.com](mailto://info@slint-ui.com).
