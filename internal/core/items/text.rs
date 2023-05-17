@@ -23,7 +23,7 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, Scal
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::{WindowAdapter, WindowInner};
+use crate::window::{InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -554,13 +554,15 @@ impl Item for TextInput {
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
-                window_adapter.enable_input_method(self.input_type());
+                window_adapter.input_method_request(InputMethodRequest::Enable {
+                    input_type: self.input_type(),
+                });
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
                 self.hide_cursor();
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
-                window_adapter.disable_input_method();
+                window_adapter.input_method_request(InputMethodRequest::Disable {});
             }
         }
         FocusEventResult::FocusAccepted
@@ -875,7 +877,9 @@ impl TextInput {
         let cursor_point_relative =
             self.cursor_rect_for_byte_offset(cursor_position, window_adapter).to_box2d().max;
         let cursor_point_absolute = self_rc.map_to_window(cursor_point_relative);
-        window_adapter.set_ime_position(cursor_point_absolute);
+        window_adapter.input_method_request(InputMethodRequest::SetPosition {
+            position: crate::api::LogicalPosition::from_euclid(cursor_point_absolute.into()),
+        });
     }
 
     fn select_and_delete(

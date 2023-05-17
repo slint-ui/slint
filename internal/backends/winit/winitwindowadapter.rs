@@ -20,7 +20,7 @@ use corelib::component::ComponentRc;
 use corelib::items::MouseCursor;
 
 use corelib::layout::Orientation;
-use corelib::lengths::{LogicalLength, LogicalPoint, LogicalSize};
+use corelib::lengths::{LogicalLength, LogicalSize};
 use corelib::platform::PlatformError;
 use corelib::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use corelib::Property;
@@ -627,35 +627,39 @@ impl WindowAdapterSealed for WinitWindowAdapter {
         self.renderer().as_core_renderer()
     }
 
-    fn enable_input_method(&self, _it: corelib::items::InputType) {
-        #[cfg(target_arch = "wasm32")]
-        {
-            let mut vkh = self.virtual_keyboard_helper.borrow_mut();
-            let h = vkh.get_or_insert_with(|| {
-                let canvas = self.renderer().html_canvas_element();
-                super::wasm_input_helper::WasmInputHelper::new(self.self_weak.clone(), canvas)
-            });
-            h.show();
-        }
+    fn input_method_request(&self, request: corelib::window::InputMethodRequest) {
         #[cfg(not(target_arch = "wasm32"))]
         self.with_window_handle(&mut |winit_window| {
-            winit_window.set_ime_allowed(matches!(_it, corelib::items::InputType::Text))
+            match request {
+                corelib::window::InputMethodRequest::Enable { input_type, .. } => winit_window
+                    .set_ime_allowed(matches!(input_type, corelib::items::InputType::Text)),
+                corelib::window::InputMethodRequest::Disable { .. } => {
+                    winit_window.set_ime_allowed(false)
+                }
+                corelib::window::InputMethodRequest::SetPosition { position, .. } => {
+                    winit_window.set_ime_position(position_to_winit(&position.into()))
+                }
+                _ => {}
+            };
         });
-    }
 
-    fn disable_input_method(&self) {
         #[cfg(target_arch = "wasm32")]
-        if let Some(h) = &*self.virtual_keyboard_helper.borrow() {
-            h.hide()
-        }
-        #[cfg(not(target_arch = "wasm32"))]
-        self.with_window_handle(&mut |winit_window| winit_window.set_ime_allowed(false));
-    }
-
-    fn set_ime_position(&self, ime_pos: LogicalPoint) {
-        self.with_window_handle(&mut |winit_window| {
-            winit_window.set_ime_position(winit::dpi::LogicalPosition::new(ime_pos.x, ime_pos.y))
-        })
+        match request {
+            corelib::window::InputMethodRequest::Enable { .. } => {
+                let mut vkh = self.virtual_keyboard_helper.borrow_mut();
+                let h = vkh.get_or_insert_with(|| {
+                    let canvas = self.renderer().html_canvas_element();
+                    super::wasm_input_helper::WasmInputHelper::new(self.self_weak.clone(), canvas)
+                });
+                h.show();
+            }
+            corelib::window::InputMethodRequest::Disable { .. } => {
+                if let Some(h) = &*self.virtual_keyboard_helper.borrow() {
+                    h.hide()
+                }
+            }
+            _ => {}
+        };
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

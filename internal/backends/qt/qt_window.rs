@@ -1710,28 +1710,30 @@ impl WindowAdapterSealed for QtWindow {
         }};
     }
 
-    fn enable_input_method(&self, input: i_slint_core::items::InputType) {
-        let enable: bool = matches!(input, i_slint_core::items::InputType::Text);
+    fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
         let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*", enable as "bool"] {
-            widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, enable);
-        }};
-    }
-
-    fn disable_input_method(&self) {
-        let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*"] {
-            widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, false);
-        }};
-    }
-
-    fn set_ime_position(&self, position: LogicalPoint) {
-        let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
-        let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "SlintWidget*", pos as "QPoint"]  {
-            widget_ptr->ime_position = pos;
-            QGuiApplication::inputMethod()->update(Qt::ImQueryInput);
-        }};
+        match request {
+            i_slint_core::window::InputMethodRequest::Enable { input_type, .. } => {
+                let enable: bool = matches!(input_type, i_slint_core::items::InputType::Text);
+                cpp! {unsafe [widget_ptr as "QWidget*", enable as "bool"] {
+                    widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, enable);
+                }};
+            }
+            i_slint_core::window::InputMethodRequest::Disable { .. } => {
+                cpp! {unsafe [widget_ptr as "QWidget*"] {
+                    widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, false);
+                }};
+            }
+            i_slint_core::window::InputMethodRequest::SetPosition { position, .. } => {
+                let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
+                let widget_ptr = self.widget_ptr();
+                cpp! {unsafe [widget_ptr as "SlintWidget*", pos as "QPoint"]  {
+                    widget_ptr->ime_position = pos;
+                    QGuiApplication::inputMethod()->update(Qt::ImQueryInput);
+                }};
+            }
+            _ => {}
+        }
     }
 
     fn renderer(&self) -> &dyn Renderer {
