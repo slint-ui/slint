@@ -274,12 +274,16 @@ pub unsafe extern "C" fn slint_skia_renderer_new(
     let window_adapter =
         core::mem::transmute::<&WindowAdapterRcOpaque, &Rc<dyn WindowAdapter>>(window_adapter);
     let weak = Rc::downgrade(window_adapter);
-    Box::into_raw(Box::new(SkiaRenderer::new(
-        weak,
-        &*(handle_opaque as *const CppRawHandle),
-        &*(handle_opaque as *const CppRawHandle),
-        PhysicalSize { width: size.width, height: size.height },
-    ))) as SkiaRendererOpaque
+    let boxed_renderer: Box<SkiaRenderer> = Box::new(
+        SkiaRenderer::new(
+            weak,
+            &*(handle_opaque as *const CppRawHandle),
+            &*(handle_opaque as *const CppRawHandle),
+            PhysicalSize { width: size.width, height: size.height },
+        )
+        .unwrap(),
+    );
+    Box::into_raw(boxed_renderer) as SkiaRendererOpaque
 }
 
 #[no_mangle]
