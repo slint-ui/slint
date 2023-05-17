@@ -254,16 +254,12 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
     }
 
     /// Returns the bytes offset for the given position
-    pub fn byte_offset_for_position(
-        &self,
-        (pos_x, pos_y): (Font::Length, Font::Length),
-        font_height: Font::Length,
-    ) -> usize {
+    pub fn byte_offset_for_position(&self, (pos_x, pos_y): (Font::Length, Font::Length)) -> usize {
         let byte_offset = 0;
         let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
 
         match self.layout_lines(|glyphs, _, line_y, line| {
-            if pos_y > line_y + font_height {
+            if pos_y >= line_y + self.layout.font.height() {
                 return core::ops::ControlFlow::Continue(());
             }
 
@@ -535,27 +531,27 @@ fn test_byte_offset() {
         single_line: false,
     };
 
-    assert_eq!(paragraph.byte_offset_for_position((0., 0.), 5.), 0);
+    assert_eq!(paragraph.byte_offset_for_position((0., 0.)), 0);
 
     let e_offset = text
         .char_indices()
         .find_map(|(offset, ch)| if ch == 'e' { Some(offset) } else { None })
         .unwrap();
 
-    assert_eq!(paragraph.byte_offset_for_position((14., 0.), 5.), e_offset);
+    assert_eq!(paragraph.byte_offset_for_position((14., 0.)), e_offset);
 
     let l_offset = text
         .char_indices()
         .find_map(|(offset, ch)| if ch == 'l' { Some(offset) } else { None })
         .unwrap();
-    assert_eq!(paragraph.byte_offset_for_position((15., 0.), 5.), l_offset);
+    assert_eq!(paragraph.byte_offset_for_position((15., 0.)), l_offset);
 
     let w_offset = text
         .char_indices()
         .find_map(|(offset, ch)| if ch == 'W' { Some(offset) } else { None })
         .unwrap();
 
-    assert_eq!(paragraph.byte_offset_for_position((10., 10.), 5.), w_offset + 1);
+    assert_eq!(paragraph.byte_offset_for_position((10., 10.)), w_offset + 1);
 
     let o_offset = text
         .char_indices()
@@ -563,7 +559,7 @@ fn test_byte_offset() {
         .find_map(|(offset, ch)| if ch == 'o' { Some(offset) } else { None })
         .unwrap();
 
-    assert_eq!(paragraph.byte_offset_for_position((15., 10.), 5.), o_offset + 1);
+    assert_eq!(paragraph.byte_offset_for_position((15., 10.)), o_offset + 1);
 
     let d_offset = text
         .char_indices()
@@ -571,7 +567,7 @@ fn test_byte_offset() {
         .find_map(|(offset, ch)| if ch == 'd' { Some(offset) } else { None })
         .unwrap();
 
-    assert_eq!(paragraph.byte_offset_for_position((40., 10.), 5.), d_offset);
+    assert_eq!(paragraph.byte_offset_for_position((40., 10.)), d_offset);
 
     let end_offset = end_helper_text
         .char_indices()
@@ -579,5 +575,5 @@ fn test_byte_offset() {
         .find_map(|(offset, ch)| if ch == '!' { Some(offset) } else { None })
         .unwrap();
 
-    assert_eq!(paragraph.byte_offset_for_position((45., 10.), 5.), end_offset);
+    assert_eq!(paragraph.byte_offset_for_position((45., 10.)), end_offset);
 }

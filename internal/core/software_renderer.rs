@@ -339,8 +339,7 @@ impl Renderer for SoftwareRenderer {
                     single_line: false,
                 };
 
-                return paragraph
-                    .byte_offset_for_position((pos.x_length(), pos.y_length()), pf.height());
+                return paragraph.byte_offset_for_position((pos.x_length(), pos.y_length()));
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
@@ -358,8 +357,7 @@ impl Renderer for SoftwareRenderer {
                     single_line: false,
                 };
 
-                return paragraph
-                    .byte_offset_for_position((pos.x_length(), pos.y_length()), vf.height());
+                return paragraph.byte_offset_for_position((pos.x_length(), pos.y_length()));
             }
         };
     }
