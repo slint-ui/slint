@@ -188,6 +188,12 @@ class SoftwareRenderer : public AbstractRenderer
 {
     mutable cbindgen_private::SoftwareRendererOpaque inner;
 
+    /// \private
+    cbindgen_private::RendererPtr renderer_handle() const override
+    {
+        return cbindgen_private::slint_software_renderer_handle(inner);
+    }
+
 public:
     virtual ~SoftwareRenderer() { cbindgen_private::slint_software_renderer_drop(inner); };
     SoftwareRenderer(const SoftwareRenderer &) = delete;
@@ -195,12 +201,6 @@ public:
     SoftwareRenderer(int max_buffer_age)
     {
         inner = cbindgen_private::slint_software_renderer_new(max_buffer_age);
-    }
-
-    /// \private
-    cbindgen_private::RendererPtr renderer_handle() const override
-    {
-        return cbindgen_private::slint_software_renderer_handle(inner);
     }
 
     /// Render the window scene into a pixel buffer
@@ -299,6 +299,12 @@ class SkiaRenderer : public AbstractRenderer
 {
     mutable cbindgen_private::SkiaRendererOpaque inner;
 
+    /// \private
+    cbindgen_private::RendererPtr renderer_handle() const override
+    {
+        return cbindgen_private::slint_skia_renderer_handle(inner);
+    }
+
 public:
     virtual ~SkiaRenderer() { cbindgen_private::slint_skia_renderer_drop(inner); }
     SkiaRenderer(const SkiaRenderer &) = delete;
@@ -308,12 +314,6 @@ public:
     SkiaRenderer(const NativeWindowHandle &window_handle, PhysicalSize initial_size)
     {
         inner = cbindgen_private::slint_skia_renderer_new(window_handle.inner, initial_size);
-    }
-
-    /// \private
-    cbindgen_private::RendererPtr renderer_handle() const override
-    {
-        return cbindgen_private::slint_skia_renderer_handle(inner);
     }
 
     void render(const Window &window, PhysicalSize size) const
