@@ -17,7 +17,7 @@ namespace slint_platform = slint::experimental::platform;
 struct MyPlatform : public slint_platform::Platform
 {
     mutable std::unique_ptr<MyWindowAdapter> the_window;
-    std::unique_ptr<slint_platform::AbstractWindowAdapter> create_window_adapter() const override
+    std::unique_ptr<slint_platform::WindowAdapter> create_window_adapter() const override
     {
         return std::move(the_window);
     }

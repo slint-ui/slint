@@ -49,17 +49,19 @@ static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *w
 #endif
 }
 
-class MyWindow : public QWindow, public slint_platform::WindowAdapter<slint_platform::SkiaRenderer>
+class MyWindow : public QWindow, public slint_platform::WindowAdapter
 {
+    std::unique_ptr<slint_platform::SkiaRenderer> m_renderer;
 
 public:
-    MyWindow(QWindow *parentWindow = nullptr)
-        : QWindow(parentWindow), slint_platform::WindowAdapter<slint_platform::SkiaRenderer>()
+    MyWindow(QWindow *parentWindow = nullptr) : QWindow(parentWindow)
     {
-        set_renderer(std::make_unique<slint_platform::SkiaRenderer>(
+        m_renderer = std::make_unique<slint_platform::SkiaRenderer>(
                 window_handle_for_qt_window(this),
-                slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) })));
+                slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) }));
     }
+
+    slint_platform::AbstractRenderer &renderer() const override { return *m_renderer.get(); }
 
     /*void keyEvent(QKeyEvent *event) override
     {
@@ -71,7 +73,7 @@ public:
         slint_platform::update_timers_and_animations();
 
         auto windowSize = slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) });
-        renderer().render(window(), windowSize);
+        m_renderer->render(window(), windowSize);
 
         if (has_active_animations()) {
             requestUpdate();
@@ -92,11 +94,11 @@ public:
     {
         auto window = const_cast<QWindow *>(static_cast<const QWindow *>(this));
         window->QWindow::show();
-        renderer().show();
+        m_renderer->show();
     }
     void hide() const override
     {
-        renderer().hide();
+        m_renderer->hide();
         const_cast<MyWindow *>(this)->QWindow::hide();
     }
     slint::PhysicalSize physical_size() const override
@@ -111,9 +113,9 @@ public:
     {
         auto windowSize = slint::PhysicalSize(
                 { uint32_t(ev->size().width()), uint32_t(ev->size().height()) });
-        renderer().resize(windowSize);
+        m_renderer->resize(windowSize);
         float scale_factor = devicePixelRatio();
-        WindowAdapter<slint_platform::SkiaRenderer>::dispatch_resize_event(
+        WindowAdapter::dispatch_resize_event(
                 slint::LogicalSize({ float(windowSize.width) / scale_factor,
                                      float(windowSize.height) / scale_factor }));
     }
@@ -152,7 +154,7 @@ struct MyPlatform : public slint_platform::Platform
 
     std::unique_ptr<QWindow> parentWindow;
 
-    std::unique_ptr<slint_platform::AbstractWindowAdapter> create_window_adapter() const override
+    std::unique_ptr<slint_platform::WindowAdapter> create_window_adapter() const override
     {
         return std::make_unique<MyWindow>(parentWindow.get());
     }

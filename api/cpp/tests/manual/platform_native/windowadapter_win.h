@@ -19,10 +19,11 @@ struct Geometry
     uint32_t height = 0;
 };
 
-struct MyWindowAdapter : public slint_platform::WindowAdapter<slint_platform::SkiaRenderer>
+struct MyWindowAdapter : public slint_platform::WindowAdapter
 {
     HWND hwnd;
     Geometry geometry = { 0, 0, 600, 300 };
+    std::unique_ptr<slint_platform::SkiaRenderer> m_renderer;
 
     MyWindowAdapter(HWND winId)
     {
@@ -55,12 +56,14 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter<slint_platform::Sk
                               NULL // Additional application data
         );
 
-        set_renderer(std::make_unique<slint_platform::SkiaRenderer>(
+        m_renderer = std::make_unique<slint_platform::SkiaRenderer>(
                 slint_platform::NativeWindowHandle::from_win32(hwnd, hInstance),
-                slint::PhysicalSize({ 600, 300 })));
+                slint::PhysicalSize({ 600, 300 }));
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
     }
+
+    slint_platform::AbstractRenderer &renderer() const override { return *m_renderer.get(); }
 
     slint::PhysicalSize physical_size() const override
     {
@@ -72,20 +75,20 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter<slint_platform::Sk
     void show() const override
     {
         ShowWindow(hwnd, SW_SHOWNORMAL);
-        renderer().show();
+        m_renderer->show();
     }
 
     void hide() const override
     {
         // TODO: destroy window
-        renderer().hide();
+        m_renderer->hide();
     }
 
     void request_redraw() const override { InvalidateRect(hwnd, nullptr, false); }
 
     void render()
     {
-        renderer().render(window(), physical_size());
+        m_renderer->render(window(), physical_size());
         if (has_active_animations())
             request_redraw();
     }
@@ -93,7 +96,7 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter<slint_platform::Sk
     void resize(uint32_t width, uint32_t height)
     {
         slint::PhysicalSize windowSize({ width, height });
-        renderer().resize(windowSize);
+        m_renderer->resize(windowSize);
         dispatch_resize_event(slint::LogicalSize({ (float)width, (float)height }));
     }
 
