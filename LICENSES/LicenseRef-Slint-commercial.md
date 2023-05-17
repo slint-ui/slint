@@ -1,8 +1,8 @@
 # Slint Software License Agreement
 
-Version 1.2
+Version 2.0
 
-Copyright © 2022 SixtyFPS GmbH <https://slint-ui.com/imprint.html>
+Copyright © 2023 SixtyFPS GmbH <https://slint-ui.com/imprint.html>
 
 SixtyFPS GmbH with offices at Oranienburger Str. 44, 16540 Hohen Neuendorf,
 Germany (**SixtyFPS**, **us**, **we** or **our**) grants a license to the
@@ -102,55 +102,38 @@ The Licensed Software includes
     date, the license shall not be granted and your Products shall be deemed as
     made in breach of the Agreement ex tunc.
 
-11. Clause 10 above shall not apply if the license has been granted to you under
-    the **Ambassador** program. Instead, the license grants shall be conditional
-    on the fulfillment of the obligations as specified herein. If said
-    obligations are not fulfilled, the license shall not be granted and your
-    Products shall be deemed as made in breach of the Agreement ex tunc. The
-    obligations are as follows:
-
-    1. Showcase: You grant us the right to use your name, logo, and your
-        Products in our marketing materials,
-
-    2. Spread the word: You will include visible notices in the documentation,
-        marketing materials, and social media channels related to your Products
-        that such were built with the Licensed Software,
-
-    3. Give feedback: You agree to provide feedback that would help us improve
-        the Licensed Software. We may use any such feedback in testimonials.
-
-12. The Fees and any other charges under this Agreement shall be paid by
+11. The Fees and any other charges under this Agreement shall be paid by
     you no later than thirty (30) days from the date of the applicable
     invoice from us. A late payment charge of five percent per month over and
     above the interest rate stipulated by applicable law shall be charged on any
     unpaid balances that remain past due and which have not been disputed by you
     in good faith.
 
-13. The Fees and any other charges payable under this Agreement are gross
+12. The Fees and any other charges payable under this Agreement are gross
     amounts but exclusive of any value added tax, use tax, sales tax,
     withholding tax and other taxes, duties or tariffs levied directly for the
     sale, delivery, or use of the Licensed Software pursuant to any applicable
     law.
 
-14. The Parties also agree to all the following conditions:
+13. The Parties also agree to all the following conditions:
 
-    1. You may not remove or alter any copyright, trademark, or other
+    (a) You may not remove or alter any copyright, trademark, or other
         proprietary rights notice contained in any portion of the Licensed
         Software,
 
-    2. Your Products may not compete with the Licensed Software,
+    (b) Your Products may not compete with the Licensed Software,
 
-    3. You will indemnify and hold us, our affiliated companies, and our
+    (c) You will indemnify and hold us, our affiliated companies, and our
         suppliers, harmless from and against any claims or liabilities
         arising out of the use, reproduction, or distribution of your
-        Products, except as set out in clause 14.4. immediately below,
+        Products, except as set out in clause 13.(d) immediately below,
 
-    4. We shall indemnify and hold you harmless from and against any
+    (d) We shall indemnify and hold you harmless from and against any
         claims from third parties alleging that the use of the Licensed Software
         as set out in this Agreement infringes or will infringe such third
         parties' intellectual property rights or other rights,
 
-    5. A Party shall promptly notify the other Party if it receives a claim that
+    (e) A Party shall promptly notify the other Party if it receives a claim that
         the other Party shall or may be obliged to indemnify. The Parties shall
         promptly give each other information and other assistance needed for
         handling the claim. The Indemnifying Party may, at its cost and in its
@@ -168,7 +151,7 @@ The Licensed Software includes
         the indemnifying Party, such consent not to be unreasonably withheld or
         delayed.
 
-15. The Licensed Software is licensed to you "as is". To the maximum extent
+14. The Licensed Software is licensed to you "as is". To the maximum extent
     permitted by applicable law, we on behalf of us and our suppliers,
     disclaim all warranties and conditions, either express or implied,
     including, but not limited to, any implied warranties of merchantability or
@@ -178,7 +161,7 @@ The Licensed Software includes
     state/jurisdiction to state/jurisdiction; as far as legally permissible, you
     waive any such legal rights vis-à-vis us.
 
-16. We shall not under any circumstances be liable to you based on failure of
+15. We shall not under any circumstances be liable to you based on failure of
     the Licensed Software if the failure resulted from your changing of the
     Licensed Software, from your accident, abuse or misapplication, nor shall
     we except in case of gross negligence or willful misconduct be
@@ -187,7 +170,7 @@ The Licensed Software includes
     nor shall any award of damages exceed the total amount you paid to us in
     connection with this Agreement.
 
-17. Each Party shall hold Confidential Information of the other Party, its
+16. Each Party shall hold Confidential Information of the other Party, its
     customers, and licensors in confidence, and without written permission from
     will not disclose to any person or use for its own benefit, any such
     information. **Confidential Information** includes without limitation the
@@ -219,7 +202,7 @@ The Licensed Software includes
         remedies available, each Party shall be entitled to enforcement of such
         obligations by court injunction.
 
-18. During the Term, an independent, certified auditor on our behalf, may, upon
+17. During the Term, an independent, certified auditor on our behalf, may, upon
     its reasonable request, with 30 (thirty) days written notice, and at its
     sole expense, examine your books and records solely with respect to your use
     of the Licensed Software. Any such audit shall be conducted during regular
@@ -232,41 +215,36 @@ The Licensed Software includes
     of the terms of this Agreement, with a copy to you. You shall be provided
     the right to provide comments to the report before it is finalized.
 
-19. If you materially breach this Agreement, we will provide a 60 (sixty) days
+18. If you materially breach this Agreement, we will provide a 60 (sixty) days
     written notice to you during which any such breach(es) may be cured, failing
-    which we will terminate the agreement. You undertake to pay a contractual
-    penalty for each case of negligent breach of this Agreement of EUR 10000
-    (ten thousand euros), which shall not be subject to a judicial right of
-    reduction. We shall in any case be free to assert any further damage/loss or
-    other claims. The amount of contractual penalty shall be offset against
-    claims for damages, if any.
+    which we will terminate the agreement.
 
-20. You may terminate this Agreement at any time for any reason upon 90 (ninety)
+19. You may terminate this Agreement at any time for any reason upon 30 (thirty)
     days notice to us and upon payment of all applicable fees and contractual
     penalties, if any, in connection with the use of the Licensed Software.
 
-21. Both Parties shall comply with all applicable laws and regulations relating
+20. Both Parties shall comply with all applicable laws and regulations relating
     to the Licensed Software in the countries in which the Parties use or modify
     the Licensed Software.
 
-22. All notices and communications between the Parties shall be in writing and
+21. All notices and communications between the Parties shall be in writing and
     shall be deemed given when received. For avoidance of doubt, email is
     considered a written form of communication.
 
-23. This Agreement shall be construed, interpreted, and governed by the laws of
+22. This Agreement shall be construed, interpreted, and governed by the laws of
     the Federal Republic of Germany.
 
-24. No term or condition contained in your purchase order will apply unless
+23. No term or condition contained in your purchase order will apply unless
     expressly accepted by us in writing.
 
-25. You may assign this Agreement, in whole or in part (whether by operation of
+24. You may assign this Agreement, in whole or in part (whether by operation of
     law or otherwise), with prior consent from us, which shall not be
     unreasonably withheld or delayed. We may assign this Agreement or any of its
     rights hereunder or delegate any of its obligations hereunder with prior
     notice to you. Any attempt to assign this Agreement other than in accordance
     with this provision shall be null and void.
 
-26. This Agreement constitutes the complete agreement between the Parties and
+25. This Agreement constitutes the complete agreement between the Parties and
     supersedes all prior or contemporaneous discussions, representations, and
     proposals, written or oral, with respect to the subject matters discussed
     herein. No modification of this Agreement will be effective unless contained
