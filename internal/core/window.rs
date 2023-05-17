@@ -128,17 +128,8 @@ pub trait WindowAdapterSealed {
     // TODO: Make the enum public and make public
     fn set_mouse_cursor(&self, _cursor: MouseCursor) {}
 
-    /// This is called when an editable text input field has received the focus and input methods such as
-    /// virtual keyboard should be shown.
-    // TODO: make a input_method_request that merge these three calls and takes an enum
-    // Make InputType public, and use public LogicalPosition
-    fn enable_input_method(&self, _: crate::items::InputType) {}
-    /// This is called when the widget that needed the keyboard loses focus and any active input method should
-    /// be disabled.
-    fn disable_input_method(&self) {}
-    /// Update the position of the text input area. The provided point is in
-    /// window coordinates (not item relative!).
-    fn set_ime_position(&self, _: LogicalPoint) {}
+    /// This method allow editable input field to communicate with the platform about input methods
+    fn input_method_request(&self, _: InputMethodRequest) {}
 
     /// Return self as any so the backend can upcast
     // TODO: consider using the as_any crate, or deriving the traint from Any to provide a better default
@@ -195,6 +186,31 @@ pub trait WindowAdapterSealed {
     fn is_visible(&self) -> bool {
         false
     }
+}
+
+/// This is the parameter from [`WindowAdapterSealed::input_method_request()`] which lets the editable text input field
+/// communicate with the platform about input methods.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum InputMethodRequest {
+    /// This request is sent when an editable text input field has received the focus and input methods such as
+    /// a virtual keyboard should be shown.
+    #[non_exhaustive]
+    Enable {
+        /// The type of input that is requesting an input method.
+        input_type: crate::items::InputType,
+    },
+    /// This request is sent when the focused text input field lost focus and any active input method should
+    /// be disabled.
+    #[non_exhaustive]
+    Disable {},
+    /// Request an update of the position of the text cursor, so that for example the input method can adjust
+    /// the location of completion popups.
+    #[non_exhaustive]
+    SetPosition {
+        /// The position of the text cursor in window coordinates.
+        position: crate::api::LogicalPosition,
+    },
 }
 
 struct WindowPropertiesTracker {
