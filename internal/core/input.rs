@@ -565,6 +565,7 @@ pub struct MouseInputState {
     /// true if the top item of the stack has the mouse grab
     grabbed: bool,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
+    delayed_exit_items: Vec<ItemWeak>,
 }
 
 /// Try to handle the mouse grabber. Return None if the event has been handled, otherwise
@@ -637,10 +638,15 @@ fn handle_mouse_grab(
 
 fn send_exit_events(
     old_input_state: &MouseInputState,
-    new_input_state: &MouseInputState,
+    new_input_state: &mut MouseInputState,
     mut pos: Option<LogicalPoint>,
     window_adapter: &Rc<dyn WindowAdapter>,
 ) {
+    for it in core::mem::take(&mut new_input_state.delayed_exit_items) {
+        let Some(item) = it.upgrade() else { continue };
+        item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
+    }
+
     let mut clipped = false;
     for (idx, it) in old_input_state.item_stack.iter().enumerate() {
         let Some(item) = it.0.upgrade() else { break };
@@ -649,14 +655,18 @@ fn send_exit_events(
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
         }
-        if !contains
-            || clipped
-            || new_input_state.item_stack.get(idx).map_or(true, |(x, _)| *x != it.0)
-        {
+        if !contains || clipped {
             if crate::item_rendering::is_clipping_item(item.borrow()) {
                 clipped = true;
             }
             item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
+        } else if new_input_state.item_stack.get(idx).map_or(true, |(x, _)| *x != it.0) {
+            // The item is still under the mouse, but no longer in the item stack. We should also sent the exit event, unless we delay it
+            if new_input_state.delayed.is_some() {
+                new_input_state.delayed_exit_items.push(it.0.clone());
+            } else {
+                item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
+            }
         }
     }
 }
@@ -683,7 +693,7 @@ pub fn process_mouse_input(
         // Keep the delayed event
         return mouse_input_state;
     }
-    send_exit_events(&mouse_input_state, &result, mouse_event.position(), window_adapter);
+    send_exit_events(&mouse_input_state, &mut result, mouse_event.position(), window_adapter);
 
     result
 }
