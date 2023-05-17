@@ -621,4 +621,5 @@ fn test_byte_offset() {
         .unwrap();
 
     assert_eq!(paragraph.byte_offset_for_position((45., 10.)), end_offset);
+    assert_eq!(paragraph.byte_offset_for_position((0., 20.)), end_offset);
 }
