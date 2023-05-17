@@ -812,39 +812,63 @@ fn generate_sub_component(
         repeated_element_components.push(rep_inner_component_id);
     }
 
+    eprintln!("Generating embed information");
     for embedded in component.embedded.iter() {
-        let item_index = embedded.embedded_index.as_item_tree_index();
-        let repeater_index = embedded.embedded_index.as_repeater_index();
+        eprintln!(" ---  Start");
+        let item_index = embedded.embed_item_index.as_item_tree_index();
+        let repeater_index = embedded.embed_item_index.as_repeater_index();
+        let embedding_item_index = embedded.embedding_item_index;
 
-        let component = access_member(
+        eprintln!(" ---  Got indices: {item_index}, {repeater_index}, {embedding_item_index}");
+        let embed_item = access_member(
             &llr::PropertyReference::InNativeItem {
                 sub_component_path: vec![],
                 item_index,
-                prop_name: "component".to_string(),
+                prop_name: String::new(),
             },
             &ctx,
         );
+        eprintln!(" ---  embed item created");
+
+        let ensure_updated = {
+            quote! {
+                #embed_item.ensure_updated(&(VRc::downgrade(&VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap()))), #embedding_item_index);
+            }
+        };
+
+        eprintln!(" ---  Ensure updated created");
+        let component_factory = access_member(
+            &llr::PropertyReference::InNativeItem {
+                sub_component_path: vec![],
+                item_index,
+                prop_name: "component-factory".to_string(),
+            },
+            &ctx,
+        );
+        eprintln!(" ---  component factory created");
 
         repeated_visit_branch.push(quote!(
             #repeater_index => {
-                eprintln!("Visiting Embedded subtree");
-                let Some(component) = #component.get() else { return slint::private_unstable_api::re_exports::VisitChildrenResult::CONTINUE; };
-                vtable::VRc::borrow_pin(&component.upgrade().unwrap()).as_ref().visit_children_item(-1, order, visitor)
+                #ensure_updated
+                let Some(component) = #embed_item.component_rc() else { return slint::private_unstable_api::re_exports::VisitChildrenResult::CONTINUE; };
+                vtable::VRc::borrow_pin(&component).as_ref().visit_children_item(-1, order, visitor)
             }
         ));
         repeated_subtree_ranges.push(quote!(
             #repeater_index => {
-                eprintln!("Getting Embedded subtree_range");
-                if #component.get().is_some() { (0..1).into() } else { (0..0).into() }
+                #ensure_updated
+                if #component_factory.get().is_some() { (0..1).into() } else { (0..0).into() }
             }
         ));
         repeated_subtree_components.push(quote!(
             #repeater_index => {
-                eprintln!("Getting Embedded subtree_component");
-                *result = #component.get().clone().unwrap()
+                #ensure_updated
+                *result = #component_factory.get().clone().unwrap()
             }
         ));
+        eprintln!(" ---  DONE");
     }
+    eprintln!("Generating embed information DONE");
 
     let mut accessible_role_branch = vec![];
     let mut accessible_string_property_branch = vec![];
@@ -1674,6 +1698,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         prop_name: &str,
         path: TokenStream,
     ) -> TokenStream {
+        eprintln!("Accessing prop_name in native item {prop_name}");
         let (compo_path, sub_component) =
             follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
         let component_id = inner_component_id(sub_component);

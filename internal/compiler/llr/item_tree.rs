@@ -146,7 +146,9 @@ pub struct RepeatedElement {
 #[derive(Debug)]
 pub struct EmbeddedElement {
     /// The index of the item node in the parent tree
-    pub embedded_index: EmbeddedIndex,
+    pub embed_item_index: EmbeddedIndex,
+    /// The index to a dynamic tree node where the component is supposed to be embedded at
+    pub embedding_item_index: usize,
 }
 
 pub struct Item {
@@ -266,6 +268,15 @@ impl SubComponent {
         let mut count = self.repeated.len();
         for x in self.sub_components.iter() {
             count += x.ty.repeater_count();
+        }
+        count
+    }
+
+    /// total count of embeddings, including in sub components
+    pub fn embedding_count(&self) -> usize {
+        let mut count = self.embedded.len();
+        for x in self.sub_components.iter() {
+            count += x.ty.embedding_count();
         }
         count
     }

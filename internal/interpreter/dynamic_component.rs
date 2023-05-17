@@ -1766,7 +1766,16 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         let mut store = self.get_parent().borrow_mut();
 
         // sanity check self:
-        assert!(matches!(*store, ComponentKind::Root));
+        assert!(match &*store {
+            ComponentKind::Root => true,
+            ComponentKind::SubComponent { parent: p, item_tree_index: i } => {
+                if let Some(pc) = parent_component {
+                    *p == *pc && *i == item_tree_index
+                } else {
+                    false
+                }
+            }
+        });
 
         if let Some(p) = parent_component {
             {

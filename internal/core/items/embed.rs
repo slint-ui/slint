@@ -8,7 +8,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{Item, ItemConsts, ItemRc, RenderingResult};
-use crate::component::ComponentWeak;
+use crate::component::{ComponentRc, ComponentWeak};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
@@ -16,12 +16,14 @@ use crate::input::{
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
+use crate::properties::PropertyTracker;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
 use crate::Property;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
+use core::cell::RefCell;
 use core::pin::Pin;
 use i_slint_core_macros::*;
 
@@ -30,7 +32,7 @@ use i_slint_core_macros::*;
 #[pin]
 /// The implementation of the `Image` element
 pub struct Embed {
-    pub component: Property<Option<ComponentWeak>>,
+    pub component_factory: Property<Option<ComponentWeak>>,
 
     pub x: Property<LogicalLength>,
     pub y: Property<LogicalLength>,
@@ -38,6 +40,41 @@ pub struct Embed {
     pub height: Property<LogicalLength>,
 
     pub cached_rendering_data: CachedRenderingData,
+
+    component_tracker: RefCell<Option<Pin<Box<PropertyTracker>>>>,
+    component_rc: RefCell<Option<ComponentRc>>,
+}
+
+impl Embed {
+    pub fn ensure_updated(self: Pin<&Self>, component: &ComponentWeak, index: usize) {
+        let is_dirty =
+            self.component_tracker.borrow().as_ref().map(|t| t.is_dirty()).unwrap_or(true);
+        if is_dirty {
+            self.update(component, index);
+        }
+    }
+
+    fn update(self: Pin<&Self>, component: &ComponentWeak, index: usize) {
+        eprintln!("Embed::update!");
+        let t =
+            self.component_tracker.take().unwrap_or_else(|| Box::pin(PropertyTracker::default()));
+        t.as_ref().evaluate_as_dependency_root(|| self.component_factory());
+        self.component_tracker.replace(Some(t));
+
+        if let Some(weak) = self.component_factory() {
+            let rc = weak.upgrade();
+            if let Some(rc) = &rc {
+                vtable::VRc::borrow_pin(rc).as_ref().set_parent_node(Some(component), index);
+            }
+            self.component_rc.replace(rc);
+        } else {
+            self.component_rc.replace(None);
+        }
+    }
+
+    pub fn component_rc(self: Pin<&Self>) -> Option<ComponentRc> {
+        self.component_rc.borrow().clone()
+    }
 }
 
 impl Item for Embed {

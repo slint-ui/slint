@@ -77,7 +77,7 @@ impl From<usize> for EmbeddedIndex {
 }
 
 impl EmbeddedIndex {
-    const MAGIC: usize = 1 << (usize::BITS - 1);
+    const MAGIC: usize = u32::MAX as usize + 1;
 
     pub fn as_item_tree_index(&self) -> usize {
         assert!(self.0 >= EmbeddedIndex::MAGIC);
@@ -306,7 +306,7 @@ fn lower_sub_component(
                 // an item_index already.
                 LoweredElement::Embedded { embedded_index: item_index.into() },
             );
-            embedded.push(parent.as_ref().unwrap().clone());
+            embedded.push((parent.as_ref().unwrap().clone(), element.clone()));
             return None;
         }
         match &elem.base_type {
@@ -429,8 +429,10 @@ fn lower_sub_component(
     });
     sub_component.repeated =
         repeated.into_iter().map(|elem| lower_repeated_component(&elem, &ctx)).collect();
-    sub_component.embedded =
-        embedded.into_iter().map(|elem| lower_embedded_component(&elem, &ctx)).collect();
+    sub_component.embedded = embedded
+        .into_iter()
+        .map(|(embed, child)| lower_embedded_component(&embed, &child, &ctx))
+        .collect();
     for s in &mut sub_component.sub_components {
         s.repeater_offset += sub_component.repeated.len();
     }
@@ -557,10 +559,18 @@ fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> Repeat
     }
 }
 
-fn lower_embedded_component(elem: &ElementRc, _ctx: &ExpressionContext) -> EmbeddedElement {
-    let e = elem.borrow();
+fn lower_embedded_component(
+    embed: &ElementRc,
+    child: &ElementRc,
+    _ctx: &ExpressionContext,
+) -> EmbeddedElement {
+    let e = embed.borrow();
+    let c = child.borrow();
 
-    EmbeddedElement { embedded_index: e.item_index.get().copied().unwrap().into() }
+    EmbeddedElement {
+        embed_item_index: e.item_index.get().copied().unwrap().into(),
+        embedding_item_index: c.item_index.get().copied().unwrap(),
+    }
 }
 
 fn lower_popup_component(component: &Rc<Component>, ctx: &ExpressionContext) -> ItemTree {
@@ -758,7 +768,7 @@ fn make_tree(
             children: vec![],
             repeated: true,
         },
-        LoweredElement::Embedded { embedded_index } => TreeNode {
+        LoweredElement::Embedded { embedded_index, .. } => TreeNode {
             is_accessible: false,
             sub_component_path: sub_component_path.into(),
             item_index: embedded_index.as_repeater_index(),
