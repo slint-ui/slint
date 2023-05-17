@@ -51,17 +51,16 @@ static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *w
 
 class MyWindow : public QWindow, public slint_platform::WindowAdapter
 {
-    std::unique_ptr<slint_platform::SkiaRenderer> m_renderer;
+    std::optional<slint_platform::SkiaRenderer> m_renderer;
 
 public:
     MyWindow(QWindow *parentWindow = nullptr) : QWindow(parentWindow)
     {
-        m_renderer = std::make_unique<slint_platform::SkiaRenderer>(
-                window_handle_for_qt_window(this),
-                slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) }));
+        m_renderer.emplace(window_handle_for_qt_window(this),
+                           slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) }));
     }
 
-    slint_platform::AbstractRenderer &renderer() const override { return *m_renderer.get(); }
+    slint_platform::AbstractRenderer &renderer() override { return m_renderer.value(); }
 
     /*void keyEvent(QKeyEvent *event) override
     {
