@@ -213,8 +213,7 @@ public:
                 std::size_t pixel_stride) const
     {
         cbindgen_private::slint_software_renderer_render_rgb8(
-                inner, &window.window_handle().handle(), buffer.data(), buffer.size(),
-                pixel_stride);
+                inner, &window.window_handle().inner, buffer.data(), buffer.size(), pixel_stride);
     }
 };
 
@@ -319,7 +318,7 @@ public:
 
     void render(const Window &window, PhysicalSize size) const
     {
-        cbindgen_private::slint_skia_renderer_render(inner, &window.window_handle().handle(), size);
+        cbindgen_private::slint_skia_renderer_render(inner, &window.window_handle().inner, size);
     }
 
     void resize(PhysicalSize size) const
