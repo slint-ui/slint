@@ -6,24 +6,24 @@
 [![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/slint)](https://api.reuse.software/info/github.com/slint-ui/slint)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
 
-Slint is a GUI toolkit to build native user interfaces. Slint supports multiple
-programming languages, such as Rust, C++, and JavaScript. We invite you
-to use Slint and be part of its community.
+Slint is a declarative GUI toolkit to build native user interfaces for applications
+that are written in Rust, C++, or JavaScript. The name *Slint* is derived from
+our design goals:
 
-The name *Slint* is derived from our design goals:
-
-- **Scalable**: Support responsive UI design, cross-platform across operating
-    systems and processor architectures and support multiple programming languages.
-- **Lightweight**: Slint runtime should fit into a few hundred kilobytes of RAM
+- **Scalable**: Support responsive UI design, allow cross-platform usage across
+    operating systems and processor architectures and support multiple
+    programming languages.
+- **Lightweight**: UI runtime should fit into a few hundred kilobytes of RAM
     and require little processing power.
 - **Intuitive**: APIs should be consistent and easy to use, no matter which
     programming language is used to integrate the UI with the business logic.
-- **Native**: Slint apps should match the users' expectations of a native
-    application. Various target platforms such as embedded devices, desktops,
-    mobile and web should be supported so that both the user and the developer
-    feel comfortable on their platform of choice.
+- **Native**: Compile UI design to machine code and provide flexibility that
+    only a native application can offer: Access full operating system APIs,
+    utilize all CPU and GPU cores, connect to any peripheral.
 - **Tool Support**: Provide excellent tooling so that designers and developers
     feel productive and enjoy the UI design and development process.
+
+We invite you to use Slint and be part of its community.
 
 ## Current Status
 
@@ -37,12 +37,12 @@ follows:
     Intel x86 from the MPU category.
 - **Desktop**: *In Progress*. While Slint is a good fit on Windows, Linux and Mac,
     we are working on improving the platform support in subsequent releases.
-- **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile
-    platforms yet, but it is our intention to do so in the near future.
 - **Web**: *In Progress*. Slint apps can be compiled to WebAssembly and can run
     in a web browser. As there are many other web frameworks, the web platform
     is not one of our primary target platforms. The web support is currently
     limited to demo purposes.
+- **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile
+    platforms yet, but it is our intention to do so in the near future.
 
 ### Accessibility
 
@@ -52,7 +52,29 @@ readers is in place, but currently requires the Qt backend.
 We're aware that more work is needed to get best-of-class support for users
 with special needs.
 
-## The .slint Markup Language
+## Demos
+
+### Embedded
+
+| RaspberryPi                         | STM32                          | RP2040                         |
+| ----------------------------------- | ------------------------------ | ------------------------------ |
+| [Video of Slint on RaspberryPi][#1] | [Video of Slint on STM32][#2]  | [Video of Slint on RP2040][#3] |
+
+### Desktop
+
+| Windows                                     | macOS                                     | Linux                                     |
+| ------------------------------------------- | ----------------------------------------- | ----------------------------------------- |
+| ![Screenshot of the Gallery on Windows][#4] | ![Screenshot of the Gallery on macOS][#5] | ![Screenshot of the Gallery on Linux][#6] |
+
+### Web using WebAssembly
+
+| Printer Demo                                | Slide Puzzle                                 | Energy Monitor                                       | Widget Gallery                                |
+| ------------------------------------------  | -------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
+| [![Screenshot of the Printer Demo][#7]][#8] | [![Screenshot of the Slide Puzzle][#9]][#10] | [![Screenshot of the Energy Monitor Demo][#11]][#12] | [![Screenshot of the Gallery Demo][#13]][#14] |
+
+## Get Started
+
+### Hello World
 
 The UI is defined in a Domain Specific Language that is declarative, easy to use,
 intuitive, and provides a powerful way to describe graphical elements, their
@@ -75,7 +97,7 @@ export component HelloWorld inherits Window {
 }
 ```
 
-## Documentation
+### Documentation
 
 For more details, check out the [Slint Language Documentation](https://slint-ui.com/docs/slint).
 
@@ -89,31 +111,9 @@ The `docs` folder contains a lot more information, including
 
 Refer to the README of each language directory in the `api` folder:
 
-- [C++](api/cpp) ([Documentation](https://slint-ui.com/docs/cpp) | [Tutorial](https://slint-ui.com/docs/tutorial/cpp) | [Getting Started Template](https://github.com/slint-ui/slint-cpp-template))
-- [Rust](api/rs/slint) [![Crates.io](https://img.shields.io/crates/v/slint)](https://crates.io/crates/slint) ([Documentation](https://slint-ui.com/docs/rust/slint/) | [Tutorial](https://slint-ui.com/docs/tutorial/rust) | [Tutorial Video](https://youtu.be/WBcv4V-whHk) | [Getting Started Template](https://github.com/slint-ui/slint-rust-template))
-- [JavaScript/NodeJS (Beta)](api/node) [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui) ([Documentation](https://slint-ui.com/docs/node) | [Tutorial](https://slint-ui.com/docs/tutorial/node) | [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template))
-
-## Demos
-
-### Embedded
-
-[Video of Slint on RaspberryPi](https://www.youtube.com/watch?v=_BDbNHrjK7g)
-
-| STM32                                                                  | RP2040                                                                  |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| [Video of Slint on STM32](https://www.youtube.com/watch?v=NNNOJJsOAis) | [Video of Slint on RP2040](https://www.youtube.com/watch?v=dkBwNocItGs) |
-
-### WebAssembly
-
-| Printer Demo                                                                                                                                           | Slide Puzzle                                                                                                                                       | Energy Monitor                                                                                                                     | Widget Gallery                                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| [![Screenshot of the Printer Demo](https://slint-ui.com/resources/printerdemo_screenshot.png "Printer Demo")](https://slint-ui.com/demos/printerdemo/) | [![Screenshot of the Slide Puzzle](https://slint-ui.com/resources/puzzle_screenshot.png "Slide Puzzle")](https://slint-ui.com/demos/slide_puzzle/) | [![Screenshot of the Energy Monitor Demo](https://slint-ui.com/resources/energy-monitor-screenshot.png "Energy Monitor Demo")](https://slint-ui.com/demos/energy-monitor/) | [![Screenshot of the Gallery Demo](https://slint-ui.com/resources/gallery_screenshot.png "Gallery Demo")](https://slint-ui.com/demos/gallery/) |
-
-### Desktop Widgets
-
-| Windows                                                                                                      | macOS                                                                                                      | Linux                                                                                                        |
-| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| ![Screenshot of the Gallery on Windows](https://slint-ui.com/resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](https://slint-ui.com/resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](https://slint-ui.com/resources/gallery_linux_screenshot.png "Gallery") |
+- [C++](api/cpp) ([Documentation][#15] | [Tutorial][#16] | [Getting Started Template][#17])
+- [Rust](api/rs/slint) [![Crates.io][def]][#19] ([Documentation][#20] | [Tutorial][#21] | [Tutorial Video][#22] | [Getting Started Template][#23])
+- [JavaScript/NodeJS (Beta)](api/node) [![npm][#24]][#25] ([Documentation][#26] | [Tutorial][#27] | [Getting Started Template][#28])
 
 ## Architecture
 
@@ -227,12 +227,12 @@ located remotely in Germany.
 
 ### Stay up to date
 
-- Follow [@slint-ui](https://twitter.com/slint_ui) on Twitter 
+- Follow [@slint-ui](https://twitter.com/slint_ui) on Twitter
 - Follow [@slint@fosstodon.org](https://mastodon.social/@slint@fosstodon.org) on Mastodon
 - Follow [@slint-ui](https://www.linkedin.com/company/slint-ui/) on LinkedIn
 - Keep an eye out for our [🥠 Weekly Status Updates](https://slint-ui.com/thisweek/).
 
-## Contact us
+### Contact us
 
 Feel free to join [Github discussions](https://github.com/slint-ui/slint/discussions)
 for general chat or questions. Use [Github issues](https://github.com/slint-ui/slint/issues)
@@ -242,3 +242,32 @@ We chat in [our Mattermost instance](https://chat.slint-ui.com) where you are
 welcome to listen in or ask your questions.
 
 You can of course also contact us privately via email to [info@slint-ui.com](mailto://info@slint-ui.com).
+
+[#1]: https://www.youtube.com/watch?v=_BDbNHrjK7g
+[#2]: https://www.youtube.com/watch?v=NNNOJJsOAis
+[#3]: https://www.youtube.com/watch?v=dkBwNocItGs
+[#4]: https://slint-ui.com/resources/gallery_win_screenshot.png "Gallery"
+[#5]: https://slint-ui.com/resources/gallery_mac_screenshot.png "Gallery"
+[#6]: https://slint-ui.com/resources/gallery_linux_screenshot.png "Gallery"
+[#7]: https://slint-ui.com/resources/printerdemo_screenshot.png "Printer Demo"
+[#8]: https://slint-ui.com/demos/printerdemo/
+[#9]: https://slint-ui.com/resources/puzzle_screenshot.png "Slide Puzzle"
+[#10]: https://slint-ui.com/demos/slide_puzzle/
+[#11]: https://slint-ui.com/resources/energy-monitor-screenshot.png "Energy Monitor Demo"
+[#12]: https://slint-ui.com/demos/energy-monitor/
+[#13]: https://slint-ui.com/resources/gallery_screenshot.png "Gallery Demo"
+[#14]: https://slint-ui.com/demos/gallery/
+[#15]: https://slint-ui.com/docs/cpp
+[#16]: https://slint-ui.com/docs/tutorial/cpp
+[#17]: https://github.com/slint-ui/slint-cpp-template
+[def]: https://img.shields.io/crates/v/slint
+[#19]: https://crates.io/crates/slint
+[#20]: https://slint-ui.com/docs/rust/slint/
+[#21]: https://slint-ui.com/docs/tutorial/rust
+[#22]: https://youtu.be/WBcv4V-whHk
+[#23]: https://github.com/slint-ui/slint-rust-template
+[#24]: https://img.shields.io/npm/v/slint-ui
+[#25]: https://www.npmjs.com/package/slint-ui
+[#26]: https://slint-ui.com/docs/node
+[#27]: https://slint-ui.com/docs/tutorial/node
+[#28]: https://github.com/slint-ui/slint-nodejs-template
