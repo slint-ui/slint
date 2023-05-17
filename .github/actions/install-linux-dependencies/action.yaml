@@ -21,10 +21,10 @@ runs:
   steps:
     - name: Install Linux dependencies
       if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev ${{ inputs.extra-packages }}
-      shell: bash
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev ${{ inputs.extra-packages }}
+        version: 1.0
     - name: Install C++ compiler
       if: ${{ (runner.os == 'Linux') && (inputs.force-gcc-10 == 'true') }}
       run: |
