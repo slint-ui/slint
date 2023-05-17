@@ -27,6 +27,8 @@ slint::cbindgen_private::PointerEventButton convert_button(Qt::MouseButtons b)
 
 static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *window)
 {
+    // Ensure that the native window surface exists
+    window->create();
 #ifdef __APPLE__
     QPlatformNativeInterface *native = qApp->platformNativeInterface();
     void *nsview = native->nativeResourceForWindow(QByteArray("nsview"), window);
