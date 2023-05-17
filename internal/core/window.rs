@@ -188,26 +188,27 @@ pub trait WindowAdapterSealed {
     }
 }
 
-/// This is the parameter from [`WindowAdapter::input_method_request()`] which lets the editable text input field
-/// communicate with the platform about input methods
+/// This is the parameter from [`WindowAdapterSealed::input_method_request()`] which lets the editable text input field
+/// communicate with the platform about input methods.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum InputMethodRequest {
     /// This request is sent when an editable text input field has received the focus and input methods such as
-    /// virtual keyboard should be shown.
+    /// a virtual keyboard should be shown.
     #[non_exhaustive]
     Enable {
-        /// The type of input that is requesting an input method
+        /// The type of input that is requesting an input method.
         input_type: crate::items::InputType,
     },
-    /// This request is sent when the widget that needed the keyboard loses focus and any active input method should
+    /// This request is sent when the focused text input field lost focus and any active input method should
     /// be disabled.
     #[non_exhaustive]
     Disable {},
-    /// Request an update of the position of the text input area.
+    /// Request an update of the position of the text cursor, so that for example the input method can adjust
+    /// the location of completion popups.
     #[non_exhaustive]
     SetPosition {
-        /// The position of the cursor in window coordinates
+        /// The position of the text cursor in window coordinates.
         position: crate::api::LogicalPosition,
     },
 }
