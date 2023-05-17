@@ -23,7 +23,7 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter
 {
     HWND hwnd;
     Geometry geometry = { 0, 0, 600, 300 };
-    std::unique_ptr<slint_platform::SkiaRenderer> m_renderer;
+    std::optional<slint_platform::SkiaRenderer> m_renderer;
 
     MyWindowAdapter(HWND winId)
     {
@@ -56,14 +56,13 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter
                               NULL // Additional application data
         );
 
-        m_renderer = std::make_unique<slint_platform::SkiaRenderer>(
-                slint_platform::NativeWindowHandle::from_win32(hwnd, hInstance),
-                slint::PhysicalSize({ 600, 300 }));
+        m_renderer.emplace(slint_platform::NativeWindowHandle::from_win32(hwnd, hInstance),
+                           slint::PhysicalSize({ 600, 300 }));
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
     }
 
-    slint_platform::AbstractRenderer &renderer() const override { return *m_renderer.get(); }
+    slint_platform::AbstractRenderer &renderer() override { return m_renderer.value(); }
 
     slint::PhysicalSize physical_size() const override
     {

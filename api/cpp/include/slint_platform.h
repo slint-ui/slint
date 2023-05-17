@@ -55,9 +55,7 @@ private:
         cbindgen_private::slint_window_adapter_new(
                 this, [](void *wa) { delete reinterpret_cast<const WindowAdapter *>(wa); },
                 [](void *wa) {
-                    return reinterpret_cast<const WindowAdapter *>(wa)
-                            ->renderer()
-                            .renderer_handle();
+                    return reinterpret_cast<WindowAdapter *>(wa)->renderer().renderer_handle();
                 },
                 [](void *wa) { reinterpret_cast<const WindowAdapter *>(wa)->show(); },
                 [](void *wa) { reinterpret_cast<const WindowAdapter *>(wa)->hide(); },
@@ -97,7 +95,7 @@ public:
 
     /// Re-implement this function to provide a reference to the renderer for use with the window
     /// adapter.
-    virtual AbstractRenderer &renderer() const = 0;
+    virtual AbstractRenderer &renderer() = 0;
 
     /// Return the slint::Window associated with this window.
     ///
