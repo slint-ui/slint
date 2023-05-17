@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
  - Fixed TabWidget not filling the parent in non-native style
  - Skia: Add support for rendering with Vulkan
  - Wasm: copy and paste support
+ - Fixed TouchArea::has-hover not being reset in some cases involving multiple TouchArea or Flickable
 
 ### Slint Language
 
