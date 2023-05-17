@@ -1796,7 +1796,11 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     cursor_height,
                 ),
             );
-            self.processor.process_rectangle(cursor_rect.translate(offset.cast()), color.into());
+
+            if let Some(clipped_src) = cursor_rect.intersection(&physical_clip.cast()) {
+                self.processor
+                    .process_rectangle(clipped_src.translate(offset.cast()), color.into());
+            }
         }
     }
 
