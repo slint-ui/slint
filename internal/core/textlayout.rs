@@ -255,12 +255,17 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
 
     /// Returns the bytes offset for the given position
     pub fn byte_offset_for_position(&self, (pos_x, pos_y): (Font::Length, Font::Length)) -> usize {
-        let byte_offset = 0;
+        let mut byte_offset = 0;
         let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
 
         match self.layout_lines(|glyphs, _, line_y, line| {
             if pos_y >= line_y + self.layout.font.height() {
+                byte_offset = line.byte_range.end;
                 return core::ops::ControlFlow::Continue(());
+            }
+
+            if line.is_empty() {
+                return core::ops::ControlFlow::Break(line.byte_range.start);
             }
 
             while let Some(positioned_glyph) = glyphs.next() {
@@ -533,6 +538,26 @@ fn test_cursor_position_with_newline() {
 }
 
 #[test]
+fn byte_offset_for_empty_line() {
+    let font = FixedTestFont;
+    let text = "Hello\n\nWorld";
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None },
+        max_width: 100. * 10.,
+        max_height: 10.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::WordWrap,
+        overflow: TextOverflow::Clip,
+        single_line: false,
+    };
+
+    assert_eq!(paragraph.byte_offset_for_position((0., 10.)), 6);
+}
+
+#[test]
 fn test_byte_offset() {
     let font = FixedTestFont;
     let text = "Hello                    World";
@@ -596,4 +621,5 @@ fn test_byte_offset() {
         .unwrap();
 
     assert_eq!(paragraph.byte_offset_for_position((45., 10.)), end_offset);
+    assert_eq!(paragraph.byte_offset_for_position((0., 20.)), end_offset);
 }
