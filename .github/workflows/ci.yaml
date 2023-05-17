@@ -86,6 +86,7 @@ jobs:
       RUSTFLAGS: -D warnings
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
+      CARGO_PROFILE_DEV_DEBUG: 0
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-12, windows-2022]
@@ -121,6 +122,7 @@ jobs:
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
+      CARGO_PROFILE_DEV_DEBUG: 0
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-12, windows-2022]
@@ -178,6 +180,7 @@ jobs:
       DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
+      CARGO_PROFILE_DEV_DEBUG: 0
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
@@ -213,6 +216,7 @@ jobs:
       SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
       SLINT_PROCESS_IMAGES: 1
       RUSTFLAGS: --cfg slint_int_coord
+      CARGO_PROFILE_DEV_DEBUG: 0
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v3
@@ -237,6 +241,8 @@ jobs:
       run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter
 
   uefi-demo:
+    env:
+      CARGO_PROFILE_DEV_DEBUG: 0
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v3
@@ -294,6 +300,7 @@ jobs:
       SLINT_NO_QT: 1
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
+      CARGO_PROFILE_DEV_DEBUG: 0
     strategy:
       matrix:
         from_version: ['0.3.0']
@@ -359,6 +366,7 @@ jobs:
       SLINT_NO_QT: 1
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
+      CARGO_PROFILE_DEV_DEBUG: 0
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
