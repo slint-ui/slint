@@ -25,23 +25,55 @@ namespace experimental {
 /// Namespace to be used when you implement your own Platform
 namespace platform {
 
-/// The Renderer is one of the Type provided by Slint to do the rendering of a scene.
-///
-/// See SoftwareRenderer or SkiaRenderer
-template<typename R>
-concept Renderer = requires(R r)
+/// Internal interface for a renderer for use with the WindowAdapter.
+class AbstractRenderer
 {
-    cbindgen_private::RendererPtr { r.renderer_handle() };
+private:
+    /// \private
+    virtual cbindgen_private::RendererPtr renderer_handle() const = 0;
+    friend class WindowAdapter;
 };
 
-/// Base class common to all WindowAdapter<R>.  See the documentation of WindowAdapter
-class AbstractWindowAdapter
+/// Base class for the layer between a slint::Window and the internal window from the platform
+///
+/// Re-implement this class to do the link between the two.
+///
+class WindowAdapter
 {
+    // This is a pointer to the rust window that own us.
+    // Note that we do not have ownership (there is no reference increase for this)
+    // because it would otherwise be a reference loop
+    cbindgen_private::WindowAdapterRcOpaque self {};
+    // Whether this WindowAdapter was already given to the slint runtime
+    bool was_initialized = false;
+
+private:
+    friend class Platform;
+
+    cbindgen_private::WindowAdapterRcOpaque initialize()
+    {
+        cbindgen_private::slint_window_adapter_new(
+                this, [](void *wa) { delete reinterpret_cast<const WindowAdapter *>(wa); },
+                [](void *wa) {
+                    return reinterpret_cast<const WindowAdapter *>(wa)
+                            ->renderer()
+                            .renderer_handle();
+                },
+                [](void *wa) { reinterpret_cast<const WindowAdapter *>(wa)->show(); },
+                [](void *wa) { reinterpret_cast<const WindowAdapter *>(wa)->hide(); },
+                [](void *wa) { reinterpret_cast<const WindowAdapter *>(wa)->request_redraw(); },
+                [](void *wa) -> cbindgen_private::IntSize {
+                    return reinterpret_cast<const WindowAdapter *>(wa)->physical_size();
+                },
+                &self);
+        was_initialized = true;
+        return self;
+    }
+
 public:
-    virtual ~AbstractWindowAdapter() = default;
-    AbstractWindowAdapter(const AbstractWindowAdapter &) = delete;
-    AbstractWindowAdapter &operator=(const AbstractWindowAdapter &) = delete;
-    AbstractWindowAdapter() = default;
+    /// Construct a WindowAdapter
+    explicit WindowAdapter() { }
+    virtual ~WindowAdapter() = default;
 
     /// This function is called by Slint when the slint window is shown.
     ///
@@ -63,56 +95,9 @@ public:
     /// Returns the actual physical size of the window
     virtual slint::PhysicalSize physical_size() const = 0;
 
-private:
-    friend class Platform;
-    virtual cbindgen_private::WindowAdapterRcOpaque initialize() = 0;
-};
-
-/// Base class for the layer between a slint::Window and the internal window from the platform
-///
-/// Re-implement this class to do the link between the two.
-///
-/// The R template parameter is the Renderer which is one of the renderer type provided by Slint
-
-template<Renderer R>
-class WindowAdapter : public AbstractWindowAdapter
-{
-    // This is a pointer to the rust window that own us.
-    // Note that we do not have ownership (there is no reference increase for this)
-    // because it would otherwise be a reference loop
-    cbindgen_private::WindowAdapterRcOpaque self {};
-    std::unique_ptr<R> m_renderer;
-    // Whether this WindowAdapter was already given to the slint runtime
-    bool was_initialized = false;
-
-private:
-    cbindgen_private::WindowAdapterRcOpaque initialize() final
-    {
-        using WA = WindowAdapter<R>;
-        cbindgen_private::slint_window_adapter_new(
-                this, [](void *wa) { delete reinterpret_cast<const WA *>(wa); },
-                [](void *wa) {
-                    return reinterpret_cast<const WA *>(wa)->m_renderer->renderer_handle();
-                },
-                [](void *wa) { reinterpret_cast<const WA *>(wa)->show(); },
-                [](void *wa) { reinterpret_cast<const WA *>(wa)->hide(); },
-                [](void *wa) { reinterpret_cast<const WA *>(wa)->request_redraw(); },
-                [](void *wa) -> cbindgen_private::IntSize {
-                    return reinterpret_cast<const WA *>(wa)->physical_size();
-                },
-                &self);
-        was_initialized = true;
-        return self;
-    }
-
-public:
-    /// Construct a WindowAdapter
-    explicit WindowAdapter() { }
-
-    void set_renderer(std::unique_ptr<R> renderer) { m_renderer = std::move(renderer); }
-
-    /// Return a reference to the renderer that can be used to do the rendering.
-    const R &renderer() const { return *m_renderer; }
+    /// Re-implement this function to provide a reference to the renderer for use with the window
+    /// adapter.
+    virtual AbstractRenderer &renderer() const = 0;
 
     /// Return the slint::Window associated with this window.
     ///
@@ -178,7 +163,7 @@ public:
     Platform() = default;
 
     /// Returns a new WindowAdapter
-    virtual std::unique_ptr<AbstractWindowAdapter> create_window_adapter() const = 0;
+    virtual std::unique_ptr<WindowAdapter> create_window_adapter() const = 0;
 
     /// Register the platform to Slint. Must be called before Slint window are created. Can only
     /// be called once in an application.
@@ -199,7 +184,7 @@ public:
 /// To be used as a template parameter of the WindowAdapter.
 ///
 /// Use the render() function to render in a buffer
-class SoftwareRenderer
+class SoftwareRenderer : public AbstractRenderer
 {
     mutable cbindgen_private::SoftwareRendererOpaque inner;
 
@@ -213,7 +198,7 @@ public:
     }
 
     /// \private
-    cbindgen_private::RendererPtr renderer_handle() const
+    cbindgen_private::RendererPtr renderer_handle() const override
     {
         return cbindgen_private::slint_software_renderer_handle(inner);
     }
@@ -311,7 +296,7 @@ public:
 /// of the homonymous functions
 ///
 /// Use render to perform the rendering.
-class SkiaRenderer
+class SkiaRenderer : public AbstractRenderer
 {
     mutable cbindgen_private::SkiaRendererOpaque inner;
 
@@ -327,7 +312,7 @@ public:
     }
 
     /// \private
-    cbindgen_private::RendererPtr renderer_handle() const
+    cbindgen_private::RendererPtr renderer_handle() const override
     {
         return cbindgen_private::slint_skia_renderer_handle(inner);
     }
