@@ -9,44 +9,29 @@ export component GroupBox {
     in property<bool> enabled: true;
 
     VerticalLayout {
-        padding-top: label-container.height + 16px;
-        padding-left: 16px;
-        padding-right: 16px;
-        padding-bottom: 16px;
-
-        Rectangle {
-            vertical-stretch: 1;
-            GridLayout {
-                @children
-            }
-        }
-    }
-
-    container := Rectangle {
-        border-radius: 4px;
-        border-width: 1px;
-        border-color: md.sys.color.outline;
-        y: label-container.y + label-container.height / 2;
-        width: 100%;
-        height: parent.height - label-container.height / 2;
-    }
-
-    label-container := Rectangle {
-        y:0;
-        x: 8px;
-        width: label.width + 8px;
-        height: label.height + 8px;
-        background: md.sys.color.background;
+        spacing: 4px;
 
         label := Text {
-            x: 4px;
-            y: 4px;
             color: md.sys.color.on-surface;
             // FIXME after Roboto font can be loaded
             //font-family: md.sys.typescale.body-small.font;
-            font-size: md.sys.typescale.body-small.size;
+            font-size: md.sys.typescale.body-large.size;
             font-weight: md.sys.typescale.body-small.weight;
             overflow: elide;
+            horizontal-alignment: center;
+        }
+
+        container := Rectangle {
+            border-radius: 16px;
+            border-width: 1px;
+            border-color: md.sys.color.outline;
+            vertical-stretch: 1;
+            background: md.sys.color.surface;
+
+            GridLayout {
+                padding: 16px;
+                @children
+            }
         }
     }
 
