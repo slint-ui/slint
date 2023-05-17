@@ -55,6 +55,15 @@ using cbindgen_private::ItemWeak;
 using cbindgen_private::TraversalOrder;
 }
 
+#if !defined(DOXYGEN)
+namespace experimental {
+namespace platform {
+class SkiaRenderer;
+class SoftwareRenderer;
+}
+}
+#endif
+
 namespace private_api {
 using ItemTreeNode = cbindgen_private::ItemTreeNode;
 using ItemArrayEntry =
@@ -256,9 +265,9 @@ public:
         }
     }
 
-    const cbindgen_private::WindowAdapterRcOpaque &handle() const { return inner; }
-
 private:
+    friend class slint::experimental::platform::SkiaRenderer;
+    friend class slint::experimental::platform::SoftwareRenderer;
     cbindgen_private::WindowAdapterRcOpaque inner;
 };
 
