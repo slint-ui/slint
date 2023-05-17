@@ -36,7 +36,7 @@ static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *w
     auto wid = Qt::HANDLE(window->winId());
     return slint_platform::NativeWindowHandle::from_win32(wid, GetModuleHandle(nullptr));
 #else
-    auto wid = winId();
+    auto wid = window->winId();
     auto visual_id = 0; // FIXME
     QPlatformNativeInterface *native = qApp->platformNativeInterface();
     auto *connection = reinterpret_cast<xcb_connection_t *>(

@@ -8,6 +8,7 @@
 #else
 
 #    include "slint.h"
+#    include <utility>
 
 struct xcb_connection_t;
 struct wl_surface;
@@ -270,7 +271,7 @@ public:
     static NativeWindowHandle from_wayland(wl_surface *surface, wl_display *display)
     {
 
-        return { cbindgen_private::slint_new_raw_window_handle_wayland(surface, display, size) };
+        return { cbindgen_private::slint_new_raw_window_handle_wayland(surface, display) };
     }
 
 #    elif defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
