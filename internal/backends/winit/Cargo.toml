@@ -69,10 +69,6 @@ send_wrapper = "0.6.0"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 glutin = { version = "0.30", optional = true, default-features = false, features = ["egl", "wgl"] }
 glutin-winit = { version = "0.3.0", optional = true, default-features = false, features = ["egl", "wgl"] }
-i-slint-renderer-femtovg = { version = "=1.0.3", path = "../../renderers/femtovg", optional = true, features = ["diskfonts"] }
-
-[target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
-i-slint-renderer-femtovg = { version = "=1.0.3", path = "../../renderers/femtovg", optional = true, features = ["fontconfig"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # For GL rendering

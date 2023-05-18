@@ -9,7 +9,8 @@ use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
 use i_slint_core::lengths::{LogicalLength, LogicalSize, ScaleFactor, SizeLengths};
-use i_slint_core::{SharedString, SharedVector};
+use i_slint_core::sharedfontdb::fontdb;
+use i_slint_core::{sharedfontdb, SharedString, SharedVector};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
@@ -145,7 +146,7 @@ pub struct FontCache {
 
 impl Default for FontCache {
     fn default() -> Self {
-        let available_families = crate::sharedfontdb::FONT_DB.with(|db| {
+        let available_families = sharedfontdb::FONT_DB.with(|db| {
             db.borrow()
                 .faces()
                 .filter_map(|face_info| {
@@ -191,7 +192,7 @@ impl FontCache {
             ..Default::default()
         };
 
-        let fontdb_face_id = crate::sharedfontdb::FONT_DB.with(|db| {
+        let fontdb_face_id = sharedfontdb::FONT_DB.with(|db| {
             let db = db.borrow();
             db.query(&query)
                 .or_else(|| {
@@ -210,13 +211,13 @@ impl FontCache {
         // replacing files. Unlinking OTOH is safe and doesn't destroy the file mapping,
         // the backing file becomes an orphan in a special area of the file system. That works
         // on Unixy platforms and on Windows the default file flags prevent the deletion.
-        #[cfg(feature = "diskfonts")]
+        #[cfg(not(target_arch = "wasm32"))]
         let (shared_data, face_index) = unsafe {
-            crate::sharedfontdb::FONT_DB.with(|db| {
+            sharedfontdb::FONT_DB.with(|db| {
                 db.borrow_mut().make_shared_face_data(fontdb_face_id).expect("unable to mmap font")
             })
         };
-        #[cfg(not(feature = "diskfonts"))]
+        #[cfg(target_arch = "wasm32")]
         let (shared_data, face_index) = crate::sharedfontdb::FONT_DB.with(|db| {
             db.borrow()
                 .face_source(fontdb_face_id)
@@ -427,15 +428,12 @@ impl FontCache {
         fallback_fonts
     }
 
-    #[cfg(all(
-        not(any(
-            target_family = "windows",
-            target_os = "macos",
-            target_os = "ios",
-            target_arch = "wasm32"
-        )),
-        feature = "fontconfig"
-    ))]
+    #[cfg(not(any(
+        target_family = "windows",
+        target_os = "macos",
+        target_os = "ios",
+        target_arch = "wasm32"
+    )))]
     fn font_fallbacks_for_request(
         &self,
         _family: Option<&SharedString>,
@@ -443,14 +441,17 @@ impl FontCache {
         _primary_font: &LoadedFont,
         _reference_text: &str,
     ) -> Vec<SharedString> {
-        self.fontconfig_fallback_families
-            .iter()
-            .filter(|family_name| self.is_known_family(family_name))
-            .cloned()
-            .collect()
+        sharedfontdb::FONT_DB.with(|db| {
+            db.borrow()
+                .fontconfig_fallback_families
+                .iter()
+                .filter(|family_name| self.is_known_family(family_name))
+                .cloned()
+                .collect()
+        })
     }
 
-    #[cfg(not(feature = "diskfonts"))]
+    #[cfg(target_arch = "wasm32")]
     fn font_fallbacks_for_request(
         &self,
         _family: Option<&SharedString>,
@@ -508,7 +509,7 @@ impl FontCache {
         });
 
         if !scripts_that_need_checking.is_empty() || !chars_that_need_checking.is_empty() {
-            crate::sharedfontdb::FONT_DB.with(|db| {
+            sharedfontdb::FONT_DB.with(|db| {
                 db.borrow().with_face_data(face_id, |face_data, face_index| {
                     let face = ttf_parser::Face::parse(face_data, face_index).unwrap();
 

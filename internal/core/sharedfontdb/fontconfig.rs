@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+#![allow(unsafe_code)]
+
 use fontconfig_sys as ffi;
 
 use ffi::statics::LIB;

@@ -38,6 +38,8 @@ svg = ["dep:resvg"]
 
 box-shadow-cache = []
 
+shared-fontdb = ["dep:fontdb", "dep:libc", "dep:yeslogic-fontconfig-sys"]
+
 default = ["std", "unicode"]
 
 [dependencies]
@@ -78,6 +80,7 @@ image = { version = "0.24.0", optional = true, default-features = false, feature
 clru = { version = "0.6.0", optional = true }
 
 resvg = { workspace = true, optional = true }
+fontdb = { workspace = true, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
@@ -88,6 +91,10 @@ web-sys = { version = "0.3", features = [ "HtmlImageElement" ] }
 fontdb = { workspace = true, optional = true, default-features = true, features = ["fontconfig", "memmap"] }
 rustybuzz = { version = "0.7.0", optional = true }
 fontdue = { version = "0.7.1", optional = true }
+
+[target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
+libc = { version = "0.2", optional = true }
+yeslogic-fontconfig-sys = { workspace = true, optional = true }
 
 [dev-dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-0"] }

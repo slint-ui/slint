@@ -19,6 +19,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::Renderer;
+use i_slint_core::sharedfontdb;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
 
@@ -32,7 +33,6 @@ use self::itemrenderer::CanvasRc;
 mod fonts;
 mod images;
 mod itemrenderer;
-mod sharedfontdb;
 
 /// Trait that the FemtoVGRenderer uses to ensure that the OpenGL context is current, before running
 /// OpenGL commands. The trait also provides access to the symbols of the OpenGL implementation.
