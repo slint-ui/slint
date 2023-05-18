@@ -31,7 +31,7 @@ unsafe-single-threaded = []
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
-software-renderer-systemfonts = ["dep:fontdb", "rustybuzz", "fontdue"]
+software-renderer-systemfonts = ["shared-fontdb", "rustybuzz", "fontdue"]
 
 image-decoders = ["image", "clru"]
 svg = ["dep:resvg"]

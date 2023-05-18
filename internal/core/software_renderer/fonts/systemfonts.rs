@@ -7,80 +7,43 @@ use alloc::rc::Rc;
 use std::collections::HashMap;
 
 use crate::lengths::{LogicalLength, ScaleFactor};
+use crate::sharedfontdb;
 
 use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
 
-fn init_fontdb() -> FontDatabase {
-    let mut db = fontdb::Database::new();
-
-    db.load_system_fonts();
-
-    if db
-        .query(&fontdb::Query {
-            families: &[fontdb::Family::Name(db.family_name(&fontdb::Family::SansSerif))],
-            ..Default::default()
-        })
-        .is_none()
-    {
-        if let Some(fallback_id) = db.query(&fontdb::Query {
-            families: &[
-                fontdb::Family::Name("Noto Sans"),
-                fontdb::Family::Name("DejaVu Sans"),
-                fontdb::Family::Name("FreeSans"),
-                fontdb::Family::Name("Liberation Sans"),
-            ],
-            ..Default::default()
-        }) {
-            if let Some(family_name) =
-                db.face(fallback_id).unwrap().families.first().map(|(name, _)| name.clone())
-            {
-                db.set_sans_serif_family(family_name);
-            }
-        }
-    }
-
-    let fallback_font_id = std::env::var_os("SLINT_DEFAULT_FONT").and_then(|maybe_font_path| {
-        let path = std::path::Path::new(&maybe_font_path);
-        if path.extension().is_some() {
-            let face_count = db.len();
-            match db.load_font_file(path) {
-                Ok(()) => {
-                    db.faces().nth(face_count).map(|face_info| face_info.id)
-                },
-                Err(err) => {
+thread_local! {
+    static FALLBACK_FONT_ID: once_cell::unsync::Lazy<fontdb::ID> = once_cell::unsync::Lazy::new(|| {
+        crate::sharedfontdb::FONT_DB.with(|db| {
+            let mut db = db.borrow_mut();
+            std::env::var_os("SLINT_DEFAULT_FONT").and_then(|maybe_font_path| {
+                let path = std::path::Path::new(&maybe_font_path);
+                if path.extension().is_some() {
+                    let face_count = db.len();
+                    match db.load_font_file(path) {
+                        Ok(()) => {
+                            db.faces().nth(face_count).map(|face_info| face_info.id)
+                        },
+                        Err(err) => {
+                            eprintln!(
+                                "Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}", path.display(), err,
+                            );
+                            None
+                        },
+                    }
+                } else {
                     eprintln!(
-                        "Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}", path.display(), err,
+                        "The environment variable `SLINT_DEFAULT_FONT` is set, but its value is not referring to a file",
                     );
                     None
-                },
-            }
-        } else {
-            eprintln!(
-                "The environment variable `SLINT_DEFAULT_FONT` is set, but its value is not referring to a file",
+                }
+            }).unwrap_or_else(|| {
+                let query = fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() };
 
-            );
-            None
-        }
-    }).unwrap_or_else(|| {
-        let query = fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() };
-
-        db.query(&query).expect("fatal: fontdb could not locate a sans-serif font on the system")
-    });
-
-    FontDatabase { db, fallback_font_id }
-}
-
-#[derive(derive_more::Deref, derive_more::DerefMut)]
-pub struct FontDatabase {
-    #[deref]
-    #[deref_mut]
-    db: fontdb::Database,
-    fallback_font_id: fontdb::ID,
-}
-
-thread_local! {
-    static VECTOR_FONTS: Rc<RefCell<FontDatabase>> = Rc::new(RefCell::new(init_fontdb()))
+                db.query(&query).expect("fatal: fontdb could not locate a sans-serif font on the system")
+            })
+        })
+    })
 }
 
 thread_local! {
@@ -120,7 +83,7 @@ pub fn match_font(
         let requested_pixel_size: PhysicalLength =
             (request.pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
-        VECTOR_FONTS.with(|fonts| {
+        sharedfontdb::FONT_DB.with(|fonts| {
             let borrowed_fontdb = fonts.borrow();
             borrowed_fontdb.query(&query).map(|font_id| {
                 let fontdue_font = get_or_create_fontdue_font(&*borrowed_fontdb, font_id);
@@ -134,24 +97,20 @@ pub fn fallbackfont(pixel_size: Option<LogicalLength>, scale_factor: ScaleFactor
     let requested_pixel_size: PhysicalLength =
         (pixel_size.unwrap_or(super::DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
-    VECTOR_FONTS
+    let fallback_font_id = FALLBACK_FONT_ID.with(|id| **id);
+
+    sharedfontdb::FONT_DB
         .with(|fonts| {
             let fonts_borrowed = fonts.borrow();
 
-            let fontdue_font =
-                get_or_create_fontdue_font(&*fonts_borrowed, fonts_borrowed.fallback_font_id);
-            VectorFont::new(
-                fonts.clone(),
-                fonts_borrowed.fallback_font_id,
-                fontdue_font,
-                requested_pixel_size,
-            )
+            let fontdue_font = get_or_create_fontdue_font(&*fonts_borrowed, fallback_font_id);
+            VectorFont::new(fonts.clone(), fallback_font_id, fontdue_font, requested_pixel_size)
         })
         .into()
 }
 
 pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
-    VECTOR_FONTS.with(|fonts| {
+    sharedfontdb::FONT_DB.with(|fonts| {
         fonts.borrow_mut().load_font_source(fontdb::Source::Binary(std::sync::Arc::new(data)))
     });
     Ok(())
@@ -159,7 +118,7 @@ pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std:
 
 pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     let requested_path = path.canonicalize().unwrap_or_else(|_| path.to_owned());
-    VECTOR_FONTS.with(|fonts| {
+    sharedfontdb::FONT_DB.with(|fonts| {
         for face_info in fonts.borrow().faces() {
             match &face_info.source {
                 fontdb::Source::Binary(_) => {}
