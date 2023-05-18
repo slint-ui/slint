@@ -7,7 +7,10 @@ use super::{ImageCacheKey, SharedImageBuffer, SharedPixelBuffer};
 use crate::lengths::PhysicalPx;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::SharedString;
-use resvg::{tiny_skia, usvg};
+use resvg::{
+    tiny_skia,
+    usvg::{self, TreeTextToPath},
+};
 use usvg::TreeParsing;
 
 pub struct ParsedSVG {
@@ -74,6 +77,15 @@ fn with_svg_options<T>(callback: impl FnOnce(&usvg::Options) -> T) -> T {
     callback(&options)
 }
 
+fn fixup_text(mut tree: usvg::Tree) -> usvg::Tree {
+    if tree.has_text_nodes() {
+        crate::sharedfontdb::FONT_DB.with(|db| {
+            tree.convert_text(&*db.borrow());
+        })
+    }
+    tree
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_from_path(
     path: &SharedString,
@@ -83,6 +95,7 @@ pub fn load_from_path(
 
     with_svg_options(|options| {
         usvg::Tree::from_data(&svg_data, options)
+            .map(fixup_text)
             .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     })
@@ -90,6 +103,8 @@ pub fn load_from_path(
 
 pub fn load_from_data(slice: &[u8], cache_key: ImageCacheKey) -> Result<ParsedSVG, usvg::Error> {
     with_svg_options(|options| {
-        usvg::Tree::from_data(slice, options).map(|svg| ParsedSVG { svg_tree: svg, cache_key })
+        usvg::Tree::from_data(slice, options)
+            .map(fixup_text)
+            .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
     })
 }
