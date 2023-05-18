@@ -45,6 +45,9 @@ pub mod window;
 #[cfg(feature = "rtti")]
 pub mod rtti;
 
+#[cfg(feature = "shared-fontdb")]
+pub mod sharedfontdb;
+
 #[doc(inline)]
 pub use string::SharedString;
 
