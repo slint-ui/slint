@@ -34,7 +34,7 @@ unicode = ["unicode-script", "unicode-linebreak"]
 software-renderer-systemfonts = ["shared-fontdb", "rustybuzz", "fontdue"]
 
 image-decoders = ["image", "clru"]
-svg = ["dep:resvg"]
+svg = ["dep:resvg", "shared-fontdb"]
 
 box-shadow-cache = []
 
