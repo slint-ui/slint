@@ -58,7 +58,7 @@ linked_hash_set = "0.1.4"
 image = { version = "0.24", optional = true }
 resvg = { workspace = true, optional = true }
 # font embedding
-fontdb = { workspace = true, optional = true }
+fontdb = { workspace = true, optional = true, default-features = true, features = ["fontconfig", "memmap"] }
 fontdue = { version = "0.7.1", optional = true }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]

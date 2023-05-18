@@ -85,7 +85,7 @@ wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = [ "HtmlImageElement" ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-fontdb = { workspace = true, optional = true, features = ["memmap"] }
+fontdb = { workspace = true, optional = true, default-features = true, features = ["fontconfig", "memmap"] }
 rustybuzz = { version = "0.7.0", optional = true }
 fontdue = { version = "0.7.1", optional = true }
 
@@ -94,7 +94,7 @@ slint = { path = "../../api/rs/slint", default-features = false, features = ["st
 i-slint-backend-testing = { path="../backends/testing" }
 rustybuzz = "0.7.0"
 ttf-parser = "0.18.0"
-fontdb = { workspace = true }
+fontdb = { workspace = true, default-features = true, features = ["fontconfig"] }
 
 image = { version = "0.24.0", default-features = false, features = [ "png" ] }
 pin-weak = "1"
