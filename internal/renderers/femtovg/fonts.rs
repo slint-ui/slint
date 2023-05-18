@@ -255,7 +255,6 @@ impl Default for FontCache {
         }
         let available_families = font_db
             .faces()
-            .iter()
             .filter_map(|face_info| {
                 face_info.families.first().map(|(family_name, _)| family_name.as_str().into())
             })
