@@ -36,7 +36,7 @@ scoped-tls-hkt = "0.1"
 instant = "0.1"
 raw-window-handle = { version = "0.5", features = ["alloc"] }
 femtovg = { version = "0.6.0" }
-fontdb = { version = "0.12.0", default-features = false }
+fontdb = { version = "0.13.1", default-features = false }
 ttf-parser = { version = "0.18.0" } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 unicode-script = { version = "0.5.4" } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 imgref = { version = "1.6.1" }
