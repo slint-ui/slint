@@ -5,8 +5,8 @@ use core::cell::RefCell;
 
 use alloc::rc::Rc;
 
-use super::systemfonts::FontDatabase;
 use crate::lengths::PhysicalPx;
+use crate::sharedfontdb::FontDatabase;
 use crate::software_renderer::PhysicalLength;
 use crate::textlayout::{Glyph, TextShaper};
 
