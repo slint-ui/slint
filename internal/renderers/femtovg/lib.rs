@@ -32,6 +32,7 @@ use self::itemrenderer::CanvasRc;
 mod fonts;
 mod images;
 mod itemrenderer;
+mod sharedfontdb;
 
 /// Trait that the FemtoVGRenderer uses to ensure that the OpenGL context is current, before running
 /// OpenGL commands. The trait also provides access to the symbols of the OpenGL implementation.
@@ -425,14 +426,14 @@ impl Renderer for FemtoVGRenderer {
         &self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        fonts::register_font_from_memory(data)
+        sharedfontdb::register_font_from_memory(data)
     }
 
     fn register_font_from_path(
         &self,
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        fonts::register_font_from_path(path)
+        sharedfontdb::register_font_from_path(path)
     }
 
     fn default_font_size(&self) -> LogicalLength {
