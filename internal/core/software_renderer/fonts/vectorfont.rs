@@ -1,12 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use core::cell::RefCell;
-
 use alloc::rc::Rc;
 
 use crate::lengths::PhysicalPx;
-use crate::sharedfontdb::FontDatabase;
+use crate::sharedfontdb::{self};
 use crate::software_renderer::PhysicalLength;
 use crate::textlayout::{Glyph, TextShaper};
 
@@ -47,7 +45,6 @@ thread_local!(static GLYPH_CACHE: core::cell::RefCell<GlyphCache>  =
 );
 
 pub struct VectorFont {
-    db: Rc<RefCell<FontDatabase>>,
     id: fontdb::ID,
     fontdue_font: Rc<fontdue::Font>,
     ascender: PhysicalLength,
@@ -59,33 +56,32 @@ pub struct VectorFont {
 
 impl VectorFont {
     pub fn new(
-        db: Rc<RefCell<FontDatabase>>,
         id: fontdb::ID,
         fontdue_font: Rc<fontdue::Font>,
         pixel_size: PhysicalLength,
     ) -> Self {
-        let db_for_font = db.clone();
-        db.borrow()
-            .with_face_data(id, |face_data, font_index| {
-                let face = rustybuzz::ttf_parser::Face::parse(face_data, font_index).unwrap();
+        sharedfontdb::FONT_DB.with(|db| {
+            db.borrow()
+                .with_face_data(id, |face_data, font_index| {
+                    let face = rustybuzz::ttf_parser::Face::parse(face_data, font_index).unwrap();
 
-                let ascender = FontLength::new(face.ascender() as _);
-                let descender = FontLength::new(face.descender() as _);
-                let height = FontLength::new(face.height() as _);
-                let units_per_em = face.units_per_em();
-                let scale = FontScaleFactor::new(pixel_size.get() as f32 / units_per_em as f32);
-                Self {
-                    db: db_for_font,
-                    id,
-                    fontdue_font,
-                    ascender: (ascender.cast() * scale).cast(),
-                    descender: (descender.cast() * scale).cast(),
-                    height: (height.cast() * scale).cast(),
-                    scale,
-                    pixel_size,
-                }
-            })
-            .unwrap()
+                    let ascender = FontLength::new(face.ascender() as _);
+                    let descender = FontLength::new(face.descender() as _);
+                    let height = FontLength::new(face.height() as _);
+                    let units_per_em = face.units_per_em();
+                    let scale = FontScaleFactor::new(pixel_size.get() as f32 / units_per_em as f32);
+                    Self {
+                        id,
+                        fontdue_font,
+                        ascender: (ascender.cast() * scale).cast(),
+                        descender: (descender.cast() * scale).cast(),
+                        height: (height.cast() * scale).cast(),
+                        scale,
+                        pixel_size,
+                    }
+                })
+                .unwrap()
+        })
     }
 }
 
@@ -100,62 +96,64 @@ impl TextShaper for VectorFont {
         let mut buffer = rustybuzz::UnicodeBuffer::new();
         buffer.push_str(text);
 
-        self.db
-            .borrow()
-            .with_face_data(self.id, |face_data, font_index| {
-                let face = rustybuzz::ttf_parser::Face::parse(face_data, font_index).unwrap();
-                let rb_face = rustybuzz::Face::from_face(face);
+        sharedfontdb::FONT_DB.with(|db| {
+            db.borrow()
+                .with_face_data(self.id, |face_data, font_index| {
+                    let face = rustybuzz::ttf_parser::Face::parse(face_data, font_index).unwrap();
+                    let rb_face = rustybuzz::Face::from_face(face);
 
-                let glyph_buffer = rustybuzz::shape(&rb_face, &[], buffer);
+                    let glyph_buffer = rustybuzz::shape(&rb_face, &[], buffer);
 
-                let output_glyph_generator = glyph_buffer
-                    .glyph_infos()
-                    .iter()
-                    .zip(glyph_buffer.glyph_positions().iter())
-                    .map(|(info, position)| {
-                        let mut out_glyph = Glyph::<PhysicalLength>::default();
+                    let output_glyph_generator = glyph_buffer
+                        .glyph_infos()
+                        .iter()
+                        .zip(glyph_buffer.glyph_positions().iter())
+                        .map(|(info, position)| {
+                            let mut out_glyph = Glyph::<PhysicalLength>::default();
 
-                        out_glyph.glyph_id = core::num::NonZeroU16::new(info.glyph_id as u16);
+                            out_glyph.glyph_id = core::num::NonZeroU16::new(info.glyph_id as u16);
 
-                        out_glyph.offset_x =
-                            (FontLength::new(position.x_offset).cast() * self.scale).cast();
-                        out_glyph.offset_y =
-                            (FontLength::new(position.y_offset).cast() * self.scale).cast();
-                        out_glyph.advance =
-                            (FontLength::new(position.x_advance).cast() * self.scale).cast();
+                            out_glyph.offset_x =
+                                (FontLength::new(position.x_offset).cast() * self.scale).cast();
+                            out_glyph.offset_y =
+                                (FontLength::new(position.y_offset).cast() * self.scale).cast();
+                            out_glyph.advance =
+                                (FontLength::new(position.x_advance).cast() * self.scale).cast();
 
-                        out_glyph.text_byte_offset = info.cluster as usize;
+                            out_glyph.text_byte_offset = info.cluster as usize;
 
-                        out_glyph
-                    });
+                            out_glyph
+                        });
 
-                // Cannot return impl Iterator, so extend argument instead
-                glyphs.extend(output_glyph_generator);
-            })
-            .unwrap()
+                    // Cannot return impl Iterator, so extend argument instead
+                    glyphs.extend(output_glyph_generator);
+                })
+                .unwrap()
+        })
     }
 
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength>> {
-        self.db
-            .borrow()
-            .with_face_data(self.id, |face_data, font_index| {
-                let face = rustybuzz::ttf_parser::Face::parse(face_data, font_index).unwrap();
-                face.glyph_index(ch).map(|glyph_index| {
-                    let mut out_glyph = Glyph::default();
+        sharedfontdb::FONT_DB.with(|db| {
+            db.borrow()
+                .with_face_data(self.id, |face_data, font_index| {
+                    let face = rustybuzz::ttf_parser::Face::parse(face_data, font_index).unwrap();
+                    face.glyph_index(ch).map(|glyph_index| {
+                        let mut out_glyph = Glyph::default();
 
-                    out_glyph.glyph_id = core::num::NonZeroU16::new(glyph_index.0 as u16);
+                        out_glyph.glyph_id = core::num::NonZeroU16::new(glyph_index.0 as u16);
 
-                    out_glyph.advance = (FontLength::new(
-                        face.glyph_hor_advance(glyph_index).unwrap_or_default() as _,
-                    )
-                    .cast()
-                        * self.scale)
-                        .cast();
+                        out_glyph.advance = (FontLength::new(
+                            face.glyph_hor_advance(glyph_index).unwrap_or_default() as _,
+                        )
+                        .cast()
+                            * self.scale)
+                            .cast();
 
-                    out_glyph
+                        out_glyph
+                    })
                 })
-            })
-            .unwrap()
+                .unwrap()
+        })
     }
 }
 

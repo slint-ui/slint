@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use alloc::rc::Rc;
 use std::cell::RefCell;
 
 pub use fontdb;
@@ -21,7 +20,7 @@ pub struct FontDatabase {
 }
 
 thread_local! {
-    pub static FONT_DB: Rc<RefCell<FontDatabase>>  = Rc::new(RefCell::new(init_fontdb()))
+    pub static FONT_DB: RefCell<FontDatabase>  = RefCell::new(init_fontdb())
 }
 
 #[cfg(not(any(
