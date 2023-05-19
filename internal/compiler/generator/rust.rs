@@ -812,12 +812,16 @@ fn generate_sub_component(
         repeated_element_components.push(rep_inner_component_id);
     }
 
-    eprintln!("Generating embed information");
+    eprintln!("Generating embed information {:?}", component.embedded);
     for embedded in component.embedded.iter() {
-        eprintln!(" ---  Start");
+        eprintln!(
+            " ---  Start ({:?} :: {:?})",
+            embedded.sub_component_path, ctx.current_sub_component
+        );
+
         let item_index = embedded.embed_item_index.as_item_tree_index();
         let repeater_index = embedded.embed_item_index.as_repeater_index();
-        let embedding_item_index = embedded.embedding_item_index;
+        let embedding_item_index = embedded.embedding_placeholder;
 
         eprintln!(" ---  Got indices: {item_index}, {repeater_index}, {embedding_item_index}");
         let embed_item = access_member(
@@ -1698,9 +1702,13 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         prop_name: &str,
         path: TokenStream,
     ) -> TokenStream {
-        eprintln!("Accessing prop_name in native item {prop_name}");
+        eprintln!("Accessing prop_name \"{prop_name}\" in native item");
         let (compo_path, sub_component) =
             follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
+        eprintln!(
+            "Looking for {item_index} in Sub components item tree: {:?}...",
+            sub_component.items
+        );
         let component_id = inner_component_id(sub_component);
         let item_name = ident(&sub_component.items[item_index].name);
         let item_field = access_component_field_offset(&component_id, &item_name);

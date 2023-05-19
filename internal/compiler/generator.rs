@@ -111,6 +111,12 @@ pub trait ItemTreeBuilder {
         parent_index: u32,
         component_state: &Self::SubComponentState,
     );
+    fn push_embedding_item(
+        &mut self,
+        item: &crate::object_tree::ElementRc,
+        parent_index: u32,
+        component_state: &Self::SubComponentState,
+    );
     fn push_native_item(
         &mut self,
         item: &ElementRc,

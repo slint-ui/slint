@@ -577,13 +577,15 @@ impl Expression {
             Expression::ElementReference(_) => Type::ElementReference,
             Expression::RepeaterIndexReference { .. } => Type::Int32,
             Expression::RepeaterModelReference { element } => {
-                if let Expression::Cast { from, .. } = element
-                    .upgrade()
-                    .unwrap()
-                    .borrow()
-                    .repeated
-                    .as_ref()
-                    .map_or(&Expression::Invalid, |e| &e.model)
+                if let Expression::Cast { from, .. } =
+                    element.upgrade().unwrap().borrow().repeated.as_ref().map_or(
+                        &Expression::Invalid,
+                        |e| match &e {
+                            RepeatedElementInfo::Loop(l) => &l.model,
+                            RepeatedElementInfo::Conditional(c) => &c.model,
+                            RepeatedElementInfo::Embedding(_) => &Expression::Invalid,
+                        },
+                    )
                 {
                     match from.ty() {
                         Type::Float32 | Type::Int32 => Type::Int32,

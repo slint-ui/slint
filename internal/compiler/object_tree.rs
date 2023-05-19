@@ -719,16 +719,34 @@ pub struct ListViewInfo {
 
 #[derive(Debug, Clone)]
 /// If the parent element is a repeated element, this has information about the models
-pub struct RepeatedElementInfo {
+pub enum RepeatedElementInfo {
+    Loop(LoopElementInfo),
+    Conditional(ConditionalElementInfo),
+    Embedding(EmbeddedElementInfo),
+}
+
+#[derive(Debug, Clone)]
+/// If the parent element is a repeated element, this has information about the models
+pub struct LoopElementInfo {
     pub model: Expression,
     pub model_data_id: String,
     pub index_id: String,
-    /// A conditional element is just a for whose model is a boolean expression
-    ///
-    /// When this is true, the model is of type boolean instead of Model
-    pub is_conditional_element: bool,
     /// When the for is the delegate of a ListView
     pub is_listview: Option<ListViewInfo>,
+}
+
+#[derive(Debug, Clone)]
+/// If the parent element is a repeated element, this has information about the models
+pub struct ConditionalElementInfo {
+    pub model: Expression,
+    pub model_data_id: String,
+    pub index_id: String,
+}
+
+#[derive(Debug, Clone)]
+/// If the parent element is a repeated element, this has information about the models
+pub struct EmbeddedElementInfo {
+    pub embedding_index_id: String,
 }
 
 pub type ElementRc = Rc<RefCell<Element>>;
@@ -1351,7 +1369,7 @@ impl Element {
         } else {
             None
         };
-        let rei = RepeatedElementInfo {
+        let rei = RepeatedElementInfo::Loop(LoopElementInfo {
             model: Expression::Uncompiled(node.Expression().into()),
             model_data_id: node
                 .DeclaredIdentifier()
@@ -1361,9 +1379,8 @@ impl Element {
                 .RepeatedIndex()
                 .and_then(|r| parser::identifier_text(&r))
                 .unwrap_or_default(),
-            is_conditional_element: false,
             is_listview,
-        };
+        });
         let e = Element::from_sub_element_node(
             node.SubElement(),
             parent.borrow().base_type.clone(),
@@ -1384,13 +1401,11 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
-        let rei = RepeatedElementInfo {
+        let rei = RepeatedElementInfo::Conditional(ConditionalElementInfo {
             model: Expression::Uncompiled(node.Expression().into()),
             model_data_id: String::new(),
             index_id: String::new(),
-            is_conditional_element: true,
-            is_listview: None,
-        };
+        });
         let e = Element::from_sub_element_node(
             node.SubElement(),
             parent_type,
@@ -1834,7 +1849,7 @@ pub fn recurse_elem<State>(
     }
 }
 
-/// Same as [`recurse_elem`] but include the elements form sub_components
+/// Same as [`recurse_elem`] but include the elements from sub_components
 pub fn recurse_elem_including_sub_components<State>(
     component: &Component,
     state: &State,

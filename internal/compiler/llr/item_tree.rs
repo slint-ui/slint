@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use super::lower_to_item_tree::EmbeddedIndex;
+use super::lower_to_item_tree::EmbeddingIndex;
 use super::{EvaluationContext, Expression, ParentCtx};
 use crate::langtype::{NativeClass, Type};
 use std::cell::{Cell, RefCell};
@@ -146,9 +146,12 @@ pub struct RepeatedElement {
 #[derive(Debug)]
 pub struct EmbeddedElement {
     /// The index of the item node in the parent tree
-    pub embed_item_index: EmbeddedIndex,
+    pub embed_item_index: EmbeddingIndex,
     /// The index to a dynamic tree node where the component is supposed to be embedded at
-    pub embedding_item_index: usize,
+    pub embedding_placeholder: usize,
+    /// The sub component index this embedding is a part of (usize::MAX if its in the root
+    /// component)
+    pub sub_component_path: Vec<usize>,
 }
 
 pub struct Item {

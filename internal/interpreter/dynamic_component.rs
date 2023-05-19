@@ -876,6 +876,29 @@ pub(crate) fn generate_component<'id>(
             );
         }
 
+        fn push_embedding_item(
+            &mut self,
+            item_rc: &ElementRc,
+            parent_index: u32,
+            _component_state: &Self::SubComponentState,
+        ) {
+            self.tree_array
+                .push(ItemTreeNode::DynamicTree { index: repeater_count as usize, parent_index });
+            self.original_elements.push(item_rc.clone());
+            let item = item_rc.borrow();
+            let base_component = item.base_type.as_component();
+            self.repeater_names.insert(item.id.clone(), self.repeater.len());
+            generativity::make_guard!(guard);
+            self.repeater.push(
+                RepeaterWithinComponent {
+                    component_to_repeat: generate_component(base_component, guard),
+                    offset: self.type_builder.add_field_type::<Repeater<ErasedComponentBox>>(),
+                    model: item.repeated.as_ref().unwrap().model.clone(),
+                }
+                .into(),
+            );
+        }
+
         fn push_native_item(
             &mut self,
             rc_item: &ElementRc,

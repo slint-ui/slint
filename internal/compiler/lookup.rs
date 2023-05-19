@@ -253,7 +253,7 @@ impl LookupObject for IdLookup {
                 }
             }
             for x in &root.borrow().children {
-                if x.borrow().repeated.is_some() {
+                if x.borrow().repeated.is_some() || x.borrow().is_embedding {
                     continue;
                 }
                 if let Some(r) = visit(x, f) {
