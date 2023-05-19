@@ -30,6 +30,7 @@ pub struct CppWindowAdapter {
     show: unsafe extern "C" fn(WindowAdapterUserData),
     hide: unsafe extern "C" fn(WindowAdapterUserData),
     request_redraw: unsafe extern "C" fn(WindowAdapterUserData),
+    size: unsafe extern "C" fn(WindowAdapterUserData) -> IntSize,
 }
 
 impl Drop for CppWindowAdapter {
@@ -61,6 +62,11 @@ impl WindowAdapterSealed for CppWindowAdapter {
     fn request_redraw(&self) {
         unsafe { (self.request_redraw)(self.user_data) }
     }
+
+    fn size(&self) -> PhysicalSize {
+        let s = unsafe { (self.size)(self.user_data) };
+        PhysicalSize::new(s.width, s.height)
+    }
 }
 
 #[no_mangle]
@@ -71,6 +77,7 @@ pub unsafe extern "C" fn slint_window_adapter_new(
     show: unsafe extern "C" fn(WindowAdapterUserData),
     hide: unsafe extern "C" fn(WindowAdapterUserData),
     request_redraw: unsafe extern "C" fn(WindowAdapterUserData),
+    size: unsafe extern "C" fn(WindowAdapterUserData) -> IntSize,
     target: *mut WindowAdapterRcOpaque,
 ) {
     let window = Rc::<CppWindowAdapter>::new_cyclic(|w| CppWindowAdapter {
@@ -81,6 +88,7 @@ pub unsafe extern "C" fn slint_window_adapter_new(
         show,
         request_redraw,
         hide,
+        size,
     });
 
     core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window);
@@ -129,6 +137,19 @@ pub unsafe extern "C" fn slint_windowrc_has_active_animations(
 ) -> bool {
     let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
     window_adapter.window().has_active_animations()
+}
+
+/// Dispatch a key pressed or release event
+#[no_mangle]
+pub unsafe extern "C" fn slint_windowrc_dispatch_resize_event(
+    handle: *const WindowAdapterRcOpaque,
+    width: f32,
+    height: f32,
+) {
+    let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+    window_adapter.window().dispatch_event(i_slint_core::platform::WindowEvent::Resized {
+        size: i_slint_core::api::LogicalSize { width, height },
+    });
 }
 
 #[no_mangle]

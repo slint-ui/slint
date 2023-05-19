@@ -61,6 +61,9 @@ public:
     /// do that in the next iteration of the event loop, or in a callback from the window manager.
     virtual void request_redraw() const { }
 
+    /// Returns the actual physical size of the window
+    virtual slint::PhysicalSize physical_size() const = 0;
+
 private:
     friend class Platform;
     virtual cbindgen_private::WindowAdapterRcOpaque initialize() = 0;
@@ -94,7 +97,11 @@ private:
                 },
                 [](void *wa) { reinterpret_cast<const WA *>(wa)->show(); },
                 [](void *wa) { reinterpret_cast<const WA *>(wa)->hide(); },
-                [](void *wa) { reinterpret_cast<const WA *>(wa)->request_redraw(); }, &self);
+                [](void *wa) { reinterpret_cast<const WA *>(wa)->request_redraw(); },
+                [](void *wa) -> cbindgen_private::IntSize {
+                    return reinterpret_cast<const WA *>(wa)->physical_size();
+                },
+                &self);
         m_renderer.init(&self);
         was_initialized = true;
         return self;
@@ -140,6 +147,16 @@ public:
         private_api::assert_main_thread();
         if (was_initialized) {
             cbindgen_private::slint_windowrc_dispatch_pointer_event(&self, event);
+        }
+    }
+
+    /// Set the logical size of this window after a resize event
+    // Note: in rust, this is an event on the Window
+    void dispatch_resize_event(slint::LogicalSize s)
+    {
+        private_api::assert_main_thread();
+        if (was_initialized) {
+            cbindgen_private::slint_windowrc_dispatch_resize_event(&self, s.width, s.height);
         }
     }
 
