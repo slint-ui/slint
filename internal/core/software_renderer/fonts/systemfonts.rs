@@ -87,7 +87,7 @@ pub fn match_font(
             let borrowed_fontdb = fonts.borrow();
             borrowed_fontdb.query(&query).map(|font_id| {
                 let fontdue_font = get_or_create_fontdue_font(&*borrowed_fontdb, font_id);
-                VectorFont::new(fonts.clone(), font_id, fontdue_font.clone(), requested_pixel_size)
+                VectorFont::new(font_id, fontdue_font.clone(), requested_pixel_size)
             })
         })
     })
@@ -104,7 +104,7 @@ pub fn fallbackfont(pixel_size: Option<LogicalLength>, scale_factor: ScaleFactor
             let fonts_borrowed = fonts.borrow();
 
             let fontdue_font = get_or_create_fontdue_font(&*fonts_borrowed, fallback_font_id);
-            VectorFont::new(fonts.clone(), fallback_font_id, fontdue_font, requested_pixel_size)
+            VectorFont::new(fallback_font_id, fontdue_font, requested_pixel_size)
         })
         .into()
 }
