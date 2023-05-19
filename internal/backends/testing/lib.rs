@@ -27,6 +27,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
         Ok(Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             shown: false.into(),
+            size: Default::default(),
         }))
     }
 
@@ -53,6 +54,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
 pub struct TestingWindow {
     window: i_slint_core::api::Window,
     shown: core::cell::Cell<bool>,
+    size: core::cell::Cell<PhysicalSize>,
 }
 
 impl WindowAdapterSealed for TestingWindow {
@@ -80,6 +82,14 @@ impl WindowAdapterSealed for TestingWindow {
 
     fn set_position(&self, _position: i_slint_core::api::WindowPosition) {
         unimplemented!()
+    }
+
+    fn size(&self) -> PhysicalSize {
+        self.size.get()
+    }
+
+    fn set_size(&self, size: i_slint_core::api::WindowSize) {
+        self.size.set(size.to_physical(1.))
     }
 
     fn is_visible(&self) -> bool {
@@ -226,4 +236,5 @@ mod for_unit_test {
 }
 
 pub use for_unit_test::*;
+use i_slint_core::api::PhysicalSize;
 use i_slint_core::platform::PlatformError;

@@ -10,7 +10,6 @@
 use copypasta::ClipboardProvider;
 use corelib::items::PointerEventButton;
 use corelib::lengths::LogicalPoint;
-use corelib::lengths::LogicalSize;
 use corelib::SharedString;
 use i_slint_core as corelib;
 
@@ -441,10 +440,8 @@ fn process_window_event(
         }
         WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size } => {
             if std::env::var("SLINT_SCALE_FACTOR").is_err() {
-                let size = new_inner_size.to_logical(scale_factor);
-                runtime_window.set_window_item_geometry(LogicalSize::new(size.width, size.height));
                 window.window().dispatch_event(
-                    i_slint_core::platform::WindowEvent::ScaleFactorChanged {
+                    corelib::platform::WindowEvent::ScaleFactorChanged {
                         scale_factor: scale_factor as f32,
                     },
                 );

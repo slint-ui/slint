@@ -7,8 +7,8 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 #![warn(missing_docs)]
 
-use crate::api::LogicalPosition;
 pub use crate::api::PlatformError;
+use crate::api::{LogicalPosition, LogicalSize};
 pub use crate::software_renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::{thread_local, OnceCell};
@@ -277,6 +277,14 @@ pub enum WindowEvent {
     ScaleFactorChanged {
         /// The window system provided scale factor to map logical pixels to physical pixels.
         scale_factor: f32,
+    },
+    /// The window was resized.
+    ///
+    /// The backend must send this event to ensure that the `width` and `height` property of the root Window
+    /// element are properly set.
+    Resized {
+        /// The new logical size of the window
+        size: LogicalSize,
     },
 }
 

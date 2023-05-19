@@ -1923,6 +1923,7 @@ pub struct MinimalSoftwareWindow {
     window: Window,
     renderer: SoftwareRenderer,
     needs_redraw: Cell<bool>,
+    size: Cell<crate::api::PhysicalSize>,
 }
 
 impl MinimalSoftwareWindow {
@@ -1934,6 +1935,7 @@ impl MinimalSoftwareWindow {
             window: Window::new(w.clone()),
             renderer: SoftwareRenderer::new(repaint_buffer_type, w.clone()),
             needs_redraw: Default::default(),
+            size: Default::default(),
         })
     }
     /// If the window needs to be redrawn, the callback will be called with the
@@ -1966,6 +1968,15 @@ impl crate::window::WindowAdapterSealed for MinimalSoftwareWindow {
         _component: crate::component::ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'a>>>,
     ) {
+    }
+
+    fn size(&self) -> crate::api::PhysicalSize {
+        self.size.get()
+    }
+    fn set_size(&self, size: crate::api::WindowSize) {
+        self.size.set(size.to_physical(1.));
+        self.window
+            .dispatch_event(crate::platform::WindowEvent::Resized { size: size.to_logical(1.) })
     }
 }
 

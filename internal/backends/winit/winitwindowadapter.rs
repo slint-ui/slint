@@ -106,7 +106,6 @@ pub struct WinitWindowAdapter {
     self_weak: Weak<Self>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     pending_redraw: Cell<bool>,
-    in_resize_event: Cell<bool>,
     dark_color_scheme: OnceCell<Pin<Box<Property<bool>>>>,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
     shown: Cell<bool>,
@@ -126,7 +125,6 @@ impl Default for WinitWindowAdapter {
             self_weak: Default::default(),
             currently_pressed_key_code: Default::default(),
             pending_redraw: Default::default(),
-            in_resize_event: Default::default(),
             dark_color_scheme: Default::default(),
             constraints: Default::default(),
             shown: Default::default(),
@@ -312,22 +310,15 @@ impl WinitWindowAdapter {
     }
 
     pub fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) -> Result<(), PlatformError> {
-        // slint::Window::set_size will call set_size() on this type, which would call
-        // set_inner_size on the winit Window. On Windows that triggers an new resize event
-        // in the next event loop iteration for mysterious reasons, with slightly different sizes.
-        // I suspect a bug in the way the frame decorations are added and subtracted from the size
-        // we provide.
-        // Work around it with this guard that prevents us from calling set_inner_size again.
-        assert!(!self.in_resize_event.get());
-        self.in_resize_event.set(true);
-        scopeguard::defer! { self.in_resize_event.set(false); }
-
         // When a window is minimized on Windows, we get a move event to an off-screen position
         // and a resize even with a zero size. Don't forward that, especially not to the renderer,
         // which might panic when trying to create a zero-sized surface.
         if size.width > 0 && size.height > 0 {
             let physical_size = physical_size_to_slint(&size);
-            self.window().set_size(physical_size);
+            let scale_factor = WindowInner::from_pub(self.window()).scale_factor();
+            self.window().dispatch_event(WindowEvent::Resized {
+                size: physical_size.to_logical(scale_factor),
+            });
             self.renderer().resize_event(physical_size)
         } else {
             Ok(())
@@ -399,7 +390,9 @@ impl WindowAdapterSealed for WinitWindowAdapter {
         }
 
         if must_resize {
-            self.window().set_size(i_slint_core::api::LogicalSize::new(width, height));
+            self.window().dispatch_event(WindowEvent::Resized {
+                size: i_slint_core::api::LogicalSize::new(width, height),
+            });
         }
     }
 
@@ -546,11 +539,6 @@ impl WindowAdapterSealed for WinitWindowAdapter {
             self_.renderer().show()?;
             winit_window.set_visible(true);
 
-            let s = winit_window.inner_size().to_logical(scale_factor);
-            // Make sure that the window's inner size is in sync with the root window item's
-            // width/height.
-            runtime_window.set_window_item_geometry(LogicalSize::new(s.width, s.height));
-
             // Make sure the dark color scheme property is up-to-date, as it may have been queried earlier when
             // the window wasn't mapped yet.
             if let Some(dark_color_scheme_prop) = self_.dark_color_scheme.get() {
@@ -680,10 +668,11 @@ impl WindowAdapterSealed for WinitWindowAdapter {
     }
 
     fn set_size(&self, size: corelib::api::WindowSize) {
-        if self.in_resize_event.get() {
-            return;
-        }
         self.winit_window().set_inner_size(window_size_to_slint(&size))
+    }
+
+    fn size(&self) -> corelib::api::PhysicalSize {
+        physical_size_to_slint(&self.winit_window().inner_size())
     }
 
     fn dark_color_scheme(&self) -> bool {

@@ -328,6 +328,7 @@ impl Window {
     ///    //...
     /// }
     /// # impl i_slint_core::window::WindowAdapterSealed for MyWindowAdapter {
+    /// #   fn size(&self) -> i_slint_core::api::PhysicalSize { unimplemented!() }
     /// #   fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer { unimplemented!() }
     /// # }
     ///
@@ -398,20 +399,14 @@ impl Window {
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
     /// a window frame (if present).
     pub fn size(&self) -> PhysicalSize {
-        self.0.inner_size.get()
+        self.0.window_adapter().size()
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
     pub fn set_size(&self, size: impl Into<WindowSize>) {
         let size = size.into();
-        let l = size.to_logical(self.scale_factor()).to_euclid();
-        let p = size.to_physical(self.scale_factor());
-
-        self.0.set_window_item_geometry(l);
-        if self.0.inner_size.replace(p) != p {
-            self.0.window_adapter().set_size(size);
-        }
+        self.0.window_adapter().set_size(size);
     }
 
     /// Dispatch a window event to the scene.
@@ -468,6 +463,9 @@ impl Window {
             }
             crate::platform::WindowEvent::ScaleFactorChanged { scale_factor } => {
                 self.0.set_scale_factor(scale_factor);
+            }
+            crate::platform::WindowEvent::Resized { size } => {
+                self.0.set_window_item_geometry(size.to_euclid());
             }
         }
     }

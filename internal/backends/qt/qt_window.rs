@@ -1459,7 +1459,9 @@ impl QtWindow {
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
-        self.window.set_size(i_slint_core::api::PhysicalSize::new(size.width, size.height));
+        self.window().dispatch_event(WindowEvent::Resized {
+            size: i_slint_core::api::LogicalSize::new(size.width as _, size.height as _),
+        });
     }
 
     fn mouse_event(&self, event: MouseEvent) {
@@ -1788,6 +1790,14 @@ impl WindowAdapterSealed for QtWindow {
         cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
             widget_ptr->resize(sz);
         }};
+    }
+
+    fn size(&self) -> i_slint_core::api::PhysicalSize {
+        let widget_ptr = self.widget_ptr();
+        let s = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
+            return widget_ptr->size();
+        }};
+        i_slint_core::api::PhysicalSize::new(s.width as _, s.height as _)
     }
 
     fn dark_color_scheme(&self) -> bool {
