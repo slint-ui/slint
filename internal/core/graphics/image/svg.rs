@@ -62,17 +62,6 @@ impl ParsedSVG {
 }
 
 fn with_svg_options<T>(callback: impl FnOnce(&usvg::Options) -> T) -> T {
-    // TODO: When the font db cache is a feature in corelib, use it:
-    /*
-    crate::fonts::FONT_CACHE.with(|cache| {
-        let options = usvg::Options::default();
-        let mut options_ref = options.to_ref();
-        let cache = cache.borrow();
-        options_ref.fontdb = &cache.available_fonts;
-        callback(options_ref)
-    })
-    */
-
     let options = usvg::Options::default();
     callback(&options)
 }
