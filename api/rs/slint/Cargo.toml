@@ -128,6 +128,10 @@ renderer-winit-skia-vulkan = ["i-slint-backend-selector/renderer-winit-skia-vulk
 ## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
 renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 
+## Vulkan and libinput on Linux are used to render the application in full screen mode, without any
+## windowing system.
+backend-vulkanfs = ["i-slint-backend-selector/backend-vulkanfs", "std"]
+
 [dependencies]
 i-slint-core = { version = "=1.0.3", path = "../../../internal/core", default-features = false }
 slint-macros = { version = "=1.0.3", path = "../macros" }

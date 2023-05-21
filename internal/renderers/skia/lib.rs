@@ -188,6 +188,11 @@ impl SkiaRenderer {
         })
     }
 
+    /// Returns a reference to the underlying surface implementation
+    pub fn surface(&self) -> &dyn Surface {
+        self.surface.as_ref()
+    }
+
     /// Call this when you receive a notification from the windowing system that the size of the window has changed.
     pub fn resize_event(
         &self,
@@ -395,4 +400,9 @@ pub trait Surface {
         size: PhysicalWindowSize,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
     fn bits_per_pixel(&self) -> Result<u8, PlatformError>;
+
+    /// Implementations should return self to allow upcasting.
+    fn as_any(&self) -> &dyn core::any::Any {
+        &()
+    }
 }

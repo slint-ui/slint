@@ -1,0 +1,28 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+[package]
+name = "i-slint-backend-vulkanfs"
+version = "1.0.3"
+authors = ["Slint Developers <info@slint-ui.com>"]
+edition = "2021"
+license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+description = "OpenGL rendering backend for Slint"
+repository = "https://github.com/slint-ui/slint"
+homepage = "https://slint-ui.com"
+rust-version.workspace = true
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+i-slint-core = { version = "=1.0.3", path = "../../../internal/core" }
+i-slint-renderer-skia = { version = "=1.0.3", path = "../../renderers/skia", features = ["vulkan"] }
+vulkano = { version = "0.33.0", default-features = false }
+
+[target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
+input = { version = "0.8.2" }
+libc = { version = "0.2" }
+
+[target.'cfg(not(target_family = "windows"))'.dependencies]
+calloop = { version = "0.10.5" }
