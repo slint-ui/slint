@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 
-use vulkano::device::physical::PhysicalDeviceType;
+use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{
     Device, DeviceCreateInfo, DeviceExtensions, Queue, QueueCreateInfo, QueueFlags,
 };
@@ -32,6 +32,126 @@ pub struct VulkanSurface {
     swapchain: RefCell<Arc<Swapchain>>,
     swapchain_images: RefCell<Vec<Arc<SwapchainImage>>>,
     swapchain_image_views: RefCell<Vec<Arc<ImageView<SwapchainImage>>>>,
+}
+
+impl VulkanSurface {
+    /// Creates a Skia Vulkan rendering surface from the given Vukano device, queue family index, surface,
+    /// and size.
+    pub fn from_surface(
+        physical_device: Arc<PhysicalDevice>,
+        queue_family_index: u32,
+        surface: Arc<Surface>,
+        size: PhysicalWindowSize,
+    ) -> Result<Self, i_slint_core::platform::PlatformError> {
+        /*
+        eprintln!(
+            "Vulkan device: {} (type: {:?})",
+            physical_device.properties().device_name,
+            physical_device.properties().device_type,
+        );*/
+
+        let (device, mut queues) = Device::new(
+            physical_device.clone(),
+            DeviceCreateInfo {
+                enabled_extensions: DeviceExtensions {
+                    khr_swapchain: true,
+                    ..DeviceExtensions::empty()
+                },
+                queue_create_infos: vec![QueueCreateInfo {
+                    queue_family_index,
+                    ..Default::default()
+                }],
+                ..Default::default()
+            },
+        )
+        .map_err(|dev_err| format!("Failed to create suitable logical Vulkan device: {dev_err}"))?;
+        let queue = queues.next().ok_or_else(|| format!("Not Vulkan device queue found"))?;
+
+        let (swapchain, swapchain_images) = {
+            let surface_capabilities = device
+                .physical_device()
+                .surface_capabilities(&surface, Default::default())
+                .map_err(|vke| format!("Error macthing Vulkan surface capabilities: {vke}"))?;
+            let image_format = vulkano::format::Format::B8G8R8A8_UNORM.into();
+
+            Swapchain::new(
+                device.clone(),
+                surface.clone(),
+                SwapchainCreateInfo {
+                    min_image_count: surface_capabilities.min_image_count,
+                    image_format,
+                    image_extent: [size.width, size.height],
+                    image_usage: ImageUsage::COLOR_ATTACHMENT,
+                    composite_alpha: surface_capabilities
+                        .supported_composite_alpha
+                        .into_iter()
+                        .next()
+                        .ok_or_else(|| format!("fatal: Vulkan surface capabilities missing composite alpha descriptor"))?,
+                    ..Default::default()
+                },
+            )
+            .map_err(|vke| format!("Error creating Vulkan swapchain: {vke}"))?
+        };
+
+        let mut swapchain_image_views = Vec::with_capacity(swapchain_images.len());
+
+        for image in &swapchain_images {
+            swapchain_image_views.push(ImageView::new_default(image.clone()).map_err(|vke| {
+                format!("fatal: Error creating image view for swap chain image: {vke}")
+            })?);
+        }
+
+        let instance = physical_device.instance();
+        let library = instance.library();
+
+        let get_proc = |of| unsafe {
+            let result = match of {
+                skia_safe::gpu::vk::GetProcOf::Instance(instance, name) => {
+                    library.get_instance_proc_addr(ash::vk::Instance::from_raw(instance as _), name)
+                }
+                skia_safe::gpu::vk::GetProcOf::Device(device, name) => {
+                    (instance.fns().v1_0.get_device_proc_addr)(
+                        ash::vk::Device::from_raw(device as _),
+                        name,
+                    )
+                }
+            };
+
+            match result {
+                Some(f) => f as _,
+                None => {
+                    //println!("resolve of {} failed", of.name().to_str().unwrap());
+                    core::ptr::null()
+                }
+            }
+        };
+
+        let backend_context = unsafe {
+            skia_safe::gpu::vk::BackendContext::new(
+                instance.handle().as_raw() as _,
+                physical_device.handle().as_raw() as _,
+                device.handle().as_raw() as _,
+                (queue.handle().as_raw() as _, queue.id_within_family() as _),
+                &get_proc,
+            )
+        };
+
+        let gr_context = skia_safe::gpu::DirectContext::new_vulkan(&backend_context, None)
+            .ok_or_else(|| format!("Error creating Skia Vulkan context"))?;
+
+        let previous_frame_end = RefCell::new(Some(sync::now(device.clone()).boxed()));
+
+        Ok(Self {
+            gr_context: RefCell::new(gr_context),
+            recreate_swapchain: Cell::new(false),
+            device,
+            previous_frame_end,
+            queue,
+            swapchain: RefCell::new(swapchain),
+            swapchain_images: RefCell::new(swapchain_images),
+            swapchain_image_views: RefCell::new(swapchain_image_views),
+        })
+    }
 }
 
 impl super::Surface for VulkanSurface {
@@ -96,108 +216,7 @@ impl super::Surface for VulkanSurface {
             })
             .ok_or_else(|| format!("Vulkan: Failed to find suitable physical device"))?;
 
-        /*
-        eprintln!(
-            "Vulkan device: {} (type: {:?})",
-            physical_device.properties().device_name,
-            physical_device.properties().device_type,
-        );*/
-
-        let (device, mut queues) = Device::new(
-            physical_device.clone(),
-            DeviceCreateInfo {
-                enabled_extensions: device_extensions,
-                queue_create_infos: vec![QueueCreateInfo {
-                    queue_family_index,
-                    ..Default::default()
-                }],
-                ..Default::default()
-            },
-        )
-        .map_err(|dev_err| format!("Failed to create suitable logical Vulkan device: {dev_err}"))?;
-        let queue = queues.next().ok_or_else(|| format!("Not Vulkan device queue found"))?;
-
-        let (swapchain, swapchain_images) = {
-            let surface_capabilities = device
-                .physical_device()
-                .surface_capabilities(&surface, Default::default())
-                .map_err(|vke| format!("Error macthing Vulkan surface capabilities: {vke}"))?;
-            let image_format = vulkano::format::Format::B8G8R8A8_UNORM.into();
-
-            Swapchain::new(
-                device.clone(),
-                surface.clone(),
-                SwapchainCreateInfo {
-                    min_image_count: surface_capabilities.min_image_count,
-                    image_format,
-                    image_extent: [size.width, size.height],
-                    image_usage: ImageUsage::COLOR_ATTACHMENT,
-                    composite_alpha: surface_capabilities
-                        .supported_composite_alpha
-                        .into_iter()
-                        .next()
-                        .ok_or_else(|| format!("fatal: Vulkan surface capabilities missing composite alpha descriptor"))?,
-                    ..Default::default()
-                },
-            )
-            .map_err(|vke| format!("Error creating Vulkan swapchain: {vke}"))?
-        };
-
-        let mut swapchain_image_views = Vec::with_capacity(swapchain_images.len());
-
-        for image in &swapchain_images {
-            swapchain_image_views.push(ImageView::new_default(image.clone()).map_err(|vke| {
-                format!("fatal: Error creating image view for swap chain image: {vke}")
-            })?);
-        }
-
-        let get_proc = |of| unsafe {
-            let result = match of {
-                skia_safe::gpu::vk::GetProcOf::Instance(instance, name) => {
-                    library.get_instance_proc_addr(ash::vk::Instance::from_raw(instance as _), name)
-                }
-                skia_safe::gpu::vk::GetProcOf::Device(device, name) => {
-                    (instance.fns().v1_0.get_device_proc_addr)(
-                        ash::vk::Device::from_raw(device as _),
-                        name,
-                    )
-                }
-            };
-
-            match result {
-                Some(f) => f as _,
-                None => {
-                    //println!("resolve of {} failed", of.name().to_str().unwrap());
-                    core::ptr::null()
-                }
-            }
-        };
-
-        let backend_context = unsafe {
-            skia_safe::gpu::vk::BackendContext::new(
-                instance.handle().as_raw() as _,
-                physical_device.handle().as_raw() as _,
-                device.handle().as_raw() as _,
-                (queue.handle().as_raw() as _, queue.id_within_family() as _),
-                &get_proc,
-            )
-        };
-
-        let gr_context = skia_safe::gpu::DirectContext::new_vulkan(&backend_context, None)
-            .ok_or_else(|| format!("Error creating Skia Vulkan context"))?;
-
-        let previous_frame_end = RefCell::new(Some(sync::now(device.clone()).boxed()));
-
-        Ok(Self {
-            gr_context: RefCell::new(gr_context),
-            recreate_swapchain: Cell::new(false),
-            device,
-            previous_frame_end,
-            queue,
-            swapchain: RefCell::new(swapchain),
-            swapchain_images: RefCell::new(swapchain_images),
-            swapchain_image_views: RefCell::new(swapchain_image_views),
-        })
+        Self::from_surface(physical_device, queue_family_index, surface, size)
     }
 
     fn name(&self) -> &'static str {
