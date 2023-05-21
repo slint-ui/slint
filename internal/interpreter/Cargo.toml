@@ -64,6 +64,10 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 ## with support for the Wayland window system on Unix.
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
+## Vulkan/EGL and libinput on Linux are used to render the application in full screen mode, without any
+## windowing system.
+backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
+
 ## Make the winit backend capable of rendering using the [femtovg](https://crates.io/crates/femtovg) crate.
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
 
