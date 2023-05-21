@@ -22,6 +22,7 @@ use vulkano::{sync, Handle, VulkanLibrary, VulkanObject};
 use raw_window_handle::HasRawDisplayHandle;
 use raw_window_handle::HasRawWindowHandle;
 
+/// This surface renders into the given window using Vulkan.
 pub struct VulkanSurface {
     gr_context: RefCell<skia_safe::gpu::DirectContext>,
     recreate_swapchain: Cell<bool>,

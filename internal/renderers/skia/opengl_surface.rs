@@ -14,6 +14,7 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::{api::GraphicsAPI, platform::PlatformError};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
+/// This surface type renders into the given window with OpenGL, using glutin and glow libraries.
 pub struct OpenGLSurface {
     fb_info: skia_safe::gpu::gl::FramebufferInfo,
     surface: RefCell<skia_safe::Surface>,
