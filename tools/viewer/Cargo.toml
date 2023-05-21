@@ -39,6 +39,8 @@ renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 
+backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
+
 ## Enable the translations using [gettext](https://www.gnu.org/software/gettext/gettext)
 ##
 ## the `@tr(...)` code from .slint files will be transformed into call to `dgettext`.

@@ -413,4 +413,9 @@ pub trait Surface {
         size: PhysicalWindowSize,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
     fn bits_per_pixel(&self) -> Result<u8, PlatformError>;
+
+    /// Implementations should return self to allow upcasting.
+    fn as_any(&self) -> &dyn core::any::Any {
+        &()
+    }
 }

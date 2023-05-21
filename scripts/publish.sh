@@ -14,6 +14,7 @@ cargo publish --manifest-path internal/renderers/femtovg/Cargo.toml
 cargo publish --manifest-path internal/backends/winit/Cargo.toml --features x11,renderer-femtovg
 cargo publish --manifest-path api/rs/build/Cargo.toml
 cargo publish --manifest-path internal/backends/qt/Cargo.toml
+cargo publish --manifest-path internal/backends/linuxkms/Cargo.toml
 sleep 30
 cargo publish --manifest-path internal/backends/selector/Cargo.toml --features backend-winit-x11,renderer-femtovg
 sleep 30

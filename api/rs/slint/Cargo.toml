@@ -141,6 +141,10 @@ renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
 ## Render using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software", "i-slint-core/software-renderer"]
 
+## KMS with Vulkan or EGL and libinput on Linux are used to render the application in full screen mode, without any
+## windowing system.
+backend-linuxkms = ["i-slint-backend-selector/backend-linuxkms", "std"]
+
 [dependencies]
 i-slint-core = { version = "=1.2.0", path = "../../../internal/core", default-features = false }
 slint-macros = { version = "=1.2.0", path = "../macros" }
