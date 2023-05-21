@@ -97,9 +97,80 @@ impl VulkanWindowAdapter {
             })
             .ok_or_else(|| format!("Vulkan: Failed to find suitable physical device"))?;
 
-        let display = Display::enumerate(physical_device.clone()).next().unwrap();
+        let displays = Display::enumerate(physical_device.clone());
 
-        let mode = display.display_modes().next().unwrap();
+        let Some(first_display) = displays.clone().next() else {
+            return Err(format!("Vulkan: No displays found").into());
+        };
+
+        let display = std::env::var("SLINT_VULKANFS_DISPLAY").map_or_else(
+            |_| Ok(first_display),
+            |display_str| {
+                let mut displays_and_index = displays.enumerate();
+
+                if display_str.to_lowercase() == "list" {
+                    let display_names: Vec<String> = displays_and_index
+                        .map(|(index, display)| {
+                            format!("Index: {} Name: {}", index, display.name())
+                        })
+                        .collect();
+
+                    // Can't return error here because newlines are escaped.
+                    panic!("\nVulkan Display List Requested:\n{}\n", display_names.join("\n"));
+                }
+                let display_index: usize = display_str
+                    .parse()
+                    .map_err(|_| format!("Invalid display index {display_str}"))?;
+                displays_and_index.nth(display_index).map_or_else(
+                    || Err(format!("Display index is out of bounds: {display_index}")),
+                    |(_, dsp)| Ok(dsp),
+                )
+            },
+        )?;
+
+        let mode = std::env::var("SLINT_VULKANFS_MODE").map_or_else(
+            |_| {
+                display
+                    .display_modes()
+                    .max_by(|current_mode, next_mode| {
+                        let [current_mode_width, current_mode_height] =
+                            current_mode.visible_region();
+                        let current_refresh_rate = current_mode.refresh_rate();
+                        let [next_mode_width, next_mode_height] = next_mode.visible_region();
+                        let next_refresh_rate = next_mode.refresh_rate();
+                        (current_mode_width, current_mode_height, current_refresh_rate).cmp(&(
+                            next_mode_width,
+                            next_mode_height,
+                            next_refresh_rate,
+                        ))
+                    })
+                    .ok_or_else(|| format!("Vulkan: No modes found for display"))
+            },
+            |mode_str| {
+                let mut modes_and_index = display.display_modes().enumerate();
+
+                if mode_str.to_lowercase() == "list" {
+                    let mode_names: Vec<String> = modes_and_index
+                        .map(|(index, mode)| {
+                            let [width, height] = mode.visible_region();
+                            format!(
+                                "Index: {index} Width: {width} Height: {height} Refresh Rate: {}",
+                                mode.refresh_rate() / 1000
+                            )
+                        })
+                        .collect();
+
+                    // Can't return error here because newlines are escaped.
+                    panic!("\nVulkan Mode List Requested:\n{}\n", mode_names.join("\n"));
+                }
+                let mode_index: usize =
+                    mode_str.parse().map_err(|_| format!("Invalid mode index {mode_str}"))?;
+                modes_and_index.nth(mode_index).map_or_else(
+                    || Err(format!("Mode index is out of bounds: {mode_index}")),
+                    |(_, mode)| Ok(mode),
+                )
+            },
+        )?;
 
         let vulkan_surface = vulkano::swapchain::Surface::from_display_plane(
             &mode,
