@@ -76,7 +76,12 @@ impl SkiaRenderer {
     ) -> Result<Self, PlatformError> {
         let surface = DefaultSurface::new(window_handle, display_handle, size)?;
 
-        Ok(Self {
+        Ok(Self::new_with_surface(surface))
+    }
+
+    /// Creates a new renderer with the given surface trait implementation.
+    pub fn new_with_surface(surface: impl Surface + 'static) -> Self {
+        Self {
             maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
@@ -84,7 +89,7 @@ impl SkiaRenderer {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
             surface: Box::new(surface),
-        })
+        }
     }
 
     /// Render the scene in the previously associated window. The size parameter must match the size of the window.
