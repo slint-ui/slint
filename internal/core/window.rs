@@ -171,6 +171,8 @@ pub trait WindowAdapterSealed {
     /// [`Window::set_size`] will call this function again, so you must be prepared to get recursions.
     // FIXME: before making that public, we need to add a WindowEvent::Resized to avoid the above recursion
     fn set_size(&self, _size: WindowSize) {}
+    /// Return the size of the Window on the screen
+    fn size(&self) -> PhysicalSize;
 
     /// returns wether a dark theme is used
     fn dark_color_scheme(&self) -> bool {
@@ -287,9 +289,6 @@ pub struct WindowInner {
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
-    /// This is a cache of the size set by the set_inner_size setter.
-    /// It should be mapping with the WindowItem::width and height (only in physical)
-    pub(crate) inner_size: Cell<PhysicalSize>,
 }
 
 impl Drop for WindowInner {
@@ -340,7 +339,6 @@ impl WindowInner {
             cursor_blinker: Default::default(),
             active_popup: Default::default(),
             close_requested: Default::default(),
-            inner_size: Default::default(),
             click_state: ClickState::default(),
         }
     }
@@ -703,6 +701,12 @@ impl WindowInner {
     pub fn show(&self) -> Result<(), PlatformError> {
         self.update_window_properties();
         self.window_adapter().show()?;
+        // Make sure that the window's inner size is in sync with the root window item's
+        // width/height.
+        self.set_window_item_geometry(
+            self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
+        );
+
         Ok(())
     }
 
@@ -822,7 +826,7 @@ impl WindowInner {
 
     /// Sets the size of the window item. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
-    pub fn set_window_item_geometry(&self, size: LogicalSize) {
+    pub(crate) fn set_window_item_geometry(&self, size: LogicalSize) {
         if let Some(component_rc) = self.try_component() {
             let component = ComponentRc::borrow_pin(&component_rc);
             let root_item = component.as_ref().get_item_ref(0);
@@ -1153,7 +1157,7 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_size(handle: *const WindowAdapterRcOpaque) -> IntSize {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).inner_size.get().to_euclid().cast()
+        window_adapter.size().to_euclid().cast()
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding

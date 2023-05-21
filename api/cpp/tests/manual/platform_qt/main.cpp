@@ -99,6 +99,11 @@ public:
         renderer().hide();
         const_cast<MyWindow *>(this)->QWindow::hide();
     }
+    slint::PhysicalSize physical_size() const override
+    {
+        auto s = size();
+        return slint::PhysicalSize({ uint32_t(s.width()), uint32_t(s.height()) });
+    }
 
     void request_redraw() const override { const_cast<MyWindow *>(this)->requestUpdate(); }
 
@@ -107,7 +112,10 @@ public:
         auto windowSize = slint::PhysicalSize(
                 { uint32_t(ev->size().width()), uint32_t(ev->size().height()) });
         renderer().resize(windowSize);
-        slint_platform::WindowAdapter<slint_platform::SkiaRenderer>::window().set_size(windowSize);
+        float scale_factor = devicePixelRatio();
+        WindowAdapter<slint_platform::SkiaRenderer>::dispatch_resize_event(
+                slint::LogicalSize({ float(windowSize.width) / scale_factor,
+                                     float(windowSize.height) / scale_factor }));
     }
 
     void mousePressEvent(QMouseEvent *event) override

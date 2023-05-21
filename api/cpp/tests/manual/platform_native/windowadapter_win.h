@@ -38,7 +38,7 @@ struct MyWindowAdapter : NativeWindowHandle,
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
     }
 
-    slint::PhysicalSize windowSize() const
+    slint::PhysicalSize physical_size() const override
     {
         RECT r;
         GetWindowRect(hwnd, &r);
@@ -61,7 +61,7 @@ struct MyWindowAdapter : NativeWindowHandle,
 
     void render()
     {
-        renderer().render(windowSize());
+        renderer().render(physical_size());
         if (has_active_animations())
             request_redraw();
     }
@@ -70,7 +70,7 @@ struct MyWindowAdapter : NativeWindowHandle,
     {
         slint::PhysicalSize windowSize({ width, height });
         renderer().resize(windowSize);
-        window().set_size(windowSize);
+        dispatch_resize_event(slint::LogicalSize({ (float)width, (float)height }));
     }
 
     void setGeometry(int x, int y, int width, int height)
