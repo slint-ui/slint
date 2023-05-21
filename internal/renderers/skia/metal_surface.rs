@@ -13,6 +13,8 @@ use skia_safe::gpu::mtl;
 
 use std::cell::RefCell;
 
+/// This surface renders into the given window using Metal. The provided display argument
+/// is ignored, as it has no meaning on macOS.
 pub struct MetalSurface {
     command_queue: metal::CommandQueue,
     layer: metal::MetalLayer,
