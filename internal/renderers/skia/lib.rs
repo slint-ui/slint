@@ -70,13 +70,18 @@ impl SkiaRenderer {
     ) -> Result<Self, PlatformError> {
         let surface = DefaultSurface::new(window_handle, display_handle, size)?;
 
-        Ok(Self {
+        Ok(Self::new_with_surface(surface))
+    }
+
+    /// Creates a new renderer with the given surface trait implementation.
+    pub fn new_with_surface(surface: impl Surface + 'static) -> Self {
+        Self {
             rendering_notifier: Default::default(),
             image_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             surface: Box::new(surface),
-        })
+        }
     }
 
     /// Notifiers the renderer that the underlying window is becoming visible.
