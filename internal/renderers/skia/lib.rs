@@ -32,17 +32,21 @@ mod itemrenderer;
 mod textlayout;
 
 #[cfg(target_os = "macos")]
-mod metal_surface;
+pub mod metal_surface;
 
 #[cfg(target_family = "windows")]
-mod d3d_surface;
+pub mod d3d_surface;
+
+#[cfg(skia_backend_vulkan)]
+pub mod vulkan_surface;
+
+#[cfg(skia_backend_opengl)]
+pub mod opengl_surface;
 
 cfg_if::cfg_if! {
     if #[cfg(skia_backend_vulkan)] {
-        mod vulkan_surface;
         type DefaultSurface = vulkan_surface::VulkanSurface;
     } else if #[cfg(skia_backend_opengl)] {
-        mod opengl_surface;
         type DefaultSurface = opengl_surface::OpenGLSurface;
     } else if #[cfg(skia_backend_metal)] {
         type DefaultSurface = metal_surface::MetalSurface;
@@ -362,7 +366,10 @@ impl Drop for SkiaRenderer {
     }
 }
 
-trait Surface {
+/// This trait represents the interface between the Skia renderer and the underlying rendering surface, such as a window
+/// with a metal layer, a wayland window with an OpenGL context, etc.
+pub trait Surface {
+    /// Creates a new surface with the given window, display, and size.
     fn new(
         window_handle: raw_window_handle::WindowHandle<'_>,
         display_handle: raw_window_handle::DisplayHandle<'_>,
@@ -370,11 +377,17 @@ trait Surface {
     ) -> Result<Self, PlatformError>
     where
         Self: Sized;
+    /// Returns the name of the surface, for diagnostic purposes.
     fn name(&self) -> &'static str;
+    /// Returns true if the surface supports exposing its platform specific API via the GraphicsAPI struct
+    /// and the `with_graphics_api` function.
     fn supports_graphics_api(&self) -> bool {
         false
     }
+    /// If supported, this invokes the specified callback with access to the platform graphics API.
     fn with_graphics_api(&self, _callback: &mut dyn FnMut(GraphicsAPI<'_>)) {}
+    /// Invokes the callback with the surface active. This has only a meaning for OpenGL rendering, where
+    /// the implementation must make the GL context current.
     fn with_active_surface(
         &self,
         callback: &mut dyn FnMut(),
@@ -382,11 +395,14 @@ trait Surface {
         callback();
         Ok(())
     }
+    /// Prepares the surface for rendering and invokes the provided callback with access to a Skia canvas and
+    /// rendering context.
     fn render(
         &self,
         size: PhysicalWindowSize,
         callback: &dyn Fn(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     ) -> Result<(), i_slint_core::platform::PlatformError>;
+    /// Called when the surface should be resized.
     fn resize_event(
         &self,
         size: PhysicalWindowSize,

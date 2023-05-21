@@ -283,6 +283,8 @@ impl SwapChain {
     }
 }
 
+/// This surface renders into the given window using Direct 3D. The provided display
+/// arugment is ignored, as it has no meaning on Windows.
 pub struct D3DSurface {
     swap_chain: RefCell<SwapChain>,
 }
