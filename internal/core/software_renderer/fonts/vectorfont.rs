@@ -4,9 +4,9 @@
 use alloc::rc::Rc;
 
 use crate::lengths::PhysicalPx;
-use crate::sharedfontdb::{self};
 use crate::software_renderer::PhysicalLength;
 use crate::textlayout::{Glyph, TextShaper};
+use i_slint_common::sharedfontdb::{self, fontdb};
 
 use super::RenderableGlyph;
 

@@ -38,7 +38,7 @@ svg = ["dep:resvg", "shared-fontdb"]
 
 box-shadow-cache = []
 
-shared-fontdb = ["dep:fontdb", "dep:libc", "dep:yeslogic-fontconfig-sys"]
+shared-fontdb = ["i-slint-common/shared-fontdb"]
 
 default = ["std", "unicode"]
 

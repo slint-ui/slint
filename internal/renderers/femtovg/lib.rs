@@ -8,6 +8,7 @@ use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
 
+use i_slint_common::sharedfontdb;
 use i_slint_core::api::{
     PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
     SetRenderingNotifierError,
@@ -19,7 +20,6 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::Renderer;
-use i_slint_core::sharedfontdb;
 use i_slint_core::window::WindowInner;
 use i_slint_core::Brush;
 
