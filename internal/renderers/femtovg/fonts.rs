@@ -344,8 +344,8 @@ impl FontCache {
             &core_foundation::array::CFArray::from_CFTypes(&[]),
         )
         .iter()
-        .map(|fallback_descriptor| fallback_descriptor.family_name().into())
-        .filter(|family| self.is_known_family(family))
+        .map(|fallback_descriptor| SharedString::from(fallback_descriptor.family_name()))
+        .filter(|family| self.is_known_family(&family))
         .collect::<Vec<_>>()
     }
 
@@ -414,7 +414,7 @@ impl FontCache {
             );
 
             if let Some(fallback_font) = fallback_result.mapped_font {
-                let family = fallback_font.family_name().into();
+                let family: SharedString = fallback_font.family_name().into();
                 if self.is_known_family(&family) {
                     fallback_fonts.push(family)
                 }
@@ -445,8 +445,9 @@ impl FontCache {
             db.borrow()
                 .fontconfig_fallback_families
                 .iter()
-                .filter(|family_name| self.is_known_family(family_name))
-                .cloned()
+                .filter_map(|family_name| {
+                    self.is_known_family(family_name).then(|| family_name.into())
+                })
                 .collect()
         })
     }
@@ -459,14 +460,14 @@ impl FontCache {
         _primary_font: &LoadedFont,
         _reference_text: &str,
     ) -> Vec<SharedString> {
-        ["DejaVu Sans".into()]
+        [SharedString::from("DejaVu Sans")]
             .iter()
-            .filter(|family_name| self.is_known_family(family_name))
+            .filter(|family_name| self.is_known_family(&family_name))
             .cloned()
             .collect()
     }
 
-    fn is_known_family(&self, family: &SharedString) -> bool {
+    fn is_known_family(&self, family: &str) -> bool {
         self.available_families.contains(family)
     }
 

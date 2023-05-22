@@ -11,6 +11,8 @@ use crate::object_tree::*;
 use std::collections::HashSet;
 use std::rc::Rc;
 
+use i_slint_common::sharedfontdb::{self, fontdb};
+
 #[cfg(target_arch = "wasm32")]
 pub fn embed_glyphs<'a>(
     _component: &Rc<Component>,
@@ -69,30 +71,30 @@ pub fn embed_glyphs<'a>(
         }
     }
 
-    let mut fontdb = fontdb::Database::new();
-    fontdb.load_system_fonts();
+    sharedfontdb::FONT_DB.with(|db| {
+        let mut fontdb = db.borrow_mut();
 
-    #[cfg(not(any(
-        target_family = "windows",
-        target_os = "macos",
-        target_os = "ios",
-        target_arch = "wasm32"
-    )))]
-    {
-        let default_sans_serif_family = {
-            let mut fontconfig_fallback_families = fontconfig::find_families("sans-serif");
-            if fontconfig_fallback_families.len() == 0 {
-                diag.push_error(
-                    "internal error: unable to resolve 'sans-serif' with fontconfig".to_string(),
-                    &generic_diag_location,
-                );
-                return;
-            }
-            fontconfig_fallback_families.remove(0)
-        };
-        fontdb.set_sans_serif_family(default_sans_serif_family);
-    }
+        embed_glyphs_with_fontdb(
+            &mut fontdb,
+            component,
+            pixel_sizes,
+            characters_seen,
+            all_docs,
+            diag,
+            generic_diag_location,
+        );
+    })
+}
 
+fn embed_glyphs_with_fontdb<'a>(
+    fontdb: &mut sharedfontdb::FontDatabase,
+    component: &Rc<Component>,
+    pixel_sizes: Vec<i16>,
+    characters_seen: HashSet<char>,
+    all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
+    diag: &mut BuildDiagnostics,
+    generic_diag_location: Option<crate::diagnostics::SourceLocation>,
+) {
     let maybe_override_default_font_id =
         std::env::var_os("SLINT_DEFAULT_FONT").and_then(|maybe_font_path| {
             let path = std::path::Path::new(&maybe_font_path);
@@ -119,7 +121,7 @@ pub fn embed_glyphs<'a>(
             }
         });
 
-    let (fallback_fonts, fallback_font) = get_fallback_fonts(&fontdb);
+    let (fallback_fonts, fallback_font) = get_fallback_fonts(fontdb);
 
     let mut custom_fonts = Vec::new();
 
@@ -315,24 +317,34 @@ pub fn embed_glyphs<'a>(
 }
 
 #[inline(never)] // workaround https://github.com/rust-lang/rust/issues/104099
-fn get_fallback_fonts(fontdb: &fontdb::Database) -> (Vec<fontdue::Font>, fontdb::ID) {
-    let fallback_families = if cfg!(target_os = "macos") {
-        ["Menlo", "Apple Symbols", "Apple Color Emoji"].iter()
-    } else if cfg!(not(any(
+fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> (Vec<fontdue::Font>, fontdb::ID) {
+    #[allow(unused)]
+    let mut fallback_families: Vec<String> = Vec::new();
+
+    #[cfg(target_os = "macos")]
+    {
+        fallback_families = ["Menlo", "Apple Symbols", "Apple Color Emoji"]
+            .into_iter()
+            .map(Into::into)
+            .collect::<Vec<String>>();
+    }
+
+    #[cfg(not(any(
         target_family = "windows",
         target_os = "macos",
         target_os = "ios",
         target_arch = "wasm32"
-    ))) {
-        ["Noto Sans Symbols", "Noto Sans Symbols2", "DejaVu Sans"].iter()
-    } else {
-        [].iter()
-    };
+    )))]
+    {
+        fallback_families = fontdb.fontconfig_fallback_families.clone();
+    }
+
     let fallback_fonts = fallback_families
+        .iter()
         .filter_map(|fallback_family| {
             fontdb
                 .query(&fontdb::Query {
-                    families: &[fontdb::Family::Name(*fallback_family)],
+                    families: &[fontdb::Family::Name(fallback_family)],
                     ..Default::default()
                 })
                 .and_then(|face_id| {
@@ -470,11 +482,3 @@ pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut Has
         })
     })
 }
-
-#[cfg(not(any(
-    target_family = "windows",
-    target_os = "macos",
-    target_os = "ios",
-    target_arch = "wasm32"
-)))]
-mod fontconfig;
