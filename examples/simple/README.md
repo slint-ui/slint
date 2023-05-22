@@ -1,22 +1,27 @@
 # Simple Examples
 
 These examples are bare bones, basic minimum samples for the absolute noob
+to demonstrate how to use Slint and Rust together to make a Graphical User
+Interface program.
 
-## hello1 - A simple demonstration of pure slint, run by slint-viewer alone
+hello1 - A simple demonstration of pure slint, run by slint-viewer alone
 
-    cargo install slint-viewer
-    slint-viewer hello1.slint
+hello2 - Slint code inline within rust source code 
 
-## hello2 - Slint code inline within rust source code. 
-#           This shows the basic capability of creating a stand alone binary 
-#           executable that runs a UI.
+hello3 - User Interface in a separate .slint file
+
+hello4 - Transfer data from Rust to Slint using Global
+
+hello5 - Transfer data from Slint to Rust using Global
+
+hello? - Click a Button in Slint, get result from within Slint
+
+hello? - Click a Button in Slint, get result from Rust
+
+Slint itself
+
+hello? - Show a Binding of a Property
 
 
-    cargo run --example hello2
 
-## hello3 - Shows the use of a separate slint file for the user interface
-#           and a rust source file for the main binary code. This produces
-#           a single self contained binary that runs a GUI of the slint file.
-
-    cargo run --example hello3
 

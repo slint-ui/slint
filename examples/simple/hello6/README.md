@@ -1,16 +1,15 @@
 ## simple examples - hello6
-#
-# This builds on hello4, but instead of transmitting data from Rust to
-# Slint, we are instead transmitting data from Slint to Rust.
-# 
-# This is accomplished again with a Global Singleton, but instead of using
-# an "in" property we are using an "out" property in the .slint code
-#
-# The example will show a window with Hello World 5!, however it will also
-# display on the Standard Output (command line) a text similar to the following:
-#
-#   Hello World 5! This text is from Slint, but being displayed from Rust!
-#
-# see also https://slint-ui.com/releases/1.0.2/docs/slint/src/reference/globals.html#
-#
+
+Button example. This will show the basics of the built-in Button widget.
+This example is completely in slint. 
+
+This displays the text "Hello Button!" in a button. 
+
+When you press the button, it should change color. This may be slight
+and hard to notice depending on the slint Style and backend. Hold down
+on the button longer to see it really change.
+
+To run, use slint-viewer:
+
+    slint-viewer hello6.slint
 

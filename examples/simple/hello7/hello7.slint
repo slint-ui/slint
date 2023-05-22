@@ -1,9 +1,10 @@
 
 import { Button } from "std-widgets.slint";
 
-export component Hello6 inherits Window {
+export component Hello7 inherits Window {
 	Button {
 		text: "Hello Button!";
+		clicked => { self.text = "Hello Click!"; }
 	}
 }
 
