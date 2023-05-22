@@ -7,14 +7,14 @@ use alloc::rc::Rc;
 use std::collections::HashMap;
 
 use crate::lengths::{LogicalLength, ScaleFactor};
-use crate::sharedfontdb;
+use i_slint_common::sharedfontdb::{self, fontdb};
 
 use super::super::PhysicalLength;
 use super::vectorfont::VectorFont;
 
 thread_local! {
     static FALLBACK_FONT_ID: once_cell::unsync::Lazy<fontdb::ID> = once_cell::unsync::Lazy::new(|| {
-        crate::sharedfontdb::FONT_DB.with(|db| {
+        sharedfontdb::FONT_DB.with(|db| {
             let mut db = db.borrow_mut();
             std::env::var_os("SLINT_DEFAULT_FONT").and_then(|maybe_font_path| {
                 let path = std::path::Path::new(&maybe_font_path);

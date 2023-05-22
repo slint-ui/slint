@@ -68,7 +68,7 @@ fn with_svg_options<T>(callback: impl FnOnce(&usvg::Options) -> T) -> T {
 
 fn fixup_text(mut tree: usvg::Tree) -> usvg::Tree {
     if tree.has_text_nodes() {
-        crate::sharedfontdb::FONT_DB.with(|db| {
+        i_slint_common::sharedfontdb::FONT_DB.with(|db| {
             tree.convert_text(&*db.borrow());
         })
     }

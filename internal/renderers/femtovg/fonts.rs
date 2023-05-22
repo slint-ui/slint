@@ -5,12 +5,12 @@
 
 use core::num::NonZeroUsize;
 use femtovg::TextContext;
+use i_slint_common::sharedfontdb::{self, fontdb};
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
 use i_slint_core::lengths::{LogicalLength, LogicalSize, ScaleFactor, SizeLengths};
-use i_slint_core::sharedfontdb::fontdb;
-use i_slint_core::{sharedfontdb, SharedString, SharedVector};
+use i_slint_core::{SharedString, SharedVector};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
