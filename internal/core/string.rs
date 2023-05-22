@@ -235,6 +235,12 @@ impl Write for SharedString {
     }
 }
 
+impl core::borrow::Borrow<str> for SharedString {
+    fn borrow(&self) -> &str {
+        self.as_str()
+    }
+}
+
 /// Same as [`std::fmt::format()`], but return a [`SharedString`] instead
 pub fn format(args: core::fmt::Arguments<'_>) -> SharedString {
     // unfortunately, the estimated_capacity is unstable

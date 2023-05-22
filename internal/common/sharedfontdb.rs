@@ -16,7 +16,7 @@ pub struct FontDatabase {
         target_os = "ios",
         target_arch = "wasm32"
     )))]
-    pub fontconfig_fallback_families: Vec<crate::SharedString>,
+    pub fontconfig_fallback_families: Vec<String>,
 }
 
 thread_local! {
@@ -62,7 +62,7 @@ fn init_fontdb() -> FontDatabase {
                     fontconfig_fallback_families = fontconfig::find_families("sans-serif")
                         .into_iter()
                         .map(|s| s.into())
-                        .collect::<Vec<crate::SharedString>>();
+                        .collect::<Vec<String>>();
                     fontconfig_fallback_families.remove(0)
                 };
             } else {
