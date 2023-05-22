@@ -1,0 +1,14 @@
+
+import { Button } from "std-widgets.slint";
+
+export global Logic {
+	pure callback lowercase( string ) -> string;
+}
+
+export component Hello9 inherits Window {
+	Button {
+		text: "Hello World 9!";
+		clicked => { self.text = Logic.lowercase(self.text); }
+	}
+}
+
