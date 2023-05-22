@@ -1,0 +1,15 @@
+
+import { Button } from "std-widgets.slint";
+
+export global Logic {
+	pure callback lowercase( string ) -> string;
+}
+
+export component Hello8 inherits Window {
+	Text {
+		// Slint will be calling the Lowercase callback
+		// and Rust will have set itself up to respond to this callback.
+		text: Logic.lowercase("Hello Button!");
+	}
+}
+

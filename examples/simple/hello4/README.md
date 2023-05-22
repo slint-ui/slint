@@ -8,4 +8,8 @@
 #
 # see also https://slint-ui.com/releases/1.0.2/docs/slint/src/reference/globals.html#
 #
+# To run:
+#
+#    cargo run --example hello4
+#
 

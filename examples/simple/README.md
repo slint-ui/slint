@@ -4,21 +4,15 @@ These examples are bare bones, basic minimum samples for the absolute noob
 to demonstrate how to use Slint and Rust together to make a Graphical User
 Interface program.
 
-hello1 - A simple demonstration of pure slint, run by slint-viewer alone
-
-hello2 - Slint code inline within rust source code 
-
-hello3 - User Interface in a separate .slint file
-
-hello4 - Transfer data from Rust to Slint using Global
-
-hello5 - Transfer data from Slint to Rust using Global
-
-hello? - Click a Button in Slint, get result from within Slint
-
-hello? - Click a Button in Slint, get result from Rust
-
-Slint itself
+hello1 - A basic Slint Hello World widget, run by slint-viewer (not Rust)
+hello2 - Slint code inline within Rust source code 
+hello3 - Slint code in a separate .slint file
+hello4 - Rust writing data to a Slint property
+hello5 - Rust reading data from a Slint Property
+hello6 - Slint calls a Rust function
+hello7 - Click a Button in Slint
+hello8 - The clicked() callback function for Button
+hello9 - clicked() Button calls a Rust function
 
 hello? - Show a Binding of a Property
 

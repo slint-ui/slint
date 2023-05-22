@@ -20,4 +20,4 @@ This can be run with slint-viewer:
  
      slint-viewer hello7.slint
 
-
+To use with a keyboard, first hit 'tab', then press 'spacebar' to click button
