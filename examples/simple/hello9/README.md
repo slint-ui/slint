@@ -4,6 +4,7 @@ Button click, Rust Response
 
 This shows a Button being clicked in Slint, and getting a result from Rust.
 
+    cargo run --example hello9
 
 
 

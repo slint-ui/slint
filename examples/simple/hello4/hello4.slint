@@ -2,11 +2,12 @@
 //
 // 
 
-export global HelloString {
-	in property <string> data: "Hello World 4!";
-}
+//export global HelloString {
+//	in property <string> data: "Hello World 4!";
+//}
 
 export component Hello4 inherits Text {
-    text: HelloString.data;
+	in property <string> data: "Hello World 4!";
+    text: data;
 }
 

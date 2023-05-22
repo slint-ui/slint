@@ -1,10 +1,7 @@
 ## simple examples - hello5
 #
-# In this example we are transmitting data from Slint to Rust.
+# Rust reads a Property from a Slint widget, then prints out the value.
 # 
-# This is accomplished again with a Global Singleton, using
-# an "out" property in the .slint code
-#
 # The example will show a slint window with Hello World 5!, however it 
 # will also display on the Standard Output (command line) a text similar 
 # to the following:
