@@ -199,9 +199,12 @@ public:
     }
 
     /// Returns true if \a a refers to the same image as \a b; false otherwise.
-    friend bool operator==(const Image &a, const Image &b) { return a.data == b.data; }
+    friend bool operator==(const Image &a, const Image &b)
+    {
+        return cbindgen_private::types::slint_image_compare_equal(&a.data, &b.data);
+    }
     /// Returns false if \a a refers to the same image as \a b; true otherwise.
-    friend bool operator!=(const Image &a, const Image &b) { return a.data != b.data; }
+    friend bool operator!=(const Image &a, const Image &b) { return !(a == b); }
 
     /// \private
     explicit Image(cbindgen_private::types::Image inner) : data(inner) { }
