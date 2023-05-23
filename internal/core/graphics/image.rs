@@ -788,6 +788,11 @@ pub(crate) mod ffi {
     ) {
         core::ptr::write(image, Image::from(ImageInner::StaticTextures(textures)));
     }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_image_compare_equal(image1: &Image, image2: &Image) -> bool {
+        return image1.eq(image2);
+    }
 }
 
 /// This structure contains fields to identify and render an OpenGL texture that Slint borrows from the applicatin code.
