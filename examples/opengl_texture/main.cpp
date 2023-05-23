@@ -8,9 +8,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <chrono>
+#include <cassert>
+#include <concepts>
 
-#include <GLES2/gl2.h>
-#include <GLES2/gl2platform.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3platform.h>
 
 static GLint compile_shader(GLuint program, GLuint shader_type, const GLchar *const *source)
 {
@@ -39,10 +41,119 @@ static GLint compile_shader(GLuint program, GLuint shader_type, const GLchar *co
     return shader_id;
 }
 
-class OpenGLUnderlay
+#define DEFINE_SCOPED_BINDING(StructName, ParamName, BindingFn, TargetName)                        \
+    struct StructName                                                                              \
+    {                                                                                              \
+        GLuint saved_value = {};                                                                   \
+        StructName() = delete;                                                                     \
+        StructName(const StructName &) = delete;                                                   \
+        StructName &operator=(const StructName &) = delete;                                        \
+        StructName(GLuint new_value)                                                               \
+        {                                                                                          \
+            glGetIntegerv(ParamName, (GLint *)&saved_value);                                       \
+            BindingFn(TargetName, new_value);                                                      \
+        }                                                                                          \
+        ~StructName() { BindingFn(TargetName, saved_value); }                                      \
+    }
+
+DEFINE_SCOPED_BINDING(ScopedTextureBinding, GL_TEXTURE_BINDING_2D, glBindTexture, GL_TEXTURE_2D);
+DEFINE_SCOPED_BINDING(ScopedFrameBufferBinding, GL_DRAW_FRAMEBUFFER_BINDING, glBindFramebuffer,
+                      GL_DRAW_FRAMEBUFFER);
+DEFINE_SCOPED_BINDING(ScopedRenderBufferBinding, GL_RENDERBUFFER_BINDING, glBindRenderbuffer,
+                      GL_RENDERBUFFER);
+DEFINE_SCOPED_BINDING(ScopedVBOBinding, GL_ARRAY_BUFFER_BINDING, glBindBuffer, GL_ARRAY_BUFFER);
+
+struct ScopedVAOBinding
+{
+    GLuint saved_value = {};
+    ScopedVAOBinding() = delete;
+    ScopedVAOBinding(const ScopedVAOBinding &) = delete;
+    ScopedVAOBinding &operator=(const ScopedVAOBinding &) = delete;
+    ScopedVAOBinding(GLuint new_value)
+    {
+        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, (GLint *)&saved_value);
+        glBindVertexArray(new_value);
+    }
+    ~ScopedVAOBinding() { glBindVertexArray(saved_value); }
+};
+
+struct DemoTexture
+{
+    GLuint texture;
+    int width;
+    int height;
+    GLuint fbo;
+    GLuint stencil_rbo;
+
+    DemoTexture(int width, int height) : width(width), height(height)
+    {
+        glGenFramebuffers(1, &fbo);
+        glGenTextures(1, &texture);
+        glGenRenderbuffers(1, &stencil_rbo);
+
+        ScopedTextureBinding activeTexture(texture);
+
+        GLint old_unpack_alignment;
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &old_unpack_alignment);
+        GLint old_unpack_row_length;
+        glGetIntegerv(GL_UNPACK_ROW_LENGTH, &old_unpack_row_length);
+        GLint old_unpack_skip_pixels;
+        glGetIntegerv(GL_UNPACK_SKIP_PIXELS, &old_unpack_skip_pixels);
+        GLint old_unpack_skip_rows;
+        glGetIntegerv(GL_UNPACK_SKIP_ROWS, &old_unpack_skip_rows);
+
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, width);
+        glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+        glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+                     nullptr);
+
+        ScopedFrameBufferBinding activeFBO(fbo);
+
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+        {
+            ScopedRenderBufferBinding activeRBO(stencil_rbo);
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
+        }
+
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
+                                  stencil_rbo);
+
+        assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+
+        glPixelStorei(GL_UNPACK_ALIGNMENT, old_unpack_alignment);
+        glPixelStorei(GL_UNPACK_ROW_LENGTH, old_unpack_row_length);
+        glPixelStorei(GL_UNPACK_SKIP_PIXELS, old_unpack_skip_pixels);
+        glPixelStorei(GL_UNPACK_SKIP_ROWS, old_unpack_skip_rows);
+    }
+    DemoTexture(const DemoTexture &) = delete;
+    DemoTexture &operator=(const DemoTexture &) = delete;
+    ~DemoTexture()
+    {
+        glDeleteFramebuffers(1, &fbo);
+        glDeleteTextures(1, &texture);
+        glDeleteRenderbuffers(1, &stencil_rbo);
+    }
+
+    template<std::invocable<> Callback>
+    void with_active_fbo(Callback callback)
+    {
+        ScopedFrameBufferBinding activeFBO(fbo);
+        callback();
+    }
+};
+
+class DemoRenderer
 {
 public:
-    OpenGLUnderlay(slint::ComponentWeakHandle<App> app) : app_weak(app) { }
+    DemoRenderer(slint::ComponentWeakHandle<App> app) : app_weak(app) { }
 
     void operator()(slint::RenderingState state, slint::GraphicsAPI)
     {
@@ -52,7 +163,13 @@ public:
             break;
         case slint::RenderingState::BeforeRendering:
             if (auto app = app_weak.lock()) {
-                render((*app)->get_rotation_enabled());
+                auto red = (*app)->get_selected_red();
+                auto green = (*app)->get_selected_green();
+                auto blue = (*app)->get_selected_blue();
+                auto width = (*app)->get_requested_texture_width();
+                auto height = (*app)->get_requested_texture_height();
+                auto texture = render(red, green, blue, width, height);
+                (*app)->set_texture(texture);
                 (*app)->window().request_redraw();
             }
             break;
@@ -70,31 +187,91 @@ private:
         program = glCreateProgram();
 
         const GLchar *const fragment_shader =
-                "#version 100\n"
-                "precision mediump float;\n"
-                "varying vec2 frag_position;\n"
-                "uniform float effect_time;\n"
-                "uniform float rotation_time;\n"
-                "float roundRectDistance(vec2 pos, vec2 rect_size, float radius)\n"
-                "{\n"
-                "    vec2 q = abs(pos) - rect_size + radius;\n"
-                "    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;\n"
-                "}\n"
-                "void main() {\n"
-                "    vec2 size = vec2(0.4, 0.5) + 0.2 * cos(effect_time / 500. + vec2(0.3, 0.2));\n"
-                "    float radius = 0.5 * sin(effect_time / 300.);\n"
-                "    float a = rotation_time / 800.0;\n"
-                "    float d = roundRectDistance(mat2(cos(a), -sin(a), sin(a), cos(a)) * "
-                "frag_position, size, radius);\n"
-                "    vec3 col = (d > 0.0) ? vec3(sin(d * 0.2), 0.4 * cos(effect_time / 1000.0 + d "
-                "* 0.8), "
-                "sin(d * 1.2)) : vec3(0.2 * cos(d * 0.1), 0.17 * sin(d * 0.4), 0.96 * "
-                "abs(sin(effect_time "
-                "/ 500. - d * 0.9)));\n"
-                "    col *= 0.8 + 0.5 * sin(50.0 * d);\n"
-                "    col = mix(col, vec3(0.9), 1.0 - smoothstep(0.0, 0.03, abs(d) ));\n"
-                "    gl_FragColor = vec4(col, 1.0);\n"
-                "}\n";
+                R"(#version 100
+            precision mediump float;
+            varying vec2 frag_position;
+            uniform vec3 selected_light_color;
+            uniform float iTime;
+
+            float sdRoundBox(vec3 p, vec3 b, float r)
+            {
+                vec3 q = abs(p) - b;
+                return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
+            }
+
+            vec3 rotateY(vec3 r, float angle)
+            {
+                mat3 rotation_matrix = mat3(cos(angle), 0, sin(angle), 0, 1, 0, -sin(angle), 0, cos(angle));
+                return rotation_matrix * r;
+            }
+
+            vec3 rotateZ(vec3 r, float angle) {
+                mat3 rotation_matrix = mat3(cos(angle), -sin(angle), 0, sin(angle), cos(angle), 0, 0, 0, 1);
+                return rotation_matrix * r;
+            }
+
+            // Distance from the scene
+            float scene(vec3 r)
+            {
+                vec3 pos = rotateZ(rotateY(r + vec3(-1.0, -1.0, 4.0), iTime), iTime);
+                vec3 cube = vec3(0.5, 0.5, 0.5);
+                float edge = 0.1;
+                return sdRoundBox(pos, cube, edge);
+            }
+
+            // https://iquilezles.org/articles/normalsSDF
+            vec3 normal( in vec3 pos )
+            {
+                vec2 e = vec2(1.0,-1.0)*0.5773;
+                const float eps = 0.0005;
+                return normalize( e.xyy*scene( pos + e.xyy*eps ) +
+                                e.yyx*scene( pos + e.yyx*eps ) +
+                                e.yxy*scene( pos + e.yxy*eps ) +
+                                e.xxx*scene( pos + e.xxx*eps ) );
+            }
+
+            #define ITERATIONS 90
+            #define EPS 0.0001
+
+            vec4 render(vec2 fragCoord, vec3 light_color)
+            {
+                vec4 color = vec4(0, 0, 0, 1);
+
+                vec3 camera = vec3(1.0, 2.0, 1.0);
+                vec3 p = vec3(fragCoord.x, fragCoord.y + 1.0, -1.0);
+                vec3 dir = normalize(p - camera);
+
+                for(int i=0; i < ITERATIONS; i++)
+                {
+                    float dist = scene(p);
+                    if(dist < EPS) {
+                        break;
+                    }
+                    p = p + dir * dist;
+                }
+
+                vec3 surf_normal = normal(p);
+
+                vec3 light_position = vec3(2.0, 4.0, -0.5);
+                float light = 7.0 + 2.0 * dot(surf_normal, light_position);
+                light /= 0.2 * pow(length(light_position - p), 3.5);
+
+                return vec4(light * light_color.x, light * light_color.y, light * light_color.z, 1.0) * 2.0;
+            }
+
+            /*
+            void mainImage(out vec4 fragColor, in vec2 fragCoord)
+            {
+                vec2 r = fragCoord.xy / iResolution.xy;
+                r.x *= (iResolution.x / iResolution.y);
+                fragColor = render(r, vec3(0.2, 0.5, 0.9));
+            }
+            */
+
+            void main() {
+                vec2 r = vec2(0.5 * frag_position.x + 1.0, 0.5 - 0.5 * frag_position.y);
+                gl_FragColor = render(r, selected_light_color);
+            })";
 
         const GLchar *const vertex_shader = "#version 100\n"
                                             "attribute vec2 position;\n"
@@ -126,47 +303,91 @@ private:
         glDetachShader(program, fragment_shader_id);
         glDetachShader(program, vertex_shader_id);
 
-        position_location = glGetAttribLocation(program, "position");
-        effect_time_location = glGetUniformLocation(program, "effect_time");
-        rotation_time_location = glGetUniformLocation(program, "rotation_time");
+        GLuint position_location = glGetAttribLocation(program, "position");
+        effect_time_location = glGetUniformLocation(program, "iTime");
+        selected_light_color_position = glGetUniformLocation(program, "selected_light_color");
+
+        displayed_texture = std::make_unique<DemoTexture>(320, 200);
+        next_texture = std::make_unique<DemoTexture>(320, 200);
+
+        glGenVertexArrays(1, &vao);
+        glGenBuffers(1, &vbo);
+
+        ScopedVBOBinding savedVBO(vbo);
+        ScopedVAOBinding savedVAO(vao);
+
+        const float vertices[] = { -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, -1.0 };
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices) * sizeof(vertices[0]), &vertices,
+                     GL_STATIC_DRAW);
+
+        glEnableVertexAttribArray(position_location);
+        glVertexAttribPointer(position_location, 2, GL_FLOAT, false, 8, 0);
     }
 
-    void render(bool enable_rotation)
+    slint::BorrowedOpenGLTexture render(float red, float green, float blue, int width, int height)
     {
-        glUseProgram(program);
-        const float vertices[] = { -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, -1.0 };
-        glVertexAttribPointer(position_location, 2, GL_FLOAT, GL_FALSE, 0, vertices);
-        glEnableVertexAttribArray(position_location);
+        ScopedVBOBinding savedVBO(vbo);
+        ScopedVAOBinding savedVAO(vao);
 
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - start_time);
-        glUniform1f(effect_time_location, elapsed.count());
-        if (enable_rotation) {
-            glUniform1f(rotation_time_location, elapsed.count());
-        } else {
-            glUniform1f(rotation_time_location, 0.0);
+        glUseProgram(program);
+
+        if (next_texture->width != width || next_texture->height != height) {
+            auto new_texture = std::make_unique<DemoTexture>(width, height);
+            std::swap(next_texture, new_texture);
         }
 
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        next_texture->with_active_fbo([&]() {
+            GLint saved_viewport[4];
+            glGetIntegerv(GL_VIEWPORT, &saved_viewport[0]);
+
+            glViewport(0, 0, next_texture->width, next_texture->height);
+
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                                   std::chrono::steady_clock::now() - start_time)
+                    / 500.;
+            glUniform1f(effect_time_location, elapsed.count());
+            glUniform3f(selected_light_color_position, red, green, blue);
+
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            glViewport(saved_viewport[0], saved_viewport[1], saved_viewport[2], saved_viewport[3]);
+        });
+
         glUseProgram(0);
+
+        slint::BorrowedOpenGLTexture resultTexture(next_texture->texture,
+                                                   { static_cast<uint32_t>(next_texture->width),
+                                                     static_cast<uint32_t>(next_texture->height) });
+
+        std::swap(next_texture, displayed_texture);
+
+        return resultTexture;
     }
 
-    void teardown() { glDeleteProgram(program); }
+    void teardown()
+    {
+        glDeleteProgram(program);
+        glDeleteVertexArrays(1, &vao);
+        glDeleteBuffers(1, &vbo);
+    }
 
     slint::ComponentWeakHandle<App> app_weak;
+    GLuint vbo;
+    GLuint vao;
     GLuint program = 0;
-    GLuint position_location = 0;
     GLuint effect_time_location = 0;
-    GLuint rotation_time_location = 0;
+    GLuint selected_light_color_position = 0;
     std::chrono::time_point<std::chrono::steady_clock> start_time =
             std::chrono::steady_clock::now();
+    std::unique_ptr<DemoTexture> displayed_texture;
+    std::unique_ptr<DemoTexture> next_texture;
 };
 
 int main()
 {
     auto app = App::create();
 
-    if (auto error = app->window().set_rendering_notifier(OpenGLUnderlay(app))) {
+    if (auto error = app->window().set_rendering_notifier(DemoRenderer(app))) {
         if (*error == slint::SetRenderingNotifierError::Unsupported) {
             fprintf(stderr,
                     "This example requires the use of a GL renderer. Please run with the "
