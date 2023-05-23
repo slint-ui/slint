@@ -162,31 +162,6 @@ impl WinitWindowAdapter {
         Ok(self_rc as _)
     }
 
-    fn call_with_event_loop(
-        &self,
-        callback: fn(&Self) -> Result<(), PlatformError>,
-    ) -> Result<(), PlatformError> {
-        // With wasm, winit's `run()` consumes the event loop and access to it from outside the event handler yields
-        // loop and thus ends up trying to create a new event loop instance, which panics in winit. Instead, forward
-        // the call to be invoked from within the event loop
-        #[cfg(target_arch = "wasm32")]
-        return corelib::api::invoke_from_event_loop({
-            let self_weak = send_wrapper::SendWrapper::new(self.self_weak.clone());
-
-            move || {
-                if let Some(this) = self_weak.take().upgrade() {
-                    // Can't propagate the returned error because we're in an async callback, so throw.
-                    callback(&this).unwrap()
-                }
-            }
-        })
-        .map_err(|_| {
-            format!("internal error in winit backend: invoke_from_event_loop failed").into()
-        });
-        #[cfg(not(target_arch = "wasm32"))]
-        return callback(self);
-    }
-
     fn renderer(&self) -> &dyn WinitCompatibleRenderer {
         self.renderer.as_ref()
     }
@@ -456,91 +431,85 @@ impl WindowAdapterSealed for WinitWindowAdapter {
     }
 
     fn show(&self) -> Result<(), PlatformError> {
-        self.call_with_event_loop(|self_| {
-            self_.shown.set(true);
+        self.shown.set(true);
 
-            let winit_window = self_.winit_window();
+        let winit_window = self.winit_window();
 
-            let runtime_window = WindowInner::from_pub(&self_.window());
+        let runtime_window = WindowInner::from_pub(&self.window());
 
-            let scale_factor = runtime_window.scale_factor() as f64;
+        let scale_factor = runtime_window.scale_factor() as f64;
 
-            let component_rc = runtime_window.component();
-            let component = ComponentRc::borrow_pin(&component_rc);
+        let component_rc = runtime_window.component();
+        let component = ComponentRc::borrow_pin(&component_rc);
 
-            let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
-            if let Some(window_item) = runtime_window.window_item() {
-                // Setting the width to its preferred size before querying the vertical layout info
-                // is important in case the height depends on the width
-                window_item.width.set(LogicalLength::new(layout_info_h.preferred_bounded()));
-            }
-            let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
-            #[allow(unused_mut)]
-            let mut preferred_size = winit::dpi::LogicalSize::new(
-                layout_info_h.preferred_bounded(),
-                layout_info_v.preferred_bounded(),
+        let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
+        if let Some(window_item) = runtime_window.window_item() {
+            // Setting the width to its preferred size before querying the vertical layout info
+            // is important in case the height depends on the width
+            window_item.width.set(LogicalLength::new(layout_info_h.preferred_bounded()));
+        }
+        let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+        #[allow(unused_mut)]
+        let mut preferred_size = winit::dpi::LogicalSize::new(
+            layout_info_h.preferred_bounded(),
+            layout_info_v.preferred_bounded(),
+        );
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            let html_canvas = self.renderer().html_canvas_element();
+            let existing_canvas_size = winit::dpi::LogicalSize::new(
+                html_canvas.client_width() as f32,
+                html_canvas.client_height() as f32,
             );
 
-            #[cfg(target_arch = "wasm32")]
-            {
-                let html_canvas = self_.renderer().html_canvas_element();
-                let existing_canvas_size = winit::dpi::LogicalSize::new(
-                    html_canvas.client_width() as f32,
-                    html_canvas.client_height() as f32,
-                );
-
-                // Try to maintain the existing size of the canvas element. A window created with winit
-                // on the web will always have 1024x768 as size otherwise.
-                if preferred_size.width <= 0. {
-                    preferred_size.width = existing_canvas_size.width;
-                }
-                if preferred_size.height <= 0. {
-                    preferred_size.height = existing_canvas_size.height;
-                }
+            // Try to maintain the existing size of the canvas element. A window created with winit
+            // on the web will always have 1024x768 as size otherwise.
+            if preferred_size.width <= 0. {
+                preferred_size.width = existing_canvas_size.width;
             }
-
-            if std::env::var("SLINT_FULLSCREEN").is_err() {
-                if preferred_size.width > 0 as Coord && preferred_size.height > 0 as Coord {
-                    // use the Slint's window Scale factor to take in account the override
-                    winit_window.set_inner_size(preferred_size.to_physical::<f32>(scale_factor));
-                }
-            };
-
-            self_.renderer().show()?;
-            winit_window.set_visible(true);
-
-            // Make sure the dark color scheme property is up-to-date, as it may have been queried earlier when
-            // the window wasn't mapped yet.
-            if let Some(dark_color_scheme_prop) = self_.dark_color_scheme.get() {
-                if let Some(theme) = winit_window.theme() {
-                    dark_color_scheme_prop.as_ref().set(theme == winit::window::Theme::Dark)
-                }
+            if preferred_size.height <= 0. {
+                preferred_size.height = existing_canvas_size.height;
             }
+        }
 
-            Ok(())
-        })
+        if std::env::var("SLINT_FULLSCREEN").is_err() {
+            if preferred_size.width > 0 as Coord && preferred_size.height > 0 as Coord {
+                // use the Slint's window Scale factor to take in account the override
+                winit_window.set_inner_size(preferred_size.to_physical::<f32>(scale_factor));
+            }
+        };
+
+        self.renderer().show()?;
+        winit_window.set_visible(true);
+
+        // Make sure the dark color scheme property is up-to-date, as it may have been queried earlier when
+        // the window wasn't mapped yet.
+        if let Some(dark_color_scheme_prop) = self.dark_color_scheme.get() {
+            if let Some(theme) = winit_window.theme() {
+                dark_color_scheme_prop.as_ref().set(theme == winit::window::Theme::Dark)
+            }
+        }
+
+        Ok(())
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
-        self.call_with_event_loop(|self_| {
-            self_.shown.set(false);
+        self.shown.set(false);
 
-            self_.renderer().hide()?;
+        self.renderer().hide()?;
 
-            self_.winit_window().set_visible(false);
+        self.winit_window().set_visible(false);
 
-            /* FIXME:
-            if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
-                existing_blinker.stop();
-            }*/
-            crate::event_loop::with_window_target(|event_loop| {
-                event_loop.event_loop_proxy().send_event(crate::SlintUserEvent::CustomEvent {
-                    event: crate::event_loop::CustomEvent::WindowHidden,
-                })
-            })
-            .ok(); // It's okay to call hide() even after the event loop is closed. We don't need the logic for quitting the event loop anymore at this point.
-            Ok(())
+        /* FIXME:
+        if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
+            existing_blinker.stop();
+        }*/
+        crate::send_event_via_global_event_loop_proxy(crate::SlintUserEvent::CustomEvent {
+            event: crate::event_loop::CustomEvent::WindowHidden,
         })
+        .ok(); // It's okay to call hide() even after the event loop is closed. We don't need the logic for quitting the event loop anymore at this point.
+        Ok(())
     }
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
