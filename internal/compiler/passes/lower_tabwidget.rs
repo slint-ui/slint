@@ -68,12 +68,18 @@ fn process_tabwidget(
     let num_tabs = children.len();
     let mut tabs = Vec::new();
     for child in &mut children {
-        if child.borrow().repeated.is_some() {
-            diag.push_error(
-                "dynamic tabs ('if' or 'for') are currently not supported".into(),
-                &*child.borrow(),
-            );
-            continue;
+        match &child.borrow().repeated {
+            Some(RepeatedElementInfo::Repeater(_)) => {
+                diag.push_error(
+                    "dynamic tabs ('if' or 'for') are currently not supported".into(),
+                    &*child.borrow(),
+                );
+                continue;
+            }
+            Some(RepeatedElementInfo::Embedding(_)) => {
+                todo!()
+            }
+            None => { /* nothing to do */ }
         }
         if child.borrow().base_type.to_string() != "Tab" {
             assert!(diag.has_error());

@@ -123,7 +123,7 @@ pub fn lower_shadow_properties(
         // underneath while maintaining the hierarchy for the repeater.
         // The geometry properties are aliased using two-way bindings (which may be eliminated in a later pass).
 
-        if elem.borrow().repeated.is_some() {
+        if elem.borrow().repeated_as_repeater().is_some() {
             let component = elem.borrow().base_type.as_component().clone(); // CHECK if clone can be removed if we change borrow
 
             let drop_shadow_properties = take_shadow_property_bindings(&component.root_element);
@@ -136,6 +136,8 @@ pub fn lower_shadow_properties(
                     diag,
                 );
             }
+        } else if elem.borrow().repeated_as_embedding().is_some() {
+            todo!()
         }
 
         let old_children = {

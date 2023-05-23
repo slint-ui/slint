@@ -83,7 +83,8 @@ pub fn resolve_expressions(
 
         recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
             let mut new_scope = scope.clone();
-            let mut is_repeated = elem.borrow().repeated.is_some();
+            assert!(elem.borrow().repeated_as_embedding().is_none()); // TODO: Handle embedding!
+            let mut is_repeated = elem.borrow().repeated_as_repeater().is_some();
             new_scope.0.push(elem.clone());
             visit_element_expressions(elem, |expr, property_name, property_type| {
                 if is_repeated {

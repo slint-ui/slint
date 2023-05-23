@@ -58,7 +58,7 @@ pub fn handle_visible(
             };
 
             for mut child in old_children {
-                if child.borrow().repeated.is_some() {
+                if child.borrow().repeated_as_repeater().is_some() {
                     let root_elem = child.borrow().base_type.as_component().root_element.clone();
                     if has_visible_binding(&root_elem) {
                         let clip_elem = create_visibility_element(&root_elem, &native_clip);
@@ -67,10 +67,14 @@ pub fn handle_visible(
                         clip_elem.borrow_mut().bindings.remove("width");
                         clip_elem.borrow_mut().bindings.remove("height");
                     }
-                } else if has_visible_binding(&child) {
-                    let new_child = create_visibility_element(&child, &native_clip);
-                    new_child.borrow_mut().children.push(child);
-                    child = new_child;
+                } else if child.borrow().repeated_as_embedding().is_some() {
+                    todo!()
+                } else {
+                    if has_visible_binding(&child) {
+                        let new_child = create_visibility_element(&child, &native_clip);
+                        new_child.borrow_mut().children.push(child.clone());
+                        child = new_child;
+                    }
                 }
 
                 elem.borrow_mut().children.push(child);

@@ -636,9 +636,8 @@ impl Expression {
                     .upgrade()
                     .unwrap()
                     .borrow()
-                    .repeated
-                    .as_ref()
-                    .map_or(&Expression::Invalid, |e| &e.model)
+                    .repeated_as_repeater()
+                    .map_or(&Expression::Invalid, |r| &r.model)
                 {
                     match from.ty() {
                         Type::Float32 | Type::Int32 => Type::Int32,

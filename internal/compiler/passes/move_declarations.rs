@@ -35,17 +35,24 @@ fn do_move_declarations(component: &Rc<Component>) {
     let move_bindings_and_animations = &mut |elem: &ElementRc| {
         visit_all_named_references_in_element(elem, fixup_reference);
 
-        if elem.borrow().repeated.is_some() {
-            if let ElementType::Component(base) = &elem.borrow().base_type {
-                do_move_declarations(base);
-            } else {
-                panic!("Repeated element should have a component as base because of the repeater_component.rs pass")
+        match &elem.borrow().repeated {
+            Some(RepeatedElementInfo::Repeater(_)) => {
+                if let ElementType::Component(base) = &elem.borrow().base_type {
+                    do_move_declarations(base);
+                } else {
+                    panic!("Repeated element should have a component as base because of the repeater_component.rs pass")
+                }
+                debug_assert!(
+                    elem.borrow().property_declarations.is_empty()
+                        && elem.borrow().children.is_empty(),
+                    "Repeated element should be empty because of the repeater_component.rs pass"
+                );
+                return;
             }
-            debug_assert!(
-                elem.borrow().property_declarations.is_empty() && elem.borrow().children.is_empty(),
-                "Repeated element should be empty because of the repeater_component.rs pass"
-            );
-            return;
+            Some(RepeatedElementInfo::Embedding(_)) => {
+                todo!()
+            }
+            None => { /* nothing to do */ }
         }
 
         // take the bindings so we do nt keep the borrow_mut of the element
@@ -136,7 +143,7 @@ fn simplify_optimized_items_recursive(component: &Rc<Component>) {
         .iter()
         .for_each(|f| simplify_optimized_items_recursive(&f.component));
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        if elem.borrow().repeated.is_some() {
+        if elem.borrow().repeated_as_repeater().is_some() {
             if let ElementType::Component(base) = &elem.borrow().base_type {
                 simplify_optimized_items_recursive(base);
             }

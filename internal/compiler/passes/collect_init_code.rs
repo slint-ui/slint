@@ -6,16 +6,22 @@
 use std::rc::Rc;
 
 use crate::langtype::ElementType;
-use crate::object_tree::{recurse_elem, Component};
+use crate::object_tree::{recurse_elem, Component, RepeatedElementInfo};
 
 pub fn collect_init_code(component: &Rc<Component>) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        if elem.borrow().repeated.is_some() {
-            if let ElementType::Component(base) = &elem.borrow().base_type {
-                if base.parent_element.upgrade().is_some() {
-                    collect_init_code(base);
+        match &elem.borrow().repeated {
+            Some(RepeatedElementInfo::Repeater(_)) => {
+                if let ElementType::Component(base) = &elem.borrow().base_type {
+                    if base.parent_element.upgrade().is_some() {
+                        collect_init_code(base);
+                    }
                 }
             }
+            Some(RepeatedElementInfo::Embedding(_)) => {
+                todo!()
+            }
+            None => { /* nothing to do */ }
         }
 
         if let Some(init_callback) = elem.borrow_mut().bindings.remove("init") {

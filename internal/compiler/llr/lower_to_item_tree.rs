@@ -7,7 +7,7 @@ use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{ElementType, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Component, ElementRc, PropertyVisibility};
+use crate::object_tree::{Component, ElementRc, PropertyVisibility, RepeatedElementInfo};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -203,20 +203,26 @@ fn lower_sub_component(
 
     if let Some(parent) = component.parent_element.upgrade() {
         // Add properties for the model data and index
-        if parent.borrow().repeated.as_ref().map_or(false, |x| !x.is_conditional_element) {
-            sub_component.properties.push(Property {
-                name: "model_data".into(),
-                ty: crate::expression_tree::Expression::RepeaterModelReference {
-                    element: component.parent_element.clone(),
-                }
-                .ty(),
-                ..Property::default()
-            });
-            sub_component.properties.push(Property {
-                name: "model_index".into(),
-                ty: Type::Int32,
-                ..Property::default()
-            });
+        match parent.borrow().repeated {
+            Some(RepeatedElementInfo::Repeater(_)) => {
+                sub_component.properties.push(Property {
+                    name: "model_data".into(),
+                    ty: crate::expression_tree::Expression::RepeaterModelReference {
+                        element: component.parent_element.clone(),
+                    }
+                    .ty(),
+                    ..Property::default()
+                });
+                sub_component.properties.push(Property {
+                    name: "model_index".into(),
+                    ty: Type::Int32,
+                    ..Property::default()
+                });
+            }
+            Some(RepeatedElementInfo::Embedding(_)) => {
+                todo!()
+            }
+            None => { /* nothing to do */ }
         }
     };
 
@@ -254,14 +260,20 @@ fn lower_sub_component(
                 ..Property::default()
             });
         }
-        if elem.repeated.is_some() {
-            mapping.element_mapping.insert(
-                element.clone().into(),
-                LoweredElement::Repeated { repeated_index: repeated.len() },
-            );
-            repeated.push(element.clone());
-            return None;
-        }
+        match &elem.repeated {
+            Some(RepeatedElementInfo::Repeater(_)) => {
+                mapping.element_mapping.insert(
+                    element.clone().into(),
+                    LoweredElement::Repeated { repeated_index: repeated.len() },
+                );
+                repeated.push(element.clone());
+                return None;
+            }
+            Some(RepeatedElementInfo::Embedding(_)) => {
+                todo!()
+            }
+            _ => {}
+        };
         match &elem.base_type {
             ElementType::Component(comp) => {
                 let lc = state.sub_component(comp);
@@ -474,38 +486,43 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
 fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> RepeatedElement {
     let e = elem.borrow();
     let component = e.base_type.as_component().clone();
-    let repeated = e.repeated.as_ref().unwrap();
+    match &e.repeated.as_ref().unwrap() {
+        RepeatedElementInfo::Embedding(_) => todo!(),
+        RepeatedElementInfo::Repeater(repeated) => {
+            let sc = lower_sub_component(&component, ctx.state, Some(ctx));
 
-    let sc = lower_sub_component(&component, ctx.state, Some(ctx));
+            let map_inner_prop = |p| {
+                sc.mapping.map_property_reference(
+                    &NamedReference::new(&component.root_element, p),
+                    ctx.state,
+                )
+            };
 
-    let map_inner_prop = |p| {
-        sc.mapping
-            .map_property_reference(&NamedReference::new(&component.root_element, p), ctx.state)
-    };
+            let listview = repeated.is_listview.as_ref().map(|lv| ListViewInfo {
+                viewport_y: ctx.map_property_reference(&lv.viewport_y),
+                viewport_height: ctx.map_property_reference(&lv.viewport_height),
+                viewport_width: ctx.map_property_reference(&lv.viewport_width),
+                listview_height: ctx.map_property_reference(&lv.listview_height),
+                listview_width: ctx.map_property_reference(&lv.listview_width),
 
-    let listview = repeated.is_listview.as_ref().map(|lv| ListViewInfo {
-        viewport_y: ctx.map_property_reference(&lv.viewport_y),
-        viewport_height: ctx.map_property_reference(&lv.viewport_height),
-        viewport_width: ctx.map_property_reference(&lv.viewport_width),
-        listview_height: ctx.map_property_reference(&lv.listview_height),
-        listview_width: ctx.map_property_reference(&lv.listview_width),
+                prop_y: map_inner_prop("y"),
+                prop_width: map_inner_prop("width"),
+                prop_height: map_inner_prop("height"),
+            });
 
-        prop_y: map_inner_prop("y"),
-        prop_width: map_inner_prop("width"),
-        prop_height: map_inner_prop("height"),
-    });
-
-    RepeatedElement {
-        model: super::lower_expression::lower_expression(&repeated.model, ctx).into(),
-        sub_tree: ItemTree {
-            tree: make_tree(ctx.state, &component.root_element, &sc, &[]),
-            root: Rc::try_unwrap(sc.sub_component).unwrap(),
-            parent_context: Some(e.enclosing_component.upgrade().unwrap().id.clone()),
-        },
-        index_prop: (!repeated.is_conditional_element).then(|| 1),
-        data_prop: (!repeated.is_conditional_element).then(|| 0),
-        index_in_tree: *e.item_index.get().unwrap(),
-        listview,
+            RepeatedElement {
+                model: super::lower_expression::lower_expression(&repeated.model, ctx).into(),
+                sub_tree: ItemTree {
+                    tree: make_tree(ctx.state, &component.root_element, &sc, &[]),
+                    root: Rc::try_unwrap(sc.sub_component).unwrap(),
+                    parent_context: Some(e.enclosing_component.upgrade().unwrap().id.clone()),
+                },
+                index_prop: (!repeated.is_conditional_element).then(|| 1),
+                data_prop: (!repeated.is_conditional_element).then(|| 0),
+                index_in_tree: *e.item_index.get().unwrap(),
+                listview,
+            }
+        }
     }
 }
 

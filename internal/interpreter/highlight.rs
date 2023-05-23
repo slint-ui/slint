@@ -298,13 +298,19 @@ fn find_element_at_offset(component: &Rc<Component>, path: PathBuf, offset: u32)
     i_slint_compiler::object_tree::recurse_elem_including_sub_components(
         component,
         &(),
-        &mut |elem, &()| {
-            if elem.borrow().repeated.is_some() {
+        &mut |elem, &()| match elem.borrow().repeated {
+            Some(RepeatedElementInfo::Repeater(_)) => {
                 return;
             }
-            if let Some(node) = elem.borrow().node.as_ref().and_then(|n| n.QualifiedName()) {
-                if node.source_file.path() == path && node.text_range().contains(offset.into()) {
-                    result.push(elem.clone());
+            Some(RepeatedElementInfo::Embedding(_)) => {
+                todo!()
+            }
+            None => {
+                if let Some(node) = elem.borrow().node.as_ref().and_then(|n| n.QualifiedName()) {
+                    if node.source_file.path() == path && node.text_range().contains(offset.into())
+                    {
+                        result.push(elem.clone());
+                    }
                 }
             }
         },
@@ -315,8 +321,8 @@ fn find_element_at_offset(component: &Rc<Component>, path: PathBuf, offset: u32)
 fn repeater_path(elem: &ElementRc) -> Option<Vec<String>> {
     let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
     if let Some(parent) = enclosing.parent_element.upgrade() {
-        if parent.borrow().repeated.is_none() {
-            // This is not a repeater, it might be a popup menu which is not supported ATM
+        if parent.borrow().repeated_as_repeater().is_none() {
+            // This is not a repeater, it might be a popup menu or embedding which are not supported ATM
             return None;
         }
         let mut r = repeater_path(&parent)?;
@@ -430,16 +436,18 @@ fn add_highlight_items(doc: &Document) {
             id: "$Highlight".into(),
             enclosing_component: Rc::downgrade(&doc.root_component),
             base_type: ElementType::Component(base),
-            repeated: Some(RepeatedElementInfo {
-                model: Expression::PropertyReference(NamedReference::new(
-                    &doc.root_component.root_element,
-                    HIGHLIGHT_PROP,
-                )),
-                model_data_id: String::default(),
-                index_id: String::default(),
-                is_conditional_element: false,
-                is_listview: None,
-            }),
+            repeated: Some(RepeatedElementInfo::Repeater(
+                i_slint_compiler::object_tree::RepeaterInfo {
+                    model: Expression::PropertyReference(NamedReference::new(
+                        &doc.root_component.root_element,
+                        HIGHLIGHT_PROP,
+                    )),
+                    model_data_id: String::default(),
+                    index_id: String::default(),
+                    is_conditional_element: false,
+                    is_listview: None,
+                },
+            )),
             ..Default::default()
         })
     });

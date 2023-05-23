@@ -22,6 +22,7 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::find_parent_element;
 use crate::object_tree::Document;
 use crate::object_tree::PropertyAnimation;
+use crate::object_tree::RepeatedElementInfo;
 use crate::object_tree::{Component, ElementRc};
 use derive_more as dm;
 
@@ -410,10 +411,16 @@ fn visit_layout_items_dependencies<'a>(
     vis: &mut impl FnMut(&PropertyPath),
 ) {
     for it in items {
-        let mut element = it.element.clone();
-        if element.borrow().repeated.is_some() {
-            element = it.element.borrow().base_type.as_component().root_element.clone();
-        }
+        let start_element = it.element.clone();
+        let element = match &start_element.borrow().repeated {
+            Some(RepeatedElementInfo::Repeater(_)) => {
+                it.element.borrow().base_type.as_component().root_element.clone()
+            }
+            Some(RepeatedElementInfo::Embedding(_)) => {
+                todo!()
+            }
+            None => it.element.clone(),
+        };
 
         if let Some(nr) = element.borrow().layout_info_prop(orientation) {
             vis(&nr.clone().into());

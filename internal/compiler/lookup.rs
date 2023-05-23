@@ -11,7 +11,7 @@ use crate::expression_tree::{
 };
 use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{ElementRc, PropertyVisibility};
+use crate::object_tree::{ElementRc, PropertyVisibility, RepeatedElementInfo};
 use crate::parser::NodeOrToken;
 use crate::typeregister::TypeRegister;
 use std::cell::RefCell;
@@ -253,8 +253,14 @@ impl LookupObject for IdLookup {
                 }
             }
             for x in &root.borrow().children {
-                if x.borrow().repeated.is_some() {
-                    continue;
+                match x.borrow().repeated {
+                    Some(RepeatedElementInfo::Repeater(_)) => {
+                        continue;
+                    }
+                    Some(RepeatedElementInfo::Embedding(_)) => {
+                        todo!()
+                    }
+                    None => { /* nothing to do */ }
                 }
                 if let Some(r) = visit(x, f) {
                     return Some(r);
@@ -290,27 +296,35 @@ impl InScopeLookup {
     ) -> Option<R> {
         let is_legacy = ctx.is_legacy_component();
         for (idx, elem) in ctx.component_scope.iter().rev().enumerate() {
-            if let Some(repeated) = &elem.borrow().repeated {
-                if !repeated.index_id.is_empty() {
-                    if let Some(r) = visit_entry(
-                        &repeated.index_id,
-                        Expression::RepeaterIndexReference { element: Rc::downgrade(elem) }.into(),
-                    ) {
-                        return Some(r);
+            match &elem.borrow().repeated {
+                Some(RepeatedElementInfo::Repeater(repeated)) => {
+                    if !repeated.index_id.is_empty() {
+                        if let Some(r) = visit_entry(
+                            &repeated.index_id,
+                            Expression::RepeaterIndexReference { element: Rc::downgrade(elem) }
+                                .into(),
+                        ) {
+                            return Some(r);
+                        }
+                    }
+                    if !repeated.model_data_id.is_empty() {
+                        if let Some(r) = visit_entry(
+                            &repeated.model_data_id,
+                            Expression::RepeaterModelReference { element: Rc::downgrade(elem) }
+                                .into(),
+                        ) {
+                            return Some(r);
+                        }
                     }
                 }
-                if !repeated.model_data_id.is_empty() {
-                    if let Some(r) = visit_entry(
-                        &repeated.model_data_id,
-                        Expression::RepeaterModelReference { element: Rc::downgrade(elem) }.into(),
-                    ) {
-                        return Some(r);
-                    }
+                Some(RepeatedElementInfo::Embedding(_)) => {
+                    todo!()
                 }
+                None => { /* do nothing */ }
             }
 
             if is_legacy {
-                if elem.borrow().repeated.is_some()
+                if elem.borrow().repeated_as_repeater().is_some()
                     || idx == 0
                     || idx == ctx.component_scope.len() - 1
                 {

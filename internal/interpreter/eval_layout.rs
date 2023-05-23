@@ -8,9 +8,9 @@ use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::layout::{Layout, LayoutConstraints, LayoutGeometry, Orientation};
 use i_slint_compiler::namedreference::NamedReference;
-use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::object_tree::{ElementRc, RepeatedElementInfo};
 use i_slint_core::items::DialogButtonRole;
-use i_slint_core::layout::{self as core_layout};
+use i_slint_core::layout as core_layout;
 use i_slint_core::model::RepeatedComponent;
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
@@ -191,43 +191,49 @@ fn box_layout_data(
     let window_adapter = component.window_adapter();
     let mut cells = Vec::with_capacity(box_layout.elems.len());
     for cell in &box_layout.elems {
-        if cell.element.borrow().repeated.is_some() {
-            generativity::make_guard!(guard);
-            let rep = crate::dynamic_component::get_repeater_by_name(
-                component,
-                cell.element.borrow().id.as_str(),
-                guard,
-            );
-            rep.0.as_ref().ensure_updated(|| {
-                let instance = crate::dynamic_component::instantiate(
-                    rep.1.clone(),
-                    Some(component.borrow()),
-                    None,
-                    None,
-                    Default::default(),
+        match &cell.element.borrow().repeated {
+            Some(RepeatedElementInfo::Repeater(_)) => {
+                generativity::make_guard!(guard);
+                let rep = crate::dynamic_component::get_repeater_by_name(
+                    component,
+                    cell.element.borrow().id.as_str(),
+                    guard,
                 );
-                instance
-            });
-            let component_vec = rep.0.as_ref().components_vec();
-            if let Some(ri) = repeater_indices.as_mut() {
-                ri.push(cells.len() as _);
-                ri.push(component_vec.len() as _);
+                rep.0.as_ref().ensure_updated(|| {
+                    let instance = crate::dynamic_component::instantiate(
+                        rep.1.clone(),
+                        Some(component.borrow()),
+                        None,
+                        None,
+                        Default::default(),
+                    );
+                    instance
+                });
+                let component_vec = rep.0.as_ref().components_vec();
+                if let Some(ri) = repeater_indices.as_mut() {
+                    ri.push(cells.len() as _);
+                    ri.push(component_vec.len() as _);
+                }
+                cells.extend(
+                    component_vec
+                        .iter()
+                        .map(|x| x.as_pin_ref().box_layout_data(to_runtime(orientation))),
+                );
             }
-            cells.extend(
-                component_vec
-                    .iter()
-                    .map(|x| x.as_pin_ref().box_layout_data(to_runtime(orientation))),
-            );
-        } else {
-            let mut layout_info =
-                get_layout_info(&cell.element, component, &window_adapter, orientation);
-            fill_layout_info_constraints(
-                &mut layout_info,
-                &cell.constraints,
-                orientation,
-                &expr_eval,
-            );
-            cells.push(core_layout::BoxLayoutCellData { constraint: layout_info });
+            Some(RepeatedElementInfo::Embedding(_)) => {
+                todo!()
+            }
+            None => {
+                let mut layout_info =
+                    get_layout_info(&cell.element, component, &window_adapter, orientation);
+                fill_layout_info_constraints(
+                    &mut layout_info,
+                    &cell.constraints,
+                    orientation,
+                    &expr_eval,
+                );
+                cells.push(core_layout::BoxLayoutCellData { constraint: layout_info });
+            }
         }
     }
     let alignment = box_layout

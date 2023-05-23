@@ -664,17 +664,14 @@ fn ensure_repeater_updated<'id>(
         );
         instance
     };
-    if let Some(lv) = &rep_in_comp
+    if let Some(object_tree::RepeaterInfo { is_listview: Some(lv), .. }) = &rep_in_comp
         .component_to_repeat
         .original
         .parent_element
         .upgrade()
         .unwrap()
         .borrow()
-        .repeated
-        .as_ref()
-        .unwrap()
-        .is_listview
+        .repeated_as_repeater()
     {
         let assume_property_logical_length =
             |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<LogicalLength>)) };
@@ -844,7 +841,7 @@ pub(crate) fn generate_component<'id>(
                 RepeaterWithinComponent {
                     component_to_repeat: generate_component(base_component, guard),
                     offset: self.type_builder.add_field_type::<Repeater<ErasedComponentBox>>(),
-                    model: item.repeated.as_ref().unwrap().model.clone(),
+                    model: item.repeated.as_ref().unwrap().as_repeater().unwrap().model.clone(),
                 }
                 .into(),
             );

@@ -426,7 +426,7 @@ impl Component {
             let element = element.borrow();
             if let Some(sub_component) = element.sub_component() {
                 count += sub_component.repeater_count();
-            } else if element.repeated.is_some() {
+            } else if element.repeated_as_repeater().is_some() {
                 count += 1;
             }
         });
@@ -645,17 +645,24 @@ pub fn pretty_print(
     e: &Element,
     indentation: usize,
 ) -> std::fmt::Result {
-    if let Some(repeated) = &e.repeated {
-        write!(f, "for {}[{}] in ", repeated.model_data_id, repeated.index_id)?;
-        expression_tree::pretty_print(f, &repeated.model)?;
-        write!(f, ":")?;
-        if let ElementType::Component(base) = &e.base_type {
-            if base.parent_element.upgrade().is_some() {
-                pretty_print(f, &base.root_element.borrow(), indentation)?;
-                return Ok(());
+    match &e.repeated {
+        Some(RepeatedElementInfo::Repeater(repeated)) => {
+            write!(f, "for {}[{}] in ", repeated.model_data_id, repeated.index_id)?;
+            expression_tree::pretty_print(f, &repeated.model)?;
+            write!(f, ":")?;
+            if let ElementType::Component(base) = &e.base_type {
+                if base.parent_element.upgrade().is_some() {
+                    pretty_print(f, &base.root_element.borrow(), indentation)?;
+                    return Ok(());
+                }
             }
         }
+        Some(RepeatedElementInfo::Embedding(_)) => {
+            write!(f, "/* Embedding */ ")?;
+        }
+        None => { /* nothing to do */ }
     }
+
     writeln!(f, "{} := {} {{", e.id, e.base_type)?;
     let mut indentation = indentation + 1;
     macro_rules! indent {
@@ -769,7 +776,32 @@ pub struct ListViewInfo {
 
 #[derive(Debug, Clone)]
 /// If the parent element is a repeated element, this has information about the models
-pub struct RepeatedElementInfo {
+pub enum RepeatedElementInfo {
+    Embedding(EmbeddingInfo),
+    Repeater(RepeaterInfo),
+}
+
+impl RepeatedElementInfo {
+    /// Get the `&RepeaterInfo` or return None
+    pub fn as_repeater(&self) -> Option<&RepeaterInfo> {
+        match self {
+            RepeatedElementInfo::Repeater(r) => Some(r),
+            _ => None,
+        }
+    }
+
+    /// Get the `&EmbeddingInfo` or return None
+    pub fn as_embedding(&self) -> Option<&EmbeddingInfo> {
+        match self {
+            RepeatedElementInfo::Embedding(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+/// If the parent element is a repeated element, this has information about the models
+pub struct RepeaterInfo {
     pub model: Expression,
     pub model_data_id: String,
     pub index_id: String,
@@ -779,6 +811,13 @@ pub struct RepeatedElementInfo {
     pub is_conditional_element: bool,
     /// When the for is the delegate of a ListView
     pub is_listview: Option<ListViewInfo>,
+}
+
+#[derive(Debug, Clone, Default)]
+/// If the parent element is a embed element, this has information needed to
+/// find the embedding item.
+pub struct EmbeddingInfo {
+    pub controlling_item_tree_index: Option<usize>,
 }
 
 pub type ElementRc = Rc<RefCell<Element>>;
@@ -1395,7 +1434,7 @@ impl Element {
         } else {
             None
         };
-        let rei = RepeatedElementInfo {
+        let rei = RepeatedElementInfo::Repeater(RepeaterInfo {
             model: Expression::Uncompiled(node.Expression().into()),
             model_data_id: node
                 .DeclaredIdentifier()
@@ -1407,7 +1446,7 @@ impl Element {
                 .unwrap_or_default(),
             is_conditional_element: false,
             is_listview,
-        };
+        });
         let e = Element::from_sub_element_node(
             node.SubElement(),
             parent.borrow().base_type.clone(),
@@ -1428,13 +1467,13 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
-        let rei = RepeatedElementInfo {
+        let rei = RepeatedElementInfo::Repeater(RepeaterInfo {
             model: Expression::Uncompiled(node.Expression().into()),
             model_data_id: String::new(),
             index_id: String::new(),
             is_conditional_element: true,
             is_listview: None,
-        };
+        });
         let e = Element::from_sub_element_node(
             node.SubElement(),
             parent_type,
@@ -1642,6 +1681,14 @@ impl Element {
             None
         }
     }
+
+    pub fn repeated_as_repeater(&self) -> Option<&RepeaterInfo> {
+        self.repeated.as_ref().and_then(|r| r.as_repeater())
+    }
+
+    pub fn repeated_as_embedding(&self) -> Option<&EmbeddingInfo> {
+        self.repeated.as_ref().and_then(|r| r.as_embedding())
+    }
 }
 
 /// Apply default property values defined in `builtins.slint` to the element.
@@ -1826,7 +1873,7 @@ fn lookup_property_from_qualified_name_for_state(
     }
 }
 
-/// FIXME: this is duplicated the resolving pass. Also, we should use a hash table
+/// FIXME: this is duplicating the resolving pass. Also, we should use a hash table
 fn find_element_by_id(e: &ElementRc, name: &str) -> Option<ElementRc> {
     if e.borrow().id == name {
         return Some(e.clone());
@@ -1890,12 +1937,16 @@ pub fn recurse_elem_including_sub_components<State>(
             component as *const Component,
             (&*elem.borrow().enclosing_component.upgrade().unwrap()) as *const Component
         ));
-        if elem.borrow().repeated.is_some() {
-            if let ElementType::Component(base) = &elem.borrow().base_type {
-                if base.parent_element.upgrade().is_some() {
-                    recurse_elem_including_sub_components(base, state, vis);
+        match &elem.borrow().repeated {
+            Some(RepeatedElementInfo::Repeater(_)) => {
+                if let ElementType::Component(base) = &elem.borrow().base_type {
+                    if base.parent_element.upgrade().is_some() {
+                        recurse_elem_including_sub_components(base, state, vis);
+                    }
                 }
             }
+            Some(RepeatedElementInfo::Embedding(_)) => todo!(),
+            None => { /* nothing to do */ }
         }
         vis(elem, state)
     });
@@ -1926,7 +1977,7 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
     vis: &mut impl FnMut(&ElementRc, &State) -> State,
 ) {
     recurse_elem_no_borrow(&component.root_element, state, &mut |elem, state| {
-        let base = if elem.borrow().repeated.is_some() {
+        let base = if elem.borrow().repeated_as_repeater().is_some() {
             if let ElementType::Component(base) = &elem.borrow().base_type {
                 Some(base.clone())
             } else {
@@ -1984,12 +2035,27 @@ pub fn visit_element_expressions(
         }
     }
 
-    let repeated = std::mem::take(&mut elem.borrow_mut().repeated);
-    if let Some(mut r) = repeated {
-        let is_conditional_element = r.is_conditional_element;
-        vis(&mut r.model, None, &|| if is_conditional_element { Type::Bool } else { Type::Model });
-        elem.borrow_mut().repeated = Some(r)
+    {
+        let mut repeated = std::mem::take(&mut elem.borrow_mut().repeated);
+        match &mut repeated {
+            Some(RepeatedElementInfo::Repeater(r)) => {
+                let is_conditional_element = r.is_conditional_element;
+                vis(&mut r.model, None, &|| {
+                    if is_conditional_element {
+                        Type::Bool
+                    } else {
+                        Type::Model
+                    }
+                });
+            }
+            Some(RepeatedElementInfo::Embedding(_)) => {
+                todo!();
+            }
+            None => { /* nothing to do */ }
+        }
+        elem.borrow_mut().repeated = repeated;
     }
+
     visit_element_expressions_simple(elem, &mut vis);
     let mut states = std::mem::take(&mut elem.borrow_mut().states);
     for s in &mut states {
@@ -2069,17 +2135,25 @@ pub fn visit_all_named_references_in_element(
         }
     }
     elem.borrow_mut().transitions = transitions;
-    let mut repeated = std::mem::take(&mut elem.borrow_mut().repeated);
-    if let Some(r) = &mut repeated {
-        if let Some(lv) = &mut r.is_listview {
-            vis(&mut lv.viewport_y);
-            vis(&mut lv.viewport_height);
-            vis(&mut lv.viewport_width);
-            vis(&mut lv.listview_height);
-            vis(&mut lv.listview_width);
-        }
+    {
+        let mut repeated = std::mem::take(&mut elem.borrow_mut().repeated);
+        match &mut repeated {
+            Some(RepeatedElementInfo::Repeater(r)) => {
+                if let Some(lv) = &mut r.is_listview {
+                    vis(&mut lv.viewport_y);
+                    vis(&mut lv.viewport_height);
+                    vis(&mut lv.viewport_width);
+                    vis(&mut lv.listview_height);
+                    vis(&mut lv.listview_width);
+                }
+            }
+            Some(RepeatedElementInfo::Embedding(_)) => {
+                todo!()
+            }
+            None => { /* do nothing */ }
+        };
+        elem.borrow_mut().repeated = repeated;
     }
-    elem.borrow_mut().repeated = repeated;
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
     layout_info_prop.as_mut().map(|(h, b)| (vis(h), vis(b)));
     elem.borrow_mut().layout_info_prop = layout_info_prop;

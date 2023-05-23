@@ -657,24 +657,28 @@ fn create_layout_item(
     fix_explicit_percent("height", item_element);
 
     item_element.borrow_mut().child_of_layout = true;
-    let (repeater_index, actual_elem) = if let Some(r) = &item_element.borrow().repeated {
-        let rep_comp = item_element.borrow().base_type.as_component().clone();
-        fix_explicit_percent("width", &rep_comp.root_element);
-        fix_explicit_percent("height", &rep_comp.root_element);
+    let (repeater_index, actual_elem) = match &item_element.borrow().repeated {
+        Some(RepeatedElementInfo::Repeater(r)) => {
+            let rep_comp = item_element.borrow().base_type.as_component().clone();
+            fix_explicit_percent("width", &rep_comp.root_element);
+            fix_explicit_percent("height", &rep_comp.root_element);
 
-        *rep_comp.root_constraints.borrow_mut() =
-            LayoutConstraints::new(&rep_comp.root_element, diag);
-        rep_comp.root_element.borrow_mut().child_of_layout = true;
-        (
-            Some(if r.is_conditional_element {
-                Expression::NumberLiteral(0., Unit::None)
-            } else {
-                Expression::RepeaterIndexReference { element: Rc::downgrade(item_element) }
-            }),
-            rep_comp.root_element.clone(),
-        )
-    } else {
-        (None, item_element.clone())
+            *rep_comp.root_constraints.borrow_mut() =
+                LayoutConstraints::new(&rep_comp.root_element, diag);
+            rep_comp.root_element.borrow_mut().child_of_layout = true;
+            (
+                Some(if r.is_conditional_element {
+                    Expression::NumberLiteral(0., Unit::None)
+                } else {
+                    Expression::RepeaterIndexReference { element: Rc::downgrade(item_element) }
+                }),
+                rep_comp.root_element.clone(),
+            )
+        }
+        Some(RepeatedElementInfo::Embedding(_)) => {
+            todo!()
+        }
+        None => (None, item_element.clone()),
     };
 
     let constraints = LayoutConstraints::new(&actual_elem, diag);

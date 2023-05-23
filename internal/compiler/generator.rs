@@ -13,7 +13,7 @@ use std::rc::{Rc, Weak};
 use crate::expression_tree::{BindingExpression, Expression};
 use crate::langtype::ElementType;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Component, Document, ElementRc};
+use crate::object_tree::{Component, Document, ElementRc, RepeatedElementInfo};
 
 #[cfg(feature = "cpp")]
 mod cpp;
@@ -315,25 +315,31 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         parent_index: u32,
         builder: &mut T,
     ) {
-        if item.borrow().repeated.is_some() {
-            builder.push_repeated_item(item, *repeater_count, parent_index, component_state);
-            *repeater_count += 1;
-        } else {
-            let mut item = item.clone();
-            let mut component_state = component_state.clone();
-            while let Some((base, state)) = {
-                let base = item.borrow().sub_component().map(|c| {
-                    (
-                        c.root_element.clone(),
-                        builder.enter_component(&item, c, children_offset, &component_state),
-                    )
-                });
-                base
-            } {
-                item = base;
-                component_state = state;
+        match &item.borrow().repeated {
+            Some(RepeatedElementInfo::Repeater(_)) => {
+                builder.push_repeated_item(item, *repeater_count, parent_index, component_state);
+                *repeater_count += 1;
             }
-            builder.push_native_item(&item, children_offset, parent_index, &component_state)
+            Some(RepeatedElementInfo::Embedding(_)) => {
+                todo!();
+            }
+            None => {
+                let mut item = item.clone();
+                let mut component_state = component_state.clone();
+                while let Some((base, state)) = {
+                    let base = item.borrow().sub_component().map(|c| {
+                        (
+                            c.root_element.clone(),
+                            builder.enter_component(&item, c, children_offset, &component_state),
+                        )
+                    });
+                    base
+                } {
+                    item = base;
+                    component_state = state;
+                }
+                builder.push_native_item(&item, children_offset, parent_index, &component_state)
+            }
         }
     }
 }

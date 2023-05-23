@@ -18,9 +18,10 @@ pub fn process_repeater_components(component: &Rc<Component>) {
 
 fn create_repeater_components(component: &Rc<Component>) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        let is_listview = match &elem.borrow().repeated {
-            Some(r) => r.is_listview.clone(),
-            None => return,
+        let is_listview = if let Some(r) = elem.borrow().repeated_as_repeater() {
+            r.is_listview.clone()
+        } else {
+            return;
         };
         let parent_element = Rc::downgrade(elem);
         let mut elem = elem.borrow_mut();
@@ -96,7 +97,7 @@ fn adjust_references(comp: &Rc<Component>) {
             return;
         }
         let e = nr.element();
-        if e.borrow().repeated.is_some() {
+        if e.borrow().repeated_as_repeater().is_some() {
             if let ElementType::Component(c) = e.borrow().base_type.clone() {
                 *nr = NamedReference::new(&c.root_element, nr.name())
             };
@@ -107,7 +108,7 @@ fn adjust_references(comp: &Rc<Component>) {
         expr.visit_recursive_mut(&mut |expr| {
             if let Expression::ElementReference(ref mut element_ref) = expr {
                 if let Some(repeater_element) =
-                    element_ref.upgrade().filter(|e| e.borrow().repeated.is_some())
+                    element_ref.upgrade().filter(|e| e.borrow().repeated_as_repeater().is_some())
                 {
                     let inner_element =
                         repeater_element.borrow().base_type.as_component().root_element.clone();

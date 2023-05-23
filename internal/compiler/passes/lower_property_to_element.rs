@@ -58,7 +58,7 @@ pub(crate) fn lower_property_to_element(
         };
 
         for mut child in old_children {
-            if child.borrow().repeated.is_some() {
+            if child.borrow().repeated_as_repeater().is_some() {
                 let root_elem = child.borrow().base_type.as_component().root_element.clone();
                 if has_property_binding(&root_elem) {
                     object_tree::inject_element_as_repeated_element(
@@ -73,18 +73,22 @@ pub(crate) fn lower_property_to_element(
                         ),
                     )
                 }
-            } else if has_property_binding(&child) {
-                let new_child = create_property_element(
-                    &child,
-                    property_name,
-                    extra_properties.clone(),
-                    default_value_for_extra_properties,
-                    element_name,
-                    type_register,
-                );
-                crate::object_tree::adjust_geometry_for_injected_parent(&new_child, &child);
-                new_child.borrow_mut().children.push(child);
-                child = new_child;
+            } else if child.borrow().repeated_as_embedding().is_some() {
+                todo!()
+            } else {
+                if has_property_binding(&child) {
+                    let new_child = create_property_element(
+                        &child,
+                        property_name,
+                        extra_properties.clone(),
+                        default_value_for_extra_properties,
+                        element_name,
+                        type_register,
+                    );
+                    crate::object_tree::adjust_geometry_for_injected_parent(&new_child, &child);
+                    new_child.borrow_mut().children.push(child.clone());
+                    child = new_child;
+                }
             }
 
             elem.borrow_mut().children.push(child);

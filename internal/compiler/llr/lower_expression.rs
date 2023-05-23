@@ -15,7 +15,7 @@ use crate::langtype::{EnumerationValue, Type};
 use crate::layout::Orientation;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Element, ElementRc, PropertyAnimation};
+use crate::object_tree::{Element, ElementRc, PropertyAnimation, RepeatedElementInfo};
 
 pub struct ExpressionContext<'a> {
     pub component: &'a Rc<crate::object_tree::Component>,
@@ -659,7 +659,7 @@ fn box_layout_data(
     };
 
     let repeater_count =
-        layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
+        layout.elems.iter().filter(|i| i.element.borrow().repeated_as_repeater().is_some()).count();
 
     let element_ty = Type::Struct {
         fields: IntoIterator::into_iter([(
@@ -693,20 +693,30 @@ fn box_layout_data(
     } else {
         let mut elements = vec![];
         for item in &layout.elems {
-            if item.element.borrow().repeated.is_some() {
-                let repeater_index =
-                    match ctx.mapping.element_mapping.get(&item.element.clone().into()).unwrap() {
+            match &item.element.borrow().repeated {
+                Some(RepeatedElementInfo::Repeater(_)) => {
+                    let repeater_index = match ctx
+                        .mapping
+                        .element_mapping
+                        .get(&item.element.clone().into())
+                        .unwrap()
+                    {
                         LoweredElement::Repeated { repeated_index } => *repeated_index,
                         _ => panic!(),
                     };
-                elements.push(Either::Right(repeater_index))
-            } else {
-                let layout_info =
-                    get_layout_info(&item.element, ctx, &item.constraints, orientation);
-                elements.push(Either::Left(make_struct(
-                    "BoxLayoutCellData".into(),
-                    [("constraint", crate::layout::layout_info_type(), layout_info)],
-                )));
+                    elements.push(Either::Right(repeater_index))
+                }
+                Some(RepeatedElementInfo::Embedding(_)) => {
+                    todo!()
+                }
+                None => {
+                    let layout_info =
+                        get_layout_info(&item.element, ctx, &item.constraints, orientation);
+                    elements.push(Either::Left(make_struct(
+                        "BoxLayoutCellData".into(),
+                        [("constraint", crate::layout::layout_info_type(), layout_info)],
+                    )));
+                }
             }
         }
         let cells = llr_Expression::ReadLocalVariable {
