@@ -56,8 +56,7 @@ class MyWindow : public QWindow, public slint_platform::WindowAdapter
 public:
     MyWindow(QWindow *parentWindow = nullptr) : QWindow(parentWindow)
     {
-        m_renderer.emplace(window_handle_for_qt_window(this),
-                           slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) }));
+        m_renderer.emplace(window_handle_for_qt_window(this), physical_size());
     }
 
     slint_platform::AbstractRenderer &renderer() override { return m_renderer.value(); }
@@ -71,8 +70,7 @@ public:
     {
         slint_platform::update_timers_and_animations();
 
-        auto windowSize = slint::PhysicalSize({ uint32_t(width()), uint32_t(height()) });
-        m_renderer->render(window(), windowSize);
+        m_renderer->render(window(), physical_size());
 
         if (has_active_animations()) {
             requestUpdate();
@@ -91,6 +89,8 @@ public:
 
     void show() const override
     {
+        const_cast<WindowAdapter *>(static_cast<const WindowAdapter *>(this))
+                ->dispatch_scale_factor_change_event(devicePixelRatio());
         auto window = const_cast<QWindow *>(static_cast<const QWindow *>(this));
         window->QWindow::show();
         m_renderer->show();
@@ -102,21 +102,22 @@ public:
     }
     slint::PhysicalSize physical_size() const override
     {
-        auto s = size();
-        return slint::PhysicalSize({ uint32_t(s.width()), uint32_t(s.height()) });
+        auto windowSize = slint::LogicalSize({ float(width()), float(height()) });
+        float scale_factor = devicePixelRatio();
+        return slint::PhysicalSize({ uint32_t(windowSize.width * scale_factor),
+                                     uint32_t(windowSize.height * scale_factor) });
     }
 
     void request_redraw() const override { const_cast<MyWindow *>(this)->requestUpdate(); }
 
     void resizeEvent(QResizeEvent *ev) override
     {
-        auto windowSize = slint::PhysicalSize(
-                { uint32_t(ev->size().width()), uint32_t(ev->size().height()) });
-        m_renderer->resize(windowSize);
+        auto logicalSize = ev->size();
         float scale_factor = devicePixelRatio();
+        m_renderer->resize(slint::PhysicalSize({ uint32_t(logicalSize.width() * scale_factor),
+                                                 uint32_t(logicalSize.height() * scale_factor) }));
         WindowAdapter::dispatch_resize_event(
-                slint::LogicalSize({ float(windowSize.width) / scale_factor,
-                                     float(windowSize.height) / scale_factor }));
+                slint::LogicalSize({ float(logicalSize.width()), float(logicalSize.height()) }));
     }
 
     void mousePressEvent(QMouseEvent *event) override
