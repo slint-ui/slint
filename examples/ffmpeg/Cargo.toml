@@ -1,0 +1,30 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+[package]
+name = "ffmpeg"
+version = "1.0.3"
+authors = ["Slint Developers <info@slint-ui.com>"]
+edition = "2021"
+build = "build.rs"
+license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "ffmpeg"
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+ffmpeg-next = { version = "6.0.0" }
+smol = { version = "1.3.0" }
+anyhow = { version = "1.0" }
+futures = { version = "0.3.28" }
+cpal = "0.15.2"
+ringbuf = "0.3.3"
+bytemuck = "1.13.1"
+derive_more = "0.99.5"
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
+
