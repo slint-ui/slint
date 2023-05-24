@@ -107,7 +107,7 @@ jobs:
               docs/tutorial/cpp/book/html
               docs/tutorial/node/book/html
     - name: "Check for docs warnings in internal crates"
-      run: cargo +nightly doc --workspace --no-deps --all-features --exclude slint-node --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo
+      run: cargo +nightly doc --workspace --no-deps --all-features --exclude slint-node --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter --exclude uefi-demo --exclude ffmpeg
     - name: Clean cache # Don't cache docs to avoid them including removed classes being published
       run: |
           rm -rf target/doc target/cppdocs target/slintdocs api/node/docs docs/tutorial/rust/book docs/tutorial/cpp/book docs/tutorial/node/book

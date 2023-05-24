@@ -133,6 +133,16 @@ A Rust and C++ example that shows how render a scene with custom OpenGL code int
 
 ![Screenshot of the OpenGL Texture Example on macOS](https://github.com/slint-ui/slint/assets/1486/b9f1f6cf-3859-418e-9662-0c7170c3b1f2 "OpenGL Texture")
 
+### [`ffmpeg`](./ffmpeg)
+
+A Rust example that shows how render video frames with FFmpeg within a Slint scene. For more details check out the [Readme](./ffmpeg).
+
+| `.slint` Design | Rust Source |
+| --- | --- | --- | --- |
+| [`scene.slint`](./ffmpeg/scene.slint) | [`main.rs`](./opengl_texture/main.rs) |
+
+![Screenshot of the FFmpeg Example on macOS](https://github.com/slint-ui/slint/assets/1486/5a1fad32-611a-478e-ab8f-576b4b4bdaf3 "FFmpeg Example")
+
 ### [`virtual keyboard`](./virtual_keyboard)
 
 | `.slint` Design | Rust Source | C++ Source |

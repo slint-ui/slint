@@ -25,7 +25,9 @@ jobs:
         rust_version: [stable, "1.66"]
         include:
           - os: windows-2022
-            extra_args: "--exclude slint-node --exclude test-driver-nodejs"
+            extra_args: "--exclude slint-node --exclude test-driver-nodejs --exclude ffmpeg"
+          - os: macos-11
+            extra_args: "--exclude ffmpeg"
         exclude:
           - os: macos-11
             rust_version: "1.66"
@@ -45,6 +47,9 @@ jobs:
       with:
         version: '5.15.2'
         setup-python: false
+    - name: Install ffmpeg and alsa (Linux)
+      if: runner.os == 'Linux'
+      run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
     - name: Setup headless display
       uses: pyvista/setup-headless-display-action@v1
     - name: Set default style

@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { VerticalBox, StyleMetrics } from "std-widgets.slint";
+
+export component App inherits Window {
+    preferred-width: 500px;
+    preferred-height: 300px;
+    min-width: 500px;
+    min-height: 300px;
+    title: "Slint FFmpeg Example";
+    icon: @image-url("../../logo/slint-logo-small-light-128x128.png");
+
+    in property <image> video-frame <=> image.source;
+    in property <bool> playing;
+    pure callback toggle-pause-play();
+
+    VerticalBox {
+        image := Image {
+        }
+    }
+
+    area := TouchArea {
+        width: 50%;
+        height: self.preferred-height;
+        y: root.height - self.height - 40px;
+        controls := Rectangle {
+            border-radius: 4px;
+            background: StyleMetrics.dark-color-scheme ? #3737378c : #ffffff82;
+            Image {
+                width: 64px;
+                height: 64px;
+                source: root.playing ? @image-url("pause.svg") : @image-url("play.svg");
+            }
+            TouchArea {
+                clicked => {
+                    root.toggle-pause-play();
+                }
+            }
+        }
+    }
+
+    states [
+        shown when area.has-hover || animation-tick() < 5s : {
+            controls.opacity: 1;
+            in {
+                animate controls.opacity {
+                    duration: 50ms;
+                }
+            }
+        }
+        hidden when !area.has-hover: {
+            controls.opacity: 0;
+            in {
+                animate controls.opacity {
+                    delay: 3s;
+                    duration: 500ms;
+                }
+            }
+        }
+    ]
+}
