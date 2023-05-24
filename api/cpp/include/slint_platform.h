@@ -140,6 +140,15 @@ public:
         }
     }
 
+    /// Notifies the platform about a change in the device pixel ratio.
+    void dispatch_scale_factor_change_event(float factor)
+    {
+        private_api::assert_main_thread();
+        if (was_initialized) {
+            cbindgen_private::slint_windowrc_dispatch_scale_factor_change_event(&self, factor);
+        }
+    }
+
     /// Returns true if the window is currently animating
     bool has_active_animations() const
     {
