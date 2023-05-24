@@ -261,5 +261,124 @@ export component ScrollView {
         width: 16px;
         background: root.enabled ? transparent : Palette.neutralLighter;
     }
+}
 
+export component Switch {
+    callback toggled;
+
+    in property <string> text <=> label.text;
+    in-out property <bool> checked: true;
+    out property <bool> has-focus: fs.has-focus;
+    in property<bool> enabled: false;
+
+    min-width: 40px;
+    min-height: 20px;
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
+    accessible-label <=> label.text;
+    accessible-checkable: true;
+    accessible-checked <=> root.checked;
+    accessible-role: checkbox;
+
+    layout := HorizontalLayout {
+        spacing: 16px;
+
+        VerticalLayout {
+            alignment: center;
+
+           Rectangle {
+                width: 40px;
+                height: 20px;
+
+                track := Rectangle {
+                    border-radius: 10px;
+                    border-width: 1px;
+                    border-color: Palette.neutralSecondaryAlt;
+                }
+
+                handle := Rectangle {
+                    x: 3px;
+                    y: (parent.height - self.height) / 2;
+                    width: 14px;
+                    height: self.width;
+                    border-radius: self.width / 2;
+                    background: Palette.neutralSecondaryAlt;
+
+                    animate background, x { duration: 200ms; easing: linear; }
+                }
+
+                animate background, border-color{ duration: 200ms; easing: linear; }
+            }
+        }
+
+        label := Text {
+            color: !root.enabled ? Palette.neutralTertiary : Palette.neutralDark;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            vertical-stretch: 1;
+        }
+    }
+
+    touch := TouchArea {
+        enabled <=> root.enabled;
+
+        clicked => {
+            root.toggle-checked();
+        }
+    }
+
+    fs := FocusScope {
+        x:0;
+        width: 0px; // Do not react on clicks
+        enabled <=> root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                 root.toggle-checked();
+                 return accept;
+            }
+            return reject;
+        }
+    }
+
+    Rectangle { // Focus rectangle
+        x: -3px;
+        y: self.x;
+        width: parent.width - 2 * self.x;
+        height: parent.height - 2 * self.y;
+        border-width: root.enabled && root.has-focus ? 1px : 0px;
+        border-color: Palette.black;
+    }
+
+    function toggle-checked() {
+        if(!root.enabled) {
+            return;
+        }
+
+        root.checked = !root.checked;
+        root.toggled();
+    }
+
+    states [
+        disabled-selected when !root.enabled && root.checked  : {
+            handle.x: track.width - handle.width - 3px;
+            handle.background: Palette.neutralTertiary;
+            track.border-color: Palette.neutralLighter;
+            track.background: Palette.neutralLighter;
+        }
+        disabled when !root.enabled : {
+            handle.background: Palette.neutralQuaternaryAlt;
+            track.border-color: Palette.neutralQuaternaryAlt;
+        }
+        pressed-hover when (touch.pressed || touch.has-hover) && !root.checked : {
+            handle.background: Palette.neutralTertiary;
+            track.border-color: Palette.neutralTertiary;
+        }
+        selected when root.checked : {
+            handle.x: track.width - handle.width - 3px;
+            handle.background: Palette.white;
+            track.background:  Palette.themePrimary;
+            track.border-color:  Palette.themePrimary;
+        }
+    ]
 }
