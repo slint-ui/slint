@@ -172,6 +172,11 @@ impl WinitWindowAdapter {
         let mut window_builder =
             winit::window::WindowBuilder::new().with_transparent(true).with_visible(false);
 
+        if std::env::var("SLINT_FULLSCREEN").is_ok() {
+            window_builder =
+                window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+        }
+
         window_builder = window_builder.with_title("Slint Window".to_string());
 
         #[cfg(target_arch = "wasm32")]
@@ -473,7 +478,7 @@ impl WindowAdapterSealed for WinitWindowAdapter {
             }
         }
 
-        if std::env::var("SLINT_FULLSCREEN").is_err() {
+        if winit_window.fullscreen().is_none() {
             if preferred_size.width > 0 as Coord && preferred_size.height > 0 as Coord {
                 // use the Slint's window Scale factor to take in account the override
                 winit_window.set_inner_size(preferred_size.to_physical::<f32>(scale_factor));
