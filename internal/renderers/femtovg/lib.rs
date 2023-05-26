@@ -150,10 +150,10 @@ impl FemtoVGRenderer {
     pub fn render(
         &self,
         window: &i_slint_core::api::Window,
-        size: PhysicalWindowSize,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.opengl_context.ensure_current()?;
 
+        let size = window.size();
         let width = size.width;
         let height = size.height;
 
