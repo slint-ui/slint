@@ -87,7 +87,7 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter
 
     void render()
     {
-        m_renderer->render(window(), physical_size());
+        m_renderer->render(window());
         if (has_active_animations())
             request_redraw();
     }

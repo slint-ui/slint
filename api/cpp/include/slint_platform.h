@@ -323,9 +323,9 @@ public:
         inner = cbindgen_private::slint_skia_renderer_new(window_handle.inner, initial_size);
     }
 
-    void render(const Window &window, PhysicalSize size) const
+    void render(const Window &window) const
     {
-        cbindgen_private::slint_skia_renderer_render(inner, &window.window_handle().inner, size);
+        cbindgen_private::slint_skia_renderer_render(inner, &window.window_handle().inner);
     }
 
     void resize(PhysicalSize size) const

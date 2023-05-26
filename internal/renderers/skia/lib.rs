@@ -111,8 +111,8 @@ impl SkiaRenderer {
     pub fn render(
         &self,
         window: &i_slint_core::api::Window,
-        size: PhysicalWindowSize,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
+        let size = window.size();
         let window_inner = WindowInner::from_pub(window);
 
         self.surface.render(size, |skia_canvas, gr_context| {
