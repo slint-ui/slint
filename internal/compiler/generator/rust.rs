@@ -139,8 +139,9 @@ pub fn generate(doc: &Document) -> TokenStream {
         .structs
         .iter()
         .filter_map(|ty| {
-            if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
-                Some((ident(name), generate_struct(name, fields)))
+            // feature
+            if let Type::Struct { fields, name: Some(name), node: Some(_), feature } = ty {
+                Some((ident(name), generate_struct(name, fields, feature)))
             } else {
                 None
             }
@@ -420,7 +421,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
     )
 }
 
-fn generate_struct(name: &str, fields: &BTreeMap<String, Type>) -> TokenStream {
+fn generate_struct(name: &str, fields: &BTreeMap<String, Type>, feature: &Option<String>) -> TokenStream {
     let component_id = struct_name_to_tokens(name);
     let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) =
         fields.iter().map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap())).unzip();

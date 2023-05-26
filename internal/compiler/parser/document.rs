@@ -4,6 +4,7 @@
 use super::element::{parse_element, parse_element_content};
 use super::prelude::*;
 use super::r#type::parse_struct_declaration;
+use crate::parser::r#type::parse_pragma;
 
 #[cfg_attr(test, parser_test)]
 /// ```test,Document
@@ -42,6 +43,11 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
             }
             "struct" => {
                 if !parse_struct_declaration(&mut *p) {
+                    break;
+                }
+            }
+            "@" => {
+                if !parse_pragma(&mut *p) {
                     break;
                 }
             }

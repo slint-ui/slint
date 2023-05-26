@@ -322,7 +322,7 @@ declare_syntax! {
     }
     // syntax kind
     {
-        Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration ],
+        Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration, *AtPragma ],
         /// `DeclaredIdentifier := Element { ... }`
         Component -> [ DeclaredIdentifier, Element ],
         /// `id := Element { ... }`
@@ -423,7 +423,8 @@ declare_syntax! {
         ArrayType -> [ Type ],
         /// `struct Foo := { ... }
         StructDeclaration -> [DeclaredIdentifier, ObjectType],
-
+        /// @pragma
+        AtPragma -> [ DeclaredIdentifier, StructDeclaration ],
     }
 }
 

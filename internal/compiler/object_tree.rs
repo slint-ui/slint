@@ -88,9 +88,19 @@ impl Document {
                 inner_structs.push(ty);
             };
 
+        let mut process_atpragma = 
+            |n: syntax_nodes::AtPragma,
+            diag: &mut BuildDiagnostics,
+            local_registry: &mut TypeRegister| {
+                let get_struct = n.StructDeclaration();
+                // here
+        };
         for n in node.children() {
             match n.kind() {
                 SyntaxKind::Component => process_component(n.into(), diag, &mut local_registry),
+                SyntaxKind::AtPragma => {
+                    process_atpragma(n.into(), diag, &mut local_registry)
+                }
                 SyntaxKind::StructDeclaration => {
                     process_struct(n.into(), diag, &mut local_registry)
                 }
@@ -1653,7 +1663,7 @@ pub fn type_struct_from_node(
             )
         })
         .collect();
-    Type::Struct { fields, name: None, node: Some(object_node) }
+    Type::Struct { fields, name: None, node: Some(object_node), feature: None }
 }
 
 fn animation_element_from_node(

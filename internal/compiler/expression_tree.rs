@@ -149,6 +149,7 @@ impl BuiltinFunction {
                     .collect(),
                     name: Some("Size".to_string()),
                     node: None,
+                    feature: None,
                 }),
                 args: vec![Type::Image],
             },
@@ -993,7 +994,7 @@ impl Expression {
                 },
                 (
                     Type::Struct { fields: ref left, .. },
-                    Type::Struct { fields: right, name, node: n },
+                    Type::Struct { fields: right, name, node: n, feature },
                 ) if left != right => {
                     if let Expression::Struct { mut values, .. } = self {
                         let mut new_values = HashMap::new();
@@ -1017,6 +1018,7 @@ impl Expression {
                                         fields: left.clone(),
                                         name: name.clone(),
                                         node: n.clone(),
+                                        feature: feature.clone(),
                                     },
                                 }),
                                 name: key.clone(),

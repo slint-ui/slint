@@ -85,3 +85,26 @@ pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
     parse_type_object(&mut *p);
     true
 }
+
+#[cfg_attr(test, parser_test)]
+/// ```test,AtPragma
+/// @pragma(serde)
+/// ```
+pub fn parse_pragma(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::AtPragma);
+    p.consume(); // "@"
+    if p.peek().as_str() != "pragma" {
+        p.expect(SyntaxKind::AtPragma);
+        return false;
+    }
+    p.consume(); // "pragma"
+    p.expect(SyntaxKind::LParent);
+    p.expect(SyntaxKind::Identifier);
+    p.expect(SyntaxKind::RParent);
+    
+    if p.peek().as_str() == "struct" {
+        parse_struct_declaration(&mut *p);
+    } 
+    p.expect(SyntaxKind::StructDeclaration);
+    false
+}
