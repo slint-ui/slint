@@ -51,18 +51,29 @@ impl AudioPlaybackThread {
                         _ => todo!(),
                     };
 
-                    let output_format = ffmpeg_next::util::format::sample::Sample::F32(
-                        ffmpeg_next::util::format::sample::Type::Packed,
-                    );
-
-                    let mut ffmpeg_to_cpal_forwarder = FFmpegToCPalForwarder::new::<f32>(
-                        config,
-                        &device,
-                        packet_receiver,
-                        packet_decoder,
-                        output_format,
-                        output_channel_layout,
-                    );
+                    let mut ffmpeg_to_cpal_forwarder = match config.sample_format() {
+                        cpal::SampleFormat::U8 => FFmpegToCPalForwarder::new::<u8>(
+                            config,
+                            &device,
+                            packet_receiver,
+                            packet_decoder,
+                            ffmpeg_next::util::format::sample::Sample::U8(
+                                ffmpeg_next::util::format::sample::Type::Packed,
+                            ),
+                            output_channel_layout,
+                        ),
+                        cpal::SampleFormat::F32 => FFmpegToCPalForwarder::new::<f32>(
+                            config,
+                            &device,
+                            packet_receiver,
+                            packet_decoder,
+                            ffmpeg_next::util::format::sample::Sample::F32(
+                                ffmpeg_next::util::format::sample::Type::Packed,
+                            ),
+                            output_channel_layout,
+                        ),
+                        format @ _ => todo!("unsupported cpal output format {:#?}", format),
+                    };
 
                     let packet_receiver_impl =
                         async { ffmpeg_to_cpal_forwarder.stream().await }.fuse().shared();
