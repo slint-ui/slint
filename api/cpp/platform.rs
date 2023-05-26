@@ -340,12 +340,10 @@ pub unsafe extern "C" fn slint_skia_renderer_resize(r: SkiaRendererOpaque, size:
 pub unsafe extern "C" fn slint_skia_renderer_render(
     r: SkiaRendererOpaque,
     window: *const WindowAdapterRcOpaque,
-    size: IntSize,
 ) {
     let window_adapter = &*(window as *const Rc<dyn WindowAdapter>);
     let r = &*(r as *const SkiaRenderer);
-    r.render(window_adapter.window(), PhysicalSize { width: size.width, height: size.height })
-        .unwrap();
+    r.render(window_adapter.window()).unwrap();
 }
 
 #[no_mangle]

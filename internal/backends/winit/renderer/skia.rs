@@ -51,7 +51,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
     }
 
     fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
-        self.renderer.render(window, window.size())
+        self.renderer.render(window)
     }
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
