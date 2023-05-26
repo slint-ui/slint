@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use calloop::EventLoop;
 use i_slint_core::platform::PlatformError;
 
-use crate::vulkanwindowadapter::VulkanWindowAdapter;
+use crate::skiawindowadapter::SkiaWindowAdapter;
 use i_slint_core::window::WindowAdapter;
 
 #[cfg(not(any(
@@ -62,7 +62,7 @@ impl i_slint_core::platform::EventLoopProxy for Proxy {
 }
 
 pub struct Backend {
-    window: RefCell<Option<Rc<VulkanWindowAdapter>>>,
+    window: RefCell<Option<Rc<SkiaWindowAdapter>>>,
     user_event_receiver: RefCell<Option<calloop::channel::Channel<Box<dyn FnOnce() + Send>>>>,
     proxy: Proxy,
 }
@@ -85,7 +85,7 @@ impl i_slint_core::platform::Platform for Backend {
         std::rc::Rc<dyn i_slint_core::window::WindowAdapter>,
         i_slint_core::platform::PlatformError,
     > {
-        let adapter = VulkanWindowAdapter::new()?;
+        let adapter = SkiaWindowAdapter::new()?;
 
         *self.window.borrow_mut() = Some(adapter.clone());
 

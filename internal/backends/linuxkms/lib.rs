@@ -4,7 +4,7 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
-mod vulkanwindowadapter;
+mod skiawindowadapter;
 
 #[cfg(not(target_family = "windows"))]
 mod calloop_backend;
