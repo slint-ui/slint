@@ -37,12 +37,16 @@ pub mod metal_surface;
 #[cfg(target_family = "windows")]
 pub mod d3d_surface;
 
+#[cfg(skia_backend_vulkan)]
+pub mod vulkan_surface;
+
+#[cfg(skia_backend_opengl)]
+pub mod opengl_surface;
+
 cfg_if::cfg_if! {
     if #[cfg(skia_backend_vulkan)] {
-        pub mod vulkan_surface;
         type DefaultSurface = vulkan_surface::VulkanSurface;
     } else if #[cfg(skia_backend_opengl)] {
-        pub mod opengl_surface;
         type DefaultSurface = opengl_surface::OpenGLSurface;
     } else if #[cfg(skia_backend_metal)] {
         type DefaultSurface = metal_surface::MetalSurface;
