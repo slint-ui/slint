@@ -10,8 +10,10 @@ use vulkano::instance::{Instance, InstanceCreateInfo, InstanceExtensions};
 use vulkano::swapchain::display::{Display, DisplayPlane};
 use vulkano::VulkanLibrary;
 
+use super::PresentFn;
+
 pub fn create_skia_renderer_with_vulkan(
-) -> Result<(SkiaRenderer, PhysicalWindowSize), PlatformError> {
+) -> Result<(SkiaRenderer, PhysicalWindowSize, PresentFn), PlatformError> {
     let library = VulkanLibrary::new()
         .map_err(|load_err| format!("Error loading vulkan library: {load_err}"))?;
 
@@ -144,5 +146,5 @@ pub fn create_skia_renderer_with_vulkan(
         size,
     )?;
 
-    Ok((SkiaRenderer::new_with_surface(surface), size))
+    Ok((SkiaRenderer::new_with_surface(surface), size, Box::new(|| Ok(()))))
 }
