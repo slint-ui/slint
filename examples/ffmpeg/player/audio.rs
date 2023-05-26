@@ -1,12 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use std::pin::Pin;
+
+use bytemuck::Pod;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::Sample;
+use cpal::SizedSample;
 
 use futures::future::OptionFuture;
 use futures::FutureExt;
+use ringbuf::ring_buffer::{RbRef, RbWrite};
 use ringbuf::HeapRb;
+use std::future::Future;
 
 use super::ControlCommand;
 
@@ -23,7 +28,7 @@ impl AudioPlaybackThread {
         let (packet_sender, packet_receiver) = smol::channel::bounded(128);
 
         let decoder_context = ffmpeg_next::codec::Context::from_parameters(stream.parameters())?;
-        let mut packet_decoder = decoder_context.decoder().audio()?;
+        let packet_decoder = decoder_context.decoder().audio()?;
 
         let host = cpal::default_host();
         let device = host.default_output_device().expect("no output device available");
@@ -50,67 +55,17 @@ impl AudioPlaybackThread {
                         ffmpeg_next::util::format::sample::Type::Packed,
                     );
 
-                    let mut resampler = ffmpeg_next::software::resampling::Context::get(
-                        packet_decoder.format(),
-                        packet_decoder.channel_layout(),
-                        packet_decoder.rate(),
+                    let mut ffmpeg_to_cpal_forwarder = FFmpegToCPalForwarder::new::<f32>(
+                        config,
+                        &device,
+                        packet_receiver,
+                        packet_decoder,
                         output_format,
                         output_channel_layout,
-                        config.sample_rate().0,
-                    )
-                    .unwrap();
+                    );
 
-                    let buffer = HeapRb::new(4096);
-                    let (mut sample_producer, mut sample_consumer) = buffer.split();
-
-                    let cpal_stream = device
-                        .build_output_stream(
-                            &config.config(),
-                            move |data: &mut [f32], _| {
-                                let filled = sample_consumer.pop_slice(data);
-                                data[filled..].fill(f32::EQUILIBRIUM);
-                            },
-                            move |err| {
-                                eprintln!("error feeding audio stream to cpal: {}", err);
-                            },
-                            None,
-                        )
-                        .unwrap();
-
-                    cpal_stream.play().unwrap();
-
-                    let packet_receiver_impl = async {
-                        loop {
-                            let Ok(packet) = packet_receiver.recv().await else { break };
-
-                            packet_decoder.send_packet(&packet).unwrap();
-
-                            let mut decoded_frame = ffmpeg_next::util::frame::Audio::empty();
-
-                            while packet_decoder.receive_frame(&mut decoded_frame).is_ok() {
-                                let mut resampled_frame = ffmpeg_next::util::frame::Audio::empty();
-                                resampler.run(&decoded_frame, &mut resampled_frame).unwrap();
-
-                                // Audio::plane() returns the wrong slice size, so correct it by hand. See also
-                                // for a fix https://github.com/zmwangx/rust-ffmpeg/pull/104.
-                                let expected_bytes = resampled_frame.samples()
-                                    * resampled_frame.channels() as usize
-                                    * core::mem::size_of::<f32>();
-                                let cpal_sample_data: &[f32] = bytemuck::cast_slice(
-                                    &resampled_frame.data(0)[..expected_bytes],
-                                );
-
-                                while sample_producer.free_len() < cpal_sample_data.len() {
-                                    smol::Timer::after(std::time::Duration::from_millis(16)).await;
-                                }
-
-                                // Buffer the samples for playback
-                                sample_producer.push_slice(cpal_sample_data);
-                            }
-                        }
-                    }
-                    .fuse()
-                    .shared();
+                    let packet_receiver_impl =
+                        async { ffmpeg_to_cpal_forwarder.stream().await }.fuse().shared();
 
                     let mut playing = true;
 
@@ -161,6 +116,112 @@ impl Drop for AudioPlaybackThread {
         self.control_sender.close();
         if let Some(receiver_join_handle) = self.receiver_thread.take() {
             receiver_join_handle.join().unwrap();
+        }
+    }
+}
+
+trait FFMpegToCPalSampleForwarder {
+    fn forward(
+        &mut self,
+        audio_frame: ffmpeg_next::frame::Audio,
+    ) -> Pin<Box<dyn Future<Output = ()> + '_>>;
+}
+
+impl<T: Pod, R: RbRef> FFMpegToCPalSampleForwarder for ringbuf::Producer<T, R>
+where
+    <R as RbRef>::Rb: RbWrite<T>,
+{
+    fn forward(
+        &mut self,
+        audio_frame: ffmpeg_next::frame::Audio,
+    ) -> Pin<Box<dyn Future<Output = ()> + '_>> {
+        Box::pin(async move {
+            // Audio::plane() returns the wrong slice size, so correct it by hand. See also
+            // for a fix https://github.com/zmwangx/rust-ffmpeg/pull/104.
+            let expected_bytes =
+                audio_frame.samples() * audio_frame.channels() as usize * core::mem::size_of::<T>();
+            let cpal_sample_data: &[T] =
+                bytemuck::cast_slice(&audio_frame.data(0)[..expected_bytes]);
+
+            while self.free_len() < cpal_sample_data.len() {
+                smol::Timer::after(std::time::Duration::from_millis(16)).await;
+            }
+
+            // Buffer the samples for playback
+            self.push_slice(cpal_sample_data);
+        })
+    }
+}
+
+struct FFmpegToCPalForwarder {
+    _cpal_stream: cpal::Stream,
+    ffmpeg_to_cpal_pipe: Box<dyn FFMpegToCPalSampleForwarder>,
+    packet_receiver: smol::channel::Receiver<ffmpeg_next::codec::packet::packet::Packet>,
+    packet_decoder: ffmpeg_next::decoder::Audio,
+    resampler: ffmpeg_next::software::resampling::Context,
+}
+
+impl FFmpegToCPalForwarder {
+    fn new<T: Send + Pod + SizedSample + 'static>(
+        config: cpal::SupportedStreamConfig,
+        device: &cpal::Device,
+        packet_receiver: smol::channel::Receiver<ffmpeg_next::codec::packet::packet::Packet>,
+        packet_decoder: ffmpeg_next::decoder::Audio,
+        output_format: ffmpeg_next::util::format::sample::Sample,
+        output_channel_layout: ffmpeg_next::util::channel_layout::ChannelLayout,
+    ) -> Self {
+        let buffer = HeapRb::new(4096);
+        let (sample_producer, mut sample_consumer) = buffer.split();
+
+        let cpal_stream = device
+            .build_output_stream(
+                &config.config(),
+                move |data, _| {
+                    let filled = sample_consumer.pop_slice(data);
+                    data[filled..].fill(T::EQUILIBRIUM);
+                },
+                move |err| {
+                    eprintln!("error feeding audio stream to cpal: {}", err);
+                },
+                None,
+            )
+            .unwrap();
+
+        cpal_stream.play().unwrap();
+
+        let resampler = ffmpeg_next::software::resampling::Context::get(
+            packet_decoder.format(),
+            packet_decoder.channel_layout(),
+            packet_decoder.rate(),
+            output_format,
+            output_channel_layout,
+            config.sample_rate().0,
+        )
+        .unwrap();
+
+        Self {
+            _cpal_stream: cpal_stream,
+            ffmpeg_to_cpal_pipe: Box::new(sample_producer),
+            packet_receiver,
+            packet_decoder,
+            resampler,
+        }
+    }
+
+    async fn stream(&mut self) {
+        loop {
+            let Ok(packet) = self.packet_receiver.recv().await else { break };
+
+            self.packet_decoder.send_packet(&packet).unwrap();
+
+            let mut decoded_frame = ffmpeg_next::util::frame::Audio::empty();
+
+            while self.packet_decoder.receive_frame(&mut decoded_frame).is_ok() {
+                let mut resampled_frame = ffmpeg_next::util::frame::Audio::empty();
+                self.resampler.run(&decoded_frame, &mut resampled_frame).unwrap();
+
+                self.ffmpeg_to_cpal_pipe.forward(resampled_frame).await;
+            }
         }
     }
 }
