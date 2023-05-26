@@ -31,7 +31,7 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 instant = "0.1"
 raw-window-handle = { version = "0.5", features = ["alloc"] }
-femtovg = { version = "0.6.0" }
+femtovg = { version = "0.7.0" }
 ttf-parser = { version = "0.18.0" } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 unicode-script = { version = "0.5.4" } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 imgref = { version = "1.6.1" }
