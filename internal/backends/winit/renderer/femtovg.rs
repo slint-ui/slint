@@ -39,12 +39,8 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         self.renderer.hide()
     }
 
-    fn render(
-        &self,
-        window: &i_slint_core::api::Window,
-        size: PhysicalWindowSize,
-    ) -> Result<(), PlatformError> {
-        self.renderer.render(window, size)
+    fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
+        self.renderer.render(window, window.size())
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {

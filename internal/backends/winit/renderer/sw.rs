@@ -49,11 +49,8 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         Ok(())
     }
 
-    fn render(
-        &self,
-        window: &i_slint_core::api::Window,
-        size: PhysicalWindowSize,
-    ) -> Result<(), PlatformError> {
+    fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
+        let size = window.size();
         let width = size.width as usize;
         let height = size.height as usize;
 

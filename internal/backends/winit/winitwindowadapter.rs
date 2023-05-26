@@ -226,8 +226,7 @@ impl WinitWindowAdapter {
         self.pending_redraw.set(false);
 
         let renderer = self.renderer();
-        renderer
-            .render(self.window(), physical_size_to_slint(&self.winit_window().inner_size()))?;
+        renderer.render(self.window())?;
 
         Ok(self.pending_redraw.get())
     }
