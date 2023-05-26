@@ -19,6 +19,10 @@ path = "lib.rs"
 i-slint-core = { version = "=1.0.3", path = "../../../internal/core" }
 i-slint-renderer-skia = { version = "=1.0.3", path = "../../renderers/skia", features = ["vulkan"] }
 vulkano = { version = "0.33.0", default-features = false }
+drm = { version = "0.9.0" }
+gbm = { version = "0.12.0", default-features = false, features = ["drm-support"] }
+glutin = { version = "0.30.8", default-features = false, features = ["libloading", "egl"] }
+raw-window-handle = "0.5.2"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 input = { version = "0.8.2" }

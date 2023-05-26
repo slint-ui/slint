@@ -10,13 +10,17 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::{platform::PlatformError, window::WindowAdapter};
 use i_slint_renderer_skia::SkiaRenderer;
 
+mod egldisplay;
 mod vulkandisplay;
+
+type PresentFn = Box<dyn Fn() -> Result<(), PlatformError>>;
 
 pub struct SkiaWindowAdapter {
     window: i_slint_core::api::Window,
     renderer: SkiaRenderer,
     needs_redraw: Cell<bool>,
     size: PhysicalWindowSize,
+    present_fn: PresentFn, // last field that keeps the gbm surface alive, that needs to outlive the renderer.
 }
 
 impl WindowAdapter for SkiaWindowAdapter {
@@ -41,11 +45,13 @@ impl i_slint_core::window::WindowAdapterSealed for SkiaWindowAdapter {
 
 impl SkiaWindowAdapter {
     pub fn new() -> Result<Rc<Self>, PlatformError> {
-        let (renderer, size) = vulkandisplay::create_skia_renderer_with_vulkan()?;
+        let (renderer, size, present_fn) = vulkandisplay::create_skia_renderer_with_vulkan()
+            .or_else(|_| egldisplay::create_skia_renderer_with_egl())?;
 
         Ok(Rc::<SkiaWindowAdapter>::new_cyclic(|self_weak| SkiaWindowAdapter {
             window: i_slint_core::api::Window::new(self_weak.clone()),
             renderer,
+            present_fn,
             needs_redraw: Cell::new(true),
             size,
         }))
@@ -54,6 +60,7 @@ impl SkiaWindowAdapter {
     pub fn render_if_needed(&self) -> Result<(), PlatformError> {
         if self.needs_redraw.replace(false) {
             self.renderer.render(&self.window)?;
+            (self.present_fn)()?;
         }
         Ok(())
     }
