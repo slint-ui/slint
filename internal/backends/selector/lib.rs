@@ -23,10 +23,10 @@ cfg_if::cfg_if! {
         fn create_default_backend() -> Box<dyn Platform + 'static> {
             Box::new(i_slint_backend_winit::Backend::new())
         }
-    } else if #[cfg(feature = "i-slint-backend-vulkanfs")] {
-        use i_slint_backend_vulkanfs as default_backend;
+    } else if #[cfg(feature = "i-slint-backend-linuxkms")] {
+        use i_slint_backend_linuxkms as default_backend;
         fn create_default_backend() -> Box<dyn Platform + 'static> {
-            Box::new(i_slint_backend_vulkanfs::Backend::new())
+            Box::new(i_slint_backend_linuxkms::Backend::new())
         }
     } else {
 
@@ -37,7 +37,7 @@ cfg_if::cfg_if! {
     if #[cfg(any(
             all(feature = "i-slint-backend-qt", not(no_qt)),
             feature = "i-slint-backend-winit",
-            feature = "i-slint-backend-vulkanfs"
+            feature = "i-slint-backend-linuxkms"
         ))] {
         pub fn create_backend() -> Result<Box<dyn Platform + 'static>, PlatformError>  {
 
@@ -50,7 +50,7 @@ cfg_if::cfg_if! {
                 "femtovg" => ("winit", "femtovg"),
                 "skia" => ("winit", "skia"),
                 "sw" | "software" => ("winit", "software"),
-                "vulkanfs" => ("vulkanfs", ""),
+                "linuxkms" => ("linuxkms", ""),
                 x => (x, ""),
             });
 
@@ -59,8 +59,8 @@ cfg_if::cfg_if! {
                 "qt" => return Ok(Box::new(i_slint_backend_qt::Backend)),
                 #[cfg(feature = "i-slint-backend-winit")]
                 "winit" => return Ok(Box::new(i_slint_backend_winit::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then(|| _renderer)))),
-                #[cfg(feature = "i-slint-backend-vulkanfs")]
-                "vulkanfs" => return Ok(Box::new(i_slint_backend_vulkanfs::Backend::new())),
+                #[cfg(feature = "i-slint-backend-linuxkms")]
+                "linuxkms" => return Ok(Box::new(i_slint_backend_linuxkms::Backend::new())),
                 _ => {},
             }
 

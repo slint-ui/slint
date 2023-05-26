@@ -109,7 +109,7 @@ define_cargo_feature(renderer-winit-software "Enable support for the software re
 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
-define_cargo_feature(backend-vulkanfs "Enable support for the backend that renders a single window fullscreen on Linux using Vulkan" OFF)
+define_cargo_feature(backend-linuxkms "Enable support for the backend that renders a single window fullscreen on Linux" OFF)
 
 define_cargo_feature(experimental "Enable experimental features (no compatibility guarantees)" OFF)
 

@@ -103,7 +103,7 @@ impl VulkanWindowAdapter {
             return Err(format!("Vulkan: No displays found").into());
         };
 
-        let display = std::env::var("SLINT_VULKANFS_DISPLAY").map_or_else(
+        let display = std::env::var("SLINT_VULKAN_DISPLAY").map_or_else(
             |_| Ok(first_display),
             |display_str| {
                 let mut displays_and_index = displays.enumerate();
@@ -128,7 +128,7 @@ impl VulkanWindowAdapter {
             },
         )?;
 
-        let mode = std::env::var("SLINT_VULKANFS_MODE").map_or_else(
+        let mode = std::env::var("SLINT_VULKAN_MODE").map_or_else(
             |_| {
                 display
                     .display_modes()

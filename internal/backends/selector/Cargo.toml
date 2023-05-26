@@ -18,7 +18,7 @@ path = "lib.rs"
 backend-winit = ["backend-winit-x11", "backend-winit-wayland"]
 backend-winit-x11 = ["i-slint-backend-winit/x11"]
 backend-winit-wayland = ["i-slint-backend-winit/wayland"]
-backend-vulkanfs = ["i-slint-backend-vulkanfs"]
+backend-linuxkms = ["i-slint-backend-linuxkms"]
 
 renderer-winit-femtovg = ["i-slint-backend-winit/renderer-winit-femtovg"]
 renderer-winit-skia = ["i-slint-backend-winit/renderer-winit-skia"]
@@ -32,6 +32,6 @@ rtti = ["i-slint-backend-winit?/rtti", "i-slint-backend-qt?/rtti"]
 i-slint-core = { version = "=1.0.3", path = "../../../internal/core", default-features = false }
 i-slint-backend-winit = { version = "=1.0.3", path = "../winit", optional = true }
 i-slint-backend-qt = { version = "=1.0.3", path = "../qt", optional = true }
-i-slint-backend-vulkanfs = { version = "=1.0.3", path = "../vulkanfs", optional = true }
+i-slint-backend-linuxkms = { version = "=1.0.3", path = "../linuxkms", optional = true }
 
 cfg-if = "1"

@@ -22,7 +22,7 @@ backend-winit = ["slint-interpreter/backend-winit"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
 
-backend-vulkanfs = ["slint-interpreter/backend-vulkanfs"]
+backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
 
 renderer-winit-femtovg = ["slint-interpreter/renderer-winit-femtovg"]
 renderer-winit-skia = ["slint-interpreter/renderer-winit-skia"]

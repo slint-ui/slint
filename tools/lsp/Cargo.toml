@@ -39,7 +39,7 @@ renderer-winit-qt = ["backend-qt"]
 backend-winit = ["slint-interpreter/backend-winit", "preview"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11", "preview"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland", "preview"]
-backend-vulkanfs = ["slint-interpreter/backend-vulkanfs", "preview"]
+backend-linuxkms = ["slint-interpreter/backend-linuxkms", "preview"]
 
 renderer-winit-femtovg = ["slint-interpreter/renderer-winit-femtovg", "preview"]
 renderer-winit-skia = ["slint-interpreter/renderer-winit-skia", "preview"]

@@ -35,7 +35,7 @@ members = [
     'internal/backends/qt',
     'internal/backends/selector',
     'internal/backends/testing',
-    'internal/backends/vulkanfs',
+    'internal/backends/linuxkms',
     'internal/renderers/skia',
     'internal/renderers/femtovg',
     'internal/common',
