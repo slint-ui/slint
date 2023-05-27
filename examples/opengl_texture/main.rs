@@ -61,7 +61,6 @@ macro_rules! define_scoped_binding {
 
 define_scoped_binding!(struct ScopedTextureBinding => glow::NativeTexture, glow::TEXTURE_BINDING_2D, bind_texture, glow::TEXTURE_2D);
 define_scoped_binding!(struct ScopedFrameBufferBinding => glow::NativeFramebuffer, glow::DRAW_FRAMEBUFFER_BINDING, bind_framebuffer, glow::DRAW_FRAMEBUFFER);
-define_scoped_binding!(struct ScopedRenderBufferBinding => glow::NativeRenderbuffer, glow::RENDERBUFFER_BINDING, bind_renderbuffer, glow::RENDERBUFFER);
 define_scoped_binding!(struct ScopedVBOBinding => glow::NativeBuffer, glow::ARRAY_BUFFER_BINDING, bind_buffer, glow::ARRAY_BUFFER);
 define_scoped_binding!(struct ScopedVAOBinding => glow::NativeVertexArray, glow::VERTEX_ARRAY_BINDING, bind_vertex_array);
 
@@ -70,7 +69,6 @@ struct DemoTexture {
     width: u32,
     height: u32,
     fbo: glow::Framebuffer,
-    stencil_rbo: glow::Renderbuffer,
     gl: Rc<glow::Context>,
 }
 
@@ -110,31 +108,12 @@ impl DemoTexture {
 
         let _saved_fbo_binding = ScopedFrameBufferBinding::new(gl, Some(fbo));
 
-        let stencil_rbo = gl.create_renderbuffer().expect("Unable to create stencil buffer");
-
         gl.framebuffer_texture_2d(
             glow::FRAMEBUFFER,
             glow::COLOR_ATTACHMENT0,
             glow::TEXTURE_2D,
             Some(texture),
             0,
-        );
-
-        {
-            let _saved_rbo_binding = ScopedRenderBufferBinding::new(gl, Some(stencil_rbo));
-            gl.renderbuffer_storage(
-                glow::RENDERBUFFER,
-                glow::STENCIL_INDEX8,
-                width as _,
-                height as _,
-            );
-        }
-
-        gl.framebuffer_renderbuffer(
-            glow::FRAMEBUFFER,
-            glow::STENCIL_ATTACHMENT,
-            glow::RENDERBUFFER,
-            Some(stencil_rbo),
         );
 
         debug_assert_eq!(
@@ -147,7 +126,7 @@ impl DemoTexture {
         gl.pixel_store_i32(glow::UNPACK_SKIP_PIXELS, old_unpack_skip_pixels);
         gl.pixel_store_i32(glow::UNPACK_SKIP_ROWS, old_unpack_skip_rows);
 
-        Self { texture, width, height, fbo, stencil_rbo, gl: gl.clone() }
+        Self { texture, width, height, fbo, gl: gl.clone() }
     }
 
     unsafe fn with_texture_as_active_fbo<R>(&self, callback: impl FnOnce() -> R) -> R {
@@ -160,7 +139,6 @@ impl Drop for DemoTexture {
     fn drop(&mut self) {
         unsafe {
             self.gl.delete_framebuffer(self.fbo);
-            self.gl.delete_renderbuffer(self.stencil_rbo);
             self.gl.delete_texture(self.texture);
         }
     }
