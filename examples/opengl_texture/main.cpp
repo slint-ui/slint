@@ -59,8 +59,6 @@ static GLint compile_shader(GLuint program, GLuint shader_type, const GLchar *co
 DEFINE_SCOPED_BINDING(ScopedTextureBinding, GL_TEXTURE_BINDING_2D, glBindTexture, GL_TEXTURE_2D);
 DEFINE_SCOPED_BINDING(ScopedFrameBufferBinding, GL_DRAW_FRAMEBUFFER_BINDING, glBindFramebuffer,
                       GL_DRAW_FRAMEBUFFER);
-DEFINE_SCOPED_BINDING(ScopedRenderBufferBinding, GL_RENDERBUFFER_BINDING, glBindRenderbuffer,
-                      GL_RENDERBUFFER);
 DEFINE_SCOPED_BINDING(ScopedVBOBinding, GL_ARRAY_BUFFER_BINDING, glBindBuffer, GL_ARRAY_BUFFER);
 
 struct ScopedVAOBinding
@@ -83,13 +81,11 @@ struct DemoTexture
     int width;
     int height;
     GLuint fbo;
-    GLuint stencil_rbo;
 
     DemoTexture(int width, int height) : width(width), height(height)
     {
         glGenFramebuffers(1, &fbo);
         glGenTextures(1, &texture);
-        glGenRenderbuffers(1, &stencil_rbo);
 
         ScopedTextureBinding activeTexture(texture);
 
@@ -118,14 +114,6 @@ struct DemoTexture
 
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
 
-        {
-            ScopedRenderBufferBinding activeRBO(stencil_rbo);
-            glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
-        }
-
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
-                                  stencil_rbo);
-
         assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
         glPixelStorei(GL_UNPACK_ALIGNMENT, old_unpack_alignment);
@@ -139,7 +127,6 @@ struct DemoTexture
     {
         glDeleteFramebuffers(1, &fbo);
         glDeleteTextures(1, &texture);
-        glDeleteRenderbuffers(1, &stencil_rbo);
     }
 
     template<std::invocable<> Callback>
