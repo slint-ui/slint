@@ -88,7 +88,7 @@ pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
 
 #[cfg_attr(test, parser_test)]
 /// ```test,AtPragma
-/// @pragma(serde)
+/// @pragma(serde) struct Bar { foot : int}
 /// ```
 pub fn parse_pragma(p: &mut impl Parser) -> bool {
     debug_assert_eq!(p.peek().as_str(), "@");
