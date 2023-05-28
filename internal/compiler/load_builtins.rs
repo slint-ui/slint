@@ -34,7 +34,11 @@ pub fn load_builtins(register: &mut TypeRegister) {
     let doc: syntax_nodes::Document = node.into();
 
     // parse structs
-    for s in doc.StructDeclaration().chain(doc.ExportsList().flat_map(|e| e.StructDeclaration())) {
+    for s in doc
+        .StructDeclaration()
+        .chain(doc.ExportsList().flat_map(|e| e.StructDeclaration()))
+        .chain(doc.ExportsList().flat_map(|e| e.AtPragma().flat_map(|x| x.StructDeclaration())))
+    {
         let external_name = identifier_text(&s.DeclaredIdentifier()).unwrap();
         let mut ty = object_tree::type_struct_from_node(s.ObjectType(), &mut diag, register, None);
         if let Type::Struct { name, .. } = &mut ty {

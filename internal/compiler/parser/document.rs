@@ -47,8 +47,15 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
                 }
             }
             "@" => {
-                if !parse_pragma(&mut *p) {
-                    break;
+                if p.nth(5).as_str() == "export" {
+                    let mut p = p.start_node(SyntaxKind::ExportsList);
+                    if !parse_pragma(&mut *p) {
+                        break;
+                    }
+                } else {
+                    if !parse_pragma(&mut *p) {
+                        break;
+                    }
                 }
             }
             _ => {

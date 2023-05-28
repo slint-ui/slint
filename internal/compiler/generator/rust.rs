@@ -444,7 +444,7 @@ fn generate_struct(
 
     quote! {
         #attributes
-        #[derive(Default, PartialEq, Debug, Clone, Serialzer)]
+        #[derive(Default, PartialEq, Debug, Clone)]
         pub struct #component_id {
             #(pub #declared_property_vars : #declared_property_types),*
         }

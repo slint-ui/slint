@@ -106,6 +106,9 @@ pub fn parse_pragma(p: &mut impl Parser) -> bool {
         p.test(SyntaxKind::Comma);
     }
     p.consume();
+    if p.peek().as_str() == "export" {
+        p.consume();
+    }
     parse_struct_declaration(&mut *p);
     true
 }

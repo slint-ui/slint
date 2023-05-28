@@ -15,3 +15,19 @@ fn empty_stuff() {
     slint!(export struct Hei { abcd: bool });
     slint!(export global G { });
 }
+
+#[test]
+fn test_serialize_deserialize_struct() {
+    i_slint_backend_testing::init();
+    slint! {
+        @pragma(serde)
+        export struct TestStruct {
+            foo: int,
+        }
+        export component Test { }
+    }
+    let data = TestStruct { foo: 1 };
+    let serialized = serde_json::to_string(&data).unwrap();
+    let deserialized: TestStruct = serde_json::from_str(&serialized).unwrap();
+    assert_eq!(data, deserialized);
+}

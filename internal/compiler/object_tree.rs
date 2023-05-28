@@ -91,7 +91,11 @@ impl Document {
         let process_atpragma = |n: syntax_nodes::AtPragma,
                                 diag: &mut BuildDiagnostics,
                                 local_registry: &mut TypeRegister| {
-            let get_struct = n.StructDeclaration();
+            let get_struct = if let Some(e) = n.StructDeclaration().next() {
+                e
+            } else {
+                unreachable!();
+            };
             let feature: Vec<String> = n
                 .children()
                 .filter(|child| child.kind() == SyntaxKind::Deriven)
@@ -115,6 +119,9 @@ impl Document {
                             }
                             SyntaxKind::StructDeclaration => {
                                 process_struct(n.into(), diag, &mut local_registry, None)
+                            }
+                            SyntaxKind::AtPragma => {
+                                process_atpragma(n.into(), diag, &mut local_registry)
                             }
                             _ => {}
                         }
@@ -2265,8 +2272,14 @@ impl Exports {
         ));
 
         extend_exports(
-            &mut doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).filter_map(
-                |st| {
+            &mut doc
+                .ExportsList()
+                .flat_map(|exports| {
+                    exports
+                        .StructDeclaration()
+                        .chain(exports.AtPragma().flat_map(|a| a.StructDeclaration()))
+                })
+                .filter_map(|st| {
                     let name_ident: SyntaxNode = st.DeclaredIdentifier().into();
                     let name =
                         parser::identifier_text(&st.DeclaredIdentifier()).unwrap_or_else(|| {
@@ -2278,8 +2291,7 @@ impl Exports {
                         resolve_export_to_inner_component_or_import(&name, &name_ident, diag)?;
 
                     Some((ExportedName { name, name_ident }, compo_or_type))
-                },
-            ),
+                }),
         );
 
         let mut sorted_deduped_exports = Vec::with_capacity(sorted_exports_with_duplicates.len());
