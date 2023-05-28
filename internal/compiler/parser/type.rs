@@ -91,20 +91,41 @@ pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
 /// @pragma(serde)
 /// ```
 pub fn parse_pragma(p: &mut impl Parser) -> bool {
+    debug_assert_eq!(p.peek().as_str(), "@");
     let mut p = p.start_node(SyntaxKind::AtPragma);
     p.consume(); // "@"
     if p.peek().as_str() != "pragma" {
         p.expect(SyntaxKind::AtPragma);
-        return false;
     }
     p.consume(); // "pragma"
     p.expect(SyntaxKind::LParent);
-    p.expect(SyntaxKind::Identifier);
-    p.expect(SyntaxKind::RParent);
-    
-    if p.peek().as_str() == "struct" {
-        parse_struct_declaration(&mut *p);
-    } 
-    p.expect(SyntaxKind::StructDeclaration);
-    false
+    while !p.test(SyntaxKind::RParent) {
+        if !parse_deriven(&mut *p) {
+            break;
+        }
+        p.test(SyntaxKind::Comma);
+    }
+    p.consume();
+    parse_struct_declaration(&mut *p);
+    true
+}
+
+macro_rules! deriven_key {
+    () => {
+        ["serde"]
+    };
+}
+
+pub fn parse_deriven(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::Deriven);
+    p.peek();
+    if deriven_key!().contains(&p.nth(0).as_str()) {
+        p.consume();
+        true
+    } else {
+        p.consume();
+        p.test(SyntaxKind::Identifier);
+        p.error("Expected 'deriven' feature like `serde` after '@pragma'");
+        false
+    }
 }

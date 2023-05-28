@@ -961,5 +961,8 @@ fn make_struct(
         values.insert(name.to_string(), expr);
     }
 
-    llr_Expression::Struct { ty: Type::Struct { fields, name: Some(name), node: None, feature: None }, values }
+    llr_Expression::Struct {
+        ty: Type::Struct { fields, name: Some(name), node: None, feature: None },
+        values,
+    }
 }

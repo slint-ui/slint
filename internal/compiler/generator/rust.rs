@@ -421,13 +421,30 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
     )
 }
 
-fn generate_struct(name: &str, fields: &BTreeMap<String, Type>, feature: &Option<String>) -> TokenStream {
+fn generate_struct(
+    name: &str,
+    fields: &BTreeMap<String, Type>,
+    feature: &Option<Vec<String>>,
+) -> TokenStream {
     let component_id = struct_name_to_tokens(name);
     let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) =
         fields.iter().map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap())).unzip();
 
+    let attributes = if let Some(feature) = feature {
+        let serde_attributes = if feature.iter().any(|syntax_text| syntax_text == "serde") {
+            quote! { #[derive(serde::Serialize, serde::Deserialize)] }
+        } else {
+            quote! {}
+        };
+
+        quote! { #serde_attributes }
+    } else {
+        quote! {}
+    };
+
     quote! {
-        #[derive(Default, PartialEq, Debug, Clone)]
+        #attributes
+        #[derive(Default, PartialEq, Debug, Clone, Serialzer)]
         pub struct #component_id {
             #(pub #declared_property_vars : #declared_property_types),*
         }

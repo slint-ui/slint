@@ -1029,7 +1029,12 @@ impl Expression {
                             node: result_node,
                             feature,
                         },
-                        Type::Struct { fields: elem_fields, name: elem_name, node: elem_node, feature: deriven },
+                        Type::Struct {
+                            fields: elem_fields,
+                            name: elem_name,
+                            node: elem_node,
+                            feature: deriven,
+                        },
                     ) => {
                         for (elem_name, elem_ty) in elem_fields.into_iter() {
                             match result_fields.entry(elem_name) {

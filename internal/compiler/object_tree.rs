@@ -7,7 +7,7 @@
 
 // cSpell: ignore qualname
 
-use itertools::Either;
+use itertools::{Either, Itertools};
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
@@ -63,7 +63,7 @@ impl Document {
 
         let mut local_registry = TypeRegister::new(parent_registry);
         let mut inner_components = vec![];
-        let mut inner_structs = vec![];
+        let inner_structs = Rc::new(RefCell::new(Vec::new()));
 
         let mut process_component =
             |n: syntax_nodes::Component,
@@ -73,36 +73,39 @@ impl Document {
                 local_registry.add(compo.clone());
                 inner_components.push(compo);
             };
-        let mut process_struct =
-            |n: syntax_nodes::StructDeclaration,
-             diag: &mut BuildDiagnostics,
-             local_registry: &mut TypeRegister| {
-                let mut ty = type_struct_from_node(n.ObjectType(), diag, local_registry);
-                if let Type::Struct { name, .. } = &mut ty {
-                    *name = parser::identifier_text(&n.DeclaredIdentifier());
-                } else {
-                    assert!(diag.has_error());
-                    return;
-                }
-                local_registry.insert_type(ty.clone());
-                inner_structs.push(ty);
-            };
+        let process_struct = |n: syntax_nodes::StructDeclaration,
+                              diag: &mut BuildDiagnostics,
+                              local_registry: &mut TypeRegister,
+                              feature: Option<Vec<String>>| {
+            let mut ty = type_struct_from_node(n.ObjectType(), diag, local_registry, feature);
+            if let Type::Struct { name, .. } = &mut ty {
+                *name = parser::identifier_text(&n.DeclaredIdentifier());
+            } else {
+                assert!(diag.has_error());
+                return;
+            }
+            local_registry.insert_type(ty.clone());
+            inner_structs.borrow_mut().push(ty);
+        };
 
-        let mut process_atpragma = 
-            |n: syntax_nodes::AtPragma,
-            diag: &mut BuildDiagnostics,
-            local_registry: &mut TypeRegister| {
-                let get_struct = n.StructDeclaration();
-                // here
+        let process_atpragma = |n: syntax_nodes::AtPragma,
+                                diag: &mut BuildDiagnostics,
+                                local_registry: &mut TypeRegister| {
+            let get_struct = n.StructDeclaration();
+            let feature: Vec<String> = n
+                .children()
+                .filter(|child| child.kind() == SyntaxKind::Deriven)
+                .map(|child| child.text().to_string())
+                .collect_vec();
+
+            process_struct(get_struct, diag, local_registry, Some(feature));
         };
         for n in node.children() {
             match n.kind() {
                 SyntaxKind::Component => process_component(n.into(), diag, &mut local_registry),
-                SyntaxKind::AtPragma => {
-                    process_atpragma(n.into(), diag, &mut local_registry)
-                }
+                SyntaxKind::AtPragma => process_atpragma(n.into(), diag, &mut local_registry),
                 SyntaxKind::StructDeclaration => {
-                    process_struct(n.into(), diag, &mut local_registry)
+                    process_struct(n.into(), diag, &mut local_registry, None)
                 }
                 SyntaxKind::ExportsList => {
                     for n in n.children() {
@@ -111,7 +114,7 @@ impl Document {
                                 process_component(n.into(), diag, &mut local_registry)
                             }
                             SyntaxKind::StructDeclaration => {
-                                process_struct(n.into(), diag, &mut local_registry)
+                                process_struct(n.into(), diag, &mut local_registry, None)
                             }
                             _ => {}
                         }
@@ -200,7 +203,7 @@ impl Document {
             node: Some(node),
             root_component,
             inner_components,
-            inner_structs,
+            inner_structs: inner_structs.clone().borrow().to_vec(),
             local_registry,
             custom_fonts,
             exports,
@@ -1639,7 +1642,7 @@ pub fn type_from_node(
         }
         prop_type
     } else if let Some(object_node) = node.ObjectType() {
-        type_struct_from_node(object_node, diag, tr)
+        type_struct_from_node(object_node, diag, tr, None)
     } else if let Some(array_node) = node.ArrayType() {
         Type::Array(Box::new(type_from_node(array_node.Type(), diag, tr)))
     } else {
@@ -1653,6 +1656,7 @@ pub fn type_struct_from_node(
     object_node: syntax_nodes::ObjectType,
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
+    feature: Option<Vec<String>>,
 ) -> Type {
     let fields = object_node
         .ObjectTypeMember()
@@ -1663,7 +1667,7 @@ pub fn type_struct_from_node(
             )
         })
         .collect();
-    Type::Struct { fields, name: None, node: Some(object_node), feature: None }
+    Type::Struct { fields, name: None, node: Some(object_node), feature }
 }
 
 fn animation_element_from_node(

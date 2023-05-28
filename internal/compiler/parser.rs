@@ -423,8 +423,10 @@ declare_syntax! {
         ArrayType -> [ Type ],
         /// `struct Foo := { ... }
         StructDeclaration -> [DeclaredIdentifier, ObjectType],
-        /// @pragma
-        AtPragma -> [ DeclaredIdentifier, StructDeclaration ],
+        /// `@pragma(serde)`
+        AtPragma -> [ DeclaredIdentifier, ObjectType, StructDeclaration, Expression, Deriven ],
+        /// `serde`
+        Deriven -> [ DeclaredIdentifier, ObjectType, StructDeclaration, Expression ],
     }
 }
 

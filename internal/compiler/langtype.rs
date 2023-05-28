@@ -61,7 +61,7 @@ pub enum Type {
         /// When declared in .slint, this is the node of the declaration.
         node: Option<syntax_nodes::ObjectType>,
         /// deriven
-        feature: Option<String>
+        feature: Option<Vec<String>>,
     },
     Enumeration(Rc<Enumeration>),
 
