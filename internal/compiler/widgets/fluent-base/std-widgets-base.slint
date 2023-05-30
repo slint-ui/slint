@@ -218,18 +218,18 @@ export component SpinBox {
 }
 
 export component ProgressIndicator {
-    private property <float> progress: (value - minimum) / (maximum - minimum);
+    private property <float> prog: (progress - minimum) / (maximum - minimum);
 
     in property<float> maximum: 100;
     in property<float> minimum: 0;
-    in-out property<float> value;
+    in-out property<float> progress;
     in property <bool> indeterminate;
 
     min-height: 2px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
     accessible-role: none;
-    accessible-value: root.value;
+    accessible-value: root.progress;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
 
@@ -241,7 +241,7 @@ export component ProgressIndicator {
             background: !root.indeterminate ? Palette.themePrimary : Palette.primaryGradient;
             x: !root.indeterminate ? 0px : (parent.width * mod(animation-tick(), 2s) / 1.5s);
             y: (parent.height - self.height) / 2;
-            width: !root.indeterminate ?  parent.width * root.progress : parent.width * 0.3;
+            width: !root.indeterminate ?  parent.width * root.prog : parent.width * 0.3;
             border-radius: container.border-radius;
         }
     }

@@ -4,18 +4,18 @@
 import { md } from "md.slint";
 
 export component ProgressIndicator {
-    private property <float> progress: (value - minimum) / (maximum - minimum);
+    private property <float> prog: (progress - minimum) / (maximum - minimum);
 
     in property<float> maximum: 100;
     in property<float> minimum: 0;
-    in-out property<float> value;
+    in-out property<float> progress;
     in property <bool> indeterminate;
 
     min-height: 4px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
     accessible-role: none;
-    accessible-value: root.value;
+    accessible-value: root.progress;
     accessible-value-minimum: root.minimum;
     accessible-value-maximum: root.maximum;
 
@@ -27,7 +27,7 @@ export component ProgressIndicator {
             background: md.sys.color.primary;
             x: !root.indeterminate ? 0px : -parent.width + (parent.width * mod(animation-tick(), 2s) / 1s);
             y: (parent.height - self.height) / 2;
-            width: !root.indeterminate ?  parent.width * root.progress : parent.width;
+            width: !root.indeterminate ?  parent.width * root.prog : parent.width;
             border-radius: container.border-radius;
         }
     }

@@ -29,6 +29,10 @@ All notable changes to this project are documented in this file.
 
  - Make a visible error message when the `slint-lsp` panics
 
+### Added
+
+ - `ProgressIndicator` widget.
+
 ## [1.0.2] - 2023-04-26
 
 ### General
