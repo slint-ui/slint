@@ -71,6 +71,7 @@ export component Text inherits Empty {
     in property <string> text;
     in property <string> font-family;
     in property <length> font-size;
+    in property <bool> font-italic;
     in property <int> font-weight;
     in property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
     in property <TextHorizontalAlignment> horizontal-alignment;
@@ -181,6 +182,7 @@ export component TextInput {
     in-out property <string> text;
     in property <string> font-family;
     in property <length> font-size;
+    in property <bool> font-italic;
     in property <int> font-weight;
     in property <brush> color; // StyleMetrics.default-text-color  set in apply_default_properties_from_style
     in property <color> selection-foreground-color: #000;

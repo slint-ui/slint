@@ -77,7 +77,11 @@ pub fn create_layout(
     text_style.set_font_style(skia_safe::FontStyle::new(
         font_request.weight.map_or(skia_safe::font_style::Weight::NORMAL, |w| w.into()),
         skia_safe::font_style::Width::NORMAL,
-        skia_safe::font_style::Slant::Upright,
+        if font_request.italic {
+            skia_safe::font_style::Slant::Italic
+        } else {
+            skia_safe::font_style::Slant::Upright
+        },
     ));
 
     let mut style = skia_safe::textlayout::ParagraphStyle::new();

@@ -43,6 +43,7 @@ pub struct Text {
     pub font_family: Property<SharedString>,
     pub font_size: Property<LogicalLength>,
     pub font_weight: Property<i32>,
+    pub font_italic: Property<bool>,
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
@@ -203,6 +204,7 @@ impl Text {
                 }
             },
             letter_spacing: Some(self.letter_spacing()),
+            italic: self.font_italic(),
         }
     }
 }
@@ -216,6 +218,7 @@ pub struct TextInput {
     pub font_family: Property<SharedString>,
     pub font_size: Property<LogicalLength>,
     pub font_weight: Property<i32>,
+    pub font_italic: Property<bool>,
     pub color: Property<Brush>,
     pub selection_foreground_color: Property<Color>,
     pub selection_background_color: Property<Color>,
@@ -1064,6 +1067,7 @@ impl TextInput {
                 }
             },
             letter_spacing: Some(self.letter_spacing()),
+            italic: self.font_italic(),
         }
     }
 

@@ -2006,7 +2006,8 @@ fn get_font(request: FontRequest) -> QFont {
     let weight: i32 = request.weight.unwrap_or(0);
     let letter_spacing: f32 =
         request.letter_spacing.map_or(0., |logical_spacing| logical_spacing.get());
-    cpp!(unsafe [family as "QString", pixel_size as "float", weight as "int", letter_spacing as "float"] -> QFont as "QFont" {
+    let italic: bool = request.italic;
+    cpp!(unsafe [family as "QString", pixel_size as "float", weight as "int", letter_spacing as "float", italic as "bool"] -> QFont as "QFont" {
         QFont f;
         if (!family.isEmpty())
             f.setFamily(family);
@@ -2020,6 +2021,7 @@ fn get_font(request: FontRequest) -> QFont {
     #endif
         }
         f.setLetterSpacing(QFont::AbsoluteSpacing, letter_spacing);
+        f.setItalic(italic);
         // Mark all font properties as resolved, to avoid inheriting font properties
         // from the widget hierarchy. Later we call QPainter::setFont, which would
         // merge in unset properties (such as bold, etc.) that it retrieved from
