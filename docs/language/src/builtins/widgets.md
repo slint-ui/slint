@@ -462,6 +462,36 @@ export component Example inherits Window {
 }
 ```
 
+## `Switch`
+
+A `Switch` is used to toggle between `checked` and `unchecked` state represented by a boolean.
+
+### Properties
+
+-   **`checked`**: (_inout_ _bool_): Whether the switch is checked or not.
+-   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the switch can't be pressed
+-   **`has-focus`**: (_out_ _bool_): Set to true when the switch has keyboard focus.
+-   **`text`** (_in_ _string_): The text written next to the switch.
+
+### Callbacks
+
+-   **`toggled()`**: The switch value changed
+
+### Example
+
+```slint
+import { CheckBox } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 25px;
+    CheckBox {
+        width: parent.width;
+        height: parent.height;
+        text: "Hello World";
+    }
+}
+```
+
 ## `TabWidget`
 
 `TabWidget` is a container for a set of tabs. It can only have `Tab` elements as children and only one tab will be visible at

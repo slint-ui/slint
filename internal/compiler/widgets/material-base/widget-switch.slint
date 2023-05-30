@@ -3,7 +3,7 @@
 
 import { md } from "md.slint";
 
-export component Switch {
+export component Switch inherits Rectangle {
     callback toggled;
 
     in property <string> text <=> label.text;
@@ -26,7 +26,7 @@ export component Switch {
         VerticalLayout {
             alignment: center;
 
-           Rectangle {
+            Rectangle {
                 width: 52px;
                 height: 32px;
 
@@ -67,7 +67,7 @@ export component Switch {
             color: md.sys.color.on-surface;
             horizontal-alignment: left;
             vertical-alignment: center;
-            vertical-stretch: 1;
+            vertical-stretch: 0;
             font-size: md.sys.typescale.label-medium.size;
             font-weight: md.sys.typescale.label-medium.weight;
         }

@@ -72,6 +72,7 @@ mod ffi {
 pub type NativeWidgets =
     (qt_widgets::NativeButton,
     (qt_widgets::NativeCheckBox,
+    (qt_widgets::NativeSwitch,
     (qt_widgets::NativeSlider,
     (qt_widgets::NativeProgressIndicator,
     (qt_widgets::NativeSpinBox,

@@ -28,9 +28,12 @@ export component GroupBox {
             vertical-stretch: 1;
             background: md.sys.color.surface;
 
-            GridLayout {
+            HorizontalLayout {
                 padding: 16px;
-                @children
+
+                GridLayout {
+                    @children
+                }
             }
         }
     }

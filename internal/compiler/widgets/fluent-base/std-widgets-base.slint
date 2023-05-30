@@ -5,8 +5,8 @@
 
 import { LineEditInner, TextEdit, AboutSlint } from "../common/common.slint";
 import { StandardButton } from "../common/standardbutton.slint";
-import { StyleMetrics, ScrollView, Button, Palette  } from "std-widgets-impl.slint";
-export { StyleMetrics, ScrollView, Button, StandardButton, TextEdit, AboutSlint }
+import { StyleMetrics, ScrollView, Button, Palette, Switch } from "std-widgets-impl.slint";
+export { StyleMetrics, ScrollView, Button, StandardButton, TextEdit, AboutSlint, Switch }
 export * from "widget-table-view.slint";
 
 export component CheckBox {
@@ -348,6 +348,7 @@ export component Slider {
 export component GroupBox {
     in property <string> title <=> label.text;
     in property<bool> enabled: true;
+
     VerticalLayout {
         spacing: 8px;
         padding-top: 16px;
