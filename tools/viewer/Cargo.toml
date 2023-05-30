@@ -39,7 +39,7 @@ i-slint-core = { version = "=1.0.3", path="../../internal/core" }
 slint-interpreter = { version = "=1.0.3", path = "../../internal/interpreter", default-features = false, features = ["display-diagnostics", "compat-1-0"] }
 i-slint-backend-selector = { version = "=1.0.3", path="../../internal/backends/selector" }
 
-vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
+vtable = { version = "0.2.0", path="../../helper_crates/vtable" }
 
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 codemap = "0.1"

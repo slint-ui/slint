@@ -17,5 +17,5 @@ path = "lib.rs"
 
 [dependencies]
 i-slint-core = { version = "=1.0.3", path = "../../../internal/core" }
-vtable = { version = "0.1.8", path = "../../../helper_crates/vtable" }
+vtable = { version = "0.2.0", path = "../../../helper_crates/vtable" }
 image = { version = "0.24.0", default-features = false, features = ["png", "jpeg"] }

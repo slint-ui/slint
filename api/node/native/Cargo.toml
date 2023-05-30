@@ -24,7 +24,7 @@ i-slint-compiler = { version = "=1.0.3", path="../../../internal/compiler" }
 i-slint-core = { version = "=1.0.3", path="../../../internal/core" }
 slint-interpreter = { version = "=1.0.3", path="../../../internal/interpreter",  features = ["display-diagnostics"] }
 
-vtable = { version = "0.1.6", path="../../../helper_crates/vtable" }
+vtable = { version = "0.2.0", path="../../../helper_crates/vtable" }
 
 css-color-parser2 = "1.0.1"
 generativity = "1"

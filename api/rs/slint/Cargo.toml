@@ -127,7 +127,7 @@ i-slint-backend-selector = { version = "=1.0.3", path = "../../../internal/backe
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
-vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
+vtable = { version = "0.2.0", path = "../../../helper_crates/vtable" }
 
 once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }

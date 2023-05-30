@@ -24,7 +24,7 @@ i-slint-core-macros = { version = "=1.0.3", path = "../../../internal/core-macro
 i-slint-core = { version = "=1.0.3", path = "../../../internal/core" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
-vtable = { version = "0.1.8", path = "../../../helper_crates/vtable" }
+vtable = { version = "0.2.0", path = "../../../helper_crates/vtable" }
 
 cpp = "0.5.5"
 lyon_path = "1"

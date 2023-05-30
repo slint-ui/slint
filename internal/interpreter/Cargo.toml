@@ -88,7 +88,7 @@ i-slint-common = { version = "=1.0.3", path = "../common" }
 i-slint-core = { version = "=1.0.3", path = "../core", features = ["rtti"] }
 i-slint-backend-selector = { version = "=1.0.3", path = "../../internal/backends/selector", features = ["rtti"] }
 
-vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
+vtable = { version = "0.2.0", path="../../helper_crates/vtable" }
 
 derive_more = "0.99.5"
 generativity = "1"

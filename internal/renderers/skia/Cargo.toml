@@ -31,7 +31,7 @@ i-slint-core-macros = { version = "=1.0.3", path = "../../../internal/core-macro
 i-slint-common = { version = "=1.0.3", path = "../../../internal/common" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
-vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
+vtable = { version = "0.2.0", path = "../../../helper_crates/vtable" }
 
 cfg-if = "1"
 derive_more = "0.99.5"
