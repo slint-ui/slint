@@ -100,6 +100,12 @@ pub struct VRc<VTable: VTableMetaDropInPlace + 'static, X = Dyn> {
     inner: NonNull<VRcInner<'static, VTable, X>>,
 }
 
+impl<VTable: VTableMetaDropInPlace + 'static, X> PartialEq for VRc<VTable, X> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
 impl<VTable: VTableMetaDropInPlace + 'static, X> Drop for VRc<VTable, X> {
     fn drop(&mut self) {
         unsafe {
