@@ -234,7 +234,7 @@ export component Example inherits Window {
 
 ## `ProgressIndicator`
 
-Indicates a progress of a process or an operation.
+The `ProgressIndicator` informs the user about the status of an on-going operation, such as loading data from the network.
 
 ### Properties
 
