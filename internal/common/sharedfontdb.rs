@@ -18,7 +18,9 @@ pub struct FontDatabase {
     )))]
     pub fontconfig_fallback_families: Vec<String>,
     // Default font famiilies to use instead of SansSerif when SLINT_DEFAULT_FONT env var is set.
-    default_font_families: Vec<String>,
+    pub default_font_family_ids: Vec<fontdb::ID>,
+    // Same as default_font_families but reduced to unique family names
+    default_font_family_names: Vec<String>,
 }
 
 impl FontDatabase {
@@ -33,12 +35,12 @@ impl FontDatabase {
             query.families = &single_family;
             self.db.query(&query)
         } else {
-            if self.default_font_families.is_empty() {
+            if self.default_font_family_ids.is_empty() {
                 query.families = &[fontdb::Family::SansSerif];
                 self.db.query(&query)
             } else {
                 let family_storage = self
-                    .default_font_families
+                    .default_font_family_names
                     .iter()
                     .map(|name| fontdb::Family::Name(name))
                     .collect::<Vec<_>>();
@@ -65,29 +67,46 @@ fn init_fontdb() -> FontDatabase {
     let mut font_db = fontdb::Database::new();
 
     #[cfg(not(target_arch = "wasm32"))]
-    let default_font_families = std::env::var_os("SLINT_DEFAULT_FONT").and_then(|maybe_font_path| {
-        let path = std::path::Path::new(&maybe_font_path);
-        if path.extension().is_some() {
-            match font_db.load_font_file(path) {
-                Ok(()) => {
-                    Some(font_db.faces().flat_map(|face_info| face_info.families.first().map(|(name, _)| name.clone())).collect())
-                },
-                Err(err) => {
-                    eprintln!(
-                        "Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}", path.display(), err,
-                    );
-                    None
-                },
-            }
-        } else {
-            eprintln!(
-                "The environment variable `SLINT_DEFAULT_FONT` is set, but its value is not referring to a file",
-            );
-            None
-        }
-    }).unwrap_or_default();
+    let (default_font_family_ids, default_font_family_names) =
+        std::env::var_os("SLINT_DEFAULT_FONT")
+            .and_then(|maybe_font_path| {
+                let path = std::path::Path::new(&maybe_font_path);
+                match if path.extension().is_some() {
+                    font_db.load_font_file(path)
+                } else {
+                    font_db.load_fonts_dir(path);
+                    Ok(())
+                } {
+                    Ok(_) => {
+                        let mut family_ids = Vec::new();
+                        let mut family_names = Vec::new();
+
+                        for face_info in font_db.faces() {
+                            family_ids.push(face_info.id);
+
+                            let family_name = &face_info.families[0].0;
+                            if let Err(insert_pos) = family_names.binary_search(family_name) {
+                                family_names.insert(insert_pos, family_name.clone());
+                            }
+                        }
+
+                        Some((family_ids, family_names))
+                    }
+                    Err(err) => {
+                        eprintln!(
+                            "Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}",
+                            path.display(),
+                            err,
+                        );
+                        None
+                    }
+                }
+            })
+            .unwrap_or_default();
+
     #[cfg(target_arch = "wasm32")]
-    let default_font_families = Vec::default();
+    let (default_font_family_ids, default_font_family_names) =
+        (Default::default(), Default::default());
 
     #[cfg(not(any(
         target_family = "windows",
@@ -136,7 +155,8 @@ fn init_fontdb() -> FontDatabase {
             target_arch = "wasm32"
         )))]
         fontconfig_fallback_families,
-        default_font_families,
+        default_font_family_ids,
+        default_font_family_names,
     }
 }
 
