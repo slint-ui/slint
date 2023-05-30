@@ -87,7 +87,7 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
                 fallback_bitmap_font
             } else {
                 #[cfg(feature = "software-renderer-systemfonts")]
-                return systemfonts::fallbackfont(request.pixel_size, scale_factor).into();
+                return systemfonts::fallbackfont(request, scale_factor).into();
                 #[cfg(not(feature = "software-renderer-systemfonts"))]
                 panic!("No font fallback found. The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files.")
             }
