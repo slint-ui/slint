@@ -173,7 +173,12 @@ thread_local! {
 }
 
 impl FontCache {
-    fn load_single_font(&mut self, family: Option<&SharedString>, weight: i32) -> LoadedFont {
+    fn load_single_font(
+        &mut self,
+        family: Option<&SharedString>,
+        weight: i32,
+        italic: bool,
+    ) -> LoadedFont {
         let text_context = self.text_context.clone();
         let cache_key = FontCacheKey { family: family.cloned().unwrap_or_default(), weight };
 
@@ -189,6 +194,7 @@ impl FontCache {
         let query = fontdb::Query {
             families: &[family],
             weight: fontdb::Weight(weight as u16),
+            style: if italic { fontdb::Style::Italic } else { fontdb::Style::Normal },
             ..Default::default()
         };
 
@@ -254,7 +260,8 @@ impl FontCache {
         let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor;
         let weight = font_request.weight.unwrap_or(DEFAULT_FONT_WEIGHT);
 
-        let primary_font = self.load_single_font(font_request.family.as_ref(), weight);
+        let primary_font =
+            self.load_single_font(font_request.family.as_ref(), weight, font_request.italic);
 
         use unicode_script::{Script, UnicodeScript};
         // map from required script to sample character
@@ -301,7 +308,8 @@ impl FontCache {
                     return None;
                 }
 
-                let fallback_font = self.load_single_font(Some(fallback_family), weight);
+                let fallback_font =
+                    self.load_single_font(Some(fallback_family), weight, font_request.italic);
 
                 coverage_result = self.check_and_update_script_coverage(
                     &mut scripts_required,

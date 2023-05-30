@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file.
  - Support negative numbers in `cubic-bezier(...)` function.
  - Added `ProgressIndicator` widget.
  - Added `Switch` widget.
+ - Added boolean `font-italic` property to `Text` and `TextInput`.
 
 ### Rust
 
