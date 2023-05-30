@@ -149,6 +149,19 @@ pub struct FontRequest {
     pub italic: bool,
 }
 
+#[cfg(feature = "shared-fontdb")]
+impl FontRequest {
+    /// Returns the relevant properties of this FontRequest propagated into a fontdb Query.
+    pub fn to_fontdb_query(&self) -> i_slint_common::sharedfontdb::fontdb::Query<'_> {
+        use i_slint_common::sharedfontdb::fontdb::{Query, Style, Weight};
+        Query {
+            style: if self.italic { Style::Italic } else { Style::Normal },
+            weight: Weight(self.weight.unwrap_or(/* CSS normal*/ 400) as _),
+            ..Default::default()
+        }
+    }
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]

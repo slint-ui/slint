@@ -17,12 +17,11 @@ use std::collections::{HashMap, HashSet};
 use super::{PhysicalLength, PhysicalPoint, PhysicalSize};
 
 pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
-pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 struct FontCacheKey {
     family: SharedString,
-    weight: i32,
+    weight: fontdb::Weight,
 }
 
 #[derive(Clone)]
@@ -176,31 +175,22 @@ impl FontCache {
     fn load_single_font(
         &mut self,
         family: Option<&SharedString>,
-        weight: i32,
-        italic: bool,
+        query: fontdb::Query<'_>,
     ) -> LoadedFont {
         let text_context = self.text_context.clone();
-        let cache_key = FontCacheKey { family: family.cloned().unwrap_or_default(), weight };
+        let cache_key =
+            FontCacheKey { family: family.cloned().unwrap_or_default(), weight: query.weight };
 
         if let Some(loaded_font) = self.loaded_fonts.get(&cache_key) {
             return *loaded_font;
         }
 
-        let family = family
-            .as_ref()
-            .map_or(fontdb::Family::SansSerif, |family| fontdb::Family::Name(family));
-
         //let now = std::time::Instant::now();
-        let query = fontdb::Query {
-            families: &[family],
-            weight: fontdb::Weight(weight as u16),
-            style: if italic { fontdb::Style::Italic } else { fontdb::Style::Normal },
-            ..Default::default()
-        };
 
         let fontdb_face_id = sharedfontdb::FONT_DB.with(|db| {
             let db = db.borrow();
-            db.query(&query)
+
+            db.query_with_family(query, family.map(|s| s.as_str()))
                 .or_else(|| {
                     // If the requested family could not be found, fall back to *some* family that must exist
                     let mut fallback_query = query;
@@ -258,10 +248,10 @@ impl FontCache {
         reference_text: &str,
     ) -> Font {
         let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor;
-        let weight = font_request.weight.unwrap_or(DEFAULT_FONT_WEIGHT);
 
-        let primary_font =
-            self.load_single_font(font_request.family.as_ref(), weight, font_request.italic);
+        let query = font_request.to_fontdb_query();
+
+        let primary_font = self.load_single_font(font_request.family.as_ref(), query);
 
         use unicode_script::{Script, UnicodeScript};
         // map from required script to sample character
@@ -308,8 +298,7 @@ impl FontCache {
                     return None;
                 }
 
-                let fallback_font =
-                    self.load_single_font(Some(fallback_family), weight, font_request.italic);
+                let fallback_font = self.load_single_font(Some(fallback_family), query);
 
                 coverage_result = self.check_and_update_script_coverage(
                     &mut scripts_required,

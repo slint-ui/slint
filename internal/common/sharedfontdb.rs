@@ -17,6 +17,36 @@ pub struct FontDatabase {
         target_arch = "wasm32"
     )))]
     pub fontconfig_fallback_families: Vec<String>,
+    // Default font famiilies to use instead of SansSerif when SLINT_DEFAULT_FONT env var is set.
+    default_font_families: Vec<String>,
+}
+
+impl FontDatabase {
+    pub fn query_with_family(
+        &self,
+        query: fontdb::Query<'_>,
+        family: Option<&'_ str>,
+    ) -> Option<fontdb::ID> {
+        let mut query = query.clone();
+        if let Some(specified_family) = family {
+            let single_family = [fontdb::Family::Name(specified_family)];
+            query.families = &single_family;
+            self.db.query(&query)
+        } else {
+            if self.default_font_families.is_empty() {
+                query.families = &[fontdb::Family::SansSerif];
+                self.db.query(&query)
+            } else {
+                let family_storage = self
+                    .default_font_families
+                    .iter()
+                    .map(|name| fontdb::Family::Name(name))
+                    .collect::<Vec<_>>();
+                query.families = &family_storage;
+                self.db.query(&query)
+            }
+        }
+    }
 }
 
 thread_local! {
@@ -33,6 +63,31 @@ mod fontconfig;
 
 fn init_fontdb() -> FontDatabase {
     let mut font_db = fontdb::Database::new();
+
+    #[cfg(not(target_arch = "wasm32"))]
+    let default_font_families = std::env::var_os("SLINT_DEFAULT_FONT").and_then(|maybe_font_path| {
+        let path = std::path::Path::new(&maybe_font_path);
+        if path.extension().is_some() {
+            match font_db.load_font_file(path) {
+                Ok(()) => {
+                    Some(font_db.faces().flat_map(|face_info| face_info.families.first().map(|(name, _)| name.clone())).collect())
+                },
+                Err(err) => {
+                    eprintln!(
+                        "Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}", path.display(), err,
+                    );
+                    None
+                },
+            }
+        } else {
+            eprintln!(
+                "The environment variable `SLINT_DEFAULT_FONT` is set, but its value is not referring to a file",
+            );
+            None
+        }
+    }).unwrap_or_default();
+    #[cfg(target_arch = "wasm32")]
+    let default_font_families = Vec::default();
 
     #[cfg(not(any(
         target_family = "windows",
@@ -81,6 +136,7 @@ fn init_fontdb() -> FontDatabase {
             target_arch = "wasm32"
         )))]
         fontconfig_fallback_families,
+        default_font_families,
     }
 }
 
