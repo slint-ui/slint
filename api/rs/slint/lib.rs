@@ -185,7 +185,7 @@ The follow table summarizes the entire mapping:
 | `relative-font-size` | `f32` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 | structure | `struct` of the same name | |
 | anonymous object | anonymous tuple | The fields are in alphabetical order. |
-| array | [`ModelRc`] |  |
+| array | [`ModelRc`] | Arrays are mapped to models. This also applies to array fields in structures. |
 
 For user defined structures in the .slint, an extra struct is generated.
 For example, if the `.slint` contains
@@ -193,6 +193,7 @@ For example, if the `.slint` contains
 export struct MyStruct {
     foo: int,
     bar: string,
+    names: [string],
 }
 ```
 
@@ -203,6 +204,7 @@ The following struct would be generated:
 struct MyStruct {
     foo : i32,
     bar: slint::SharedString,
+    names: slint::ModelRc<slint::SharedString>,
 }
 ```
 

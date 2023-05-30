@@ -503,18 +503,33 @@ impl Model for bool {
     }
 }
 
-/// A Reference counted [`Model`].
+/// ModelRc is a type alias for a reference counted implementation of the [`Model`] trait.
 ///
-/// The `ModelRc` struct holds something that implements the [`Model`] trait.
-/// This is used in `for` expressions in the .slint language.
-/// Array properties in the .slint language are holding a ModelRc.
+/// Models are used to represent sequences of the same data type. In `.slint` code those
+/// are represented using the `[T]` array syntax and typically used in `for` expressions,
+/// array properties, and array struct fields.
+///
 /// For example, a `property <[string]> foo` will be of type `ModelRc<SharedString>`
 /// and, behind the scenes, wraps a `Rc<dyn Model<Data = SharedString>>.`
 ///
-/// An empty model can be constructed with [`ModelRc::default()`].
-/// Use [`ModelRc::new()`] To construct a ModelRc from something that implements the
-/// [`Model`] trait.
-/// It is also possible to use the [`From`] trait to convert from `Rc<dyn Model>`.
+/// An array struct field will also be of type `ModelRc`:
+///
+/// ```slint,ignore
+/// export struct AddressBook {
+///     names: [string]
+/// }
+/// ```
+///
+/// When accessing `Addressbook` from Rust, the `names` field will be of type `ModelRc<SharedString>`.
+///
+/// There are several ways of constructing a ModelRc in Rust:
+///
+/// * An empty ModelRc can be constructed with [`ModelRc::default()`].
+/// * A `ModelRc` can be constructed from a slice using [`VecModel::from_slice`].
+/// * Use [`ModelRc::new()`] to construct a `ModelRc` from a type that implements the
+///   [`Model`] trait, such as [`VecModel`] or your own implementation.
+/// * If you have your model already in an `Rc`, then you can use the [`From`] trait
+///   to convert from `Rc<dyn Model<Data = T>>` to `ModelRc`.
 ///
 /// ## Example
 ///
