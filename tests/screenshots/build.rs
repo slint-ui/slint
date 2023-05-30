@@ -37,18 +37,10 @@ pub fn collect_test_cases() -> std::io::Result<Vec<test_driver_lib::TestCase>> {
 }
 
 fn main() -> std::io::Result<()> {
-    let default_font_path: std::path::PathBuf = [
-        env!("CARGO_MANIFEST_DIR"),
-        "..",
-        "..",
-        "examples",
-        "printerdemo",
-        "ui",
-        "fonts",
-        "NotoSans-Regular.ttf",
-    ]
-    .iter()
-    .collect();
+    let default_font_path: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "..", "..", "examples", "printerdemo", "ui", "fonts"]
+            .iter()
+            .collect();
 
     std::env::set_var("SLINT_DEFAULT_FONT", default_font_path.clone());
     println!("cargo:rustc-env=SLINT_DEFAULT_FONT={}", default_font_path.display());

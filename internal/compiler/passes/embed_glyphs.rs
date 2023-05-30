@@ -13,6 +13,13 @@ use std::rc::Rc;
 
 use i_slint_common::sharedfontdb::{self, fontdb};
 
+#[derive(Clone, derive_more::Deref)]
+struct Font {
+    id: fontdb::ID,
+    #[deref]
+    fontdue_font: fontdue::Font,
+}
+
 #[cfg(target_arch = "wasm32")]
 pub fn embed_glyphs<'a>(
     _component: &Rc<Component>,
@@ -96,33 +103,7 @@ fn embed_glyphs_with_fontdb<'a>(
     diag: &mut BuildDiagnostics,
     generic_diag_location: Option<crate::diagnostics::SourceLocation>,
 ) {
-    let maybe_override_default_font_id =
-        std::env::var_os("SLINT_DEFAULT_FONT").and_then(|maybe_font_path| {
-            let path = std::path::Path::new(&maybe_font_path);
-            if path.extension().is_some() {
-                let face_count = fontdb.len();
-                match fontdb.load_font_file(path) {
-                    Ok(()) => {
-                        fontdb.faces().nth(face_count).map(|face_info| face_info.id)
-                    },
-                    Err(err) => {
-                        diag.push_error(
-                            format!("Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}", path.display(), err),
-                            &generic_diag_location,
-                        );
-                        None
-                    },
-                }
-            } else {
-                diag.push_error(
-                    "The environment variable `SLINT_DEFAULT_FONT` is set, but its value is not referring to a file".into(),
-                    &generic_diag_location,
-                );
-                None
-            }
-        });
-
-    let (fallback_fonts, fallback_font) = get_fallback_fonts(fontdb);
+    let fallback_fonts = get_fallback_fonts(fontdb);
 
     let mut custom_fonts = Vec::new();
 
@@ -138,8 +119,9 @@ fn embed_glyphs_with_fontdb<'a>(
         }
     }
 
-    let (default_font_face_id, default_font_path) = if let Some(result) = maybe_override_default_font_id.map_or_else(||{
-        // TODO: improve heuristics in choice of which fonts to embed. use default-font-family, etc.
+    let default_font_ids = if !fontdb.default_font_family_ids.is_empty() {
+        fontdb.default_font_family_ids.clone()
+    } else {
         let (family, source_location) = component
             .root_element
             .borrow()
@@ -153,53 +135,36 @@ fn embed_glyphs_with_fontdb<'a>(
             })
             .unwrap_or_default();
 
-        let query = fontdb::Query {
-            families: &[family
-                .as_ref()
-                .map_or(fontdb::Family::SansSerif, |name| fontdb::Family::Name(name))],
-            ..Default::default()
-        };
-        let face_id = fontdb.query(&query).unwrap_or_else(|| {
-            if let Some(source_location) = source_location {
-                diag.push_warning_with_span(format!("could not find font that provides specified family, falling back to Sans-Serif"), source_location);
+        match fontdb.query_with_family(Default::default(), family.as_deref()) {
+            Some(id) => vec![id],
+            None => {
+                if let Some(source_location) = source_location {
+                    diag.push_error_with_span(format!("could not find font that provides specified family, falling back to Sans-Serif"), source_location);
+                } else {
+                    diag.push_error(format!("internal error: fontdb could not determine a default font for sans-serif"), &generic_diag_location);
+                };
+                return;
             }
-            fallback_font
-        });
-
-        let face_info = if let Some(face_info) = fontdb
-            .face(face_id) {
-                face_info
-            } else {
-                diag.push_error("internal error: fontdb query returned a font that does not exist".to_string(), &generic_diag_location);
-                return None;
-            };
-        Some((
-            face_id,
-            match &face_info.source {
-                fontdb::Source::File(path) => path.to_string_lossy().to_string(),
-                _ => {
-                    diag.push_error("internal error: memory fonts are not supported in the compiler".to_string(), &generic_diag_location);
-                    return None;
-                }
-            },
-        ))
-    }, |override_default_font_id| {
-        let path = match &fontdb.face(override_default_font_id).unwrap().source {
-            fontdb::Source::Binary(_) => unreachable!(),
-            fontdb::Source::File(path_buf) => path_buf.clone(),
-            fontdb::Source::SharedFile(path_buf, _) => path_buf.clone(),
-        };
-
-        Some((override_default_font_id, path.to_string_lossy().into()))
-    }) {
-        result
-    } else {
-        return;
+        }
     };
 
+    let default_font_paths = default_font_ids
+        .iter()
+        .map(|id| {
+            let (source, _) =
+                fontdb.face_source(*id).expect("internal error: fontdb provided ids are not valid");
+            match source {
+                fontdb::Source::Binary(_) => unreachable!(),
+                fontdb::Source::File(path_buf) => path_buf,
+                fontdb::Source::SharedFile(path_buf, _) => path_buf,
+            }
+            .clone()
+        })
+        .collect::<Vec<std::path::PathBuf>>();
+
     // Map from path to family name
-    let mut fonts = std::collections::BTreeMap::<String, fontdb::ID>::new();
-    fonts.insert(default_font_path.clone(), default_font_face_id);
+    let mut fonts = std::collections::BTreeMap::<std::path::PathBuf, fontdb::ID>::new();
+    fonts.extend(default_font_paths.iter().cloned().zip(default_font_ids.iter().cloned()));
 
     // add custom fonts
     let mut custom_face_error = false;
@@ -207,7 +172,7 @@ fn embed_glyphs_with_fontdb<'a>(
         fontdb.face(*face_id).and_then(|face_info| {
             Some((
                 match &face_info.source {
-                    fontdb::Source::File(path) => path.to_string_lossy().to_string(),
+                    fontdb::Source::File(path) => path.clone(),
                     _ => {
                         diag.push_error(
                             "internal error: memory fonts are not supported in the compiler"
@@ -227,7 +192,7 @@ fn embed_glyphs_with_fontdb<'a>(
         return;
     }
 
-    let mut embed_font_by_path_and_face_id = |path, face_id| {
+    let mut embed_font_by_path_and_face_id = |path: &std::path::Path, face_id| {
         let maybe_font = if let Some(maybe_font) =
             fontdb.with_face_data(face_id, |font_data, face_index| {
                 let fontdue_font = match fontdue::Font::from_bytes(
@@ -238,7 +203,7 @@ fn embed_glyphs_with_fontdb<'a>(
                     Err(fontdue_msg) => {
                         diag.push_error(
                             format!(
-                                "internal error: fontdue can't parse font {path}: {fontdue_msg}"
+                                "internal error: fontdue can't parse font {}: {fontdue_msg}", path.display()
                             ),
                             &generic_diag_location,
                         );
@@ -256,15 +221,16 @@ fn embed_glyphs_with_fontdb<'a>(
                     family_name
                 } else {
                     diag.push_error(
-                        format!("internal error: TrueType font without english family name encountered: {path}"),
+                        format!("internal error: TrueType font without english family name encountered: {}", path.display()),
                         &generic_diag_location,
                     );
                     return None;
                 };
 
                 embed_font(
+                    fontdb,
                     family_name,
-                    fontdue_font,
+                    Font{ id: face_id, fontdue_font },
                     &pixel_sizes,
                     characters_seen.iter().cloned(),
                     &fallback_fonts,
@@ -274,7 +240,7 @@ fn embed_glyphs_with_fontdb<'a>(
             maybe_font
         } else {
             diag.push_error(
-                format!("internal error: face_id of selected font {path} is unknown to fontdb"),
+                format!("internal error: face_id of selected font {} is unknown to fontdb", path.display()),
                 &generic_diag_location,
             );
             return;
@@ -289,7 +255,7 @@ fn embed_glyphs_with_fontdb<'a>(
 
         let resource_id = component.embedded_file_resources.borrow().len();
         component.embedded_file_resources.borrow_mut().insert(
-            path,
+            path.to_string_lossy().to_string(),
             crate::embedded_resources::EmbeddedResources {
                 id: resource_id,
                 kind: crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(font),
@@ -307,18 +273,17 @@ fn embed_glyphs_with_fontdb<'a>(
     };
 
     // Make sure to embed the default font first, because that becomes the default at run-time.
-    embed_font_by_path_and_face_id(
-        default_font_path.clone(),
-        fonts.remove(&default_font_path).unwrap(),
-    );
+    for path in default_font_paths {
+        embed_font_by_path_and_face_id(&path, fonts.remove(&path).unwrap());
+    }
 
-    for (path, face_id) in fonts {
-        embed_font_by_path_and_face_id(path, face_id);
+    for (path, face_id) in &fonts {
+        embed_font_by_path_and_face_id(path, *face_id);
     }
 }
 
 #[inline(never)] // workaround https://github.com/rust-lang/rust/issues/104099
-fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> (Vec<fontdue::Font>, fontdb::ID) {
+fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> Vec<fontdue::Font> {
     #[allow(unused)]
     let mut fallback_families: Vec<String> = Vec::new();
 
@@ -361,16 +326,14 @@ fn get_fallback_fonts(fontdb: &sharedfontdb::FontDatabase) -> (Vec<fontdue::Font
                 })
         })
         .collect::<Vec<_>>();
-    let fallback_font = fontdb
-        .query(&fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() })
-        .expect("internal error: Failed to locate default system font");
-    (fallback_fonts, fallback_font)
+    fallback_fonts
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 fn embed_font(
+    fontdb: &fontdb::Database,
     family_name: String,
-    font: fontdue::Font,
+    font: Font,
     pixel_sizes: &[i16],
     character_coverage: impl Iterator<Item = char>,
     fallback_fonts: &[fontdue::Font],
@@ -392,7 +355,7 @@ fn embed_font(
             glyph_data.resize(character_map.len(), Default::default());
 
             for CharacterMapEntry { code_point, glyph_index } in &character_map {
-                let (metrics, bitmap) = core::iter::once(&font)
+                let (metrics, bitmap) = core::iter::once(&font.fontdue_font)
                     .chain(fallback_fonts.iter())
                     .find_map(|font| {
                         font.chars()
@@ -422,6 +385,8 @@ fn embed_font(
         .horizontal_line_metrics(font.units_per_em())
         .expect("encountered font without hmtx table");
 
+    let face_info = fontdb.face(font.id).unwrap();
+
     BitmapFont {
         family_name,
         character_map,
@@ -429,6 +394,8 @@ fn embed_font(
         ascent: metrics.ascent,
         descent: metrics.descent,
         glyphs,
+        weight: face_info.weight.0,
+        italic: if face_info.style == fontdb::Style::Normal { false } else { true },
     }
 }
 

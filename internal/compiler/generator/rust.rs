@@ -228,7 +228,7 @@ pub fn generate(doc: &Document) -> TokenStream {
                     )
                 },
                 #[cfg(feature = "software-renderer")]
-                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, glyphs }) => {
+                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, glyphs, weight, italic }) => {
 
                     let character_map_size = character_map.len();
 
@@ -285,7 +285,9 @@ pub fn generate(doc: &Document) -> TokenStream {
                                 #link_section
                                 static GLYPHS : [slint::private_unstable_api::re_exports::BitmapGlyphs; #glyphs_size] = [#(#glyphs),*];
                                 &GLYPHS
-                            })
+                            }),
+                            weight: #weight,
+                            italic: #italic,
                         };
                     )
                 },

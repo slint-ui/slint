@@ -79,6 +79,8 @@ pub struct BitmapFont {
     pub ascent: f32,
     pub descent: f32,
     pub glyphs: Vec<BitmapGlyphs>,
+    pub weight: u16,
+    pub italic: bool,
 }
 
 #[derive(Debug, Clone)]

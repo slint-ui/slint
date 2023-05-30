@@ -59,4 +59,8 @@ pub struct BitmapFont {
     /// A vector of pre-rendered glyph sets. Each glyph set must have the same number of glyphs,
     /// which must be at least as big as the largest glyph index in the character map.
     pub glyphs: Slice<'static, BitmapGlyphs>,
+    /// The weight of the font in CSS units (400 is normal).
+    pub weight: u16,
+    /// Whether the type-face is rendered italic.
+    pub italic: bool,
 }

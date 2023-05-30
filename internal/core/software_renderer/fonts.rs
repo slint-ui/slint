@@ -60,16 +60,23 @@ pub enum Font {
 }
 
 pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
+    let requested_weight = request
+        .weight
+        .and_then(|weight| weight.try_into().ok())
+        .unwrap_or(/* CSS normal */ 400);
+
     let bitmap_font = BITMAP_FONTS.with(|fonts| {
         let fonts = fonts.borrow();
 
         request.family.as_ref().and_then(|requested_family| {
             fonts
                 .iter()
-                .find(|bitmap_font| {
+                .filter(|bitmap_font| {
                     core::str::from_utf8(bitmap_font.family_name.as_slice()).unwrap()
                         == requested_family.as_str()
+                        && bitmap_font.italic == request.italic
                 })
+                .min_by_key(|bitmap_font| bitmap_font.weight.abs_diff(requested_weight))
                 .copied()
         })
     });
@@ -81,9 +88,15 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
             if let Some(vectorfont) = systemfonts::match_font(request, scale_factor) {
                 return vectorfont.into();
             }
-            if let Some(fallback_bitmap_font) =
-                BITMAP_FONTS.with(|fonts| fonts.borrow().first().cloned())
-            {
+            if let Some(fallback_bitmap_font) = BITMAP_FONTS.with(|fonts| {
+                let fonts = fonts.borrow();
+                fonts
+                    .iter()
+                    .cloned()
+                    .filter(|bitmap_font| bitmap_font.italic == request.italic)
+                    .min_by_key(|bitmap_font| bitmap_font.weight.abs_diff(requested_weight))
+                    .or_else(|| fonts.first().cloned())
+            }) {
                 fallback_bitmap_font
             } else {
                 #[cfg(feature = "software-renderer-systemfonts")]
