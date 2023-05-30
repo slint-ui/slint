@@ -239,7 +239,7 @@ The `ProgressIndicator` informs the user about the status of an on-going operati
 ### Properties
 
 -   **`indeterminate`**: (_in_ _bool_): Set to true if the progress of the operation cannot be determined by value (default value: `false`).
--   **`value`** (_in-out_ _float_): The value.
+-   **`value`** (_in-out_ _float_): The progress value of the operation, between `minimum` and `maximum`.
 -   **`minimum`** (_in_ _float_): The minimum value (default: 0)
 -   **`maximum`** (_in_ _float_): The maximum value (default: 100)
 
