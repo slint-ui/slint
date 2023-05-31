@@ -22,7 +22,7 @@ export component Page inherits VerticalBox {
 
         Switch {
             horizontal-stretch: 0;
-            text: self.checked ? "Widgets enabled" : "Widgets disabled";
+            text: "Widgets enabled";
             checked <=> GallerySettings.widgets-enabled;
             enabled: true;
         }
