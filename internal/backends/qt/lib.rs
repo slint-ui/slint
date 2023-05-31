@@ -85,7 +85,7 @@ pub type NativeWidgets =
     (qt_widgets::NativeComboBoxPopup,
     (qt_widgets::NativeTabWidget,
     (qt_widgets::NativeTab,
-            ()))))))))))))));
+            ())))))))))))))));
 
 #[cfg(not(no_qt))]
 #[rustfmt::skip]
