@@ -232,6 +232,32 @@ export component Example inherits Window {
 }
 ```
 
+## `ProgressIndicator`
+
+The `ProgressIndicator` informs the user about the status of an on-going operation, such as loading data from the network.
+
+### Properties
+
+-   **`indeterminate`**: (_in_ _bool_): Set to true if the progress of the operation cannot be determined by value (default value: `false`).
+-   **`progress`** (_in-out_ _float_): The progress value of the operation, between `minimum` and `maximum`.
+-   **`minimum`** (_in_ _float_): The minimum progress value, typically at the start of the operation (default value: 0).
+-   **`maximum`** (_in_ _float_): The maximum progress value, typically reached when the operation completes (default value: 100).
+
+### Example
+
+```slint
+import { ProgressIndicator } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 25px;
+    ProgressIndicator {
+        width: parent.width;
+        height: parent.height;
+        progress: 50;
+    }
+}
+```
+
 ## `ScrollView`
 
 A Scrollview contains a viewport that is bigger than the view and can be

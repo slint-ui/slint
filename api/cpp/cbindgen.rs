@@ -527,6 +527,7 @@ fn gen_backend_qt(
         "NativeSpinBox",
         "NativeCheckBox",
         "NativeSlider",
+        "NativeProgressIndicator",
         "NativeGroupBox",
         "NativeLineEdit",
         "NativeScrollView",

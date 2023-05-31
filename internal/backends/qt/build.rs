@@ -50,6 +50,7 @@ fn main() {
     println!("cargo:rerun-if-changed=qt_widgets/listviewitem.rs");
     println!("cargo:rerun-if-changed=qt_widgets/scrollview.rs");
     println!("cargo:rerun-if-changed=qt_widgets/slider.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/progress_indicator.rs");
     println!("cargo:rerun-if-changed=qt_widgets/spinbox.rs");
     println!("cargo:rerun-if-changed=qt_widgets/stylemetrics.rs");
     println!("cargo:rerun-if-changed=qt_widgets/tabwidget.rs");

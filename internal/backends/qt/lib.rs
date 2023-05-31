@@ -73,6 +73,7 @@ pub type NativeWidgets =
     (qt_widgets::NativeButton,
     (qt_widgets::NativeCheckBox,
     (qt_widgets::NativeSlider,
+    (qt_widgets::NativeProgressIndicator,
     (qt_widgets::NativeSpinBox,
     (qt_widgets::NativeGroupBox,
     (qt_widgets::NativeLineEdit,
@@ -83,7 +84,7 @@ pub type NativeWidgets =
     (qt_widgets::NativeComboBoxPopup,
     (qt_widgets::NativeTabWidget,
     (qt_widgets::NativeTab,
-            ())))))))))))));
+            ()))))))))))))));
 
 #[cfg(not(no_qt))]
 #[rustfmt::skip]

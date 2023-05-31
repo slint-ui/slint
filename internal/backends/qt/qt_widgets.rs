@@ -186,6 +186,9 @@ pub use spinbox::*;
 mod slider;
 pub use slider::*;
 
+mod progress_indicator;
+pub use progress_indicator::*;
+
 mod groupbox;
 pub use groupbox::*;
 

@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
 ### Slint Language
 
  - Support negative numbers in `cubic-bezier(...)` function.
+ - Added `ProgressIndicator` widget.
 
 ### Rust
 
