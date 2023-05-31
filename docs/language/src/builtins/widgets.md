@@ -61,9 +61,7 @@ export component Example inherits Window {
 
 ## `CheckBox`
 
-A `CheckBox` should be used to selected or unselect values e.g. if the user have to choose between multiple options in a list. A `Switch` instead
-should be used to give the user the possibility to turn thing `on` or `off`.
-
+Use a `CheckBox` to let the user select or deselect values, for example in a list with multiple options. Consider using a `Switch` element instead if the action resembles more something that's turned on or off.
 ### Properties
 
 -   **`checked`**: (_inout_ _bool_): Whether the checkbox is checked or not (default: false).
