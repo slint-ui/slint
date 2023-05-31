@@ -20,7 +20,7 @@ fn empty_stuff() {
 fn test_serialize_deserialize_struct() {
     i_slint_backend_testing::init();
     slint! {
-        @pragma(serde)
+        @rust-attr(cfg_attr(feature="serde", derive(Serialize, Deserialize)))
         export struct TestStruct {
             foo: int,
         }

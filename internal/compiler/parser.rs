@@ -322,7 +322,7 @@ declare_syntax! {
     }
     // syntax kind
     {
-        Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration, *AtPragma ],
+        Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration, *RustAttr ],
         /// `DeclaredIdentifier := Element { ... }`
         Component -> [ DeclaredIdentifier, Element ],
         /// `id := Element { ... }`
@@ -398,7 +398,7 @@ declare_syntax! {
         /// There is an identifier "in" or "out", the DeclaredIdentifier is the state name
         Transition -> [?DeclaredIdentifier, *PropertyAnimation],
         /// Export a set of declared components by name
-        ExportsList -> [ *ExportSpecifier, ?Component, *StructDeclaration, *ExportModule, *AtPragma ],
+        ExportsList -> [ *ExportSpecifier, ?Component, *StructDeclaration, *ExportModule, *RustAttr ],
         /// Declare the first identifier to be exported, either under its name or instead
         /// under the name of the second identifier.
         ExportSpecifier -> [ ExportIdentifier, ?ExportName ],
@@ -423,10 +423,10 @@ declare_syntax! {
         ArrayType -> [ Type ],
         /// `struct Foo := { ... }
         StructDeclaration -> [DeclaredIdentifier, ObjectType],
-        /// `@pragma(serde)`
-        AtPragma -> [ DeclaredIdentifier, ObjectType, *StructDeclaration, Expression, Deriven ],
-        /// `serde`
-        Deriven -> [ DeclaredIdentifier, ObjectType, StructDeclaration, Expression ],
+        /// `@rust-attr(...)`
+        RustAttr -> [ DeclaredIdentifier, ObjectType, *StructDeclaration, Expression, Deriven ],
+        /// `cfg_attr(...)`
+        Deriven -> [],
     }
 }
 

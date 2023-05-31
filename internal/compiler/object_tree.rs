@@ -88,7 +88,7 @@ impl Document {
             inner_structs.borrow_mut().push(ty);
         };
 
-        let process_atpragma = |n: syntax_nodes::AtPragma,
+        let process_rustattr = |n: syntax_nodes::RustAttr,
                                 diag: &mut BuildDiagnostics,
                                 local_registry: &mut TypeRegister| {
             let get_struct = if let Some(e) = n.StructDeclaration().next() {
@@ -99,15 +99,14 @@ impl Document {
             let feature: Vec<String> = n
                 .children()
                 .filter(|child| child.kind() == SyntaxKind::Deriven)
-                .map(|child| child.text().to_string())
+                .map(|child| child.text().to_string().replace("\"", ""))
                 .collect_vec();
-
             process_struct(get_struct, diag, local_registry, Some(feature));
         };
         for n in node.children() {
             match n.kind() {
                 SyntaxKind::Component => process_component(n.into(), diag, &mut local_registry),
-                SyntaxKind::AtPragma => process_atpragma(n.into(), diag, &mut local_registry),
+                SyntaxKind::RustAttr => process_rustattr(n.into(), diag, &mut local_registry),
                 SyntaxKind::StructDeclaration => {
                     process_struct(n.into(), diag, &mut local_registry, None)
                 }
@@ -120,8 +119,8 @@ impl Document {
                             SyntaxKind::StructDeclaration => {
                                 process_struct(n.into(), diag, &mut local_registry, None)
                             }
-                            SyntaxKind::AtPragma => {
-                                process_atpragma(n.into(), diag, &mut local_registry)
+                            SyntaxKind::RustAttr => {
+                                process_rustattr(n.into(), diag, &mut local_registry)
                             }
                             _ => {}
                         }
@@ -2277,7 +2276,7 @@ impl Exports {
                 .flat_map(|exports| {
                     exports
                         .StructDeclaration()
-                        .chain(exports.AtPragma().flat_map(|a| a.StructDeclaration()))
+                        .chain(exports.RustAttr().flat_map(|a| a.StructDeclaration()))
                 })
                 .filter_map(|st| {
                     let name_ident: SyntaxNode = st.DeclaredIdentifier().into();

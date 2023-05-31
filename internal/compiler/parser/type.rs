@@ -86,22 +86,16 @@ pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
     true
 }
 
-pub fn parse_pragma(p: &mut impl Parser) -> bool {
+pub fn parse_rustattr(p: &mut impl Parser) -> bool {
     debug_assert_eq!(p.peek().as_str(), "@");
-    let mut p = p.start_node(SyntaxKind::AtPragma);
+    let mut p = p.start_node(SyntaxKind::RustAttr);
     p.consume(); // "@"
-    if p.peek().as_str() != "pragma" {
-        p.expect(SyntaxKind::AtPragma);
+    if p.peek().as_str() != "rust-attr" {
+        p.expect(SyntaxKind::RustAttr);
     }
-    p.consume(); // "pragma"
+    p.consume(); // "rust-attr"
     p.expect(SyntaxKind::LParent);
-    while !p.test(SyntaxKind::RParent) {
-        if !parse_deriven(&mut *p) {
-            break;
-        }
-        p.test(SyntaxKind::Comma);
-    }
-    p.consume();
+    parse_deriven(&mut *p);
     if p.peek().as_str() == "export" {
         p.consume();
     }
@@ -109,22 +103,71 @@ pub fn parse_pragma(p: &mut impl Parser) -> bool {
     true
 }
 
-macro_rules! deriven_key {
+macro_rules! deriven_feature {
     () => {
         ["serde"]
+    };
+}
+
+macro_rules! deriven_macro_trait {
+    ($feature:expr) => {
+        match $feature {
+            "serde" => vec!["Serialize", "Deserialize"],
+            _ => vec![],
+        }
     };
 }
 
 pub fn parse_deriven(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Deriven);
     p.peek();
-    if deriven_key!().contains(&p.nth(0).as_str()) {
+    if p.peek().as_str() == "cfg_attr" {
         p.consume();
+        p.consume();
+        parse_attribute_value(&mut *p);
+        p.consume();
+        p.test(SyntaxKind::RParent);
         true
     } else {
         p.consume();
         p.test(SyntaxKind::Identifier);
-        p.error("Expected 'deriven' feature like `serde` after '@pragma'");
+        p.error("Expected 'cfg_attr' feature like `serde` after '@rust-attr'");
         false
     }
+}
+
+fn parse_attribute_value(p: &mut impl Parser) -> bool {
+    if p.peek().as_str() == "feature" {
+        p.consume();
+        p.consume();
+        if !deriven_feature!().contains(&p.peek().as_str().trim_matches('"')) {
+            p.test(SyntaxKind::Identifier);
+            p.error("Unsupported feature"); // include list
+            p.consume();
+            return false;
+        }
+        let feature_value = p.peek().as_str().trim_matches('"').to_string();
+        p.consume();
+        p.test(SyntaxKind::RParent);
+        p.consume();
+        if p.nth(0).as_str() != "derive" {
+            p.expect(SyntaxKind::Identifier);
+        }
+        p.consume();
+        p.expect(SyntaxKind::LParent);
+        while !p.test(SyntaxKind::RParent) {
+            if !deriven_macro_trait!(feature_value.as_str()).contains(&p.nth(0).as_str()) {
+                p.error(format!("Unsupported trait for {}", feature_value));
+                break;
+            }
+            p.consume();
+            p.test(SyntaxKind::Comma);
+        }
+        p.consume();
+        return true;
+    }
+    p.consume();
+    p.test(SyntaxKind::Identifier);
+    p.error("Expected 'feature' keyword after 'cfg_attr('");
+    false
 }

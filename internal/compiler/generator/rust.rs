@@ -431,13 +431,14 @@ fn generate_struct(
         fields.iter().map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap())).unzip();
 
     let attributes = if let Some(feature) = feature {
-        let serde_attributes = if feature.iter().any(|syntax_text| syntax_text == "serde") {
-            quote! { #[derive(serde::Serialize, serde::Deserialize)] }
-        } else {
-            quote! {}
-        };
-
-        quote! { #serde_attributes }
+        let attr = feature.iter().map(|f| {
+            if !f.is_empty() && f.contains("serde") {
+                quote! { #[derive(serde::Serialize, serde::Deserialize)] }
+            } else {
+                quote! {}
+            }
+        });
+        quote! { #(#attr)* }
     } else {
         quote! {}
     };
