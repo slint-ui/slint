@@ -465,8 +465,7 @@ export component Example inherits Window {
 
 ## `Switch`
 
-A `Switch` is a representation of a physical switch that allows users to turn things `on` or `off`. A `CheckBox` instead
-should be used to selected or unselect values e.g. if the user have to choose between multiple options in a list.
+A `Switch` is a representation of a physical switch that allows users to turn things on or off. Consider using a `CheckBox` instead if you want the user to select or deselect values, for example in a list with multiple options.
 
 ### Properties
 
