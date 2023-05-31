@@ -88,7 +88,7 @@ pub trait LineBufferProvider {
 /// Represents a rectangular region on the screen, used for partial rendering.
 ///
 /// The region may be composed of multiple sub-regions.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PhysicalRegion(PhysicalRect);
 
 impl PhysicalRegion {
@@ -243,34 +243,41 @@ impl SoftwareRenderer {
             buffer_renderer,
         );
 
-        window_inner.draw_contents(|components| {
-            for (component, origin) in components {
-                renderer.compute_dirty_regions(component, *origin);
-            }
+        window_inner
+            .draw_contents(|components| {
+                for (component, origin) in components {
+                    renderer.compute_dirty_regions(component, *origin);
+                }
 
-            let dirty_region = (renderer.dirty_region.to_rect().cast() * factor).round_out().cast();
+                let dirty_region =
+                    (renderer.dirty_region.to_rect().cast() * factor).round_out().cast();
 
-            let to_draw = self.apply_dirty_region(dirty_region, size);
+                let to_draw = self.apply_dirty_region(dirty_region, size);
 
-            renderer.combine_clip(
-                (to_draw.cast() / factor).cast(),
-                LogicalLength::zero(),
-                LogicalLength::zero(),
-            );
+                renderer.combine_clip(
+                    (to_draw.cast() / factor).cast(),
+                    LogicalLength::zero(),
+                    LogicalLength::zero(),
+                );
 
-            if !background.is_transparent() {
-                // FIXME: gradient
-                renderer
-                    .actual_renderer
-                    .processor
-                    .process_rectangle(to_draw, background.color().into());
-            }
-            for (component, origin) in components {
-                crate::item_rendering::render_component_items(component, &mut renderer, *origin);
-            }
+                if !background.is_transparent() {
+                    // FIXME: gradient
+                    renderer
+                        .actual_renderer
+                        .processor
+                        .process_rectangle(to_draw, background.color().into());
+                }
+                for (component, origin) in components {
+                    crate::item_rendering::render_component_items(
+                        component,
+                        &mut renderer,
+                        *origin,
+                    );
+                }
 
-            PhysicalRegion(to_draw)
-        })
+                PhysicalRegion(to_draw)
+            })
+            .unwrap_or_default()
     }
 
     /// Render the window, line by line, into the line buffer provided by the [`LineBufferProvider`].
