@@ -21,11 +21,11 @@ export component Switch {
     accessible-role: checkbox;
     forward-focus: fs;
 
-    layout := HorizontalLayout {
-        spacing: 16px;
+    VerticalLayout {
+        alignment: center;
 
-        VerticalLayout {
-            alignment: center;
+        layout := HorizontalLayout {
+            spacing: 16px;
 
             Rectangle {
                 width: 52px;
@@ -62,15 +62,15 @@ export component Switch {
 
                 animate background, border-color{ duration: 75ms; easing: linear; }
             }
-        }
 
-        label := Text {
-            color: md.sys.color.on-surface;
-            horizontal-alignment: left;
-            vertical-alignment: center;
-            vertical-stretch: 0;
-            font-size: md.sys.typescale.label-medium.size;
-            font-weight: md.sys.typescale.label-medium.weight;
+            label := Text {
+                color: md.sys.color.on-surface;
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                vertical-stretch: 0;
+                font-size: md.sys.typescale.label-medium.size;
+                font-weight: md.sys.typescale.label-medium.weight;
+            }
         }
     }
 
