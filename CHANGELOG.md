@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
 ### Slint Language
 
  - Support negative numbers in `cubic-bezier(...)` function.
+ - Added `ProgressIndicator` widget.
 
 ### Rust
 
@@ -28,10 +29,6 @@ All notable changes to this project are documented in this file.
 ### VSCode extension
 
  - Make a visible error message when the `slint-lsp` panics
-
-### Added
-
- - `ProgressIndicator` widget.
 
 ## [1.0.2] - 2023-04-26
 
