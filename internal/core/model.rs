@@ -503,7 +503,7 @@ impl Model for bool {
     }
 }
 
-/// ModelRc is a type alias for a reference counted implementation of the [`Model`] trait.
+/// ModelRc is a type wrapper for a reference counted implementation of the [`Model`] trait.
 ///
 /// Models are used to represent sequences of the same data type. In `.slint` code those
 /// are represented using the `[T]` array syntax and typically used in `for` expressions,
@@ -514,7 +514,7 @@ impl Model for bool {
 ///
 /// An array struct field will also be of type `ModelRc`:
 ///
-/// ```slint,ignore
+/// ```slint,no-preview
 /// export struct AddressBook {
 ///     names: [string]
 /// }
