@@ -613,6 +613,10 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Functions
 
 -   **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
+-   **`select-all()`** Selects all text.
+-   **`copy()`** Copies the selected text to the clipboard.
+-   **`cut()`** Copies the selected text to the clipboard and removes it from the editable area.
+-   **`paste()`** Pastes the text content of the clipboard at the cursor position.
 
 ### Callbacks
 

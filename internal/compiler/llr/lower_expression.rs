@@ -118,7 +118,7 @@ pub fn lower_expression(
             }
             tree_Expression::BuiltinFunctionReference(f, _) => {
                 let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();
-                llr_Expression::BuiltinFunctionCall { function: *f, arguments }
+                llr_Expression::BuiltinFunctionCall { function: f.clone(), arguments }
             }
             tree_Expression::CallbackReference(nr, _) => {
                 let arguments = arguments.iter().map(|e| lower_expression(e, ctx)).collect::<_>();

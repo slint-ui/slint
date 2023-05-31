@@ -16,7 +16,7 @@ use std::rc::{Rc, Weak};
 pub use crate::namedreference::NamedReference;
 pub use crate::passes::resolving;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 /// A function built into the run-time
 pub enum BuiltinFunction {
     GetWindowScaleFactor,
@@ -39,6 +39,7 @@ pub enum BuiltinFunction {
     Pow,
     SetFocusItem,
     ShowPopupWindow,
+    ItemMemberFunction(String),
     /// the "42".to_float()
     StringToFloat,
     /// the "42".is_float()
@@ -119,6 +120,10 @@ impl BuiltinFunction {
                 args: vec![Type::ElementReference],
             },
             BuiltinFunction::ShowPopupWindow => Type::Function {
+                return_type: Box::new(Type::Void),
+                args: vec![Type::ElementReference],
+            },
+            BuiltinFunction::ItemMemberFunction(..) => Type::Function {
                 return_type: Box::new(Type::Void),
                 args: vec![Type::ElementReference],
             },
@@ -205,6 +210,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan => true,
             BuiltinFunction::SetFocusItem => false,
             BuiltinFunction::ShowPopupWindow => false,
+            BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorBrighter | BuiltinFunction::ColorDarker => true,
             // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
@@ -251,6 +257,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan => true,
             BuiltinFunction::SetFocusItem => false,
             BuiltinFunction::ShowPopupWindow => false,
+            BuiltinFunction::ItemMemberFunction(..) => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorBrighter | BuiltinFunction::ColorDarker => true,
             BuiltinFunction::ImageSize => true,
@@ -1040,26 +1047,27 @@ impl Expression {
                         if let Some(conversion_powers) =
                             crate::langtype::unit_product_length_conversion(&left, &right)
                         {
-                            let apply_power = |mut result, power: i8, builtin_fn| {
-                                let op = if power < 0 { '*' } else { '/' };
-                                for _ in 0..power.abs() {
-                                    result = Expression::BinaryExpression {
-                                        lhs: Box::new(result),
-                                        rhs: Box::new(Expression::FunctionCall {
-                                            function: Box::new(
-                                                Expression::BuiltinFunctionReference(
-                                                    builtin_fn,
-                                                    Some(node.to_source_location()),
+                            let apply_power =
+                                |mut result, power: i8, builtin_fn: BuiltinFunction| {
+                                    let op = if power < 0 { '*' } else { '/' };
+                                    for _ in 0..power.abs() {
+                                        result = Expression::BinaryExpression {
+                                            lhs: Box::new(result),
+                                            rhs: Box::new(Expression::FunctionCall {
+                                                function: Box::new(
+                                                    Expression::BuiltinFunctionReference(
+                                                        builtin_fn.clone(),
+                                                        Some(node.to_source_location()),
+                                                    ),
                                                 ),
-                                            ),
-                                            arguments: vec![],
-                                            source_location: Some(node.to_source_location()),
-                                        }),
-                                        op,
+                                                arguments: vec![],
+                                                source_location: Some(node.to_source_location()),
+                                            }),
+                                            op,
+                                        }
                                     }
-                                }
-                                result
-                            };
+                                    result
+                                };
 
                             let mut result = self;
 

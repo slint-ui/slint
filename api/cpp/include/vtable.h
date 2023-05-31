@@ -151,7 +151,7 @@ public:
         return inner->data;
     }
 
-    VRc<VTable, Dyn> into_dyn() const
+    const VRc<VTable, Dyn> &into_dyn() const
     {
         return *reinterpret_cast<const VRc<VTable, Dyn> *>(this);
     }
@@ -208,7 +208,7 @@ public:
         return { VRc<VTable, X>(inner) };
     }
 
-    VWeak<VTable, Dyn> into_dyn() const
+    const VWeak<VTable, Dyn> &into_dyn() const
     {
         return *reinterpret_cast<const VWeak<VTable, Dyn> *>(this);
     }

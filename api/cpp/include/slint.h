@@ -265,6 +265,9 @@ public:
         }
     }
 
+    /// \private
+    const cbindgen_private::WindowAdapterRcOpaque &handle() { return inner; }
+
 private:
     friend class slint::experimental::platform::SkiaRenderer;
     friend class slint::experimental::platform::SoftwareRenderer;

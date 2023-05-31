@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export component TestCase {
+    width: 100phx;
+    height: 100phx;
+
+    ti := TextInput {}
+    
+    in-out property<string> test_text <=> ti.text;
+
+    public function do_select() {
+        ti.select_all();
+    }
+
+    public function do_copy() {
+        ti.copy();
+    }
+
+    public function do_cut() {
+        ti.cut();
+    }
+    
+    out property<bool> has_selection: ti.cursor_position_byte_offset != ti.anchor_position_byte_offset;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+instance.set_test_text("Hello World".into());
+assert!(!instance.get_has_selection());
+instance.invoke_do_select();
+assert!(instance.get_has_selection());
+
+instance.invoke_do_copy();
+assert!(instance.get_has_selection());
+assert_eq!(instance.get_test_text(), "Hello World");
+instance.invoke_do_cut();
+assert!(!instance.get_has_selection());
+assert_eq!(instance.get_test_text(), "");
+```
+*/
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.set_test_text("Hello World");
+assert(!instance.get_has_selection());
+instance.invoke_do_select();
+assert(instance.get_has_selection());
+
+instance.invoke_do_copy();
+assert(instance.get_has_selection());
+assert_eq(instance.get_test_text(), "Hello World");
+instance.invoke_do_cut();
+assert(!instance.get_has_selection());
+assert_eq(instance.get_test_text(), "");
+```
+*/
+
+/*
+```nodejs
+var instance = new slint.TestCase({});
+instance.test_text = "Hello World";
+assert(!instance.has_selection);
+instance.do_select();
+assert(instance.has_selection);
+
+instance.do_copy();
+assert(instance.has_selection);
+assert.equal(instance.test_text, "Hello World");
+instance.do_cut();
+assert(!instance.has_selection);
+assert.equal(instance.test_text, "");
+```
+*/
