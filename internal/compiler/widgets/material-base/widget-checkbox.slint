@@ -12,8 +12,10 @@ export component CheckBox {
     in-out property <bool> checked;
     out property <bool> has-focus: fs.has-focus;
     in property<bool> enabled: true;
-    height: 18px;
 
+    min-height: 18px;
+    vertical-stretch: 0;
+    horizontal-stretch: 0;
     accessible-label <=> label.text;
     accessible-checkable: true;
     accessible-checked <=> root.checked;
@@ -22,45 +24,49 @@ export component CheckBox {
     layout := HorizontalLayout {
         spacing: 16px;
 
-        Rectangle {
-            width: 18px;
-            height: 18px;
+        VerticalLayout {
+            alignment: center;
 
-            container := Rectangle {
-                width: 100%;
-                height: 100%;
-                border-radius: 2px;
-                border-width: 2px;
-                border-color: md.sys.color.on-surface;
-            }
+            Rectangle {
+                width: 18px;
+                height: 18px;
 
-            state-layer := Rectangle {
-                width: 40px;
-                height: 40px;
-                x: (parent.width - self.width) / 2;
-                y: (parent.height - self.height) / 2;
-                opacity: 0;
-                background: md.sys.color.primary;
-                border-radius: 20px;
-                animate opacity { duration: 300ms; easing: ease; }
-            }
+                container := Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 2px;
+                    border-width: 2px;
+                    border-color: md.sys.color.on-surface;
+                }
 
-            if (root.checked) : Path {
-                width: 66%;
-                height: 66%;
-                x: (parent.width - self.width) / 2;
-                y: (parent.height - self.height) / 2;
-                commands: "M18.9 35.7 7.7 24.5l2.15-2.15 9.05 9.05 19.2-19.2 2.15 2.15Z";
-                fill: md.sys.color.on-primary;
+                state-layer := Rectangle {
+                    width: 40px;
+                    height: 40px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    opacity: 0;
+                    background: md.sys.color.primary;
+                    border-radius: 20px;
+                    animate opacity { duration: 300ms; easing: ease; }
+                }
 
-                states [
-                    disabled when !root.enabled : {
-                        fill: md.sys.color.on-surface;
-                    }
-                    hover-selected when touch.has-hover && root.checked : {
-                        fill: md.sys.color.on-primary;
-                    }
-                ]
+                if (root.checked) : Path {
+                    width: 66%;
+                    height: 66%;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    commands: "M18.9 35.7 7.7 24.5l2.15-2.15 9.05 9.05 19.2-19.2 2.15 2.15Z";
+                    fill: md.sys.color.on-primary;
+
+                    states [
+                        disabled when !root.enabled : {
+                            fill: md.sys.color.on-surface;
+                        }
+                        hover-selected when touch.has-hover && root.checked : {
+                            fill: md.sys.color.on-primary;
+                        }
+                    ]
+                }
             }
         }
 

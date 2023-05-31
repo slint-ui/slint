@@ -212,3 +212,6 @@ pub use stylemetrics::*;
 
 mod tableheadersection;
 pub use tableheadersection::*;
+
+mod switch;
+pub use switch::*;

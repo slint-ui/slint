@@ -551,6 +551,20 @@ export component NativeStandardListViewItem {
     //-is_internal
 }
 
+export component NativeSwitch {
+    in property <length> x;
+    in property <length> y;
+    in property <length> width;
+    in property <length> height;
+    in property <bool> enabled: true;
+    in property <string> text;
+    in-out property <bool> checked;
+    out property <bool> has-focus;
+    callback toggled;
+    //-is_internal
+}
+
+
 export component NativeTableHeaderSection {
     in property <length> x;
     in property <length> y;

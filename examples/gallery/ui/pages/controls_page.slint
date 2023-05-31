@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { Button, GroupBox, SpinBox, ComboBox, CheckBox, LineEdit, TabWidget, VerticalBox, HorizontalBox,
-    Slider, ProgressIndicator, SpinBox } from "std-widgets.slint";
+    Slider, ProgressIndicator, SpinBox, Switch } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
@@ -14,51 +14,58 @@ export component ControlsPage inherits Page {
         vertical-stretch: 0;
         title: "Buttons";
 
-        HorizontalLayout {
-            spacing: 8px;
+        HorizontalBox {
             alignment: start;
+            padding: 0px;
 
             Button {
                 text: "Regular Button";
-                enabled: !GallerySettings.widgets-disabled;
+                enabled: GallerySettings.widgets-enabled;
             }
 
             Button {
                 text: "Button with Icon";
                 icon: @image-url("../../thumbsup.png");
-                enabled: !GallerySettings.widgets-disabled;
+                enabled: GallerySettings.widgets-enabled;
             }
 
             Button {
                 checkable: true;
                 text: self.checked ? "ON" : "OFF";
-                enabled: !GallerySettings.widgets-disabled;
+                enabled: GallerySettings.widgets-enabled;
             }
         }
     }
 
     GroupBox {
-        title: "CheckBox - SpinBox - ComboBox";
+        title: "CheckBox - SpinBox - ComboBox - Switch";
         vertical-stretch: 0;
 
-        HorizontalBox {
+        HorizontalLayout {
             alignment: start;
+            padding: 0px;
+
             checkbox := CheckBox {
                 text: checkbox.checked ? "(checked)" : "(unchecked)";
                 checked: true;
-                enabled: !GallerySettings.widgets-disabled;
+                enabled: GallerySettings.widgets-enabled;
             }
 
-
-        SpinBox {
-            vertical-stretch: 0;
-            value: 42;
-            enabled: !GallerySettings.widgets-disabled;
-        }
+            SpinBox {
+                vertical-stretch: 0;
+                value: 42;
+                enabled: GallerySettings.widgets-enabled;
+            }
 
             ComboBox {
                 model: ["Select Something", "From this", "Combobox"];
-                enabled: !GallerySettings.widgets-disabled;
+                enabled: GallerySettings.widgets-enabled;
+            }
+
+            Switch {
+                text: "Flight Mode";
+                checked: true;
+                enabled: GallerySettings.widgets-enabled;
             }
         }
     }
@@ -69,7 +76,7 @@ export component ControlsPage inherits Page {
 
         LineEdit {
             placeholder-text: "Enter some text";
-            enabled: !GallerySettings.widgets-disabled;
+            enabled: GallerySettings.widgets-enabled;
         }
     }
 
@@ -82,7 +89,7 @@ export component ControlsPage inherits Page {
             minimum: -100;
             maximum: 100;
             value: 42;
-            enabled: !GallerySettings.widgets-disabled;
+            enabled: GallerySettings.widgets-enabled;
         }
     }
 
@@ -125,7 +132,7 @@ export component ControlsPage inherits Page {
 
                             Button {
                                 text: "Click me";
-                                enabled: !GallerySettings.widgets-disabled;
+                                enabled: GallerySettings.widgets-enabled;
                             }
                         }
                     }
@@ -146,7 +153,7 @@ export component ControlsPage inherits Page {
 
                             CheckBox {
                                 text: "Check me";
-                                enabled: !GallerySettings.widgets-disabled;
+                                enabled: GallerySettings.widgets-enabled;
                             }
                         }
                     }

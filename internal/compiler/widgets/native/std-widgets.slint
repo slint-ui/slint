@@ -87,7 +87,13 @@ export component Slider inherits NativeSlider {
             }
         }
     }
+}
 
+export component Switch inherits NativeSwitch {
+    accessible-checkable: true;
+    accessible-checked <=> root.checked;
+    accessible-label <=> root.text;
+    accessible-role: checkbox;
 }
 
 export component GroupBox {
