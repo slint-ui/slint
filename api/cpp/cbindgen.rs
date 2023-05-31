@@ -47,41 +47,40 @@ fn ensure_cargo_rerun_for_crate(
 }
 
 fn default_config() -> cbindgen::Config {
-    cbindgen::Config {
-        pragma_once: true,
-        include_version: true,
-        namespaces: Some(vec!["slint".into(), "cbindgen_private".into()]),
-        line_length: 100,
-        tab_width: 4,
-        // Note: we might need to switch to C if we need to generate bindings for language that needs C headers
-        language: cbindgen::Language::Cxx,
-        cpp_compat: true,
-        documentation: true,
-        export: cbindgen::ExportConfig {
-            rename: [
-                ("Callback".into(), "private_api::CallbackHelper".into()),
-                ("VoidArg".into(), "void".into()),
-                ("KeyEventArg".into(), "KeyEvent".into()),
-                ("PointerEventArg".into(), "PointerEvent".into()),
-                ("PointArg".into(), "Point".into()),
-                ("FloatArg".into(), "float".into()),
-                ("Coord".into(), "float".into()),
-            ]
-            .iter()
-            .cloned()
-            .collect(),
-            ..Default::default()
-        },
-        defines: [
-            ("target_pointer_width = 64".into(), "SLINT_TARGET_64".into()),
-            ("target_pointer_width = 32".into(), "SLINT_TARGET_32".into()),
-            ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()), // Disable any wasm guarded code in C++, too - so that there are no gaps in enums.
+    let mut config = cbindgen::Config::default();
+    config.pragma_once = true;
+    config.include_version = true;
+    config.namespaces = Some(vec!["slint".into(), "cbindgen_private".into()]);
+    config.line_length = 100;
+    config.tab_width = 4;
+    // Note: we might need to switch to C if we need to generate bindings for language that needs C headers
+    config.language = cbindgen::Language::Cxx;
+    config.cpp_compat = true;
+    config.documentation = true;
+    config.export = cbindgen::ExportConfig {
+        rename: [
+            ("Callback".into(), "private_api::CallbackHelper".into()),
+            ("VoidArg".into(), "void".into()),
+            ("KeyEventArg".into(), "KeyEvent".into()),
+            ("PointerEventArg".into(), "PointerEvent".into()),
+            ("PointArg".into(), "Point".into()),
+            ("FloatArg".into(), "float".into()),
+            ("Coord".into(), "float".into()),
         ]
         .iter()
         .cloned()
         .collect(),
         ..Default::default()
-    }
+    };
+    config.defines = [
+        ("target_pointer_width = 64".into(), "SLINT_TARGET_64".into()),
+        ("target_pointer_width = 32".into(), "SLINT_TARGET_32".into()),
+        ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()), // Disable any wasm guarded code in C++, too - so that there are no gaps in enums.
+    ]
+    .iter()
+    .cloned()
+    .collect();
+    config
 }
 
 fn gen_item_declarations(items: &[&str]) -> String {
