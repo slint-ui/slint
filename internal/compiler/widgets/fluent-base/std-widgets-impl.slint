@@ -269,7 +269,7 @@ export component Switch {
     in property <string> text <=> label.text;
     in-out property <bool> checked: true;
     out property <bool> has-focus: fs.has-focus;
-    in property<bool> enabled: false;
+    in property<bool> enabled: true;
 
     min-width: 40px;
     min-height: 20px;
@@ -279,6 +279,7 @@ export component Switch {
     accessible-checkable: true;
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
+    forward-focus: fs;
 
     layout := HorizontalLayout {
         spacing: 8px;

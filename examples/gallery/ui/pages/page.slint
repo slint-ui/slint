@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { CheckBox, GridBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
+import { Switch, GridBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
 
 import { GallerySettings } from "../gallery_settings.slint";
 
@@ -11,6 +11,7 @@ export component Page inherits VerticalBox {
 
     HorizontalLayout {
         height: 24px;
+
         Text {
             font-size: 20px;
             text <=> root.title;
@@ -19,10 +20,11 @@ export component Page inherits VerticalBox {
         // Spacer
         Rectangle {}
 
-        CheckBox {
+        Switch {
             horizontal-stretch: 0;
-            text: "Disable widgets";
-            checked <=> GallerySettings.widgets-disabled;
+            text: self.checked ? "Widgets enabled" : "Widgets disabled";
+            checked <=> GallerySettings.widgets-enabled;
+            enabled: true;
         }
     }
 

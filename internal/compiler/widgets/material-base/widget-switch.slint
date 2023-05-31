@@ -19,6 +19,7 @@ export component Switch inherits Rectangle {
     accessible-checkable: true;
     accessible-checked <=> root.checked;
     accessible-role: checkbox;
+    forward-focus: fs;
 
     layout := HorizontalLayout {
         spacing: 16px;
@@ -110,6 +111,8 @@ export component Switch inherits Rectangle {
             label.color: md.sys.color.primary;
             track.opacity: 0.12;
             handle.opacity: 0.38;
+            handle.width: 24px;
+            handle.x: track.width - 28px - 4px;
         }
         disabled when !root.enabled : {
             label.opacity: 0.38;

@@ -61,11 +61,14 @@ export component Example inherits Window {
 
 ## `CheckBox`
 
+A `CheckBox` should be used to selected or unselect values e.g. if the user have to choose between multiple options in a list. A `Switch` instead
+should be used to give the user the possibility to turn thing `on` or `off`.
+
 ### Properties
 
--   **`checked`**: (_inout_ _bool_): Whether the checkbox is checked or not.
--   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the checkbox can't be pressed
--   **`has-focus`**: (_out_ _bool_): Set to true when the checkbox has keyboard focus.
+-   **`checked`**: (_inout_ _bool_): Whether the checkbox is checked or not (default: false).
+-   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the checkbox can't be pressed (default: true)
+-   **`has-focus`**: (_out_ _bool_): Set to true when the checkbox has keyboard focus (default: false).
 -   **`text`** (_in_ _string_): The text written next to the checkbox.
 
 ### Callbacks
@@ -464,13 +467,14 @@ export component Example inherits Window {
 
 ## `Switch`
 
-A `Switch` is used to toggle between `checked` and `unchecked` state represented by a boolean.
+A `Switch` is a representation of a physical switch that allows users to turn things `on` or `off`. A `CheckBox` instead
+should be used to selected or unselect values e.g. if the user have to choose between multiple options in a list.
 
 ### Properties
 
--   **`checked`**: (_inout_ _bool_): Whether the switch is checked or not.
--   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the switch can't be pressed
--   **`has-focus`**: (_out_ _bool_): Set to true when the switch has keyboard focus.
+-   **`checked`**: (_inout_ _bool_): Whether the switch is checked or not (default: false).
+-   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the switch can't be pressed (default: true).
+-   **`has-focus`**: (_out_ _bool_): Set to true when the switch has keyboard focue (default: false).
 -   **`text`** (_in_ _string_): The text written next to the switch.
 
 ### Callbacks
@@ -480,11 +484,11 @@ A `Switch` is used to toggle between `checked` and `unchecked` state represented
 ### Example
 
 ```slint
-import { CheckBox } from "std-widgets.slint";
+import { Switch } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;
     height: 25px;
-    CheckBox {
+    Switch {
         width: parent.width;
         height: parent.height;
         text: "Hello World";
