@@ -39,6 +39,7 @@ pub enum BuiltinFunction {
     Pow,
     SetFocusItem,
     ShowPopupWindow,
+    /// A function that belongs to an item (such as TextInput's select-all function).
     ItemMemberFunction(String),
     /// the "42".to_float()
     StringToFloat,
