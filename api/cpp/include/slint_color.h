@@ -155,7 +155,7 @@ public:
     ///
     /// For _increasing_ the opacity, see Color::opaque(float) and
     /// Color::with_alpha(float).
-    inline Color translucent(float factor) const;
+    inline Color transparentize(float factor) const;
     /// Returns a new version of this color with the opacity increased by \a factor,
     /// meaning the new opacity will be scaled up by `1.0 + factor`.
     ///
@@ -163,13 +163,13 @@ public:
     /// changed to be at least `0.0` before applying it, and thus the current
     /// value cannot be decreased.
     ///
-    /// For _decreasing_ the opacity, see Color::translucent(float) and
+    /// For _decreasing_ the opacity, see Color::transparentize(float) and
     /// Color::with_alpha(float).
     inline Color opaque(float factor) const;
 
     /// Returns a new color that is a mix of \a this and \a other, with a proportion
     /// factor given by \a factor (which will be clamped to be between `0.0` and `1.0`).
-    inline Color mixed(const Color &other, float factor) const;
+    inline Color mix(const Color &other, float factor) const;
 
     /// Returns a new version of this color with the opacity set to \a alpha.
     inline Color with_alpha(float alpha) const;
@@ -215,10 +215,10 @@ inline Color Color::darker(float factor) const
     return result;
 }
 
-inline Color Color::translucent(float factor) const
+inline Color Color::transparentize(float factor) const
 {
     Color result;
-    cbindgen_private::types::slint_color_translucent(&inner, factor, &result.inner);
+    cbindgen_private::types::slint_color_transparentize(&inner, factor, &result.inner);
     return result;
 }
 
@@ -229,10 +229,10 @@ inline Color Color::opaque(float factor) const
     return result;
 }
 
-inline Color Color::mixed(const Color &other, float factor) const
+inline Color Color::mix(const Color &other, float factor) const
 {
     Color result;
-    cbindgen_private::types::slint_color_mixed(&inner, &other.inner, factor, &result.inner);
+    cbindgen_private::types::slint_color_mix(&inner, &other.inner, factor, &result.inner);
     return result;
 }
 

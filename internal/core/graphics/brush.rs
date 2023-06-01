@@ -135,19 +135,19 @@ impl Brush {
     /// For _increasing_ the opacity, see [`opaque`](fn@Brush::opaque) and
     /// [`with_alpha`](fn@Brush::with_alpha).
     #[must_use]
-    pub fn translucent(&self, amount: f32) -> Self {
+    pub fn transparentize(&self, amount: f32) -> Self {
         match self {
-            Brush::SolidColor(c) => Brush::SolidColor(c.translucent(amount)),
+            Brush::SolidColor(c) => Brush::SolidColor(c.transparentize(amount)),
             Brush::LinearGradient(g) => Brush::LinearGradient(LinearGradientBrush::new(
                 g.angle(),
                 g.stops().map(|s| GradientStop {
-                    color: s.color.translucent(amount),
+                    color: s.color.transparentize(amount),
                     position: s.position,
                 }),
             )),
             Brush::RadialGradient(g) => {
                 Brush::RadialGradient(RadialGradientBrush::new_circle(g.stops().map(|s| {
-                    GradientStop { color: s.color.translucent(amount), position: s.position }
+                    GradientStop { color: s.color.transparentize(amount), position: s.position }
                 })))
             }
         }
@@ -160,7 +160,7 @@ impl Brush {
     /// changed to be at least `0.0` before applying it, and thus the current
     /// value cannot be decreased.
     ///
-    /// For _decreasing_ the opacity, see [`translucent`](fn@Brush::translucent) and
+    /// For _decreasing_ the opacity, see [`transparentize`](fn@Brush::transparentize) and
     /// [`with_alpha`](fn@Brush::with_alpha).
     #[must_use]
     pub fn opaque(&self, amount: f32) -> Self {

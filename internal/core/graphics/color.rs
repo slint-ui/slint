@@ -207,17 +207,17 @@ impl Color {
     /// ```
     /// # use i_slint_core::graphics::Color;
     /// let red = Color::from_argb_u8(255, 255, 0, 0);
-    /// assert_eq!(red.translucent(0.5), Color::from_argb_u8(128, 255, 0, 0));
+    /// assert_eq!(red.transparentize(0.5), Color::from_argb_u8(128, 255, 0, 0));
     /// ```
     ///
     /// Decreasing the opacity of a blue color to be 20% of the current value:
     /// ```
     /// # use i_slint_core::graphics::Color;
     /// let blue = Color::from_argb_u8(200, 0, 0, 255);
-    /// assert_eq!(blue.translucent(0.2), Color::from_argb_u8(40, 0, 0, 255));
+    /// assert_eq!(blue.transparentize(0.2), Color::from_argb_u8(40, 0, 0, 255));
     /// ```
     #[must_use]
-    pub fn translucent(&self, factor: f32) -> Self {
+    pub fn transparentize(&self, factor: f32) -> Self {
         let mut rgba: RgbaColor<u8> = (*self).into();
         rgba.alpha = scale_u8(rgba.alpha, factor.clamp(0.0, 1.0));
         rgba.into()
@@ -230,7 +230,7 @@ impl Color {
     /// changed to be at least `0.0` before applying it, and thus the current
     /// value cannot be decreased.
     ///
-    /// For _decreasing_ the opacity, see [`translucent`](fn@Color::translucent) and
+    /// For _decreasing_ the opacity, see [`transparentize`](fn@Color::transparentize) and
     /// [`with_alpha`](fn@Color::with_alpha).
     ///
     /// # Examples
@@ -263,7 +263,7 @@ impl Color {
     /// # use i_slint_core::graphics::Color;
     /// let red = Color::from_rgb_u8(255, 0, 0);
     /// let black = Color::from_rgb_u8(0, 0, 0);
-    /// assert_eq!(red.mixed(&black, 0.5), Color::from_rgb_u8(128, 0, 0));
+    /// assert_eq!(red.mix(&black, 0.5), Color::from_rgb_u8(128, 0, 0));
     /// ```
     ///
     /// Mix Purple with OrangeRed with `75%`:`25%` ratio:
@@ -271,10 +271,10 @@ impl Color {
     /// # use i_slint_core::graphics::Color;
     /// let purple = Color::from_rgb_u8(128, 0, 128);
     /// let orange_red = Color::from_rgb_u8(255, 69, 0);
-    /// assert_eq!(purple.mixed(&orange_red, 0.75), Color::from_rgb_u8(160, 17, 96));
+    /// assert_eq!(purple.mix(&orange_red, 0.75), Color::from_rgb_u8(160, 17, 96));
     /// ```
     #[must_use]
-    pub fn mixed(&self, other: &Self, factor: f32) -> Self {
+    pub fn mix(&self, other: &Self, factor: f32) -> Self {
         // * NOTE: The opacity (`alpha` as a "percentage") of each color involved
         // *       must be taken into account when mixing them. Because of this,
         // *       we cannot just interpolate between them.
@@ -452,8 +452,8 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn slint_color_translucent(col: &Color, factor: f32, out: *mut Color) {
-        core::ptr::write(out, col.translucent(factor))
+    pub unsafe extern "C" fn slint_color_transparentize(col: &Color, factor: f32, out: *mut Color) {
+        core::ptr::write(out, col.transparentize(factor))
     }
 
     #[no_mangle]
@@ -462,13 +462,13 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn slint_color_mixed(
+    pub unsafe extern "C" fn slint_color_mix(
         col1: &Color,
         col2: &Color,
         factor: f32,
         out: *mut Color,
     ) {
-        core::ptr::write(out, col1.mixed(col2, factor))
+        core::ptr::write(out, col1.mix(col2, factor))
     }
 
     #[no_mangle]
