@@ -23,6 +23,11 @@ All notable changes to this project are documented in this file.
 
  - Added `slint::Image::load_from_svg_data(buffer: &[u8])` to load SVGs from memory.
  - Added `slint::platform::WindowEvent::ScaleFactorChanged` to allow backends to report the current window scale factor.
+ - Added `slint::Image::from_borrowed_gl_2d_rgba_texture` to create images from borrowed OpenGL textures.
+
+### C++
+
+ - Added `slint::Image::create_from_borrowed_gl_2d_rgba_texture` to create images from borrowed OpenGL textures.
 
 ### LSP
 
