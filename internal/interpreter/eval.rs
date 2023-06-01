@@ -680,13 +680,13 @@ fn call_builtin_function(
                 panic!("First argument not a color");
             }
         }
-        BuiltinFunction::ColorTranslucent => {
+        BuiltinFunction::ColorTransparentize => {
             if arguments.len() != 2 {
                 panic!("internal error: incorrect argument count to ColorFaded")
             }
             if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
                 if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
-                    brush.translucent(factor as _).into()
+                    brush.transparentize(factor as _).into()
                 } else {
                     panic!("Second argument not a number");
                 }
@@ -708,9 +708,9 @@ fn call_builtin_function(
                 panic!("First argument not a color");
             }
         }
-        BuiltinFunction::ColorMixed => {
+        BuiltinFunction::ColorMix => {
             if arguments.len() != 3 {
-                panic!("internal error: incorrect argument count to ColorMixed")
+                panic!("internal error: incorrect argument count to ColorMix")
             }
 
             let arg0 = eval_expression(&arguments[0], local_context);
@@ -731,7 +731,7 @@ fn call_builtin_function(
                 unreachable!()
             };
 
-            color_a.mixed(&color_b, factor as _).into()
+            color_a.mix(&color_b, factor as _).into()
         }
         BuiltinFunction::ColorWithAlpha => {
             if arguments.len() != 2 {

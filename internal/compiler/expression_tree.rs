@@ -47,9 +47,9 @@ pub enum BuiltinFunction {
     StringIsFloat,
     ColorBrighter,
     ColorDarker,
-    ColorTranslucent,
+    ColorTransparentize,
     ColorOpaque,
-    ColorMixed,
+    ColorMix,
     ColorWithAlpha,
     ImageSize,
     ArrayLength,
@@ -150,7 +150,7 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Brush),
                 args: vec![Type::Brush, Type::Float32],
             },
-            BuiltinFunction::ColorTranslucent => Type::Function {
+            BuiltinFunction::ColorTransparentize => Type::Function {
                 return_type: Box::new(Type::Brush),
                 args: vec![Type::Brush, Type::Float32],
             },
@@ -158,7 +158,7 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Brush),
                 args: vec![Type::Brush, Type::Float32],
             },
-            BuiltinFunction::ColorMixed => Type::Function {
+            BuiltinFunction::ColorMix => Type::Function {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Color, Type::Color, Type::Float32],
             },
@@ -235,9 +235,9 @@ impl BuiltinFunction {
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
-            | BuiltinFunction::ColorTranslucent
+            | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorOpaque
-            | BuiltinFunction::ColorMixed
+            | BuiltinFunction::ColorMix
             | BuiltinFunction::ColorWithAlpha => true,
             // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
             // we need to make sure that calls to this function stay within a binding, so that the property
@@ -287,9 +287,9 @@ impl BuiltinFunction {
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
-            | BuiltinFunction::ColorTranslucent
+            | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorOpaque
-            | BuiltinFunction::ColorMixed
+            | BuiltinFunction::ColorMix
             | BuiltinFunction::ColorWithAlpha => true,
             BuiltinFunction::ImageSize => true,
             BuiltinFunction::ArrayLength => true,

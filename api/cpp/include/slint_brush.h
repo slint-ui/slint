@@ -144,7 +144,7 @@ public:
     ///
     /// For _increasing_ the opacity, see Brush::opaque(float) and
     /// Brush::with_alpha(float).
-    inline Brush translucent(float factor) const;
+    inline Brush transparentize(float factor) const;
     /// Returns a new version of this brush with the opacity increased by \a factor,
     /// meaning the new opacity will be scaled up by `1.0 + factor`.
     ///
@@ -152,7 +152,7 @@ public:
     /// changed to be at least `0.0` before applying it, and thus the current
     /// value cannot be decreased.
     ///
-    /// For _decreasing_ the opacity, see Brush::translucent(float)
+    /// For _decreasing_ the opacity, see Brush::transparentize(float)
     /// and Brush::with_alpha(float).
     inline Brush opaque(float factor) const;
 
@@ -243,24 +243,24 @@ inline Brush Brush::darker(float factor) const
     return result;
 }
 
-inline Brush Brush::translucent(float factor) const
+inline Brush Brush::transparentize(float factor) const
 {
     Brush result = *this;
     switch (data.tag) {
     case Tag::SolidColor:
-        cbindgen_private::types::slint_color_translucent(&data.solid_color._0, factor,
+        cbindgen_private::types::slint_color_transparentize(&data.solid_color._0, factor,
                                                          &result.data.solid_color._0);
         break;
     case Tag::LinearGradient:
         for (std::size_t i = 1; i < data.linear_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_translucent(
+            cbindgen_private::types::slint_color_transparentize(
                     &data.linear_gradient._0[i].color, factor,
                     &result.data.linear_gradient._0[i].color);
         }
         break;
     case Tag::RadialGradient:
         for (std::size_t i = 0; i < data.linear_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_translucent(
+            cbindgen_private::types::slint_color_transparentize(
                     &data.radial_gradient._0[i].color, factor,
                     &result.data.radial_gradient._0[i].color);
         }
