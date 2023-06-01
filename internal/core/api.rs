@@ -746,6 +746,19 @@ pub enum EventLoopError {
     NoEventLoopProvider,
 }
 
+impl core::fmt::Display for EventLoopError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            EventLoopError::EventLoopTerminated => {
+                f.write_str("The event loop was already terminated")
+            }
+            EventLoopError::NoEventLoopProvider => {
+                f.write_str("The Slint platform do not provide an event loop")
+            }
+        }
+    }
+}
+
 /// The platform encountered a fatal error.
 ///
 /// This error typically indicates an issue with initialization or connecting to the windowing system.

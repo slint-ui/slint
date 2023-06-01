@@ -46,6 +46,8 @@ extern "C" {
 
     #[wasm_bindgen(typescript_type = "CurrentElementInformationCallbackFunction")]
     pub type CurrentElementInformationCallbackFunction;
+    #[wasm_bindgen(typescript_type = "Promise<WrappedInstance>")]
+    pub type InstancePromise;
 }
 
 /// Compile the content of a string.
@@ -155,14 +157,35 @@ impl WrappedCompiledComp {
         let component = self.0.create_with_canvas_id(&canvas_id).unwrap();
         component.run().unwrap();
     }
-    /// Creates this compiled component in a canvas.
+    /// Creates this compiled component in a canvas, wrapped in a promise.
     /// The HTML must contains a <canvas> element with the given `canvas_id`
     /// where the result is gonna be rendered.
-    /// You need to call `show()` on the returned instance for rendering and
-    /// `slint.run_event_loop()` loop to make it interactive.
+    /// You need to call `show()` on the returned instance for rendering.
+    ///
+    /// Note that the promise will only be resolved after calling `slint.run_event_loop()`.
     #[wasm_bindgen]
-    pub fn create(&self, canvas_id: String) -> Result<WrappedInstance, JsValue> {
-        Ok(WrappedInstance(self.0.create_with_canvas_id(&canvas_id).unwrap()))
+    pub fn create(&self, canvas_id: String) -> Result<InstancePromise, JsValue> {
+        Ok(JsValue::from(js_sys::Promise::new(&mut |resolve, reject| {
+            let comp = send_wrapper::SendWrapper::new(self.0.clone());
+            let canvas_id = canvas_id.clone();
+            let resolve = send_wrapper::SendWrapper::new(resolve);
+            if let Err(e) = slint_interpreter::invoke_from_event_loop(move || {
+                let instance =
+                    WrappedInstance(comp.take().create_with_canvas_id(&canvas_id).unwrap());
+                resolve.take().call1(&JsValue::UNDEFINED, &JsValue::from(instance)).unwrap_throw();
+            }) {
+                reject
+                    .call1(
+                        &JsValue::UNDEFINED,
+                        &JsValue::from(
+                            format!("internal error: Failed to queue closure for event loop invocation: {e}"),
+                        ),
+                    )
+                    .unwrap_throw();
+            }
+        })).unchecked_into::<InstancePromise>())
+
+        //Ok()
     }
     /// Creates this compiled component in the canvas of the provided instance.
     /// For this to work, the provided instance needs to be visible (show() must've been

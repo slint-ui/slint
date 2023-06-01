@@ -20,6 +20,7 @@ highlight = ["slint-interpreter/highlight"]
 
 [dependencies]
 slint-interpreter = { path = "../../internal/interpreter", default-features = false, features = ["std", "backend-winit", "renderer-winit-femtovg", "compat-1-0"] }
+send_wrapper = { workspace = true }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 

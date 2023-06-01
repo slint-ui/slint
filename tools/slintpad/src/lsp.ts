@@ -275,8 +275,6 @@ class PreviewerBackend {
             // It's not enough for the canvas element to exist, in order to extract a webgl rendering
             // context, the element needs to be attached to the window's dom.
             if (this.#instance == null) {
-                this.#instance = component.create(this.canvas_id!); // eslint-disable-line
-                this.#instance.show();
                 try {
                     if (!is_event_loop_running) {
                         slint_preview.run_event_loop();
@@ -289,6 +287,8 @@ class PreviewerBackend {
                     // the model markers.
                     is_event_loop_running = true; // Assume the winit caused the exception and that the event loop is up now
                 }
+                this.#instance = await component.create(this.canvas_id!); // eslint-disable-line
+                this.#instance.show();
             } else {
                 this.#instance = component.create_with_existing_window(
                     this.#instance,
