@@ -160,87 +160,89 @@ impl FemtoVGRenderer {
         let window_inner = WindowInner::from_pub(window);
         let scale = window_inner.scale_factor().ceil();
 
-        window_inner.draw_contents(|components| -> Result<(), PlatformError> {
-            let window_background_brush =
-                window_inner.window_item().map(|w| w.as_pin_ref().background());
+        window_inner
+            .draw_contents(|components| -> Result<(), PlatformError> {
+                let window_background_brush =
+                    window_inner.window_item().map(|w| w.as_pin_ref().background());
 
-            {
-                let mut femtovg_canvas = self.canvas.borrow_mut();
-                // We pass an integer that is greater than or equal to the scale factor as
-                // dpi / device pixel ratio as the anti-alias of femtovg needs that to draw text clearly.
-                // We need to care about that `ceil()` when calculating metrics.
-                femtovg_canvas.set_size(width, height, scale);
+                {
+                    let mut femtovg_canvas = self.canvas.borrow_mut();
+                    // We pass an integer that is greater than or equal to the scale factor as
+                    // dpi / device pixel ratio as the anti-alias of femtovg needs that to draw text clearly.
+                    // We need to care about that `ceil()` when calculating metrics.
+                    femtovg_canvas.set_size(width, height, scale);
 
-                // Clear with window background if it is a solid color otherwise it will drawn as gradient
-                if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
-                    femtovg_canvas.clear_rect(
-                        0,
-                        0,
-                        width,
-                        height,
-                        self::itemrenderer::to_femtovg_color(&clear_color),
-                    );
+                    // Clear with window background if it is a solid color otherwise it will drawn as gradient
+                    if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
+                        femtovg_canvas.clear_rect(
+                            0,
+                            0,
+                            width,
+                            height,
+                            self::itemrenderer::to_femtovg_color(&clear_color),
+                        );
+                    }
                 }
-            }
 
-            if let Some(notifier_fn) = self.rendering_notifier.borrow_mut().as_mut() {
-                let mut femtovg_canvas = self.canvas.borrow_mut();
-                // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
-                // the back buffer, in order to allow the callback to provide its own rendering of the background.
-                // femtovg's clear_rect() will merely schedule a clear call, so flush right away to make it immediate.
+                if let Some(notifier_fn) = self.rendering_notifier.borrow_mut().as_mut() {
+                    let mut femtovg_canvas = self.canvas.borrow_mut();
+                    // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
+                    // the back buffer, in order to allow the callback to provide its own rendering of the background.
+                    // femtovg's clear_rect() will merely schedule a clear call, so flush right away to make it immediate.
 
-                femtovg_canvas.flush();
+                    femtovg_canvas.flush();
 
-                femtovg_canvas.set_size(width, height, scale);
-                drop(femtovg_canvas);
+                    femtovg_canvas.set_size(width, height, scale);
+                    drop(femtovg_canvas);
 
-                self.with_graphics_api(|api| {
-                    notifier_fn.notify(RenderingState::BeforeRendering, &api)
-                })?;
-            }
-
-            let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
-                &self.canvas,
-                &self.graphics_cache,
-                &self.texture_cache,
-                window,
-                width,
-                height,
-            );
-
-            // Draws the window background as gradient
-            match window_background_brush {
-                Some(Brush::SolidColor(..)) | None => {}
-                Some(brush @ _) => {
-                    item_renderer.draw_rect(
-                        i_slint_core::lengths::logical_size_from_api(
-                            size.to_logical(window_inner.scale_factor()),
-                        ),
-                        brush,
-                    );
+                    self.with_graphics_api(|api| {
+                        notifier_fn.notify(RenderingState::BeforeRendering, &api)
+                    })?;
                 }
-            }
 
-            for (component, origin) in components {
-                i_slint_core::item_rendering::render_component_items(
-                    component,
-                    &mut item_renderer,
-                    *origin,
+                let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
+                    &self.canvas,
+                    &self.graphics_cache,
+                    &self.texture_cache,
+                    window,
+                    width,
+                    height,
                 );
-            }
 
-            if let Some(collector) = &self.rendering_metrics_collector.borrow().as_ref() {
-                collector.measure_frame_rendered(&mut item_renderer);
-            }
+                // Draws the window background as gradient
+                match window_background_brush {
+                    Some(Brush::SolidColor(..)) | None => {}
+                    Some(brush @ _) => {
+                        item_renderer.draw_rect(
+                            i_slint_core::lengths::logical_size_from_api(
+                                size.to_logical(window_inner.scale_factor()),
+                            ),
+                            brush,
+                        );
+                    }
+                }
 
-            self.canvas.borrow_mut().flush();
+                for (component, origin) in components {
+                    i_slint_core::item_rendering::render_component_items(
+                        component,
+                        &mut item_renderer,
+                        *origin,
+                    );
+                }
 
-            // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
-            // avoid GPU memory leaks.
-            self.texture_cache.borrow_mut().drain();
-            drop(item_renderer);
-            Ok(())
-        })?;
+                if let Some(collector) = &self.rendering_metrics_collector.borrow().as_ref() {
+                    collector.measure_frame_rendered(&mut item_renderer);
+                }
+
+                self.canvas.borrow_mut().flush();
+
+                // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
+                // avoid GPU memory leaks.
+                self.texture_cache.borrow_mut().drain();
+                drop(item_renderer);
+                Ok(())
+            })
+            .unwrap_or(Ok(()))?;
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
             self.with_graphics_api(|api| callback.notify(RenderingState::AfterRendering, &api))?;

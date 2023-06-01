@@ -664,12 +664,13 @@ impl WindowInner {
 
     /// Calls the render_components to render the main component and any sub-window components, tracked by a
     /// property dependency tracker.
+    /// Returns None if no component is set yet.
     pub fn draw_contents<T>(
         &self,
         render_components: impl FnOnce(&[(&ComponentRc, LogicalPoint)]) -> T,
-    ) -> T {
+    ) -> Option<T> {
         let draw_fn = || {
-            let component_rc = self.component();
+            let component_rc = self.try_component()?;
 
             let popup_component =
                 self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
@@ -679,14 +680,14 @@ impl WindowInner {
                     }
                 });
 
-            if let Some((popup_component, popup_coordinates)) = popup_component {
+            Some(if let Some((popup_component, popup_coordinates)) = popup_component {
                 render_components(&[
                     (&component_rc, LogicalPoint::default()),
                     (&popup_component, popup_coordinates),
                 ])
             } else {
                 render_components(&[(&component_rc, LogicalPoint::default())])
-            }
+            })
         };
 
         self.pinned_fields
@@ -1210,4 +1211,24 @@ pub mod ffi {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.window().0.process_mouse_input(event);
     }
+}
+
+#[test]
+fn test_empty_window() {
+    // Test that when creating an empty window without a component, we don't panic when render() is called.
+    // This isn't typically done intentionally, but for example if we receive a paint event in Qt before a component
+    // is set, this may happen. Concretely as per #2799 this could happen with popups where the call to
+    // QWidget::show() with egl delivers an immediate paint event, before we've had a chance to call set_component.
+    // Let's emulate this scenario here using public platform API.
+
+    let msw = crate::software_renderer::MinimalSoftwareWindow::new(
+        crate::software_renderer::RepaintBufferType::NewBuffer,
+    );
+    msw.window().request_redraw();
+    msw.draw_if_needed(|renderer| {
+        let mut buffer =
+            crate::graphics::SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::new(100, 100);
+        let stride = buffer.width() as usize;
+        renderer.render(buffer.make_mut_slice(), stride);
+    });
 }
