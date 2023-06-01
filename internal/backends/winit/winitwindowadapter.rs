@@ -495,6 +495,14 @@ impl WindowAdapterSealed for WinitWindowAdapter {
             }
         }
 
+        // In wasm a request_redraw() issued before show() results in a draw() even when the window
+        // isn't visible, as opposed to regular windowing systems. The compensate for the lost draw,
+        // explicitly render the first frame on show().
+        #[cfg(target_arch = "wasm32")]
+        if self.pending_redraw.get() {
+            self.draw()?;
+        };
+
         Ok(())
     }
 

@@ -566,10 +566,9 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                 windows_with_pending_redraw_requests.clear();
                 ALL_WINDOWS.with(|windows| {
                     for (window_id, window_weak) in windows.borrow().iter() {
-                        if window_weak
-                            .upgrade()
-                            .map_or(false, |window| window.take_pending_redraw())
-                        {
+                        if window_weak.upgrade().map_or(false, |window| {
+                            window.is_shown() && window.take_pending_redraw()
+                        }) {
                             if let Err(insert_pos) =
                                 windows_with_pending_redraw_requests.binary_search(window_id)
                             {
