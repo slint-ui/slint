@@ -2285,7 +2285,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             format!(r#"{}.get()"#, access)
         }
         Expression::BuiltinFunctionCall { function, arguments } => {
-            compile_builtin_function_call(*function, arguments, ctx)
+            compile_builtin_function_call(function.clone(), arguments, ctx)
         }
         Expression::CallBackCall{ callback, arguments } => {
             let f = access_member(callback, ctx);
@@ -2760,6 +2760,24 @@ fn compile_builtin_function_call(
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
+            }
+        }
+        BuiltinFunction::ItemMemberFunction(name) => {
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                let item = access_member(pr, ctx);
+                let item_rc = access_item_rc(pr, ctx);
+                let window = access_window_field(ctx);
+                let native = native_item(pr, ctx);
+
+                let function_name = format!(
+                    "slint_{}_{}",
+                    native.class_name.to_lowercase(),
+                    ident(&name).to_lowercase()
+                );
+
+                format!("{function_name}(&{item}, &{window}.handle(), &{item_rc})")
+            } else {
+                panic!("internal error: invalid args to ItemMemberFunction {:?}", arguments)
             }
         }
         BuiltinFunction::RegisterCustomFontByPath => {

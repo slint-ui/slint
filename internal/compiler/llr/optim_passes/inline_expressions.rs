@@ -33,7 +33,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::ArrayIndex { .. } => ARRAY_INDEX_COST,
         Expression::Cast { .. } => 0,
         Expression::CodeBlock(_) => 0,
-        Expression::BuiltinFunctionCall { function, .. } => builtin_function_cost(*function),
+        Expression::BuiltinFunctionCall { function, .. } => builtin_function_cost(function),
         Expression::CallBackCall { callback, .. } => callback_cost(callback, ctx),
         Expression::FunctionCall { function, .. } => callback_cost(function, ctx),
         Expression::ExtraBuiltinFunctionCall { .. } => return isize::MAX,
@@ -66,7 +66,7 @@ fn callback_cost(_callback: &crate::llr::PropertyReference, _ctx: &EvaluationCon
     isize::MAX
 }
 
-fn builtin_function_cost(function: BuiltinFunction) -> isize {
+fn builtin_function_cost(function: &BuiltinFunction) -> isize {
     match function {
         BuiltinFunction::GetWindowScaleFactor => PROPERTY_ACCESS_COST,
         BuiltinFunction::GetWindowDefaultFontSize => PROPERTY_ACCESS_COST,
@@ -88,6 +88,7 @@ fn builtin_function_cost(function: BuiltinFunction) -> isize {
         BuiltinFunction::Pow => 10,
         BuiltinFunction::SetFocusItem => isize::MAX,
         BuiltinFunction::ShowPopupWindow => isize::MAX,
+        BuiltinFunction::ItemMemberFunction(..) => isize::MAX,
         BuiltinFunction::StringToFloat => 50,
         BuiltinFunction::StringIsFloat => 50,
         BuiltinFunction::ColorBrighter => 50,

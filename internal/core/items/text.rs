@@ -355,14 +355,14 @@ impl Item for TextInput {
                 let clicked_offset = self.byte_offset_for_position(position, window_adapter) as i32;
                 self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
-                self.paste(window_adapter, self_rc, Clipboard::SelectionClipboard);
+                self.paste_clipboard(window_adapter, self_rc, Clipboard::SelectionClipboard);
                 if !self.has_focus() {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
                 }
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 self.as_ref().pressed.set(0);
-                self.copy(Clipboard::SelectionClipboard);
+                self.copy_clipboard(Clipboard::SelectionClipboard);
             }
             MouseEvent::Exit => {
                 window_adapter.set_mouse_cursor(super::MouseCursor::Default);
@@ -481,16 +481,15 @@ impl Item for TextInput {
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Copy => {
-                            self.copy(Clipboard::DefaultClipboard);
+                            self.copy(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Paste if !self.read_only() => {
-                            self.paste(window_adapter, self_rc, Clipboard::DefaultClipboard);
+                            self.paste(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Cut if !self.read_only() => {
-                            self.copy(Clipboard::DefaultClipboard);
-                            self.delete_selection(window_adapter, self_rc);
+                            self.cut(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Paste | StandardShortcut::Cut => {
@@ -967,7 +966,12 @@ impl TextInput {
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
-    fn select_all(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn cut(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        self.copy(window_adapter, self_rc);
+        self.delete_selection(window_adapter, self_rc);
+    }
+
+    pub fn select_all(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         self.move_cursor(
             TextCursorDirection::StartOfText,
             AnchorMode::MoveAnchor,
@@ -1012,7 +1016,11 @@ impl TextInput {
         self.set_cursor_position(new_c as i32, true, window_adapter, self_rc);
     }
 
-    fn copy(self: Pin<&Self>, clipboard: Clipboard) {
+    pub fn copy(self: Pin<&Self>, _: &Rc<dyn WindowAdapter>, _: &ItemRc) {
+        self.copy_clipboard(Clipboard::DefaultClipboard);
+    }
+
+    fn copy_clipboard(self: Pin<&Self>, clipboard: Clipboard) {
         let (anchor, cursor) = self.selection_anchor_and_cursor();
         if anchor == cursor {
             return;
@@ -1025,7 +1033,11 @@ impl TextInput {
         });
     }
 
-    fn paste(
+    pub fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        self.paste_clipboard(window_adapter, self_rc, Clipboard::DefaultClipboard);
+    }
+
+    fn paste_clipboard(
         self: Pin<&Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
@@ -1189,4 +1201,56 @@ fn next_word_boundary(text: &str, last_cursor_pos: usize) -> usize {
     text.unicode_word_indices()
         .find(|(offset, slice)| *offset + slice.len() >= last_cursor_pos)
         .map_or(text.len(), |(offset, slice)| offset + slice.len())
+}
+
+#[cfg(feature = "ffi")]
+#[no_mangle]
+pub unsafe extern "C" fn slint_textinput_select_all(
+    text_input: *const TextInput,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::component::ComponentVTable>,
+    self_index: usize,
+) {
+    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    Pin::new_unchecked(&*text_input).as_ref().select_all(window_adapter, &self_rc);
+}
+
+#[cfg(feature = "ffi")]
+#[no_mangle]
+pub unsafe extern "C" fn slint_textinput_cut(
+    text_input: *const TextInput,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::component::ComponentVTable>,
+    self_index: usize,
+) {
+    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    Pin::new_unchecked(&*text_input).as_ref().cut(window_adapter, &self_rc);
+}
+
+#[cfg(feature = "ffi")]
+#[no_mangle]
+pub unsafe extern "C" fn slint_textinput_copy(
+    text_input: *const TextInput,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::component::ComponentVTable>,
+    self_index: usize,
+) {
+    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    Pin::new_unchecked(&*text_input).as_ref().copy(window_adapter, &self_rc);
+}
+
+#[cfg(feature = "ffi")]
+#[no_mangle]
+pub unsafe extern "C" fn slint_textinput_paste(
+    text_input: *const TextInput,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::component::ComponentVTable>,
+    self_index: usize,
+) {
+    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+    let self_rc = ItemRc::new(self_component.clone(), self_index);
+    Pin::new_unchecked(&*text_input).as_ref().paste(window_adapter, &self_rc);
 }

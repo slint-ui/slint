@@ -15,6 +15,21 @@ export component LineEditInner inherits Rectangle {
     in-out property input-type <=> input.input-type;
     in-out property horizontal-alignment <=> input.horizontal-alignment;
     in-out property read-only <=> input.read-only;
+
+
+    public function select-all() {
+        input.select-all();
+    }
+    public function cut() {
+        input.cut();
+    }
+    public function copy() {
+        input.copy();
+    }
+    public function paste() {
+        input.paste();
+    }    
+
     min-height: input.preferred-height;
     min-width: max(50px, placeholder.min-width);
     clip: true;
@@ -54,6 +69,19 @@ export component TextEdit inherits ScrollView {
     in property read-only <=> input.read-only;
     callback edited(string);
     forward-focus: input;
+
+    public function select-all() {
+        input.select-all();
+    }
+    public function cut() {
+        input.cut();
+    }
+    public function copy() {
+        input.copy();
+    }
+    public function paste() {
+        input.paste();
+    }
 
     horizontal-stretch: 1;
     vertical-stretch: 1;

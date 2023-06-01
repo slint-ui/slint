@@ -170,6 +170,14 @@ a widget able to handle several lines of text.
 -   **`read-only`** (_in_ _bool_): When set to `true`, text editing via keyboard and mouse is disabled but
 -   **`text`** (_in-out_ _string_): The text being edited
 
+### Functions
+
+-   **`focus()`** Call this function to focus the LineEdit and make it receive future keyboard events.
+-   **`select-all()`** Selects all text.
+-   **`copy()`** Copies the selected text to the clipboard.
+-   **`cut()`** Copies the selected text to the clipboard and removes it from the editable area.
+-   **`paste()`** Pastes the text content of the clipboard at the cursor position.
+
 ### Callbacks
 
 -   **`accepted(`_`string`_`)`**: Enter was pressed
@@ -555,6 +563,14 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 -   **`read-only`** (_in_ _bool_): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically (default value: `false`)
 -   **`wrap`** (_in_ _enum [`TextWrap`](enums.md#textwrap)_): The way the text wraps (default: word-wrap).
 -   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
+
+### Functions
+
+-   **`focus()`** Call this function to focus the TextEdit and make it receive future keyboard events.
+-   **`select-all()`** Selects all text.
+-   **`copy()`** Copies the selected text to the clipboard.
+-   **`cut()`** Copies the selected text to the clipboard and removes it from the editable area.
+-   **`paste()`** Pastes the text content of the clipboard at the cursor position.
 
 ### Callbacks
 

@@ -18,6 +18,7 @@ All notable changes to this project are documented in this file.
  - Added `ProgressIndicator` widget.
  - Added `Switch` widget.
  - Added boolean `font-italic` property to `Text` and `TextInput`.
+ - Added `select-all()`, `cut()`, `copy()`, and `paste() to `TextInput`, `LineEdit`, and `TextEdit`.
 
 ### Rust
 

@@ -125,6 +125,19 @@ export component LineEdit {
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
+    public function select-all() {
+        inner.select-all();
+    }
+    public function cut() {
+        inner.cut();
+    }
+    public function copy() {
+        inner.copy();
+    }
+    public function paste() {
+        inner.paste();
+    }
+
     native := NativeLineEdit {
         has-focus <=> root.has-focus;
         enabled: root.enabled;

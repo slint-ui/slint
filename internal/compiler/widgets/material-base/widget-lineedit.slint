@@ -17,6 +17,19 @@ export component LineEdit {
     callback accepted(string);
     callback edited(string);
 
+    public function select-all() {
+        input.select-all();
+    }
+    public function cut() {
+        input.cut();
+    }
+    public function copy() {
+        input.copy();
+    }
+    public function paste() {
+        input.paste();
+    }
+
     min-width: 120px;
     height: 56px;
     forward-focus: input;

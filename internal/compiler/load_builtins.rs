@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::expression_tree::Expression;
+use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyInfo, DefaultSizeBinding, ElementType, NativeClass, Type,
 };
@@ -133,7 +133,7 @@ pub fn load_builtins(register: &mut TypeRegister) {
                             }),
                         }),
                     )
-                })),
+                }))
         );
         n.deprecated_aliases = e
             .PropertyDeclaration()
@@ -167,6 +167,20 @@ pub fn load_builtins(register: &mut TypeRegister) {
         } else {
             Base::None
         };
+
+        let member_functions = e
+            .Function()
+            .map(|f| {
+                let name = identifier_text(&f.DeclaredIdentifier()).unwrap();
+                (name.clone(), BuiltinFunction::ItemMemberFunction(name))
+            })
+            .collect::<Vec<_>>();
+        n.properties.extend(
+            member_functions
+                .iter()
+                .map(|(name, fun)| (name.clone(), BuiltinPropertyInfo::new(fun.ty()))),
+        );
+
         let mut builtin = BuiltinElement::new(Rc::new(n));
         builtin.is_global = matches!(base, Base::Global);
         let properties = &mut builtin.properties;
@@ -176,6 +190,7 @@ pub fn load_builtins(register: &mut TypeRegister) {
         properties
             .extend(builtin.native_class.properties.iter().map(|(k, v)| (k.clone(), v.clone())));
 
+        builtin.member_functions.extend(member_functions);
         builtin.disallow_global_types_as_child_elements =
             parse_annotation("disallow_global_types_as_child_elements", &e).is_some();
         builtin.is_non_item_type = parse_annotation("is_non_item_type", &e).is_some();

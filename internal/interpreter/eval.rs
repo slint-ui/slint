@@ -220,7 +220,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
                 invoke_callback(local_context.component_instance, &nr.element(), nr.name(), &args).unwrap()
             }
-            Expression::BuiltinFunctionReference(f, _) => call_builtin_function(*f, arguments, local_context),
+            Expression::BuiltinFunctionReference(f, _) => call_builtin_function(f.clone(), arguments, local_context),
             _ => panic!("call of something not a callback: {function:?}"),
         }
         Expression::SelfAssignment { lhs, rhs, op, .. } => {
@@ -579,6 +579,57 @@ fn call_builtin_function(
                 Value::Void
             } else {
                 panic!("internal error: argument to SetFocusItem must be an element")
+            }
+        }
+        BuiltinFunction::ItemMemberFunction(name) => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to item member function call")
+            }
+            let component = match local_context.component_instance {
+                ComponentInstance::InstanceRef(c) => c,
+                ComponentInstance::GlobalComponent(_) => {
+                    panic!("Cannot invoke member function on item from a global component")
+                }
+            };
+            if let Expression::ElementReference(element) = &arguments[0] {
+                generativity::make_guard!(guard);
+
+                let elem = element.upgrade().unwrap();
+                let enclosing_component = enclosing_component_for_element(&elem, component, guard);
+                let component_type = enclosing_component.component_type;
+                let item_info = &component_type.items[elem.borrow().id.as_str()];
+                let item_ref =
+                    unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+
+                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+                let item_rc = corelib::items::ItemRc::new(
+                    vtable::VRc::into_dyn(item_comp),
+                    item_info.item_index(),
+                );
+
+                let window_adapter = window_adapter_ref(component).unwrap();
+
+                // TODO: Make this generic through RTTI
+                if let Some(textinput) =
+                    ItemRef::downcast_pin::<corelib::items::TextInput>(item_ref)
+                {
+                    match &*name {
+                        "select_all" => textinput.select_all(window_adapter, &item_rc),
+                        "cut" => textinput.cut(window_adapter, &item_rc),
+                        "copy" => textinput.copy(window_adapter, &item_rc),
+                        "paste" => textinput.paste(window_adapter, &item_rc),
+                        _ => panic!("internal: Unknown member function {name} called on TextInput"),
+                    }
+                } else {
+                    panic!(
+                        "internal error: member function called on element that doesn't have it: {}",
+                        elem.borrow().original_name()
+                    )
+                }
+
+                Value::Void
+            } else {
+                panic!("internal error: argument to TextInputSelectAll must be an element")
             }
         }
         BuiltinFunction::StringIsFloat => {

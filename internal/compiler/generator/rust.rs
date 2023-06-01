@@ -1901,7 +1901,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             primitive_property_value(prop_type, access)
         }
         Expression::BuiltinFunctionCall { function, arguments } => {
-            compile_builtin_function_call(*function, arguments, ctx)
+            compile_builtin_function_call(function.clone(), arguments, ctx)
         }
         Expression::CallBackCall { callback, arguments } => {
             let f = access_member(callback, ctx);
@@ -2262,6 +2262,19 @@ fn compile_builtin_function_call(
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
+            }
+        }
+        BuiltinFunction::ItemMemberFunction(name) => {
+            if let [Expression::PropertyReference(pr)] = arguments {
+                let item = access_member(pr, ctx);
+                let item_rc = access_item_rc(pr, ctx);
+                let window_adapter_tokens = access_window_adapter_field(ctx);
+                let name = ident(&name);
+                quote!(
+                    #item.#name(#window_adapter_tokens, #item_rc)
+                )
+            } else {
+                panic!("internal error: invalid args to ItemMemberFunction {:?}", arguments)
             }
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {

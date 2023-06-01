@@ -505,6 +505,19 @@ export component LineEdit {
     forward-focus: inner;
   //  border-color: root.has-focus ? Palette.highlight-background : #ffffff;
 
+    public function select-all() {
+        inner.select-all();
+    }
+    public function cut() {
+        inner.cut();
+    }
+    public function copy() {
+        inner.copy();
+    }
+    public function paste() {
+        inner.paste();
+    }
+
     horizontal-stretch: 1;
     vertical-stretch: 0;
     min-height: max(32px, l.min-height);
