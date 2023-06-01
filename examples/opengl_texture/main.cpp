@@ -311,7 +311,7 @@ private:
         glVertexAttribPointer(position_location, 2, GL_FLOAT, false, 8, 0);
     }
 
-    slint::BorrowedOpenGLTexture render(float red, float green, float blue, int width, int height)
+    slint::Image render(float red, float green, float blue, int width, int height)
     {
         ScopedVBOBinding savedVBO(vbo);
         ScopedVAOBinding savedVAO(vao);
@@ -342,9 +342,10 @@ private:
 
         glUseProgram(0);
 
-        slint::BorrowedOpenGLTexture resultTexture(next_texture->texture,
-                                                   { static_cast<uint32_t>(next_texture->width),
-                                                     static_cast<uint32_t>(next_texture->height) });
+        auto resultTexture = slint::Image::create_from_borrowed_gl_2d_rgba_texture(
+                next_texture->texture,
+                { static_cast<uint32_t>(next_texture->width),
+                  static_cast<uint32_t>(next_texture->height) });
 
         std::swap(next_texture, displayed_texture);
 

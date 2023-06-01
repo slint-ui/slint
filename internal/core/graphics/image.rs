@@ -611,6 +611,25 @@ impl Image {
         })
     }
 
+    /// Creates a new Image from an existing OpenGL texture. The texture remains borrowed by Slint
+    /// for the duration of being used for rendering, such as when assigned as source property to
+    /// an `Image` element. It's the application's responsibility to delete the texture when it is
+    /// not used anymore.
+    ///
+    /// The texture must be bindable against the `GL_TEXTURE_2D` target, have `GL_RGBA` as format
+    /// for the pixel data.
+    ///
+    /// Safety: This method is marked as unsafe as passing invalid texture ids may result in
+    /// undefined behavior in OpenGL drivers.
+    #[allow(unsafe_code)]
+    #[cfg(not(target_arch = "wasm32"))]
+    pub unsafe fn from_borrowed_gl_2d_rgba_texture(
+        texture_id: core::num::NonZeroU32,
+        size: IntSize,
+    ) -> Self {
+        Image(ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { texture_id, size }))
+    }
+
     /// Creates a new Image from the specified buffer, which contains SVG raw data.
     #[cfg(feature = "svg")]
     pub fn load_from_svg_data(buffer: &[u8]) -> Result<Self, LoadImageError> {
@@ -795,9 +814,8 @@ pub(crate) mod ffi {
     }
 }
 
-/// This structure contains fields to identify and render an OpenGL texture that Slint borrows from the applicatin code.
-/// Use this to embed a native OpenGL texture into a Slint scene, by creating the texture with [`Self::new()`] and
-/// converting it into an [`Image`] using `.into()`.
+/// This structure contains fields to identify and render an OpenGL texture that Slint borrows from the application code.
+/// Use this to embed a native OpenGL texture into a Slint scene.
 ///
 /// The ownership of the texture remains with the application. It is the application's responsibility to delete the texture
 /// when it is not used anymore.
@@ -812,20 +830,4 @@ pub struct BorrowedOpenGLTexture {
     pub texture_id: core::num::NonZeroU32,
     /// The size of the texture in pixels.
     pub size: IntSize,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl BorrowedOpenGLTexture {
-    /// Constructs a new OpenGL texture wrapper, where Slint borrows the provided native textured with the
-    /// specified texture_id and size.
-    pub fn new(texture_id: core::num::NonZeroU32, size: IntSize) -> Self {
-        Self { texture_id, size }
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl From<BorrowedOpenGLTexture> for Image {
-    fn from(value: BorrowedOpenGLTexture) -> Self {
-        ImageInner::BorrowedOpenGLTexture(value).into()
-    }
 }
