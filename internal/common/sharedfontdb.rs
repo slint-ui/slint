@@ -17,7 +17,7 @@ pub struct FontDatabase {
         target_arch = "wasm32"
     )))]
     pub fontconfig_fallback_families: Vec<String>,
-    // Default font famiilies to use instead of SansSerif when SLINT_DEFAULT_FONT env var is set.
+    // Default font families to use instead of SansSerif when SLINT_DEFAULT_FONT env var is set.
     pub default_font_family_ids: Vec<fontdb::ID>,
     // Same as default_font_families but reduced to unique family names
     default_font_family_names: Vec<String>,
