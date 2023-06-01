@@ -68,42 +68,6 @@ private:
     SharedVector<Pixel> m_data;
 };
 
-/// This structure contains fields to identify and render an OpenGL texture that Slint borrows from
-/// the applicatin code. Use this to embed a native OpenGL texture into a Slint scene, by
-/// constructing the `BorrowedOpenGLTexture` and then a `Image` from it.
-///
-/// The ownership of the texture remains with the application. It is the application's
-/// responsibility to delete the texture when it is not used anymore.
-///
-/// Note that only 2D RGBA textures are supported.
-struct BorrowedOpenGLTexture
-{
-public:
-    BorrowedOpenGLTexture() = delete;
-    /// Constructs a new BorrowedOpenGLTexture with the given \a texture_id and \a size. The \a
-    /// texture_id and \a size must be non-zero. The underlying texture must be a 2D RGBA texture
-    /// and ownership remains with the caller.
-    BorrowedOpenGLTexture(uint32_t texture_id, Size<unsigned int> size) : inner { texture_id, size }
-    {
-    }
-
-    /// Returns the OpenGL texture id.
-    uint32_t texture_id() const { return inner.texture_id; }
-    /// Returns the size of the texture in pixels.
-    Size<unsigned int> size() const { return inner.size; }
-
-    /// Compares two borrowed OpenGL textures. They are considered equal if all their ids and sizes
-    /// are equal.
-    bool operator==(const BorrowedOpenGLTexture &other) const = default;
-    /// Compares two borrowed OpenGL textures. They are considered equal if any of their ids and
-    /// sizes differ.
-    bool operator!=(const BorrowedOpenGLTexture &other) const = default;
-
-private:
-    cbindgen_private::types::BorrowedOpenGLTexture inner;
-    friend struct Image;
-};
-
 /// An image type that can be displayed by the Image element
 ///
 /// You can construct Image objects from a path to an image file on disk, using
@@ -155,6 +119,22 @@ public:
         return img;
     }
 
+    /// Constructs a new Image from an existing OpenGL texture. The texture remains borrowed by
+    /// Slint for the duration of being used for rendering, such as when assigned as source property
+    /// to an `Image` element. It's the application's responsibility to delete the texture when it
+    /// is not used anymore.
+    ///
+    /// The texture must be bindable against the `GL_TEXTURE_2D` target, have `GL_RGBA` as format
+    /// for the pixel data.
+    [[nodiscard]] static Image create_from_borrowed_gl_2d_rgba_texture(uint32_t texture_id,
+                                                                       Size<unsigned int> size)
+    {
+        return Image(Data::ImageInner_BorrowedOpenGLTexture(
+                cbindgen_private::types::BorrowedOpenGLTexture { texture_id, size })
+
+        );
+    }
+
     /// Construct an image from a SharedPixelBuffer of RGB pixels.
     Image(SharedPixelBuffer<Rgb8Pixel> buffer)
         : data(Data::ImageInner_EmbeddedImage(
@@ -176,12 +156,6 @@ public:
                                 .width = buffer.width(),
                                 .height = buffer.height(),
                                 .data = buffer.m_data })))
-    {
-    }
-
-    /// Construct an image from a borrowed OpenGL texture.
-    Image(BorrowedOpenGLTexture texture)
-        : data(Data::ImageInner_BorrowedOpenGLTexture(texture.inner))
     {
     }
 

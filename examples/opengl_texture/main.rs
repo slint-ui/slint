@@ -144,12 +144,6 @@ impl Drop for DemoTexture {
     }
 }
 
-impl From<&DemoTexture> for slint::BorrowedOpenGLTexture {
-    fn from(this: &DemoTexture) -> Self {
-        slint::BorrowedOpenGLTexture::new(this.texture.0, (this.width, this.height).into())
-    }
-}
-
 struct DemoRenderer {
     gl: Rc<glow::Context>,
     program: glow::Program,
@@ -347,7 +341,7 @@ impl DemoRenderer {
         light_blue: f32,
         width: u32,
         height: u32,
-    ) -> slint::BorrowedOpenGLTexture {
+    ) -> slint::Image {
         unsafe {
             let gl = &self.gl;
 
@@ -389,7 +383,12 @@ impl DemoRenderer {
             gl.use_program(None);
         }
 
-        let result_texture = (&self.next_texture).into();
+        let result_texture = unsafe {
+            slint::Image::from_borrowed_gl_2d_rgba_texture(
+                self.next_texture.texture.0,
+                (self.next_texture.width, self.next_texture.height).into(),
+            )
+        };
 
         std::mem::swap(&mut self.next_texture, &mut self.displayed_texture);
 
