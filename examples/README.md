@@ -128,7 +128,7 @@ A Rust and C++ example that shows how render Slint on top of graphical effect re
 A Rust and C++ example that shows how render a scene with custom OpenGL code intoa texture and render that texture within a Slint scene. For more details check out the [Readme](./opengl_texture).
 
 | `.slint` Design | Rust Source | C++ Source |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | [`scene.slint`](./opengl_texture/scene.slint) | [`main.rs`](./opengl_texture/main.rs) | [`main.cpp`](./opengl_texture/main.cpp) |
 
 ![Screenshot of the OpenGL Texture Example on macOS](https://github.com/slint-ui/slint/assets/1486/b9f1f6cf-3859-418e-9662-0c7170c3b1f2 "OpenGL Texture")
@@ -138,7 +138,7 @@ A Rust and C++ example that shows how render a scene with custom OpenGL code int
 A Rust example that shows how render video frames with FFmpeg within a Slint scene. For more details check out the [Readme](./ffmpeg).
 
 | `.slint` Design | Rust Source |
-| --- | --- | --- | --- |
+| --- | --- |
 | [`scene.slint`](./ffmpeg/scene.slint) | [`main.rs`](./opengl_texture/main.rs) |
 
 ![Screenshot of the FFmpeg Example on macOS](https://github.com/slint-ui/slint/assets/1486/5a1fad32-611a-478e-ab8f-576b4b4bdaf3 "FFmpeg Example")
