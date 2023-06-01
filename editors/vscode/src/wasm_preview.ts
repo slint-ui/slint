@@ -239,9 +239,13 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
             if (current_instance !== null) {
                 current_instance = component.create_with_existing_window(current_instance);
             } else {
-                current_instance = component.create("slint_canvas");
+                try {
+                    slint.run_event_loop();
+                } catch (e) {
+                    // ignore winit event loop exception
+                }
+                current_instance = await component.create("slint_canvas");
                 current_instance.show();
-                slint.run_event_loop();
             }
             current_instance?.set_design_mode(design_mode);
             current_instance?.on_element_selected(element_selected);
@@ -354,7 +358,7 @@ function initPreviewPanel(
                     );
                     const outside_uri = Uri.parse(
                         uriMapping.get(d.url) ??
-                            Uri.file(inside_uri.fsPath).toString(),
+                        Uri.file(inside_uri.fsPath).toString(),
                     );
                     if (outside_uri.scheme !== "invalid") {
                         vscode.window.showTextDocument(outside_uri, {

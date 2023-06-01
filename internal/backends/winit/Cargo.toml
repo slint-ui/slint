@@ -64,7 +64,7 @@ rgb = { version = "0.8.27", optional = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features=["HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent", "DomStringMap", "ClipboardEvent", "DataTransfer"] }
 wasm-bindgen = { version = "0.2" }
-send_wrapper = "0.6.0"
+send_wrapper = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 glutin = { version = "0.30", optional = true, default-features = false, features = ["egl", "wgl"] }
