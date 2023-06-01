@@ -242,7 +242,7 @@ impl FemtoVGRenderer {
                 drop(item_renderer);
                 Ok(())
             })
-            .unwrap_or_else(|| Ok(()))?;
+            .unwrap_or(Ok(()))?;
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
             self.with_graphics_api(|api| callback.notify(RenderingState::AfterRendering, &api))?;
