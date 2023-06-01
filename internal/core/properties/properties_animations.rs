@@ -3,6 +3,8 @@
 
 use super::*;
 use crate::{items::PropertyAnimation, lengths::LogicalLength};
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 enum AnimationState {
     Delaying,

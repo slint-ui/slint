@@ -15,7 +15,7 @@ export component TestCase {
 ```rust
 let instance = TestCase::new().unwrap();
 instance.set_xx(500);
-// It's the first time we querty the value: so no animation
+// It's the first time we query the value: so no animation
 assert_eq!(instance.get_yy(), 5000);
 instance.set_xx(1000);
 // now it is animated
@@ -30,7 +30,7 @@ assert_eq!(instance.get_yy(), 7500 - 2500/2); // even if time has passed, since 
 slint_testing::mock_elapsed_time(500);
 instance.set_xx(1000);
 slint_testing::mock_elapsed_time(250);
-assert_eq!(instance.get_yy(), 9062);
+assert_eq!(instance.get_yy(), 9063);
 slint_testing::mock_elapsed_time(250);
 assert_eq!(instance.get_yy(), 10000);
 ```
