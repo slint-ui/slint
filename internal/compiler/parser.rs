@@ -422,7 +422,7 @@ declare_syntax! {
         /// `[ type ]`
         ArrayType -> [ Type ],
         /// `struct Foo := { ... }
-        StructDeclaration -> [DeclaredIdentifier, ObjectType, AtRustAttr],
+        StructDeclaration -> [DeclaredIdentifier, ObjectType, ?AtRustAttr],
         /// `@rust-attr(...)`
         AtRustAttr -> [ DeclaredIdentifier, ObjectType, Expression ],
     }

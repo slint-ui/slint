@@ -63,7 +63,7 @@ impl Document {
 
         let mut local_registry = TypeRegister::new(parent_registry);
         let mut inner_components = vec![];
-        let inner_structs = Rc::new(RefCell::new(Vec::new()));
+        let mut inner_structs = vec![];
 
         let mut process_component =
             |n: syntax_nodes::Component,
@@ -73,29 +73,34 @@ impl Document {
                 local_registry.add(compo.clone());
                 inner_components.push(compo);
             };
-        let process_struct = |n: syntax_nodes::StructDeclaration,
-                              diag: &mut BuildDiagnostics,
-                              local_registry: &mut TypeRegister| {
-            let rust_attributes: Vec<String> = n
-                .children()
-                .filter(|child| child.kind() == SyntaxKind::AtRustAttr)
-                .map(|child| {
-                    let mut text = child.text().to_string();
-                    text.pop();
-                    text
-                })
-                .collect_vec();
-            let mut ty =
-                type_struct_from_node(n.ObjectType(), diag, local_registry, Some(rust_attributes));
-            if let Type::Struct { name, .. } = &mut ty {
-                *name = parser::identifier_text(&n.DeclaredIdentifier());
-            } else {
-                assert!(diag.has_error());
-                return;
-            }
-            local_registry.insert_type(ty.clone());
-            inner_structs.borrow_mut().push(ty);
-        };
+        let mut process_struct =
+            |n: syntax_nodes::StructDeclaration,
+             diag: &mut BuildDiagnostics,
+             local_registry: &mut TypeRegister| {
+                let rust_attributes: Vec<String> = n
+                    .children()
+                    .filter(|child| child.kind() == SyntaxKind::AtRustAttr)
+                    .map(|child| {
+                        let mut text = child.text().to_string();
+                        text.pop();
+                        text
+                    })
+                    .collect_vec();
+                let mut ty = type_struct_from_node(
+                    n.ObjectType(),
+                    diag,
+                    local_registry,
+                    Some(rust_attributes),
+                );
+                if let Type::Struct { name, .. } = &mut ty {
+                    *name = parser::identifier_text(&n.DeclaredIdentifier());
+                } else {
+                    assert!(diag.has_error());
+                    return;
+                }
+                local_registry.insert_type(ty.clone());
+                inner_structs.push(ty);
+            };
 
         for n in node.children() {
             match n.kind() {
@@ -199,7 +204,7 @@ impl Document {
             node: Some(node),
             root_component,
             inner_components,
-            inner_structs: inner_structs.clone().borrow().to_vec(),
+            inner_structs,
             local_registry,
             custom_fonts,
             exports,

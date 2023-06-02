@@ -120,17 +120,17 @@ fn parse_parentheses(p: &mut impl Parser) -> bool {
     let mut opened = 0;
     let mut closed = 0;
     while closed <= opened {
-        if p.peek().as_str() == "(" {
+        if p.peek().kind() == SyntaxKind::LParent {
             opened += 1;
         }
-        if p.peek().as_str() == ")" {
+        if p.peek().kind() == SyntaxKind::RParent {
             closed += 1;
         }
         if closed == opened
             && opened != 0
             && closed != 0
-            && p.peek().as_str() != ","
-            && p.peek().as_str() != ")"
+            && p.peek().kind() != SyntaxKind::Comma
+            && p.peek().kind() != SyntaxKind::RParent
         {
             p.error("Parse error: `)` or `,`");
             return false;
