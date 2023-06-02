@@ -15,6 +15,10 @@ Files: *.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+Files: *.pot *.po *.mo
+Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+License: GPL-3.0-only OR LicenseRef-Slint-commercial
+
 Files: helper_crates/vtable/*
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
