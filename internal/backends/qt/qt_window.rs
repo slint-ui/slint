@@ -1287,17 +1287,28 @@ impl QtItemRenderer<'_> {
     fn render_layer(
         &mut self,
         item_rc: &ItemRc,
-        layer_size_fn: &dyn Fn() -> qttypes::QSize,
+        layer_size_fn: &dyn Fn() -> LogicalSize,
     ) -> qttypes::QPixmap {
         self.cache.get_or_update_cache_entry(item_rc,  || {
-            let layer_size: qttypes::QSize = layer_size_fn();
+            let painter: &mut QPainterPtr = &mut self.painter;
+            let dpr = cpp! { unsafe [painter as "QPainterPtr*"] -> f32 as "float" {
+                return (*painter)->paintEngine()->paintDevice()->devicePixelRatioF();
+            }};
+
+            let layer_size = layer_size_fn();
+            let layer_size = qttypes::QSize {
+                width: (layer_size.width * dpr) as _,
+                height: (layer_size.height * dpr) as _,
+            };
+
             let mut layer_image = qttypes::QImage::new(layer_size, qttypes::ImageFormat::ARGB32_Premultiplied);
             layer_image.fill(qttypes::QColor::from_rgba_f(0., 0., 0., 0.));
 
             *self.metrics.layers_created.as_mut().unwrap() += 1;
 
             let img_ref: &mut qttypes::QImage = &mut layer_image;
-            let mut layer_painter = cpp!(unsafe [img_ref as "QImage*"] -> QPainterPtr as "QPainterPtr" {
+            let mut layer_painter = cpp!(unsafe [img_ref as "QImage*", dpr as "float"] -> QPainterPtr as "QPainterPtr" {
+                img_ref->setDevicePixelRatio(dpr);
                 auto painter = std::make_unique<QPainter>(img_ref);
                 painter->setClipRect(0, 0, img_ref->width(), img_ref->height());
                 painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
@@ -1332,10 +1343,7 @@ impl QtItemRenderer<'_> {
                     ),
                 )
             });
-            qttypes::QSize {
-                width: children_rect.size.width as _,
-                height: children_rect.size.height as _,
-            }
+            children_rect.size
         });
         self.save_state();
         self.apply_opacity(alpha_tint);

@@ -97,7 +97,9 @@ macro_rules! fn_render {
                         let mut imgarray = QImageWrapArray::new($size, $dpr);
                         let img = &mut imgarray.img;
                         let mut painter = cpp!(unsafe [img as "QImage*"] -> QPainterPtr as "std::unique_ptr<QPainter>" {
-                            return std::make_unique<QPainter>(img);
+                            auto painter = std::make_unique<QPainter>(img);
+                            painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
+                            return painter;
                         });
                         let $widget: * const () = core::ptr::null();
                         let $painter = &mut painter;
