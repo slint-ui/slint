@@ -126,11 +126,11 @@ impl Brush {
         }
     }
 
-    /// Returns a new version of this brush with the opacity decreased by `factor`,
-    /// meaning the new opacity will be the current one times `factor`.
+    /// Returns a new version of this brush with the opacity decreased by `factor`.
     ///
-    /// The reference is the opacity's normalized value as `u8` and `factor` is
-    /// clamped to be between `0.0` and `1.0` before applying it.
+    /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
+    ///
+    /// See also [`Color::transparentize`]
     #[must_use]
     pub fn transparentize(&self, amount: f32) -> Self {
         match self {

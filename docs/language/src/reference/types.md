@@ -88,9 +88,9 @@ All colors and brushes define the following methods:
 
 -  **`transparentize(factor: float) -> brush`**
 
-    Returns a new color with the opacity decreased by `factor`,
-    meaning the new opacity will be the current one times `factor`.
-    factor is clamped to be between `0.0` and `1.0` before applying it.
+    Returns a new color with the opacity decreased by `factor`.
+    The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
+
 
 -  **`with_alpha(alpha: float) -> brush`**
 

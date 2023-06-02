@@ -130,22 +130,20 @@ public:
     /// Returns a new version of this brush that has the brightness increased
     /// by the specified factor. This is done by calling Color::brighter on
     /// all the colors of this brush.
-    inline Brush brighter(float factor) const;
+    [[nodiscard]] inline Brush brighter(float factor) const;
     /// Returns a new version of this color that has the brightness decreased
     /// by the specified factor. This is done by calling Color::darker on
     /// all the colors of this brush.
-    inline Brush darker(float factor) const;
+    [[nodiscard]] inline Brush darker(float factor) const;
 
-    /// Returns a new version of this brush with the opacity decreased by \a factor,
-    /// meaning the new opacity will be the current one times `factor`.
+    /// Returns a new version of this brush with the opacity decreased by \a factor.
     ///
-    /// The reference is the opacity's normalized value as `u8` and \a factor is
-    /// clamped to be between `0.0` and `1.0` before applying it.
-    inline Brush transparentize(float factor) const;
+    /// This is done by calling Color::transparentize on all the colors of this brush.
+    [[nodiscard]] inline Brush transparentize(float factor) const;
 
     /// Returns a new version of this brush with the related color's opacities
     /// set to \a alpha.
-    inline Brush with_alpha(float alpha) const;
+    [[nodiscard]] inline Brush with_alpha(float alpha) const;
 
     /// Returns true if \a a is equal to \a b. If \a a holds a color, then \a b must also hold a
     /// color that is identical to \a a's color. If it holds a gradient, then the gradients must be

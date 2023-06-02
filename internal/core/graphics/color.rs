@@ -193,11 +193,9 @@ impl Color {
         rgba.into()
     }
 
-    /// Returns a new version of this color with the opacity decreased by `factor`,
-    /// meaning the new opacity will be the current one times `factor`.
+    /// Returns a new version of this color with the opacity decreased by `factor`.
     ///
-    /// The reference is the opacity's normalized value as `u8` and `factor` is
-    /// clamped to be between `0.0` and `1.0` before applying it.
+    /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
     ///
     /// # Examples
     /// Decreasing the opacity of a red color by half:
@@ -207,17 +205,28 @@ impl Color {
     /// assert_eq!(red.transparentize(0.5), Color::from_argb_u8(128, 255, 0, 0));
     /// ```
     ///
-    /// Decreasing the opacity of a blue color to be 20% of the current value:
+    /// Decreasing the opacity of a blue color by 20%:
     /// ```
     /// # use i_slint_core::graphics::Color;
     /// let blue = Color::from_argb_u8(200, 0, 0, 255);
-    /// assert_eq!(blue.transparentize(0.2), Color::from_argb_u8(40, 0, 0, 255));
+    /// assert_eq!(blue.transparentize(0.2), Color::from_argb_u8(160, 0, 0, 255));
     /// ```
+    ///
+    /// Negative values increase the opacity
+    ///
+    /// ```
+    /// # use i_slint_core::graphics::Color;
+    /// let blue = Color::from_argb_u8(200, 0, 0, 255);
+    /// assert_eq!(blue.transparentize(-0.1), Color::from_argb_u8(220, 0, 0, 255));
+    /// ```
+
     #[must_use]
     pub fn transparentize(&self, factor: f32) -> Self {
-        let mut rgba: RgbaColor<u8> = (*self).into();
-        rgba.alpha = scale_u8(rgba.alpha, factor.clamp(0.0, 1.0));
-        rgba.into()
+        let mut color = *self;
+        color.alpha = ((self.alpha as f32) * (1.0 - factor))
+            .round()
+            .clamp(u8::MIN as f32, u8::MAX as f32) as u8;
+        color
     }
 
     /// Returns a new color that is a mix of `self` and `other`, with a proportion
@@ -286,11 +295,6 @@ impl Color {
         rgba.alpha = alpha.clamp(0.0, 1.0);
         rgba.into()
     }
-}
-
-fn scale_u8(value: u8, factor: f32) -> u8 {
-    let factor = f32::max(factor, 0.0); // Discard negative values
-    (value as f32 * factor).round().clamp(u8::MIN as f32, u8::MAX as f32) as u8
 }
 
 impl InterpolatedPropertyValue for Color {

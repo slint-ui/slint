@@ -888,7 +888,11 @@ impl Expression {
                 if ty.default_unit().is_none()
                     && !matches!(
                         ty,
-                        Type::Int32 | Type::Float32 | Type::UnitProduct(..) | Type::Invalid
+                        Type::Int32
+                            | Type::Float32
+                            | Type::Percent
+                            | Type::UnitProduct(..)
+                            | Type::Invalid
                     )
                 {
                     ctx.diag.push_error(format!("Unary '{op}' not supported on {ty}"), &node);

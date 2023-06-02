@@ -62,7 +62,7 @@ public:
     }
 
     /// Construct a color from an integer encoded as `0xAARRGGBB`
-    static Color from_argb_encoded(uint32_t argb_encoded)
+    [[nodiscard]] static Color from_argb_encoded(uint32_t argb_encoded)
     {
         Color col;
         col.inner.red = (argb_encoded >> 16) & 0xff;
@@ -80,7 +80,8 @@ public:
     }
 
     /// Construct a color from the alpha, red, green and blue color channel parameters.
-    static Color from_argb_uint8(uint8_t alpha, uint8_t red, uint8_t green, uint8_t blue)
+    [[nodiscard]] static Color from_argb_uint8(uint8_t alpha, uint8_t red, uint8_t green,
+                                               uint8_t blue)
     {
         Color col;
         col.inner.alpha = alpha;
@@ -92,13 +93,13 @@ public:
 
     /// Construct a color from the red, green and blue color channel parameters. The alpha
     /// channel will have the value 255.
-    static Color from_rgb_uint8(uint8_t red, uint8_t green, uint8_t blue)
+    [[nodiscard]] static Color from_rgb_uint8(uint8_t red, uint8_t green, uint8_t blue)
     {
         return from_argb_uint8(255, red, green, blue);
     }
 
     /// Construct a color from the alpha, red, green and blue color channel parameters.
-    static Color from_argb_float(float alpha, float red, float green, float blue)
+    [[nodiscard]] static Color from_argb_float(float alpha, float red, float green, float blue)
     {
         Color col;
         col.inner.alpha = uint8_t(alpha * 255);
@@ -110,7 +111,7 @@ public:
 
     /// Construct a color from the red, green and blue color channel parameters. The alpha
     /// channel will have the value 255.
-    static Color from_rgb_float(float red, float green, float blue)
+    [[nodiscard]] static Color from_rgb_float(float red, float green, float blue)
     {
         return Color::from_argb_float(1.0, red, green, blue);
     }
@@ -139,27 +140,25 @@ public:
     /// The result is converted back to RGB and the alpha channel is unchanged.
     /// So for example `brighter(0.2)` will increase the brightness by 20%, and
     /// calling `brighter(-0.5)` will return a color that's 50% darker.
-    inline Color brighter(float factor) const;
+    [[nodiscard]] inline Color brighter(float factor) const;
     /// Returns a new version of this color that has the brightness decreased
     /// by the specified factor. This is done by converting the color to the HSV
     /// color space and dividing the brightness (value) by (1 + factor). The
     /// result is converted back to RGB and the alpha channel is unchanged.
     /// So for example `darker(0.3)` will decrease the brightness by 30%.
-    inline Color darker(float factor) const;
+    [[nodiscard]] inline Color darker(float factor) const;
 
-    /// Returns a new version of this color with the opacity decreased by \a factor,
-    /// meaning the new opacity will be the current one times \a factor.
+    /// Returns a new version of this color with the opacity decreased by \a factor.
     ///
-    /// The reference is the opacity's normalized value as `u8` and \a factor is
-    /// clamped to be between `0.0` and `1.0` before applying it.
-    inline Color transparentize(float factor) const;
+    /// The transparency is obtained by multiplying the alpha channel by `(1 - factor)`.
+    [[nodiscard]] inline Color transparentize(float factor) const;
 
     /// Returns a new color that is a mix of \a this and \a other, with a proportion
     /// factor given by \a factor (which will be clamped to be between `0.0` and `1.0`).
-    inline Color mix(const Color &other, float factor) const;
+    [[nodiscard]] inline Color mix(const Color &other, float factor) const;
 
     /// Returns a new version of this color with the opacity set to \a alpha.
-    inline Color with_alpha(float alpha) const;
+    [[nodiscard]] inline Color with_alpha(float alpha) const;
 
     /// Returns true if \a lhs has the same values for the individual color channels as \a rhs;
     /// false otherwise.

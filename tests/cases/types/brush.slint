@@ -6,10 +6,8 @@ Test := Rectangle {
     property<brush> color_brush: blue;
     // allow to use brighter and darker on a brush
     property<brush> ligher: true ? color_brush.brighter(50%) : color_brush.darker(50%);
-    // allow to use `transparentize` and `opaque` on brushes
-    property<brush> seethru: true ? color_brush.transparentize(30%) : color_brush.transparentize(150%);
-    // allow to use `with_alpha` on brushes
-    property<brush> invisible: color_brush.with-alpha(0%);
+    // allow to use `transparentize`
+    property<brush> seethru: color_brush.transparentize(30%);
 
     VerticalLayout {
         r1 := Rectangle {
@@ -31,7 +29,7 @@ Test := Rectangle {
     }
 
     property<bool> test: ligher == Colors.blue.brighter(50%) && r2_col == Colors.red.darker(50%) && conditional == r2.background && conditional != r2_col
-        && test_circl.test;
+        && test_circl.test && seethru == color_brush.with_alpha(70%) && (#abc2).transparentize(-100%) == #abc4;
 }
 
 /*
