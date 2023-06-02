@@ -138,6 +138,17 @@ cpp! {{
             }
             isMouseButtonDown = false;
 
+            void *parent_of_popup_to_close = nullptr;
+            if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
+                void *parent_window = p->rust_window;
+                bool close_popup = rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*"] -> bool as "bool" {
+                    parent_window.close_popup_after_click()
+                });
+                if (close_popup) {
+                    parent_of_popup_to_close = parent_window;
+                }
+            }
+
             QPoint pos = event->pos();
             int button = event->button();
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
@@ -145,11 +156,9 @@ cpp! {{
                 let button = from_qt_button(button);
                 rust_window.mouse_event(MouseEvent::Released{ position, button, click_count: 0 })
             });
-            if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
-                // FIXME: better way to close the popup
-                void *parent_window = p->rust_window;
-                rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
-                    parent_window.close_popup();
+            if (parent_of_popup_to_close) {
+                rust!(Slint_mouseReleaseEventClosePopup [parent_of_popup_to_close: &QtWindow as "void*"] {
+                    parent_of_popup_to_close.close_popup();
                 });
             }
         }
@@ -1496,6 +1505,10 @@ impl QtWindow {
 
     fn close_popup(&self) {
         WindowInner::from_pub(&self.window).close_popup();
+    }
+
+    fn close_popup_after_click(&self) -> bool {
+        WindowInner::from_pub(&self.window).close_popup_after_click()
     }
 }
 

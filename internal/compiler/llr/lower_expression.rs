@@ -355,7 +355,13 @@ fn lower_show_popup(args: &[tree_Expression], ctx: &ExpressionContext) -> llr_Ex
         );
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::ShowPopupWindow,
-            arguments: vec![llr_Expression::NumberLiteral(popup_index as _), x, y, item_ref],
+            arguments: vec![
+                llr_Expression::NumberLiteral(popup_index as _),
+                x,
+                y,
+                llr_Expression::BoolLiteral(popup.close_on_click),
+                item_ref,
+            ],
         }
     } else {
         panic!("invalid arguments to ShowPopupWindow");

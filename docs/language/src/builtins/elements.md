@@ -495,9 +495,15 @@ Use this element to show a popup window like a tooltip or a popup menu.
 
 Note: It isn't allowed to access properties of elements within the popup from outside of the `PopupWindow`.
 
+### Properties
+
+-   **`close-on-click`** (_in_ _bool_): By default, a PopupWindow closes when the user clicks. Set this
+    to false to prevent that behavior and close it manually using the `close()` function. (default value: true)
+
 ### Functions
 
 -   **`show()`** Show the popup on the screen.
+-   **`close()`** Closes the popup. Use this if you set the `close-on-click` property to false.
 
 ### Example
 

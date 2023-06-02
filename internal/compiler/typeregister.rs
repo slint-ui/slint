@@ -259,7 +259,16 @@ impl TypeRegister {
                     .unwrap()
                     .member_functions
                     .insert("show".into(), BuiltinFunction::ShowPopupWindow);
+                Rc::get_mut(b).unwrap().properties.insert(
+                    "close".into(),
+                    BuiltinPropertyInfo::new(BuiltinFunction::ClosePopupWindow.ty()),
+                );
+                Rc::get_mut(b)
+                    .unwrap()
+                    .member_functions
+                    .insert("close".into(), BuiltinFunction::ClosePopupWindow);
             }
+
             _ => unreachable!(),
         };
 

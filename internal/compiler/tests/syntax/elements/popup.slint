@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+export Bar := Rectangle {
+    in property <bool> external;
+    PopupWindow {
+        close-on-click: true;
+    }
+    PopupWindow {
+        close-on-click: root.external;
+//                      ^error{The close-on-click property only supports constants at the moment}        
+    }
+}

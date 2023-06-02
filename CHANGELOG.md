@@ -20,6 +20,7 @@ All notable changes to this project are documented in this file.
  - Added boolean `font-italic` property to `Text` and `TextInput`.
  - Added `select-all()`, `cut()`, `copy()`, and `paste() to `TextInput`, `LineEdit`, and `TextEdit`.
  - Added functions on color: `transparentize`, `mix`, and `with-alpha`.
+ - Added a `close()` function and a `close-on-click` boolean property to `PopupWindow`.
 
 ### Rust
 
