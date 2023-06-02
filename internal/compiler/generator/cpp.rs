@@ -2744,7 +2744,7 @@ fn compile_builtin_function_call(
             format!("{}.text_input_focused()", access_window_field(ctx))
         }
         BuiltinFunction::ShowPopupWindow => {
-            if let [llr::Expression::NumberLiteral(popup_index), x, y, llr::Expression::PropertyReference(parent_ref)] =
+            if let [llr::Expression::NumberLiteral(popup_index), x, y, close_on_click, llr::Expression::PropertyReference(parent_ref)] =
                 arguments
             {
                 let mut parent_ctx = ctx;
@@ -2764,12 +2764,17 @@ fn compile_builtin_function_call(
                 let parent_component = access_item_rc(parent_ref, ctx);
                 let x = compile_expression(x, ctx);
                 let y = compile_expression(y, ctx);
+                let close_on_click = compile_expression(close_on_click, ctx);
                 format!(
-                    "{window}.show_popup<{popup_window_id}>({component_access}, {{ static_cast<float>({x}), static_cast<float>({y}) }}, {{ {parent_component} }})"
+                    "{window}.show_popup<{popup_window_id}>({component_access}, {{ static_cast<float>({x}), static_cast<float>({y}) }}, {close_on_click}, {{ {parent_component} }})"
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
             }
+        }
+        BuiltinFunction::ClosePopupWindow => {
+            let window = access_window_field(ctx);
+            format!("{window}.close_popup()")
         }
         BuiltinFunction::ItemMemberFunction(name) => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {

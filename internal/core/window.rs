@@ -257,6 +257,9 @@ struct PopupWindow {
     location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
     component: ComponentRc,
+    /// If true, Slint will close the popup after any mouse click within the popup.
+    /// Set to false and call close() on the PopupWindow to close it manually.
+    close_on_click: bool,
 }
 
 #[pin_project::pin_project]
@@ -397,6 +400,8 @@ impl WindowInner {
         // handle multiple press release
         event = self.click_state.check_repeat(event);
 
+        let close_popup_after_click = self.close_popup_after_click();
+
         let embedded_popup_component =
             self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
                 PopupWindowLocation::TopLevel(_) => None,
@@ -439,9 +444,7 @@ impl WindowInner {
             self.mouse_input_state.take(),
         ));
 
-        if embedded_popup_component.is_some() {
-            //FIXME: currently the ComboBox is the only thing that uses the popup, and it should close automatically
-            // on release.  But ideally, there would be API to close the popup rather than always closing it on release
+        if embedded_popup_component.is_some() && close_popup_after_click {
             if matches!(event, MouseEvent::Released { .. }) {
                 self.close_popup();
             }
@@ -721,6 +724,7 @@ impl WindowInner {
         &self,
         popup_componentrc: &ComponentRc,
         position: Point,
+        close_on_click: bool,
         parent_item: &ItemRc,
     ) {
         let position = parent_item.map_to_window(
@@ -774,11 +778,15 @@ impl WindowInner {
             }
         };
 
-        self.active_popup
-            .replace(Some(PopupWindow { location, component: popup_componentrc.clone() }));
+        self.active_popup.replace(Some(PopupWindow {
+            location,
+            component: popup_componentrc.clone(),
+            close_on_click,
+        }));
     }
 
     /// Removes any active popup.
+    /// TODO: this function should take a component ref as parameter, to close a specific popup - i.e. when popup menus create a hierarchy of popups.
     pub fn close_popup(&self) {
         if let Some(current_popup) = self.active_popup.replace(None) {
             if let PopupWindowLocation::ChildWindow(offset) = current_popup.location {
@@ -796,6 +804,11 @@ impl WindowInner {
                 }
             }
         }
+    }
+
+    /// Returns true if the currently active popup is configured to close on click. None if there is no active popup.
+    pub fn close_popup_after_click(&self) -> bool {
+        self.active_popup.borrow().as_ref().map_or(false, |popup| popup.close_on_click)
     }
 
     /// Returns the scale factor set on the window, as provided by the windowing system.
@@ -1015,12 +1028,19 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
         popup: &ComponentRc,
         position: crate::graphics::Point,
+        close_on_click: bool,
         parent_item: &ItemRc,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        WindowInner::from_pub(window_adapter.window()).show_popup(popup, position, parent_item);
+        WindowInner::from_pub(window_adapter.window()).show_popup(
+            popup,
+            position,
+            close_on_click,
+            parent_item,
+        );
     }
     /// Close the current popup
+    #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_close_popup(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         WindowInner::from_pub(window_adapter.window()).close_popup();

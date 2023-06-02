@@ -68,6 +68,28 @@ fn lower_popup_window(
     parent_element.borrow_mut().has_popup_child = true;
 
     popup_window_element.borrow_mut().base_type = window_type.clone();
+    popup_window_element.borrow_mut().property_declarations.insert(
+        "close-on-click".into(),
+        PropertyDeclaration { property_type: Type::Bool, ..PropertyDeclaration::default() },
+    );
+
+    let close_on_click =
+        match popup_window_element.borrow_mut().bindings.remove("close-on-click").map_or_else(
+            || Ok(true),
+            |binding| match binding.borrow().expression {
+                Expression::BoolLiteral(value) => Ok(value),
+                _ => Err(binding.borrow().span.clone()),
+            },
+        ) {
+            Ok(coc) => coc,
+            Err(location) => {
+                diag.push_error(
+                    "The close-on-click property only supports constants at the moment".into(),
+                    &location,
+                );
+                return;
+            }
+        };
 
     let popup_comp = Rc::new(Component {
         root_element: popup_window_element.clone(),
@@ -105,6 +127,7 @@ fn lower_popup_window(
         component: popup_comp,
         x: coord_x,
         y: coord_y,
+        close_on_click,
         parent_element: parent_element.clone(),
     });
 }

@@ -331,6 +331,7 @@ fn gen_corelib(
             "slint_windowrc_set_focus_item",
             "slint_windowrc_set_component",
             "slint_windowrc_show_popup",
+            "slint_windowrc_close_popup",
             "slint_windowrc_set_rendering_notifier",
             "slint_windowrc_request_redraw",
             "slint_windowrc_on_close_requested",

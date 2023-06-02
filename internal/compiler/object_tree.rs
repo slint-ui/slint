@@ -203,6 +203,7 @@ pub struct PopupWindow {
     pub component: Rc<Component>,
     pub x: NamedReference,
     pub y: NamedReference,
+    pub close_on_click: bool,
     pub parent_element: ElementRc,
 }
 

@@ -2233,7 +2233,7 @@ fn compile_builtin_function_call(
             }
         }
         BuiltinFunction::ShowPopupWindow => {
-            if let [Expression::NumberLiteral(popup_index), x, y, Expression::PropertyReference(parent_ref)] =
+            if let [Expression::NumberLiteral(popup_index), x, y, close_on_click, Expression::PropertyReference(parent_ref)] =
                 arguments
             {
                 let mut parent_ctx = ctx;
@@ -2252,6 +2252,7 @@ fn compile_builtin_function_call(
                 let parent_component = access_item_rc(parent_ref, ctx);
                 let x = compile_expression(x, ctx);
                 let y = compile_expression(y, ctx);
+                let close_on_click = compile_expression(close_on_click, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 quote!(
                     slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
@@ -2261,12 +2262,19 @@ fn compile_builtin_function_call(
                             instance.into()
                         }),
                         Point::new(#x as slint::private_unstable_api::re_exports::Coord, #y as slint::private_unstable_api::re_exports::Coord),
+                        #close_on_click,
                         #parent_component
                     )
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
             }
+        }
+        BuiltinFunction::ClosePopupWindow => {
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(
+                slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup()
+            )
         }
         BuiltinFunction::ItemMemberFunction(name) => {
             if let [Expression::PropertyReference(pr)] = arguments {

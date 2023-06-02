@@ -572,6 +572,7 @@ fn call_builtin_function(
                         x.try_into().unwrap(),
                         y.try_into().unwrap(),
                     ),
+                    popup.close_on_click,
                     component.borrow(),
                     window_adapter_ref(component).unwrap(),
                     &parent_item,
@@ -580,6 +581,18 @@ fn call_builtin_function(
             } else {
                 panic!("internal error: argument to SetFocusItem must be an element")
             }
+        }
+        BuiltinFunction::ClosePopupWindow => {
+            let component = match local_context.component_instance {
+                ComponentInstance::InstanceRef(c) => c,
+                ComponentInstance::GlobalComponent(_) => {
+                    panic!("Cannot show popup from a global component")
+                }
+            };
+
+            window_ref(component).unwrap().close_popup();
+
+            Value::Void
         }
         BuiltinFunction::ItemMemberFunction(name) => {
             if arguments.len() != 1 {

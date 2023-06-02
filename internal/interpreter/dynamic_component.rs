@@ -1745,6 +1745,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 pub fn show_popup(
     popup: &object_tree::PopupWindow,
     pos: i_slint_core::graphics::Point,
+    close_on_click: bool,
     parent_comp: ComponentRefPin,
     parent_window_adapter: &Rc<dyn WindowAdapter>,
     parent_item: &ItemRc,
@@ -1757,6 +1758,7 @@ pub fn show_popup(
     WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst),
         pos,
+        close_on_click,
         parent_item,
     );
 }
