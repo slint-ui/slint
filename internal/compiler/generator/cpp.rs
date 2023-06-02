@@ -2713,9 +2713,6 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorTransparentize => {
             format!("{}.transparentize({})", a.next().unwrap(), a.next().unwrap())
         }
-        BuiltinFunction::ColorOpaque => {
-            format!("{}.opaque({})", a.next().unwrap(), a.next().unwrap())
-        }
         BuiltinFunction::ColorMix => {
             format!("{}.mix({}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
         }

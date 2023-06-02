@@ -204,7 +204,6 @@ fn gen_corelib(
         "slint_color_brighter",
         "slint_color_darker",
         "slint_color_transparentize",
-        "slint_color_opaque",
         "slint_color_mix",
         "slint_color_with_alpha",
         "slint_image_size",
@@ -295,7 +294,6 @@ fn gen_corelib(
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker",
             "slint_color_transparentize",
-            "slint_color_opaque",
             "slint_color_mix",
             "slint_color_with_alpha",],
             vec![],
@@ -350,7 +348,6 @@ fn gen_corelib(
             "slint_color_brighter",
             "slint_color_darker",
             "slint_color_transparentize",
-            "slint_color_opaque",
             "slint_color_mix",
             "slint_color_with_alpha",
             "slint_image_size",

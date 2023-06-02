@@ -48,7 +48,6 @@ pub enum BuiltinFunction {
     ColorBrighter,
     ColorDarker,
     ColorTransparentize,
-    ColorOpaque,
     ColorMix,
     ColorWithAlpha,
     ImageSize,
@@ -154,10 +153,6 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Brush),
                 args: vec![Type::Brush, Type::Float32],
             },
-            BuiltinFunction::ColorOpaque => Type::Function {
-                return_type: Box::new(Type::Brush),
-                args: vec![Type::Brush, Type::Float32],
-            },
             BuiltinFunction::ColorMix => Type::Function {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Color, Type::Color, Type::Float32],
@@ -236,7 +231,6 @@ impl BuiltinFunction {
             BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
-            | BuiltinFunction::ColorOpaque
             | BuiltinFunction::ColorMix
             | BuiltinFunction::ColorWithAlpha => true,
             // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
@@ -288,7 +282,6 @@ impl BuiltinFunction {
             BuiltinFunction::ColorBrighter
             | BuiltinFunction::ColorDarker
             | BuiltinFunction::ColorTransparentize
-            | BuiltinFunction::ColorOpaque
             | BuiltinFunction::ColorMix
             | BuiltinFunction::ColorWithAlpha => true,
             BuiltinFunction::ImageSize => true,

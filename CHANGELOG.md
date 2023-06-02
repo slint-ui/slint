@@ -19,7 +19,7 @@ All notable changes to this project are documented in this file.
  - Added `Switch` widget.
  - Added boolean `font-italic` property to `Text` and `TextInput`.
  - Added `select-all()`, `cut()`, `copy()`, and `paste() to `TextInput`, `LineEdit`, and `TextEdit`.
- - Added functions on color: `transparentize`, `mix`, `opaque`, `with-alpha`
+ - Added functions on color: `transparentize`, `mix`, `with-alpha`
 
 ### Rust
 

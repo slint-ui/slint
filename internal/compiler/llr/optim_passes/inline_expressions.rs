@@ -94,7 +94,6 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorBrighter => 50,
         BuiltinFunction::ColorDarker => 50,
         BuiltinFunction::ColorTransparentize => 50,
-        BuiltinFunction::ColorOpaque => 50,
         BuiltinFunction::ColorMix => 50,
         BuiltinFunction::ColorWithAlpha => 50,
         BuiltinFunction::ImageSize => 50,

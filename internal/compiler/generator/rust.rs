@@ -2370,11 +2370,6 @@ fn compile_builtin_function_call(
             let factor = a.next().unwrap();
             quote!(#x.transparentize(#factor as f32))
         }
-        BuiltinFunction::ColorOpaque => {
-            let x = a.next().unwrap();
-            let factor = a.next().unwrap();
-            quote!(#x.opaque(#factor as f32))
-        }
         BuiltinFunction::ColorMix => {
             let x = a.next().unwrap();
             let y = a.next().unwrap();
