@@ -722,29 +722,17 @@ pub struct Diagnostic {
     level: DiagnosticLevel,
 }
 
-#[repr(C)]
-#[cfg(target_pointer_width = "64")]
-pub struct ComponentCompilerOpaque([usize; 16]);
-
-#[repr(C)]
-#[cfg(target_pointer_width = "32")]
-#[repr(align(8))]
-pub struct ComponentCompilerOpaque([usize; 19]);
-
-/// Asserts that ComponentCompilerOpaque is as large as ComponentCompiler and has the same alignment, to make transmute safe.
-const _: [(); std::mem::size_of::<ComponentCompilerOpaque>()] =
-    [(); std::mem::size_of::<ComponentCompiler>()];
-const _: [(); std::mem::align_of::<ComponentCompilerOpaque>()] =
-    [(); std::mem::align_of::<ComponentCompiler>()];
+#[repr(transparent)]
+pub struct ComponentCompilerOpaque(NonNull<ComponentCompiler>);
 
 impl ComponentCompilerOpaque {
     fn as_component_compiler(&self) -> &ComponentCompiler {
         // Safety: there should be no way to construct a ComponentCompilerOpaque without it holding an actual ComponentCompiler
-        unsafe { std::mem::transmute::<&ComponentCompilerOpaque, &ComponentCompiler>(self) }
+        unsafe { self.0.as_ref() }
     }
     fn as_component_compiler_mut(&mut self) -> &mut ComponentCompiler {
         // Safety: there should be no way to construct a ComponentCompilerOpaque without it holding an actual ComponentCompiler
-        unsafe { std::mem::transmute::<&mut ComponentCompilerOpaque, &mut ComponentCompiler>(self) }
+        unsafe { self.0.as_mut() }
     }
 }
 
@@ -752,14 +740,16 @@ impl ComponentCompilerOpaque {
 pub unsafe extern "C" fn slint_interpreter_component_compiler_new(
     compiler: *mut ComponentCompilerOpaque,
 ) {
-    std::ptr::write(compiler as *mut ComponentCompiler, ComponentCompiler::default())
+    *compiler = ComponentCompilerOpaque(NonNull::new_unchecked(Box::into_raw(Box::new(
+        ComponentCompiler::default(),
+    ))));
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_compiler_destructor(
     compiler: *mut ComponentCompilerOpaque,
 ) {
-    drop(std::ptr::read(compiler as *mut ComponentCompiler))
+    drop(Box::from_raw((*compiler).0.as_ptr()))
 }
 
 #[no_mangle]
