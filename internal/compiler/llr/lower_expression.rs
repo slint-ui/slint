@@ -392,7 +392,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
             fields: animation_fields().collect(),
             name: Some("PropertyAnimation".into()),
             node: None,
-            feature: None,
+            rust_attributes: None,
         }
     }
 
@@ -430,7 +430,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
                     .collect(),
                     name: None,
                     node: None,
-                    feature: None,
+                    rust_attributes: None,
                 },
                 values: IntoIterator::into_iter([
                     ("0".to_string(), get_anim),
@@ -657,7 +657,7 @@ fn box_layout_data(
         .collect(),
         name: Some("BoxLayoutCellData".into()),
         node: None,
-        feature: None,
+        rust_attributes: None,
     };
 
     if repeater_count == 0 {
@@ -744,7 +744,7 @@ pub(super) fn grid_layout_cell_data_ty() -> Type {
         .collect(),
         name: Some("GridLayoutCellData".into()),
         node: None,
-        feature: None,
+        rust_attributes: None,
     }
 }
 
@@ -841,7 +841,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
                     fields: Default::default(),
                     name: Some("PathElement".to_owned()),
                     node: None,
-                    feature: None,
+                    rust_attributes: None,
                 },
                 values: elements,
                 as_model: false,
@@ -865,7 +865,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
                             .collect(),
                         name: element.element_type.native_class.cpp_type.clone(),
                         node: None,
-                        feature: None,
+                        rust_attributes: None,
                     };
 
                     llr_Expression::Struct {
@@ -917,7 +917,7 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
                         .collect(),
                         name: None,
                         node: None,
-                        feature: None,
+                        rust_attributes: None,
                     },
                     values: IntoIterator::into_iter([
                         (
@@ -962,7 +962,7 @@ fn make_struct(
     }
 
     llr_Expression::Struct {
-        ty: Type::Struct { fields, name: Some(name), node: None, feature: None },
+        ty: Type::Struct { fields, name: Some(name), node: None, rust_attributes: None },
         values,
     }
 }

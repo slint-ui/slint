@@ -139,7 +139,7 @@ fn compile_path_from_string_literal(
         .collect(),
         name: Some("Point".into()),
         node: None,
-        feature: None,
+        rust_attributes: None,
     };
 
     let mut points = Vec::new();

@@ -139,7 +139,7 @@ log = { version = "0.4.17", optional = true }
 slint-build = { path = "../build" }
 i-slint-backend-testing = { version = "=1.0.3", path = "../../../internal/backends/testing" }
 serde_json = "1.0.96"
-serde = "1.0.163"
+serde = { version = "1.0.163", features = ["derive"] }
 
 [package.metadata.docs.rs]
 rustdoc-args = [

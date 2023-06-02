@@ -965,7 +965,7 @@ impl Expression {
             fields: values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
             name: None,
             node: None,
-            feature: None,
+            rust_attributes: None,
         };
         Expression::Struct { ty, values }
     }
@@ -1027,13 +1027,13 @@ impl Expression {
                             fields: mut result_fields,
                             name: result_name,
                             node: result_node,
-                            feature,
+                            rust_attributes,
                         },
                         Type::Struct {
                             fields: elem_fields,
                             name: elem_name,
                             node: elem_node,
-                            feature: deriven,
+                            rust_attributes: deriven,
                         },
                     ) => {
                         for (elem_name, elem_ty) in elem_fields.into_iter() {
@@ -1055,7 +1055,7 @@ impl Expression {
                             name: result_name.or(elem_name),
                             fields: result_fields,
                             node: result_node.or(elem_node),
-                            feature: feature.or(deriven),
+                            rust_attributes: rust_attributes.or(deriven),
                         }
                     }
                     (Type::Color, Type::Brush) | (Type::Brush, Type::Color) => Type::Brush,

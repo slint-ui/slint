@@ -75,9 +75,18 @@ impl Document {
             };
         let process_struct = |n: syntax_nodes::StructDeclaration,
                               diag: &mut BuildDiagnostics,
-                              local_registry: &mut TypeRegister,
-                              feature: Option<Vec<String>>| {
-            let mut ty = type_struct_from_node(n.ObjectType(), diag, local_registry, feature);
+                              local_registry: &mut TypeRegister| {
+            let rust_attributes: Vec<String> = n
+                .children()
+                .filter(|child| child.kind() == SyntaxKind::AtRustAttr)
+                .map(|child| {
+                    let mut text = child.text().to_string();
+                    text.pop();
+                    text
+                })
+                .collect_vec();
+            let mut ty =
+                type_struct_from_node(n.ObjectType(), diag, local_registry, Some(rust_attributes));
             if let Type::Struct { name, .. } = &mut ty {
                 *name = parser::identifier_text(&n.DeclaredIdentifier());
             } else {
@@ -88,27 +97,11 @@ impl Document {
             inner_structs.borrow_mut().push(ty);
         };
 
-        let process_rustattr = |n: syntax_nodes::RustAttr,
-                                diag: &mut BuildDiagnostics,
-                                local_registry: &mut TypeRegister| {
-            let get_struct = if let Some(e) = n.StructDeclaration().next() {
-                e
-            } else {
-                unreachable!();
-            };
-            let feature: Vec<String> = n
-                .children()
-                .filter(|child| child.kind() == SyntaxKind::Deriven)
-                .map(|child| child.text().to_string().replace("\"", ""))
-                .collect_vec();
-            process_struct(get_struct, diag, local_registry, Some(feature));
-        };
         for n in node.children() {
             match n.kind() {
                 SyntaxKind::Component => process_component(n.into(), diag, &mut local_registry),
-                SyntaxKind::RustAttr => process_rustattr(n.into(), diag, &mut local_registry),
                 SyntaxKind::StructDeclaration => {
-                    process_struct(n.into(), diag, &mut local_registry, None)
+                    process_struct(n.into(), diag, &mut local_registry)
                 }
                 SyntaxKind::ExportsList => {
                     for n in n.children() {
@@ -117,10 +110,7 @@ impl Document {
                                 process_component(n.into(), diag, &mut local_registry)
                             }
                             SyntaxKind::StructDeclaration => {
-                                process_struct(n.into(), diag, &mut local_registry, None)
-                            }
-                            SyntaxKind::RustAttr => {
-                                process_rustattr(n.into(), diag, &mut local_registry)
+                                process_struct(n.into(), diag, &mut local_registry)
                             }
                             _ => {}
                         }
@@ -1662,7 +1652,7 @@ pub fn type_struct_from_node(
     object_node: syntax_nodes::ObjectType,
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
-    feature: Option<Vec<String>>,
+    rust_attributes: Option<Vec<String>>,
 ) -> Type {
     let fields = object_node
         .ObjectTypeMember()
@@ -1673,7 +1663,7 @@ pub fn type_struct_from_node(
             )
         })
         .collect();
-    Type::Struct { fields, name: None, node: Some(object_node), feature }
+    Type::Struct { fields, name: None, node: Some(object_node), rust_attributes }
 }
 
 fn animation_element_from_node(
@@ -2271,14 +2261,8 @@ impl Exports {
         ));
 
         extend_exports(
-            &mut doc
-                .ExportsList()
-                .flat_map(|exports| {
-                    exports
-                        .StructDeclaration()
-                        .chain(exports.RustAttr().flat_map(|a| a.StructDeclaration()))
-                })
-                .filter_map(|st| {
+            &mut doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).filter_map(
+                |st| {
                     let name_ident: SyntaxNode = st.DeclaredIdentifier().into();
                     let name =
                         parser::identifier_text(&st.DeclaredIdentifier()).unwrap_or_else(|| {
@@ -2290,7 +2274,8 @@ impl Exports {
                         resolve_export_to_inner_component_or_import(&name, &name_ident, diag)?;
 
                     Some((ExportedName { name, name_ident }, compo_or_type))
-                }),
+                },
+            ),
         );
 
         let mut sorted_deduped_exports = Vec::with_capacity(sorted_exports_with_duplicates.len());

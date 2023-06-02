@@ -87,87 +87,59 @@ pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
 }
 
 pub fn parse_rustattr(p: &mut impl Parser) -> bool {
+    let checkpoint = p.checkpoint();
     debug_assert_eq!(p.peek().as_str(), "@");
-    let mut p = p.start_node(SyntaxKind::RustAttr);
     p.consume(); // "@"
     if p.peek().as_str() != "rust-attr" {
-        p.expect(SyntaxKind::RustAttr);
+        p.expect(SyntaxKind::AtRustAttr);
     }
     p.consume(); // "rust-attr"
     p.expect(SyntaxKind::LParent);
-    parse_deriven(&mut *p);
+    parse_parentheses(&mut *p);
     if p.peek().as_str() == "export" {
         p.consume();
     }
-    parse_struct_declaration(&mut *p);
+    let mut p = p.start_node_at(checkpoint, SyntaxKind::StructDeclaration);
+    p.consume(); // "struct"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+
+    if p.peek().kind() == SyntaxKind::ColonEqual {
+        p.warning("':=' to declare a struct is deprecated. Remove the ':='");
+        p.consume();
+    }
+
+    parse_type_object(&mut *p);
     true
 }
 
-macro_rules! deriven_feature {
-    () => {
-        ["serde"]
-    };
-}
-
-macro_rules! deriven_macro_trait {
-    ($feature:expr) => {
-        match $feature {
-            "serde" => vec!["Serialize", "Deserialize"],
-            _ => vec![],
+fn parse_parentheses(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::AtRustAttr);
+    let mut opened = 0;
+    let mut closed = 0;
+    while closed <= opened {
+        if p.peek().as_str() == "(" {
+            opened += 1;
         }
-    };
-}
-
-pub fn parse_deriven(p: &mut impl Parser) -> bool {
-    let mut p = p.start_node(SyntaxKind::Deriven);
-    p.peek();
-    if p.peek().as_str() == "cfg_attr" {
-        p.consume();
-        p.consume();
-        parse_attribute_value(&mut *p);
-        p.consume();
-        p.test(SyntaxKind::RParent);
-        true
-    } else {
-        p.consume();
-        p.test(SyntaxKind::Identifier);
-        p.error("Expected 'cfg_attr' feature like `serde` after '@rust-attr'");
-        false
-    }
-}
-
-fn parse_attribute_value(p: &mut impl Parser) -> bool {
-    if p.peek().as_str() == "feature" {
-        p.consume();
-        p.consume();
-        if !deriven_feature!().contains(&p.peek().as_str().trim_matches('"')) {
-            p.test(SyntaxKind::Identifier);
-            p.error("Unsupported feature"); // include list
-            p.consume();
+        if p.peek().as_str() == ")" {
+            closed += 1;
+        }
+        if closed == opened
+            && opened != 0
+            && closed != 0
+            && p.peek().as_str() != ","
+            && p.peek().as_str() != ")"
+        {
+            p.error("Parse error: `)` or `,`");
             return false;
         }
-        let feature_value = p.peek().as_str().trim_matches('"').to_string();
         p.consume();
-        p.test(SyntaxKind::RParent);
-        p.consume();
-        if p.nth(0).as_str() != "derive" {
-            p.expect(SyntaxKind::Identifier);
-        }
-        p.consume();
-        p.expect(SyntaxKind::LParent);
-        while !p.test(SyntaxKind::RParent) {
-            if !deriven_macro_trait!(feature_value.as_str()).contains(&p.nth(0).as_str()) {
-                p.error(format!("Unsupported trait for {}", feature_value));
-                break;
-            }
-            p.consume();
-            p.test(SyntaxKind::Comma);
-        }
-        p.consume();
-        return true;
     }
-    p.consume();
-    p.test(SyntaxKind::Identifier);
-    p.error("Expected 'feature' keyword after 'cfg_attr('");
-    false
+    if p.peek().as_str() != "struct" && p.peek().as_str() != "export" {
+        p.error("Parse error: expected `struct` or `export`");
+        return false;
+    }
+    true
 }

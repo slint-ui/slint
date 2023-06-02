@@ -579,8 +579,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
     }
 
     for ty in doc.root_component.used_types.borrow().structs.iter() {
-        // FIXME: add feature as deriven
-        if let Type::Struct { fields, name: Some(name), node: Some(node), feature: _feature } = ty {
+        if let Type::Struct { fields, name: Some(name), node: Some(node), .. } = ty {
             generate_struct(&mut file, name, fields, node);
         }
     }

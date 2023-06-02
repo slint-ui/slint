@@ -460,7 +460,7 @@ pub fn layout_info_type() -> Type {
             .collect(),
         name: Some("LayoutInfo".into()),
         node: None,
-        feature: None,
+        rust_attributes: None,
     }
 }
 
