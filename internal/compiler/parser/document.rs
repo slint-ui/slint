@@ -46,7 +46,7 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
                     break;
                 }
             }
-            "@" => {
+            "@" if p.nth(1).as_str() == "rust-attr" => {
                 let mut is_export = false;
                 let mut i = 0;
                 loop {
