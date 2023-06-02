@@ -1300,6 +1300,7 @@ impl QtItemRenderer<'_> {
             let mut layer_painter = cpp!(unsafe [img_ref as "QImage*"] -> QPainterPtr as "QPainterPtr" {
                 auto painter = std::make_unique<QPainter>(img_ref);
                 painter->setClipRect(0, 0, img_ref->width(), img_ref->height());
+                painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
                 return painter;
             });
 
