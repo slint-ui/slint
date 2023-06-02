@@ -9,12 +9,12 @@ on:
     inputs:
       private:
         type: boolean
-        default: "true"
+        default: true
         required: false
         description: "Private build? True means artifacts are only built. False means the artefacts are published (docs, vscode extension) to the web/marketplace"
       release:
         type: boolean
-        default: "false"
+        default: false
         required: false
         description: "Release? Enable options for building binaries for a release (i.e. don't have a -nightly suffix for the extension)"
 
@@ -25,11 +25,11 @@ jobs:
   slint-viewer-binary:
     uses: ./.github/workflows/slint_tool_binary.yaml
     with:
-      program: "slint-viewer"
+      program: "viewer"
   slint-lsp-binary:
     uses: ./.github/workflows/slint_tool_binary.yaml
     with:
-      program: "slint-lsp"
+      program: "lsp"
   docs:
     uses: ./.github/workflows/build_docs.yaml
   wasm_demo:
@@ -52,12 +52,10 @@ jobs:
           - os: ubuntu-20.04
             toolchain: x86_64-unknown-linux-gnu
             binary_built: slint-lsp
-            target_dir:
             artifact_name: slint-lsp-x86_64-unknown-linux-gnu
           - os: windows-2022
             toolchain: x86_64-pc-windows-gnu
             binary_built: slint-lsp.exe
-            target_dir:
             artifact_name: slint-lsp-x86_64-pc-windows-gnu.exe
     runs-on: ${{ matrix.os }}
     steps:

@@ -10,8 +10,8 @@ on:
         type: choice
         description: binary to build
         options:
-          - slint-viewer
-          - slint-lsp
+          - viewer
+          - lsp
   workflow_call:
     inputs:
       program:
@@ -34,14 +34,14 @@ jobs:
         with:
           crate: cargo-about
       - name: Build
-        run: cargo build --verbose --no-default-features --features backend-qt --release -p ${{ github.event.inputs.program || inputs.program }}
+        run: cargo build --verbose --no-default-features --features backend-qt --release -p slint-${{ github.event.inputs.program || inputs.program }}
       - name: Create artifact directory
         run: |
             mkdir pkg
             cd pkg
-            mkdir ${{ github.event.inputs.program || inputs.program }}
-            cd ${{ github.event.inputs.program || inputs.program }}
-            cp ..\..\target/release/${{ github.event.inputs.program || inputs.program }}.exe ./
+            mkdir slint-${{ github.event.inputs.program || inputs.program }}
+            cd slint-${{ github.event.inputs.program || inputs.program }}
+            cp ..\..\target/release/slint-${{ github.event.inputs.program || inputs.program }}.exe ./
             cp ..\..\..\Qt\6.2.1\msvc2019_64\bin/Qt6Core.dll ./
             cp ..\..\..\Qt\6.2.1\msvc2019_64\bin/Qt6Gui.dll ./
             cp ..\..\..\Qt\6.2.1\msvc2019_64\bin/Qt6Widgets.dll ./
@@ -54,12 +54,13 @@ jobs:
             cp ..\..\..\Qt\6.2.1\msvc2019_64\plugins\imageformats\qsvg.dll ./plugins/imageformats
             cd ..
             cd ..
-            bash -x ./scripts/prepare_binary_package.sh pkg\${{ github.event.inputs.program || inputs.program }} --with-qt
+            cd tools\${{ github.event.inputs.program || inputs.program }}
+            bash -x ./scripts/prepare_binary_package.sh ..\..\pkg\slint-${{ github.event.inputs.program || inputs.program }} --with-qt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-            name: ${{ github.event.inputs.program || inputs.program }}-windows
+            name: slint-${{ github.event.inputs.program || inputs.program }}-windows
             path: |
                 pkg
 
@@ -78,22 +79,23 @@ jobs:
         with:
           crate: cargo-about
       - name: Build
-        run: cargo build --verbose --no-default-features --features backend-qt --release -p ${{ github.event.inputs.program || inputs.program }}
+        run: cargo build --verbose --no-default-features --features backend-qt --release -p slint-${{ github.event.inputs.program || inputs.program }}
       - name: Create artifact directory
         run: |
-            mkdir -p ${{ github.event.inputs.program || inputs.program }}
-            cp target/release/${{ github.event.inputs.program || inputs.program }} ${{ github.event.inputs.program || inputs.program }}/
-            ./scripts/prepare_binary_package.sh ${{ github.event.inputs.program || inputs.program }}
+            mkdir -p slint-${{ github.event.inputs.program || inputs.program }}
+            cp target/release/slint-${{ github.event.inputs.program || inputs.program }} slint-${{ github.event.inputs.program || inputs.program }}/
+            cd tools/${{ github.event.inputs.program || inputs.program }}
+            ./scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}
       - name: Tar artifacts to preserve permissions
-        run: tar czvf ${{ github.event.inputs.program || inputs.program }}-linux.tar.gz ${{ github.event.inputs.program || inputs.program }}
+        run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-            name: ${{ github.event.inputs.program || inputs.program }}-linux
-            path: ${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
+            name: slint-${{ github.event.inputs.program || inputs.program }}-linux
+            path: slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
 
   build_macos:
-    runs-on: macOS-11
+    runs-on: macos-11
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup-rust
@@ -110,15 +112,15 @@ jobs:
         with:
           crate: cargo-about
       - name: Build x86_64
-        run: cargo build --verbose --target x86_64-apple-darwin --no-default-features --features backend-qt --release -p ${{ github.event.inputs.program || inputs.program }}
+        run: cargo build --verbose --target x86_64-apple-darwin --no-default-features --features backend-qt --release -p slint-${{ github.event.inputs.program || inputs.program }}
       - name: Build aarch64
-        run: cargo build --verbose --target aarch64-apple-darwin --no-default-features --features backend-qt --release -p ${{ github.event.inputs.program || inputs.program }}
+        run: cargo build --verbose --target aarch64-apple-darwin --no-default-features --features backend-qt --release -p slint-${{ github.event.inputs.program || inputs.program }}
       - name: Create artifact directory
         run: |
-            mkdir -p ${{ github.event.inputs.program || inputs.program }}
-            cd ${{ github.event.inputs.program || inputs.program }}
-            lipo -create -output ./${{ github.event.inputs.program || inputs.program }} ../target/x86_64-apple-darwin/release/${{ github.event.inputs.program || inputs.program }} ../target/aarch64-apple-darwin/release/${{ github.event.inputs.program || inputs.program }}
-            install_name_tool -add_rpath @executable_path/. ./${{ github.event.inputs.program || inputs.program }}
+            mkdir -p slint-${{ github.event.inputs.program || inputs.program }}
+            cd slint-${{ github.event.inputs.program || inputs.program }}
+            lipo -create -output ./slint-${{ github.event.inputs.program || inputs.program }} ../target/x86_64-apple-darwin/release/slint-${{ github.event.inputs.program || inputs.program }} ../target/aarch64-apple-darwin/release/slint-${{ github.event.inputs.program || inputs.program }}
+            install_name_tool -add_rpath @executable_path/. ./slint-${{ github.event.inputs.program || inputs.program }}
             cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtCore.framework ./
             cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtGui.framework ./
             cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtWidgets.framework ./
@@ -128,11 +130,12 @@ jobs:
             cp -a ~/work/slint/Qt/6.2.1/macos/plugins/platforms/libqcocoa.dylib ./plugins/platforms
             cp -a ~/work/slint/Qt/6.2.1/macos/plugins/imageformats/libqsvg.dylib ./plugins/imageformats
             cd ..
-            ./scripts/prepare_binary_package.sh ${{ github.event.inputs.program || inputs.program }} --with-qt
+            cd tools/${{ github.event.inputs.program || inputs.program }}
+            ./scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --with-qt
       - name: Tar artifacts to preserve permissions
-        run: tar czvf ${{ github.event.inputs.program || inputs.program }}-macos.tar.gz ${{ github.event.inputs.program || inputs.program }}
+        run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-            name: ${{ github.event.inputs.program || inputs.program }}-macos
-            path: ${{ github.event.inputs.program || inputs.program }}-macos.tar.gz
+            name: slint-${{ github.event.inputs.program || inputs.program }}-macos
+            path: slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz

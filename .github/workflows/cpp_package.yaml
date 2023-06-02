@@ -36,10 +36,12 @@ jobs:
         crate: cargo-about
     - name: Prepare licenses (with Qt)
       if: matrix.os == 'windows-2022' || matrix.os == 'macOS-11'
-      run: bash -x ./scripts/prepare_binary_package.sh . --with-qt
+      run: bash -x ./scripts/prepare_binary_package.sh ../.. --with-qt
+      working-directory: api/cpp/
     - name: Prepare licenses (without Qt)
       if: matrix.os != 'windows-2022' && matrix.os != 'macOS-11'
-      run: bash -x ./scripts/prepare_binary_package.sh .
+      run: bash -x ./scripts/prepare_binary_package.sh ../..
+      working-directory: api/cpp/
     - uses: ilammy/msvc-dev-cmd@v1
     - name: Select MSVC (windows)
       run: |
