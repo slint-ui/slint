@@ -35,10 +35,6 @@ impl AudioPlaybackThread {
 
         let config = device.default_output_config().unwrap();
 
-        if config.sample_format() != cpal::SampleFormat::F32 {
-            return Err(anyhow::format_err!("Only f32 audio output is implemented right now, but your host audio system uses a different format"));
-        }
-
         let receiver_thread =
             std::thread::Builder::new().name("audio playback thread".into()).spawn(move || {
                 smol::block_on(async move {
