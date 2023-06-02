@@ -86,11 +86,6 @@ All colors and brushes define the following methods:
     Returns a new color that is a mix of this color and `other`, with a proportion
     factor given by \a factor (which will be clamped to be between `0.0` and `1.0`).
 
--  **`opaque(factor: float) -> brush`**
-
-   Returns a new color derived from this color with the opacity increased by `factor`,
-   meaning the new opacity will be scaled up by `1.0 + factor`.
-
 -  **`transparentize(factor: float) -> brush`**
 
     Returns a new color with the opacity decreased by `factor`,

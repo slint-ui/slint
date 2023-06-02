@@ -152,20 +152,7 @@ public:
     ///
     /// The reference is the opacity's normalized value as `u8` and \a factor is
     /// clamped to be between `0.0` and `1.0` before applying it.
-    ///
-    /// For _increasing_ the opacity, see Color::opaque(float) and
-    /// Color::with_alpha(float).
     inline Color transparentize(float factor) const;
-    /// Returns a new version of this color with the opacity increased by \a factor,
-    /// meaning the new opacity will be scaled up by `1.0 + factor`.
-    ///
-    /// The reference is the opacity's normalized value as `u8` and \a factor is
-    /// changed to be at least `0.0` before applying it, and thus the current
-    /// value cannot be decreased.
-    ///
-    /// For _decreasing_ the opacity, see Color::transparentize(float) and
-    /// Color::with_alpha(float).
-    inline Color opaque(float factor) const;
 
     /// Returns a new color that is a mix of \a this and \a other, with a proportion
     /// factor given by \a factor (which will be clamped to be between `0.0` and `1.0`).
@@ -190,7 +177,8 @@ public:
 
 #if !defined(DOXYGEN)
     // FIXME: we need this to create GradientStop
-    operator const cbindgen_private::types::Color &() const {
+    operator const cbindgen_private::types::Color &() const
+    {
         return inner;
     }
 #endif
@@ -219,13 +207,6 @@ inline Color Color::transparentize(float factor) const
 {
     Color result;
     cbindgen_private::types::slint_color_transparentize(&inner, factor, &result.inner);
-    return result;
-}
-
-inline Color Color::opaque(float factor) const
-{
-    Color result;
-    cbindgen_private::types::slint_color_opaque(&inner, factor, &result.inner);
     return result;
 }
 

@@ -199,9 +199,6 @@ impl Color {
     /// The reference is the opacity's normalized value as `u8` and `factor` is
     /// clamped to be between `0.0` and `1.0` before applying it.
     ///
-    /// For _increasing_ the opacity, see [`opaque`](fn@Color::opaque) and
-    /// [`with_alpha`](fn@Color::with_alpha).
-    ///
     /// # Examples
     /// Decreasing the opacity of a red color by half:
     /// ```
@@ -220,37 +217,6 @@ impl Color {
     pub fn transparentize(&self, factor: f32) -> Self {
         let mut rgba: RgbaColor<u8> = (*self).into();
         rgba.alpha = scale_u8(rgba.alpha, factor.clamp(0.0, 1.0));
-        rgba.into()
-    }
-
-    /// Returns a new version of this color with the opacity increased by `factor`,
-    /// meaning the new opacity will be scaled up by `1.0 + factor`.
-    ///
-    /// The reference is the opacity's normalized value as `u8` and `factor` is
-    /// changed to be at least `0.0` before applying it, and thus the current
-    /// value cannot be decreased.
-    ///
-    /// For _decreasing_ the opacity, see [`transparentize`](fn@Color::transparentize) and
-    /// [`with_alpha`](fn@Color::with_alpha).
-    ///
-    /// # Examples
-    /// Increasing the opacity of a red color by 100% (doubling it):
-    /// ```
-    /// # use i_slint_core::graphics::Color;
-    /// let red = Color::from_argb_u8(128, 255, 0, 0);
-    /// assert_eq!(red.opaque(1.0), Color::from_argb_u8(255, 255, 0, 0));
-    /// ```
-    ///
-    /// Increasing the opacity of a blue color by 20% of the current value:
-    /// ```
-    /// # use i_slint_core::graphics::Color;
-    /// let blue = Color::from_argb_u8(150, 0, 0, 255);
-    /// assert_eq!(blue.opaque(0.2), Color::from_argb_u8(180, 0, 0, 255));
-    /// ```
-    #[must_use]
-    pub fn opaque(&self, factor: f32) -> Self {
-        let mut rgba: RgbaColor<u8> = (*self).into();
-        rgba.alpha = scale_u8(rgba.alpha, 1.0 + f32::max(factor, 0.0));
         rgba.into()
     }
 
@@ -454,11 +420,6 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_color_transparentize(col: &Color, factor: f32, out: *mut Color) {
         core::ptr::write(out, col.transparentize(factor))
-    }
-
-    #[no_mangle]
-    pub unsafe extern "C" fn slint_color_opaque(col: &Color, factor: f32, out: *mut Color) {
-        core::ptr::write(out, col.opaque(factor))
     }
 
     #[no_mangle]

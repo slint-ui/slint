@@ -694,20 +694,6 @@ fn call_builtin_function(
                 panic!("First argument not a color");
             }
         }
-        BuiltinFunction::ColorOpaque => {
-            if arguments.len() != 2 {
-                panic!("internal error: incorrect argument count to ColorFaded")
-            }
-            if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
-                if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
-                    brush.opaque(factor as _).into()
-                } else {
-                    panic!("Second argument not a number");
-                }
-            } else {
-                panic!("First argument not a color");
-            }
-        }
         BuiltinFunction::ColorMix => {
             if arguments.len() != 3 {
                 panic!("internal error: incorrect argument count to ColorMix")
