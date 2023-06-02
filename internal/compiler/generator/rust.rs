@@ -2255,7 +2255,11 @@ fn compile_builtin_function_call(
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 quote!(
                     slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
-                        &VRc::into_dyn(#popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).into()),
+                        &VRc::into_dyn({
+                            let instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone());
+                            #popup_window_id::user_init(slint::private_unstable_api::re_exports::VRc::map(instance.clone(), |x| x));
+                            instance.into()
+                        }),
                         Point::new(#x as slint::private_unstable_api::re_exports::Coord, #y as slint::private_unstable_api::re_exports::Coord),
                         #parent_component
                     )
