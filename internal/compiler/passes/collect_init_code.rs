@@ -26,4 +26,7 @@ pub fn collect_init_code(component: &Rc<Component>) {
                 .push(init_callback.into_inner().expression);
         }
     });
+    for popup in component.popup_windows.borrow().iter() {
+        collect_init_code(&popup.component);
+    }
 }
