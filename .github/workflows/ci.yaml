@@ -124,7 +124,7 @@ jobs:
 
   cpp_cmake:
     env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
@@ -147,7 +147,7 @@ jobs:
       if: matrix.os != 'ubuntu-20.04'
       uses: jurplel/install-qt-action@v3
       with:
-        version: 6.2.1
+        version: 6.5.1
     - uses: ./.github/actions/setup-rust
     - uses: ilammy/msvc-dev-cmd@v1
     - name: Select MSVC (windows)
@@ -183,7 +183,7 @@ jobs:
     needs: [cpp_cmake]
     runs-on: ubuntu-20.04
     env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
       CARGO_PROFILE_DEV_DEBUG: 0

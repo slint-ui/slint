@@ -10,7 +10,7 @@ on:
 jobs:
   cmake_package:
     env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
     strategy:
@@ -29,7 +29,7 @@ jobs:
       if: matrix.os != 'ubuntu-20.04'
       uses: jurplel/install-qt-action@v3
       with:
-        version: 6.2.1
+        version: 6.5.1
     - uses: ./.github/actions/setup-rust
     - uses: baptiste0928/cargo-install@v2
       with:

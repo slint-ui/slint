@@ -29,7 +29,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
-          version: 6.2.1
+          version: 6.5.1
       - uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-about
@@ -42,16 +42,16 @@ jobs:
             mkdir slint-${{ github.event.inputs.program || inputs.program }}
             cd slint-${{ github.event.inputs.program || inputs.program }}
             cp ..\..\target/release/slint-${{ github.event.inputs.program || inputs.program }}.exe ./
-            cp ..\..\..\Qt\6.2.1\msvc2019_64\bin/Qt6Core.dll ./
-            cp ..\..\..\Qt\6.2.1\msvc2019_64\bin/Qt6Gui.dll ./
-            cp ..\..\..\Qt\6.2.1\msvc2019_64\bin/Qt6Widgets.dll ./
-            cp ..\..\..\Qt\6.2.1\msvc2019_64\bin/Qt6Svg.dll ./
+            cp ..\..\..\Qt\6.5.1\msvc2019_64\bin/Qt6Core.dll ./
+            cp ..\..\..\Qt\6.5.1\msvc2019_64\bin/Qt6Gui.dll ./
+            cp ..\..\..\Qt\6.5.1\msvc2019_64\bin/Qt6Widgets.dll ./
+            cp ..\..\..\Qt\6.5.1\msvc2019_64\bin/Qt6Svg.dll ./
             mkdir .\plugins\platforms
-            cp ..\..\..\Qt\6.2.1\msvc2019_64\plugins\platforms\qwindows.dll ./plugins/platforms
+            cp ..\..\..\Qt\6.5.1\msvc2019_64\plugins\platforms\qwindows.dll ./plugins/platforms
             mkdir .\plugins\styles
-            cp ..\..\..\Qt\6.2.1\msvc2019_64\plugins\styles\qwindowsvistastyle.dll ./plugins/styles
+            cp ..\..\..\Qt\6.5.1\msvc2019_64\plugins\styles\qwindowsvistastyle.dll ./plugins/styles
             mkdir .\plugins\imageformats
-            cp ..\..\..\Qt\6.2.1\msvc2019_64\plugins\imageformats\qsvg.dll ./plugins/imageformats
+            cp ..\..\..\Qt\6.5.1\msvc2019_64\plugins\imageformats\qsvg.dll ./plugins/imageformats
             cd ..
             cd ..
             cd tools\${{ github.event.inputs.program || inputs.program }}
@@ -107,7 +107,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
-          version: 6.2.1
+          version: 6.5.1
       - uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-about
@@ -121,14 +121,14 @@ jobs:
             cd slint-${{ github.event.inputs.program || inputs.program }}
             lipo -create -output ./slint-${{ github.event.inputs.program || inputs.program }} ../target/x86_64-apple-darwin/release/slint-${{ github.event.inputs.program || inputs.program }} ../target/aarch64-apple-darwin/release/slint-${{ github.event.inputs.program || inputs.program }}
             install_name_tool -add_rpath @executable_path/. ./slint-${{ github.event.inputs.program || inputs.program }}
-            cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtCore.framework ./
-            cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtGui.framework ./
-            cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtWidgets.framework ./
-            cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtDBus.framework ./
-            cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtSvg.framework ./
+            cp -a ~/work/slint/Qt/6.5.1/macos/lib/QtCore.framework ./
+            cp -a ~/work/slint/Qt/6.5.1/macos/lib/QtGui.framework ./
+            cp -a ~/work/slint/Qt/6.5.1/macos/lib/QtWidgets.framework ./
+            cp -a ~/work/slint/Qt/6.5.1/macos/lib/QtDBus.framework ./
+            cp -a ~/work/slint/Qt/6.5.1/macos/lib/QtSvg.framework ./
             mkdir -p ./plugins/platforms ./plugins/imageformats
-            cp -a ~/work/slint/Qt/6.2.1/macos/plugins/platforms/libqcocoa.dylib ./plugins/platforms
-            cp -a ~/work/slint/Qt/6.2.1/macos/plugins/imageformats/libqsvg.dylib ./plugins/imageformats
+            cp -a ~/work/slint/Qt/6.5.1/macos/plugins/platforms/libqcocoa.dylib ./plugins/platforms
+            cp -a ~/work/slint/Qt/6.5.1/macos/plugins/imageformats/libqsvg.dylib ./plugins/imageformats
             cd ..
             cd tools/${{ github.event.inputs.program || inputs.program }}
             ./scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --with-qt
