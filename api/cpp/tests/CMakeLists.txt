@@ -19,12 +19,6 @@ macro(slint_test NAME)
     )
     add_test(NAME test_${NAME} COMMAND test_${NAME})
 
-    # Somehow the wrong relative rpath ends up in the binary, requiring us to change the
-    # working directory.
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        set_property(TEST test_${NAME} PROPERTY WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
-    endif()
-
     if(MSVC)
         target_compile_options(test_${NAME} PRIVATE /W3)
     else()
