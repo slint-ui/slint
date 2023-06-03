@@ -55,7 +55,7 @@ jobs:
             cd ..
             cd ..
             cd tools\${{ github.event.inputs.program || inputs.program }}
-            bash -x ./scripts/prepare_binary_package.sh ..\..\pkg\slint-${{ github.event.inputs.program || inputs.program }} --with-qt
+            bash -x ../../scripts/prepare_binary_package.sh ..\..\pkg\slint-${{ github.event.inputs.program || inputs.program }} --with-qt
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
@@ -85,7 +85,7 @@ jobs:
             mkdir -p slint-${{ github.event.inputs.program || inputs.program }}
             cp target/release/slint-${{ github.event.inputs.program || inputs.program }} slint-${{ github.event.inputs.program || inputs.program }}/
             cd tools/${{ github.event.inputs.program || inputs.program }}
-            ./scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}
+            ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}
       - name: Tar artifacts to preserve permissions
         run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
       - name: Upload artifact
@@ -131,7 +131,7 @@ jobs:
             cp -a ~/work/slint/Qt/6.5.1/macos/plugins/imageformats/libqsvg.dylib ./plugins/imageformats
             cd ..
             cd tools/${{ github.event.inputs.program || inputs.program }}
-            ./scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --with-qt
+            ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --with-qt
       - name: Tar artifacts to preserve permissions
         run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
       - name: Upload artifact
