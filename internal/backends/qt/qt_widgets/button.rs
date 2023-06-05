@@ -114,7 +114,7 @@ pub struct NativeButton {
     pub has_hover: Property<bool>,
     pub checkable: Property<bool>,
     pub checked: Property<bool>,
-    pub default: Property<bool>,
+    pub primary: Property<bool>,
     pub has_focus: Property<bool>,
     pub clicked: Callback<VoidArg>,
     pub enabled: Property<bool>,
@@ -335,7 +335,7 @@ impl Item for NativeButton {
         let enabled = this.enabled();
         let has_focus = this.has_focus();
         let has_hover = this.has_hover();
-        let is_default = this.default();
+        let primary = this.primary();
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
@@ -348,7 +348,7 @@ impl Item for NativeButton {
             checked as "bool",
             has_focus as "bool",
             has_hover as "bool",
-            is_default as "bool",
+            primary as "bool",
             dpr as "float",
             initial_state as "int"
         ] {
@@ -378,7 +378,7 @@ impl Item for NativeButton {
             if (has_hover) {
                 option.state |= QStyle::State_MouseOver;
             }
-            if (is_default) {
+            if (primary) {
                 option.features |= QStyleOptionButton::DefaultButton;
             }
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, painter->get(), widget);
