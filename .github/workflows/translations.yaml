@@ -1,0 +1,38 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+# Run slint-tr-extractor and msgfmt
+name: Update Translations
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 3 * * *"
+
+jobs:
+  update-translations:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_INCREMENTAL: false
+      RUST_BACKTRACE: 1
+    steps:
+      - name: "install gettext tools"
+        run: sudo apt install gettext
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-rust
+      - name: Run slint-tr-extractor
+        run: cargo run -p slint-tr-extractor -- -d gallery -o gallery.pot **/*.slint
+        working-directory: examples/gallery
+      - name: msgmerge and msgfmt
+        working-directory: examples/gallery
+        run: |
+          for po in lang/*/LC_MESSAGES
+          do msgmerge $po/gallery.po gallery.pot -o $po/gallery.po
+          msgfmt $po/gallery.po -o $po/gallery.mo
+          done
+      - name: commit
+        run: "git commit -a -m 'Update Translations: extract strings' --author 'Update Translations Bot <noreply@slint-ui.com>'"
+      - name: push
+        run: git push
