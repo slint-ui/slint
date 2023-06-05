@@ -191,6 +191,10 @@ impl FontCache {
             let db = db.borrow();
 
             db.query_with_family(query, family.map(|s| s.as_str()))
+                .or_else(|| {
+                    // If the requested family could not be found, fall back to *some* family that must exist
+                    db.query_with_family(query, None)
+                })
                 .expect("there must be a sans-serif font face registered")
         });
 
