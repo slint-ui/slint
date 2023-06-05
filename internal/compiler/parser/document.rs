@@ -4,6 +4,7 @@
 use super::element::{parse_element, parse_element_content};
 use super::prelude::*;
 use super::r#type::parse_struct_declaration;
+use crate::parser::r#type::parse_rustattr;
 
 #[cfg_attr(test, parser_test)]
 /// ```test,Document
@@ -43,6 +44,35 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
             "struct" => {
                 if !parse_struct_declaration(&mut *p) {
                     break;
+                }
+            }
+            "@" if p.nth(1).as_str() == "rust-attr" => {
+                let mut is_export = false;
+                let mut i = 0;
+                loop {
+                    let value = p.nth(i);
+                    if value.as_str() == ")" && p.nth(i + 1).as_str() == "export" {
+                        is_export = true;
+                        break;
+                    } else if (value.as_str() == ")"
+                        && p.nth(i + 1).as_str() != "struct"
+                        && p.nth(i + 1).as_str() != "export"
+                        && p.nth(i + 1).as_str() != ")")
+                        || (value.as_str() == ")" && p.nth(i + 1).as_str() == "struct")
+                    {
+                        break;
+                    }
+                    i += 1;
+                }
+                if is_export {
+                    let mut p = p.start_node(SyntaxKind::ExportsList);
+                    if !parse_rustattr(&mut *p) {
+                        break;
+                    }
+                } else {
+                    if !parse_rustattr(&mut *p) {
+                        break;
+                    }
                 }
             }
             _ => {

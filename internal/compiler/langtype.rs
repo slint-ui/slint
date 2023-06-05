@@ -60,6 +60,8 @@ pub enum Type {
         name: Option<String>,
         /// When declared in .slint, this is the node of the declaration.
         node: Option<syntax_nodes::ObjectType>,
+        /// deriven
+        rust_attributes: Option<Vec<String>>,
     },
     Enumeration(Rc<Enumeration>),
 
@@ -104,8 +106,8 @@ impl core::cmp::PartialEq for Type {
             Type::Easing => matches!(other, Type::Easing),
             Type::Brush => matches!(other, Type::Brush),
             Type::Array(a) => matches!(other, Type::Array(b) if a == b),
-            Type::Struct { fields, name, node: _ } => {
-                matches!(other, Type::Struct{fields: f, name: n, node: _} if fields == f && name == n)
+            Type::Struct { fields, name, node: _, rust_attributes: _ } => {
+                matches!(other, Type::Struct{fields:f,name:n,node:_, rust_attributes: _ } if fields == f && name == n)
             }
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),

@@ -85,3 +85,57 @@ pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
     parse_type_object(&mut *p);
     true
 }
+
+pub fn parse_rustattr(p: &mut impl Parser) -> bool {
+    let checkpoint = p.checkpoint();
+    debug_assert_eq!(p.peek().as_str(), "@");
+    p.consume(); // "@"
+    if p.peek().as_str() != "rust-attr" {
+        p.expect(SyntaxKind::AtRustAttr);
+    }
+    p.consume(); // "rust-attr"
+    p.expect(SyntaxKind::LParent);
+    parse_parentheses(&mut *p);
+    if p.peek().as_str() == "export" {
+        p.consume();
+    }
+    let mut p = p.start_node_at(checkpoint, SyntaxKind::StructDeclaration);
+    p.consume(); // "struct"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+
+    if p.peek().kind() == SyntaxKind::ColonEqual {
+        p.warning("':=' to declare a struct is deprecated. Remove the ':='");
+        p.consume();
+    }
+
+    parse_type_object(&mut *p);
+    true
+}
+
+fn parse_parentheses(p: &mut impl Parser) -> bool {
+    let mut p = p.start_node(SyntaxKind::AtRustAttr);
+    let mut opened = 0;
+    let mut closed = 0;
+    while closed <= opened {
+        if p.peek().kind() == SyntaxKind::LParent {
+            opened += 1;
+        }
+        if p.peek().kind() == SyntaxKind::RParent {
+            closed += 1;
+        }
+        if closed == opened && opened != 0 && closed != 0 && p.peek().kind() != SyntaxKind::RParent
+        {
+            p.error("Parse error: `)` or `,`");
+            return false;
+        }
+        p.consume();
+    }
+    if p.peek().as_str() != "struct" && p.peek().as_str() != "export" {
+        p.error("Parse error: expected `struct` or `export`");
+        return false;
+    }
+    true
+}

@@ -355,6 +355,7 @@ fn add_highlight_items(doc: &Document) {
                         .collect(),
                     name: None,
                     node: None,
+                    rust_attributes: None,
                 }
                 .into(),
             ),

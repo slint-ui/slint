@@ -7,7 +7,7 @@
 
 // cSpell: ignore qualname
 
-use itertools::Either;
+use itertools::{Either, Itertools};
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
@@ -77,7 +77,21 @@ impl Document {
             |n: syntax_nodes::StructDeclaration,
              diag: &mut BuildDiagnostics,
              local_registry: &mut TypeRegister| {
-                let mut ty = type_struct_from_node(n.ObjectType(), diag, local_registry);
+                let rust_attributes: Vec<String> = n
+                    .children()
+                    .filter(|child| child.kind() == SyntaxKind::AtRustAttr)
+                    .map(|child| {
+                        let mut text = child.text().to_string();
+                        text.pop();
+                        text
+                    })
+                    .collect_vec();
+                let mut ty = type_struct_from_node(
+                    n.ObjectType(),
+                    diag,
+                    local_registry,
+                    Some(rust_attributes),
+                );
                 if let Type::Struct { name, .. } = &mut ty {
                     *name = parser::identifier_text(&n.DeclaredIdentifier());
                 } else {
@@ -1630,7 +1644,7 @@ pub fn type_from_node(
         }
         prop_type
     } else if let Some(object_node) = node.ObjectType() {
-        type_struct_from_node(object_node, diag, tr)
+        type_struct_from_node(object_node, diag, tr, None)
     } else if let Some(array_node) = node.ArrayType() {
         Type::Array(Box::new(type_from_node(array_node.Type(), diag, tr)))
     } else {
@@ -1644,6 +1658,7 @@ pub fn type_struct_from_node(
     object_node: syntax_nodes::ObjectType,
     diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
+    rust_attributes: Option<Vec<String>>,
 ) -> Type {
     let fields = object_node
         .ObjectTypeMember()
@@ -1654,7 +1669,7 @@ pub fn type_struct_from_node(
             )
         })
         .collect();
-    Type::Struct { fields, name: None, node: Some(object_node) }
+    Type::Struct { fields, name: None, node: Some(object_node), rust_attributes }
 }
 
 fn animation_element_from_node(

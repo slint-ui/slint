@@ -25,6 +25,7 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
+use std::str::FromStr;
 
 type EvaluationContext<'a> = llr_EvaluationContext<'a, TokenStream>;
 type ParentCtx<'a> = llr_ParentCtx<'a, TokenStream>;
@@ -139,8 +140,8 @@ pub fn generate(doc: &Document) -> TokenStream {
         .structs
         .iter()
         .filter_map(|ty| {
-            if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
-                Some((ident(name), generate_struct(name, fields)))
+            if let Type::Struct { fields, name: Some(name), node: Some(_), rust_attributes } = ty {
+                Some((ident(name), generate_struct(name, fields, rust_attributes)))
             } else {
                 None
             }
@@ -422,12 +423,28 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
     )
 }
 
-fn generate_struct(name: &str, fields: &BTreeMap<String, Type>) -> TokenStream {
+fn generate_struct(
+    name: &str,
+    fields: &BTreeMap<String, Type>,
+    rust_attributes: &Option<Vec<String>>,
+) -> TokenStream {
     let component_id = struct_name_to_tokens(name);
     let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) =
         fields.iter().map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap())).unzip();
 
+    let attributes = if let Some(feature) = rust_attributes {
+        let attr =
+            feature.iter().map(|f| match TokenStream::from_str(format!(r#"#[{}]"#, f).as_str()) {
+                Ok(eval) => eval,
+                Err(_) => quote! {},
+            });
+        quote! { #(#attr)* }
+    } else {
+        quote! {}
+    };
+
     quote! {
+        #attributes
         #[derive(Default, PartialEq, Debug, Clone)]
         pub struct #component_id {
             #(pub #declared_property_vars : #declared_property_types),*
