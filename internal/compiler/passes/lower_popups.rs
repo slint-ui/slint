@@ -68,10 +68,6 @@ fn lower_popup_window(
     parent_element.borrow_mut().has_popup_child = true;
 
     popup_window_element.borrow_mut().base_type = window_type.clone();
-    popup_window_element.borrow_mut().property_declarations.insert(
-        "close-on-click".into(),
-        PropertyDeclaration { property_type: Type::Bool, ..PropertyDeclaration::default() },
-    );
 
     let close_on_click =
         match popup_window_element.borrow_mut().bindings.remove("close-on-click").map_or_else(
