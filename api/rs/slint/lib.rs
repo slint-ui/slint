@@ -206,6 +206,26 @@ struct MyStruct {
 }
 ```
 
+The `.slint` file allows you to utilize Rust attributes and features for defining structures using the `@rust-attr()` directive.
+This enables you to customize the generated code by applying additional traits, derivations, or annotations.
+Consider the following structure defined in the `.slint` file with Rust attributes:
+```slint,ignore
+@rust-attr(derive(serde::Serialize, serde::Deserialize))
+struct MyStruct {
+    foo : i32,
+}
+```
+
+Based on this structure, the following Rust code would be generated:
+
+```rust
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Default, Clone, Debug, PartialEq)]
+struct MyStruct {
+    foo : i32,
+}
+```
+
 ## Exported Global singletons
 
 */

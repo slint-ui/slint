@@ -424,7 +424,7 @@ declare_syntax! {
         /// `struct Foo := { ... }
         StructDeclaration -> [DeclaredIdentifier, ObjectType, ?AtRustAttr],
         /// `@rust-attr(...)`
-        AtRustAttr -> [ DeclaredIdentifier, ObjectType, Expression ],
+        AtRustAttr -> [],
     }
 }
 
