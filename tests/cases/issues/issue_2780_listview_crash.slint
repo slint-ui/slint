@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// This test case verifies that the listview updates its layout / geometry when the
+// entire model changes. This test works by triggering layout updates by simulating
+// mouse clicks, which results in item tree traversal and ensure_updated_listview
+// calls, similar to when painting. The actual model change is triggered via simulated
+// mouse clicks into the touch area further down.
+// Note: The C++ test uses the same test method, but due to its differing implementation
+// it's not testing the same code path.
+
+import { ListView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property pos <=> lv.viewport-y;
+    out property <int> clicked-idx: -1;
+    in-out property<[color]> the_model: [Colors.red, Colors.blue, Colors.yellow, Colors.pink, Colors.orange, Colors.aliceblue, Colors.limegreen];
+    lv := ListView {
+        for col[idx] in the_model: Rectangle {
+            height: 100px;
+            background: col;
+            TouchArea {
+                clicked => {
+                    clicked-idx = idx;
+                    the_model = [Colors.gray];
+                }
+            }
+        }
+    }
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+
+instance.set_pos(-400.);
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_clicked_idx(), 4);
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+
+instance.set_pos(-400.);
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_clicked_idx(), 4);
+
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_clicked_idx(), 0);
+```
+
+*/

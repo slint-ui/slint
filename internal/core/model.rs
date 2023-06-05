@@ -962,6 +962,10 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
         let data = self.data();
         let mut inner = data.inner.borrow_mut();
+        if inner.offset >= row_count {
+            inner.offset = row_count - 1;
+        }
+
         let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
         let first_item_y = inner.anchor_y;
         let last_item_bottom = first_item_y + element_height * inner.components.len() as Coord;
