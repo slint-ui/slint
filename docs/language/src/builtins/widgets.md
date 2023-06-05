@@ -40,6 +40,7 @@ A simple button. Common types of buttons can also be created with [`StandardButt
 -   **`icon`** (_in_ _image_): The image to show in the button. Note that not all styles support drawing icons.
 -   **`pressed`**: (_out_ _bool_): Set to true when the button is pressed.
 -   **`text`** (_in_ _string_): The text written in the button.
+-   **`default`** (_in_ _bool_): Defines the button as default button and display it in a highlighted color.
 
 ### Callbacks
 

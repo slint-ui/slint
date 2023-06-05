@@ -15,6 +15,7 @@ export component Button {
     in property<bool> checkable <=> native.checkable;
     in-out property<bool> checked <=> native.checked;
     in property<image> icon <=> native.icon;
+    in property <bool> default <=> native.default;
     callback clicked <=> native.clicked;
 
     accessible-checkable: root.checkable;

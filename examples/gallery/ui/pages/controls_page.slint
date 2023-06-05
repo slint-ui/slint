@@ -24,9 +24,10 @@ export component ControlsPage inherits Page {
             }
 
             Button {
-                text: @tr("Button with Icon");
+                text: @tr("Primary Button with Icon");
                 icon: @image-url("../../thumbsup.png");
                 enabled: GallerySettings.widgets-enabled;
+                default: true;
             }
 
             Button {
