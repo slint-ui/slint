@@ -339,6 +339,10 @@ impl Item for TextInput {
                     self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 }
 
+                if !self.has_focus() {
+                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
+                }
+
                 match click_count % 3 {
                     0 => self.set_cursor_position(clicked_offset, true, window_adapter, self_rc),
                     1 => self.select_word(window_adapter, self_rc),
@@ -346,19 +350,16 @@ impl Item for TextInput {
                     _ => unreachable!(),
                 };
 
-                if !self.has_focus() {
-                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
-                }
                 return InputEventResult::GrabMouse;
             }
             MouseEvent::Pressed { position, button: PointerEventButton::Middle, .. } => {
                 let clicked_offset = self.byte_offset_for_position(position, window_adapter) as i32;
                 self.as_ref().anchor_position_byte_offset.set(clicked_offset);
-                self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
-                self.paste_clipboard(window_adapter, self_rc, Clipboard::SelectionClipboard);
                 if !self.has_focus() {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
                 }
+                self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
+                self.paste_clipboard(window_adapter, self_rc, Clipboard::SelectionClipboard);
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 self.as_ref().pressed.set(0);
@@ -556,15 +557,20 @@ impl Item for TextInput {
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
-                window_adapter.input_method_request(InputMethodRequest::Enable {
-                    input_type: self.input_type(),
-                });
+                // FIXME: This should be tracked by a PropertyTracker in window and toggled when read_only() toggles.
+                if !self.read_only() {
+                    window_adapter.input_method_request(InputMethodRequest::Enable {
+                        input_type: self.input_type(),
+                    });
+                }
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
                 self.hide_cursor();
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
-                window_adapter.input_method_request(InputMethodRequest::Disable {});
+                if !self.read_only() {
+                    window_adapter.input_method_request(InputMethodRequest::Disable {});
+                }
             }
         }
         FocusEventResult::FocusAccepted
@@ -875,6 +881,9 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) {
+        if self.read_only() {
+            return;
+        }
         let cursor_position = self.cursor_position(&self.text());
         let cursor_point_relative =
             self.cursor_rect_for_byte_offset(cursor_position, window_adapter).to_box2d().max;

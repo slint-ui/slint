@@ -8,9 +8,10 @@ use i_slint_core::graphics::euclid::{Point2D, Size2D};
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use i_slint_core::renderer::Renderer;
-use i_slint_core::window::WindowAdapter;
 use i_slint_core::window::WindowAdapterSealed;
+use i_slint_core::window::{InputMethodRequest, WindowAdapter};
 
+use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -28,6 +29,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             shown: false.into(),
             size: Default::default(),
+            ime_requests: Default::default(),
         }))
     }
 
@@ -55,6 +57,7 @@ pub struct TestingWindow {
     window: i_slint_core::api::Window,
     shown: core::cell::Cell<bool>,
     size: core::cell::Cell<PhysicalSize>,
+    pub ime_requests: RefCell<Vec<InputMethodRequest>>,
 }
 
 impl WindowAdapterSealed for TestingWindow {
@@ -94,6 +97,10 @@ impl WindowAdapterSealed for TestingWindow {
 
     fn is_visible(&self) -> bool {
         self.shown.get()
+    }
+
+    fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
+        self.ime_requests.borrow_mut().push(request)
     }
 }
 
@@ -233,6 +240,18 @@ mod for_unit_test {
     ) {
         component.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: factor });
     }
+}
+
+pub fn access_testing_window<R>(
+    window: &i_slint_core::api::Window,
+    callback: impl FnOnce(&TestingWindow) -> R,
+) -> R {
+    i_slint_core::window::WindowInner::from_pub(&window)
+        .window_adapter()
+        .as_any()
+        .downcast_ref::<TestingWindow>()
+        .map(|adapter| callback(adapter))
+        .expect("access_testing_window called without testing backend/adapter")
 }
 
 pub use for_unit_test::*;
