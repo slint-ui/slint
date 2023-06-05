@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-28 10:19+0000\n"
+"POT-Creation-Date: 2023-06-05 15:31+0000\n"
 "PO-Revision-Date: 2023-04-28 12:19+0200\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>\n"
 "Language-Team: English <kde-i18n-doc@kde.org>\n"
@@ -41,9 +41,10 @@ msgstr ""
 msgid "About"
 msgstr "À Propos"
 
-#: ui/pages/page.slint:24
-msgid "Disable widgets"
-msgstr "Désactive les widgets"
+#: ui/pages/page.slint:25
+#, fuzzy
+msgid "Widgets enabled"
+msgstr "Gallerie de widgets "
 
 #: ui/pages/controls_page.slint:11
 msgid ""
@@ -76,74 +77,86 @@ msgid "OFF"
 msgstr ""
 
 #: ui/pages/controls_page.slint:41
-msgid "CheckBox - SpinBox - ComboBox"
+msgid "CheckBox - SpinBox - ComboBox - Switch"
 msgstr ""
 
-#: ui/pages/controls_page.slint:47
+#: ui/pages/controls_page.slint:49
 msgid "(checked)"
 msgstr "(coché)"
 
-#: ui/pages/controls_page.slint:47
+#: ui/pages/controls_page.slint:49
 msgid "(unchecked)"
 msgstr "(non-coché)"
 
-#: ui/pages/controls_page.slint:60
+#: ui/pages/controls_page.slint:61
 msgid "Select Something"
 msgstr "Selectionne quelque chose"
 
-#: ui/pages/controls_page.slint:60
+#: ui/pages/controls_page.slint:61
 msgid "From this"
 msgstr "dans cette"
 
-#: ui/pages/controls_page.slint:60
+#: ui/pages/controls_page.slint:61
 msgid "Combobox"
 msgstr "Combobox"
 
-#: ui/pages/controls_page.slint:69
+#: ui/pages/controls_page.slint:66
+msgid "Flight Mode"
+msgstr ""
+
+#: ui/pages/controls_page.slint:74
 msgid "LineEdit"
 msgstr ""
 
-#: ui/pages/controls_page.slint:73
+#: ui/pages/controls_page.slint:78
 msgid "Enter some text"
 msgstr "Entrez du texte"
 
-#: ui/pages/controls_page.slint:79
+#: ui/pages/controls_page.slint:84
 msgid "Slider"
 msgstr ""
 
-#: ui/pages/controls_page.slint:92
+#: ui/pages/controls_page.slint:97
+msgid "ProgressIndicator"
+msgstr ""
+
+#: ui/pages/controls_page.slint:111
+msgid "indeterminate"
+msgstr ""
+
+#: ui/pages/controls_page.slint:118
 msgid "TabWidget"
 msgstr ""
 
-#: ui/pages/controls_page.slint:96
+#: ui/pages/controls_page.slint:122
 msgid "Tab 1"
 msgstr "1ᵉʳ Onglet"
 
-#: ui/pages/controls_page.slint:102
+#: ui/pages/controls_page.slint:128
 msgid "Content of tab 1"
 msgstr "Contennu du 1ᵉʳ onglet"
 
-#: ui/pages/controls_page.slint:108
+#: ui/pages/controls_page.slint:134
 msgid "Click me"
 msgstr "Clickez moi"
 
-#: ui/pages/controls_page.slint:117
+#: ui/pages/controls_page.slint:143
 msgid "Tab 2"
 msgstr "2ᵉ Onglet"
 
-#: ui/pages/controls_page.slint:123
+#: ui/pages/controls_page.slint:149
 msgid "Content of tab 2"
 msgstr "Contenu du 2ᵉ onglet"
 
-#: ui/pages/controls_page.slint:129
+#: ui/pages/controls_page.slint:155
 msgid "Check me"
 msgstr "Cochez moi"
 
-#: ui/pages/controls_page.slint:138
+#: ui/pages/controls_page.slint:164
 msgid "Tab 3"
 msgstr "3ᵉ Onglet"
 
-#: ui/pages/controls_page.slint:142
+#: ui/pages/controls_page.slint:168
 msgid "Content of tab 3"
 msgstr "Contenu du 3ᵉ conglet"
 
@@ -264,3 +277,6 @@ msgstr "En-tête 3"
 #: ui/pages/table_view_page.slint:45
 msgid "Header 4"
 msgstr "En-tête 4"
+
+#~ msgid "Disable widgets"
+#~ msgstr "Désactive les widgets"

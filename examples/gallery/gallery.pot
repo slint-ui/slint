@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-28 10:19+0000\n"
+"POT-Creation-Date: 2023-06-05 15:31+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -41,8 +41,8 @@ msgstr ""
 msgid "About"
 msgstr ""
 
-#: ./ui/pages/page.slint:24
-msgid "Disable widgets"
+#: ./ui/pages/page.slint:25
+msgid "Widgets enabled"
 msgstr ""
 
 #: ./ui/pages/controls_page.slint:11
@@ -70,74 +70,86 @@ msgid "OFF"
 msgstr ""
 
 #: ./ui/pages/controls_page.slint:41
-msgid "CheckBox - SpinBox - ComboBox"
+msgid "CheckBox - SpinBox - ComboBox - Switch"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:47
+#: ./ui/pages/controls_page.slint:49
 msgid "(checked)"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:47
+#: ./ui/pages/controls_page.slint:49
 msgid "(unchecked)"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:60
+#: ./ui/pages/controls_page.slint:61
 msgid "Select Something"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:60
+#: ./ui/pages/controls_page.slint:61
 msgid "From this"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:60
+#: ./ui/pages/controls_page.slint:61
 msgid "Combobox"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:69
+#: ./ui/pages/controls_page.slint:66
+msgid "Flight Mode"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:74
 msgid "LineEdit"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:73
+#: ./ui/pages/controls_page.slint:78
 msgid "Enter some text"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:79
+#: ./ui/pages/controls_page.slint:84
 msgid "Slider"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:92
+#: ./ui/pages/controls_page.slint:97
+msgid "ProgressIndicator"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:111
+msgid "indeterminate"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:118
 msgid "TabWidget"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:96
+#: ./ui/pages/controls_page.slint:122
 msgid "Tab 1"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:102
+#: ./ui/pages/controls_page.slint:128
 msgid "Content of tab 1"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:108
+#: ./ui/pages/controls_page.slint:134
 msgid "Click me"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:117
+#: ./ui/pages/controls_page.slint:143
 msgid "Tab 2"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:123
+#: ./ui/pages/controls_page.slint:149
 msgid "Content of tab 2"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:129
+#: ./ui/pages/controls_page.slint:155
 msgid "Check me"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:138
+#: ./ui/pages/controls_page.slint:164
 msgid "Tab 3"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:142
+#: ./ui/pages/controls_page.slint:168
 msgid "Content of tab 3"
 msgstr ""
 
