@@ -137,7 +137,7 @@ pub fn parse_number_literal(s: String) -> Result<Expression, String> {
         format!(
             "Invalid unit '{}'. Valid units are: {}",
             s.get(end..).unwrap_or(&s),
-            Unit::iter().filter(|x| x.to_string().len() > 0).join(",")
+            Unit::iter().filter(|x| x.to_string().len() > 0).join(", ")
         )
     })?;
     Ok(Expression::NumberLiteral(val, unit))
@@ -166,7 +166,7 @@ fn test_parse_number_literal() {
     let cannot_parse = Err("Cannot parse number literal".to_owned());
     assert_eq!(doit("12.10.12phx"), cannot_parse);
 
-    let valid_units = Unit::iter().filter(|x| x.to_string().len() > 0).join(",");
+    let valid_units = Unit::iter().filter(|x| x.to_string().len() > 0).join(", ");
     let wrong_unit_spaced = Err(format!("Invalid unit ' phx'. Valid units are: {}", valid_units));
     assert_eq!(doit("10000001 phx"), wrong_unit_spaced);
     let wrong_unit_oo = Err(format!("Invalid unit 'oo'. Valid units are: {}", valid_units));

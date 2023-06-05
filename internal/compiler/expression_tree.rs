@@ -320,7 +320,7 @@ pub fn operator_class(op: char) -> OperatorClass {
 macro_rules! declare_units {
     ($( $(#[$m:meta])* $ident:ident = $string:literal -> $ty:ident $(* $factor:expr)? ,)*) => {
         /// The units that can be used after numbers in the language
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, strum_macros::EnumIter)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, strum::EnumIter)]
         pub enum Unit {
             $($(#[$m])* $ident,)*
         }
