@@ -3,7 +3,7 @@
 
 TestCase := Rectangle {
     width: 400phx;
-    height: 400phx;
+    height: 600phx;
 
     input1 := TextInput {
         width: parent.width;
@@ -16,33 +16,66 @@ TestCase := Rectangle {
         height: 200phx;
     }
 
+    input3 := TextInput {
+        y: 400phx;
+        width: parent.width;
+        height: 200phx;
+        read-only: true;
+    }
+
     property<bool> input1_focused: input1.has_focus;
     property<string> input1_text: input1.text;
     property<bool> input2_focused: input2.has_focus;
     property<string> input2_text: input2.text;
+    property<bool> input3_focused: input3.has_focus;
 }
 
 /*
 ```rust
+use slint::private_unstable_api::re_exports::InputMethodRequest;
+use slint::private_unstable_api::re_exports::InputType;
+
 let instance = TestCase::new().unwrap();
 assert!(!instance.get_input1_focused());
 assert!(!instance.get_input2_focused());
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.ime_requests.take()).len(), 0);
 
 slint_testing::send_mouse_click(&instance, 150., 100.);
 assert!(instance.get_input1_focused());
 assert!(!instance.get_input2_focused());
+let mut ime_requests = slint_testing::access_testing_window(instance.window(), |window| window.ime_requests.take()).into_iter();
+assert!(matches!(ime_requests.next(), Some(InputMethodRequest::Enable{ input_type: InputType::Text, .. })));
+assert!(matches!(ime_requests.next(), Some(InputMethodRequest::SetPosition{ .. })));
+assert!(ime_requests.next().is_none());
 
 slint_testing::send_keyboard_string_sequence(&instance, "Only for field 1");
 assert_eq!(instance.get_input1_text(), "Only for field 1");
 assert_eq!(instance.get_input2_text(), "");
 
+slint_testing::access_testing_window(instance.window(), |window| window.ime_requests.take());
 slint_testing::send_mouse_click(&instance, 150., 300.);
 assert!(!instance.get_input1_focused());
 assert!(instance.get_input2_focused());
+let mut ime_requests = slint_testing::access_testing_window(instance.window(), |window| window.ime_requests.take()).into_iter();
+assert!(matches!(ime_requests.next(), Some(InputMethodRequest::Disable{ .. })));
+assert!(matches!(ime_requests.next(), Some(InputMethodRequest::Enable{ input_type: InputType::Text, .. })));
+assert!(matches!(ime_requests.next(), Some(InputMethodRequest::SetPosition{ .. })));
+assert!(ime_requests.next().is_none());
+
 
 slint_testing::send_keyboard_string_sequence(&instance, "Only for field 2");
 assert_eq!(instance.get_input1_text(), "Only for field 1");
 assert_eq!(instance.get_input2_text(), "Only for field 2");
+
+slint_testing::access_testing_window(instance.window(), |window| window.ime_requests.take());
+slint_testing::send_mouse_click(&instance, 150., 500.);
+assert!(!instance.get_input1_focused());
+assert!(!instance.get_input2_focused());
+assert!(instance.get_input3_focused());
+let mut ime_requests = slint_testing::access_testing_window(instance.window(), |window| window.ime_requests.take()).into_iter();
+assert!(matches!(ime_requests.next(), Some(InputMethodRequest::Disable{ .. })));
+assert!(ime_requests.next().is_none());
+
 ```
 
 ```cpp
