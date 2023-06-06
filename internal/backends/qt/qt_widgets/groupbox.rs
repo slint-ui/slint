@@ -62,7 +62,7 @@ fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
 }
 
 impl Item for NativeGroupBox {
-    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {
+    fn init(self: Pin<&Self>) {
         let shared_data = Rc::pin(GroupBoxData::default());
 
         Property::link_two_way(

@@ -1244,7 +1244,7 @@ pub fn instantiate(
         i_slint_core::component::register_component(
             instance_ref.instance,
             instance_ref.component_type.item_array.as_slice(),
-            eval::window_adapter_ref(instance_ref).unwrap(),
+            eval::window_adapter_ref(instance_ref).cloned(),
         );
     }
 

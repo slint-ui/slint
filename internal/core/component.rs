@@ -126,10 +126,12 @@ pub type ComponentWeak = vtable::VWeak<ComponentVTable, Dyn>;
 pub fn register_component<Base>(
     base: core::pin::Pin<&Base>,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
-    window_adapter: &Rc<dyn WindowAdapter>,
+    window_adapter: Option<Rc<dyn WindowAdapter>>,
 ) {
-    item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init(window_adapter));
-    window_adapter.register_component();
+    item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init());
+    if let Some(adapter) = window_adapter {
+        adapter.register_component();
+    }
 }
 
 /// Free the backend graphics resources allocated by the component's items.
@@ -166,7 +168,7 @@ pub(crate) mod ffi {
         super::register_component(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
             item_array.as_slice(),
-            window_adapter,
+            Some(window_adapter.clone()),
         )
     }
 

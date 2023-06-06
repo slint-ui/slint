@@ -20,7 +20,7 @@ pub struct NativeTableHeaderSection {
 }
 
 impl Item for NativeTableHeaderSection {
-    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn init(self: Pin<&Self>) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
