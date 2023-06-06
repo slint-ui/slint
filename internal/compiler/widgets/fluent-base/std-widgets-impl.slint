@@ -90,18 +90,19 @@ export component Button {
     in property<bool> checkable;
     in-out property<bool> checked;
     in property<image> icon;
+    in property <bool> primary;
 
     accessible-role: button;
     accessible-label <=> text.text;
 
     Rectangle {
-        border-width: 1px;
+        border-width: root.primary ? 0 : 1px;
         border-radius: 2px;
         border-color: !root.enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
         background: !root.enabled ? Palette.neutralLighter
             : (touch.pressed || root.checked) ? Palette.neutralLight
             : touch.has-hover ? Palette.neutralLighter
-            : Palette.white;
+            : root.primary ? Palette.accent : Palette.white;
     }
     horizontal-stretch: 0;
     vertical-stretch: 0;

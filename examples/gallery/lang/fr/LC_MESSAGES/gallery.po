@@ -121,8 +121,8 @@ msgid "Regular Button"
 msgstr "Buton normal"
 
 #: ui/pages/controls_page.slint:27
-msgid "Button with Icon"
-msgstr "Bouton avec une image"
+msgid "Primary Button with Icon"
+msgstr "Primaire Bouton avec une image"
 
 #: ui/pages/controls_page.slint:34
 msgid "ON"

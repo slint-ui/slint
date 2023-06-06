@@ -15,6 +15,7 @@ export component Button {
     in property<bool> checkable;
     in-out property<bool> checked;
     in property<image> icon;
+    in property <bool> primary;
 
     accessible-label <=> label.text;
     accessible-role: button;
@@ -26,7 +27,7 @@ export component Button {
         width: 100%;
         height: 100%;
         border-radius: 20px;
-        background: md.sys.color.secondary-container;
+        background: root.primary ? md.sys.color.primary : md.sys.color.secondary-container;
         drop-shadow-color: transparent;
         drop-shadow-blur: md.sys.elevation.level0;
         drop-shadow-offset-y: 1px;
@@ -60,7 +61,7 @@ export component Button {
         }
 
         label := Text {
-            color: md.sys.color.on-secondary-container;
+            color: root.primary ? md.sys.color.on-primary : md.sys.color.on-secondary-container;
             vertical-alignment: center;
             horizontal-alignment: center;
             font-weight: md.sys.typescale.label-large.weight;
