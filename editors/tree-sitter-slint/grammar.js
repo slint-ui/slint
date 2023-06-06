@@ -366,6 +366,7 @@ module.exports = grammar({
 
         _expression_body: ($) =>
             choice(
+                seq($._tr, optional($._accessor_postfix)),
                 seq($.value, optional($._accessor_postfix)),
                 seq($.function_call, optional($._accessor_postfix)),
                 $.var_identifier,
@@ -650,6 +651,18 @@ module.exports = grammar({
         // image_value: ($) => ???.
         relative_font_size_value: ($) =>
             seq(field("value", $._number), field("unit", "rem")),
+
+        // @tr(...)
+        _tr: ($) =>
+            seq(
+                "@",
+                field("name", "tr"),
+                "(",
+                optional(field("context", seq($.string_value, "=>"))),
+                $.string_value,
+                field("parameters", optional(seq(",", commaSep1($.parameter), optional(",")))),
+                ")"
+            ),
 
         _basic_value: ($) =>
             choice(
