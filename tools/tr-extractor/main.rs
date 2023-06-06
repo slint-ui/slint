@@ -3,7 +3,7 @@
 
 use clap::Parser;
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
-use i_slint_compiler::parser::{SyntaxKind, SyntaxNode};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use messages::{Message, Messages};
 
 mod generator;
@@ -158,7 +158,10 @@ fn visit_node(node: SyntaxNode, results: &mut Messages) {
                 .child_text(SyntaxKind::StringLiteral)
                 .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
             {
-                let msgctxt = None; // todo!
+                let msgctxt = syntax_nodes::AtTr::from(n.clone())
+                    .TrContext()
+                    .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
+                    .and_then(|s| i_slint_compiler::literals::unescape_string(&s));
                 let key =
                     messages::MessageKey::new(msgid.clone(), msgctxt.clone().unwrap_or_default());
                 let index = results.len();

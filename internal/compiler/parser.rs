@@ -368,7 +368,9 @@ declare_syntax! {
         /// `@linear-gradient(...)` or `@radial-gradient(...)`
         AtGradient -> [*Expression],
         /// `@tr("foo", ...)`  // the string is a StringLiteral
-        AtTr -> [*Expression],
+        AtTr -> [?TrContext, *Expression],
+        /// `"foo" =>`  in a `AtTr` node
+        TrContext -> [],
         /// expression()
         FunctionCallExpression -> [*Expression],
         /// `expression[index]`

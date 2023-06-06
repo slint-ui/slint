@@ -33,4 +33,9 @@ export component X {
     //                     ^error{Unescaped '\}' in format string. Escape '\}' with '\}\}'}
 
 
+    property <string> ctx: @tr("foo" => "fo{}or{}", 42px);
+    //                                              ^error{Cannot convert length to string. Divide by 1px to convert to a plain number}
+    //                     ^^error{Format string contains 2 placeholders, but only 1 extra arguments were given}
+
+
 }

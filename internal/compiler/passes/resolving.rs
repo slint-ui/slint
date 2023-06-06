@@ -524,6 +524,14 @@ impl Expression {
             ctx.diag.push_error("Cannot parse string literal".into(), &node);
             return Expression::Invalid;
         };
+        let context = node.TrContext().map(|n| {
+            n.child_text(SyntaxKind::StringLiteral)
+                .and_then(|s| crate::literals::unescape_string(&s))
+                .unwrap_or_else(|| {
+                    ctx.diag.push_error("Cannot parse string literal".into(), &n);
+                    Default::default()
+                })
+        });
 
         let domain = ctx
             .type_loader
@@ -617,7 +625,7 @@ impl Expression {
             )),
             arguments: vec![
                 Expression::StringLiteral(string),
-                Expression::StringLiteral(String::new()), // TODO
+                Expression::StringLiteral(context.unwrap_or_default()),
                 Expression::StringLiteral(domain),
                 Expression::Array { element_ty: Type::String, values },
             ],

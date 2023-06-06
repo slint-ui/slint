@@ -29,7 +29,20 @@ The literal characters `{` and `}` may be included in a string by preceding them
 
 ## Context
 
-**TODO**
+It is possible to add a context in the `@tr(...)` macro using the `"..." =>`.
+
+The context provides a mechanism to disambiguate translations for strings with the same source text but different contextual meanings.
+Use the context to provide additional context information to translators, ensuring accurate and contextually appropriate translations.
+
+The context must be a plain string literal.
+
+
+```slint,no-preview
+export component MenuItem {
+    property <string> name : @tr("Name" => "Default Name");
+    property <string> tooltip : @tr("ToolTip" => "ToolTip for {}", name);
+}
+```
 
 ## Extracting the String from the files
 

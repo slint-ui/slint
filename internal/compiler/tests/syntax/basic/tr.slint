@@ -20,4 +20,19 @@ export component X {
     //                                    ^error{Syntax error: expected '\)'}
     //                                    ^^error{Syntax error: expected ';'}
 
+
+    property <string> c1: @tr("boo" => );
+    //                                 ^error{Expected plain string literal}
+    //                                 ^^error{Syntax error: expected ';'}
+
+    property <string> c2: @tr("boo" => "foo\{ff}");
+    //                                 ^error{Expected plain string literal}
+    //                                 ^^error{Syntax error: expected ';'}
+
+    property <string> e: @tr();
+    //                       ^error{Expected plain string literal}
+    //                       ^^error{Syntax error: expected ';'}
+
+
+
 }
