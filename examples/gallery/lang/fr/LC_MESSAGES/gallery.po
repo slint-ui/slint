@@ -47,7 +47,7 @@ msgstr "À Propos"
 
 #: ./ui/pages/page.slint:25
 msgid "Widgets enabled"
-msgstr ""
+msgstr "Widgets activés"
 
 #: ./ui/pages/list_view_page.slint:10
 msgid ""
