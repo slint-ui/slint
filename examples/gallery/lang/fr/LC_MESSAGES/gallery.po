@@ -163,7 +163,7 @@ msgstr "Combobox"
 
 #: ./ui/pages/controls_page.slint:66
 msgid "Flight Mode"
-msgstr ""
+msgstr "Mode Avion"
 
 #: ./ui/pages/controls_page.slint:74
 msgid "LineEdit"
