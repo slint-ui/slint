@@ -109,6 +109,10 @@ msgid ""
 "material-(dark/light). The widgets can be imported from \"std-"
 "widgets.slint\"."
 msgstr ""
+"Diese Seite gibt einen Überblick über den von Slint bereitgestellten "
+"Standard-Widget-Satz. Die Widgets sind in den verschiedenen Stilen native, "
+"fluent-(dark/light) und material-(dark/light) verfügbar. Die Widgets können "
+"aus \"std-widgets.slint\" importiert werden."
 
 #: ./ui/pages/controls_page.slint:15
 msgid "Buttons"
