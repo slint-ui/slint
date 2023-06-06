@@ -447,7 +447,7 @@ Same as [`ListView`](#listview), and in addition:
 
 ### Functions
 
--   **`set-current-row(_index: int_)`: Sets the current row and brings it into view
+-   **`set-current-row(index: int)`: Sets the current row and brings it into view
 
 ### Example
 
