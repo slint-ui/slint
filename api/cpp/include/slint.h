@@ -907,7 +907,7 @@ struct FilterModelInner : private_api::ModelChangeListener
             return;
         }
 
-        std::vector<int> added_accepted_rows;
+        std::vector<size_t> added_accepted_rows;
         for (auto i = index; i < index + count; ++i) {
             if (auto data = source_model->row_data(i)) {
                 if (filter_fn(*data)) {
@@ -1146,7 +1146,7 @@ struct SortModelInner : private_api::ModelChangeListener
             ModelData inserted_value = *source_model->row_data(row);
             auto insertion_point =
                     std::lower_bound(sorted_rows.begin(), sorted_rows.end(), inserted_value,
-                                     [this](int sorted_row, const ModelData &inserted_value) {
+                                     [this](size_t sorted_row, const ModelData &inserted_value) {
                                          auto sorted_elem = source_model->row_data(sorted_row);
                                          return comp(*sorted_elem, inserted_value);
                                      });
@@ -1169,7 +1169,7 @@ struct SortModelInner : private_api::ModelChangeListener
         ModelData changed_value = *source_model->row_data(changed_row);
         auto insertion_point =
                 std::lower_bound(sorted_rows.begin(), sorted_rows.end(), changed_value,
-                                 [this](int sorted_row, const ModelData &changed_value) {
+                                 [this](size_t sorted_row, const ModelData &changed_value) {
                                      auto sorted_elem = source_model->row_data(sorted_row);
                                      return comp(*sorted_elem, changed_value);
                                  });
@@ -1191,7 +1191,7 @@ struct SortModelInner : private_api::ModelChangeListener
             return;
         }
 
-        std::vector<int> removed_rows;
+        std::vector<size_t> removed_rows;
         removed_rows.reserve(count);
 
         for (auto it = sorted_rows.begin(); it != sorted_rows.end();) {
@@ -1207,7 +1207,7 @@ struct SortModelInner : private_api::ModelChangeListener
             ++it;
         }
 
-        for (int removed_row : removed_rows) {
+        for (auto removed_row : removed_rows) {
             target_model.row_removed(removed_row, 1);
         }
     }
@@ -1227,7 +1227,7 @@ struct SortModelInner : private_api::ModelChangeListener
         for (size_t i = 0; i < sorted_rows.size(); ++i)
             sorted_rows[i] = i;
 
-        std::sort(sorted_rows.begin(), sorted_rows.end(), [this](int lhs_index, int rhs_index) {
+        std::sort(sorted_rows.begin(), sorted_rows.end(), [this](auto lhs_index, auto rhs_index) {
             auto lhs_elem = source_model->row_data(lhs_index);
             auto rhs_elem = source_model->row_data(rhs_index);
             return comp(*lhs_elem, *rhs_elem);
