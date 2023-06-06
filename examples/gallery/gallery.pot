@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-06-06 08:24+0000\n"
+"POT-Creation-Date: 2023-06-06 10:54+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,3 +16,215 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+
+#: ./gallery.slint:14 ./gallery.slint:19
+msgid "Slint Widgets Gallery"
+msgstr ""
+
+#: ./gallery.slint:20 ./ui/pages/controls_page.slint:10
+msgid "Controls"
+msgstr ""
+
+#: ./gallery.slint:20 ./ui/pages/list_view_page.slint:9
+msgid "ListView"
+msgstr ""
+
+#: ./gallery.slint:20 ./ui/pages/table_view_page.slint:22
+msgid "TableView"
+msgstr ""
+
+#: ./gallery.slint:20 ./ui/pages/text_edit_page.slint:9
+msgid "TextEdit"
+msgstr ""
+
+#: ./gallery.slint:20
+msgid "About"
+msgstr ""
+
+#: ./ui/pages/page.slint:25
+msgid "Widgets enabled"
+msgstr ""
+
+#: ./ui/pages/list_view_page.slint:10
+msgid "ListViews can be used to display a list of elements. The StandardListBox is like the default ListView just with a default text based definition of the visual items. Both can be imported from \"std-widgets.slint\""
+msgstr ""
+
+#: ./ui/pages/list_view_page.slint:25
+msgid "Item {}"
+msgstr ""
+
+#: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38 ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40 ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42 ./ui/pages/list_view_page.slint:43
+msgid "Lorem"
+msgstr ""
+
+#: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38 ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40 ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42 ./ui/pages/list_view_page.slint:43
+msgid "ipsum"
+msgstr ""
+
+#: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38 ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40 ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42 ./ui/pages/list_view_page.slint:43
+msgid "dolor"
+msgstr ""
+
+#: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38 ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40 ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42 ./ui/pages/list_view_page.slint:43
+msgid "sit"
+msgstr ""
+
+#: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38 ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40 ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42 ./ui/pages/list_view_page.slint:43
+msgid "amet"
+msgstr ""
+
+#: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38 ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40 ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42 ./ui/pages/list_view_page.slint:43
+msgid "consetetur"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:11
+msgid "This page gives an overview of the default widget set provided by Slint. The widgets are available in different styles native, fluent-(dark/light) and material-(dark/light). The widgets can be imported from \"std-widgets.slint\"."
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:15
+msgid "Buttons"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:22
+msgid "Regular Button"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:27
+msgid "Button with Icon"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:34
+msgid "ON"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:34
+msgid "OFF"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:41
+msgid "CheckBox - SpinBox - ComboBox - Switch"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:49
+msgid "(checked)"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:49
+msgid "(unchecked)"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:61
+msgid "Select Something"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:61
+msgid "From this"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:61
+msgid "Combobox"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:66
+msgid "Flight Mode"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:74
+msgid "LineEdit"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:78
+msgid "Enter some text"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:84
+msgid "Slider"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:97
+msgid "ProgressIndicator"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:111
+msgid "indeterminate"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:118
+msgid "TabWidget"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:122
+msgid "Tab 1"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:128
+msgid "Content of tab 1"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:134
+msgid "Click me"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:143
+msgid "Tab 2"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:149
+msgid "Content of tab 2"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:155
+msgid "Check me"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:164
+msgid "Tab 3"
+msgstr ""
+
+#: ./ui/pages/controls_page.slint:168
+msgid "Content of tab 3"
+msgstr ""
+
+#: ./ui/pages/text_edit_page.slint:10
+msgid "Similar to LineEdit, but can be used to enter several lines of text. The widget can be imported from \"std-widgets.slint\"."
+msgstr ""
+
+#: ./ui/pages/text_edit_page.slint:15
+msgid "Word-Wrap"
+msgstr ""
+
+#: ./ui/pages/text_edit_page.slint:18
+msgid "This is our TextEdit widget, which allows for editing text that spans over multiple paragraphs.\n"
+"For example this line starts in a new paragraph.\n"
+"\n"
+"When the amount of lines - due to wrapping and number of paragraphs - exceeds the available vertical height, a vertical scrollbar is shown that allows scrolling.\n"
+"You may want to enter a bit of text here then in order to make them visible."
+msgstr ""
+
+#: ./ui/pages/text_edit_page.slint:25
+msgid "No-Wrap"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:23
+msgid "StandardTableView can be used to display a list of text elements in columns and rows. It can be imported from \"std-widgets.slint\""
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:29
+msgid "StandardTableView"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:42
+msgid "Header 1"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:43
+msgid "Header 2"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:44
+msgid "Header 3"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:45
+msgid "Header 4"
+msgstr ""
