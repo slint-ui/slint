@@ -11,6 +11,11 @@ All notable changes to this project are documented in this file.
  - Skia: Add support for rendering with Vulkan
  - Wasm: copy and paste support
  - Fixed TouchArea::has-hover not being reset in some cases involving multiple TouchArea or Flickable
+ - Fixed ListView panic when model reset in some cases (#2780)
+ - Fix read-only TextInput reporting input method access (#2812)
+ - Fixed `LineEdit`'s placeholder text not being rendered with the same font attributes as regular `LineEdit` text.
+ - Fixed SVG with text (#2646)
+ - Software renderer: Show the cursor in TextInput
 
 ### Slint Language
 
@@ -21,21 +26,26 @@ All notable changes to this project are documented in this file.
  - Added `select-all()`, `cut()`, `copy()`, and `paste() to `TextInput`, `LineEdit`, and `TextEdit`.
  - Added functions on color: `transparentize`, `mix`, and `with-alpha`.
  - Added a `close()` function and a `close-on-click` boolean property to `PopupWindow`.
- - Fixed `LineEdit`'s placeholder text not being rendered with the same font attributes as regular `LineEdit` text.
+ - Added basic translation infrastructure with `@tr("...")`
 
 ### Rust
 
  - Added `slint::Image::load_from_svg_data(buffer: &[u8])` to load SVGs from memory.
  - Added `slint::platform::WindowEvent::ScaleFactorChanged` to allow backends to report the current window scale factor.
  - Added `slint::Image::from_borrowed_gl_2d_rgba_texture` to create images from borrowed OpenGL textures.
+ - In the Slint language, struct can be annotated with `@rust-attr(...)` that is forwarded as a Rust attribute (`#[...]`) for the generated struct
+ - Added a `serde` feature to enable serialization of some Slint structure
 
 ### C++
 
  - Added `slint::Image::create_from_borrowed_gl_2d_rgba_texture` to create images from borrowed OpenGL textures.
+ - Added `[[nodiscard]]` in a few places
+ - Experimental: the `slint::platform::WindowAdapter` no longer take a template parameter and change the way it is constructed
 
 ### LSP
 
  - Fix auto-completion of local properties or arguments in callbacks or functions
+ - Fixed panic when the editor tries to open non-local urls
 
 ### VSCode extension
 
