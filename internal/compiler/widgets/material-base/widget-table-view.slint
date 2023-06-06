@@ -85,9 +85,14 @@ component TableViewCell inherits Rectangle {
 }
 
 component TableViewRow inherits Rectangle {
+    callback clicked <=> state-layer.clicked;
+
+    in property<bool> selected;
+
     min-height: 42px;
 
     state-layer := StateLayer {
+        checked: root.selected;
         background: md.sys.color.primary;
         selection-background: md.sys.color.secondary-container;
         ripple-color: md.sys.color.primary-ripple;
@@ -97,9 +102,18 @@ component TableViewRow inherits Rectangle {
     HorizontalLayout {
        @children
     }
+
+    states [
+        selected when root.selected : {
+            state-layer.background: md.sys.color.secondary-container;
+        }
+    ]
 }
 
 export component StandardTableView {
+    private property <length> item-height: scroll-view.viewport-height / rows.length;
+    private property <length> current-item-y: scroll-view.viewport-y + current-row * item-height;
+
     callback sort-ascending(int);
     callback sort-descending(int);
 
@@ -107,12 +121,28 @@ export component StandardTableView {
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
     in property <[[StandardListViewItem]]> rows;
-
+    in-out property<int> current-row: -1;
 
     min-width: 400px;
     min-height: 200px;
     horizontal-stretch: 1;
     vertical-stretch: 1;
+
+    public function set-current-row(index: int) {
+        if(index < 0 || index >= rows.length) {
+            return;
+        }
+
+        current-row = index;
+
+        if(current-item-y < 0) {
+            scroll-view.viewport-y += 0 - current-item-y;
+        }
+
+        if(current-item-y + item-height > scroll-view.visible-height) {
+            scroll-view.viewport-y -= current-item-y + item-height - scroll-view.visible-height;
+        }
+    }
 
     function sort(index: int) {
         if (root.current-sort-column != index) {
@@ -171,7 +201,9 @@ export component StandardTableView {
             VerticalLayout {
                 alignment: start;
 
-                for row in root.rows : TableViewRow {
+                for row[idx] in root.rows : TableViewRow {
+                    selected: idx == root.current-row;
+
                     for cell[index] in row : TableViewCell {
                         private property <bool> has_inner_focus;
                         horizontal-stretch: root.columns[index].horizontal-stretch;
@@ -189,8 +221,25 @@ export component StandardTableView {
                             }
                         }
                     }
+
+                    clicked => {
+                        root.set-current-row(idx);
+                    }
                 }
             }
+        }
+    }
+
+    FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.UpArrow) {
+                root.set-current-row(root.current-row - 1);
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+                root.set-current-row(root.current-row + 1);
+                return accept;
+            }
+            reject
         }
     }
 }
