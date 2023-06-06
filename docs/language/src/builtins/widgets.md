@@ -438,6 +438,7 @@ Same as [`ListView`](#listview), and in addition:
 -   **`current-sort-column`** (_out_ _int_): Indicates the sorted column. -1 mean no column is sorted.
 -   **`columns`** (_in-out_ _\[[`TableColumn`](structs.md#tablecolumn)\]_): Defines the model of the table columns.
 -   **`rows`** (_\[\[[`StandardListViewItem`](structs.md#standardlistviewitem)\]\]_): Defines the model of table rows.
+-   **`current-row`** (_in-out_ _int_): The index of the currently active row. -1 mean none is selected, which is the default.
 
 ### Callbacks
 
