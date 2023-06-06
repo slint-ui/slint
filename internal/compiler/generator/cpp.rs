@@ -2794,6 +2794,14 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to ItemMemberFunction {:?}", arguments)
             }
         }
+        BuiltinFunction::ItemAbsolutePosition => {
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                let item_rc = access_item_rc(pr, ctx);
+                format!("slint_item_absolute_position(&{item_rc})")
+            } else {
+                panic!("internal error: invalid args to ItemAbsolutePosition {:?}", arguments)
+            }
+        }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [llr::Expression::StringLiteral(path)] = arguments {
                 let window = access_window_field(ctx);

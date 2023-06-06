@@ -172,6 +172,7 @@ export component BoxShadow inherits Empty {
     //-is_internal
 }
 
+// Keep an eye on typeregister::logical_point_type() that creates the same type.
 export struct Point {
     //-name:slint::private_api::Point
     x: length,

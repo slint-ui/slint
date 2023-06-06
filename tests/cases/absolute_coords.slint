@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export component TestCase {
+    width: 500phx;
+    height: 500phx;
+
+    property <bool> simple-inner-ok: simple-inner.absolute-x == 40phx && simple-inner.absolute-y == 60phx;
+    Rectangle {
+        x: 10phx;
+        y: 20phx;
+
+        simple-inner := Rectangle {
+            x: 30phx;
+            y: 40phx;
+        }
+    }
+    out property <bool> test: simple-inner-ok;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test, 1);
+```
+
+*/

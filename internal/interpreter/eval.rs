@@ -840,6 +840,39 @@ fn call_builtin_function(
                 panic!("internal error: incorrect arguments to ImplicitLayoutInfo {:?}", arguments);
             }
         }
+        BuiltinFunction::ItemAbsolutePosition => {
+            if arguments.len() != 1 {
+                panic!("internal error: incorrect argument count to ItemAbsolutePosition")
+            }
+
+            let component = match local_context.component_instance {
+                ComponentInstance::InstanceRef(c) => c,
+                ComponentInstance::GlobalComponent(_) => {
+                    panic!("Cannot access the implicit item size from a global component")
+                }
+            };
+
+            if let Expression::ElementReference(item) = &arguments[0] {
+                generativity::make_guard!(guard);
+
+                let item = item.upgrade().unwrap();
+                let enclosing_component = enclosing_component_for_element(&item, component, guard);
+                let component_type = enclosing_component.component_type;
+
+                let item_info = &component_type.items[item.borrow().id.as_str()];
+
+                let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+
+                let item_rc = corelib::items::ItemRc::new(
+                    vtable::VRc::into_dyn(item_comp),
+                    item_info.item_index(),
+                );
+
+                item_rc.map_to_window(Default::default()).to_untyped().into()
+            } else {
+                panic!("internal error: argument to SetFocusItem must be an element")
+            }
+        }
         BuiltinFunction::RegisterCustomFontByPath => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to RegisterCustomFontByPath")
