@@ -22,11 +22,7 @@
     }
   },
   "devDependencies": {
-    "@napi-rs/cli": "^2.15.2",
-    "ava": "^5.1.1"
-  },
-  "ava": {
-    "timeout": "3m"
+    "@napi-rs/cli": "^2.15.2"
   },
   "engines": {
     "node": ">= 10"
@@ -36,7 +32,7 @@
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "ava",
+    "test": "node tests/tests.js",
     "universal": "napi universal",
     "version": "napi version"
   }

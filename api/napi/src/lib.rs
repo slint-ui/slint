@@ -1,8 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
 #![deny(clippy::all)]
 
 use slint_interpreter::{
     ComponentCompiler, ComponentDefinition, ComponentHandle, SharedString, Value,
 };
+
+mod interpreter;
+pub use interpreter::*;
 
 #[macro_use]
 extern crate napi_derive;

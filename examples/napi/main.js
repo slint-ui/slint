@@ -1,14 +1,9 @@
-import { Instance } from 'slint-ui';
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import * as fs from 'fs';
-const fileName = "window.slint";
-const fileData = fs.readFileSync(fileName, "utf8");
+import { ComponentCompiler } from 'slint-ui';
 
-console.log(fileData);
-
-// run(fileData).run();
-
-var instance = new Instance(fileData);
+let compiler = new ComponentCompiler();
+let definition = compiler.buildFromPath("window.slint");
+let instance = definition.create();
 instance.run();
-
-// console.log(run(fileData))

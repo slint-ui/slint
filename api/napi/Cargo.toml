@@ -8,7 +8,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
-napi = { version = "2.12.0", default-features = false, features = ["napi4"] }
+napi = { version = "2.12.0", default-features = false, features = ["napi4", "tokio_rt"] }
 napi-derive = "2.12.2"
 i-slint-compiler = { version = "=1.0.3", path="../../internal/compiler" }
 i-slint-core = { version = "=1.0.3", path="../../internal/core" }
