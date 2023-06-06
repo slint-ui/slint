@@ -273,7 +273,7 @@ jobs:
         run: |
             git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
             git config --global user.name "${GITHUB_ACTOR}"
-            git clone "https://tronical:${{ secrets.WWW_PUBLISH_SECRET }}@github.com/tronical/www" --depth 1
+            ssh-agent sh -c 'echo "${{ secrets.WWW_PUBLISH_SSH_KEY }}" | ssh-add - && git clone git@github.com:slint-ui/www.git  --depth 1'
             cd www
 
             target_branch=${GITHUB_REF##*/}
@@ -327,7 +327,7 @@ jobs:
             git add -u snapshots/$target_branch/docs
 
             git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
-            git push origin master
+            ssh-agent sh -c 'echo "${{ secrets.WWW_PUBLISH_SSH_KEY }}" | ssh-add - && git push origin master'
 
 
   prepare_release:
