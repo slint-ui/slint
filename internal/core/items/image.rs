@@ -42,7 +42,7 @@ pub struct ImageItem {
 }
 
 impl Item for ImageItem {
-    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn init(self: Pin<&Self>) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -144,7 +144,7 @@ pub struct ClippedImage {
 }
 
 impl Item for ClippedImage {
-    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn init(self: Pin<&Self>) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(

@@ -57,7 +57,7 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, 
 }}
 
 impl Item for NativeSlider {
-    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn init(self: Pin<&Self>) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(

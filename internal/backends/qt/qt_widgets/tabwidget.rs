@@ -35,7 +35,7 @@ pub struct NativeTabWidget {
 }
 
 impl Item for NativeTabWidget {
-    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {
+    fn init(self: Pin<&Self>) {
         #[derive(Default, Clone)]
         #[repr(C)]
         struct TabWidgetMetrics {
@@ -345,7 +345,7 @@ pub struct NativeTab {
 }
 
 impl Item for NativeTab {
-    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn init(self: Pin<&Self>) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(

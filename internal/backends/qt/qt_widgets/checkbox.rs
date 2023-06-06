@@ -22,7 +22,7 @@ pub struct NativeCheckBox {
 }
 
 impl Item for NativeCheckBox {
-    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn init(self: Pin<&Self>) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(

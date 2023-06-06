@@ -21,7 +21,7 @@ pub struct NativeComboBox {
 }
 
 impl Item for NativeComboBox {
-    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn init(self: Pin<&Self>) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -151,7 +151,7 @@ pub struct NativeComboBoxPopup {
 }
 
 impl Item for NativeComboBoxPopup {
-    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+    fn init(self: Pin<&Self>) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
