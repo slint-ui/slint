@@ -39,7 +39,7 @@ msgstr "TableView"
 
 #: ./gallery.slint:20 ./ui/pages/text_edit_page.slint:9
 msgid "TextEdit"
-msgstr ""
+msgstr "TextEdit"
 
 #: ./gallery.slint:20
 msgid "About"
@@ -68,35 +68,35 @@ msgstr "Élement {}"
 #: ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42
 #: ./ui/pages/list_view_page.slint:43
 msgid "Lorem"
-msgstr ""
+msgstr "Lorem"
 
 #: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38
 #: ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40
 #: ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42
 #: ./ui/pages/list_view_page.slint:43
 msgid "ipsum"
-msgstr ""
+msgstr "ipsum"
 
 #: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38
 #: ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40
 #: ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42
 #: ./ui/pages/list_view_page.slint:43
 msgid "dolor"
-msgstr ""
+msgstr "dolor"
 
 #: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38
 #: ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40
 #: ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42
 #: ./ui/pages/list_view_page.slint:43
 msgid "sit"
-msgstr ""
+msgstr "sit"
 
 #: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38
 #: ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40
 #: ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42
 #: ./ui/pages/list_view_page.slint:43
 msgid "amet"
-msgstr ""
+msgstr "amet"
 
 #: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38
 #: ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40
@@ -131,15 +131,15 @@ msgstr "Boutton avec une icone"
 
 #: ./ui/pages/controls_page.slint:34
 msgid "ON"
-msgstr ""
+msgstr "ON"
 
 #: ./ui/pages/controls_page.slint:34
 msgid "OFF"
-msgstr ""
+msgstr "OFF"
 
 #: ./ui/pages/controls_page.slint:41
 msgid "CheckBox - SpinBox - ComboBox - Switch"
-msgstr ""
+msgstr "CheckBox - SpinBox - ComboBox - Switch"
 
 #: ./ui/pages/controls_page.slint:49
 msgid "(checked)"
@@ -167,7 +167,7 @@ msgstr "Mode Avion"
 
 #: ./ui/pages/controls_page.slint:74
 msgid "LineEdit"
-msgstr ""
+msgstr "LineEdit"
 
 #: ./ui/pages/controls_page.slint:78
 msgid "Enter some text"
@@ -175,11 +175,11 @@ msgstr "Entrez du texte"
 
 #: ./ui/pages/controls_page.slint:84
 msgid "Slider"
-msgstr ""
+msgstr "Slider"
 
 #: ./ui/pages/controls_page.slint:97
 msgid "ProgressIndicator"
-msgstr ""
+msgstr "ProgressIndicator"
 
 #: ./ui/pages/controls_page.slint:111
 msgid "indeterminate"
