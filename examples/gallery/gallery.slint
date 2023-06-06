@@ -17,7 +17,7 @@ component App inherits Window {
     HorizontalLayout {
         side-bar := SideBar {
             title: @tr("Slint Widgets Gallery");
-            model: [@tr("Controls"), @tr("ListView"), @tr("TableView"), @tr("TextEdit"), @tr("About")];
+            model: [@tr("Menu" => "Controls"), @tr("Menu" => "ListView"), @tr("Menu" => "TableView"), @tr("Menu" => "TextEdit"), @tr("Menu" => "About")];
         }
 
         if(side-bar.current-item == 0) : ControlsPage {}
