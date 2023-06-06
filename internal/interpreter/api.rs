@@ -1522,11 +1522,8 @@ fn component_definition_model_properties() {
 
     let instance = comp_def.create().unwrap();
 
-    let int_model = Value::Model(VecModel::from_slice(&[
-        Value::Number(14.),
-        Value::Number(15.),
-        Value::Number(16.),
-    ]));
+    let int_model =
+        Value::Model([Value::Number(14.), Value::Number(15.), Value::Number(16.)].into());
     let empty_model = Value::Model(ModelRc::new(VecModel::<Value>::default()));
     let model_with_string = Value::Model(VecModel::from_slice(&[
         Value::Number(1000.),
