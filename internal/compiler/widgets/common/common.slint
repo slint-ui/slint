@@ -38,6 +38,10 @@ export component LineEditInner inherits Rectangle {
         height: 100%; width: 100%;
         vertical-alignment: center;
         text: (root.text == "" && input.preedit-text == "") ? root.placeholder-text : "";
+        font-size: input.font-size;
+        font-italic: input.font-italic;
+        font-weight: input.font-weight;
+        font-family: input.font-family;
     }
     input := TextInput {
         property <length> computed_x;
