@@ -28,7 +28,7 @@ All notable changes to this project are documented in this file.
  - Added a `close()` function and a `close-on-click` boolean property to `PopupWindow`.
  - Added basic translation infrastructure with `@tr("...")`
  - Added `absolute-x` and `absolute-y` properties to every element, for computing window-absolute positions.
- - Added `default` flag to `Button`
+ - Added `primary` boolean property to `Button` to configure its visual appearance.
 
 ### Rust
 
