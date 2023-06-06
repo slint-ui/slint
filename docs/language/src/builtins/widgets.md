@@ -445,6 +445,10 @@ Same as [`ListView`](#listview), and in addition:
 -   **`sort-ascending(`_`int`_`)`**: Emitted if the model should be sorted by the given column in ascending order.
 -   **`sort-descending(`_`int`_`)`**: Emitted if the model should be sorted by the given column in descending order.
 
+### Functions
+
+-   **`set-current-row(_index: int_)`: Sets the current row and brings it into view
+
 ### Example
 
 ```slint
