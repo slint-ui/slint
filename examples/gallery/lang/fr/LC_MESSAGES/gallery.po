@@ -127,7 +127,7 @@ msgstr "Buton normal"
 
 #: ./ui/pages/controls_page.slint:27
 msgid "Button with Icon"
-msgstr ""
+msgstr "Boutton avec une icone"
 
 #: ./ui/pages/controls_page.slint:34
 msgid "ON"
