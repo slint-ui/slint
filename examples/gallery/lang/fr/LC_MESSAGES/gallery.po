@@ -183,7 +183,7 @@ msgstr ""
 
 #: ./ui/pages/controls_page.slint:111
 msgid "indeterminate"
-msgstr ""
+msgstr "Indéterminé"
 
 #: ./ui/pages/controls_page.slint:118
 msgid "TabWidget"
