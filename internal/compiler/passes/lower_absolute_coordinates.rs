@@ -7,7 +7,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::expression_tree::{BuiltinFunction, Expression};
+use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
     recurse_elem_including_sub_components_no_borrow, visit_all_named_references_in_element,
@@ -52,8 +52,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
                         values: ["x", "y"]
                             .into_iter()
                             .map(|coord_name| {
-                                let coord_ref = NamedReference::new(&elem, coord_name);
-                                (coord_name.to_string(), Expression::PropertyReference(coord_ref))
+                                (coord_name.to_string(), Expression::NumberLiteral(0.0, Unit::Px))
                             })
                             .collect(),
                     },
@@ -67,13 +66,19 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
 
         // Create a binding to the hidden point property. The materialize properties pass is going to create the actual property
         // for absolute-x/y.
-        let binding = Expression::StructFieldAccess {
-            base: Expression::PropertyReference(NamedReference::new(
-                &elem,
-                &absolute_point_prop_name,
-            ))
+        let x_or_y = nr.name().strip_prefix("absolute-").unwrap().to_string();
+        let binding = Expression::BinaryExpression {
+            lhs: Expression::StructFieldAccess {
+                base: Expression::PropertyReference(NamedReference::new(
+                    &elem,
+                    &absolute_point_prop_name,
+                ))
+                .into(),
+                name: x_or_y.clone(),
+            }
             .into(),
-            name: nr.name().strip_prefix("absolute-").unwrap().to_string(),
+            rhs: Expression::PropertyReference(NamedReference::new(&elem, &x_or_y)).into(),
+            op: '+',
         };
         elem.borrow_mut().bindings.insert(nr.name().to_string(), RefCell::new(binding.into()));
     }
