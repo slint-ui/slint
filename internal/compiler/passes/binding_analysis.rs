@@ -388,7 +388,7 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath)) {
                     );
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::MapPointToWindow, _) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::ItemAbsolutePosition, _) => {
                 if let Some(Expression::ElementReference(item)) = arguments.first() {
                     let mut item = item.upgrade().unwrap();
                     while let Some(parent) = find_parent_element(&item) {

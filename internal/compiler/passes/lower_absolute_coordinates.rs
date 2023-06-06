@@ -7,7 +7,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::expression_tree::{BuiltinFunction, Expression, Unit};
+use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
     recurse_elem_including_sub_components_no_borrow, visit_all_named_references_in_element,
@@ -26,7 +26,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
     });
 
     let absolute_point_prop_name = "cached-absolute-xy".to_string();
-    let point_type = match BuiltinFunction::MapPointToWindow.ty() {
+    let point_type = match BuiltinFunction::ItemAbsolutePosition.ty() {
         crate::langtype::Type::Function { return_type, .. } => return_type.as_ref().clone(),
         _ => unreachable!(),
     };
@@ -45,21 +45,10 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
         if !elem.borrow().bindings.contains_key(&absolute_point_prop_name) {
             let point_binding = Expression::FunctionCall {
                 function: Box::new(Expression::BuiltinFunctionReference(
-                    BuiltinFunction::MapPointToWindow,
+                    BuiltinFunction::ItemAbsolutePosition,
                     None,
                 )),
-                arguments: vec![
-                    Expression::ElementReference(Rc::downgrade(&elem)),
-                    Expression::Struct {
-                        ty: point_type.clone(),
-                        values: ["x", "y"]
-                            .into_iter()
-                            .map(|coord_name| {
-                                (coord_name.to_string(), Expression::NumberLiteral(0.0, Unit::Px))
-                            })
-                            .collect(),
-                    },
-                ],
+                arguments: vec![Expression::ElementReference(Rc::downgrade(&elem))],
                 source_location: None,
             };
             elem.borrow_mut()

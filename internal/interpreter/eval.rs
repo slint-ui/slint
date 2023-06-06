@@ -7,7 +7,6 @@ use core::convert::TryInto;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
 use corelib::items::{ItemRef, PropertyAnimation};
-use corelib::lengths::LogicalPoint;
 use corelib::model::{Model, ModelRc};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::WindowInner;
@@ -841,9 +840,9 @@ fn call_builtin_function(
                 panic!("internal error: incorrect arguments to ImplicitLayoutInfo {:?}", arguments);
             }
         }
-        BuiltinFunction::MapPointToWindow => {
+        BuiltinFunction::ItemAbsolutePosition => {
             if arguments.len() != 2 {
-                panic!("internal error: incorrect argument count to MapPointToWindow")
+                panic!("internal error: incorrect argument count to ItemAbsolutePosition")
             }
 
             let component = match local_context.component_instance {
@@ -869,12 +868,7 @@ fn call_builtin_function(
                     item_info.item_index(),
                 );
 
-                let point_value = eval_expression(&arguments[1], local_context);
-                let point_struct: Struct = point_value.try_into().unwrap();
-                let x: f64 = point_struct.get_field("x").unwrap().clone().try_into().unwrap();
-                let y: f64 = point_struct.get_field("y").unwrap().clone().try_into().unwrap();
-                let relative_point = LogicalPoint::new(x as _, y as _);
-                let absolute_point = item_rc.map_to_window(relative_point);
+                let absolute_point = item_rc.map_to_window(Default::default());
 
                 Value::Struct(
                     [

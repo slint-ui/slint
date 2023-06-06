@@ -1441,12 +1441,10 @@ pub struct PointerEvent {
 
 #[cfg(feature = "ffi")]
 #[no_mangle]
-pub unsafe extern "C" fn slint_item_map_point_to_window(
+pub unsafe extern "C" fn slint_item_absolute_position(
     self_component: &vtable::VRc<crate::component::ComponentVTable>,
     self_index: usize,
-    x: f32,
-    y: f32,
 ) -> Point {
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    self_rc.map_to_window(LogicalPoint::new(x, y)).to_untyped()
+    self_rc.map_to_window(Default::default()).to_untyped()
 }
