@@ -401,6 +401,7 @@ impl TypeRegister {
     }
 }
 
+/// This is identical with builtins.slint's Point type (TODO: use that in the future)
 pub fn logical_point_type() -> Type {
     Type::Struct {
         fields: IntoIterator::into_iter([
