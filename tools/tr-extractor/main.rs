@@ -158,8 +158,13 @@ fn visit_node(node: SyntaxNode, results: &mut Messages) {
                 .child_text(SyntaxKind::StringLiteral)
                 .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
             {
-                let msgctxt = syntax_nodes::AtTr::from(n.clone())
+                let tr = syntax_nodes::AtTr::from(n.clone());
+                let msgctxt = tr
                     .TrContext()
+                    .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
+                    .and_then(|s| i_slint_compiler::literals::unescape_string(&s));
+                let plural = tr
+                    .TrPlural()
                     .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
                     .and_then(|s| i_slint_compiler::literals::unescape_string(&s));
                 let key =
@@ -169,6 +174,7 @@ fn visit_node(node: SyntaxNode, results: &mut Messages) {
                     msgctxt,
                     msgid,
                     index,
+                    plural,
                     ..Default::default()
                 });
 

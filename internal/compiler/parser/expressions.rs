@@ -361,6 +361,7 @@ fn parse_gradient(p: &mut impl Parser) {
 /// @tr("foo")
 /// @tr("foo{0}", bar(42))
 /// @tr("context" => "ccc{}", 0)
+/// @tr("xxx" => "ccc{n}" | "ddd{}" % 42, 45)
 /// ```
 fn parse_tr(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtTr);
@@ -371,27 +372,36 @@ fn parse_tr(p: &mut impl Parser) {
 
     let checkpoint = p.checkpoint();
 
-    let peek = p.peek();
-    if peek.kind() != SyntaxKind::StringLiteral
-        || !peek.as_str().starts_with('"')
-        || !peek.as_str().ends_with('"')
-    {
-        p.error("Expected plain string literal");
-        return;
-    }
-    p.expect(SyntaxKind::StringLiteral);
-
-    if p.test(SyntaxKind::FatArrow) {
-        drop(p.start_node_at(checkpoint, SyntaxKind::TrContext));
+    fn consume_literal(p: &mut impl Parser) -> bool {
         let peek = p.peek();
         if peek.kind() != SyntaxKind::StringLiteral
             || !peek.as_str().starts_with('"')
             || !peek.as_str().ends_with('"')
         {
             p.error("Expected plain string literal");
+            return false;
+        }
+        p.expect(SyntaxKind::StringLiteral)
+    }
+
+    if !consume_literal(&mut *p) {
+        return;
+    }
+
+    if p.test(SyntaxKind::FatArrow) {
+        drop(p.start_node_at(checkpoint, SyntaxKind::TrContext));
+        if !consume_literal(&mut *p) {
             return;
         }
-        p.expect(SyntaxKind::StringLiteral);
+    }
+
+    if p.peek().kind() == SyntaxKind::Pipe {
+        let mut p = p.start_node(SyntaxKind::TrPlural);
+        p.consume();
+        if !consume_literal(&mut *p) || !p.expect(SyntaxKind::Percent) || !parse_expression(&mut *p)
+        {
+            return;
+        }
     }
 
     while p.test(SyntaxKind::Comma) {

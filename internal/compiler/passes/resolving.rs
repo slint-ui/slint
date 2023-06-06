@@ -532,6 +532,22 @@ impl Expression {
                     Default::default()
                 })
         });
+        let plural = node.TrPlural().map(|pl| {
+            let s = pl
+                .child_text(SyntaxKind::StringLiteral)
+                .and_then(|s| crate::literals::unescape_string(&s))
+                .unwrap_or_else(|| {
+                    ctx.diag.push_error("Cannot parse string literal".into(), &pl);
+                    Default::default()
+                });
+            let n = pl.Expression();
+            let expr = Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
+                Type::Int32,
+                &n,
+                ctx.diag,
+            );
+            (s, expr)
+        });
 
         let domain = ctx
             .type_loader
@@ -552,6 +568,7 @@ impl Expression {
             let mut arg_idx = 0;
             let mut pos_max = 0;
             let mut pos = 0;
+            let mut has_n = false;
             while let Some(mut p) = string[pos..].find(|x| x == '{' || x == '}') {
                 if string.len() - pos < p + 1 {
                     ctx.diag.push_error(
@@ -598,6 +615,14 @@ impl Expression {
                     arg_idx += 1;
                 } else if let Ok(n) = argument.parse::<u16>() {
                     pos_max = pos_max.max(n as usize + 1);
+                } else if argument == "n" {
+                    has_n = true;
+                    if plural.is_none() {
+                        ctx.diag.push_error(
+                            "`{n}` placeholder can only be found in plural form".into(),
+                            &node,
+                        );
+                    }
                 } else {
                     ctx.diag
                         .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
@@ -611,12 +636,20 @@ impl Expression {
                     &node,
                 );
             } else if arg_idx > values.len() || pos_max > values.len() {
+                let num = arg_idx.max(pos_max);
+                let note = if !has_n && plural.is_some() {
+                    ". Note: use `{n}` for the argument after '%'"
+                } else {
+                    ""
+                };
                 ctx.diag.push_error(
-                    format!("Format string contains {} placeholders, but only {} extra arguments were given", arg_idx.max(pos_max), values.len()),
+                    format!("Format string contains {num} placeholders, but only {} extra arguments were given{note}", values.len()),
                     &node,
                 );
             }
         }
+
+        let plural = plural.unwrap_or((String::new(), Expression::NumberLiteral(1., Unit::None)));
 
         Expression::FunctionCall {
             function: Box::new(Expression::BuiltinFunctionReference(
@@ -628,6 +661,8 @@ impl Expression {
                 Expression::StringLiteral(context.unwrap_or_default()),
                 Expression::StringLiteral(domain),
                 Expression::Array { element_ty: Type::String, values },
+                plural.1,
+                Expression::StringLiteral(plural.0),
             ],
             source_location: Some(node.to_source_location()),
         }

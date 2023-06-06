@@ -319,6 +319,8 @@ declare_syntax! {
         Question -> "?",
         Dollar -> "$",
         At -> "@",
+        Pipe -> "|",
+        Percent -> "%",
     }
     // syntax kind
     {
@@ -368,9 +370,11 @@ declare_syntax! {
         /// `@linear-gradient(...)` or `@radial-gradient(...)`
         AtGradient -> [*Expression],
         /// `@tr("foo", ...)`  // the string is a StringLiteral
-        AtTr -> [?TrContext, *Expression],
+        AtTr -> [?TrContext, ?TrPlural, *Expression],
         /// `"foo" =>`  in a `AtTr` node
         TrContext -> [],
+        /// `| "foo" % n`  in a `AtTr` node
+        TrPlural -> [Expression],
         /// expression()
         FunctionCallExpression -> [*Expression],
         /// `expression[index]`

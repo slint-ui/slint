@@ -1473,10 +1473,11 @@ public:
 
 inline SharedString translate(const SharedString &original, const SharedString &context,
                               const SharedString &domain,
-                              cbindgen_private::Slice<SharedString> arguments)
+                              cbindgen_private::Slice<SharedString> arguments, int n,
+                              const SharedString &plural)
 {
     SharedString result = original;
-    cbindgen_private::slint_translate(&result, &context, &domain, arguments);
+    cbindgen_private::slint_translate(&result, &context, &domain, arguments, n, &plural);
     return result;
 }
 
