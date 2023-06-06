@@ -103,7 +103,7 @@ msgstr "amet"
 #: ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42
 #: ./ui/pages/list_view_page.slint:43
 msgid "consetetur"
-msgstr ""
+msgstr "consetetur"
 
 #: ./ui/pages/controls_page.slint:11
 msgid ""
