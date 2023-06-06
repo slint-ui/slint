@@ -9,7 +9,6 @@ use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGr
 use corelib::items::{ItemRef, PropertyAnimation};
 use corelib::model::{Model, ModelRc};
 use corelib::rtti::AnimatedBindingKind;
-use corelib::window::WindowInner;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, Path as ExprPath, PathElement as ExprPathElement,
@@ -398,22 +397,18 @@ fn call_builtin_function(
     match f {
         BuiltinFunction::GetWindowScaleFactor => match local_context.component_instance {
             ComponentInstance::InstanceRef(component) => {
-                Value::Number(window_ref(component).unwrap().scale_factor() as _)
+                Value::Number(component.access_window(|window| window.scale_factor()) as _)
             }
             ComponentInstance::GlobalComponent(_) => {
                 panic!("Cannot get the window from a global component")
             }
         },
         BuiltinFunction::GetWindowDefaultFontSize => match local_context.component_instance {
-            ComponentInstance::InstanceRef(component) => Value::Number(
-                window_ref(component)
-                    .unwrap()
-                    .window_item()
-                    .unwrap()
-                    .as_pin_ref()
-                    .default_font_size()
-                    .get() as _,
-            ),
+            ComponentInstance::InstanceRef(component) => {
+                Value::Number(component.access_window(|window| {
+                    window.window_item().unwrap().as_pin_ref().default_font_size().get()
+                }) as _)
+            }
             ComponentInstance::GlobalComponent(_) => {
                 panic!("Cannot get the window from a global component")
             }
@@ -508,10 +503,12 @@ fn call_builtin_function(
                 let focus_item_comp =
                     enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
 
-                window_ref(component).unwrap().set_focus_item(&corelib::items::ItemRc::new(
-                    vtable::VRc::into_dyn(focus_item_comp),
-                    item_info.item_index(),
-                ));
+                component.access_window(|window| {
+                    window.set_focus_item(&corelib::items::ItemRc::new(
+                        vtable::VRc::into_dyn(focus_item_comp),
+                        item_info.item_index(),
+                    ))
+                });
                 Value::Void
             } else {
                 panic!("internal error: argument to SetFocusItem must be an element")
@@ -590,7 +587,7 @@ fn call_builtin_function(
                 }
             };
 
-            window_ref(component).unwrap().close_popup();
+            component.access_window(|window| window.close_popup());
 
             Value::Void
         }
@@ -797,7 +794,7 @@ fn call_builtin_function(
         },
         BuiltinFunction::TextInputFocused => match local_context.component_instance {
             ComponentInstance::InstanceRef(component) => {
-                Value::Bool(window_ref(component).unwrap().text_input_focused() as _)
+                Value::Bool(component.access_window(|window| window.text_input_focused()) as _)
             }
             ComponentInstance::GlobalComponent(_) => {
                 panic!("Cannot get the window from a global component")
@@ -805,9 +802,11 @@ fn call_builtin_function(
         },
         BuiltinFunction::SetTextInputFocused => match local_context.component_instance {
             ComponentInstance::InstanceRef(component) => {
-                window_ref(component).unwrap().set_text_input_focused(
-                    eval_expression(&arguments[0], local_context).try_into().unwrap(),
-                );
+                component.access_window(|window| {
+                    window.set_text_input_focused(
+                        eval_expression(&arguments[0], local_context).try_into().unwrap(),
+                    )
+                });
                 Value::Void
             }
             ComponentInstance::GlobalComponent(_) => {
@@ -1303,13 +1302,6 @@ pub fn window_adapter_ref<'a>(
     component: InstanceRef<'a, '_>,
 ) -> Option<&'a Rc<dyn i_slint_core::window::WindowAdapter>> {
     component.component_type.window_adapter_offset.apply(component.instance.get_ref()).as_ref()
-}
-
-pub fn window_ref<'a>(
-    component: InstanceRef<'a, '_>,
-) -> Option<&'a i_slint_core::window::WindowInner> {
-    window_adapter_ref(component)
-        .map(|window_adapter| WindowInner::from_pub(window_adapter.window()))
 }
 
 /// Return the component instance which hold the given element.

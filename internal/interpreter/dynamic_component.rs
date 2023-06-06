@@ -1713,6 +1713,13 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         self.component_type.window_adapter_offset.apply(self.as_ref()).as_ref().as_ref().unwrap()
     }
 
+    pub fn access_window<R>(
+        self,
+        callback: impl FnOnce(&'_ i_slint_core::window::WindowInner) -> R,
+    ) -> R {
+        callback(WindowInner::from_pub(crate::eval::window_adapter_ref(self).unwrap().window()))
+    }
+
     pub fn parent_instance(&self) -> Option<InstanceRef<'a, 'id>> {
         if let Some(parent_offset) = self.component_type.parent_component_offset {
             if let Some(parent) = parent_offset.apply(self.as_ref()) {
