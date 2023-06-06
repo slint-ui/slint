@@ -150,8 +150,10 @@ pub fn translate(
     context: SharedString,
     domain: SharedString,
     args: Slice<SharedString>,
+    n: i32,
+    plural: SharedString,
 ) -> SharedString {
-    i_slint_core::translations::translate(&origin, &context, &domain, args.as_slice())
+    i_slint_core::translations::translate(&origin, &context, &domain, args.as_slice(), n, &plural)
 }
 
 #[cfg(feature = "gettext")]

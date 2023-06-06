@@ -25,7 +25,19 @@ The literal characters `{` and `}` may be included in a string by preceding them
 
 ## Plurals
 
-**TODO**
+A special kind of formatting is the plural formating, because the string may change if there is a single elemnts or several.
+
+So given `count`, an expression that represent the count of something, we can form the plural with the `|` and `%` symbols like so:
+`@tr("I have {n} item" | "I have {n} items" % count)`.
+Use `{n}` in the format string to access the expression after the `%`
+
+```slint,no-preview
+export component Example inherits Text {
+    in property <int> score;
+    in property <int> name;
+    text: @tr("Hello {0}, you have one point" | "Hello {0}, you have {n} point" % score, name);
+}
+```
 
 ## Context
 

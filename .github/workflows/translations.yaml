@@ -36,6 +36,7 @@ jobs:
         run: |
           git config --global user.email "noreply@slint-ui.com"
           git config --global user.name "Update Translations Bot"
+          git add examples/gallery
           git commit -a -m 'Update Translations: extract strings'
       - name: Result
         run: git show

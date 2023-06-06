@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use crate::SharedString;
+use core::fmt::Display;
 pub use formatter::FormatArgs;
 
 mod formatter {
@@ -135,25 +136,60 @@ mod formatter {
     }
 }
 
+struct WithPlural<'a, T: ?Sized>(&'a T, i32);
+
+enum DisplayOrInt<T> {
+    Display(T),
+    Int(i32),
+}
+impl<T: Display> Display for DisplayOrInt<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            DisplayOrInt::Display(d) => d.fmt(f),
+            DisplayOrInt::Int(i) => i.fmt(f),
+        }
+    }
+}
+
+impl<'a, T: FormatArgs + ?Sized> FormatArgs for WithPlural<'a, T> {
+    type Output<'b> = DisplayOrInt<T::Output<'b>>
+    where
+        Self: 'b;
+
+    fn from_index<'b>(&'b self, index: usize) -> Option<Self::Output<'b>> {
+        self.0.from_index(index).map(DisplayOrInt::Display)
+    }
+
+    fn from_name<'b>(&'b self, name: &str) -> Option<Self::Output<'b>> {
+        if name == "n" {
+            Some(DisplayOrInt::Int(self.1))
+        } else {
+            self.0.from_name(name).map(DisplayOrInt::Display)
+        }
+    }
+}
+
 /// Do the translation and formatting
 pub fn translate(
     original: &str,
     contextid: &str,
     domain: &str,
     arguments: &(impl FormatArgs + ?Sized),
+    n: i32,
+    plural: &str,
 ) -> SharedString {
     #![allow(unused)]
     let mut output = SharedString::default();
-    let translated = original;
+    let translated = if plural.is_empty() || n == 1 { original } else { plural };
     #[cfg(all(target_family = "unix", feature = "gettext-rs"))]
-    let translated = translate_gettext(original, contextid, domain);
+    let translated = translate_gettext(original, contextid, domain, n, plural);
     use core::fmt::Write;
-    write!(output, "{}", formatter::format(&translated, arguments)).unwrap();
+    write!(output, "{}", formatter::format(&translated, &WithPlural(arguments, n))).unwrap();
     output
 }
 
 #[cfg(all(target_family = "unix", feature = "gettext-rs"))]
-fn translate_gettext(string: &str, ctx: &str, domain: &str) -> String {
+fn translate_gettext(string: &str, ctx: &str, domain: &str, n: i32, plural: &str) -> String {
     fn mangle_context(ctx: &str, s: &str) -> String {
         format!("{}\u{4}{}", ctx, s)
     }
@@ -164,10 +200,23 @@ fn translate_gettext(string: &str, ctx: &str, domain: &str) -> String {
         r
     }
 
-    if !ctx.is_empty() {
-        demangle_context(gettextrs::dgettext(domain, &mangle_context(ctx, string)))
+    if plural.is_empty() {
+        if !ctx.is_empty() {
+            demangle_context(gettextrs::dgettext(domain, &mangle_context(ctx, string)))
+        } else {
+            gettextrs::dgettext(domain, string)
+        }
     } else {
-        gettextrs::dgettext(domain, string)
+        if !ctx.is_empty() {
+            demangle_context(gettextrs::dngettext(
+                domain,
+                &mangle_context(ctx, string),
+                &mangle_context(ctx, plural),
+                n as u32,
+            ))
+        } else {
+            gettextrs::dngettext(domain, string, plural, n as u32)
+        }
     }
 }
 
@@ -200,7 +249,10 @@ mod ffi {
         context: &SharedString,
         domain: &SharedString,
         arguments: Slice<SharedString>,
+        n: i32,
+        plural: &SharedString,
     ) {
-        *to_translate = translate(to_translate.as_str(), &context, &domain, arguments.as_slice())
+        *to_translate =
+            translate(to_translate.as_str(), &context, &domain, arguments.as_slice(), n, &plural)
     }
 }

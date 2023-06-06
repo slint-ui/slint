@@ -660,6 +660,7 @@ module.exports = grammar({
                 "(",
                 optional(field("context", seq($.string_value, "=>"))),
                 $.string_value,
+                optional(seq("|", $.string_value, "%", $._expression)),
                 field("parameters", optional(seq(",", commaSep1($.parameter), optional(",")))),
                 ")"
             ),

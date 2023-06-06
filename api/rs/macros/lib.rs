@@ -171,23 +171,24 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                     }
                     '|' => {
                         // Since the '|' alone does not exist or cannot be part of any other token that ||
-                        // just consider it as '||' and skip the joint ones.  FIXME. do that properly
+                        // just consider it as '||' and skip the joint ones.
                         if let Some(last) = vec.last_mut() {
-                            if last.kind == SyntaxKind::OrOr && prev_spacing == Spacing::Joint {
+                            if last.kind == SyntaxKind::Pipe && prev_spacing == Spacing::Joint {
+                                last.kind = SyntaxKind::OrOr;
                                 continue;
                             }
                         }
-                        SyntaxKind::OrOr
+                        SyntaxKind::Pipe
                     }
                     '%' => {
-                        // % can only exist after number literal
+                        // handle % as a unit
                         if let Some(last) = vec.last_mut() {
                             if last.kind == SyntaxKind::NumberLiteral {
                                 last.text = format!("{}%", last.text).into();
                                 continue;
                             }
                         }
-                        SyntaxKind::Error
+                        SyntaxKind::Percent
                     }
                     '$' => SyntaxKind::Dollar,
                     '@' => SyntaxKind::At,

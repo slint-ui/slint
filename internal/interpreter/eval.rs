@@ -907,8 +907,8 @@ fn call_builtin_function(
                 eval_expression(&arguments[1], local_context).try_into().unwrap();
             let domain: SharedString =
                 eval_expression(&arguments[2], local_context).try_into().unwrap();
-            let arguments = eval_expression(&arguments[3], local_context);
-            let Value::Model(arguments) = arguments else { panic!("Args to translate not a model {arguments:?}") };
+            let args = eval_expression(&arguments[3], local_context);
+            let Value::Model(args) = args else { panic!("Args to translate not a model {args:?}") };
             struct StringModelWrapper(ModelRc<Value>);
             impl corelib::translations::FormatArgs for StringModelWrapper {
                 type Output<'a> = SharedString;
@@ -920,7 +920,9 @@ fn call_builtin_function(
                 &original,
                 &context,
                 &domain,
-                &StringModelWrapper(arguments),
+                &StringModelWrapper(args),
+                eval_expression(&arguments[4], local_context).try_into().unwrap(),
+                &SharedString::try_from(eval_expression(&arguments[5], local_context)).unwrap(),
             ))
         }
     }

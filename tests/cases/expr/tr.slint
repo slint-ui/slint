@@ -11,8 +11,13 @@
 
     property <string> c1: @tr("Context" => "xx{0}xx", @tr("CC" => "aa"));
 
+    function make_plural1(xx: int, yy: string) -> string { return @tr("there is one file in my {}" | "there are {n} files in my {}" % xx, yy); }
+    function make_plural2(xx: int) -> string { return @tr("Ctx=>" => "xx{n}xx" | "yy" % xx); }
+
     out property <bool> test: t1 == "Hello World{}." && t2 == "Hello World." && t3 == "42 Hello World" && t4 == "43 Hello World🌍"
-        && c1 == "xxaaxx";
+        && c1 == "xxaaxx"
+        && make_plural1(1, @tr("Plop")) == "there is one file in my Plop" && make_plural1(10, @tr("Flop")) == "there are 10 files in my Flop"
+        && make_plural2(1) == "xx1xx" && make_plural2(-999) == "yy";
 }
 /*
 ```cpp
