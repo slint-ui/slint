@@ -113,7 +113,9 @@ msgid ""
 "widgets.slint\"."
 msgstr ""
 "Cette page donne un apreçus des widgets par défaut dans Slint. Les widgets "
-"sont disponible dans différent styles"
+"sont disponible dans différent styles, fluent-(dark/light) and "
+"material-(dark/light). Les widgets peuvent être importés debuis \"std-"
+"widgets.slint\"."
 
 #: ./ui/pages/controls_page.slint:15
 msgid "Buttons"
