@@ -411,5 +411,6 @@ pub fn logical_point_type() -> Type {
         .collect(),
         name: Some("Point".into()),
         node: None,
+        rust_attributes: None,
     }
 }
