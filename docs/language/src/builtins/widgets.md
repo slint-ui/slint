@@ -33,14 +33,14 @@ A simple button. Common types of buttons can also be created with [`StandardButt
 
 ### Properties
 
--   **`checkable`** (_in_ _bool_): Shows whether the button can be checked or not. This enables the `checked` property to possibly become `true`.
--   **`checked`** (_inout_ _bool_): Shows whether the button is checked or not. Needs `checkable` to be `true` to work.
+-   **`checkable`** (_in_ _bool_): Shows whether the button can be checked or not. This enables the `checked` property to possibly become true.
+-   **`checked`** (_inout_ _bool_): Shows whether the button is checked or not. Needs `checkable` to be true to work.
 -   **`enabled`**: (_in_ _bool_): Defaults to true. When false, the button cannot be pressed
 -   **`has-focus`**: (_out_ _bool_): Set to true when the button has keyboard focus.
 -   **`icon`** (_in_ _image_): The image to show in the button. Note that not all styles support drawing icons.
 -   **`pressed`**: (_out_ _bool_): Set to true when the button is pressed.
 -   **`text`** (_in_ _string_): The text written in the button.
--   **`primary`** (_in_ _bool_): If set to `true` the button is displayed with the primary accent color (default: false).
+-   **`primary`** (_in_ _bool_): If set to true the button is displayed with the primary accent color (default: false).
 
 ### Callbacks
 
@@ -168,7 +168,7 @@ a widget able to handle several lines of text.
 -   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
 -   **`input-type`** (_in_ _enum [`InputType`](enums.md#inputtype)_): The way to allow special input viewing properties such as password fields (default value: `text`).
 -   **`placeholder-text`**: (_in_ _string_): A placeholder text being shown when there is no text in the edit field
--   **`read-only`** (_in_ _bool_): When set to `true`, text editing via keyboard and mouse is disabled but
+-   **`read-only`** (_in_ _bool_): When set to true, text editing via keyboard and mouse is disabled but
 -   **`text`** (_in-out_ _string_): The text being edited
 
 ### Functions
@@ -561,7 +561,7 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 -   **`text`** (_in-out_ _string_): The text being edited
 -   **`has-focus`**: (_in_out_ _bool_): Set to true when the widget currently has the focus
 -   **`enabled`**: (_in_ _bool_): Defaults to true. When false, nothing can be entered
--   **`read-only`** (_in_ _bool_): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically (default value: `false`)
+-   **`read-only`** (_in_ _bool_): When set to true, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as editing text programmatically (default value: `false`)
 -   **`wrap`** (_in_ _enum [`TextWrap`](enums.md#textwrap)_): The way the text wraps (default: word-wrap).
 -   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
 
