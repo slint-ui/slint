@@ -252,6 +252,11 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { run } = nativeBinding
+const { ComponentCompiler, ComponentDefinition, JsComponentInstance, DiagnosticLevel, Diagnostic, run } = nativeBinding
 
+module.exports.ComponentCompiler = ComponentCompiler
+module.exports.ComponentDefinition = ComponentDefinition
+module.exports.JsComponentInstance = JsComponentInstance
+module.exports.DiagnosticLevel = DiagnosticLevel
+module.exports.Diagnostic = Diagnostic
 module.exports.run = run

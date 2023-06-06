@@ -63,6 +63,7 @@ members = [
 default-members = [
     'api/rs/build',
     'api/rs/slint',
+    'api/napi',
     'examples/gallery',
     'examples/memory',
     'examples/printerdemo_old/rust',
