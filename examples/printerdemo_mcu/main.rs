@@ -36,12 +36,15 @@ impl PrinterQueueData {
 fn main() -> ! {
     mcu_board_support::init();
     let main_window = MainWindow::new().unwrap();
-    main_window.set_ink_levels(slint::VecModel::from_slice(&[
-        InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
-        InkLevel { color: slint::Color::from_rgb_u8(255, 0, 255), level: 0.20 },
-        InkLevel { color: slint::Color::from_rgb_u8(255, 255, 0), level: 0.50 },
-        InkLevel { color: slint::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
-    ]));
+    main_window.set_ink_levels(
+        [
+            InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
+            InkLevel { color: slint::Color::from_rgb_u8(255, 0, 255), level: 0.20 },
+            InkLevel { color: slint::Color::from_rgb_u8(255, 255, 0), level: 0.50 },
+            InkLevel { color: slint::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
+        ]
+        .into(),
+    );
 
     let default_queue: Vec<PrinterQueueItem> =
         main_window.global::<PrinterQueue>().get_printer_queue().iter().collect();

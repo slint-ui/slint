@@ -36,6 +36,7 @@ All notable changes to this project are documented in this file.
  - Added `slint::Image::from_borrowed_gl_2d_rgba_texture` to create images from borrowed OpenGL textures.
  - In the Slint language, struct can be annotated with `@rust-attr(...)` that is forwarded as a Rust attribute (`#[...]`) for the generated struct
  - Added a `serde` feature to enable serialization of some Slint structure
+ - Added convenience `From` conversions for `ModelRc` from slices and arrays.
 
 ### C++
 

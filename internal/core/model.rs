@@ -525,7 +525,8 @@ impl Model for bool {
 /// There are several ways of constructing a ModelRc in Rust:
 ///
 /// * An empty ModelRc can be constructed with [`ModelRc::default()`].
-/// * A `ModelRc` can be constructed from a slice using [`VecModel::from_slice`].
+/// * A `ModelRc` can be constructed from a slice or an array using the [`From`] trait.
+///   This allocates a [`VecModel`].
 /// * Use [`ModelRc::new()`] to construct a `ModelRc` from a type that implements the
 ///   [`Model`] trait, such as [`VecModel`] or your own implementation.
 /// * If you have your model already in an `Rc`, then you can use the [`From`] trait
@@ -624,6 +625,18 @@ impl<T, M: Model<Data = T> + 'static> From<Rc<M>> for ModelRc<T> {
 impl<T> From<Rc<dyn Model<Data = T> + 'static>> for ModelRc<T> {
     fn from(model: Rc<dyn Model<Data = T> + 'static>) -> Self {
         Self(Some(model))
+    }
+}
+
+impl<T: Clone + 'static> From<&[T]> for ModelRc<T> {
+    fn from(slice: &[T]) -> Self {
+        VecModel::from_slice(slice)
+    }
+}
+
+impl<T: Clone + 'static, const N: usize> From<[T; N]> for ModelRc<T> {
+    fn from(array: [T; N]) -> Self {
+        VecModel::from_slice(&array)
     }
 }
 
