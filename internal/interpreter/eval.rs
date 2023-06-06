@@ -571,7 +571,7 @@ fn call_builtin_function(
                     ),
                     popup.close_on_click,
                     component.borrow(),
-                    window_adapter_ref(component).unwrap(),
+                    component.window_adapter(),
                     &parent_item,
                 );
                 Value::Void
@@ -617,7 +617,7 @@ fn call_builtin_function(
                     item_info.item_index(),
                 );
 
-                let window_adapter = window_adapter_ref(component).unwrap();
+                let window_adapter = component.window_adapter();
 
                 // TODO: Make this generic through RTTI
                 if let Some(textinput) =
@@ -786,7 +786,7 @@ fn call_builtin_function(
         }
         BuiltinFunction::DarkColorScheme => match local_context.component_instance {
             ComponentInstance::InstanceRef(component) => {
-                Value::Bool(window_adapter_ref(component).unwrap().dark_color_scheme())
+                Value::Bool(component.window_adapter().dark_color_scheme())
             }
             ComponentInstance::GlobalComponent(_) => {
                 panic!("Cannot get the window from a global component")
@@ -830,7 +830,7 @@ fn call_builtin_function(
                 let item_ref =
                     unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
 
-                let window_adapter = window_adapter_ref(component).unwrap();
+                let window_adapter = component.window_adapter();
                 item_ref
                     .as_ref()
                     .layout_info(crate::eval_layout::to_runtime(orient), window_adapter)
@@ -883,8 +883,8 @@ fn call_builtin_function(
                 }
             };
             if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                if let Some(err) = window_adapter_ref(component)
-                    .unwrap()
+                if let Some(err) = component
+                    .window_adapter()
                     .renderer()
                     .register_font_from_path(&std::path::PathBuf::from(s.as_str()))
                     .err()
@@ -1296,12 +1296,6 @@ fn root_component_instance<'a, 'old_id, 'new_id>(
             std::mem::transmute::<InstanceRef<'a, 'old_id>, InstanceRef<'a, 'new_id>>(component)
         }
     }
-}
-
-pub fn window_adapter_ref<'a>(
-    component: InstanceRef<'a, '_>,
-) -> Option<&'a Rc<dyn i_slint_core::window::WindowAdapter>> {
-    component.component_type.window_adapter_offset.apply(component.instance.get_ref()).as_ref()
 }
 
 /// Return the component instance which hold the given element.

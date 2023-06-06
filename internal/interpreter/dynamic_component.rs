@@ -220,12 +220,12 @@ impl<'id> Drop for ErasedComponentBox {
         generativity::make_guard!(guard);
         let unerase = self.unerase(guard);
         let instance_ref = unerase.borrow_instance();
-        if let Some(window_adapter) = eval::window_adapter_ref(instance_ref) {
+        if let Some(window_adapter) = instance_ref.maybe_window_adapter() {
             i_slint_core::component::unregister_component(
                 instance_ref.instance,
                 vtable::VRef::new(self),
                 instance_ref.component_type.item_array.as_slice(),
-                window_adapter,
+                &window_adapter,
             );
         }
     }
@@ -1244,7 +1244,7 @@ pub fn instantiate(
         i_slint_core::component::register_component(
             instance_ref.instance,
             instance_ref.component_type.item_array.as_slice(),
-            eval::window_adapter_ref(instance_ref).cloned(),
+            instance_ref.maybe_window_adapter(),
         );
     }
 
@@ -1509,7 +1509,7 @@ extern "C" fn layout_info(component: ComponentRefPin, orientation: Orientation) 
     let mut result = crate::eval_layout::get_layout_info(
         &instance_ref.component_type.original.root_element,
         instance_ref,
-        eval::window_adapter_ref(instance_ref).unwrap(),
+        instance_ref.window_adapter(),
         orientation,
     );
 
@@ -1713,11 +1713,15 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         self.component_type.window_adapter_offset.apply(self.as_ref()).as_ref().as_ref().unwrap()
     }
 
+    pub fn maybe_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.component_type.window_adapter_offset.apply(self.as_ref()).clone()
+    }
+
     pub fn access_window<R>(
         self,
         callback: impl FnOnce(&'_ i_slint_core::window::WindowInner) -> R,
     ) -> R {
-        callback(WindowInner::from_pub(crate::eval::window_adapter_ref(self).unwrap().window()))
+        callback(WindowInner::from_pub(self.window_adapter().window()))
     }
 
     pub fn parent_instance(&self) -> Option<InstanceRef<'a, 'id>> {
