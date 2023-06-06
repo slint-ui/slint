@@ -33,6 +33,13 @@ jobs:
           msgfmt $po/gallery.po -o $po/gallery.mo
           done
       - name: commit
-        run: "git commit -a -m 'Update Translations: extract strings' --author 'Update Translations Bot <noreply@slint-ui.com>'"
-      - name: push
-        run: git push
+        run: |
+          git config --global user.email "noreply@slint-ui.com"
+          git config --global user.name "Update Translations Bot"
+          git commit -a -m 'Update Translations: extract strings'
+      - name: Result
+        run: git show
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          branch: ${{ github.ref }}
