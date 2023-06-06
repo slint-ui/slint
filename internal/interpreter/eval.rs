@@ -841,7 +841,7 @@ fn call_builtin_function(
             }
         }
         BuiltinFunction::ItemAbsolutePosition => {
-            if arguments.len() != 2 {
+            if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to ItemAbsolutePosition")
             }
 
