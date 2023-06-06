@@ -29,6 +29,8 @@ All notable changes to this project are documented in this file.
  - Added basic translation infrastructure with `@tr("...")`
  - Added `absolute-x` and `absolute-y` properties to every element, for computing window-absolute positions.
  - Added `primary` boolean property to `Button` to configure its visual appearance.
+ - Fixed `LineEdit`'s placeholder text not being rendered with the same font attributes as regular `LineEdit` text.
+ - Added `current-row` to `StandardTableView`.
 
 ### Rust
 

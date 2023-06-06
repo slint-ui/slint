@@ -342,15 +342,35 @@ export component GridBox inherits GridLayout {
 }
 
 export component StandardTableView {
+    private property <length> item-height: fli.viewport-height / rows.length;
+    private property <length> current-item-y: fli.viewport-y + current-row * item-height;
+
     callback sort-ascending(int);
     callback sort-descending(int);
 
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
     in property <[[StandardListViewItem]]> rows;
+    in-out property<int> current-row: -1;
 
     horizontal-stretch: 1;
     vertical-stretch: 1;
+
+    public function set-current-row(index: int) {
+        if(index < 0 || index >= rows.length) {
+            return;
+        }
+
+        current-row = index;
+
+        if(current-item-y < 0) {
+            fli.viewport-y += 0 - current-item-y;
+        }
+
+        if(current-item-y + item-height > fli.height) {
+            fli.viewport-y -= current-item-y + item-height - fli.height;
+        }
+    }
 
     function sort(index: int) {
         if (current-sort-column != index) {
@@ -389,7 +409,11 @@ export component StandardTableView {
 
                 for row[i] in rows : Rectangle {
                     width: max(row-layout.preferred-width, fli.width);
-                    row-ta := TouchArea {}
+                    row-ta := TouchArea {
+                        clicked => {
+                            root.set-current-row(i);
+                        }
+                    }
                     row-layout := HorizontalLayout {
                         for cell[index] in row : Rectangle {
                             horizontal-stretch: columns[index].horizontal-stretch;
@@ -398,9 +422,9 @@ export component StandardTableView {
                             max-width: (index < columns.length && columns[index].width >= 1px) ? max(columns[index].min-width, columns[index].width) : 100000px;
                             HorizontalLayout {
                                 NativeStandardListViewItem {
+                                    is_selected: i == root.current-row;
                                     item: cell;
                                     index: i;
-                                    //is-selected: root.current-item == i;
                                     has-hover: row-ta.has-hover;
                                 }
                             }
@@ -448,6 +472,18 @@ export component StandardTableView {
         }
     }
 
+    FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.UpArrow) {
+                root.set-current-row(root.current-row - 1);
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+                root.set-current-row(root.current-row + 1);
+                return accept;
+            }
+            reject
+        }
+    }
 }
 
 export component ProgressIndicator inherits NativeProgressIndicator {}
