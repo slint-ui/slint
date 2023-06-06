@@ -26,7 +26,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
     });
 
     let absolute_point_prop_name = "cached-absolute-xy".to_string();
-    let point_type = crate::typeregister::logical_point_type();
+    let point_type = BuiltinFunction::MapPointToWindow.ty();
 
     for nr in to_materialize {
         let elem = nr.element();
