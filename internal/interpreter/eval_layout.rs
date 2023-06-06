@@ -165,7 +165,7 @@ fn grid_layout_data(
             let mut layout_info = get_layout_info(
                 &cell.item.element,
                 component,
-                eval::window_adapter_ref(component).unwrap(),
+                component.window_adapter(),
                 orientation,
             );
             fill_layout_info_constraints(
@@ -188,7 +188,7 @@ fn box_layout_data(
     expr_eval: &impl Fn(&NamedReference) -> f32,
     mut repeater_indices: Option<&mut Vec<u32>>,
 ) -> (Vec<core_layout::BoxLayoutCellData>, i_slint_core::items::LayoutAlignment) {
-    let window_adapter = eval::window_adapter_ref(component).unwrap();
+    let window_adapter = component.window_adapter();
     let mut cells = Vec::with_capacity(box_layout.elems.len());
     for cell in &box_layout.elems {
         if cell.element.borrow().repeated.is_some() {
