@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export App := Rectangle {
+    
+    Rectangle {
+        x: inner.absolute-x > 10px ? 10px : 0px;
+//         ^error{The binding for the property 'x' is part of a binding loop}
+        inner := Rectangle {
+//               ^error{The binding for the property 'cached-absolute-xy' is part of a binding loop}
+//               ^^error{The binding for the property 'absolute-x' is part of a binding loop}
+        }
+    }
+
+}

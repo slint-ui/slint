@@ -19,6 +19,7 @@ use crate::langtype::ElementType;
 use crate::layout::LayoutItem;
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
+use crate::object_tree::find_parent_element;
 use crate::object_tree::Document;
 use crate::object_tree::PropertyAnimation;
 use crate::object_tree::{Component, ElementRc};
@@ -374,12 +375,11 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath)) {
             g.rect = Default::default(); // already visited;
             g.visit_named_references(&mut |nr| vis(&nr.clone().into()))
         }
-        Expression::FunctionCall { function, arguments, .. } => {
-            if let Expression::BuiltinFunctionReference(
+        Expression::FunctionCall { function, arguments, .. } => match &**function {
+            Expression::BuiltinFunctionReference(
                 BuiltinFunction::ImplicitLayoutInfo(orientation),
                 _,
-            ) = &**function
-            {
+            ) => {
                 if let [Expression::ElementReference(item)] = arguments.as_slice() {
                     visit_implicit_layout_info_dependencies(
                         *orientation,
@@ -388,7 +388,18 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath)) {
                     );
                 }
             }
-        }
+            Expression::BuiltinFunctionReference(BuiltinFunction::MapPointToWindow, _) => {
+                if let Some(Expression::ElementReference(item)) = arguments.first() {
+                    let mut item = item.upgrade().unwrap();
+                    while let Some(parent) = find_parent_element(&item) {
+                        item = parent;
+                        vis(&NamedReference::new(&item, "x").into());
+                        vis(&NamedReference::new(&item, "y").into());
+                    }
+                }
+            }
+            _ => {}
+        },
         _ => {}
     }
 }
