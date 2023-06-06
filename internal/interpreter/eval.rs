@@ -868,16 +868,7 @@ fn call_builtin_function(
                     item_info.item_index(),
                 );
 
-                let absolute_point = item_rc.map_to_window(Default::default());
-
-                Value::Struct(
-                    [
-                        ("x".to_string(), absolute_point.x.try_into().unwrap()),
-                        ("y".to_string(), absolute_point.y.try_into().unwrap()),
-                    ]
-                    .into_iter()
-                    .collect(),
-                )
+                item_rc.map_to_window(Default::default()).to_untyped().into()
             } else {
                 panic!("internal error: argument to SetFocusItem must be an element")
             }
