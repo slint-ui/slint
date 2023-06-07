@@ -13,6 +13,9 @@ use std::rc::Rc;
 #[cfg(target_arch = "wasm32")]
 use std::rc::Weak;
 
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::WindowExtWebSys;
+
 use crate::renderer::WinitCompatibleRenderer;
 use const_field_offset::FieldOffsets;
 
@@ -415,7 +418,7 @@ impl WindowAdapterSealed for WinitWindowAdapter {
             // Auto-resize to the preferred size if users (SlintPad) requests it
             #[cfg(target_arch = "wasm32")]
             {
-                let canvas = self.renderer().html_canvas_element();
+                let canvas = winit_window.canvas();
 
                 if canvas
                     .dataset()
@@ -461,7 +464,7 @@ impl WindowAdapterSealed for WinitWindowAdapter {
 
         #[cfg(target_arch = "wasm32")]
         {
-            let html_canvas = self.renderer().html_canvas_element();
+            let html_canvas = winit_window.canvas();
             let existing_canvas_size = winit::dpi::LogicalSize::new(
                 html_canvas.client_width() as f32,
                 html_canvas.client_height() as f32,
@@ -587,7 +590,7 @@ impl WindowAdapterSealed for WinitWindowAdapter {
             corelib::window::InputMethodRequest::Enable { .. } => {
                 let mut vkh = self.virtual_keyboard_helper.borrow_mut();
                 let h = vkh.get_or_insert_with(|| {
-                    let canvas = self.renderer().html_canvas_element();
+                    let canvas = self.winit_window().canvas();
                     super::wasm_input_helper::WasmInputHelper::new(self.self_weak.clone(), canvas)
                 });
                 h.show();
