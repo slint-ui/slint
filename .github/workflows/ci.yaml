@@ -13,417 +13,62 @@ on:
 jobs:
   build_and_test:
     env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       RUSTFLAGS: -D warnings
       CARGO_PROFILE_DEV_DEBUG: 0
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-11, windows-2022]
-        rust_version: [stable, "1.66"]
-        include:
-          - os: windows-2022
-            extra_args: "--exclude ffmpeg"
-          - os: macos-11
-            extra_args: "--exclude ffmpeg"
-        exclude:
-          - os: macos-11
-            rust_version: "1.66"
+        os: [macos-11]
+        rust_version: [stable]
 
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/install-linux-dependencies
-    # Python 3.11 breaks the neon-sys build
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-    - name: Install Qt
-      if: runner.os != 'Windows'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '5.15.2'
-        setup-python: false
-    - name: Install ffmpeg and alsa (Linux)
-      if: runner.os == 'Linux'
-      run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
-    - name: Setup headless display
-      uses: pyvista/setup-headless-display-action@v1
-    - name: Set default style
-      if: matrix.os != 'windows-2022'
-      run: |
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/install-linux-dependencies
+      # Python 3.11 breaks the neon-sys build
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install Qt
+        if: runner.os != 'Windows'
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: "5.15.2"
+          setup-python: false
+      - name: Install ffmpeg and alsa (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
+      - name: Setup headless display
+        uses: pyvista/setup-headless-display-action@v1
+      - name: Set default style
+        if: matrix.os != 'windows-2022'
+        run: |
           echo "SLINT_STYLE=native" >> $GITHUB_ENV
-    - name: Set default style
-      if: matrix.os == 'windows-2022'
-      run: |
+      - name: Set default style
+        if: matrix.os == 'windows-2022'
+        run: |
           echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-    - uses: ./.github/actions/setup-rust
-      with:
-        toolchain: ${{ matrix.rust_version }}
-        key: x-v2
-    - name: Run tests
-      run: cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo
-      env:
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: ${{ matrix.rust_version }}
+          key: x-v2
+      - name: Run tests
+        run: |
+          echo $DYLD_FRAMEWORK_PATH
+          ls $DYLD_FRAMEWORK_PATH
+          ls $Qt5_DIR
+          DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude ffmpeg
+        env:
           SLINT_CREATE_SCREENSHOTS: 1
-    - name: Archive screenshots after failed tests
-      if: ${{ failure() }}
-      uses: actions/upload-artifact@v3
-      with:
+      - name: Archive screenshots after failed tests
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v3
+        with:
           name: screenshots-${{matrix.os}}
           path: |
-              tests/screenshots/references
-
-  node_test:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      RUSTFLAGS: -D warnings
-      CARGO_PROFILE_DEV_DEBUG: 0
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, macos-11]
-
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/install-linux-dependencies
-    # Python 3.11 breaks the neon-sys build
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-    - name: Install Qt
-      if: runner.os != 'Windows'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '5.15.2'
-        setup-python: false
-    - name: Setup headless display
-      uses: pyvista/setup-headless-display-action@v1
-    - name: Set default style
-      if: matrix.os != 'windows-2022'
-      run: |
-          echo "SLINT_STYLE=native" >> $GITHUB_ENV
-    - name: Set default style
-      if: matrix.os == 'windows-2022'
-      run: |
-          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-    - uses: ./.github/actions/install-nodejs
-      id: node-install
-    - uses: ./.github/actions/setup-rust
-      with:
-        key: x-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-    - name: Build node plugin
-      run: cargo build --verbose --all-features -p slint-node
-    - name: Run node tests
-      run: cargo test --verbose --all-features -p test-driver-nodejs -p slint-node
-
-  cpp_test_driver:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      RUSTFLAGS: -D warnings
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-      CARGO_PROFILE_DEV_DEBUG: 0
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, macos-12, windows-2022]
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/install-linux-dependencies
-      with:
-        force-gcc-10: true
-    - name: Install Qt
-      if: runner.os != 'Windows'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '5.15.2'
-    - name: Set default style
-      if: runner.os != 'Windows'
-      run: echo "SLINT_STYLE=native" >> $GITHUB_ENV
-    - name: Set default style
-      if: runner.os == 'Windows'
-      run: |
-          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-    - uses: ./.github/actions/setup-rust
-    - name: Build
-      run: cargo build --lib -p slint-cpp --features testing,backend-qt
-    - name: Run tests
-      run: cargo test --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
-
-  cpp_cmake:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-      CARGO_PROFILE_DEV_DEBUG: 0
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, macos-12, windows-2022]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/install-linux-dependencies
-      with:
-        force-gcc-10: true
-    - name: Install Qt (Ubuntu)
-      uses: jurplel/install-qt-action@v3
-      if: matrix.os == 'ubuntu-20.04'
-      with:
-        version: 5.15.2
-    - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-20.04'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: 6.5.1
-    - uses: ./.github/actions/setup-rust
-    - uses: ilammy/msvc-dev-cmd@v1
-    - name: Select MSVC (windows)
-      run: |
-        echo "CC=cl.exe" >> $GITHUB_ENV
-        echo "CXX=cl.exe" >> $GITHUB_ENV
-      if: matrix.os == 'windows-2022'
-    - name: Enable test coverage for resource embedding in C++ when building examples
-      if: matrix.os == 'ubuntu-20.04'
-      run: |
-          echo "SLINT_EMBED_RESOURCES=true" >> $GITHUB_ENV
-    - name: C++ Build
-      uses: lukka/run-cmake@v3.4
-      with:
-        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-        cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_EXPERIMENTAL=ON'
-        buildDirectory: ${{ runner.workspace }}/cppbuild
-        buildWithCMakeArgs: '--config Debug'
-    - name: ctest
-      working-directory: ${{ runner.workspace }}/cppbuild
-      run: ctest --verbose -C Debug
-    - name: cpack
-      working-directory: ${{ runner.workspace }}/cppbuild
-      run: cmake --build . --config Debug --target package
-    - name: "Create C++ packages artifact"
-      uses: actions/upload-artifact@v3
-      with:
-          name: cpp_bin-${{ matrix.os }}
-          path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
-
-  cpp_package_test:
-    needs: [cpp_cmake]
-    runs-on: ubuntu-20.04
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      CARGO_INCREMENTAL: false
-      CARGO_PROFILE_DEV_DEBUG: 0
-    steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/install-linux-dependencies
-      with:
-        force-gcc-10: true
-    - name: Install Qt (Ubuntu)
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: 5.15.2
-    - uses: actions/download-artifact@v2
-      with:
-        name: cpp_bin-ubuntu-20.04
-        path: cpp-package
-    - name: unpack package
-      run: |
-          mkdir package
-          tar xvf cpp-package/Slint-cpp-*.tar.gz -C package --strip-components=1
-          echo "CMAKE_PREFIX_PATH=`pwd`/package" >> $GITHUB_ENV
-    # Build the examples with a config different than the package (which is debug)
-    - name: Build examples
-      uses: lukka/run-cmake@v3.4
-      with:
-        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-        cmakeListsTxtPath: examples/CMakeLists.txt
-        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=Release -DSLINT_FEATURE_INTERPRETER=1 -DSLINT_FEATURE_BACKEND_QT=1'
-        buildDirectory: ${{ runner.workspace }}/examples/build
-        buildWithCMakeArgs: '--config Release'
-
-  # test to compile the mcu backend with nightly and for the armv6 target (no_std)
-  mcu:
-    env:
-      SLINT_EMBED_GLYPHS: 1
-      SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
-      SLINT_PROCESS_IMAGES: 1
-      RUSTFLAGS: --cfg slint_int_coord
-      CARGO_PROFILE_DEV_DEBUG: 0
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/setup-rust
-      with:
-        toolchain: nightly
-        target: thumbv6m-none-eabi
-    - name: Check
-      run: cargo check --target=thumbv6m-none-eabi -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789
-
-  ffi_32bit_build:
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/setup-rust
-      with:
-        target: armv7-unknown-linux-gnueabihf
-    - uses: baptiste0928/cargo-install@v2
-      with:
-        crate: cross
-    - name: Check
-      run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter
-
-  uefi-demo:
-    env:
-      CARGO_PROFILE_DEV_DEBUG: 0
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/setup-rust
-      with:
-        toolchain: stable
-        target: x86_64-unknown-uefi
-    - name: Check
-      run: cargo check --target=x86_64-unknown-uefi -p uefi-demo
-
-  docs:
-    uses: ./.github/workflows/build_docs.yaml
-
-  wasm:
-    uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
-
-  wasm_demo:
-    uses: ./.github/workflows/wasm_demos.yaml
-
-  tree-sitter:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    - uses: robinraju/release-downloader@v1.7
-      with:
-        repository: "tree-sitter/tree-sitter"
-        latest: true
-        fileName: "tree-sitter-linux-x64.gz"
-        out-file-path: ${{ runner.workspace }}
-    - name: Extract tree-sitter-cli
-      run: |
-        gunzip tree-sitter-linux-x64.gz
-        chmod 755 tree-sitter-linux-x64
-        mv tree-sitter-linux-x64 tree-sitter
-      working-directory: ${{ runner.workspace }}
-    - name: Generate tree-sitter corpus
-      run: find ../../tests/cases -type d -exec ./test-to-corpus.py --tests-directory {} \;
-      working-directory: editors/tree-sitter-slint
-    - name: Generate tree-sitter parser
-      run: ${{ runner.workspace }}/tree-sitter generate
-      working-directory: editors/tree-sitter-slint
-    - name: Run tree-sitter tests
-      run: ${{ runner.workspace }}/tree-sitter test -u
-      working-directory: editors/tree-sitter-slint
-    - name: Check for parse ERRORs from tree-sitter
-      run: sh -c "! grep -q ERROR corpus/*.txt"
-      working-directory: editors/tree-sitter-slint
-
-  # Checkout a old version of the tests and example, then run the slint-updater on them
-  # and check that it worked with the interpreter test.
-  updater_test:
-    env:
-      SLINT_NO_QT: 1
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-      CARGO_PROFILE_DEV_DEBUG: 0
-    strategy:
-      matrix:
-        from_version: ['0.3.0']
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    - uses: ./.github/actions/install-linux-dependencies
-    - uses: ./.github/actions/setup-rust
-    - name: Checkout old version
-      run: |
-          git checkout v${{ matrix.from_version }} --no-overlay -- examples
-          git checkout v${{ matrix.from_version }} --no-overlay -- tests/cases
-          git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components
-          # Remove examples from the workspace because they may no longer exist or their Cargo.toml might prevent the build of the updater
-          sed -i "/examples/d" Cargo.toml
-    - name: "Commit old checkout"
-      run: |
-        git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-        git config --global user.name "${GITHUB_ACTOR}"
-        git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
-    - name: run the updater
-      run: |
-        cargo run -p slint-updater -- -i examples/*/*.slint
-        cargo run -p slint-updater -- -i examples/*/*/*.slint
-        cargo run -p slint-updater -- -i tests/cases/*.slint
-        cargo run -p slint-updater -- -i tests/cases/*/*.slint
-    - name: Show the diff
-      run: git diff
-    - name: test
-      # Skip a few tests that rely on private renamed properties.
-      # Skip the tests which makes two way binding to output property (these are warning in previous version)
-      # Skip the test that use impure functions in property bindings (this is also warning in previous version)
-      # Skip the example that did not exist or that are broken
-      # Skip the path layout related tests as the element has been removed
-      # Skip the booker as it use api from the LineEdit that wasn"t meant to be used
-      run: |
-        cargo test -p test-driver-interpreter -- \
-                  --skip test_interpreter_text_cursor_move \
-                  --skip test_interpreter_text_cursor_move_grapheme \
-                  --skip test_interpreter_text_cut \
-                  --skip test_interpreter_text_select_all \
-                  --skip test_interpreter_text_surrogate_cursor \
-                  --skip test_interpreter_text_text_change \
-                  --skip test_interpreter_crashes_layout_deleted_item \
-                  --skip test_interpreter_focus_focus_change_subcompo \
-                  --skip test_interpreter_focus_focus_change_through_signal \
-                  --skip test_interpreter_globals_alias_to_global \
-                  --skip test_interpreter_text_default_color \
-                  --skip test_interpreter_crashes_issue1271_set_in_if \
-                  --skip test_interpreter_models_assign_equal_model \
-                  --skip example_carousel \
-                  --skip example_fancy_demo \
-                  --skip example_printerdemo_old \
-                  --skip test_interpreter_elements_path_fit \
-                  --skip test_interpreter_layout_path \
-                  --skip test_interpreter_7guis_booker \
-
-  # Test that the formater don't introduce slint compilation error
-  fmt_test:
-    env:
-      SLINT_NO_QT: 1
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-      CARGO_PROFILE_DEV_DEBUG: 0
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/install-linux-dependencies
-    - uses: ./.github/actions/setup-rust
-    - name: run the formatter
-      run: |
-        cargo run -p slint-fmt -- -i tests/cases/*/*.slint
-        cargo run -p slint-fmt -- -i examples/*/*.slint
-        cargo run -p slint-fmt -- -i examples/*/*/*.slint
-    - name: Show the diff
-      run: git diff
-    - name: Run the intepreter test to make sure that the test are passing after format
-      run: cargo test -p test-driver-interpreter
+            tests/screenshots/references
