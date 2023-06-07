@@ -64,7 +64,7 @@ jobs:
     - uses: ./.github/actions/setup-rust
       with:
         toolchain: ${{ matrix.rust_version }}
-        key: x-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
+        key: x-v2
     - name: Run tests
       uses: actions-rs/cargo@v1
       env:
