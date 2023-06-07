@@ -17,15 +17,9 @@ pub struct OpenGLContext {
     context: glutin::context::PossiblyCurrentContext,
     #[cfg(not(target_arch = "wasm32"))]
     surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
-    #[cfg(target_arch = "wasm32")]
-    canvas: web_sys::HtmlCanvasElement,
 }
 
 unsafe impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
-    #[cfg(target_arch = "wasm32")]
-    fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement {
-        self.canvas.clone()
-    }
     fn ensure_current(&self) -> Result<(), PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         if !self.context.is_current() {
@@ -192,7 +186,6 @@ impl OpenGLContext {
     pub fn new_context<T>(
         window_builder: winit::window::WindowBuilder,
         window_target: &winit::event_loop::EventLoopWindowTarget<T>,
-        canvas_id: &str,
     ) -> Result<(winit::window::Window, Self), PlatformError> {
         let window = window_builder.build(window_target).map_err(|winit_os_err| {
             format!(
@@ -200,22 +193,6 @@ impl OpenGLContext {
                 winit_os_err
             )
         })?;
-
-        use wasm_bindgen::JsCast;
-
-        let canvas = web_sys::window()
-            .ok_or_else(|| "FemtoVG Renderer: Could not retrieve DOM window".to_string())?
-            .document()
-            .ok_or_else(|| "FemtoVG Renderer: Could not retrieve DOM document".to_string())?
-            .get_element_by_id(canvas_id)
-            .ok_or_else(|| {
-                format!("FemtoVG Renderer: Could not retrieve existing HTML Canvas element '{canvas_id}'")
-            })?
-            .dyn_into::<web_sys::HtmlCanvasElement>()
-            .map_err(|_| {
-                format!("FemtoVG Renderer: Specified DOM element '{canvas_id}' is not a HTML Canvas")
-            })?;
-
-        Ok((window, Self { canvas }))
+        Ok((window, Self {}))
     }
 }
