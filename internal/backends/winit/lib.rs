@@ -30,7 +30,6 @@ mod renderer {
     pub(crate) trait WinitCompatibleRenderer {
         fn new(
             window_builder: winit::window::WindowBuilder,
-            #[cfg(target_arch = "wasm32")] canvas_id: &str,
         ) -> Result<(Self, winit::window::Window), PlatformError>
         where
             Self: Sized;

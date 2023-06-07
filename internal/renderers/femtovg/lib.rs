@@ -47,8 +47,6 @@ pub unsafe trait OpenGLContextWrapper {
     fn resize(&self, size: PhysicalWindowSize) -> Result<(), PlatformError>;
     #[cfg(not(target_arch = "wasm32"))]
     fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void;
-    #[cfg(target_arch = "wasm32")]
-    fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement;
 }
 
 /// Use the FemtoVG renderer when implementing a custom Slint platform where you deliver events to
@@ -61,6 +59,8 @@ pub struct FemtoVGRenderer {
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     // Last field, so that it's dropped last and context exists and is current when destroying the FemtoVG canvas
     opengl_context: Box<dyn OpenGLContextWrapper>,
+    #[cfg(target_arch = "wasm32")]
+    canvas_id: String,
 }
 
 impl FemtoVGRenderer {
@@ -68,7 +68,10 @@ impl FemtoVGRenderer {
     /// of the OpenGLContextWrapper trait. The trait serves the purpose of giving the renderer control
     /// over when the make the context current, how to retrieve the address of GL functions, and when
     /// to swap back and front buffers.
-    pub fn new(opengl_context: impl OpenGLContextWrapper + 'static) -> Result<Self, PlatformError> {
+    pub fn new(
+        opengl_context: impl OpenGLContextWrapper + 'static,
+        #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
+    ) -> Result<Self, PlatformError> {
         let opengl_context = Box::new(opengl_context);
         #[cfg(not(target_arch = "wasm32"))]
         let gl_renderer = unsafe {
@@ -79,16 +82,13 @@ impl FemtoVGRenderer {
         };
 
         #[cfg(target_arch = "wasm32")]
-        let canvas = opengl_context.html_canvas_element();
-
-        #[cfg(target_arch = "wasm32")]
-        let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(&canvas) {
+        let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(&html_canvas) {
             Ok(gl_renderer) => gl_renderer,
             Err(_) => {
                 use wasm_bindgen::JsCast;
 
                 // I don't believe that there's a way of disabling the 2D canvas.
-                let context_2d = canvas
+                let context_2d = html_canvas
                     .get_context("2d")
                     .unwrap()
                     .unwrap()
@@ -118,6 +118,8 @@ impl FemtoVGRenderer {
             texture_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
             opengl_context,
+            #[cfg(target_arch = "wasm32")]
+            canvas_id: html_canvas.id(),
         })
     }
 
@@ -278,18 +280,12 @@ impl FemtoVGRenderer {
     ) -> Result<(), PlatformError> {
         use i_slint_core::api::GraphicsAPI;
 
-        let canvas_element_id = self.opengl_context.html_canvas_element().id();
         let api = GraphicsAPI::WebGL {
-            canvas_element_id: canvas_element_id.as_str(),
+            canvas_element_id: self.canvas_id.as_str(),
             context_type: "webgl",
         };
         callback(api);
         Ok(())
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement {
-        self.opengl_context.html_canvas_element()
     }
 }
 

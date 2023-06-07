@@ -6,6 +6,9 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::Renderer;
 use i_slint_renderer_femtovg::FemtoVGRenderer;
 
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::WindowExtWebSys;
+
 mod glcontext;
 
 pub struct GlutinFemtoVGRenderer {
@@ -15,18 +18,16 @@ pub struct GlutinFemtoVGRenderer {
 impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
     fn new(
         window_builder: winit::window::WindowBuilder,
-        #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> Result<(Self, winit::window::Window), PlatformError> {
         let (winit_window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
-            glcontext::OpenGLContext::new_context(
-                window_builder,
-                event_loop.event_loop_target(),
-                #[cfg(target_arch = "wasm32")]
-                canvas_id,
-            )
+            glcontext::OpenGLContext::new_context(window_builder, event_loop.event_loop_target())
         })?;
 
-        let renderer = FemtoVGRenderer::new(opengl_context)?;
+        let renderer = FemtoVGRenderer::new(
+            opengl_context,
+            #[cfg(target_arch = "wasm32")]
+            winit_window.canvas(),
+        )?;
 
         Ok((Self { renderer }, winit_window))
     }

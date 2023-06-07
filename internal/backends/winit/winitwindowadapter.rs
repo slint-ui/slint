@@ -129,13 +129,7 @@ impl WinitWindowAdapter {
             #[cfg(target_arch = "wasm32")]
             canvas_id,
         )
-        .and_then(|builder| {
-            R::new(
-                builder,
-                #[cfg(target_arch = "wasm32")]
-                canvas_id,
-            )
-        })?;
+        .and_then(|builder| R::new(builder))?;
 
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
