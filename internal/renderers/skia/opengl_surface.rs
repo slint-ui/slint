@@ -12,6 +12,7 @@ use glutin::{
 };
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::{api::GraphicsAPI, platform::PlatformError};
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 pub struct OpenGLSurface {
     fb_info: skia_safe::gpu::gl::FramebufferInfo,
@@ -25,8 +26,8 @@ impl super::Surface for OpenGLSurface {
     const SUPPORTS_GRAPHICS_API: bool = true;
 
     fn new(
-        window: &dyn raw_window_handle::HasRawWindowHandle,
-        display: &dyn raw_window_handle::HasRawDisplayHandle,
+        window_handle: raw_window_handle::WindowHandle<'_>,
+        display_handle: raw_window_handle::DisplayHandle<'_>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
         let width: std::num::NonZeroU32 = size.width.try_into().map_err(|_| {
@@ -37,7 +38,7 @@ impl super::Surface for OpenGLSurface {
         })?;
 
         let (current_glutin_context, glutin_surface) =
-            Self::init_glutin(window, display, width, height)?;
+            Self::init_glutin(window_handle, display_handle, width, height)?;
 
         let fb_info = {
             use glow::HasContext;
@@ -188,8 +189,8 @@ impl super::Surface for OpenGLSurface {
 
 impl OpenGLSurface {
     fn init_glutin(
-        _window: &dyn raw_window_handle::HasRawWindowHandle,
-        _display: &dyn raw_window_handle::HasRawDisplayHandle,
+        _window_handle: raw_window_handle::WindowHandle<'_>,
+        _display_handle: raw_window_handle::DisplayHandle<'_>,
         width: NonZeroU32,
         height: NonZeroU32,
     ) -> Result<
@@ -207,7 +208,7 @@ impl OpenGLSurface {
             } else if #[cfg(not(target_family = "windows"))] {
                 let prefs = [glutin::display::DisplayApiPreference::Egl];
             } else {
-                let prefs = [glutin::display::DisplayApiPreference::EglThenWgl(Some(_window.raw_window_handle()))];
+                let prefs = [glutin::display::DisplayApiPreference::EglThenWgl(Some(_window_handle))];
             }
         }
 
@@ -215,7 +216,7 @@ impl OpenGLSurface {
             |display_api_preference| -> Result<(_, _), Box<dyn std::error::Error>> {
                 let gl_display = unsafe {
                     glutin::display::Display::new(
-                        _display.raw_display_handle(),
+                        _display_handle.raw_display_handle(),
                         display_api_preference,
                     )?
                 };
@@ -233,8 +234,8 @@ impl OpenGLSurface {
 
                 // Upstream advises to use this only on Windows.
                 #[cfg(target_family = "windows")]
-                let config_template_builder = config_template_builder
-                    .compatible_with_native_window(_window.raw_window_handle());
+                let config_template_builder =
+                    config_template_builder.compatible_with_native_window(_window_handle);
 
                 let config_template = config_template_builder.build();
 
@@ -260,10 +261,10 @@ impl OpenGLSurface {
                         major: 2,
                         minor: 0,
                     })))
-                    .build(Some(_window.raw_window_handle()));
+                    .build(Some(_window_handle.raw_window_handle()));
 
                 let fallback_context_attributes =
-                    ContextAttributesBuilder::new().build(Some(_window.raw_window_handle()));
+                    ContextAttributesBuilder::new().build(Some(_window_handle.raw_window_handle()));
 
                 let not_current_gl_context = unsafe {
                     gl_display.create_context(&config, &gles_context_attributes).or_else(|_| {
@@ -272,7 +273,7 @@ impl OpenGLSurface {
                 };
 
                 let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
-                    _window.raw_window_handle(),
+                    _window_handle.raw_window_handle(),
                     width,
                     height,
                 );
@@ -307,7 +308,7 @@ impl OpenGLSurface {
         if let raw_window_handle::RawWindowHandle::AppKit(raw_window_handle::AppKitWindowHandle {
             ns_view,
             ..
-        }) = _window.raw_window_handle()
+        }) = _window_handle.raw_window_handle()
         {
             use cocoa::appkit::NSView;
             let view_id: cocoa::base::id = ns_view as *const _ as *mut _;

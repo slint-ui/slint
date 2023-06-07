@@ -19,6 +19,9 @@ use vulkano::swapchain::{
 use vulkano::sync::{FlushError, GpuFuture};
 use vulkano::{sync, Handle, VulkanLibrary, VulkanObject};
 
+use raw_window_handle::HasRawDisplayHandle;
+use raw_window_handle::HasRawWindowHandle;
+
 pub struct VulkanSurface {
     gr_context: RefCell<skia_safe::gpu::DirectContext>,
     recreate_swapchain: Cell<bool>,
@@ -34,8 +37,8 @@ impl super::Surface for VulkanSurface {
     const SUPPORTS_GRAPHICS_API: bool = false;
 
     fn new(
-        window: &dyn raw_window_handle::HasRawWindowHandle,
-        display: &dyn raw_window_handle::HasRawDisplayHandle,
+        window_handle: raw_window_handle::WindowHandle<'_>,
+        display_handle: raw_window_handle::DisplayHandle<'_>,
         size: PhysicalWindowSize,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let library = VulkanLibrary::new()
@@ -65,7 +68,7 @@ impl super::Surface for VulkanSurface {
         )
         .map_err(|instance_err| format!("Error creating Vulkan instance: {instance_err}"))?;
 
-        let surface = create_surface(&instance, window, display)
+        let surface = create_surface(&instance, window_handle, display_handle)
             .map_err(|surface_err| format!("Error creating Vulkan surface: {surface_err}"))?;
 
         let device_extensions =
@@ -361,10 +364,10 @@ impl super::Surface for VulkanSurface {
 
 fn create_surface(
     instance: &Arc<Instance>,
-    window: &dyn raw_window_handle::HasRawWindowHandle,
-    display: &dyn raw_window_handle::HasRawDisplayHandle,
+    window_handle: raw_window_handle::WindowHandle<'_>,
+    display_handle: raw_window_handle::DisplayHandle<'_>,
 ) -> Result<Arc<Surface>, vulkano::swapchain::SurfaceCreationError> {
-    match (window.raw_window_handle(), display.raw_display_handle()) {
+    match (window_handle.raw_window_handle(), display_handle.raw_display_handle()) {
         #[cfg(target_os = "macos")]
         (
             raw_window_handle::RawWindowHandle::AppKit(raw_window_handle::AppKitWindowHandle {
