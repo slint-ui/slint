@@ -43,9 +43,6 @@ mod renderer {
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
 
         fn resize_event(&self, size: PhysicalSize) -> Result<(), PlatformError>;
-
-        #[cfg(target_arch = "wasm32")]
-        fn html_canvas_element(&self) -> web_sys::HtmlCanvasElement;
     }
 
     #[cfg(feature = "renderer-winit-femtovg")]
