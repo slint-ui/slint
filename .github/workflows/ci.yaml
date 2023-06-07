@@ -37,10 +37,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
-    # Python 3.11 breaks the neon-sys build
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
     - name: Install Qt
       if: runner.os != 'Windows'
       uses: jurplel/install-qt-action@v3
@@ -66,7 +62,7 @@ jobs:
         toolchain: ${{ matrix.rust_version }}
         key: x-v2
     - name: Run tests
-      run: cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo
+      run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo
       env:
           SLINT_CREATE_SCREENSHOTS: 1
     - name: Archive screenshots after failed tests
