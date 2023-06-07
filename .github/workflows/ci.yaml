@@ -66,12 +66,9 @@ jobs:
         toolchain: ${{ matrix.rust_version }}
         key: x-v2
     - name: Run tests
-      uses: actions-rs/cargo@v1
+      run: cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo
       env:
           SLINT_CREATE_SCREENSHOTS: 1
-      with:
-        command: test
-        args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude uefi-demo  # mcu backend requires nightly
     - name: Archive screenshots after failed tests
       if: ${{ failure() }}
       uses: actions/upload-artifact@v3
@@ -126,12 +123,7 @@ jobs:
     - name: Build node plugin
       run: cargo build --verbose --all-features -p slint-node
     - name: Run node tests
-      uses: actions-rs/cargo@v1
-      env:
-          SLINT_CREATE_SCREENSHOTS: 1
-      with:
-        command: test
-        args: --verbose --all-features -p test-driver-nodejs -p slint-node
+      run: cargo test --verbose --all-features -p test-driver-nodejs -p slint-node
 
   cpp_test_driver:
     env:
