@@ -25,7 +25,7 @@ jobs:
         rust_version: [stable, "1.66"]
         include:
           - os: windows-2022
-            extra_args: "--exclude test-driver-nodejs --exclude ffmpeg"
+            extra_args: "--exclude ffmpeg"
           - os: macos-11
             extra_args: "--exclude ffmpeg"
         exclude:
