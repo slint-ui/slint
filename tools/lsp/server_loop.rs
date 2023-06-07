@@ -861,74 +861,10 @@ pub async fn reload_document(
 }
 
 fn extract_rust_macro(content: String) -> Option<String> {
-    let mut begin = 0;
-    let (open, close) = loop {
-        if let Some(m) = content[begin..].find("slint") {
-            // heuristics to find if we are not in a comment or a string literal. Not perfect, but should work in most cases
-            if let Some(x) = content[begin..(begin + m)].rfind(['\\', '\n', '/', '\"']) {
-                if content.as_bytes()[begin + x] != b'\n' {
-                    begin += m + 5;
-                    begin += content[begin..].find(['\n']).unwrap_or(0);
-                    continue;
-                }
-            }
-            begin += m + 5;
-            while content[begin..].starts_with(' ') {
-                begin += 1;
-            }
-            if !content[begin..].starts_with('!') {
-                continue;
-            }
-            begin += 1;
-            while content[begin..].starts_with(' ') {
-                begin += 1;
-            }
-            let Some(open) = content.as_bytes().get(begin) else { continue };
-            match open {
-                b'{' => break (SyntaxKind::LBrace, SyntaxKind::RBrace),
-                b'[' => break (SyntaxKind::LBracket, SyntaxKind::RBracket),
-                b'(' => break (SyntaxKind::LParent, SyntaxKind::RParent),
-                _ => continue,
-            }
-        } else {
-            // No macro found, just return
-            return None;
-        }
-    };
-
-    begin += 1;
-
-    // Now find the matching closing delimiter
-    // Technically, we should be lexing rust, not slint
-    let mut state = i_slint_compiler::lexer::LexState::default();
-    let mut end = begin;
-    let mut level = 0;
-    while !content[end..].is_empty() {
-        let len = match i_slint_compiler::parser::lex_next_token(&content[end..], &mut state) {
-            Some((len, x)) if x == open => {
-                level += 1;
-                len
-            }
-            Some((_, x)) if x == close && level == 0 => {
-                break;
-            }
-            Some((len, x)) if x == close => {
-                level -= 1;
-                len
-            }
-            Some((len, _)) => len,
-            None => {
-                // Lex error
-                break;
-            }
-        };
-        if len == 0 {
-            break; // Shouldn't happen
-        }
-        end += len;
-    }
+    let core::ops::Range { start, end } =
+        i_slint_compiler::lexer::locate_slint_macro(&content).next()?;
     let mut bytes = content.into_bytes();
-    for c in &mut bytes[..begin] {
+    for c in &mut bytes[..start] {
         if *c != b'\n' {
             *c = b' '
         }
