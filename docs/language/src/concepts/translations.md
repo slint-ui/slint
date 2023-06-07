@@ -58,8 +58,93 @@ export component MenuItem {
 
 ## Extracting the String from the files
 
-**TODO**
+We provide a `slint-tr-extractor` tool that parse .slint files and can generate a .po file.
+You can run it like so
+
+```sh
+find -name \*.slint | xargs slint-tr-extractor -o MY_PROJECT.pot
+```
+
+This will create a file called `MY_PROJECT.pot`
+(but you should replace MY_PROJECT with your actual project name, see bellow for naming)
 
 ## Doing the translations
 
-**TODO**
+`.pot` file are [Gettext](https://www.gnu.org/software/gettext/) template files. It is the same as a `.po` file, but doesn't contain actual
+translations. They can be edited by hand with a text editor, or there are a few tools you can use to translate them, option includes
+ - [poedit](https://poedit.net/)
+ - [OmegaT](https://omegat.org/)
+ - [Lokalize](https://userbase.kde.org/Lokalize)
+ - [Transifex](https://www.transifex.com/) (web interface)
+
+## Loading the translations at runtime
+
+[Gettext](https://www.gnu.org/software/gettext/) is used at runtime to get the translations.
+
+So the first thing to do is to convert the `.po` files in `.mo` files that the gettext runtime can open.
+This can be done with the `msgfmt` from the gettext provided tools.
+
+Then, gettext will locate the translation file in the following location:
+
+```
+dir_name/locale/LC_MESSAGES/domain_name.mo
+```
+
+See the [Gettext documentation](https://www.gnu.org/software/gettext/manual/gettext.html#Locating-Catalogs) for more info.
+
+The locale is determined with environment variables.
+
+The dir_name and domain_name are optained depending on with which programming language slint is used:
+
+### Rust
+
+You must enable the `gettext` feature of the `slint` create.
+
+When used from Rust, either via a build.rs script or using a `slint!` macro, the `domain_name`
+is the same as the package name from the Cargo.toml (This is often the same as the crate name)
+
+You must specify `dir_name` with the init_translation macro.
+For example, it may look like this:
+
+```rust
+slint::init_translations!(concat!(env!("CARGO_MANIFEST_DIR"), "/lang/"));
+```
+
+### C++
+
+In C++ application using cmake, the `domain_name` is the CMake target name.
+
+You will also need to bind the domain to a path using the standard gettext library.
+
+To do so, you can add this in your CMakeLists.txt
+
+```cmake
+find_package(Intl)
+if(Intl_FOUND)
+    target_compile_definitions(gallery PRIVATE HAVE_GETTEXT SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(gallery PRIVATE Intl::Intl)
+endif()
+```
+
+You can then setup the locale and the bindtext domain
+
+```c++
+#ifdef HAVE_GETTEXT
+#    include <locale>
+#    include <libintl.h>
+#endif
+
+int main()
+{
+#ifdef HAVE_GETTEXT
+    bindtextdomain("my_application", SRC_DIR "/lang/");
+    std::locale::global(std::locale(""));
+#endif
+   //...
+}
+```
+
+### `slint-viewer`
+
+When previewing files with the `slint-viewer` binary, you can pass the `--translation-domain` and `--translation-dir`
+option to the viewer
