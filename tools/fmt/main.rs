@@ -54,46 +54,11 @@ fn main() -> std::io::Result<()> {
 
 /// FIXME! this is duplicated with the updater
 fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()> {
-    let mut source_slice = &source[..];
-    let slint_macro = format!("{}!", "slint"); // in a variable so it does not appear as is
-    'l: while let Some(idx) = source_slice.find(&slint_macro) {
-        // Note: this code ignore string literal and unbalanced comment, but that should be good enough
-        let idx2 =
-            if let Some(idx2) = source_slice[idx..].find(|c| c == '{' || c == '(' || c == '[') {
-                idx2
-            } else {
-                break 'l;
-            };
-        let open = source_slice.as_bytes()[idx + idx2].into();
-        let close = match open {
-            '{' => '}',
-            '(' => ')',
-            '[' => ']',
-            _ => panic!(),
-        };
-        file.write_all(source_slice[..=idx + idx2].as_bytes())?;
-        source_slice = &source_slice[idx + idx2 + 1..];
-        let mut idx = 0;
-        let mut count = 1;
-        while count > 0 {
-            if let Some(idx2) = source_slice[idx..].find(|c| {
-                if c == open {
-                    count += 1;
-                    true
-                } else if c == close {
-                    count -= 1;
-                    true
-                } else {
-                    false
-                }
-            }) {
-                idx += idx2 + 1;
-            } else {
-                break 'l;
-            }
-        }
-        let code = &source_slice[..idx - 1];
-        source_slice = &source_slice[idx - 1..];
+    let mut last = 0;
+    for range in i_slint_compiler::lexer::locate_slint_macro(&source) {
+        file.write_all(source[last..=range.start].as_bytes())?;
+        last = range.end;
+        let code = &source[range];
 
         let mut diag = BuildDiagnostics::default();
         let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
@@ -104,7 +69,7 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
             diag.print();
         }
     }
-    return file.write_all(source_slice.as_bytes());
+    file.write_all(source[last..].as_bytes())
 }
 
 /// FIXME! this is duplicated with the updater

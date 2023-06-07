@@ -6,6 +6,8 @@
 //! It is kind of shared with parser.rs, which implements the lex_next_token based on the macro_rules
 //! that declares token
 
+use crate::parser::SyntaxKind;
+
 #[derive(Default)]
 pub struct LexState {
     /// The top of the stack is the level of embedded braces `{`.
@@ -209,7 +211,7 @@ pub fn lex(mut source: &str) -> Vec<crate::parser::Token> {
         } else {
             // FIXME: recover
             result.push(crate::parser::Token {
-                kind: crate::parser::SyntaxKind::Error,
+                kind: SyntaxKind::Error,
                 text: source.into(),
                 offset,
                 ..Default::default()
@@ -223,7 +225,7 @@ pub fn lex(mut source: &str) -> Vec<crate::parser::Token> {
 
 #[test]
 fn basic_lexer_test() {
-    fn compare(source: &str, expected: &[(crate::parser::SyntaxKind, &str)]) {
+    fn compare(source: &str, expected: &[(SyntaxKind, &str)]) {
         let actual = lex(source);
         let actual =
             actual.iter().map(|token| (token.kind, token.text.as_str())).collect::<Vec<_>>();
@@ -233,91 +235,176 @@ fn basic_lexer_test() {
     compare(
         r#"45  /*hi/*_*/ho*/ "string""#,
         &[
-            (crate::parser::SyntaxKind::NumberLiteral, "45"),
-            (crate::parser::SyntaxKind::Whitespace, "  "),
-            (crate::parser::SyntaxKind::Comment, "/*hi/*_*/ho*/"),
-            (crate::parser::SyntaxKind::Whitespace, " "),
-            (crate::parser::SyntaxKind::StringLiteral, r#""string""#),
+            (SyntaxKind::NumberLiteral, "45"),
+            (SyntaxKind::Whitespace, "  "),
+            (SyntaxKind::Comment, "/*hi/*_*/ho*/"),
+            (SyntaxKind::Whitespace, " "),
+            (SyntaxKind::StringLiteral, r#""string""#),
         ],
     );
 
     compare(
         r#"12px+5.2+=0.7%"#,
         &[
-            (crate::parser::SyntaxKind::NumberLiteral, "12px"),
-            (crate::parser::SyntaxKind::Plus, "+"),
-            (crate::parser::SyntaxKind::NumberLiteral, "5.2"),
-            (crate::parser::SyntaxKind::PlusEqual, "+="),
-            (crate::parser::SyntaxKind::NumberLiteral, "0.7%"),
+            (SyntaxKind::NumberLiteral, "12px"),
+            (SyntaxKind::Plus, "+"),
+            (SyntaxKind::NumberLiteral, "5.2"),
+            (SyntaxKind::PlusEqual, "+="),
+            (SyntaxKind::NumberLiteral, "0.7%"),
         ],
     );
     compare(
         r#"aa_a.b1,c"#,
         &[
-            (crate::parser::SyntaxKind::Identifier, "aa_a"),
-            (crate::parser::SyntaxKind::Dot, "."),
-            (crate::parser::SyntaxKind::Identifier, "b1"),
-            (crate::parser::SyntaxKind::Comma, ","),
-            (crate::parser::SyntaxKind::Identifier, "c"),
+            (SyntaxKind::Identifier, "aa_a"),
+            (SyntaxKind::Dot, "."),
+            (SyntaxKind::Identifier, "b1"),
+            (SyntaxKind::Comma, ","),
+            (SyntaxKind::Identifier, "c"),
         ],
     );
     compare(
         r#"/*/**/*//**/*"#,
         &[
-            (crate::parser::SyntaxKind::Comment, "/*/**/*/"),
-            (crate::parser::SyntaxKind::Comment, "/**/"),
-            (crate::parser::SyntaxKind::Star, "*"),
+            (SyntaxKind::Comment, "/*/**/*/"),
+            (SyntaxKind::Comment, "/**/"),
+            (SyntaxKind::Star, "*"),
         ],
     );
     compare(
         "a//x\nb//y\r\nc//z",
         &[
-            (crate::parser::SyntaxKind::Identifier, "a"),
-            (crate::parser::SyntaxKind::Comment, "//x"),
-            (crate::parser::SyntaxKind::Whitespace, "\n"),
-            (crate::parser::SyntaxKind::Identifier, "b"),
-            (crate::parser::SyntaxKind::Comment, "//y"),
-            (crate::parser::SyntaxKind::Whitespace, "\r\n"),
-            (crate::parser::SyntaxKind::Identifier, "c"),
-            (crate::parser::SyntaxKind::Comment, "//z"),
+            (SyntaxKind::Identifier, "a"),
+            (SyntaxKind::Comment, "//x"),
+            (SyntaxKind::Whitespace, "\n"),
+            (SyntaxKind::Identifier, "b"),
+            (SyntaxKind::Comment, "//y"),
+            (SyntaxKind::Whitespace, "\r\n"),
+            (SyntaxKind::Identifier, "c"),
+            (SyntaxKind::Comment, "//z"),
         ],
     );
-    compare(r#""x""#, &[(crate::parser::SyntaxKind::StringLiteral, r#""x""#)]);
+    compare(r#""x""#, &[(SyntaxKind::StringLiteral, r#""x""#)]);
     compare(
         r#"a"\"\\"x"#,
         &[
-            (crate::parser::SyntaxKind::Identifier, "a"),
-            (crate::parser::SyntaxKind::StringLiteral, r#""\"\\""#),
-            (crate::parser::SyntaxKind::Identifier, "x"),
+            (SyntaxKind::Identifier, "a"),
+            (SyntaxKind::StringLiteral, r#""\"\\""#),
+            (SyntaxKind::Identifier, "x"),
         ],
     );
     compare(
         r#""a\{b{c}d"e\{f}g"h}i"j"#,
         &[
-            (crate::parser::SyntaxKind::StringLiteral, r#""a\{"#),
-            (crate::parser::SyntaxKind::Identifier, "b"),
-            (crate::parser::SyntaxKind::LBrace, "{"),
-            (crate::parser::SyntaxKind::Identifier, "c"),
-            (crate::parser::SyntaxKind::RBrace, "}"),
-            (crate::parser::SyntaxKind::Identifier, "d"),
-            (crate::parser::SyntaxKind::StringLiteral, r#""e\{"#),
-            (crate::parser::SyntaxKind::Identifier, "f"),
-            (crate::parser::SyntaxKind::StringLiteral, r#"}g""#),
-            (crate::parser::SyntaxKind::Identifier, "h"),
-            (crate::parser::SyntaxKind::StringLiteral, r#"}i""#),
-            (crate::parser::SyntaxKind::Identifier, "j"),
+            (SyntaxKind::StringLiteral, r#""a\{"#),
+            (SyntaxKind::Identifier, "b"),
+            (SyntaxKind::LBrace, "{"),
+            (SyntaxKind::Identifier, "c"),
+            (SyntaxKind::RBrace, "}"),
+            (SyntaxKind::Identifier, "d"),
+            (SyntaxKind::StringLiteral, r#""e\{"#),
+            (SyntaxKind::Identifier, "f"),
+            (SyntaxKind::StringLiteral, r#"}g""#),
+            (SyntaxKind::Identifier, "h"),
+            (SyntaxKind::StringLiteral, r#"}i""#),
+            (SyntaxKind::Identifier, "j"),
         ],
     );
 
     // Fuzzer tests:
-    compare(
-        r#"/**"#,
-        &[
-            (crate::parser::SyntaxKind::Div, "/"),
-            (crate::parser::SyntaxKind::Star, "*"),
-            (crate::parser::SyntaxKind::Star, "*"),
-        ],
+    compare(r#"/**"#, &[(SyntaxKind::Div, "/"), (SyntaxKind::Star, "*"), (SyntaxKind::Star, "*")]);
+    compare(r#""\"#, &[(SyntaxKind::Error, "\"\\")]);
+    compare(r#""\ޱ"#, &[(SyntaxKind::Error, "\"\\ޱ")]);
+}
+
+/// Given the source of a rust file, find the occurrence of each `slint!(...)`macro.
+/// Return an iterator with the range of the location of the macro in the original source
+pub fn locate_slint_macro(rust_source: &str) -> impl Iterator<Item = core::ops::Range<usize>> + '_ {
+    let mut begin = 0;
+    std::iter::from_fn(move || {
+        let (open, close) = loop {
+            if let Some(m) = rust_source[begin..].find("slint") {
+                // heuristics to find if we are not in a comment or a string literal. Not perfect, but should work in most cases
+                if let Some(x) = rust_source[begin..(begin + m)].rfind(['\\', '\n', '/', '\"']) {
+                    if rust_source.as_bytes()[begin + x] != b'\n' {
+                        begin += m + 5;
+                        begin += rust_source[begin..].find(['\n']).unwrap_or(0);
+                        continue;
+                    }
+                }
+                begin += m + 5;
+                while rust_source[begin..].starts_with(' ') {
+                    begin += 1;
+                }
+                if !rust_source[begin..].starts_with('!') {
+                    continue;
+                }
+                begin += 1;
+                while rust_source[begin..].starts_with(' ') {
+                    begin += 1;
+                }
+                let Some(open) = rust_source.as_bytes().get(begin) else { continue };
+                match open {
+                    b'{' => break (SyntaxKind::LBrace, SyntaxKind::RBrace),
+                    b'[' => break (SyntaxKind::LBracket, SyntaxKind::RBracket),
+                    b'(' => break (SyntaxKind::LParent, SyntaxKind::RParent),
+                    _ => continue,
+                }
+            } else {
+                // No macro found, just return
+                return None;
+            }
+        };
+
+        begin += 1;
+
+        // Now find the matching closing delimiter
+        // Technically, we should be lexing rust, not slint
+        let mut state = LexState::default();
+        let start = begin;
+        let mut end = begin;
+        let mut level = 0;
+        while !rust_source[end..].is_empty() {
+            let len = match crate::parser::lex_next_token(&rust_source[end..], &mut state) {
+                Some((len, x)) if x == open => {
+                    level += 1;
+                    len
+                }
+                Some((_, x)) if x == close && level == 0 => {
+                    break;
+                }
+                Some((len, x)) if x == close => {
+                    level -= 1;
+                    len
+                }
+                Some((len, _)) => len,
+                None => {
+                    // Lex error
+                    break;
+                }
+            };
+            if len == 0 {
+                break; // Shouldn't happen
+            }
+            end += len;
+        }
+        begin = end;
+        Some(start..end)
+    })
+}
+
+#[test]
+fn test_locate_rust_macro() {
+    #[track_caller]
+    fn do_test(source: &str, captures: &[&str]) {
+        let result = locate_slint_macro(source).map(|r| &source[r]).collect::<Vec<_>>();
+        assert_eq!(&result, captures);
+    }
+
+    do_test("\nslint{!{}}", &[]);
+    do_test(
+        "//slint!(123)\nslint!(456)\nslint ![789]\n/*slint!{abc}*/\nslint! {def}",
+        &["456", "789", "def"],
     );
-    compare(r#""\"#, &[(crate::parser::SyntaxKind::Error, "\"\\")]);
-    compare(r#""\ޱ"#, &[(crate::parser::SyntaxKind::Error, "\"\\ޱ")]);
+    do_test("slint!(slint!(abc))slint!()", &["slint!(abc)", ""]);
 }
