@@ -25,7 +25,7 @@ jobs:
         rust_version: [stable, "1.66"]
         include:
           - os: windows-2022
-            extra_args: "--exclude slint-node --exclude test-driver-nodejs --exclude ffmpeg"
+            extra_args: "--exclude ffmpeg"
           - os: macos-11
             extra_args: "--exclude ffmpeg"
         exclude:
@@ -61,8 +61,6 @@ jobs:
       run: |
           echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-    - uses: ./.github/actions/install-nodejs
-      id: node-install
     - uses: ./.github/actions/setup-rust
       with:
         toolchain: ${{ matrix.rust_version }}
@@ -73,7 +71,7 @@ jobs:
           SLINT_CREATE_SCREENSHOTS: 1
       with:
         command: test
-        args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude uefi-demo  # mcu backend requires nightly
+        args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude uefi-demo  # mcu backend requires nightly
     - name: Archive screenshots after failed tests
       if: ${{ failure() }}
       uses: actions/upload-artifact@v3
@@ -82,6 +80,63 @@ jobs:
           path: |
               tests/screenshots/references
 
+  node_test:
+    env:
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+      QT_QPA_PLATFORM: offscreen
+      RUSTFLAGS: -D warnings
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_INCREMENTAL: false
+      RUST_BACKTRACE: 1
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-11]
+        rust_version: [stable, "1.66"]
+        exclude:
+          - os: macos-11
+            rust_version: "1.66"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/install-linux-dependencies
+    # Python 3.11 breaks the neon-sys build
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Install Qt
+      if: runner.os != 'Windows'
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '5.15.2'
+        setup-python: false
+    - name: Setup headless display
+      uses: pyvista/setup-headless-display-action@v1
+    - name: Set default style
+      if: matrix.os != 'windows-2022'
+      run: |
+          echo "SLINT_STYLE=native" >> $GITHUB_ENV
+    - name: Set default style
+      if: matrix.os == 'windows-2022'
+      run: |
+          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+    - uses: ./.github/actions/install-nodejs
+      id: node-install
+    - uses: ./.github/actions/setup-rust
+      with:
+        toolchain: ${{ matrix.rust_version }}
+        key: x-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
+    - name: Build node plugin
+      run: cargo build --verbose --all-features -p slint-node
+    - name: Run node tests
+      uses: actions-rs/cargo@v1
+      env:
+          SLINT_CREATE_SCREENSHOTS: 1
+      with:
+        command: test
+        args: --verbose --all-features -p test-driver-nodejs -p slint-node
 
   cpp_test_driver:
     env:
