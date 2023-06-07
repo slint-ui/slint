@@ -7,12 +7,13 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use alloc::boxed::Box;
-use alloc::string::String;
-
 use crate::component::ComponentVTable;
+#[cfg(target_has_atomic = "ptr")]
+pub use crate::future::*;
 use crate::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use crate::window::{WindowAdapter, WindowInner};
+use alloc::boxed::Box;
+use alloc::string::String;
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.

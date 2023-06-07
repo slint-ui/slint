@@ -42,6 +42,7 @@ All notable changes to this project are documented in this file.
  - Added a `serde` feature to enable serialization of some Slint structure
  - Added convenience `From` conversions for `ModelRc` from slices and arrays.
  - `slint-viewer` gained the ability to preview .rs files with a `slint!` macro.
+ - Added a `spawn_local` function to run async code in the Slint event loop.
 
 ### C++
 

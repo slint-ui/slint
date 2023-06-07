@@ -6,11 +6,8 @@
 use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::SharedVector;
 use slint_interpreter::{ComponentHandle, ComponentInstance, SharedString, Value};
-use std::future::Future;
-use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
-use std::task::Wake;
 
 use clap::Parser;
 
@@ -232,7 +229,12 @@ fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatche
                     && PENDING_EVENTS.load(Ordering::SeqCst) == 0
                 {
                     PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
-                    run_in_ui_thread(Box::pin(reload(args.clone(), w2.clone())));
+                    let args = args.clone();
+                    let w2 = w2.clone();
+                    i_slint_core::api::invoke_from_event_loop(move || {
+                        i_slint_core::future::spawn_local(reload(args, w2)).unwrap();
+                    })
+                    .unwrap();
                 }
             }
         }
@@ -354,35 +356,4 @@ fn execute_cmd(cmd: &str, callback_args: &[Value]) -> Result<()> {
     }
     command.spawn()?;
     Ok(())
-}
-
-/// This type is duplicated with lsp/preview.rs
-struct FutureRunner {
-    fut: Mutex<Option<Pin<Box<dyn Future<Output = ()>>>>>,
-}
-
-/// Safety: the future is only going to be run in the UI thread
-unsafe impl Send for FutureRunner {}
-/// Safety: the future is only going to be run in the UI thread
-unsafe impl Sync for FutureRunner {}
-
-impl Wake for FutureRunner {
-    fn wake(self: Arc<Self>) {
-        i_slint_core::api::invoke_from_event_loop(move || {
-            let waker = self.clone().into();
-            let mut cx = std::task::Context::from_waker(&waker);
-            let mut fut_opt = self.fut.lock().unwrap();
-            if let Some(fut) = &mut *fut_opt {
-                match fut.as_mut().poll(&mut cx) {
-                    std::task::Poll::Ready(_) => *fut_opt = None,
-                    std::task::Poll::Pending => {}
-                }
-            }
-        })
-        .unwrap();
-    }
-}
-
-fn run_in_ui_thread(fut: Pin<Box<dyn Future<Output = ()>>>) {
-    Arc::new(FutureRunner { fut: Mutex::new(Some(fut)) }).wake()
 }
