@@ -49,6 +49,23 @@ pub unsafe trait OpenGLContextWrapper {
     fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void;
 }
 
+#[cfg(target_arch = "wasm32")]
+struct WebGLNeedsNoCurrentContext;
+#[cfg(target_arch = "wasm32")]
+unsafe impl OpenGLContextWrapper for WebGLNeedsNoCurrentContext {
+    fn ensure_current(&self) -> Result<(), PlatformError> {
+        Ok(())
+    }
+
+    fn swap_buffers(&self) -> Result<(), PlatformError> {
+        Ok(())
+    }
+
+    fn resize(&self, _size: PhysicalWindowSize) -> Result<(), PlatformError> {
+        Ok(())
+    }
+}
+
 /// Use the FemtoVG renderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using OpenGL and the FemtoVG renderer.
 pub struct FemtoVGRenderer {
@@ -69,9 +86,12 @@ impl FemtoVGRenderer {
     /// over when the make the context current, how to retrieve the address of GL functions, and when
     /// to swap back and front buffers.
     pub fn new(
-        opengl_context: impl OpenGLContextWrapper + 'static,
+        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLContextWrapper + 'static,
         #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<Self, PlatformError> {
+        #[cfg(target_arch = "wasm32")]
+        let opengl_context = WebGLNeedsNoCurrentContext {};
+
         let opengl_context = Box::new(opengl_context);
         #[cfg(not(target_arch = "wasm32"))]
         let gl_renderer = unsafe {

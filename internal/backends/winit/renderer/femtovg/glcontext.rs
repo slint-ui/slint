@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-#[cfg(not(target_arch = "wasm32"))]
 use glutin::{
     context::{ContextApi, ContextAttributesBuilder},
     display::GetGlDisplay,
@@ -9,19 +8,15 @@ use glutin::{
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 use i_slint_core::{api::PhysicalSize, platform::PlatformError};
-#[cfg(not(target_arch = "wasm32"))]
 use raw_window_handle::HasRawWindowHandle;
 
 pub struct OpenGLContext {
-    #[cfg(not(target_arch = "wasm32"))]
     context: glutin::context::PossiblyCurrentContext,
-    #[cfg(not(target_arch = "wasm32"))]
     surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
 }
 
 unsafe impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
     fn ensure_current(&self) -> Result<(), PlatformError> {
-        #[cfg(not(target_arch = "wasm32"))]
         if !self.context.is_current() {
             self.context.make_current(&self.surface).map_err(|glutin_error| -> PlatformError {
                 format!("FemtoVG: Error making context current: {glutin_error}").into()
@@ -30,7 +25,6 @@ unsafe impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
         Ok(())
     }
     fn swap_buffers(&self) -> Result<(), PlatformError> {
-        #[cfg(not(target_arch = "wasm32"))]
         self.surface.swap_buffers(&self.context).map_err(|glutin_error| -> PlatformError {
             format!("FemtoVG: Error swapping buffers: {glutin_error}").into()
         })?;
@@ -39,35 +33,25 @@ unsafe impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
     }
 
     fn resize(&self, _size: PhysicalSize) -> Result<(), PlatformError> {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let width = _size.width.try_into().map_err(|_| {
-                format!(
-                    "Attempting to create window surface with an invalid width: {}",
-                    _size.width
-                )
-            })?;
-            let height = _size.height.try_into().map_err(|_| {
-                format!(
-                    "Attempting to create window surface with an invalid height: {}",
-                    _size.height
-                )
-            })?;
+        let width = _size.width.try_into().map_err(|_| {
+            format!("Attempting to create window surface with an invalid width: {}", _size.width)
+        })?;
+        let height = _size.height.try_into().map_err(|_| {
+            format!("Attempting to create window surface with an invalid height: {}", _size.height)
+        })?;
 
-            self.ensure_current()?;
-            self.surface.resize(&self.context, width, height);
-        }
+        self.ensure_current()?;
+        self.surface.resize(&self.context, width, height);
+
         Ok(())
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void {
         self.context.display().get_proc_address(name)
     }
 }
 
 impl OpenGLContext {
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn new_context<T>(
         window_builder: winit::window::WindowBuilder,
         window_target: &winit::event_loop::EventLoopWindowTarget<T>,
@@ -180,19 +164,5 @@ impl OpenGLContext {
         })?;
 
         Ok((window, Self { context, surface }))
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub fn new_context<T>(
-        window_builder: winit::window::WindowBuilder,
-        window_target: &winit::event_loop::EventLoopWindowTarget<T>,
-    ) -> Result<(winit::window::Window, Self), PlatformError> {
-        let window = window_builder.build(window_target).map_err(|winit_os_err| {
-            format!(
-                "FemtoVG Renderer: Could not create winit window wrapper for DOM canvas: {}",
-                winit_os_err
-            )
-        })?;
-        Ok((window, Self {}))
     }
 }
