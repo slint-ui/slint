@@ -4,6 +4,9 @@
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 
+use raw_window_handle::HasRawDisplayHandle;
+use raw_window_handle::HasRawWindowHandle;
+
 pub struct SkiaRenderer {
     renderer: i_slint_renderer_skia::SkiaRenderer,
 }
@@ -33,9 +36,26 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
             )
         })?;
 
+        // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
+        let active_handle = unsafe { raw_window_handle::ActiveHandle::new_unchecked() };
+
+        // Safety: API wise we can't guarantee that the window/display handles remain valid, so we
+        // use unsafe here. However the winit window adapter keeps the winit window alive as long as
+        // the renderer.
+        // TODO: remove once winit implements HasWindowHandle/HasDisplayHandle
+        let (window_handle, display_handle) = unsafe {
+            (
+                raw_window_handle::WindowHandle::borrow_raw(
+                    winit_window.raw_window_handle(),
+                    active_handle,
+                ),
+                raw_window_handle::DisplayHandle::borrow_raw(winit_window.raw_display_handle()),
+            )
+        };
+
         let renderer = i_slint_renderer_skia::SkiaRenderer::new(
-            &winit_window,
-            &winit_window,
+            window_handle,
+            display_handle,
             PhysicalWindowSize::new(width, height),
         )?;
 

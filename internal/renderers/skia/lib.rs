@@ -64,11 +64,11 @@ pub struct SkiaRenderer {
 impl SkiaRenderer {
     /// Creates a new renderer is associated with the provided window adapter.
     pub fn new(
-        native_window: &impl raw_window_handle::HasRawWindowHandle,
-        native_display: &impl raw_window_handle::HasRawDisplayHandle,
+        window_handle: raw_window_handle::WindowHandle<'_>,
+        display_handle: raw_window_handle::DisplayHandle<'_>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError> {
-        let surface = DefaultSurface::new(&native_window, &native_display, size)?;
+        let surface = DefaultSurface::new(window_handle, display_handle, size)?;
 
         Ok(Self {
             rendering_notifier: Default::default(),
@@ -350,8 +350,8 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 trait Surface {
     const SUPPORTS_GRAPHICS_API: bool;
     fn new(
-        window: &dyn raw_window_handle::HasRawWindowHandle,
-        display: &dyn raw_window_handle::HasRawDisplayHandle,
+        window_handle: raw_window_handle::WindowHandle<'_>,
+        display_handle: raw_window_handle::DisplayHandle<'_>,
         size: PhysicalWindowSize,
     ) -> Result<Self, PlatformError>
     where

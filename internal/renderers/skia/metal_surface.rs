@@ -8,6 +8,7 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use metal::MTLPixelFormat;
 use objc::{rc::autoreleasepool, runtime::YES};
 
+use raw_window_handle::HasRawWindowHandle;
 use skia_safe::gpu::mtl;
 
 use std::cell::RefCell;
@@ -22,8 +23,8 @@ impl super::Surface for MetalSurface {
     const SUPPORTS_GRAPHICS_API: bool = false;
 
     fn new(
-        window: &dyn raw_window_handle::HasRawWindowHandle,
-        _display: &dyn raw_window_handle::HasRawDisplayHandle,
+        window_handle: raw_window_handle::WindowHandle<'_>,
+        _display_handle: raw_window_handle::DisplayHandle<'_>,
         size: PhysicalWindowSize,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let device = metal::Device::system_default()
@@ -38,7 +39,7 @@ impl super::Surface for MetalSurface {
         layer.set_drawable_size(CGSize::new(size.width as f64, size.height as f64));
 
         unsafe {
-            let view = match window.raw_window_handle() {
+            let view = match window_handle.raw_window_handle() {
                 raw_window_handle::RawWindowHandle::AppKit(
                     raw_window_handle::AppKitWindowHandle { ns_view, .. },
                 ) => ns_view,

@@ -5,6 +5,8 @@ use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 use std::cell::RefCell;
 
+use raw_window_handle::HasRawWindowHandle;
+
 use winapi::{
     shared::{dxgi, dxgi1_2, dxgi1_3, dxgi1_4, dxgiformat},
     shared::{
@@ -72,7 +74,7 @@ impl SwapChain {
         command_queue: ComPtr<d3d12::ID3D12CommandQueue>,
         device: &ComPtr<d3d12::ID3D12Device>,
         mut gr_context: skia_safe::gpu::DirectContext,
-        window: &dyn raw_window_handle::HasRawWindowHandle,
+        window_handle: raw_window_handle::WindowHandle<'_>,
         size: PhysicalWindowSize,
         dxgi_factory: &ComPtr<dxgi1_4::IDXGIFactory4>,
     ) -> Result<Self, PlatformError> {
@@ -87,7 +89,7 @@ impl SwapChain {
             ..Default::default()
         };
 
-        let hwnd = match window.raw_window_handle() {
+        let hwnd = match window_handle.raw_window_handle() {
             raw_window_handle::RawWindowHandle::Win32(raw_window_handle::Win32WindowHandle {
                 hwnd,
                 ..
@@ -289,8 +291,8 @@ impl super::Surface for D3DSurface {
     const SUPPORTS_GRAPHICS_API: bool = false;
 
     fn new(
-        window: &dyn raw_window_handle::HasRawWindowHandle,
-        _display: &dyn raw_window_handle::HasRawDisplayHandle,
+        window_handle: raw_window_handle::WindowHandle<'_>,
+        _display_handle: raw_window_handle::DisplayHandle<'_>,
         size: PhysicalWindowSize,
     ) -> Result<Self, i_slint_core::platform::PlatformError> {
         let factory_flags = 0;
@@ -412,8 +414,14 @@ impl super::Surface for D3DSurface {
         let gr_context = unsafe { skia_safe::gpu::DirectContext::new_d3d(&backend_context, None) }
             .ok_or_else(|| format!("unable to create Skia D3D DirectContext"))?;
 
-        let swap_chain =
-            RefCell::new(SwapChain::new(queue, &device, gr_context, &window, size, &dxgi_factory)?);
+        let swap_chain = RefCell::new(SwapChain::new(
+            queue,
+            &device,
+            gr_context,
+            window_handle,
+            size,
+            &dxgi_factory,
+        )?);
 
         Ok(Self { swap_chain })
     }

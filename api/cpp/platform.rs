@@ -213,18 +213,6 @@ type SkiaRendererOpaque = *const c_void;
 type SkiaRenderer = i_slint_renderer_skia::SkiaRenderer;
 
 struct CppRawHandle(RawWindowHandle, RawDisplayHandle);
-// Safety: the C++ code should ensure that the handle is valid
-unsafe impl raw_window_handle::HasRawWindowHandle for CppRawHandle {
-    fn raw_window_handle(&self) -> RawWindowHandle {
-        self.0
-    }
-}
-// Safety: the C++ code should ensure that the handle is valid
-unsafe impl raw_window_handle::HasRawDisplayHandle for CppRawHandle {
-    fn raw_display_handle(&self) -> RawDisplayHandle {
-        self.1
-    }
-}
 
 // the raw handle type are #[non_exhaustive], so they can't be initialize with the convenient syntax. Work that around.
 macro_rules! init_raw {
@@ -302,10 +290,23 @@ pub unsafe extern "C" fn slint_skia_renderer_new(
     handle_opaque: CppRawHandleOpaque,
     size: IntSize,
 ) -> SkiaRendererOpaque {
+    let handle = &*(handle_opaque as *const CppRawHandle);
+
+    // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
+    let active_handle = unsafe { raw_window_handle::ActiveHandle::new_unchecked() };
+
+    // Safety: the C++ code should ensure that the handle is valid
+    let (window_handle, display_handle) = unsafe {
+        (
+            raw_window_handle::WindowHandle::borrow_raw(handle.0, active_handle),
+            raw_window_handle::DisplayHandle::borrow_raw(handle.1),
+        )
+    };
+
     let boxed_renderer: Box<SkiaRenderer> = Box::new(
         SkiaRenderer::new(
-            &*(handle_opaque as *const CppRawHandle),
-            &*(handle_opaque as *const CppRawHandle),
+            window_handle,
+            display_handle,
             PhysicalSize { width: size.width, height: size.height },
         )
         .unwrap(),
