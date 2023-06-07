@@ -284,7 +284,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                         ComponentInstance::GlobalComponent(_) => unimplemented!(),
                     };
                     let extra_data = toplevel_instance.component_type.extra_data_offset.apply(toplevel_instance.as_ref());
-                    let path = extra_data.embedded_file_resources.get(resource_id).expect("internal error: invalid resource id");
+                    let path = extra_data.embedded_file_resources.get().unwrap().get(resource_id).expect("internal error: invalid resource id");
 
                     let virtual_file = i_slint_compiler::fileaccess::load_file(std::path::Path::new(path)).unwrap();  // embedding pass ensured that the file exists
 
@@ -1278,7 +1278,7 @@ fn root_component_instance<'a, 'old_id, 'new_id>(
 ) -> InstanceRef<'a, 'new_id> {
     if let Some(parent_offset) = component.component_type.parent_component_offset {
         let parent_component =
-            if let Some(parent) = parent_offset.apply(&*component.instance.get_ref()) {
+            if let Some(parent) = parent_offset.apply(&*component.instance.get_ref()).get() {
                 *parent
             } else {
                 panic!("invalid parent ptr");
@@ -1318,9 +1318,10 @@ pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
             .parent_component_offset
             .unwrap()
             .apply(component.as_ref())
+            .get()
             .unwrap();
         generativity::make_guard!(new_guard);
-        let parent_instance = unsafe { InstanceRef::from_pin_ref(parent_component, new_guard) };
+        let parent_instance = unsafe { InstanceRef::from_pin_ref(*parent_component, new_guard) };
         let parent_instance = unsafe {
             core::mem::transmute::<InstanceRef, InstanceRef<'a, 'static>>(parent_instance)
         };
@@ -1345,8 +1346,13 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
                     unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
                 let root = root_component_instance(component, static_guard);
                 ComponentInstance::GlobalComponent(
-                    &root.component_type.extra_data_offset.apply(&*root.instance.get_ref()).globals
-                        [enclosing.root_element.borrow().id.as_str()],
+                    &root
+                        .component_type
+                        .extra_data_offset
+                        .apply(&*root.instance.get_ref())
+                        .globals
+                        .get()
+                        .unwrap()[enclosing.root_element.borrow().id.as_str()],
                 )
             } else {
                 ComponentInstance::InstanceRef(enclosing_component_for_element(

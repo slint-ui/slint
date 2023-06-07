@@ -579,7 +579,10 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_window(
         core::mem::size_of::<Rc<dyn WindowAdapter>>(),
         core::mem::size_of::<i_slint_core::window::ffi::WindowAdapterRcOpaque>()
     );
-    core::ptr::write(out as *mut *const Rc<dyn WindowAdapter>, inst.window_adapter() as *const _)
+    core::ptr::write(
+        out as *mut *const Rc<dyn WindowAdapter>,
+        inst.window_adapter().unwrap() as *const _,
+    )
 }
 
 /// Instantiate an instance from a definition.
