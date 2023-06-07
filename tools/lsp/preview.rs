@@ -11,9 +11,7 @@ use slint_interpreter::ComponentHandle;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
-use std::sync::{Arc, Condvar, Mutex};
-use std::task::Wake;
+use std::sync::{Condvar, Mutex};
 
 #[derive(PartialEq)]
 enum RequestedGuiEventLoopState {
@@ -32,33 +30,9 @@ static GUI_EVENT_LOOP_NOTIFIER: Lazy<Condvar> = Lazy::new(Condvar::new);
 static GUI_EVENT_LOOP_STATE_REQUEST: Lazy<Mutex<RequestedGuiEventLoopState>> =
     Lazy::new(|| Mutex::new(RequestedGuiEventLoopState::Uninitialized));
 
-struct FutureRunner {
-    fut: Mutex<Option<Pin<Box<dyn Future<Output = ()>>>>>,
-}
-
-/// Safety: the future is only going to be run in the UI thread
-unsafe impl Send for FutureRunner {}
-/// Safety: the future is only going to be run in the UI thread
-unsafe impl Sync for FutureRunner {}
-
-impl Wake for FutureRunner {
-    fn wake(self: Arc<Self>) {
-        i_slint_core::api::invoke_from_event_loop(move || {
-            let waker = self.clone().into();
-            let mut cx = std::task::Context::from_waker(&waker);
-            let mut fut_opt = self.fut.lock().unwrap();
-            if let Some(fut) = &mut *fut_opt {
-                match fut.as_mut().poll(&mut cx) {
-                    std::task::Poll::Ready(_) => *fut_opt = None,
-                    std::task::Poll::Pending => {}
-                }
-            }
-        })
-        .unwrap();
-    }
-}
-
-fn run_in_ui_thread(fut: Pin<Box<dyn Future<Output = ()>>>) {
+fn run_in_ui_thread<F: Future<Output = ()> + 'static>(
+    create_future: impl Send + FnOnce() -> F + 'static,
+) {
     // Wake up the main thread to start the event loop, if possible
     {
         let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
@@ -71,8 +45,10 @@ fn run_in_ui_thread(fut: Pin<Box<dyn Future<Output = ()>>>) {
             state_request = GUI_EVENT_LOOP_NOTIFIER.wait(state_request).unwrap();
         }
     }
-
-    Arc::new(FutureRunner { fut: Mutex::new(Some(fut)) }).wake()
+    i_slint_core::api::invoke_from_event_loop(move || {
+        i_slint_core::future::spawn_local(create_future()).unwrap();
+    })
+    .unwrap();
 }
 
 pub fn start_ui_event_loop() {
@@ -143,10 +119,10 @@ pub fn load_preview(
         return;
     }
     PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
-    run_in_ui_thread(Box::pin(async move {
+    run_in_ui_thread(move || async move {
         PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
         reload_preview(sender, component, post_load_behavior).await
-    }));
+    });
 }
 
 #[derive(Default, Clone)]
@@ -263,7 +239,7 @@ fn show_document_request_from_element_callback(
 
 fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
     let sender = sender.clone();
-    run_in_ui_thread(Box::pin(async move {
+    run_in_ui_thread(move || async move {
         PREVIEW_STATE.with(|preview_state| {
             let preview_state = preview_state.borrow();
             if let Some(handle) = &preview_state.handle {
@@ -284,16 +260,12 @@ fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
                                 end_column - 1,
                             ) else { return; };
                         let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else { return; };
-
-                        let fut = Box::pin(async {
-                            let _ = fut.await;
-                        });
-                        Arc::new(FutureRunner { fut: Mutex::new(Some(fut)) }).wake();
+                        i_slint_core::future::spawn_local(fut).unwrap();
                     },
                 ));
             }
         })
-    }));
+    });
 }
 
 async fn reload_preview(
@@ -415,7 +387,7 @@ pub fn highlight(path: Option<PathBuf>, offset: u32) {
     cache.highlight = highlight;
 
     if cache.highlight.as_ref().map_or(true, |(path, _)| cache.dependency.contains(path)) {
-        run_in_ui_thread(Box::pin(async move {
+        run_in_ui_thread(move || async move {
             PREVIEW_STATE.with(|preview_state| {
                 let preview_state = preview_state.borrow();
                 if let (Some(cache), Some(handle)) =
@@ -428,6 +400,6 @@ pub fn highlight(path: Option<PathBuf>, offset: u32) {
                     }
                 }
             })
-        }))
+        })
     }
 }

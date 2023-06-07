@@ -21,6 +21,7 @@ pub mod animations;
 pub mod api;
 pub mod callbacks;
 pub mod component;
+pub mod future;
 pub mod graphics;
 pub mod input;
 pub mod item_focus;
