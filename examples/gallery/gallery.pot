@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-06-06 10:54+0000\n"
+"POT-Creation-Date: 2023-06-07 03:08+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -21,28 +21,37 @@ msgstr ""
 msgid "Slint Widgets Gallery"
 msgstr ""
 
-#: ./gallery.slint:20 ./ui/pages/controls_page.slint:10
+#: ./gallery.slint:20
+msgctxt "Menu"
 msgid "Controls"
 msgstr ""
 
-#: ./gallery.slint:20 ./ui/pages/list_view_page.slint:9
+#: ./gallery.slint:20
+msgctxt "Menu"
 msgid "ListView"
 msgstr ""
 
-#: ./gallery.slint:20 ./ui/pages/table_view_page.slint:22
+#: ./gallery.slint:20
+msgctxt "Menu"
 msgid "TableView"
 msgstr ""
 
-#: ./gallery.slint:20 ./ui/pages/text_edit_page.slint:9
+#: ./gallery.slint:20
+msgctxt "Menu"
 msgid "TextEdit"
 msgstr ""
 
 #: ./gallery.slint:20
+msgctxt "Menu"
 msgid "About"
 msgstr ""
 
 #: ./ui/pages/page.slint:25
 msgid "Widgets enabled"
+msgstr ""
+
+#: ./ui/pages/list_view_page.slint:9
+msgid "ListView"
 msgstr ""
 
 #: ./ui/pages/list_view_page.slint:10
@@ -77,6 +86,10 @@ msgstr ""
 msgid "consetetur"
 msgstr ""
 
+#: ./ui/pages/controls_page.slint:10
+msgid "Controls"
+msgstr ""
+
 #: ./ui/pages/controls_page.slint:11
 msgid "This page gives an overview of the default widget set provided by Slint. The widgets are available in different styles native, fluent-(dark/light) and material-(dark/light). The widgets can be imported from \"std-widgets.slint\"."
 msgstr ""
@@ -90,99 +103,103 @@ msgid "Regular Button"
 msgstr ""
 
 #: ./ui/pages/controls_page.slint:27
-msgid "Button with Icon"
+msgid "Primary Button with Icon"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:34
+#: ./ui/pages/controls_page.slint:35
 msgid "ON"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:34
+#: ./ui/pages/controls_page.slint:35
 msgid "OFF"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:41
+#: ./ui/pages/controls_page.slint:42
 msgid "CheckBox - SpinBox - ComboBox - Switch"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:49
+#: ./ui/pages/controls_page.slint:50
 msgid "(checked)"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:49
+#: ./ui/pages/controls_page.slint:50
 msgid "(unchecked)"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:61
+#: ./ui/pages/controls_page.slint:62
 msgid "Select Something"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:61
+#: ./ui/pages/controls_page.slint:62
 msgid "From this"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:61
+#: ./ui/pages/controls_page.slint:62
 msgid "Combobox"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:66
+#: ./ui/pages/controls_page.slint:67
 msgid "Flight Mode"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:74
+#: ./ui/pages/controls_page.slint:75
 msgid "LineEdit"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:78
+#: ./ui/pages/controls_page.slint:79
 msgid "Enter some text"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:84
+#: ./ui/pages/controls_page.slint:85
 msgid "Slider"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:97
+#: ./ui/pages/controls_page.slint:98
 msgid "ProgressIndicator"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:111
+#: ./ui/pages/controls_page.slint:112
 msgid "indeterminate"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:118
+#: ./ui/pages/controls_page.slint:119
 msgid "TabWidget"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:122
+#: ./ui/pages/controls_page.slint:123
 msgid "Tab 1"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:128
+#: ./ui/pages/controls_page.slint:129
 msgid "Content of tab 1"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:134
+#: ./ui/pages/controls_page.slint:135
 msgid "Click me"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:143
+#: ./ui/pages/controls_page.slint:144
 msgid "Tab 2"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:149
+#: ./ui/pages/controls_page.slint:150
 msgid "Content of tab 2"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:155
+#: ./ui/pages/controls_page.slint:156
 msgid "Check me"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:164
+#: ./ui/pages/controls_page.slint:165
 msgid "Tab 3"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:168
+#: ./ui/pages/controls_page.slint:169
 msgid "Content of tab 3"
+msgstr ""
+
+#: ./ui/pages/text_edit_page.slint:9
+msgid "TextEdit"
 msgstr ""
 
 #: ./ui/pages/text_edit_page.slint:10
@@ -203,6 +220,10 @@ msgstr ""
 
 #: ./ui/pages/text_edit_page.slint:25
 msgid "No-Wrap"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:22
+msgid "TableView"
 msgstr ""
 
 #: ./ui/pages/table_view_page.slint:23
