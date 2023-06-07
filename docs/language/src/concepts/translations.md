@@ -25,11 +25,11 @@ The literal characters `{` and `}` may be included in a string by preceding them
 
 ## Plurals
 
-A special kind of formatting is the plural formating, because the string may change if there is a single elemnts or several.
+A special kind of formatting is the plural formatting, because the string may change depending on if there is a single element or several.
 
-So given `count`, an expression that represent the count of something, we can form the plural with the `|` and `%` symbols like so:
+Given `count` and an expression that represents the count of something, we can form the plural with the `|` and `%` symbols like so:
 `@tr("I have {n} item" | "I have {n} items" % count)`.
-Use `{n}` in the format string to access the expression after the `%`
+Use `{n}` in the format string to access the expression after the `%`.
 
 ```slint,no-preview
 export component Example inherits Text {
@@ -58,31 +58,30 @@ export component MenuItem {
 
 ## Extracting the String from the files
 
-We provide a `slint-tr-extractor` tool that parse .slint files and can generate a .po file.
-You can run it like so
+Use the `slint-tr-extractor` tool to generate a .po file from .slint files.
+You can run it like so:
 
 ```sh
 find -name \*.slint | xargs slint-tr-extractor -o MY_PROJECT.pot
 ```
 
-This will create a file called `MY_PROJECT.pot`
-(but you should replace MY_PROJECT with your actual project name, see bellow for naming)
+This will create a file called `MY_PROJECT.pot`. Replace MY_PROJECT with your actual project name. To learn how the project name affects the lookup of translations, see the sections below.
 
-## Doing the translations
+## Translating Your Application
 
 `.pot` file are [Gettext](https://www.gnu.org/software/gettext/) template files. It is the same as a `.po` file, but doesn't contain actual
-translations. They can be edited by hand with a text editor, or there are a few tools you can use to translate them, option includes
+translations. They can be edited by hand with a text editor, or there are a few tools you can use to translate them, option include:
  - [poedit](https://poedit.net/)
  - [OmegaT](https://omegat.org/)
  - [Lokalize](https://userbase.kde.org/Lokalize)
  - [Transifex](https://www.transifex.com/) (web interface)
 
-## Loading the translations at runtime
+## Loading the Translations at Run-Time
 
 [Gettext](https://www.gnu.org/software/gettext/) is used at runtime to get the translations.
 
 So the first thing to do is to convert the `.po` files in `.mo` files that the gettext runtime can open.
-This can be done with the `msgfmt` from the gettext provided tools.
+This can be done with the `msgfmt` command line tool from the gettext package.
 
 Then, gettext will locate the translation file in the following location:
 
@@ -146,5 +145,5 @@ int main()
 
 ### `slint-viewer`
 
-When previewing files with the `slint-viewer` binary, you can pass the `--translation-domain` and `--translation-dir`
+When previewing files with the `slint-viewer` binary, you can pass the `--translation-domain` and `--translation-dir`.
 option to the viewer
