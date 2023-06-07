@@ -18,7 +18,7 @@ pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 
 pub use i_slint_core::api::*;
 
-use crate::dynamic_component::ErasedComponentBox;
+use crate::dynamic_component::{ErasedComponentBox, WindowOptions};
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
@@ -592,14 +592,9 @@ impl ComponentDefinition {
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
         generativity::make_guard!(guard);
-        self.inner
-            .unerase(guard)
-            .clone()
-            .create(
-                #[cfg(target_arch = "wasm32")]
-                "canvas".into(),
-            )
-            .map(|inner| ComponentInstance { inner })
+        Ok(ComponentInstance {
+            inner: self.inner.unerase(guard).clone().create(Default::default()),
+        })
     }
 
     /// Instantiate the component for wasm using the given canvas id
@@ -609,11 +604,13 @@ impl ComponentDefinition {
         canvas_id: &str,
     ) -> Result<ComponentInstance, PlatformError> {
         generativity::make_guard!(guard);
-        self.inner
-            .unerase(guard)
-            .clone()
-            .create(canvas_id.into())
-            .map(|inner| ComponentInstance { inner })
+        Ok(ComponentInstance {
+            inner: self
+                .inner
+                .unerase(guard)
+                .clone()
+                .create(WindowOptions::CreateWithCanvasId(canvas_id.into())),
+        })
     }
 
     /// Instantiate the component using an existing window.
@@ -621,11 +618,9 @@ impl ComponentDefinition {
     pub fn create_with_existing_window(&self, window: &Window) -> ComponentInstance {
         generativity::make_guard!(guard);
         ComponentInstance {
-            inner: self
-                .inner
-                .unerase(guard)
-                .clone()
-                .create_with_existing_window(WindowInner::from_pub(window).window_adapter()),
+            inner: self.inner.unerase(guard).clone().create(WindowOptions::UseExistingWindow(
+                WindowInner::from_pub(window).window_adapter(),
+            )),
         }
     }
 
@@ -1066,15 +1061,11 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn show(&self) -> Result<(), PlatformError> {
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        comp.borrow_instance().window_adapter().window().show()
+        self.inner.window_adapter()?.window().show()
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        comp.borrow_instance().window_adapter().window().hide()
+        self.inner.window_adapter()?.window().hide()
     }
 
     fn run(&self) -> Result<(), PlatformError> {
@@ -1084,7 +1075,7 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn window(&self) -> &Window {
-        self.inner.window_adapter().window()
+        self.inner.window_adapter().unwrap().window()
     }
 
     fn global<'a, T: Global<'a, Self>>(&'a self) -> T

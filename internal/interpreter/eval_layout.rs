@@ -202,7 +202,8 @@ fn box_layout_data(
                 let instance = crate::dynamic_component::instantiate(
                     rep.1.clone(),
                     Some(component.borrow()),
-                    window_adapter.clone(),
+                    None,
+                    None,
                     Default::default(),
                 );
                 instance

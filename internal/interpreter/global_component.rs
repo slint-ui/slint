@@ -14,7 +14,6 @@ use i_slint_compiler::object_tree::Component;
 use i_slint_compiler::object_tree::PropertyDeclaration;
 use i_slint_core::component::ComponentVTable;
 use i_slint_core::rtti;
-use i_slint_core::window::WindowAdapter;
 
 pub type GlobalStorage = HashMap<String, Pin<Rc<dyn GlobalComponent>>>;
 
@@ -99,7 +98,7 @@ pub trait GlobalComponent {
 pub fn instantiate(
     description: &CompiledGlobal,
     globals: &mut GlobalStorage,
-    window_adapter: Rc<dyn WindowAdapter>,
+    root: vtable::VWeak<ComponentVTable, ErasedComponentBox>,
 ) {
     let instance = match description {
         CompiledGlobal::Builtin { element, .. } => {
@@ -128,7 +127,8 @@ pub fn instantiate(
             Rc::pin(GlobalComponentInstance(crate::dynamic_component::instantiate(
                 description.clone(),
                 None,
-                window_adapter,
+                Some(root),
+                None,
                 globals.clone(),
             )))
         }
