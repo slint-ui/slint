@@ -652,12 +652,7 @@ fn ensure_repeater_updated<'id>(
 ) {
     let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
     let init = || {
-        let window_adapter = instance_ref
-            .component_type
-            .window_adapter_offset
-            .apply(instance_ref.as_ref())
-            .as_ref()
-            .unwrap();
+        let window_adapter = instance_ref.window_adapter();
         let instance = instantiate(
             rep_in_comp.component_to_repeat.clone(),
             Some(instance_ref.borrow()),
