@@ -70,7 +70,7 @@ pub(crate) fn as_skia_image(
                 None,
             );
 
-            skia_safe::image::Image::from_raster_data(
+            skia_safe::images::raster_from_data(
                 &image_info,
                 skia_safe::Data::new_copy(pixels.as_bytes()),
                 pixels.width() as usize * 4,
@@ -144,5 +144,5 @@ fn image_buffer_to_skia_image(buffer: &SharedImageBuffer) -> Option<skia_safe::I
         alpha_type,
         None,
     );
-    skia_safe::image::Image::from_raster_data(&image_info, data, bpl)
+    skia_safe::images::raster_from_data(&image_info, data, bpl)
 }
