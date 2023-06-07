@@ -99,7 +99,7 @@ pub trait GlobalComponent {
 pub fn instantiate(
     description: &CompiledGlobal,
     globals: &mut GlobalStorage,
-    window_adapter: &Rc<dyn WindowAdapter>,
+    window_adapter: Rc<dyn WindowAdapter>,
 ) {
     let instance = match description {
         CompiledGlobal::Builtin { element, .. } => {

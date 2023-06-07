@@ -411,13 +411,13 @@ impl<'id> ComponentDescription<'id> {
             i_slint_backend_winit::create_gl_window_with_canvas_id(canvas_id)
         })?;
 
-        Ok(self.create_with_existing_window(&window_adapter))
+        Ok(self.create_with_existing_window(window_adapter))
     }
 
     #[doc(hidden)]
     pub fn create_with_existing_window(
         self: Rc<Self>,
-        window_adapter: &Rc<dyn WindowAdapter>,
+        window_adapter: Rc<dyn WindowAdapter>,
     ) -> DynamicComponentVRc {
         let component_ref = instantiate(self, None, window_adapter, Default::default());
         WindowInner::from_pub(component_ref.as_pin_ref().window_adapter().window())
@@ -1206,7 +1206,7 @@ fn make_binding_eval_closure(
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<ComponentRefPin>,
-    window_adapter: &Rc<dyn WindowAdapter>,
+    window_adapter: Rc<dyn WindowAdapter>,
     mut globals: crate::global_component::GlobalStorage,
 ) -> DynamicComponentVRc {
     let mut instance = component_type.dynamic_type.clone().create_instance();
@@ -1216,7 +1216,7 @@ pub fn instantiate(
             Some(parent);
     } else {
         for g in &component_type.compiled_globals {
-            crate::global_component::instantiate(g, &mut globals, window_adapter);
+            crate::global_component::instantiate(g, &mut globals, window_adapter.clone());
         }
         let extra_data = component_type.extra_data_offset.apply_mut(instance.as_mut());
         extra_data.globals = globals;
@@ -1229,8 +1229,7 @@ pub fn instantiate(
             .map(|(path, er)| (er.id, path.clone()))
             .collect();
     }
-    *component_type.window_adapter_offset.apply_mut(instance.as_mut()) =
-        Some(window_adapter.clone());
+    *component_type.window_adapter_offset.apply_mut(instance.as_mut()) = Some(window_adapter);
 
     let component_box = ComponentBox { instance, component_type: component_type.clone() };
     let instance_ref = component_box.borrow_instance();
@@ -1504,7 +1503,7 @@ extern "C" fn layout_info(component: ComponentRefPin, orientation: Orientation) 
     let mut result = crate::eval_layout::get_layout_info(
         &instance_ref.component_type.original.root_element,
         instance_ref,
-        instance_ref.window_adapter(),
+        &instance_ref.window_adapter(),
         orientation,
     );
 
@@ -1704,8 +1703,8 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         &extra_data.self_weak
     }
 
-    pub fn window_adapter(&self) -> &Rc<dyn WindowAdapter> {
-        self.component_type.window_adapter_offset.apply(self.as_ref()).as_ref().as_ref().unwrap()
+    pub fn window_adapter(&self) -> Rc<dyn WindowAdapter> {
+        self.component_type.window_adapter_offset.apply(self.as_ref()).as_ref().unwrap().clone()
     }
 
     pub fn maybe_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
@@ -1753,13 +1752,14 @@ pub fn show_popup(
     pos: i_slint_core::graphics::Point,
     close_on_click: bool,
     parent_comp: ComponentRefPin,
-    parent_window_adapter: &Rc<dyn WindowAdapter>,
+    parent_window_adapter: Rc<dyn WindowAdapter>,
     parent_item: &ItemRc,
 ) {
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_component(&popup.component, guard);
-    let inst = instantiate(compiled, Some(parent_comp), parent_window_adapter, Default::default());
+    let inst =
+        instantiate(compiled, Some(parent_comp), parent_window_adapter.clone(), Default::default());
     inst.run_setup_code();
     WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst),

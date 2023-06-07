@@ -624,10 +624,10 @@ fn call_builtin_function(
                     ItemRef::downcast_pin::<corelib::items::TextInput>(item_ref)
                 {
                     match &*name {
-                        "select_all" => textinput.select_all(window_adapter, &item_rc),
-                        "cut" => textinput.cut(window_adapter, &item_rc),
-                        "copy" => textinput.copy(window_adapter, &item_rc),
-                        "paste" => textinput.paste(window_adapter, &item_rc),
+                        "select_all" => textinput.select_all(&window_adapter, &item_rc),
+                        "cut" => textinput.cut(&window_adapter, &item_rc),
+                        "copy" => textinput.copy(&window_adapter, &item_rc),
+                        "paste" => textinput.paste(&window_adapter, &item_rc),
                         _ => panic!("internal: Unknown member function {name} called on TextInput"),
                     }
                 } else {
@@ -833,7 +833,7 @@ fn call_builtin_function(
                 let window_adapter = component.window_adapter();
                 item_ref
                     .as_ref()
-                    .layout_info(crate::eval_layout::to_runtime(orient), window_adapter)
+                    .layout_info(crate::eval_layout::to_runtime(orient), &window_adapter)
                     .into()
             } else {
                 panic!("internal error: incorrect arguments to ImplicitLayoutInfo {:?}", arguments);

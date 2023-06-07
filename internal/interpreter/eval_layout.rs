@@ -165,7 +165,7 @@ fn grid_layout_data(
             let mut layout_info = get_layout_info(
                 &cell.item.element,
                 component,
-                component.window_adapter(),
+                &component.window_adapter(),
                 orientation,
             );
             fill_layout_info_constraints(
@@ -202,7 +202,7 @@ fn box_layout_data(
                 let instance = crate::dynamic_component::instantiate(
                     rep.1.clone(),
                     Some(component.borrow()),
-                    window_adapter,
+                    window_adapter.clone(),
                     Default::default(),
                 );
                 instance
@@ -219,7 +219,7 @@ fn box_layout_data(
             );
         } else {
             let mut layout_info =
-                get_layout_info(&cell.element, component, window_adapter, orientation);
+                get_layout_info(&cell.element, component, &window_adapter, orientation);
             fill_layout_info_constraints(
                 &mut layout_info,
                 &cell.constraints,
