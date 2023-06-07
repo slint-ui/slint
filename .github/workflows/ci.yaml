@@ -61,8 +61,6 @@ jobs:
       run: |
           echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-    - uses: ./.github/actions/install-nodejs
-      id: node-install
     - uses: ./.github/actions/setup-rust
       with:
         toolchain: ${{ matrix.rust_version }}
