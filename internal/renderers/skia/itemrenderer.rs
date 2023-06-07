@@ -783,7 +783,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
                     skia_safe::AlphaType::Premul,
                     None,
                 );
-                cached_image = skia_safe::image::Image::from_raster_data(
+                cached_image = skia_safe::images::raster_from_data(
                     &image_info,
                     skia_safe::Data::new_copy(data),
                     width as usize * 4,
