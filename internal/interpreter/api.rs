@@ -625,7 +625,7 @@ impl ComponentDefinition {
                 .inner
                 .unerase(guard)
                 .clone()
-                .create_with_existing_window(&WindowInner::from_pub(window).window_adapter()),
+                .create_with_existing_window(WindowInner::from_pub(window).window_adapter()),
         }
     }
 
