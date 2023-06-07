@@ -209,6 +209,30 @@ impl WindowSize {
     }
 }
 
+#[test]
+fn logical_physical_pos() {
+    use crate::graphics::euclid::approxeq::ApproxEq;
+
+    let phys = PhysicalPosition::new(100, 50);
+    let logical = phys.to_logical(2.);
+    assert!(logical.x.approx_eq(&50.));
+    assert!(logical.y.approx_eq(&25.));
+
+    assert_eq!(logical.to_physical(2.), phys);
+}
+
+#[test]
+fn logical_physical_size() {
+    use crate::graphics::euclid::approxeq::ApproxEq;
+
+    let phys = PhysicalSize::new(100, 50);
+    let logical = phys.to_logical(2.);
+    assert!(logical.width.approx_eq(&50.));
+    assert!(logical.height.approx_eq(&25.));
+
+    assert_eq!(logical.to_physical(2.), phys);
+}
+
 /// This enum describes a low-level access to specific graphics APIs used
 /// by the renderer.
 #[derive(Clone)]
@@ -820,27 +844,3 @@ impl From<&str> for PlatformError {
 
 #[cfg(feature = "std")]
 impl std::error::Error for PlatformError {}
-
-#[test]
-fn logical_physical_pos() {
-    use crate::graphics::euclid::approxeq::ApproxEq;
-
-    let phys = PhysicalPosition::new(100, 50);
-    let logical = phys.to_logical(2.);
-    assert!(logical.x.approx_eq(&50.));
-    assert!(logical.y.approx_eq(&25.));
-
-    assert_eq!(logical.to_physical(2.), phys);
-}
-
-#[test]
-fn logical_physical_size() {
-    use crate::graphics::euclid::approxeq::ApproxEq;
-
-    let phys = PhysicalSize::new(100, 50);
-    let logical = phys.to_logical(2.);
-    assert!(logical.width.approx_eq(&50.));
-    assert!(logical.height.approx_eq(&25.));
-
-    assert_eq!(logical.to_physical(2.), phys);
-}
