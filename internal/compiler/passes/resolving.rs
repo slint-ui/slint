@@ -651,6 +651,13 @@ impl Expression {
 
         let plural = plural.unwrap_or((String::new(), Expression::NumberLiteral(1., Unit::None)));
 
+        let get_component_name = || {
+            ctx.component_scope
+                .first()
+                .and_then(|e| e.borrow().enclosing_component.upgrade())
+                .map(|c| c.id.clone())
+        };
+
         Expression::FunctionCall {
             function: Box::new(Expression::BuiltinFunctionReference(
                 BuiltinFunction::Translate,
@@ -658,7 +665,7 @@ impl Expression {
             )),
             arguments: vec![
                 Expression::StringLiteral(string),
-                Expression::StringLiteral(context.unwrap_or_default()),
+                Expression::StringLiteral(context.or_else(get_component_name).unwrap_or_default()),
                 Expression::StringLiteral(domain),
                 Expression::Array { element_ty: Type::String, values },
                 plural.1,
