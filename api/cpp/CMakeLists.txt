@@ -110,6 +110,7 @@ define_cargo_feature(renderer-winit-software "Enable support for the software re
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
 define_cargo_feature(experimental "Enable experimental features (no compatibility guarantees)" OFF)
+define_cargo_feature(gettext "Enable support of translations using gettext" OFF)
 
 # Compat options
 option(SLINT_FEATURE_BACKEND_GL_ALL "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT and SLINT_FEATURE_RENDERER_WINIT_FEMTOVG." OFF)

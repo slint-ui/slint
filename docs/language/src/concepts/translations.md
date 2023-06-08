@@ -74,6 +74,7 @@ export component MenuItem {
 
 ## Extract Translatable Strings
 
+
 Use the `slint-tr-extractor` tool to generate a `.pot` file from `.slint` files.
 You can run it like so:
 
@@ -151,7 +152,7 @@ With these sttings, Slint will look for `gallery.mo` in the `lang/fr/LC_MESSAGES
 
 ### Select and Load Translations with C++
 
-TODO: Adjust this to whatever we determine as the final mechanism of accessing gettext.
+You need to enable the feature by passing `-DSLINT_FEATURE_GETTEXT=1` when compiling Slint.
 
 In C++ application using cmake, the `domain_name` is the CMake target name.
 
@@ -187,5 +188,8 @@ int main()
 
 ## Previewing Translations with `slint-viewer`
 
+The `slint-viewer` need to be compiled with the `gettext` feature
+
 When previewing `.slint` files with `slint-viewer`, use the `--translation-domain` and `--translation-dir`.
 command line option to automatically load translations and display them based on the current locale.
+

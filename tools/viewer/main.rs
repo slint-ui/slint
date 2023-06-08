@@ -53,10 +53,13 @@ struct Cli {
     #[arg(long, value_names(&["callback", "handler"]), number_of_values = 2, action)]
     on: Vec<String>,
 
+    #[cfg(feature = "gettext")]
     /// Translation domain
     #[arg(long = "translation-domain", action)]
     translation_domain: Option<String>,
 
+    #[cfg(feature = "gettext")]
+    /// Translation directory where the translation files are searched for
     #[arg(long = "translation-dir", action)]
     translation_dir: Option<std::path::PathBuf>,
 }
@@ -77,6 +80,7 @@ fn main() -> Result<()> {
         std::env::set_var("SLINT_BACKEND", backend);
     }
 
+    #[cfg(feature = "gettext")]
     if let Some(dirname) = args.translation_dir.clone() {
         i_slint_core::translations::gettext_bindtextdomain(
             args.translation_domain.as_ref().map(String::as_str).unwrap_or_default(),
@@ -153,6 +157,7 @@ fn init_compiler(
     fswatcher: Option<Arc<Mutex<notify::RecommendedWatcher>>>,
 ) -> slint_interpreter::ComponentCompiler {
     let mut compiler = slint_interpreter::ComponentCompiler::default();
+    #[cfg(feature = "gettext")]
     if let Some(domain) = args.translation_domain.clone() {
         compiler.set_translation_domain(domain);
     }
