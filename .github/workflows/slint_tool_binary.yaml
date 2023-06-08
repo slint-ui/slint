@@ -30,6 +30,7 @@ jobs:
         uses: jurplel/install-qt-action@v3
         with:
           version: 6.5.1
+          cache: true
       - uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-about
@@ -75,6 +76,7 @@ jobs:
         uses: jurplel/install-qt-action@v3
         with:
           version: 5.15.2
+          cache: true
       - uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-about
@@ -108,6 +110,7 @@ jobs:
         uses: jurplel/install-qt-action@v3
         with:
           version: 6.5.1
+          cache: true
       - uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-about

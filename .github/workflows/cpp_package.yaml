@@ -25,11 +25,13 @@ jobs:
       if: matrix.os == 'ubuntu-20.04'
       with:
         version: 5.15.2
+        cache: true
     - name: Install Qt (cached)
       if: matrix.os != 'ubuntu-20.04'
       uses: jurplel/install-qt-action@v3
       with:
         version: 6.5.1
+        cache: true
     - uses: ./.github/actions/setup-rust
     - uses: baptiste0928/cargo-install@v2
       with:

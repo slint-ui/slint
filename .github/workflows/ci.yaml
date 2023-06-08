@@ -43,6 +43,7 @@ jobs:
       with:
         version: '5.15.2'
         setup-python: false
+        cache: true
     - name: Install ffmpeg and alsa (Linux)
       if: runner.os == 'Linux'
       run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
@@ -101,6 +102,7 @@ jobs:
       with:
         version: '5.15.2'
         setup-python: false
+        cache: true
     - name: Setup headless display
       uses: pyvista/setup-headless-display-action@v1
     - name: Set default style
@@ -145,6 +147,7 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: '5.15.2'
+        cache: true
     - name: Set default style
       if: runner.os != 'Windows'
       run: echo "SLINT_STYLE=native" >> $GITHUB_ENV
@@ -180,11 +183,13 @@ jobs:
       if: matrix.os == 'ubuntu-20.04'
       with:
         version: 5.15.2
+        cache: true
     - name: Install Qt (cached)
       if: matrix.os != 'ubuntu-20.04'
       uses: jurplel/install-qt-action@v3
       with:
         version: 6.5.1
+        cache: true
     - uses: ./.github/actions/setup-rust
     - uses: ilammy/msvc-dev-cmd@v1
     - name: Select MSVC (windows)
@@ -233,6 +238,7 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: 5.15.2
+        cache: true
     - uses: actions/download-artifact@v2
       with:
         name: cpp_bin-ubuntu-20.04
