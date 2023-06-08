@@ -910,7 +910,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         any_items_created
     }
 
-    /// Same as `Self::ensuer_updated` but for a ListView
+    /// Same as `Self::ensure_updated` but for a ListView
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ComponentRc<C>,

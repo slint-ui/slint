@@ -16,7 +16,7 @@ use crate::typeregister::TypeRegister;
 /// If any element in `component` declares a binding to `property_name`, then a new
 /// element of type `element_name` is created, injected as a parent to the element and bindings
 /// to property_name and all properties in  extra_properties are mapped.
-/// Default balue for the property extra_properties is queried witht the `default_value_for_extra_properties`
+/// Default value for the property extra_properties is queried with the `default_value_for_extra_properties`
 pub(crate) fn lower_property_to_element(
     component: &Rc<Component>,
     property_name: &'static str,
