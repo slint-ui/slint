@@ -806,7 +806,7 @@ pub(crate) async fn reload_document_impl(
 ) -> HashMap<Url, Vec<lsp_types::Diagnostic>> {
     let Ok(path) = uri.to_file_path() else { return Default::default() };
     if path.extension().map_or(false, |e| e == "rs") {
-        content = match extract_rust_macro(content) {
+        content = match i_slint_compiler::lexer::extract_rust_macro(content) {
             Some(content) => content,
             // A rust file without a rust macro, just ignore it
             None => return [(uri, vec![])].into_iter().collect(),
@@ -858,64 +858,6 @@ pub async fn reload_document(
         )?;
     }
     Ok(())
-}
-
-fn extract_rust_macro(content: String) -> Option<String> {
-    let core::ops::Range { start, end } =
-        i_slint_compiler::lexer::locate_slint_macro(&content).next()?;
-    let mut bytes = content.into_bytes();
-    for c in &mut bytes[..start] {
-        if *c != b'\n' {
-            *c = b' '
-        }
-    }
-    for c in &mut bytes[end..] {
-        if *c != b'\n' {
-            *c = b' '
-        }
-    }
-    Some(String::from_utf8(bytes).expect("We just added spaces"))
-}
-
-#[test]
-fn test_extract_rust_macro() {
-    assert_eq!(extract_rust_macro("\nslint{!{}}".into()), None);
-    assert_eq!(
-        extract_rust_macro(
-            "abc\n€\nslint !  {x \" \\\" }🦀\" { () {}\n {} }xx =}-  ;}\n xxx \n yyy {}\n".into(),
-        ),
-        Some(
-            "   \n   \n          x \" \\\" }🦀\" { () {}\n {} }xx =      \n     \n       \n".into(),
-        )
-    );
-
-    assert_eq!(
-        extract_rust_macro("xx\nabcd::slint!{abc{}efg".into()),
-        Some("  \n             abc{}efg".into())
-    );
-    assert_eq!(
-        extract_rust_macro("slint!\nnot.\nslint!{\nunterminated\nxxx".into()),
-        Some("      \n    \n       \nunterminated\nxxx".into())
-    );
-    assert_eq!(extract_rust_macro("foo\n/* slint! { hello }\n".into()), None);
-    assert_eq!(extract_rust_macro("foo\n/* slint::slint! { hello }\n".into()), None);
-    assert_eq!(
-        extract_rust_macro("foo\n// slint! { hello }\nslint!{world}\na".into()),
-        Some("   \n                   \n       world \n ".into())
-    );
-    assert_eq!(extract_rust_macro("foo\n\" slint! { hello }\"\n".into()), None);
-    assert_eq!(
-        extract_rust_macro(
-            "abc\n€\nslint !  (x /* \\\" )🦀*/ { () {}\n {} }xx =)-  ;}\n xxx \n yyy {}\n".into(),
-        ),
-        Some(
-            "   \n   \n          x /* \\\" )🦀*/ { () {}\n {} }xx =      \n     \n       \n".into(),
-        )
-    );
-    assert_eq!(
-        extract_rust_macro("abc slint![x slint!() [{[]}] s] abc".into()),
-        Some("           x slint!() [{[]}] s     ".into()),
-    );
 }
 
 fn get_document_and_offset<'a>(

@@ -408,3 +408,64 @@ fn test_locate_rust_macro() {
     );
     do_test("slint!(slint!(abc))slint!()", &["slint!(abc)", ""]);
 }
+
+/// Given a Rust source file contents, return a string containing the contents of the first `slint!` macro
+///
+/// All the other bytes which are not newlines are replaced by space. This allow offsets in the resulting
+/// string to preserve line and column number.
+pub fn extract_rust_macro(rust_source: String) -> Option<String> {
+    let core::ops::Range { start, end } = locate_slint_macro(&rust_source).next()?;
+    let mut bytes = rust_source.into_bytes();
+    for c in &mut bytes[..start] {
+        if *c != b'\n' {
+            *c = b' '
+        }
+    }
+    for c in &mut bytes[end..] {
+        if *c != b'\n' {
+            *c = b' '
+        }
+    }
+    Some(String::from_utf8(bytes).expect("We just added spaces"))
+}
+
+#[test]
+fn test_extract_rust_macro() {
+    assert_eq!(extract_rust_macro("\nslint{!{}}".into()), None);
+    assert_eq!(
+        extract_rust_macro(
+            "abc\n€\nslint !  {x \" \\\" }🦀\" { () {}\n {} }xx =}-  ;}\n xxx \n yyy {}\n".into(),
+        ),
+        Some(
+            "   \n   \n          x \" \\\" }🦀\" { () {}\n {} }xx =      \n     \n       \n".into(),
+        )
+    );
+
+    assert_eq!(
+        extract_rust_macro("xx\nabcd::slint!{abc{}efg".into()),
+        Some("  \n             abc{}efg".into())
+    );
+    assert_eq!(
+        extract_rust_macro("slint!\nnot.\nslint!{\nunterminated\nxxx".into()),
+        Some("      \n    \n       \nunterminated\nxxx".into())
+    );
+    assert_eq!(extract_rust_macro("foo\n/* slint! { hello }\n".into()), None);
+    assert_eq!(extract_rust_macro("foo\n/* slint::slint! { hello }\n".into()), None);
+    assert_eq!(
+        extract_rust_macro("foo\n// slint! { hello }\nslint!{world}\na".into()),
+        Some("   \n                   \n       world \n ".into())
+    );
+    assert_eq!(extract_rust_macro("foo\n\" slint! { hello }\"\n".into()), None);
+    assert_eq!(
+        extract_rust_macro(
+            "abc\n€\nslint !  (x /* \\\" )🦀*/ { () {}\n {} }xx =)-  ;}\n xxx \n yyy {}\n".into(),
+        ),
+        Some(
+            "   \n   \n          x /* \\\" )🦀*/ { () {}\n {} }xx =      \n     \n       \n".into(),
+        )
+    );
+    assert_eq!(
+        extract_rust_macro("abc slint![x slint!() [{[]}] s] abc".into()),
+        Some("           x slint!() [{[]}] s     ".into()),
+    );
+}
