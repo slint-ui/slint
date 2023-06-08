@@ -78,12 +78,12 @@ fn process_file(path: std::path::PathBuf, messages: &mut Messages) -> std::io::R
     let syntax_node = i_slint_compiler::parser::parse_file(path, &mut diag).ok_or_else(|| {
         std::io::Error::new(std::io::ErrorKind::Other, diag.to_string_vec().join(", "))
     })?;
-    visit_node(syntax_node, messages);
+    visit_node(syntax_node, messages, None);
 
     Ok(())
 }
 
-fn visit_node(node: SyntaxNode, results: &mut Messages) {
+fn visit_node(node: SyntaxNode, results: &mut Messages, current_context: Option<String>) {
     for n in node.children() {
         if n.kind() == SyntaxKind::AtTr {
             if let Some(msgid) = n
@@ -94,7 +94,8 @@ fn visit_node(node: SyntaxNode, results: &mut Messages) {
                 let msgctxt = tr
                     .TrContext()
                     .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
-                    .and_then(|s| i_slint_compiler::literals::unescape_string(&s));
+                    .and_then(|s| i_slint_compiler::literals::unescape_string(&s))
+                    .or_else(|| current_context.clone());
                 let plural = tr
                     .TrPlural()
                     .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
@@ -129,14 +130,20 @@ fn visit_node(node: SyntaxNode, results: &mut Messages) {
                 }
             }
         }
-        visit_node(n, results)
+        let current_context = syntax_nodes::Component::new(n.clone())
+            .and_then(|x| {
+                x.DeclaredIdentifier()
+                    .child_text(SyntaxKind::Identifier)
+                    .map(|t| i_slint_compiler::parser::normalize_identifier(&t))
+            })
+            .or_else(|| current_context.clone());
+        visit_node(n, results, current_context);
     }
 }
 
 fn get_comments_before_line(token: i_slint_compiler::parser::SyntaxToken) -> Option<String> {
     let mut token = token.prev_token()?;
     loop {
-        dbg!(&token);
         if token.kind() == SyntaxKind::Whitespace {
             let mut lines = token.text().lines();
             lines.next();
@@ -159,13 +166,7 @@ fn get_comments_before_line(token: i_slint_compiler::parser::SyntaxToken) -> Opt
 #[test]
 fn extract_messages() {
     fn make(msg: &str, p: &str, ctx: &str, co: &str, loc: &[usize]) -> Message {
-        let opt = |x: &str| {
-            if x.is_empty() {
-                None
-            } else {
-                Some(x.to_owned())
-            }
-        };
+        let opt = |x: &str| (!x.is_empty()).then(|| x.to_owned());
         let locations = loc
             .iter()
             .map(|l| messages::Location { file: "test.slint".to_owned().into(), line: *l })
@@ -215,21 +216,25 @@ fn extract_messages() {
         x: @tr(
             "x"
         );
-
+    }
+    global Xx_x {
+        property <string> moo: @tr("Global");
+    }
     }"##;
 
     let r = [
-        make("Message 1", "", "", "comment 1", &[3]),
+        make("Message 1", "", "Foo", "comment 1", &[3]),
         make("Message 2", "", "ctx", "comment 2", &[7]),
-        make("Message 3", "Messages 3", "", "", &[10]),
+        make("Message 3", "Messages 3", "Foo", "", &[10]),
         make("Message 4", "Messages 4", "ctx4", "comment 4", &[13]),
-        make("rec1 {}", "", "", "recursive", &[16]),
-        make("rec2", "", "", "recursive", &[16]),
+        make("rec1 {}", "", "Foo", "recursive", &[16]),
+        make("rec2", "", "Foo", "recursive", &[16]),
         make("r\nw", "", "rw\nctx", "", &[18]),
-        make("multi-line\nsecond line", "", "", "multi line", &[21]),
-        make("dup1", "", "", "", &[26, 28]),
+        make("multi-line\nsecond line", "", "Foo", "multi line", &[21]),
+        make("dup1", "", "Foo", "", &[26, 28]),
         make("dup1", "", "ctx", "", &[27, 29]),
-        make("x", "", "", "macro and string on different line", &[33]),
+        make("x", "", "Foo", "macro and string on different line", &[33]),
+        make("Global", "", "Xx-x", "", &[38]),
     ];
 
     let mut diag = BuildDiagnostics::default();
@@ -240,7 +245,7 @@ fn extract_messages() {
     );
 
     let mut messages = Messages::new();
-    visit_node(syntax_node, &mut messages);
+    visit_node(syntax_node, &mut messages, None);
 
     let mut messages = messages.into_values().collect::<Vec<_>>();
     messages.sort_by_key(|m| m.index);
