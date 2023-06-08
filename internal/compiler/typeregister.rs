@@ -222,6 +222,7 @@ impl TypeRegister {
         register.insert_type(Type::PhysicalLength);
         register.insert_type(Type::LogicalLength);
         register.insert_type(Type::Color);
+        register.insert_type(Type::ComponentFactory);
         register.insert_type(Type::Duration);
         register.insert_type(Type::Image);
         register.insert_type(Type::Bool);

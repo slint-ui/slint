@@ -188,6 +188,7 @@ The follow table summarizes the entire mapping:
 | enumeration | `enum` of the same name | The values are converted to CamelCase |
 | array | [`ModelRc`] | Arrays are represented as models, so that their contents can change dynamically. |
 | `Point` | [`LogicalPosition`] | A struct with `x` and `y` fields, representing logical coordinates. |
+| `component-factory` | [`ComponentFactory`] | A factory for components that can be added at runtime. |
 
 For user defined structures in the .slint, an extra struct is generated.
 For example, if the `.slint` contains
