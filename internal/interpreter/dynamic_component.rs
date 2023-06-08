@@ -411,14 +411,22 @@ impl<'id> ComponentDescription<'id> {
     }
 
     /// Instantiate a runtime component from this ComponentDescription
-    pub fn create(self: Rc<Self>, options: WindowOptions) -> DynamicComponentVRc {
+    pub fn create(
+        self: Rc<Self>,
+        options: WindowOptions,
+    ) -> Result<DynamicComponentVRc, PlatformError> {
+        i_slint_backend_selector::with_platform(|_b| {
+            // Nothing to do, just make sure a backend was created
+            Ok(())
+        })?;
+
         let component_ref = instantiate(self, None, None, Some(&options), Default::default());
         if let WindowOptions::UseExistingWindow(existing_adapter) = options {
             WindowInner::from_pub(existing_adapter.window())
                 .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
         }
         component_ref.run_setup_code();
-        component_ref
+        Ok(component_ref)
     }
 
     /// Set a value to property.
