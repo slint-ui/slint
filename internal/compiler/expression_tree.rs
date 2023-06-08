@@ -1212,6 +1212,7 @@ impl Expression {
         match ty {
             Type::Invalid
             | Type::Callback { .. }
+            | Type::ComponentFactory
             | Type::Function { .. }
             | Type::Void
             | Type::InferredProperty

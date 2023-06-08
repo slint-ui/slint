@@ -187,6 +187,7 @@ The follow table summarizes the entire mapping:
 | anonymous object | anonymous tuple | The fields are in alphabetical order. |
 | enumeration | `enum` of the same name | The values are converted to CamelCase |
 | array | [`ModelRc`] | Arrays are represented as models, so that their contents can change dynamically. |
+| `component-factory` | [`ComponentFactory`] | A factory for components that can be added at runtime. |
 
 For user defined structures in the .slint, an extra struct is generated.
 For example, if the `.slint` contains

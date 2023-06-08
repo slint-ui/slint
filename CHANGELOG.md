@@ -32,7 +32,8 @@ All notable changes to this project are documented in this file.
  - Added `primary` boolean property to `Button` to configure its visual appearance.
  - Fixed `LineEdit`'s placeholder text not being rendered with the same font attributes as regular `LineEdit` text.
  - Added `current-row` to `StandardTableView`.
-
+ - Added a `component-factory` property type that can dynamically create components at run-time.
+-
 ### Rust
 
  - Added `slint::Image::load_from_svg_data(buffer: &[u8])` to load SVGs from memory.

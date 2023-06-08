@@ -232,6 +232,7 @@ fn to_eval_value<'cx>(
         | Type::Function { .. }
         | Type::Model
         | Type::Callback { .. }
+        | Type::ComponentFactory { .. }
         | Type::Easing
         | Type::PathData
         | Type::LayoutCache
