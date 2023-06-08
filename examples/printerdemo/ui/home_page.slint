@@ -48,16 +48,16 @@ export component HomePage inherits Page {
     in-out property <length> button-width: 127px;
     in-out property <length> button-height: root.button-width + 37px;
 
-    header: "Xerol 1347 hdp";
+    header: @tr("Xerol 1347 hdp");
 
     in-out property <int> current-subpage: 0;
 
 
     for action[idx] in [
-        { name: "Print", icon: @image-url("images/print.svg") },
-        { name: "Scan", icon: @image-url("images/scan.svg") },
-        { name: "Copy", icon: @image-url("images/copy.svg") },
-        { name: "USB", icon: @image-url("images/usb.svg") },
+        { name: @tr("Print"), icon: @image-url("images/print.svg") },
+        { name: @tr("Scan"), icon: @image-url("images/scan.svg") },
+        { name: @tr("Copy"), icon: @image-url("images/copy.svg") },
+        { name: @tr("USB"), icon: @image-url("images/usb.svg") },
     ]: ActionButton {
         x: mod(idx, 2) * (root.button-width + root.button-spacing);
         y: floor(idx / 2) * (root.button-height + root.button-spacing)
