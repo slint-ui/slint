@@ -85,6 +85,19 @@ renderer-winit-skia-vulkan = ["i-slint-backend-selector/renderer-winit-skia-vulk
 ## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
 renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 
+## Make the linuxkms backend capable of rendering using the [femtovg](https://crates.io/crates/femtovg) crate.
+## Must be used in combination with `backend-linuxkms`.
+renderer-linuxkms-femtovg = ["i-slint-backend-selector/renderer-linuxkms-femtovg", "std"]
+
+## Make the linuxkms backend capable of rendering using [Skia](https://skia.org/).
+## Must be used in combination with `backend-linuxkms`.
+renderer-linuxkms-skia = ["i-slint-backend-selector/renderer-linuxkms-skia", "std"]
+
+## Same as `renderer-linuxkms-skia`, but Skia will always use OpenGL.
+renderer-linuxkms-skia-opengl = ["i-slint-backend-selector/renderer-linuxkms-skia-opengl", "std"]
+
+## Same as `renderer-linuxkms-skia`, but Skia will always use Vulkan.
+renderer-linuxkms-skia-vulkan = ["i-slint-backend-selector/renderer-linuxkms-skia-vulkan", "std"]
 
 [dependencies]
 i-slint-compiler = { version = "=1.0.3", path = "../compiler" }

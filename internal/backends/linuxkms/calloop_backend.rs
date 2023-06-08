@@ -8,9 +8,9 @@ use std::sync::{Arc, Mutex};
 
 use calloop::EventLoop;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::platform::WindowAdapter;
 
-use crate::skiawindowadapter::SkiaWindowAdapter;
-use i_slint_core::window::WindowAdapter;
+use crate::fullscreenwindowadapter::FullscreenWindowAdapter;
 
 #[cfg(not(any(
     target_family = "windows",
@@ -62,18 +62,41 @@ impl i_slint_core::platform::EventLoopProxy for Proxy {
 }
 
 pub struct Backend {
-    window: RefCell<Option<Rc<SkiaWindowAdapter>>>,
+    window: RefCell<Option<Rc<FullscreenWindowAdapter>>>,
     user_event_receiver: RefCell<Option<calloop::channel::Channel<Box<dyn FnOnce() + Send>>>>,
     proxy: Proxy,
+    renderer_factory: fn() -> Result<
+        Box<dyn crate::fullscreenwindowadapter::Renderer>,
+        i_slint_core::platform::PlatformError,
+    >,
 }
 
 impl Backend {
-    pub fn new() -> Self {
+    pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Self {
         let (user_event_sender, user_event_receiver) = calloop::channel::channel();
+
+        let renderer_factory = match renderer_name {
+            #[cfg(feature = "renderer-linuxkms-skia-vulkan")]
+            Some("skia-vulkan") => crate::renderer::skia::SkiaRendererAdapter::new_vulkan,
+            #[cfg(feature = "renderer-linuxkms-skia-opengl")]
+            Some("skia-opengl") => crate::renderer::skia::SkiaRendererAdapter::new_opengl,
+            #[cfg(feature = "renderer-linuxkms-femtovg")]
+            Some("femtovg") => crate::renderer::femtovg::FemtoVGRendererAdapter::new,
+            None => crate::renderer::try_skia_then_femtovg,
+            Some(renderer_name) => {
+                eprintln!(
+                    "slint linuxkms backend: unrecognized renderer {}, falling back default",
+                    renderer_name
+                );
+                crate::renderer::try_skia_then_femtovg
+            }
+        };
+
         Backend {
             window: Default::default(),
             user_event_receiver: RefCell::new(Some(user_event_receiver)),
             proxy: Proxy::new(user_event_sender),
+            renderer_factory,
         }
     }
 }
@@ -85,7 +108,8 @@ impl i_slint_core::platform::Platform for Backend {
         std::rc::Rc<dyn i_slint_core::window::WindowAdapter>,
         i_slint_core::platform::PlatformError,
     > {
-        let adapter = SkiaWindowAdapter::new()?;
+        let renderer = (self.renderer_factory)()?;
+        let adapter = FullscreenWindowAdapter::new(renderer)?;
 
         *self.window.borrow_mut() = Some(adapter.clone());
 

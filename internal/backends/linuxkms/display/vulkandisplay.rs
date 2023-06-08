@@ -3,17 +3,25 @@
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
-use i_slint_renderer_skia::SkiaRenderer;
-use vulkano::device::physical::PhysicalDeviceType;
+use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{DeviceExtensions, QueueFlags};
 use vulkano::instance::{Instance, InstanceCreateInfo, InstanceExtensions};
-use vulkano::swapchain::display::{Display, DisplayPlane};
+use vulkano::swapchain::{
+    display::{Display, DisplayPlane},
+    Surface,
+};
 use vulkano::VulkanLibrary;
 
-use super::PresentFn;
+use std::sync::Arc;
 
-pub fn create_skia_renderer_with_vulkan(
-) -> Result<(SkiaRenderer, PhysicalWindowSize, PresentFn), PlatformError> {
+pub struct VulkanDisplay {
+    pub physical_device: Arc<PhysicalDevice>,
+    pub queue_family_index: u32,
+    pub surface: Arc<Surface>,
+    pub size: PhysicalWindowSize,
+}
+
+pub fn create_vulkan_display() -> Result<VulkanDisplay, PlatformError> {
     let library = VulkanLibrary::new()
         .map_err(|load_err| format!("Error loading vulkan library: {load_err}"))?;
 
@@ -139,12 +147,5 @@ pub fn create_skia_renderer_with_vulkan(
 
     let size = PhysicalWindowSize::new(mode.visible_region()[0], mode.visible_region()[1]);
 
-    let surface = i_slint_renderer_skia::vulkan_surface::VulkanSurface::from_surface(
-        physical_device,
-        queue_family_index,
-        vulkan_surface.clone(),
-        size,
-    )?;
-
-    Ok((SkiaRenderer::new_with_surface(surface), size, Box::new(|| Ok(()))))
+    Ok(VulkanDisplay { physical_device, queue_family_index, surface: vulkan_surface, size })
 }

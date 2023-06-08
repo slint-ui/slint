@@ -26,6 +26,11 @@ renderer-winit-skia-opengl = ["i-slint-backend-winit/renderer-winit-skia-opengl"
 renderer-winit-skia-vulkan = ["i-slint-backend-winit/renderer-winit-skia-vulkan"]
 renderer-winit-software = ["i-slint-backend-winit/renderer-winit-software"]
 
+renderer-linuxkms-femtovg = ["i-slint-backend-linuxkms/renderer-linuxkms-femtovg"]
+renderer-linuxkms-skia = ["i-slint-backend-linuxkms/renderer-linuxkms-skia"]
+renderer-linuxkms-skia-opengl = ["i-slint-backend-linuxkms/renderer-linuxkms-skia-opengl"]
+renderer-linuxkms-skia-vulkan = ["i-slint-backend-linuxkms/renderer-linuxkms-skia-vulkan"]
+
 rtti = ["i-slint-backend-winit?/rtti", "i-slint-backend-qt?/rtti"]
 
 [dependencies]

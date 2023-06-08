@@ -37,6 +37,11 @@ renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-open
 renderer-winit-skia-vulkan = ["i-slint-backend-selector/renderer-winit-skia-vulkan"]
 renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 
+renderer-linuxkms-femtovg = ["i-slint-backend-selector/renderer-linuxkms-femtovg"]
+renderer-linuxkms-skia = ["i-slint-backend-selector/renderer-linuxkms-skia"]
+renderer-linuxkms-skia-opengl = ["i-slint-backend-selector/renderer-linuxkms-skia-opengl"]
+renderer-linuxkms-skia-vulkan = ["i-slint-backend-selector/renderer-linuxkms-skia-vulkan"]
+
 experimental = ["i-slint-renderer-skia", "raw-window-handle"]
 
 default = ["backend-winit", "renderer-winit-femtovg", "backend-qt", "experimental"]

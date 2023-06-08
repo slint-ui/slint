@@ -1,0 +1,178 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
+use i_slint_core::platform::PlatformError;
+use raw_window_handle::{
+    HasDisplayHandle, HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle,
+};
+
+use glutin::{
+    context::{ContextApi, ContextAttributesBuilder},
+    display::GetGlDisplay,
+    prelude::*,
+    surface::{SurfaceAttributesBuilder, WindowSurface},
+};
+
+use crate::display::{egldisplay::EglDisplay, Presenter};
+
+pub struct FemtoVGRendererAdapter {
+    renderer: i_slint_renderer_femtovg::FemtoVGRenderer,
+    size: PhysicalWindowSize,
+}
+
+struct GlContextWrapper {
+    glutin_context: glutin::context::PossiblyCurrentContext,
+    glutin_surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
+    egl_display: EglDisplay,
+}
+
+impl GlContextWrapper {
+    fn new(egl_display: EglDisplay) -> Result<Self, PlatformError> {
+        let width: std::num::NonZeroU32 = egl_display.size.width.try_into().map_err(|_| {
+            format!(
+                "Attempting to create window surface with an invalid width: {}",
+                egl_display.size.width
+            )
+        })?;
+        let height: std::num::NonZeroU32 = egl_display.size.height.try_into().map_err(|_| {
+            format!(
+                "Attempting to create window surface with an invalid height: {}",
+                egl_display.size.height
+            )
+        })?;
+
+        let display_handle = egl_display.display_handle().unwrap();
+        let window_handle = egl_display.window_handle().unwrap();
+
+        let gl_display = unsafe {
+            glutin::display::Display::new(
+                display_handle.raw_display_handle(),
+                glutin::display::DisplayApiPreference::Egl,
+            )
+            .map_err(|e| format!("Error creating EGL display: {e}"))?
+        };
+
+        let config_template = glutin::config::ConfigTemplateBuilder::new().build();
+
+        let config = unsafe {
+            gl_display
+                .find_configs(config_template)
+                .map_err(|e| format!("Error locating EGL configs: {e}"))?
+                .reduce(|accum, config| {
+                    let transparency_check = config.supports_transparency().unwrap_or(false)
+                        & !accum.supports_transparency().unwrap_or(false);
+
+                    if transparency_check || config.num_samples() < accum.num_samples() {
+                        config
+                    } else {
+                        accum
+                    }
+                })
+                .ok_or("Unable to find suitable GL config")?
+        };
+
+        let gles_context_attributes = ContextAttributesBuilder::new()
+            .with_context_api(ContextApi::Gles(Some(glutin::context::Version {
+                major: 2,
+                minor: 0,
+            })))
+            .build(Some(window_handle.raw_window_handle()));
+
+        let fallback_context_attributes =
+            ContextAttributesBuilder::new().build(Some(window_handle.raw_window_handle()));
+
+        let not_current_gl_context = unsafe {
+            gl_display
+                .create_context(&config, &gles_context_attributes)
+                .or_else(|_| gl_display.create_context(&config, &fallback_context_attributes))
+                .map_err(|e| format!("Error creating EGL context: {e}"))?
+        };
+
+        let attrs = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+            window_handle.raw_window_handle(),
+            width,
+            height,
+        );
+
+        let surface = unsafe {
+            config
+                .display()
+                .create_window_surface(&config, &attrs)
+                .map_err(|e| format!("Error creating EGL window surface: {e}"))?
+        };
+
+        let context = not_current_gl_context.make_current(&surface)
+        .map_err(|glutin_error: glutin::error::Error| -> PlatformError {
+            format!("FemtoVG Renderer: Failed to make newly created OpenGL context current: {glutin_error}")
+            .into()
+    })?;
+
+        drop(window_handle);
+        drop(display_handle);
+
+        Ok(Self { glutin_context: context, glutin_surface: surface, egl_display })
+    }
+}
+
+unsafe impl i_slint_renderer_femtovg::OpenGLContextWrapper for GlContextWrapper {
+    fn ensure_current(&self) -> Result<(), PlatformError> {
+        if !self.glutin_context.is_current() {
+            self.glutin_context.make_current(&self.glutin_surface).map_err(
+                |glutin_error| -> PlatformError {
+                    format!("FemtoVG: Error making context current: {glutin_error}").into()
+                },
+            )?;
+        }
+        Ok(())
+    }
+
+    fn swap_buffers(&self) -> Result<(), PlatformError> {
+        self.glutin_surface.swap_buffers(&self.glutin_context).map_err(
+            |glutin_error| -> PlatformError {
+                format!("FemtoVG: Error swapping buffers: {glutin_error}").into()
+            },
+        )?;
+
+        self.egl_display.present()
+    }
+
+    fn resize(&self, _size: PhysicalWindowSize) -> Result<(), PlatformError> {
+        unimplemented!()
+    }
+
+    fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void {
+        self.glutin_context.display().get_proc_address(name)
+    }
+}
+
+impl FemtoVGRendererAdapter {
+    pub fn new() -> Result<Box<dyn crate::fullscreenwindowadapter::Renderer>, PlatformError> {
+        let display = crate::display::egldisplay::create_egl_display()?;
+
+        let size = display.size;
+
+        let renderer = Box::new(Self {
+            renderer: i_slint_renderer_femtovg::FemtoVGRenderer::new(GlContextWrapper::new(
+                display,
+            )?)?,
+            size,
+        });
+
+        eprintln!("Using FemtoVG OpenGL renderer");
+
+        Ok(renderer)
+    }
+}
+
+impl crate::fullscreenwindowadapter::Renderer for FemtoVGRendererAdapter {
+    fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
+        &self.renderer
+    }
+    fn render_and_present(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
+        self.renderer.render(window)
+    }
+    fn size(&self) -> i_slint_core::api::PhysicalSize {
+        self.size
+    }
+}

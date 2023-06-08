@@ -10,7 +10,6 @@ use drm::control::Device;
 use gbm::AsRaw;
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
-use i_slint_renderer_skia::SkiaRenderer;
 
 #[derive(Clone)]
 pub struct SharedFd(Arc<File>);
@@ -35,8 +34,90 @@ impl Drop for OwnedFramebufferHandle {
     }
 }
 
-pub fn create_skia_renderer_with_egl(
-) -> Result<(SkiaRenderer, PhysicalWindowSize, super::PresentFn), PlatformError> {
+pub struct EglDisplay {
+    last_buffer: Cell<Option<gbm::BufferObject<OwnedFramebufferHandle>>>,
+    crtc: drm::control::crtc::Handle,
+    connector: drm::control::connector::Info,
+    mode: drm::control::Mode,
+    gbm_surface: gbm::Surface<OwnedFramebufferHandle>,
+    gbm_device: gbm::Device<SharedFd>,
+    drm_device: SharedFd,
+    pub size: PhysicalWindowSize,
+}
+
+impl super::Presenter for EglDisplay {
+    fn present(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+        let mut front_buffer = unsafe {
+            self.gbm_surface
+                .lock_front_buffer()
+                .map_err(|e| format!("Error locking gmb surface front buffer: {e}"))?
+        };
+        // TODO: respect modifiers & planes if front_buffer has, use add_planar_framebuffer and fall back to add_framebuffer
+        let fb = self
+            .gbm_device
+            .add_framebuffer(&front_buffer, 24, 32)
+            .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
+        front_buffer
+            .set_userdata(OwnedFramebufferHandle { handle: fb, device: self.drm_device.clone() })
+            .map_err(|e| format!("Error setting userdata on gbm surface front buffer: {e}"))?;
+
+        if let Some(last_buffer) = self.last_buffer.replace(Some(front_buffer)) {
+            self.gbm_device
+                .page_flip(self.crtc, fb, drm::control::PageFlipFlags::EVENT, None)
+                .map_err(|e| format!("Error presenting fb: {e}"))?;
+
+            for event in self.gbm_device.receive_events().unwrap() {
+                if matches!(event, drm::control::Event::PageFlip(..)) {
+                    break;
+                }
+            }
+
+            drop(last_buffer);
+        } else {
+            self.gbm_device
+                .set_crtc(self.crtc, Some(fb), (0, 0), &[self.connector.handle()], Some(self.mode))
+                .map_err(|e| format!("Error presenting fb: {e}"))?;
+        }
+
+        Ok(())
+    }
+}
+
+impl raw_window_handle::HasWindowHandle for EglDisplay {
+    fn window_handle(
+        &self,
+    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
+        let mut gbm_surface_handle = raw_window_handle::GbmWindowHandle::empty();
+        gbm_surface_handle.gbm_surface = self.gbm_surface.as_raw() as _;
+
+        // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
+        let active_handle = unsafe { raw_window_handle::ActiveHandle::new_unchecked() };
+
+        Ok(unsafe {
+            raw_window_handle::WindowHandle::borrow_raw(
+                raw_window_handle::RawWindowHandle::Gbm(gbm_surface_handle),
+                active_handle,
+            )
+        })
+    }
+}
+
+impl raw_window_handle::HasDisplayHandle for EglDisplay {
+    fn display_handle(
+        &self,
+    ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
+        let mut gbm_display_handle = raw_window_handle::GbmDisplayHandle::empty();
+        gbm_display_handle.gbm_device = self.gbm_device.as_raw() as _;
+
+        Ok(unsafe {
+            raw_window_handle::DisplayHandle::borrow_raw(raw_window_handle::RawDisplayHandle::Gbm(
+                gbm_display_handle,
+            ))
+        })
+    }
+}
+
+pub fn create_egl_display() -> Result<EglDisplay, PlatformError> {
     let drm_device = SharedFd(Arc::new(
         std::fs::OpenOptions::new()
             .read(true)
@@ -143,77 +224,14 @@ pub fn create_skia_renderer_with_egl(
 
     let window_size = PhysicalWindowSize::new(width.get(), height.get());
 
-    let mut gbm_display_handle = raw_window_handle::GbmDisplayHandle::empty();
-    gbm_display_handle.gbm_device = gbm_device.as_raw() as _;
-
-    let mut gbm_surface_handle = raw_window_handle::GbmWindowHandle::empty();
-    gbm_surface_handle.gbm_surface = gbm_surface.as_raw() as _;
-
-    // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
-    let active_handle = unsafe { raw_window_handle::ActiveHandle::new_unchecked() };
-
-    // Safety: API wise we can't guarantee that the window/display handles remain valid, so we
-    // use unsafe here. However the present closure below keeps the surface alive,
-    // and the window adapter closure and renderer alive at the same time.
-    let (window_handle, display_handle) = unsafe {
-        (
-            raw_window_handle::WindowHandle::borrow_raw(
-                raw_window_handle::RawWindowHandle::Gbm(gbm_surface_handle),
-                active_handle,
-            ),
-            raw_window_handle::DisplayHandle::borrow_raw(raw_window_handle::RawDisplayHandle::Gbm(
-                gbm_display_handle,
-            )),
-        )
-    };
-
-    use i_slint_renderer_skia::Surface;
-    let surface = i_slint_renderer_skia::opengl_surface::OpenGLSurface::new(
-        window_handle,
-        display_handle,
-        window_size,
-    )?;
-
-    let last_buffer = Cell::default();
-
-    let present_fn = move || {
-        let mut front_buffer = unsafe {
-            gbm_surface
-                .lock_front_buffer()
-                .map_err(|e| format!("Error locking gmb surface front buffer: {e}"))?
-        };
-        // TODO: respect modifiers & planes if front_buffer has, use add_planar_framebuffer and fall back to add_framebuffer
-        let fb = gbm_device
-            .add_framebuffer(&front_buffer, 24, 32)
-            .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
-        front_buffer
-            .set_userdata(OwnedFramebufferHandle { handle: fb, device: drm_device.clone() })
-            .map_err(|e| format!("Error setting userdata on gbm surface front buffer: {e}"))?;
-
-        if let Some(last_buffer) = last_buffer.replace(Some(front_buffer)) {
-            gbm_device
-                .page_flip(crtc, fb, drm::control::PageFlipFlags::EVENT, None)
-                .map_err(|e| format!("Error presenting fb: {e}"))?;
-
-            for event in gbm_device.receive_events().unwrap() {
-                if matches!(event, drm::control::Event::PageFlip(..)) {
-                    break;
-                }
-            }
-
-            drop(last_buffer);
-        } else {
-            gbm_device
-                .set_crtc(crtc, Some(fb), (0, 0), &[connector.handle()], Some(mode))
-                .map_err(|e| format!("Error presenting fb: {e}"))?;
-        }
-
-        Ok(())
-    };
-
-    Ok((
-        i_slint_renderer_skia::SkiaRenderer::new_with_surface(surface),
-        window_size,
-        Box::new(present_fn),
-    ))
+    Ok(EglDisplay {
+        last_buffer: Cell::default(),
+        crtc,
+        connector,
+        mode,
+        gbm_surface,
+        gbm_device,
+        drm_device,
+        size: window_size,
+    })
 }

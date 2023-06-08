@@ -46,6 +46,11 @@ renderer-winit-skia = ["slint-interpreter/renderer-winit-skia", "preview"]
 renderer-winit-skia-opengl = ["slint-interpreter/renderer-winit-skia-opengl", "preview"]
 renderer-winit-skia-vulkan = ["slint-interpreter/renderer-winit-skia-vulkan", "preview"]
 
+renderer-linuxkms-femtovg = ["slint-interpreter/renderer-linuxkms-femtovg"]
+renderer-linuxkms-skia = ["slint-interpreter/renderer-linuxkms-skia"]
+renderer-linuxkms-skia-opengl = ["slint-interpreter/renderer-linuxkms-skia-opengl"]
+renderer-linuxkms-skia-vulkan = ["slint-interpreter/renderer-linuxkms-skia-vulkan"]
+
 # Compat
 backend-gl-all = ["backend-winit", "renderer-winit-femtovg"]
 backend-gl-wayland = ["backend-winit-wayland", "renderer-winit-femtovg"]

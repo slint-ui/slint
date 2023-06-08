@@ -15,14 +15,18 @@ rust-version.workspace = true
 [lib]
 path = "lib.rs"
 
+[features]
+renderer-linuxkms-skia = ["renderer-linuxkms-skia-vulkan", "renderer-linuxkms-skia-opengl"]
+renderer-linuxkms-skia-vulkan = ["i-slint-renderer-skia/vulkan", "vulkano"]
+renderer-linuxkms-skia-opengl = ["i-slint-renderer-skia/opengl", "drm", "gbm", "glutin", "raw-window-handle"]
+renderer-linuxkms-femtovg = ["i-slint-renderer-femtovg", "drm", "gbm", "glutin", "raw-window-handle"]
+
+#default = ["renderer-linuxkms-skia", "renderer-linuxkms-femtovg"]
+
 [dependencies]
 i-slint-core = { version = "=1.0.3", path = "../../../internal/core" }
-i-slint-renderer-skia = { version = "=1.0.3", path = "../../renderers/skia", features = ["vulkan"] }
-vulkano = { version = "0.33.0", default-features = false }
-drm = { version = "0.9.0" }
-gbm = { version = "0.12.0", default-features = false, features = ["drm-support"] }
-glutin = { version = "0.30.8", default-features = false, features = ["libloading", "egl"] }
-raw-window-handle = "0.5.2"
+i-slint-renderer-skia = { version = "=1.0.3", path = "../../renderers/skia", optional = true }
+i-slint-renderer-femtovg = { version = "=1.0.3", path = "../../renderers/femtovg", optional = true }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 input = { version = "0.8.2" }
@@ -30,3 +34,8 @@ libc = { version = "0.2" }
 
 [target.'cfg(not(target_family = "windows"))'.dependencies]
 calloop = { version = "0.10.5" }
+vulkano = { version = "0.33.0", optional = true, default-features = false }
+drm = { version = "0.9.0", optional = true }
+gbm = { version = "0.12.0", optional = true, default-features = false, features = ["drm-support"] }
+glutin = { version = "0.30.8", optional = true, default-features = false, features = ["libloading", "egl"] }
+raw-window-handle = { version = "0.5.2", optional = true }
