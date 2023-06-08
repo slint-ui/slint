@@ -145,9 +145,17 @@ fn command_list() -> Vec<String> {
     ]
 }
 
-fn create_show_preview_command(pretty: bool, file: &str, component_name: &str) -> Command {
+fn create_show_preview_command(
+    pretty: bool,
+    file: &lsp_types::Url,
+    component_name: &str,
+) -> Command {
     let title = format!("{}Show Preview", if pretty { &"▶ " } else { &"" });
-    Command::new(title, SHOW_PREVIEW_COMMAND.into(), Some(vec![file.into(), component_name.into()]))
+    Command::new(
+        title,
+        SHOW_PREVIEW_COMMAND.into(),
+        Some(vec![file.as_str().into(), component_name.into()]),
+    )
 }
 
 pub struct DocumentCache {
@@ -345,7 +353,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         let document_cache = &mut ctx.document_cache.borrow_mut();
 
         let result = token_descr(document_cache, &params.text_document.uri, &params.range.start)
-            .and_then(|token| get_code_actions(document_cache, token.0.parent()));
+            .and_then(|(token, _)| get_code_actions(document_cache, token));
         Ok(result)
     });
     rh.register::<ExecuteCommand, _>(|params, ctx| async move {
@@ -936,9 +944,13 @@ pub fn token_at_offset(doc: &syntax_nodes::Document, offset: u32) -> Option<Synt
 
 fn get_code_actions(
     _document_cache: &mut DocumentCache,
-    node: SyntaxNode,
+    token: SyntaxToken,
 ) -> Option<Vec<CodeActionOrCommand>> {
-    if cfg!(feature = "preview-lense") {
+    let node = token.parent();
+    let uri = Url::from_file_path(token.source_file.path()).ok()?;
+    let mut result = vec![];
+    #[cfg(feature = "preview-lense")]
+    {
         let component = syntax_nodes::Component::new(node.clone())
             .or_else(|| {
                 syntax_nodes::DeclaredIdentifier::new(node.clone())
@@ -951,19 +963,37 @@ fn get_code_actions(
                     .and_then(syntax_nodes::Element::new)
                     .and_then(|n| n.parent())
                     .and_then(syntax_nodes::Component::new)
-            })?;
-
-        let component_name =
-            i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
-
-        Some(vec![CodeActionOrCommand::Command(create_show_preview_command(
-            false,
-            &component.source_file.path().to_string_lossy(),
-            &component_name,
-        ))])
-    } else {
-        None
+            });
+        if let Some(component) = component {
+            if let Some(component_name) =
+                i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())
+            {
+                result.push(CodeActionOrCommand::Command(create_show_preview_command(
+                    false,
+                    &uri,
+                    &component_name,
+                )))
+            }
+        }
     }
+
+    if token.kind() == SyntaxKind::StringLiteral && node.kind() == SyntaxKind::Expression {
+        let r = map_range(&token.source_file, node.text_range());
+        let edits = vec![
+            TextEdit::new(lsp_types::Range::new(r.start, r.start), "@tr(".into()),
+            TextEdit::new(lsp_types::Range::new(r.end, r.end), ")".into()),
+        ];
+        result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+            title: "Wrap in `@tr()`".into(),
+            edit: Some(WorkspaceEdit {
+                changes: Some(std::iter::once((uri, edits)).collect()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }));
+    }
+
+    (!result.is_empty()).then_some(result)
 }
 
 fn get_document_color(
@@ -1101,7 +1131,7 @@ fn get_code_lenses(
         r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
                 range: map_node(c.root_element.borrow().node.as_ref()?)?,
-                command: Some(create_show_preview_command(true, uri.as_str(), c.id.as_str())),
+                command: Some(create_show_preview_command(true, uri, c.id.as_str())),
                 data: None,
             })
         }));
