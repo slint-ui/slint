@@ -49,7 +49,7 @@ cfg_if::cfg_if! {
 
             match event_loop {
                 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
-                "qt" => return Ok(Box::new(i_slint_backend_qt::Backend)),
+                "qt" => return Ok(Box::new(i_slint_backend_qt::Backend::new())),
                 #[cfg(feature = "i-slint-backend-winit")]
                 "winit" => return Ok(Box::new(i_slint_backend_winit::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then(|| _renderer)))),
                 _ => {},
