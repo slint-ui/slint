@@ -268,6 +268,7 @@ compile_error!(
 pub use slint_macros::slint;
 
 pub use i_slint_core::api::*;
+pub use i_slint_core::component_factory::ComponentFactory;
 pub use i_slint_core::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
