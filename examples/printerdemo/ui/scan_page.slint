@@ -6,7 +6,7 @@ import { PrinterQueue } from "./printer_queue.slint";
 
 export component ScanPage inherits Page {
     has-back-button: true;
-    header: "Scan";
+    header: @tr("Scan");
 
     GridLayout {
         padding-top: 46px /* header line height in design */
@@ -14,14 +14,14 @@ export component ScanPage inherits Page {
         spacing: 24px;
         Row {
             Text {
-                text: "Choose Settings";
+                text: @tr("Choose Settings");
                 color: DemoPalette.secondary-foreground-color;
                 font-size: DemoPalette.base-font-size * 1.125;
                 font-weight: 800;
             }
         }
         Row {
-            Label { text: "Copies"; }
+            Label { text: @tr("Copies"); }
             SpinBox {
                 value: 1;
                 minimum: 1;
@@ -29,40 +29,40 @@ export component ScanPage inherits Page {
 
             Rectangle {}
 
-            Label { text: "Size"; }
+            Label { text: @tr("Size"); }
             ComboBox {
-                value: "Original";
-                choices: ["Original", "A4"];
+                value: @tr("Original");
+                choices: [@tr("Original"), @tr("A4")];
             }
         }
         Row {
-            Label { text: "Quality"; }
+            Label { text: @tr("Quality"); }
             ComboBox {
-                value: "Best";
-                choices: ["Best", "Medium", "Draft"];
+                value: @tr("Best");
+                choices: [@tr("Best"), @tr("Medium"), @tr("Draft")];
             }
 
             Rectangle {}
 
-            Label { text: "Format"; }
+            Label { text: @tr("Format"); }
             ComboBox {
-                value: "PDF";
-                choices: ["PDF", "JPEG", "PNG"];
+                value: @tr("PDF");
+                choices: [@tr("PDF"), @tr("JPEG"), @tr("PNG")];
             }
         }
         Row {
-            Label { text: "Color"; }
+            Label { text: @tr("Color"); }
             ComboBox {
-                value: "Grayscale";
-                choices: ["Grayscale", "RGB", "YCMB"];
+                value: @tr("Grayscale");
+                choices: [@tr("Grayscale"), @tr("RGB"), @tr("YCMB")];
             }
 
             Rectangle {}
 
-            Label { text: "Save to"; }
+            Label { text: @tr("Save to"); }
             ComboBox {
-                value: "Desktop";
-                choices: ["Desktop"];
+                value: @tr("Desktop");
+                choices: [@tr("Desktop")];
             }
         }
          Row {
@@ -79,9 +79,9 @@ export component ScanPage inherits Page {
                 }
                 PushButton {
                     icon: @image-url("images/scan.svg");
-                    text: "Start scanning";
+                    text: @tr("Start scanning");
                     clicked => {
-                        PrinterQueue.start-job("Scan");
+                        PrinterQueue.start-job(@tr("Scan"));
                     }
                 }
                 Rectangle {

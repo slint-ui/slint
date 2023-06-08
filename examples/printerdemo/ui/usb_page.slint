@@ -9,7 +9,7 @@ struct File  { name: string, preview: image }
 
 export component UsbPage inherits Page {
     has-back-button: true;
-    header: "USB";
+    header: @tr("USB");
 
     in property <[File]> files: [
         { name: ".." },
@@ -41,7 +41,7 @@ export component UsbPage inherits Page {
         Label {
             col: 1;
             row: 0;
-            text: "Select File:";
+            text: @tr("Select File:");
             vertical-stretch: 0;
             max-height: 32px;
         }
@@ -64,17 +64,17 @@ export component UsbPage inherits Page {
         }
 
         Row {
-            Label { col: 1; text: "Copies"; }
+            Label { col: 1; text: @tr("Copies"); }
             SpinBox {
                 value: 1;
                 minimum: 1;
             }
         }
         Row {
-            Label { col: 1; text: "Color"; }
+            Label { col: 1; text: @tr("Color"); }
             ComboBox {
-                value: "Grayscale";
-                choices: ["Grayscale", "Color"];
+                value: @tr("Grayscale");
+                choices: [@tr("Grayscale"), @tr("Color")];
             }
         }
         HorizontalLayout {
@@ -88,7 +88,7 @@ export component UsbPage inherits Page {
             }
             PushButton {
                 icon: @image-url("images/print.svg");
-                text: "Start printing";
+                text: @tr("Start printing");
                 clicked => {
                     PrinterQueue.start-job(root.files[list-view.current-item].name);
                 }

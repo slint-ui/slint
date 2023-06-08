@@ -4,7 +4,7 @@
 import { DemoPalette, Page, SpinBox, ComboBox, CheckBox, Label } from "common.slint";
 
 export component SettingsPage inherits Page {
-    header: "Settings";
+    header: @tr("Settings");
 
     GridLayout {
         padding-top: 46px /* header line height in design */
@@ -12,76 +12,76 @@ export component SettingsPage inherits Page {
         spacing: 24px;
         Row {
             Text {
-                text: "General";
+                text: @tr("General");
                 color: DemoPalette.secondary-foreground-color;
                 font-size: DemoPalette.base-font-size * 1.125;
                 font-weight: 800;
             }
         }
         Row {
-            Label { text: "TURBO mode"; }
+            Label { text: @tr("TURBO mode"); }
             CheckBox { checked: true; }
 
             Rectangle {}
 
-            Label { text: "Power Management"; }
+            Label { text: @tr("Power Management"); }
             CheckBox {
                 checked: false;
-                text: "Eco Mode";
+                text: @tr("Eco Mode");
             }
         }
 
         Row {
             Text {
-                text: "Defaults";
+                text: @tr("Defaults");
                 color: DemoPalette.secondary-foreground-color;
                 font-size: DemoPalette.base-font-size * 1.125;
                 font-weight: 800;
             }
         }
         Row {
-            Label { text: "Layout"; }
+            Label { text: @tr("Layout"); }
             ComboBox {
-                value: "Portrait";
-                choices: ["Portrait", "Landscape"];
+                value: @tr("Portrait");
+                choices: [@tr("Portrait"), @tr("Landscape")];
             }
 
             Rectangle {}
 
-            Label { text: "Paper Tray"; }
+            Label { text: @tr("Paper Tray"); }
             ComboBox {
-                value: "Special Tray";
-                choices: ["Special Tray", "Normal Tray"];
+                value: @tr("Special Tray");
+                choices: [@tr("Special Tray"), @tr("Normal Tray")];
             }
         }
         Row {
-            Label { text: "Quality"; }
+            Label { text: @tr("Quality"); }
             ComboBox {
-                value: "Best";
-                choices: ["Best", "Medium", "Draft"];
+                value: @tr("Best");
+                choices: [@tr("Best"), @tr("Medium"), @tr("Draft")];
             }
 
             Rectangle {}
 
-            Label { text: "Paper Type"; }
+            Label { text: @tr("Paper Type"); }
             ComboBox {
-                value: "Standard";
-                choices: ["Standard", "Non-standard"];
+                value: @tr("Standard");
+                choices: [@tr("Standard"), @tr("Non-standard")];
             }
         }
         Row {
-            Label { text: "Color Mode"; }
+            Label { text: @tr("Color Mode"); }
             ComboBox {
-                value: "Grayscale";
-                choices: ["Grayscale", "RGB", "YCMB"];
+                value: @tr("Grayscale");
+                choices: [@tr("Grayscale"), @tr("RGB"), @tr("YCMB")];
             }
 
             Rectangle {}
 
-            Label { text: "Paper Handling"; }
+            Label { text: @tr("Paper Handling"); }
             CheckBox {
                 checked: true;
-                text: "sort page";
+                text: @tr("sort page");
             }
         }
         Row { Rectangle {} }

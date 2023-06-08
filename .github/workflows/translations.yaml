@@ -22,21 +22,34 @@ jobs:
         run: sudo apt install gettext
       - uses: actions/checkout@v3
       - uses: ./.github/actions/setup-rust
-      - name: Run slint-tr-extractor
+
+      - name: "gallery: Run slint-tr-extractor"
         run: find -name \*.slint | xargs cargo run -p slint-tr-extractor -- -d gallery -o gallery.pot
         working-directory: examples/gallery
-      - name: msgmerge and msgfmt
+      - name: "gallery: msgmerge and msgfmt"
         working-directory: examples/gallery
         run: |
           for po in lang/*/LC_MESSAGES
           do msgmerge $po/gallery.po gallery.pot -o $po/gallery.po
           msgfmt $po/gallery.po -o $po/gallery.mo
           done
+
+      - name: "printerdemo: Run slint-tr-extractor"
+        run: find -name \*.slint | xargs cargo run -p slint-tr-extractor -- -d printerdemo -o printerdemo.pot
+        working-directory: examples/printerdemo
+      - name: "printerdemo: msgmerge and msgfmt"
+        working-directory: examples/printerdemo
+        run: |
+          for po in lang/*/LC_MESSAGES
+          do msgmerge $po/printerdemo.po printerdemo.pot -o $po/printerdemo.po
+          msgfmt $po/printerdemo.po -o $po/printerdemo.mo
+          done
+
       - name: commit
         run: |
           git config --global user.email "noreply@slint-ui.com"
           git config --global user.name "Update Translations Bot"
-          git add examples/gallery
+          git add examples
           git commit -a -m 'Update Translations: extract strings'
       - name: Result
         run: git show

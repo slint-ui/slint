@@ -7,7 +7,7 @@ import { PrinterQueue } from "./printer_queue.slint";
 
 export component CopyPage inherits Page {
     has-back-button: true;
-    header: "Copy";
+    header: @tr("Copy");
 
     GridLayout {
         padding-top: 46px /* header line height in design */
@@ -15,14 +15,14 @@ export component CopyPage inherits Page {
         spacing: 24px;
         Row {
             Text {
-                text: "Choose Settings";
+                text: @tr("Choose Settings");
                 color: DemoPalette.secondary-foreground-color;
                 font-size: DemoPalette.base-font-size * 1.125;
                 font-weight: 800;
             }
         }
         Row {
-            Label { text: "Copies"; }
+            Label { text: @tr("Copies"); }
             SpinBox {
                 value: 1;
                 minimum: 1;
@@ -30,55 +30,55 @@ export component CopyPage inherits Page {
 
             Rectangle {}
 
-            Label { text: "Size"; }
+            Label { text: @tr("Size"); }
             ComboBox {
-                value: "DIN A4";
-                choices: ["DIN A4", "DIN A3", "Letter"];
+                value: @tr("DIN A4");
+                choices: [@tr("DIN A4"), @tr("DIN A3"), @tr("Letter")];
             }
         }
         Row {
-            Label { text: "Layout"; }
+            Label { text: @tr("Layout"); }
             ComboBox {
-                value: "Portrait";
-                choices: ["Portrait", "Landscape"];
+                value: @tr("Portrait");
+                choices: [@tr("Portrait"), @tr("Landscape")];
             }
 
             Rectangle {}
 
-            Label { text: "Paper Tray"; }
+            Label { text: @tr("Paper Tray"); }
             ComboBox {
-                value: "Special Tray";
-                choices: ["Special Tray", "Normal Tray"];
+                value: @tr("Special Tray");
+                choices: [@tr("Special Tray"), @tr("Normal Tray")];
             }
         }
         Row {
-            Label { text: "Quality"; }
+            Label { text: @tr("Quality"); }
             ComboBox {
-                value: "Best";
-                choices: ["Best", "Medium", "Draft"];
+                value: @tr("Best");
+                choices: [@tr("Best"), @tr("Medium"), @tr("Draft")];
             }
 
             Rectangle {}
 
-            Label { text: "Paper Type"; }
+            Label { text: @tr("Paper Type"); }
             ComboBox {
-                value: "Standard";
-                choices: ["Standard", "Non-standard"];
+                value: @tr("Standard");
+                choices: [@tr("Standard"), @tr("Non-standard")];
             }
         }
         Row {
-            Label { text: "Color"; }
+            Label { text: @tr("Color"); }
             ComboBox {
-                value: "Grayscale";
-                choices: ["Grayscale", "Color"];
+                value: @tr("Grayscale");
+                choices: [@tr("Grayscale"), @tr("Color")];
             }
 
             Rectangle {}
 
-            Label { text: "Paper Handling"; }
+            Label { text: @tr("Paper Handling"); }
             CheckBox {
                 checked: true;
-                text: "sort page";
+                text: @tr("sort page");
             }
         }
         Row {
@@ -92,9 +92,9 @@ export component CopyPage inherits Page {
                 }
                 PushButton {
                     icon: @image-url("images/copy.svg");
-                    text: "Start copying";
+                    text: @tr("Start copying");
                     clicked => {
-                        PrinterQueue.start-job("Copy");
+                        PrinterQueue.start-job(@tr("Copy"));
                     }
                 }
                 Rectangle {

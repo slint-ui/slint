@@ -7,7 +7,7 @@ import { WidePrinterQueueList } from "./printer_queue.slint";
 
 export component PrintPage inherits Page {
     has-back-button: true;
-    header: "Print";
+    header: @tr("Print");
 
     GridLayout {
         padding-top: 46px /* header line height in design */
@@ -15,7 +15,7 @@ export component PrintPage inherits Page {
         spacing: 24px;
         Row {
             Text {
-                text: "Printing-Queue";
+                text: @tr("Printing-Queue");
                 color: DemoPalette.secondary-foreground-color;
                 font-size: DemoPalette.base-font-size * 1.125;
                 font-weight: 800;

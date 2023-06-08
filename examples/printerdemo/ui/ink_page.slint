@@ -9,7 +9,7 @@ export struct InkLevel  {
 }
 
 export component InkPage inherits Page {
-    header: "Ink Level";
+    header: @tr("Ink Level");
 
     in property <[InkLevel]> ink-levels;
     in property <bool> page-visible;
