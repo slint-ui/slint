@@ -19,9 +19,9 @@ export global PrinterQueue  {
     callback pause-job(int);
 
     in property <[PrinterQueueItem]> printer-queue: [
-        { status: @tr("PRINTING"), progress: 63, title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: @tr("WAITING..."), title: "Adressliste.docx", owner: "simon.hausmann@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: @tr("WAITING..."), title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: @tr("PRINTING"), progress: 63, title: "210106-FinalPresentation.pdf", owner: "info@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: @tr("WAITING..."), title: "Adressliste.docx", owner: "info@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: @tr("WAITING..."), title: "Salaries.pdf", owner: "info@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
     ];
 }
 
@@ -46,7 +46,7 @@ component PrintDetails inherits GridLayout {
 
     Row {
         PrintQueueDetailsLabel {
-            text: @tr("Owner");
+            text: @tr("Job Owner");
         }
         Text {
             text: root.queue-item.owner;
@@ -360,7 +360,7 @@ export component PrinterQueueView inherits Rectangle {
         spacing: 16px;
 
         Text {
-            text: @tr("Printing-Queue");
+            text: @tr("Printing Queue");
             color: DemoPalette.text-foreground-color;
             font-size: DemoPalette.base-font-size * 1.5;
             font-weight: 700;
