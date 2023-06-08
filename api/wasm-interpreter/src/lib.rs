@@ -196,7 +196,7 @@ impl WrappedCompiledComp {
         &self,
         instance: WrappedInstance,
     ) -> Result<WrappedInstance, JsValue> {
-        Ok(WrappedInstance(self.0.create_with_existing_window(instance.0.window())))
+        Ok(WrappedInstance(self.0.create_with_existing_window(instance.0.window()).unwrap()))
     }
 }
 
