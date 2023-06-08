@@ -183,8 +183,8 @@ impl TreeNode {
         count
     }
 
-    /// Visit this, and the children. passes
-    /// children_offset must be set to `1` for the root
+    /// Visit this, and the children.
+    /// `children_offset` must be set to `1` for the root
     pub fn visit_in_array(
         &self,
         visitor: &mut dyn FnMut(
