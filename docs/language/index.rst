@@ -65,7 +65,7 @@ There are three different pathways to get started with Slint:
 
    - `C++ <https://slint-ui.com/docs/cpp/>`_
    - `Rust <https://slint-ui.com/docs/rust/slint/>`_
-   - `JavaScript <https://slint-ui.com/docs/nodejs/>`_
+   - `JavaScript <https://slint-ui.com/docs/node/>`_
 
 .. toctree::
    :hidden:
