@@ -61,3 +61,117 @@ impl ComponentFactory {
         self.0.as_ref().and_then(|b| (b.0)()).into()
     }
 }
+
+#[cfg(feature = "ffi")]
+#[allow(unsafe_code)]
+pub(crate) mod ffi {
+    use core::ffi::c_void;
+    use core::marker::PhantomData;
+
+    use super::{ComponentFactory as RustComponentFactory, ComponentFactoryInner, ComponentRc, Rc};
+
+    /// Same layout as `ComponentFactory`
+    #[repr(C)]
+    pub struct ComponentFactory<'a>(*const c_void, *const c_void, PhantomData<&'a ()>);
+
+    struct FfiData {
+        build: unsafe extern "C" fn(*mut c_void, *mut c_void),
+        data: *mut c_void,
+        drop_data: unsafe extern "C" fn(*mut c_void),
+    }
+
+    impl Drop for FfiData {
+        fn drop(&mut self) {
+            unsafe { (self.drop_data)(self.data) };
+            self.data = core::ptr::null_mut();
+        }
+    }
+
+    unsafe fn component_factory<'a>(
+        factory: *const ComponentFactory<'a>,
+    ) -> &'a RustComponentFactory {
+        assert_eq!(
+            core::mem::size_of::<RustComponentFactory>(),
+            core::mem::size_of::<ComponentFactory>()
+        );
+        assert_eq!(
+            core::mem::align_of::<RustComponentFactory>(),
+            core::mem::align_of::<ComponentFactory>()
+        );
+
+        (factory as *const RustComponentFactory).as_ref().unwrap()
+    }
+
+    unsafe fn component_factory_mut<'a>(
+        factory: *mut ComponentFactory<'a>,
+    ) -> &'a mut RustComponentFactory {
+        assert_eq!(
+            core::mem::size_of::<RustComponentFactory>(),
+            core::mem::size_of::<ComponentFactory>()
+        );
+        assert_eq!(
+            core::mem::align_of::<RustComponentFactory>(),
+            core::mem::align_of::<ComponentFactory>()
+        );
+
+        (factory as *mut RustComponentFactory).as_mut().unwrap()
+    }
+
+    /// # Safety
+    /// This must be called using a non-null pointer pointing to a `ComponentFactory`
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_component_factory_init_from_raw(
+        this: *mut ComponentFactory,
+        build: unsafe extern "C" fn(*mut c_void, *mut c_void),
+        data: *mut c_void,
+        drop_data: unsafe extern "C" fn(*mut c_void),
+    ) {
+        let data = FfiData { build, data, drop_data };
+        let function = move || -> Option<ComponentRc> {
+            let mut result: Option<ComponentRc> = None;
+            (data.build)(data.data, &mut result as *mut Option<ComponentRc> as *mut c_void);
+            return result;
+        };
+        component_factory_mut(this).0 = Some(ComponentFactoryInner(Rc::new(function)));
+    }
+
+    /// # Safety
+    /// This must be called using a non-null pointers pointing to a `ComponentFactory`
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_component_factory_clone(
+        from: *const ComponentFactory,
+        to: *mut ComponentFactory,
+    ) {
+        component_factory_mut(to).0 = component_factory(from).0.clone();
+    }
+
+    /// # Safety
+    /// This must be called using a non-null pointer pointing to a `ComponentFactory`
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_component_factory_move(
+        from: *mut ComponentFactory,
+        to: *mut ComponentFactory,
+    ) {
+        let default_value = None;
+        let value = core::mem::replace(&mut component_factory_mut(from).0, default_value);
+        component_factory_mut(to).0 = value;
+    }
+
+    /// # Safety
+    /// This must be called using a non-null pointer pointing to an initialized `ComponentFactory`
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_component_factory_free(this: *mut ComponentFactory) {
+        drop(component_factory_mut(this));
+    }
+
+    /// # Safety
+    /// This must be called using a non-null pointer pointing to an initialized `ComponentFactory`
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_component_factory_eq(
+        lhs: *const ComponentFactory,
+        rhs: *const ComponentFactory,
+    ) -> bool {
+        // Allow for aliasing, then forward to Rust...
+        core::ptr::eq(lhs, rhs) || component_factory(lhs) == component_factory(rhs)
+    }
+}

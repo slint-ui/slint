@@ -41,6 +41,8 @@ struct ItemVTable;
 /// \endrst
 namespace slint {
 
+using cbindgen_private::ComponentFactory;
+
 // Bring opaque structure in scope
 namespace private_api {
 using cbindgen_private::ComponentVTable;
@@ -1483,13 +1485,101 @@ inline SharedString translate(const SharedString &original, const SharedString &
     return result;
 }
 
+struct slint_cxx_component_factory_data
+{
+    std::function<std::optional<vtable::VRc<private_api::ComponentVTable>>()> function;
+};
+
+inline auto slint_cxx_component_factory_build(void *raw_data, void *result)
+{
+    auto data = static_cast<slint_cxx_component_factory_data *>(raw_data);
+    auto ret_val = data->function();
+    if (ret_val) {
+        *static_cast<vtable::VRc<ComponentVTable> *>(result) = *ret_val;
+    }
+}
+
+inline auto slint_cxx_component_factory_drop(void *raw_data)
+{
+    auto data = static_cast<slint_cxx_component_factory_data *>(raw_data);
+    delete data;
+}
+
 } // namespace private_api
 
 #if !defined(DOXYGEN)
+cbindgen_private::ComponentFactory::ComponentFactory()
+{
+    this->_0 = nullptr;
+}
+
+template<typename T>
+cbindgen_private::ComponentFactory::ComponentFactory(std::function<std::optional<T>()> &&builder)
+{
+    this->_0 = nullptr;
+    auto wrapper = [builder]() -> std::optional<vtable::VRc<private_api::ComponentVTable>> {
+        auto result = builder();
+        if (result) {
+            return { result->into_dyn() };
+        } else {
+            return std::nullopt;
+        }
+    };
+    auto data = new private_api::slint_cxx_component_factory_data { std::move(wrapper) };
+    slint_component_factory_init_from_raw(this, private_api::slint_cxx_component_factory_build,
+                                          static_cast<void *>(data),
+                                          private_api::slint_cxx_component_factory_drop);
+}
+
+cbindgen_private::ComponentFactory::ComponentFactory(
+        const cbindgen_private::ComponentFactory &other)
+{
+    this->_0 = nullptr;
+    slint_component_factory_clone(&other, this);
+}
+
+cbindgen_private::ComponentFactory::ComponentFactory(cbindgen_private::ComponentFactory &&other)
+{
+    this->_0 = nullptr;
+    slint_component_factory_move(&other, this);
+}
+
+cbindgen_private::ComponentFactory::~ComponentFactory()
+{
+    slint_component_factory_free(this);
+}
+
+cbindgen_private::ComponentFactory &
+cbindgen_private::ComponentFactory::operator=(const cbindgen_private::ComponentFactory &other)
+{
+    slint_component_factory_clone(&other, this);
+    return *this;
+}
+
+cbindgen_private::ComponentFactory &
+cbindgen_private::ComponentFactory::operator=(cbindgen_private::ComponentFactory &&other)
+{
+    slint_component_factory_move(&other, this);
+    return *this;
+}
+
+bool cbindgen_private::ComponentFactory::operator==(
+        const cbindgen_private::ComponentFactory &other) const
+{
+    return slint_component_factory_eq(this, &other);
+}
+
+bool cbindgen_private::ComponentFactory::operator!=(
+        const cbindgen_private::ComponentFactory &other) const
+{
+    return !slint_component_factory_eq(this, &other);
+}
+
 cbindgen_private::Flickable::Flickable()
 {
     slint_flickable_data_init(&data);
 }
+
 cbindgen_private::Flickable::~Flickable()
 {
     slint_flickable_data_free(&data);

@@ -135,6 +135,7 @@ fn gen_corelib(
 
     config.export.include = [
         "ComponentVTable",
+        "ComponentFactory",
         "Slice",
         "WindowAdapterRcOpaque",
         "PropertyAnimation",
@@ -482,6 +483,18 @@ fn gen_corelib(
         "TableColumn".to_owned(),
         "friend bool operator==(const TableColumn&, const TableColumn&) = default;".into(),
     );
+    config.export.body.insert(
+        "ComponentFactory".to_owned(),
+        "    inline ComponentFactory();\n".to_string()
+            + "    template<typename T> ComponentFactory(std::function<std::optional<T>()>&&);\n"
+            + "    inline ComponentFactory(const ComponentFactory&);\n"
+            + "    inline ComponentFactory(ComponentFactory&&);\n"
+            + "    inline ~ComponentFactory();\n\n"
+            + "    inline ComponentFactory& operator =(const ComponentFactory&);\n"
+            + "    inline ComponentFactory& operator =(ComponentFactory&&);\n"
+            + "    inline bool operator ==(const ComponentFactory&) const;\n"
+            + "    inline bool operator !=(const ComponentFactory&) const;",
+    );
     config
         .export
         .body
@@ -491,6 +504,7 @@ fn gen_corelib(
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))
+        .with_sys_include("functional") // for std::function
         .with_include("slint_config.h")
         .with_include("vtable.h")
         .with_include("slint_string.h")
@@ -507,6 +521,7 @@ fn gen_corelib(
         .with_after_include(
             r"
 namespace slint {
+    template<typename T> class ComponentHandle;
     namespace private_api { class WindowAdapterRc; }
     namespace cbindgen_private {
         using slint::private_api::WindowAdapterRc;

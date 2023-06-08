@@ -5708,6 +5708,7 @@ dependencies = [
  "i-slint-compiler",
  "scopeguard",
  "slint-cpp",
+ "slint-interpreter",
  "spin_on",
  "tempfile",
  "test_driver_lib",

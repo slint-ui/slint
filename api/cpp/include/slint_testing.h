@@ -3,6 +3,7 @@
 
 #pragma once
 #include "slint.h"
+#include "slint_interpreter.h"
 #include <concepts>
 #include <iostream>
 

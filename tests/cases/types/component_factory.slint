@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+
+Test := Rectangle {
+    in-out property<component-factory> factory;
+}
+
+/*
+```cpp
+auto t = Test::create();
+
+auto index = 42;
+auto color = "Colors.red";
+
+auto cf = slint::ComponentFactory(std::function([&](){
+    auto compiler = slint::interpreter::ComponentCompiler();
+
+    auto code = std::format("import {{ Button }} from \"std-widgets.slint\";\n\ncomponent E{} inherits Rectangle {{\n  width: 150px;\n  height: 50px;\n  background: {};\n\n  Button {{\n    text: \"{}\";  }}\n}}", index, color, color);
+
+    auto comp = compiler.build_from_source(code, "generated.slint");
+    return std::optional(comp->create());
+}));
+t->set_factory(cf);
+```
+
+```rust
+let t = Test::new().unwrap();
+
+let cf = slint::ComponentFactory::new(|| {
+    let index = 42;
+    let color = "Colors.red";
+
+    let mut compiler = slint_interpreter::ComponentCompiler::new();
+
+    let e = spin_on::spin_on(compiler.build_from_source(
+        format!(r#"
+import {{ Button, VerticalBox }} from "std-widgets.slint";
+
+export component E{index} inherits Rectangle {{
+background: {color};
+
+VerticalBox {{
+    Button {{
+        text: "{color}";
+        width: 80px + 10px * {index};
+        height: 40px + 10px * {index};
+        clicked => {{debug("Button of component with index {index} clicked!");}}
+    }}
+}}
+}}"#
+        ),
+        std::path::PathBuf::from("generated.slint"),
+    ))
+    .unwrap();
+    e.create().ok()
+});
+t.set_factory(cf);
+```
+
+```js
+var t = new slint.Test({});
+
+```
+*/

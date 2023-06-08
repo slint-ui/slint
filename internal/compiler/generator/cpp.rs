@@ -356,6 +356,7 @@ impl CppType for Type {
             }
 
             Type::Array(i) => Some(format!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?)),
+            Type::ComponentFactory => Some(format!("slint::ComponentFactory")),
             Type::Image => Some("slint::Image".to_owned()),
             Type::Enumeration(enumeration) => {
                 if enumeration.node.is_some() {
