@@ -17,6 +17,7 @@ use i_slint_core::accessibility::AccessibleStringProperty;
 use i_slint_core::component::{
     Component, ComponentRef, ComponentRefPin, ComponentVTable, ComponentWeak, IndexRange,
 };
+use i_slint_core::component_factory::ComponentFactory;
 use i_slint_core::item_tree::{
     ItemRc, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
     VisitChildrenResult,
@@ -980,6 +981,7 @@ pub(crate) fn generate_component<'id>(
                     .insert(name.clone(), builder.type_builder.add_field_type::<Callback>());
                 continue;
             }
+            Type::ComponentFactory => property_info::<ComponentFactory>(),
             Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo") => {
                 property_info::<i_slint_core::properties::StateInfo>()
             }
