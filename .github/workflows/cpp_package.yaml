@@ -20,16 +20,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
-    - name: Install Qt (Ubuntu)
-      uses: jurplel/install-qt-action@v3
-      if: matrix.os == 'ubuntu-20.04'
+    - uses: ./.github/actions/install-qt
       with:
-        version: 5.15.2
-    - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-20.04'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: 6.5.1
+        version-wish: 6.5.1
     - uses: ./.github/actions/setup-rust
     - uses: baptiste0928/cargo-install@v2
       with:

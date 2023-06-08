@@ -37,12 +37,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
-    - name: Install Qt
-      if: runner.os != 'Windows'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '5.15.2'
-        setup-python: false
+    - uses: ./.github/actions/install-qt
     - name: Install ffmpeg and alsa (Linux)
       if: runner.os == 'Linux'
       run: sudo apt-get install clang libavcodec-dev libavformat-dev libavutil-dev libavfilter-dev libavdevice-dev libasound2-dev pkg-config
@@ -95,12 +90,7 @@ jobs:
     - uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-    - name: Install Qt
-      if: runner.os != 'Windows'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '5.15.2'
-        setup-python: false
+    - uses: ./.github/actions/install-qt
     - name: Setup headless display
       uses: pyvista/setup-headless-display-action@v1
     - name: Set default style
@@ -140,11 +130,7 @@ jobs:
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
-    - name: Install Qt
-      if: runner.os != 'Windows'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '5.15.2'
+    - uses: ./.github/actions/install-qt
     - name: Set default style
       if: runner.os != 'Windows'
       run: echo "SLINT_STYLE=native" >> $GITHUB_ENV
@@ -175,16 +161,9 @@ jobs:
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
-    - name: Install Qt (Ubuntu)
-      uses: jurplel/install-qt-action@v3
-      if: matrix.os == 'ubuntu-20.04'
+    - uses: ./.github/actions/install-qt
       with:
-        version: 5.15.2
-    - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-20.04'
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: 6.5.1
+        version-wish: 6.5.1
     - uses: ./.github/actions/setup-rust
     - uses: ilammy/msvc-dev-cmd@v1
     - name: Select MSVC (windows)
@@ -229,10 +208,7 @@ jobs:
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
-    - name: Install Qt (Ubuntu)
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: 5.15.2
+    - uses: ./.github/actions/install-qt
     - uses: actions/download-artifact@v2
       with:
         name: cpp_bin-ubuntu-20.04

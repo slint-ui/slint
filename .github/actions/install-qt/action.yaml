@@ -1,0 +1,29 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+---
+name: Install Qt
+description: Install Qt from either an action or distro repos
+
+inputs:
+  version-wish:
+    description: 'Version desired ot install - may not be fullfilled when using distro packages'
+    required: false
+    default: "5.15.2"
+
+runs:
+  using: composite
+  steps:
+    # TODO: upgrade to qt6-base-dev once GH runners have ubunut 22.10
+    - name: Install Qt from distro repos
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get install qtbase5-dev
+      shell: bash
+    - name: Install Qt (via separate repo)
+      uses: jurplel/install-qt-action@v3
+      if: runner.os == 'macOS'
+      with:
+        version: 5.15.2
+        setup-python: false
+
