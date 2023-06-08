@@ -6,6 +6,8 @@ import { Button } from "std-widgets.slint";
 export component TestCase inherits Rectangle {
     outside := Button { text: "Outside button"; }
 
+    in property<component-factory> e1;
+    in property<component-factory> e2;
     out property<bool> outside-focus <=> outside.has-focus;
 }
 
@@ -13,18 +15,11 @@ export component TestCase inherits Rectangle {
 ```cpp
 // ComponentFactory not supported yet!
 
-auto handle = TestCase::create();
-const TestCase &instance = *handle;
-
-assert(!instance.get_outside_focus()); // Nothing has focus be default
-slint_testing::send_keyboard_string_sequence(&instance, "\t");
-assert(instance.get_outside_focus()); // The outside button is the only thing
-                                      // accepting focus at this point.
-
+// THIS TEST IS HARD DISABLED IN build.rs of the C++ test driver
 ```
 
 ```rust
-let _factory = slint::ComponentFactory::new(|| {
+let factory = slint::ComponentFactory::new(|| {
      let mut compiler = slint_interpreter::ComponentCompiler::new();
      let e = spin_on::spin_on(compiler.build_from_source(
         r#"import { Button } from "std-widgets.slint";
@@ -46,6 +41,11 @@ assert!(!instance.get_outside_focus()); // Nothing has focus be default
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert!(instance.get_outside_focus()); // The outside button is the only thing
                                        // accepting focus at this point.
+
+instance.set_e1(factory.clone());
+instance.set_e2(factory);
+
+assert!(instance.get_outside_focus()); // embedding does not move the focus
 ```
 
 ```js

@@ -3,6 +3,7 @@
 
 use core::convert::TryFrom;
 use i_slint_compiler::langtype::Type as LangType;
+use i_slint_core::component_factory::ComponentFactory;
 use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::window::WindowInner;
@@ -42,6 +43,8 @@ pub enum ValueType {
     Brush,
     /// Correspond to `image` type in .slint.
     Image,
+    /// Correspond to `component-factory` type in .slint.
+    ComponentFactory,
     /// The type is not a public type but something internal.
     #[doc(hidden)]
     Other = -1,
@@ -65,6 +68,7 @@ impl From<LangType> for ValueType {
             LangType::Struct { .. } => Self::Struct,
             LangType::Void => Self::Void,
             LangType::Image => Self::Image,
+            LangType::ComponentFactory => Self::ComponentFactory,
             _ => Self::Other,
         }
     }
@@ -115,6 +119,8 @@ pub enum Value {
     EnumerationValue(String, String) = 10,
     #[doc(hidden)]
     LayoutCache(SharedVector<f32>) = 11,
+    /// Correspond to the `component` type in .slint
+    ComponentFactory(ComponentFactory) = 12,
 }
 
 impl Value {
@@ -129,6 +135,7 @@ impl Value {
             Value::Struct(_) => ValueType::Struct,
             Value::Brush(_) => ValueType::Brush,
             Value::Image(_) => ValueType::Image,
+            Value::ComponentFactory(_) => ValueType::ComponentFactory,
             _ => ValueType::Other,
         }
     }
@@ -157,6 +164,9 @@ impl PartialEq for Value {
                 matches!(other, Value::EnumerationValue(rhs_name, rhs_value) if lhs_name == rhs_name && lhs_value == rhs_value)
             }
             Value::LayoutCache(lhs) => matches!(other, Value::LayoutCache(rhs) if lhs == rhs),
+            Value::ComponentFactory(lhs) => {
+                matches!(other, Value::ComponentFactory(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -180,6 +190,7 @@ impl std::fmt::Debug for Value {
             Value::EasingCurve(c) => write!(f, "Value::EasingCurve({:?})", c),
             Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({:?}, {:?})", n, v),
             Value::LayoutCache(v) => write!(f, "Value::LayoutCache({:?})", v),
+            Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({:?})", factory),
         }
     }
 }
@@ -221,6 +232,7 @@ declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
+declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Object`
 macro_rules! declare_value_struct_conversion {

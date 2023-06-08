@@ -228,6 +228,7 @@ fn to_debug_string(
         | Type::InferredCallback
         | Type::InferredProperty
         | Type::Callback { .. }
+        | Type::ComponentFactory
         | Type::Function { .. }
         | Type::ElementReference
         | Type::LayoutCache
