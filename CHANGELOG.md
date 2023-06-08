@@ -40,6 +40,7 @@ All notable changes to this project are documented in this file.
  - In the Slint language, struct can be annotated with `@rust-attr(...)` that is forwarded as a Rust attribute (`#[...]`) for the generated struct
  - Added a `serde` feature to enable serialization of some Slint structure
  - Added convenience `From` conversions for `ModelRc` from slices and arrays.
+ - `slint-viewer` gained the ability to preview .rs files with a `slint!` macro.
 
 ### C++
 
