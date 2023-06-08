@@ -682,6 +682,12 @@ mod weak_handle {
             self.upgrade().unwrap()
         }
 
+        /// A helper function to allow creation on `component_factory::Component` from
+        /// a `ComponentHandle`
+        pub(crate) fn inner(&self) -> vtable::VWeak<ComponentVTable, T::Inner> {
+            self.inner.clone()
+        }
+
         /// Convenience function that combines [`invoke_from_event_loop()`] with [`Self::upgrade()`]
         ///
         /// The given functor will be added to an internal queue and will wake the event loop.
