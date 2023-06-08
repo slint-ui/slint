@@ -67,7 +67,7 @@ cfg_if::cfg_if! {
                 #[cfg(feature = "i-slint-backend-winit")]
                 "winit" => return Ok(Box::new(i_slint_backend_winit::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then_some(_renderer)))),
                 #[cfg(feature = "i-slint-backend-linuxkms")]
-                "linuxkms" => return Ok(Box::new(i_slint_backend_linuxkms::Backend::new())),
+                "linuxkms" => return Ok(Box::new(i_slint_backend_linuxkms::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then(|| _renderer)))),
                 _ => {},
             }
 
