@@ -5719,6 +5719,7 @@ dependencies = [
  "i-slint-backend-testing",
  "i-slint-compiler",
  "slint",
+ "slint-interpreter",
  "spin_on",
  "test_driver_lib",
 ]
