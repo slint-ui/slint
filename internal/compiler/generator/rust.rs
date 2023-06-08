@@ -74,6 +74,7 @@ fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Float32 => Some(quote!(f32)),
         Type::String => Some(quote!(slint::private_unstable_api::re_exports::SharedString)),
         Type::Color => Some(quote!(slint::private_unstable_api::re_exports::Color)),
+        Type::ComponentFactory => Some(quote!(slint::ComponentFactory)),
         Type::Duration => Some(quote!(i64)),
         Type::Angle => Some(quote!(f32)),
         Type::PhysicalLength => Some(quote!(slint::private_unstable_api::re_exports::Coord)),
