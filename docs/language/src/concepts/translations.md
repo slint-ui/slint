@@ -62,12 +62,13 @@ to the `@tr(...)` macro using the `"..." =>` syntax.
 
 Use the context to provide additional context information to translators, ensuring accurate and contextually appropriate translations.
 
-The context must be a plain string literal.
+The context must be a plain string literal and it appears as `msgctx` in the `.pot` files. If not specified, the context defaults
+to the name of the surrounding component.
 
 ```slint,no-preview
 export component MenuItem {
-    property <string> name : @tr("Name" => "Default Name");
-    property <string> tooltip : @tr("ToolTip" => "ToolTip for {}", name);
+    property <string> name : @tr("Name" => "Default Name"); // Default: `MenuItem` will be the context.
+    property <string> tooltip : @tr("ToolTip" => "ToolTip for {}", name); // Specified: The context will be `ToolTip`.
 }
 ```
 
