@@ -50,9 +50,7 @@ fn main() -> std::io::Result<()> {
     let mut messages = Messages::new();
 
     for path in args.paths {
-        let source = std::fs::read_to_string(&path)?;
-
-        process_file(source, path, &mut messages)?
+        process_file(path, &mut messages)?
     }
 
     let output = args.output.unwrap_or_else(|| {
@@ -75,80 +73,14 @@ fn main() -> std::io::Result<()> {
     generator::generate(output, output_details, messages)
 }
 
-/// FIXME! this is duplicated with the updater
-fn process_rust_file(source: String, _messages: &mut Messages) -> std::io::Result<()> {
-    let mut source_slice = &source[..];
-    let slint_macro = format!("{}!", "slint"); // in a variable so it does not appear as is
-    'l: while let Some(idx) = source_slice.find(&slint_macro) {
-        // Note: this code ignore string literal and unbalanced comment, but that should be good enough
-        let idx2 =
-            if let Some(idx2) = source_slice[idx..].find(|c| c == '{' || c == '(' || c == '[') {
-                idx2
-            } else {
-                break 'l;
-            };
-        let open = source_slice.as_bytes()[idx + idx2].into();
-        let close = match open {
-            '{' => '}',
-            '(' => ')',
-            '[' => ']',
-            _ => panic!(),
-        };
-        source_slice = &source_slice[idx + idx2 + 1..];
-        let mut idx = 0;
-        let mut count = 1;
-        while count > 0 {
-            if let Some(idx2) = source_slice[idx..].find(|c| {
-                if c == open {
-                    count += 1;
-                    true
-                } else if c == close {
-                    count -= 1;
-                    true
-                } else {
-                    false
-                }
-            }) {
-                idx += idx2 + 1;
-            } else {
-                break 'l;
-            }
-        }
-        todo!("Rust files");
-        /*
-        let code = &source_slice[..idx - 1];
-        source_slice = &source_slice[idx - 1..];
-
-        let mut diag = BuildDiagnostics::default();
-        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
-        let len = syntax_node.text_range().end().into();
-        visit_node(syntax_node, &mut file)?;
-        */
-    }
-    Ok(())
-}
-
-fn process_slint_file(
-    source: String,
-    path: std::path::PathBuf,
-    messages: &mut Messages,
-) -> std::io::Result<()> {
+fn process_file(path: std::path::PathBuf, messages: &mut Messages) -> std::io::Result<()> {
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(&path), &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse_file(path, &mut diag).ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::Other, diag.to_string_vec().join(", "))
+    })?;
     visit_node(syntax_node, messages);
 
     Ok(())
-}
-
-fn process_file(
-    source: String,
-    path: std::path::PathBuf,
-    messages: &mut Messages,
-) -> std::io::Result<()> {
-    match path.extension() {
-        Some(ext) if ext == "rs" => process_rust_file(source, messages),
-        _ => process_slint_file(source, path, messages),
-    }
 }
 
 fn visit_node(node: SyntaxNode, results: &mut Messages) {
