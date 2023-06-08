@@ -19,7 +19,7 @@ type SingleShotTimerCallback = Box<dyn FnOnce()>;
 
 /// The TimerMode specifies what should happen after the timer fired.
 ///
-/// Used by the [`Timer::start`] function.
+/// Used by the [`Timer::start()`] function.
 #[derive(Copy, Clone)]
 #[repr(C)]
 #[non_exhaustive]

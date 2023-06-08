@@ -299,7 +299,7 @@ impl<F: FnMut(RenderingState, &GraphicsAPI)> RenderingNotifier for F {
 }
 
 /// This enum describes the different error scenarios that may occur when the application
-/// registers a rendering notifier on a [`crate::Window`](struct.Window.html).
+/// registers a rendering notifier on a `slint::Window`.
 #[derive(Debug, Clone)]
 #[repr(C)]
 #[non_exhaustive]
