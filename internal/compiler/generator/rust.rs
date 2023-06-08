@@ -1433,6 +1433,7 @@ fn generate_item_tree(
         impl #inner_component_id {
             pub fn new(#(parent: #parent_component_type)*) -> #new_result {
                 #![allow(unused)]
+                slint::private_unstable_api::ensure_backend();
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = VRc::new(_self);

@@ -129,6 +129,22 @@ pub type NativeGlobals = ();
 pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 
 pub struct Backend;
+
+impl Backend {
+    pub fn new() -> Self {
+        #[cfg(not(no_qt))]
+        {
+            use cpp::cpp;
+            // Initialize QApplication early for High-DPI support on Windows,
+            // before the first calls to QStyle.
+            cpp! {unsafe[] {
+                ensure_initialized(true);
+            }}
+        }
+        Self {}
+    }
+}
+
 impl i_slint_core::platform::Platform for Backend {
     fn create_window_adapter(
         &self,

@@ -138,6 +138,13 @@ pub fn debug(s: SharedString) {
     }
 }
 
+pub fn ensure_backend() -> Result<(), crate::PlatformError> {
+    i_slint_backend_selector::with_platform(|_b| {
+        // Nothing to do, just make sure a backend was created
+        Ok(())
+    })
+}
+
 /// Creates a new window to render components in.
 pub fn create_window_adapter(
 ) -> Result<alloc::rc::Rc<dyn i_slint_core::window::WindowAdapter>, crate::PlatformError> {
