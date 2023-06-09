@@ -502,8 +502,17 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
         match event {
             Event::WindowEvent { event, window_id } => {
                 if let Some(window) = window_by_id(window_id) {
-                    *inner_event_loop_error.borrow_mut() =
-                        process_window_event(window, event, &mut cursor_pos, &mut pressed).err();
+                    #[cfg(target_arch = "wasm32")]
+                    let process_event = true;
+                    #[cfg(not(target_arch = "wasm32"))]
+                    let process_event =
+                        window.accesskit_adapter.on_event(&window.winit_window(), &event);
+
+                    if process_event {
+                        *inner_event_loop_error.borrow_mut() =
+                            process_window_event(window, event, &mut cursor_pos, &mut pressed)
+                                .err();
+                    }
                 };
             }
 

@@ -20,7 +20,11 @@ use crate::renderer::WinitCompatibleRenderer;
 use const_field_offset::FieldOffsets;
 
 use corelib::component::ComponentRc;
-use corelib::items::MouseCursor;
+#[cfg(not(target_arch = "wasm32"))]
+use corelib::component::ComponentRef;
+#[cfg(not(target_arch = "wasm32"))]
+use corelib::items::ItemRef;
+use corelib::items::{ItemRc, MouseCursor};
 
 use corelib::layout::Orientation;
 use corelib::lengths::{LogicalLength, LogicalSize};
@@ -30,6 +34,9 @@ use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use once_cell::unsync::OnceCell;
+
+#[cfg(not(target_arch = "wasm32"))]
+mod accesskit;
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -118,6 +125,9 @@ pub struct WinitWindowAdapter {
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub accesskit_adapter: accesskit::AccessKitAdapter,
 }
 
 impl WinitWindowAdapter {
@@ -131,6 +141,8 @@ impl WinitWindowAdapter {
         )
         .and_then(|builder| R::new(builder))?;
 
+        let winit_window = Rc::new(winit_window);
+
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
             #[cfg(target_arch = "wasm32")]
@@ -140,10 +152,12 @@ impl WinitWindowAdapter {
             dark_color_scheme: Default::default(),
             constraints: Default::default(),
             shown: Default::default(),
-            winit_window: Rc::new(winit_window),
+            winit_window: winit_window.clone(),
             renderer: Box::new(renderer),
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
+            #[cfg(not(target_arch = "wasm32"))]
+            accesskit_adapter: accesskit::AccessKitAdapter::new(self_weak.clone(), &*winit_window),
         });
 
         let id = self_rc.winit_window().id();
@@ -638,6 +652,20 @@ impl WindowAdapterSealed for WinitWindowAdapter {
 
     fn is_visible(&self) -> bool {
         self.winit_window().is_visible().unwrap_or(true)
+    }
+
+    fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {
+        #[cfg(not(target_arch = "wasm32"))]
+        self.accesskit_adapter.handle_focus_change(_new);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn unregister_component<'a>(
+        &self,
+        _component: ComponentRef,
+        _: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
+    ) {
+        self.accesskit_adapter.unregister_component(_component);
     }
 }
 

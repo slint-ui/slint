@@ -207,6 +207,23 @@ impl<VTable: VTableMetaDropInPlace + 'static> VRc<VTable, Dyn> {
     ) -> VRcMapped<VTable, MappedType> {
         VRcMapped { parent_strong: this.clone(), object: map_fn(Self::borrow_pin(&this)).get_ref() }
     }
+
+    /// Returns a raw pointer to the inner data structure that holds the reference counted object.
+    /// This pointer is only valid as long as a `VRc` remains alive.
+    pub fn as_raw_ptr(&self) -> *const core::ffi::c_void {
+        self.inner.as_ptr() as _
+    }
+
+    /// Transmutes a raw pointer to VRc's inner data structure back into a VRc. Use in combination
+    /// with `as_raw_ptr()`.
+    ///
+    /// Safety: This is highly unsafe. Don't use this unless you're absolutely certain that somebody
+    /// else is keeping the object alive via a VRc.
+    pub unsafe fn from_raw_ptr(raw_dyn: *const core::ffi::c_void) -> Self {
+        let inner: NonNull<VRcInner<'static, VTable, Dyn>> = core::mem::transmute(raw_dyn);
+        inner.as_ref().strong_ref.fetch_add(1, Ordering::SeqCst);
+        Self { inner }
+    }
 }
 impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
     /// Create a Pinned reference to the inner.
