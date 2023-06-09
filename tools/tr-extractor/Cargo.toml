@@ -13,8 +13,12 @@ homepage = "https://slint-ui.com"
 
 [dependencies]
 i-slint-compiler = { path = "../../internal/compiler", features = ["display-diagnostics"] }
-chrono = {version="0.4.24", default-features = false, features = ["clock"] }
+chrono = {version = "0.4.24", default-features = false, features = ["clock"] }
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
+polib = "0.2"
+
+[dev-dependencies]
+itertools = "0.10.5"
 
 [[bin]]
 name = "slint-tr-extractor"

@@ -4,10 +4,9 @@
 use clap::Parser;
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
-use messages::{Message, Messages};
+use std::fmt::Write;
 
-mod generator;
-mod messages;
+type Messages = polib::catalog::Catalog;
 
 #[derive(clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -25,52 +24,56 @@ struct Cli {
     )]
     output: Option<std::path::PathBuf>,
 
-    #[arg(long = "omit-header", help = r#"Don’t write header with ‘msgid ""’ entry"#)]
-    omit_header: bool,
-
-    #[arg(long = "copyright-holder", help = "Set the copyright holder in the output")]
-    copyright_holder: Option<String>,
-
+    //#[arg(long = "omit-header", help = r#"Don’t write header with ‘msgid ""’ entry"#)]
+    //omit_header: bool,
+    //
+    //#[arg(long = "copyright-holder", help = "Set the copyright holder in the output")]
+    //copyright_holder: Option<String>,
+    //
     #[arg(long = "package-name", help = "Set the package name in the header of the output")]
     package_name: Option<String>,
 
     #[arg(long = "package-version", help = "Set the package version in the header of the output")]
     package_version: Option<String>,
-
-    #[arg(
-        long = "msgid-bugs-address",
-        help = "Set the reporting address for msgid bugs. This is the email address or URL to which the translators shall report bugs in the untranslated strings"
-    )]
-    msgid_bugs_address: Option<String>,
+    //
+    // #[arg(
+    //     long = "msgid-bugs-address",
+    //     help = "Set the reporting address for msgid bugs. This is the email address or URL to which the translators shall report bugs in the untranslated strings"
+    // )]
+    // msgid_bugs_address: Option<String>,
 }
 
 fn main() -> std::io::Result<()> {
     let args = Cli::parse();
 
-    let mut messages = Messages::new();
+    let output = args.output.unwrap_or_else(|| {
+        format!("{}.po", args.domain.as_ref().map(String::as_str).unwrap_or("messages")).into()
+    });
+
+    let package = args.package_name.as_ref().map(|x| x.as_ref()).unwrap_or("PACKAGE");
+    let version = args.package_version.as_ref().map(|x| x.as_ref()).unwrap_or("VERSION");
+    let metadata = polib::metadata::CatalogMetadata {
+        project_id_version: format!("{package} {version}",),
+        pot_creation_date: chrono::Utc::now().format("%Y-%m-%d %H:%M%z").to_string(),
+        po_revision_date: "YEAR-MO-DA HO:MI+ZONE".into(),
+        last_translator: "FULL NAME <EMAIL@ADDRESS>".into(),
+        language_team: "LANGUAGE <LL@li.org>".into(),
+        mime_version: "1.0".into(),
+        content_type: "text/plain; charset=UTF-8".into(),
+        content_transfer_encoding: "8bit".into(),
+        language: String::new(),
+        plural_rules: Default::default(),
+        // "Report-Msgid-Bugs-To: {address}" addess = output_details.bugs_address
+    };
+
+    let mut messages = Messages::new(metadata);
 
     for path in args.paths {
         process_file(path, &mut messages)?
     }
 
-    let output = args.output.unwrap_or_else(|| {
-        format!("{}.po", args.domain.as_ref().map(String::as_str).unwrap_or("messages")).into()
-    });
-
-    let output_details = generator::OutputDetails {
-        omit_header: args.omit_header,
-        copyright_holder: args.copyright_holder,
-        package_name: args.package_name,
-        package_version: args.package_version,
-        bugs_address: args.msgid_bugs_address,
-        charset: "UTF-8".into(),
-        add_location: generator::AddLocation::Full,
-    };
-
-    let mut messages: Vec<_> = messages.values().collect();
-    messages.sort_by_key(|m| m.index);
-
-    generator::generate(output, output_details, messages)
+    polib::po_file::write(&messages, &output)?;
+    Ok(())
 }
 
 fn process_file(path: std::path::PathBuf, messages: &mut Messages) -> std::io::Result<()> {
@@ -100,33 +103,53 @@ fn visit_node(node: SyntaxNode, results: &mut Messages, current_context: Option<
                     .TrPlural()
                     .and_then(|n| n.child_text(SyntaxKind::StringLiteral))
                     .and_then(|s| i_slint_compiler::literals::unescape_string(&s));
-                let key =
-                    messages::MessageKey::new(msgid.clone(), msgctxt.clone().unwrap_or_default());
-                let index = results.len();
-                let message = results.entry(key).or_insert_with(|| Message {
-                    msgctxt,
-                    msgid,
-                    index,
-                    plural,
-                    ..Default::default()
-                });
 
-                let span = node.span();
-                if span.is_valid() {
-                    let (line, _) = node.source_file.line_column(span.offset);
-                    if line > 0 {
-                        message.locations.push(messages::Location {
-                            file: node.source_file.path().into(),
-                            line,
-                        });
+                let update = |msg: &mut dyn polib::message::MessageMutView| {
+                    let span = node.span();
+                    if span.is_valid() {
+                        let (line, _) = node.source_file.line_column(span.offset);
+                        if line > 0 {
+                            let source = msg.source_mut();
+                            let path = node.source_file.path().to_string_lossy();
+                            if source.is_empty() {
+                                *source = format!("{path}:{line}");
+                            } else {
+                                write!(source, " {path}:{line}").unwrap();
+                            }
+                        }
                     }
-                }
 
-                if message.comments.is_none() {
-                    message.comments = tr
-                        .child_token(SyntaxKind::StringLiteral)
-                        .and_then(get_comments_before_line)
-                        .or_else(|| tr.first_token().and_then(get_comments_before_line));
+                    let comment = msg.comments_mut();
+                    if comment.is_empty() {
+                        if let Some(c) = tr
+                            .child_token(SyntaxKind::StringLiteral)
+                            .and_then(get_comments_before_line)
+                            .or_else(|| tr.first_token().and_then(get_comments_before_line))
+                        {
+                            *comment = c;
+                        }
+                    }
+                };
+
+                if let Some(mut x) =
+                    results.find_message_mut(msgctxt.as_deref(), &msgid, plural.as_deref())
+                {
+                    update(&mut x)
+                } else {
+                    let mut builder = if let Some(plural) = plural {
+                        let mut builder = polib::message::Message::build_plural();
+                        builder.with_msgid_plural(plural);
+                        builder
+                    } else {
+                        polib::message::Message::build_singular()
+                    };
+                    builder.with_msgid(msgid);
+                    if let Some(msgctxt) = msgctxt {
+                        builder.with_msgctxt(msgctxt);
+                    }
+                    let mut msg = builder.done();
+                    update(&mut msg);
+                    results.append_or_update(msg);
                 }
             }
         }
@@ -165,19 +188,27 @@ fn get_comments_before_line(token: i_slint_compiler::parser::SyntaxToken) -> Opt
 
 #[test]
 fn extract_messages() {
-    fn make(msg: &str, p: &str, ctx: &str, co: &str, loc: &[usize]) -> Message {
-        let opt = |x: &str| (!x.is_empty()).then(|| x.to_owned());
-        let locations = loc
-            .iter()
-            .map(|l| messages::Location { file: "test.slint".to_owned().into(), line: *l })
-            .collect();
-        Message {
-            msgctxt: opt(ctx),
-            msgid: msg.into(),
-            plural: opt(p),
-            locations,
-            comments: opt(co),
-            index: 0,
+    use itertools::Itertools;
+
+    #[derive(PartialEq, Debug)]
+    pub struct M<'a> {
+        pub msgid: &'a str,
+        pub msgctx: &'a str,
+        pub plural: &'a str,
+        pub comments: &'a str,
+        pub locations: String,
+    }
+
+    impl M<'static> {
+        pub fn new(
+            msgid: &'static str,
+            plural: &'static str,
+            msgctx: &'static str,
+            comments: &'static str,
+            locations: &'static [usize],
+        ) -> Self {
+            let locations = locations.iter().map(|l| format!("test.slint:{l}",)).join(" ");
+            Self { msgid, msgctx, plural, comments, locations }
         }
     }
 
@@ -206,9 +237,11 @@ fn extract_messages() {
             "multi-line\nsecond line"
         );
 
+        // comment 5
         d: @tr("dup1");
         d: @tr("ctx" => "dup1");
         d: @tr("dup1");
+        // comment 6
         d: @tr("ctx" => "dup1");
 
         // two-line-comment
@@ -223,18 +256,18 @@ fn extract_messages() {
     }"##;
 
     let r = [
-        make("Message 1", "", "Foo", "comment 1", &[3]),
-        make("Message 2", "", "ctx", "comment 2", &[7]),
-        make("Message 3", "Messages 3", "Foo", "", &[10]),
-        make("Message 4", "Messages 4", "ctx4", "comment 4", &[13]),
-        make("rec1 {}", "", "Foo", "recursive", &[16]),
-        make("rec2", "", "Foo", "recursive", &[16]),
-        make("r\nw", "", "rw\nctx", "", &[18]),
-        make("multi-line\nsecond line", "", "Foo", "multi line", &[21]),
-        make("dup1", "", "Foo", "", &[26, 28]),
-        make("dup1", "", "ctx", "", &[27, 29]),
-        make("x", "", "Foo", "macro and string on different line", &[33]),
-        make("Global", "", "Xx-x", "", &[38]),
+        M::new("Message 1", "", "Foo", "comment 1", &[3]),
+        M::new("Message 2", "", "ctx", "comment 2", &[7]),
+        M::new("Message 3", "Messages 3", "Foo", "", &[10]),
+        M::new("Message 4", "Messages 4", "ctx4", "comment 4", &[13]),
+        M::new("rec1 {}", "", "Foo", "recursive", &[16]),
+        M::new("rec2", "", "Foo", "recursive", &[16]),
+        M::new("r\nw", "", "rw\nctx", "", &[18]),
+        M::new("multi-line\nsecond line", "", "Foo", "multi line", &[21]),
+        M::new("dup1", "", "Foo", "comment 5", &[27, 29]),
+        M::new("dup1", "", "ctx", "comment 6", &[28, 31]),
+        M::new("x", "", "Foo", "macro and string on different line", &[35]),
+        M::new("Global", "", "Xx-x", "", &[40]),
     ];
 
     let mut diag = BuildDiagnostics::default();
@@ -244,15 +277,20 @@ fn extract_messages() {
         &mut diag,
     );
 
-    let mut messages = Messages::new();
+    let mut messages = polib::catalog::Catalog::new(Default::default());
     visit_node(syntax_node, &mut messages, None);
 
-    let mut messages = messages.into_values().collect::<Vec<_>>();
-    messages.sort_by_key(|m| m.index);
-    let mlen = messages.len();
-    for (a, mut b) in r.iter().zip(messages) {
-        b.index = 0;
-        assert_eq!(*a, b);
+    for (a, b) in r.iter().zip(messages.messages()) {
+        assert_eq!(
+            *a,
+            M {
+                msgid: b.msgid(),
+                msgctx: b.msgctxt(),
+                plural: b.msgid_plural().unwrap_or_default(),
+                comments: b.comments(),
+                locations: b.source().into()
+            }
+        );
     }
-    assert_eq!(r.len(), mlen);
+    assert_eq!(r.len(), messages.count());
 }
