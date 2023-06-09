@@ -140,7 +140,7 @@ msgstr "Trier"
 #: ./ui/copy_page.slint:95
 msgctxt "CopyPage"
 msgid "Start copying"
-msgstr "Démarer la copie"
+msgstr "Démarrer la copie"
 
 #: ./ui/home_page.slint:51
 msgctxt "HomePage"
@@ -150,7 +150,7 @@ msgstr "Slint Démo"
 #: ./ui/home_page.slint:57
 msgctxt "HomePage"
 msgid "Print"
-msgstr "Imprimmer"
+msgstr "Imprimer"
 
 #: ./ui/home_page.slint:58
 msgctxt "HomePage"
@@ -180,7 +180,7 @@ msgstr "Impression"
 #: ./ui/print_page.slint:18
 msgctxt "PrintPage"
 msgid "Printing-Queue"
-msgstr "Fille d'attente d'impression"
+msgstr "File d'attente d'impression"
 
 #: ./ui/printer_queue.slint:22
 msgctxt "PrinterQueue"
@@ -240,12 +240,12 @@ msgstr "Supprimer"
 #: ./ui/printer_queue.slint:363
 msgctxt "PrinterQueueView"
 msgid "Printing Queue"
-msgstr "Fille d'attente"
+msgstr "File d'attente"
 
 #: ./ui/printerdemo.slint:35
 msgctxt "MainWindow"
 msgid "Slint printer demo"
-msgstr "Imprimante de démonstrassion de Slint"
+msgstr "Imprimante de démonstration de Slint"
 
 #: ./ui/scan_page.slint:9 ./ui/scan_page.slint:84
 msgctxt "ScanPage"
@@ -485,7 +485,7 @@ msgstr "USB"
 #: ./ui/usb_page.slint:44
 msgctxt "UsbPage"
 msgid "Select File:"
-msgstr "Sélectionnez in fichier"
+msgstr "Sélectionnez un fichier:"
 
 #: ./ui/usb_page.slint:67
 msgctxt "UsbPage"
