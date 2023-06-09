@@ -20,7 +20,11 @@ use crate::renderer::WinitCompatibleRenderer;
 use const_field_offset::FieldOffsets;
 
 use corelib::component::ComponentRc;
+#[cfg(enable_accesskit)]
+use corelib::component::ComponentRef;
 use corelib::items::MouseCursor;
+#[cfg(enable_accesskit)]
+use corelib::items::{ItemRc, ItemRef};
 
 use corelib::layout::Orientation;
 use corelib::lengths::{LogicalLength, LogicalSize};
@@ -118,6 +122,9 @@ pub struct WinitWindowAdapter {
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
+
+    #[cfg(enable_accesskit)]
+    pub accesskit_adapter: crate::accesskit::AccessKitAdapter,
 }
 
 impl WinitWindowAdapter {
@@ -131,6 +138,8 @@ impl WinitWindowAdapter {
         )
         .and_then(|builder| R::new(builder))?;
 
+        let winit_window = Rc::new(winit_window);
+
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
             #[cfg(target_arch = "wasm32")]
@@ -140,10 +149,15 @@ impl WinitWindowAdapter {
             dark_color_scheme: Default::default(),
             constraints: Default::default(),
             shown: Default::default(),
-            winit_window: Rc::new(winit_window),
+            winit_window: winit_window.clone(),
             renderer: Box::new(renderer),
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
+            #[cfg(enable_accesskit)]
+            accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
+                self_weak.clone(),
+                &*winit_window,
+            ),
         });
 
         let id = self_rc.winit_window().id();
@@ -642,6 +656,25 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     fn is_visible(&self) -> bool {
         self.winit_window().is_visible().unwrap_or(true)
+    }
+
+    #[cfg(enable_accesskit)]
+    fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {
+        self.accesskit_adapter.handle_focus_item_change();
+    }
+
+    #[cfg(enable_accesskit)]
+    fn register_component(&self) {
+        self.accesskit_adapter.register_component();
+    }
+
+    #[cfg(enable_accesskit)]
+    fn unregister_component<'a>(
+        &self,
+        _component: ComponentRef,
+        _: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
+    ) {
+        self.accesskit_adapter.unregister_component(_component);
     }
 }
 

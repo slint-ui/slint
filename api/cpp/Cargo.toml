@@ -36,6 +36,7 @@ renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-open
 renderer-winit-skia-vulkan = ["i-slint-backend-selector/renderer-winit-skia-vulkan"]
 renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 gettext = ["i-slint-core/gettext-rs"]
+accessibility = ["i-slint-backend-selector/accessibility"]
 
 experimental = ["i-slint-renderer-skia", "raw-window-handle"]
 
