@@ -41,6 +41,9 @@ struct Cli {
     //     help = "Set the reporting address for msgid bugs. This is the email address or URL to which the translators shall report bugs in the untranslated strings"
     // )]
     // msgid_bugs_address: Option<String>,
+    #[arg(long = "join-existing", short = 'j')]
+    /// Join messages with existing file
+    join_existing: bool,
 }
 
 fn main() -> std::io::Result<()> {
@@ -50,23 +53,28 @@ fn main() -> std::io::Result<()> {
         format!("{}.po", args.domain.as_ref().map(String::as_str).unwrap_or("messages")).into()
     });
 
-    let package = args.package_name.as_ref().map(|x| x.as_ref()).unwrap_or("PACKAGE");
-    let version = args.package_version.as_ref().map(|x| x.as_ref()).unwrap_or("VERSION");
-    let metadata = polib::metadata::CatalogMetadata {
-        project_id_version: format!("{package} {version}",),
-        pot_creation_date: chrono::Utc::now().format("%Y-%m-%d %H:%M%z").to_string(),
-        po_revision_date: "YEAR-MO-DA HO:MI+ZONE".into(),
-        last_translator: "FULL NAME <EMAIL@ADDRESS>".into(),
-        language_team: "LANGUAGE <LL@li.org>".into(),
-        mime_version: "1.0".into(),
-        content_type: "text/plain; charset=UTF-8".into(),
-        content_transfer_encoding: "8bit".into(),
-        language: String::new(),
-        plural_rules: Default::default(),
-        // "Report-Msgid-Bugs-To: {address}" addess = output_details.bugs_address
-    };
+    let mut messages = if args.join_existing {
+        polib::po_file::parse(&output)
+            .map_err(|x| std::io::Error::new(std::io::ErrorKind::Other, x))?
+    } else {
+        let package = args.package_name.as_ref().map(|x| x.as_ref()).unwrap_or("PACKAGE");
+        let version = args.package_version.as_ref().map(|x| x.as_ref()).unwrap_or("VERSION");
+        let metadata = polib::metadata::CatalogMetadata {
+            project_id_version: format!("{package} {version}",),
+            pot_creation_date: chrono::Utc::now().format("%Y-%m-%d %H:%M%z").to_string(),
+            po_revision_date: "YEAR-MO-DA HO:MI+ZONE".into(),
+            last_translator: "FULL NAME <EMAIL@ADDRESS>".into(),
+            language_team: "LANGUAGE <LL@li.org>".into(),
+            mime_version: "1.0".into(),
+            content_type: "text/plain; charset=UTF-8".into(),
+            content_transfer_encoding: "8bit".into(),
+            language: String::new(),
+            plural_rules: Default::default(),
+            // "Report-Msgid-Bugs-To: {address}" addess = output_details.bugs_address
+        };
 
-    let mut messages = Messages::new(metadata);
+        Messages::new(metadata)
+    };
 
     for path in args.paths {
         process_file(path, &mut messages)?
