@@ -2203,7 +2203,9 @@ impl Exports {
             |internal_name: &str, internal_name_node: &dyn Spanned, diag: &mut BuildDiagnostics| {
                 if let Ok(ElementType::Component(c)) = type_registry.lookup_element(internal_name) {
                     Some(Either::Left(c))
-                } else if let ty @ Type::Struct { .. } = type_registry.lookup(internal_name) {
+                } else if let ty @ Type::Struct { .. } | ty @ Type::Enumeration(_) =
+                    type_registry.lookup(internal_name)
+                {
                     Some(Either::Right(ty))
                 } else if type_registry.lookup_element(internal_name).is_ok()
                     || type_registry.lookup(internal_name) != Type::Invalid
@@ -2286,21 +2288,27 @@ impl Exports {
         ));
 
         extend_exports(
-            &mut doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).filter_map(
-                |st| {
-                    let name_ident: SyntaxNode = st.DeclaredIdentifier().into();
-                    let name =
-                        parser::identifier_text(&st.DeclaredIdentifier()).unwrap_or_else(|| {
-                            debug_assert!(diag.has_error());
-                            String::new()
-                        });
+            &mut doc
+                .ExportsList()
+                .flat_map(|exports| {
+                    exports
+                        .StructDeclaration()
+                        .map(|st| st.DeclaredIdentifier())
+                        .chain(exports.EnumDeclaration().map(|en| en.DeclaredIdentifier()))
+                })
+                .filter_map(|name_ident| {
+                    let name = parser::identifier_text(&name_ident).unwrap_or_else(|| {
+                        debug_assert!(diag.has_error());
+                        String::new()
+                    });
+
+                    let name_ident = name_ident.into();
 
                     let compo_or_type =
                         resolve_export_to_inner_component_or_import(&name, &name_ident, diag)?;
 
                     Some((ExportedName { name, name_ident }, compo_or_type))
-                },
-            ),
+                }),
         );
 
         let mut sorted_deduped_exports = Vec::with_capacity(sorted_exports_with_duplicates.len());
