@@ -1044,7 +1044,7 @@ fn get_document_symbols(
     .unwrap();
 
     let inner_components = doc.inner_components.clone();
-    let inner_structs = doc.inner_structs.clone();
+    let inner_types = doc.inner_types.clone();
 
     let mut r = inner_components
         .iter()
@@ -1069,13 +1069,22 @@ fn get_document_symbols(
         })
         .collect::<Vec<_>>();
 
-    r.extend(inner_structs.iter().filter_map(|c| match c {
+    r.extend(inner_types.iter().filter_map(|c| match c {
         Type::Struct { name: Some(name), node: Some(node), .. } => Some(DocumentSymbol {
             range: map_node(node.parent().as_ref()?)?,
             selection_range: map_node(node)?,
             name: name.clone(),
             kind: lsp_types::SymbolKind::STRUCT,
             ..ds.clone()
+        }),
+        Type::Enumeration(enumeration) => enumeration.node.as_ref().and_then(|node| {
+            Some(DocumentSymbol {
+                range: map_node(node.parent().as_ref()?)?,
+                selection_range: map_node(&node)?,
+                name: enumeration.name.clone(),
+                kind: lsp_types::SymbolKind::ENUM,
+                ..ds.clone()
+            })
         }),
         _ => None,
     }));

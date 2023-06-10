@@ -42,7 +42,7 @@ macro_rules! unwrap_or_continue {
 pub struct Document {
     pub node: Option<syntax_nodes::Document>,
     pub inner_components: Vec<Rc<Component>>,
-    pub inner_structs: Vec<Type>,
+    pub inner_types: Vec<Type>,
     pub root_component: Rc<Component>,
     pub local_registry: TypeRegister,
     /// A list of paths to .ttf/.ttc files that are supposed to be registered on
@@ -63,7 +63,7 @@ impl Document {
 
         let mut local_registry = TypeRegister::new(parent_registry);
         let mut inner_components = vec![];
-        let mut inner_structs = vec![];
+        let mut inner_types = vec![];
 
         let mut process_component =
             |n: syntax_nodes::Component,
@@ -73,37 +73,34 @@ impl Document {
                 local_registry.add(compo.clone());
                 inner_components.push(compo);
             };
-        let mut process_struct =
-            |n: syntax_nodes::StructDeclaration,
-             diag: &mut BuildDiagnostics,
-             local_registry: &mut TypeRegister| {
-                let rust_attributes: Vec<String> = n
-                    .children()
-                    .filter(|child| child.kind() == SyntaxKind::AtRustAttr)
-                    .map(|child| {
-                        let mut text = child.text().to_string();
-                        text.pop();
-                        text
-                    })
-                    .collect_vec();
-                let mut ty = type_struct_from_node(
-                    n.ObjectType(),
-                    diag,
-                    local_registry,
-                    Some(rust_attributes),
-                );
-                if let Type::Struct { name, .. } = &mut ty {
-                    *name = parser::identifier_text(&n.DeclaredIdentifier());
-                } else {
-                    assert!(diag.has_error());
-                    return;
-                }
-                local_registry.insert_type(ty.clone());
-                inner_structs.push(ty);
-            };
+        let process_struct = |n: syntax_nodes::StructDeclaration,
+                              diag: &mut BuildDiagnostics,
+                              local_registry: &mut TypeRegister,
+                              inner_types: &mut Vec<Type>| {
+            let rust_attributes: Vec<String> = n
+                .children()
+                .filter(|child| child.kind() == SyntaxKind::AtRustAttr)
+                .map(|child| {
+                    let mut text = child.text().to_string();
+                    text.pop();
+                    text
+                })
+                .collect_vec();
+            let mut ty =
+                type_struct_from_node(n.ObjectType(), diag, local_registry, Some(rust_attributes));
+            if let Type::Struct { name, .. } = &mut ty {
+                *name = parser::identifier_text(&n.DeclaredIdentifier());
+            } else {
+                assert!(diag.has_error());
+                return;
+            }
+            local_registry.insert_type(ty.clone());
+            inner_types.push(ty);
+        };
         let process_enum = |n: syntax_nodes::EnumDeclaration,
                             diag: &mut BuildDiagnostics,
-                            local_registry: &mut TypeRegister| {
+                            local_registry: &mut TypeRegister,
+                            inner_types: &mut Vec<Type>| {
             let Some(name) = parser::identifier_text(&n.DeclaredIdentifier()) else {
                 assert!(diag.has_error());
                 return;
@@ -111,28 +108,33 @@ impl Document {
             let values = n.EnumValue().filter_map(|v| parser::identifier_text(&v)).collect();
             let en = Enumeration { name: name.clone(), values, default_value: 0, node: Some(n) };
             let ty = Type::Enumeration(Rc::new(en));
-            local_registry.insert_type_with_name(ty, name);
-            //inner_structs.push(ty);
+            local_registry.insert_type_with_name(ty.clone(), name);
+            inner_types.push(ty);
         };
 
         for n in node.children() {
             match n.kind() {
                 SyntaxKind::Component => process_component(n.into(), diag, &mut local_registry),
                 SyntaxKind::StructDeclaration => {
-                    process_struct(n.into(), diag, &mut local_registry)
+                    process_struct(n.into(), diag, &mut local_registry, &mut inner_types)
                 }
-                SyntaxKind::EnumDeclaration => process_enum(n.into(), diag, &mut local_registry),
+                SyntaxKind::EnumDeclaration => {
+                    process_enum(n.into(), diag, &mut local_registry, &mut inner_types)
+                }
                 SyntaxKind::ExportsList => {
                     for n in n.children() {
                         match n.kind() {
                             SyntaxKind::Component => {
                                 process_component(n.into(), diag, &mut local_registry)
                             }
-                            SyntaxKind::StructDeclaration => {
-                                process_struct(n.into(), diag, &mut local_registry)
-                            }
+                            SyntaxKind::StructDeclaration => process_struct(
+                                n.into(),
+                                diag,
+                                &mut local_registry,
+                                &mut inner_types,
+                            ),
                             SyntaxKind::EnumDeclaration => {
-                                process_enum(n.into(), diag, &mut local_registry)
+                                process_enum(n.into(), diag, &mut local_registry, &mut inner_types)
                             }
                             _ => {}
                         }
@@ -221,7 +223,7 @@ impl Document {
             node: Some(node),
             root_component,
             inner_components,
-            inner_structs,
+            inner_types,
             local_registry,
             custom_fonts,
             exports,

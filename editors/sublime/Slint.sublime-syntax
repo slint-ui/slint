@@ -50,7 +50,7 @@ contexts:
     # strings in YAML. When using single quoted strings, only single quotes
     # need to be escaped: this is done by using two single quotes next to each
     # other.
-    - match: '\b(import|from|export|global|struct|component|inherits)\b'
+    - match: '\b(import|from|export|global|struct|enum|component|inherits)\b'
       scope: keyword.slint
     - match: '\b(property|callback|animate|states|transitions|function|in|out|in-out|private|public)\b'
       scope: keyword.other.slint

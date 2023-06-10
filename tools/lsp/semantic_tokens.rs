@@ -25,7 +25,7 @@ macro_rules! declare_legend {
     (@ [], $n:expr) => {};
 }
 // the id of the element
-declare_legend!(LEGEND_TYPES : SemanticTokenType = [TYPE PARAMETER VARIABLE PROPERTY FUNCTION MACRO KEYWORD COMMENT STRING NUMBER OPERATOR]);
+declare_legend!(LEGEND_TYPES : SemanticTokenType = [TYPE PARAMETER VARIABLE PROPERTY FUNCTION MACRO KEYWORD COMMENT STRING NUMBER OPERATOR ENUM ENUM_MEMBER]);
 declare_legend!(LEGEND_MODS: SemanticTokenModifier = [DEFINITION DECLARATION]);
 
 pub fn get_semantic_tokens(
@@ -58,6 +58,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::PropertyDeclaration => Some((self::KEYWORD, 0)),
                 SyntaxKind::Function => Some((self::KEYWORD, 0)),
                 SyntaxKind::PropertyAnimation => Some((self::KEYWORD, 0)),
+                SyntaxKind::EnumValue => Some((self::ENUM_MEMBER, 1 << self::DEFINITION)),
                 SyntaxKind::QualifiedName => match token.parent().parent()?.kind() {
                     SyntaxKind::Type => Some((self::TYPE, 0)),
                     // the base type
@@ -88,6 +89,7 @@ pub fn get_semantic_tokens(
                             None
                         }
                         SyntaxKind::StructDeclaration => Some((self::TYPE, 1 << self::DEFINITION)),
+                        SyntaxKind::EnumDeclaration => Some((self::ENUM, 1 << self::DEFINITION)),
                         _ => None,
                     }
                 }
@@ -133,6 +135,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::InternalName => Some((self::TYPE, 1 << self::DECLARATION)),
                 SyntaxKind::ObjectTypeMember => Some((self::PROPERTY, 1 << self::DEFINITION)),
                 SyntaxKind::StructDeclaration => Some((self::KEYWORD, 0)),
+                SyntaxKind::EnumDeclaration => Some((self::KEYWORD, 0)),
                 _ => None,
             },
             SyntaxKind::PlusEqual
