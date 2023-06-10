@@ -21,7 +21,7 @@ use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
 use std::cell::{Cell, RefCell};
 use std::collections::btree_map::Entry;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
 use std::rc::{Rc, Weak};
 
@@ -105,7 +105,25 @@ impl Document {
                 assert!(diag.has_error());
                 return;
             };
-            let values = n.EnumValue().filter_map(|v| parser::identifier_text(&v)).collect();
+            let mut existing_names = HashSet::new();
+            let values = n
+                .EnumValue()
+                .filter_map(|v| {
+                    let value = parser::identifier_text(&v)?;
+                    if value == name {
+                        diag.push_error(
+                            format!("Enum '{value}' can't have a value with the same name"),
+                            &v,
+                        );
+                        None
+                    } else if !existing_names.insert(crate::generator::to_pascal_case(&value)) {
+                        diag.push_error(format!("Duplicated enum value '{value}'"), &v);
+                        None
+                    } else {
+                        Some(value)
+                    }
+                })
+                .collect();
             let en = Enumeration { name: name.clone(), values, default_value: 0, node: Some(n) };
             let ty = Type::Enumeration(Rc::new(en));
             local_registry.insert_type_with_name(ty.clone(), name);
