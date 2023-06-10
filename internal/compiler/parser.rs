@@ -324,7 +324,7 @@ declare_syntax! {
     }
     // syntax kind
     {
-        Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration ],
+        Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration, *EnumDeclaration ],
         /// `DeclaredIdentifier := Element { ... }`
         Component -> [ DeclaredIdentifier, Element ],
         /// `id := Element { ... }`
@@ -429,8 +429,12 @@ declare_syntax! {
         ObjectTypeMember -> [ Type ],
         /// `[ type ]`
         ArrayType -> [ Type ],
-        /// `struct Foo := { ... }
+        /// `struct Foo { ... }`
         StructDeclaration -> [DeclaredIdentifier, ObjectType, ?AtRustAttr],
+        /// `enum Foo { bli, bla, blu }`
+        EnumDeclaration -> [DeclaredIdentifier, *EnumValue],
+        /// The value is a Identifier
+        EnumValue -> [],
         /// `@rust-attr(...)`
         AtRustAttr -> [],
     }

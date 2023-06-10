@@ -3,8 +3,7 @@
 
 use super::element::{parse_element, parse_element_content};
 use super::prelude::*;
-use super::r#type::parse_struct_declaration;
-use crate::parser::r#type::parse_rustattr;
+use super::r#type::{parse_enum_declaration, parse_rustattr, parse_struct_declaration};
 
 #[cfg_attr(test, parser_test)]
 /// ```test,Document
@@ -14,6 +13,7 @@ use crate::parser::r#type::parse_rustattr;
 /// component Q {} Type := Base {} export { Type }
 /// import { Base } from "somewhere"; Type := Base {}
 /// struct Foo { foo: foo }
+/// enum Foo { hello }
 /// /* empty */
 /// ```
 pub fn parse_document(p: &mut impl Parser) -> bool {
@@ -43,6 +43,11 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
             }
             "struct" => {
                 if !parse_struct_declaration(&mut *p) {
+                    break;
+                }
+            }
+            "enum" => {
+                if !parse_enum_declaration(&mut *p) {
                     break;
                 }
             }
@@ -185,6 +190,7 @@ pub fn parse_qualified_name(p: &mut impl Parser) -> bool {
 /// export { Type as Foo, AnotherType }
 /// export Foo := Item { }
 /// export struct Foo := { foo: bar }
+/// export enum Foo { bar }
 /// export * from "foo";
 /// ```
 fn parse_export(p: &mut impl Parser) -> bool {
@@ -214,6 +220,8 @@ fn parse_export(p: &mut impl Parser) -> bool {
         }
     } else if p.peek().as_str() == "struct" {
         parse_struct_declaration(&mut *p)
+    } else if p.peek().as_str() == "enum" {
+        parse_enum_declaration(&mut *p)
     } else if p.peek().kind == SyntaxKind::Star {
         let mut p = p.start_node(SyntaxKind::ExportModule);
         p.consume(); // *
