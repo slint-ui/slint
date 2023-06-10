@@ -19,6 +19,7 @@ All notable changes to this project are documented in this file.
 
 ### Slint Language
 
+ - Added support for declaring enumerations.
  - Support negative numbers in `cubic-bezier(...)` function.
  - Added `ProgressIndicator` widget.
  - Added `Switch` widget.

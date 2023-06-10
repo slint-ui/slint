@@ -203,6 +203,27 @@ export component Example {
 }
 ```
 
+## Enumerations
+
+Define an enumeration with the `enum` keyword:
+
+```slint,no-preview
+export enum CardSuit { clubs, diamonds, hearts, spade }
+
+export component Example {
+    in-out property<CardSuit> card: spade;
+    out property<bool> is-clubs: card == CardSuit.clubs;
+}
+```
+
+Enum values can be referenced by using the name of the enum and the name of the value
+separated by a dot. (eg: `CardSuit.spade`)
+
+The name of the enum can be omitted in bindings of the type of that enum, or if the
+return value of a callback is of that enum.
+
+The default value of each enum type is always the first value.
+
 ## Arrays and Models
 
 Arrays are declared by wrapping `[` and `]` square brackets around the type of the array elements.

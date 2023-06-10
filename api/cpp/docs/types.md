@@ -21,12 +21,13 @@ The follow table summarizes the entire mapping:
  :code:`relative-font-size`  :code:`float`                       Relative font size factor that is multiplied with the :code:`Window.default-font-size` and can be converted to a :code:`length`.
  structure                   A :code:`class` of the same name    The order of the data member are in the same as in the slint declaration
  anonymous object            A :code:`std::tuple`                The fields are in alphabetical order.
+ enum                        An :code:`enum class`               The values are always converted to CamelCase. The order of the values is the same as in the declaration.
 ===========================  ==================================  =======================================================================================================================================
 ```
 ## Structures
 
 The Slint compiler generates a `class` with all data members in
-lexicographic order for any user-defined, exported `struct` in the `.slint`
+the same order for any user-defined, exported `struct` in the `.slint`
 code.
 
 For example, this `struct` in a `.slint` file
@@ -46,4 +47,21 @@ public:
     int foo;
     slint::SharedString bar;
 };
+```
+
+## Enums
+
+The Slint compiler generates an `enum class` with all values in the same order and converted to camel case
+for any user-defined, exported `enum` in the `.slint` code.
+
+For example, this `enum` in a `.slint` file
+
+```slint,ignore
+export enum MyEnum { alpha, beta-gamma, omicron }
+```
+
+will generate the following type in C++:
+
+```cpp
+enum class MyEnum { Alpha, BetaGamma, Omicron };
 ```

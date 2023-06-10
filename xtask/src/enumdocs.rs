@@ -43,15 +43,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
 
     file.write_all(
         br#"<!-- Generated with `cargo xtask enumdocs` from internal/commons/enums.rs -->
-# Builtin Enums
-
-Enum value can be referenced by using the name of the enum and the name of the value
-separated by a dot. (eg: `TextHorizontalAlignment.left`)
-
-The name of the enum can be omitted in bindings of the type of that enum, or if the
-return value of a callback is of that enum.
-
-The default value of each enum type is always the first value.
+# Builtin Enumerations
 
 "#,
     )?;
