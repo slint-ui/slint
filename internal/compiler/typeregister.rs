@@ -56,6 +56,7 @@ macro_rules! declare_enums {
                         name: stringify!($Name).replace('_', "-"),
                         values: vec![$(crate::generator::to_kebab_case(stringify!($Value).trim_start_matches("r#"))),*],
                         default_value: 0,
+                        node: None,
                     })),*
                 }
             }

@@ -10,7 +10,7 @@ mod clip;
 mod collect_custom_fonts;
 mod collect_globals;
 mod collect_init_code;
-mod collect_structs;
+mod collect_structs_and_enums;
 mod collect_subcomponents;
 mod compile_paths;
 mod const_propagation;
@@ -202,7 +202,7 @@ pub async fn run_passes(
         remove_unused_properties::remove_unused_properties(component);
     }
 
-    collect_structs::collect_structs(doc);
+    collect_structs_and_enums::collect_structs_and_enums(doc);
 
     for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))

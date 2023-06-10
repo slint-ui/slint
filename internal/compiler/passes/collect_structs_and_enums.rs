@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 /// Fill the root_component's used_types.structs
-pub fn collect_structs(doc: &Document) {
+pub fn collect_structs_and_enums(doc: &Document) {
     let mut hash = BTreeMap::new();
 
     for (name, exp) in doc.exports.iter() {
@@ -22,22 +22,22 @@ pub fn collect_structs(doc: &Document) {
     for component in (doc.root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(&doc.root_component))
     {
-        collect_structs_in_component(component, &mut hash)
+        collect_types_in_component(component, &mut hash)
     }
 
     let mut used_types = doc.root_component.used_types.borrow_mut();
-    let used_struct = &mut used_types.structs;
-    *used_struct = Vec::with_capacity(hash.len());
+    let used_struct_and_enums = &mut used_types.structs_and_enums;
+    *used_struct_and_enums = Vec::with_capacity(hash.len());
     while let Some(next) = hash.iter().next() {
         // Here, using BTreeMap::pop_first would be great when it is stable
         let key = next.0.clone();
-        sort_struct(&mut hash, used_struct, &key);
+        sort_types(&mut hash, used_struct_and_enums, &key);
     }
 }
 
-fn collect_structs_in_component(root_component: &Rc<Component>, hash: &mut BTreeMap<String, Type>) {
+fn collect_types_in_component(root_component: &Rc<Component>, hash: &mut BTreeMap<String, Type>) {
     let mut maybe_collect_object = |ty: &Type| {
-        visit_named_object(ty, &mut |name, sub_ty| {
+        visit_declared_type(ty, &mut |name, sub_ty| {
             hash.entry(name.clone()).or_insert_with(|| sub_ty.clone());
         });
     };
@@ -52,6 +52,9 @@ fn collect_structs_in_component(root_component: &Rc<Component>, hash: &mut BTree
         expr.visit_recursive(&mut |expr| match expr {
             Expression::Struct { ty, .. } => maybe_collect_object(ty),
             Expression::Array { element_ty, .. } => maybe_collect_object(element_ty),
+            Expression::EnumerationValue(ev) => {
+                maybe_collect_object(&Type::Enumeration(ev.enumeration.clone()))
+            }
             _ => (),
         })
     });
@@ -59,7 +62,7 @@ fn collect_structs_in_component(root_component: &Rc<Component>, hash: &mut BTree
 
 /// Move the object named `key` from hash to vector, making sure that all object used by
 /// it are placed before in the vector
-fn sort_struct(hash: &mut BTreeMap<String, Type>, vec: &mut Vec<Type>, key: &str) {
+fn sort_types(hash: &mut BTreeMap<String, Type>, vec: &mut Vec<Type>, key: &str) {
     let ty = if let Some(ty) = hash.remove(key) { ty } else { return };
     if let Type::Struct { fields, name: Some(name), .. } = &ty {
         if name.contains("::") {
@@ -69,35 +72,43 @@ fn sort_struct(hash: &mut BTreeMap<String, Type>, vec: &mut Vec<Type>, key: &str
         }
 
         for sub_ty in fields.values() {
-            visit_named_object(sub_ty, &mut |name, _| sort_struct(hash, vec, name));
+            visit_declared_type(sub_ty, &mut |name, _| sort_types(hash, vec, name));
         }
     }
     vec.push(ty)
 }
 
-fn visit_named_object(ty: &Type, visitor: &mut impl FnMut(&String, &Type)) {
+/// Will call the `visitor` for every named struct or enum that is not builtin
+fn visit_declared_type(ty: &Type, visitor: &mut impl FnMut(&String, &Type)) {
     match ty {
-        Type::Struct { fields, name, .. } => {
-            if let Some(struct_name) = name.as_ref() {
-                visitor(struct_name, ty);
+        Type::Struct { fields, name, node, .. } => {
+            if node.is_some() {
+                if let Some(struct_name) = name.as_ref() {
+                    visitor(struct_name, ty);
+                }
             }
             for sub_ty in fields.values() {
-                visit_named_object(sub_ty, visitor);
+                visit_declared_type(sub_ty, visitor);
             }
         }
-        Type::Array(x) => visit_named_object(x, visitor),
+        Type::Array(x) => visit_declared_type(x, visitor),
         Type::Callback { return_type, args } => {
             if let Some(rt) = return_type {
-                visit_named_object(rt, visitor);
+                visit_declared_type(rt, visitor);
             }
             for a in args {
-                visit_named_object(a, visitor);
+                visit_declared_type(a, visitor);
             }
         }
         Type::Function { return_type, args } => {
-            visit_named_object(return_type, visitor);
+            visit_declared_type(return_type, visitor);
             for a in args {
-                visit_named_object(a, visitor);
+                visit_declared_type(a, visitor);
+            }
+        }
+        Type::Enumeration(en) => {
+            if en.node.is_some() {
+                visitor(&en.name, ty)
             }
         }
         _ => {}

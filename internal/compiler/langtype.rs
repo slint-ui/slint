@@ -722,6 +722,8 @@ pub struct Enumeration {
     pub name: String,
     pub values: Vec<String>,
     pub default_value: usize, // index in values
+    // For non-builtins enums, this is the declaration node
+    pub node: Option<syntax_nodes::EnumDeclaration>,
 }
 
 impl PartialEq for Enumeration {
