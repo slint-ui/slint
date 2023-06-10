@@ -15,9 +15,9 @@ export component TestCase  {
 let instance = TestCase::new().unwrap();
 
 assert_eq!(instance.get_foo(), Foo::Bla);
-instance.set_foo(Foo::blu);
-
 assert!(instance.get_test());
+instance.set_foo(Foo::Blu);
+assert!(!instance.get_test());
 
 ```
 
@@ -25,30 +25,10 @@ assert!(instance.get_test());
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
-assert_eq(instance.get_player_1().score, 12.);
-auto [ name, score, energy_level ] = instance.get_player_2();
-assert_eq(name, "Player2");
-assert_eq(score, 24);
-auto super_player = Player{ "Super Player", 99, 0.44 };
-instance.set_player_2(super_player);
-assert_eq(instance.get_player_2().name, "Super Player");
-
-assert_eq(instance.get_player_2_score(), 99);
-
-Unused _unused { .foo = 42 };
-(void)_unused;
-```
-
-```js
-var instance = new slint.TestCase();
-assert.equal(instance.player_1.score, 12.);
-let player2 = instance.player_2
-assert.equal(player2.name, "Player2");
-let super_player = { name: "Super Player", score: 99, energy_level: 0.4 };
-instance.player_2 = super_player;
-assert.equal(instance.player_2.name, "Super Player");
-assert.equal(instance.player_2_score, 99);
-assert.equal(instance.player_2.energy_level, 0.4);
+assert(instance.get_foo() == Foo::Bla);
+assert(instance.get_test());
+instance.set_foo(Foo::Blu);
+assert(!instance.get_test());
 ```
 
 */

@@ -13,7 +13,7 @@ Some convention used in the generated code:
 */
 
 use crate::expression_tree::{BuiltinFunction, EasingCurve, OperatorClass};
-use crate::langtype::{ElementType, Type};
+use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::layout::Orientation;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, Expression, ParentCtx as llr_ParentCtx,
@@ -93,8 +93,12 @@ fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             Some(quote!(slint::private_unstable_api::re_exports::ModelRc<#inner>))
         }
         Type::Enumeration(e) => {
-            let e = ident(&e.name);
-            Some(quote!(slint::private_unstable_api::re_exports::#e))
+            let i = ident(&e.name);
+            if e.node.is_some() {
+                Some(quote!(#i))
+            } else {
+                Some(quote!(slint::private_unstable_api::re_exports::#i))
+            }
         }
         Type::Brush => Some(quote!(slint::Brush)),
         Type::LayoutCache => Some(quote!(
@@ -133,18 +137,18 @@ fn set_primitive_property_value(ty: &Type, value_expression: TokenStream) -> Tok
 
 /// Generate the rust code for the given component.
 pub fn generate(doc: &Document) -> TokenStream {
-    let (structs_ids, structs): (Vec<_>, Vec<_>) = doc
+    let (structs_and_enums_ids, structs_and_enum_def): (Vec<_>, Vec<_>) = doc
         .root_component
         .used_types
         .borrow()
-        .structs
+        .structs_and_enums
         .iter()
-        .filter_map(|ty| {
-            if let Type::Struct { fields, name: Some(name), node: Some(_), rust_attributes } = ty {
+        .filter_map(|ty| match ty {
+            Type::Struct { fields, name: Some(name), node: Some(_), rust_attributes } => {
                 Some((ident(name), generate_struct(name, fields, rust_attributes)))
-            } else {
-                None
             }
+            Type::Enumeration(en) => Some((ident(&en.name), generate_enum(en))),
+            _ => None,
         })
         .unzip();
 
@@ -310,14 +314,14 @@ pub fn generate(doc: &Document) -> TokenStream {
                                           // according to clippy!
         mod #compo_module {
             use slint::private_unstable_api::re_exports::*;
-            #(#structs)*
+            #(#structs_and_enum_def)*
             #(#globals)*
             #(#sub_compos)*
             #compo
             #(#resource_symbols)*
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
-        pub use #compo_module::{#compo_id #(,#structs_ids)* #(,#globals_ids)* };
+        pub use #compo_module::{#compo_id #(,#structs_and_enums_ids)* #(,#globals_ids)* };
         pub use slint::{ComponentHandle as _, Global as _, ModelExt as _};
     }
 }
@@ -456,6 +460,25 @@ fn generate_struct(
         #[derive(Default, PartialEq, Debug, Clone)]
         pub struct #component_id {
             #(pub #declared_property_vars : #declared_property_types),*
+        }
+    }
+}
+
+fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
+    let enum_name = ident(&en.name);
+
+    let enum_values = (0..en.values.len()).map(|value| {
+        let i = ident(&EnumerationValue { value, enumeration: en.clone() }.to_pascal_case());
+        if value == en.default_value {
+            quote!(#[default] #i)
+        } else {
+            quote!(#i)
+        }
+    });
+    quote! {
+        #[derive(Default, Copy, Clone, PartialEq, Debug)]
+        pub enum #enum_name {
+            #(#enum_values,)*
         }
     }
 }
@@ -2233,7 +2256,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::EnumerationValue(value) => {
             let base_ident = ident(&value.enumeration.name);
             let value_ident = ident(&value.to_pascal_case());
-            quote!(slint::private_unstable_api::re_exports::#base_ident::#value_ident)
+            if value.enumeration.node.is_some() {
+                quote!(#base_ident::#value_ident)
+            } else {
+                quote!(slint::private_unstable_api::re_exports::#base_ident::#value_ident)
+            }
         }
         Expression::ReturnStatement(expr) => {
             let return_expr = expr.as_ref().map(|expr| compile_expression(expr, ctx));

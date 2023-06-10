@@ -104,6 +104,7 @@ mod cpp_ast {
         Function(Function),
         Var(Var),
         TypeAlias(TypeAlias),
+        Enum(Enum),
     }
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -169,6 +170,26 @@ mod cpp_ast {
                 }
                 _ => None,
             })
+        }
+    }
+
+    #[derive(Default, Debug)]
+    pub struct Enum {
+        pub name: String,
+        pub values: Vec<String>,
+    }
+
+    impl Display for Enum {
+        fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+            indent(f)?;
+            writeln!(f, "enum class {} {{", self.name)?;
+            INDENTATION.with(|x| x.set(x.get() + 1));
+            for value in &self.values {
+                write!(f, "{value},")?;
+            }
+            INDENTATION.with(|x| x.set(x.get() - 1));
+            indent(f)?;
+            writeln!(f, "}};")
         }
     }
 
@@ -287,7 +308,7 @@ mod cpp_ast {
 }
 
 use crate::expression_tree::{BuiltinFunction, EasingCurve};
-use crate::langtype::{ElementType, NativeClass, Type};
+use crate::langtype::{ElementType, Enumeration, EnumerationValue, NativeClass, Type};
 use crate::layout::Orientation;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, ParentCtx as llr_ParentCtx,
@@ -335,7 +356,11 @@ impl CppType for Type {
             Type::Array(i) => Some(format!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?)),
             Type::Image => Some("slint::Image".to_owned()),
             Type::Enumeration(enumeration) => {
-                Some(format!("slint::cbindgen_private::{}", ident(&enumeration.name)))
+                if enumeration.node.is_some() {
+                    Some(ident(&enumeration.name))
+                } else {
+                    Some(format!("slint::cbindgen_private::{}", ident(&enumeration.name)))
+                }
             }
             Type::Brush => Some("slint::Brush".to_owned()),
             Type::LayoutCache => Some("slint::SharedVector<float>".into()),
@@ -578,9 +603,15 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
         }
     }
 
-    for ty in doc.root_component.used_types.borrow().structs.iter() {
-        if let Type::Struct { fields, name: Some(name), node: Some(node), .. } = ty {
-            generate_struct(&mut file, name, fields, node);
+    for ty in doc.root_component.used_types.borrow().structs_and_enums.iter() {
+        match ty {
+            Type::Struct { fields, name: Some(name), node: Some(node), .. } => {
+                generate_struct(&mut file, name, fields, node);
+            }
+            Type::Enumeration(en) => {
+                generate_enum(&mut file, en);
+            }
+            _ => (),
         }
     }
 
@@ -674,6 +705,17 @@ fn generate_struct(
         name: name.into(),
         members,
         ..Default::default()
+    }))
+}
+
+fn generate_enum(file: &mut File, en: &std::rc::Rc<Enumeration>) {
+    file.declarations.push(Declaration::Enum(Enum {
+        name: ident(&en.name),
+        values: (0..en.values.len())
+            .map(|value| {
+                ident(&EnumerationValue { value, enumeration: en.clone() }.to_pascal_case())
+            })
+            .collect(),
     }))
 }
 
@@ -2587,8 +2629,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         }
         Expression::EnumerationValue(value) => {
+            let prefix = if value.enumeration.node.is_some() { "" } else {"slint::cbindgen_private::"};
             format!(
-                "slint::cbindgen_private::{}::{}",
+                "{prefix}{}::{}",
                 value.enumeration.name,
                 ident(&value.to_pascal_case()),
             )

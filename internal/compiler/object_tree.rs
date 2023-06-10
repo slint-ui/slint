@@ -109,7 +109,7 @@ impl Document {
                 return;
             };
             let values = n.EnumValue().filter_map(|v| parser::identifier_text(&v)).collect();
-            let en = Enumeration { name: name.clone(), values, default_value: 0 };
+            let en = Enumeration { name: name.clone(), values, default_value: 0, node: Some(n) };
             let ty = Type::Enumeration(Rc::new(en));
             local_registry.insert_type_with_name(ty, name);
             //inner_structs.push(ty);
@@ -245,8 +245,8 @@ type ChildrenInsertionPoint = (ElementRc, syntax_nodes::ChildrenPlaceholder);
 pub struct UsedSubTypes {
     /// All the globals used by the component and its children.
     pub globals: Vec<Rc<Component>>,
-    /// All the structs used by the component and its children.
-    pub structs: Vec<Type>,
+    /// All the structs and enums used by the component and its children.
+    pub structs_and_enums: Vec<Type>,
     /// All the sub components use by this components and its children,
     /// and the amount of time it is used
     pub sub_components: Vec<Rc<Component>>,
