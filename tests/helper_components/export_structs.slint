@@ -6,6 +6,8 @@ struct NotExportedStruct0 := { a: int }
 struct NotExportedStruct1 := { b: int, c: NotExportedStruct0 }
 struct NotExportedStruct2 := { z: int }
 
+export enum ExportEnum { Hello, Bonjour }
+
 export struct ExportedStruct := { d: int, e: NotExportedStruct0 }
 
 export UseStruct := Rectangle {

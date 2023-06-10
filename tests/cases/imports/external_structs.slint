@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 //include_path: ../../helper_components
-import { UseStruct , ExportedStruct } from "export_structs.slint";
+import { UseStruct , ExportedStruct, ExportEnum } from "export_structs.slint";
 TestCase := Rectangle {
     property <ExportedStruct> exp: { d: 3001, e: {a: 2001} };
     u := UseStruct {
         exp: { d: 3002, e: {a: 2002} };
         nexp: { b: 3003, c: {a: 2003} };
     }
+    out property<bool> xx: ExportEnum.Hello != ExportEnum.Bonjour;
     property<int> p1: u.nexp.c.a;
 }
 /*
