@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+enum Xyz {
+    hello-hello,
+    HelloHello,
+//  ^error{Duplicated enum value 'HelloHello'}
+    Abc,
+    Cde,
+    Abc,
+//  ^error{Duplicated enum value 'Abc'}
+    cde,
+//  ^error{Duplicated enum value 'cde'}
+    CDE, // this one is not duplicated
+    Xyz,
+//  ^error{Enum 'Xyz' can't have a value with the same name}
+    c-dE
+//  ^error{Duplicated enum value 'c-dE'}
+}
+
