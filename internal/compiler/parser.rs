@@ -406,7 +406,7 @@ declare_syntax! {
         /// There is an identifier "in" or "out", the DeclaredIdentifier is the state name
         Transition -> [?DeclaredIdentifier, *PropertyAnimation],
         /// Export a set of declared components by name
-        ExportsList -> [ *ExportSpecifier, ?Component, *StructDeclaration, *ExportModule ],
+        ExportsList -> [ *ExportSpecifier, ?Component, *StructDeclaration, *ExportModule, *EnumDeclaration ],
         /// Declare the first identifier to be exported, either under its name or instead
         /// under the name of the second identifier.
         ExportSpecifier -> [ ExportIdentifier, ?ExportName ],
