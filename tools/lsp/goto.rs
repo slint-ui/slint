@@ -29,6 +29,7 @@ pub fn goto_definition(
                     let doc = document_cache.documents.get_document(node.source_file.path())?;
                     match doc.local_registry.lookup_qualified(&qual.members) {
                         Type::Struct { node: Some(node), .. } => goto_node(node.parent().as_ref()?),
+                        Type::Enumeration(e) => goto_node(e.node.as_ref()?),
                         _ => None,
                     }
                 }
@@ -89,6 +90,14 @@ pub fn goto_definition(
                                 }
                             }
                         }
+                        LookupResult::Expression {
+                            expression: Expression::EnumerationValue(v),
+                            ..
+                        } => {
+                            // FIXME: this goes to the enum definition instead of the value definition.
+                            v.enumeration.node.clone()?.into()
+                        }
+                        LookupResult::Enumeration(e) => e.node.clone()?.into(),
                         _ => return None,
                     };
                     goto_node(&gn)

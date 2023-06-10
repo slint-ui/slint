@@ -25,6 +25,7 @@
       <item>export</item>
       <item>global</item>
       <item>struct</item>
+      <item>enum</item>
       <item>component</item>
       <item>inherits</item>
       <item>property</item>

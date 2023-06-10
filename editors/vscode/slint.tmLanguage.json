@@ -13,7 +13,7 @@
                     "include": "#general"
                 },
                 {
-                    "match": "\\b(import|from|export|struct|global|component|inherits)\\b",
+                    "match": "\\b(import|from|export|struct|enum|global|component|inherits)\\b",
                     "name": "keyword"
                 },
                 {
