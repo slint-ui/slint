@@ -36,6 +36,7 @@ module.exports = grammar({
                 field("export", optional($._export_modifier)),
                 choice(
                     $.struct_definition,
+                    $.enum_definition,
                     $.global_definition,
                     $.component_definition,
                 ),
@@ -203,6 +204,18 @@ module.exports = grammar({
                 field("name", $._type_identifier),
                 optional(":="), // old syntax!
                 $.type_anon_struct,
+            ),
+
+        enum_definition: ($) =>
+            seq(
+                "enum",
+                field("name", $._type_identifier),
+                "{",
+                commaSep(
+                    field("name", $.var_identifier),
+                ),
+                optional(","),
+                "}",
             ),
 
         anon_struct: ($) =>
