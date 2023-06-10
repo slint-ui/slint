@@ -994,7 +994,7 @@ pub(crate) fn generate_component<'id>(
                             $(
                                 stringify!($Name) => property_info::<i_slint_core::items::$Name>(),
                             )*
-                            _ => panic!("unknown enum"),
+                            _ => property_info::<Value>(),
                         }
                     }
                 }
@@ -1303,8 +1303,10 @@ pub fn instantiate(
 
     // Some properties are generated as Value, but for which the default constructed Value must be initialized
     for (prop_name, decl) in &component_type.original.root_element.borrow().property_declarations {
-        if !matches!(decl.property_type, Type::Struct { .. } | Type::Array(_))
-            || decl.is_alias.is_some()
+        if !matches!(
+            decl.property_type,
+            Type::Struct { .. } | Type::Array(_) | Type::Enumeration(_)
+        ) || decl.is_alias.is_some()
         {
             continue;
         }

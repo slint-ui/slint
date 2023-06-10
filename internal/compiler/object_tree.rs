@@ -11,7 +11,7 @@ use itertools::{Either, Itertools};
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
-use crate::langtype::{BuiltinElement, NativeClass, Type};
+use crate::langtype::{BuiltinElement, Enumeration, NativeClass, Type};
 use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
@@ -101,6 +101,19 @@ impl Document {
                 local_registry.insert_type(ty.clone());
                 inner_structs.push(ty);
             };
+        let process_enum = |n: syntax_nodes::EnumDeclaration,
+                            diag: &mut BuildDiagnostics,
+                            local_registry: &mut TypeRegister| {
+            let Some(name) = parser::identifier_text(&n.DeclaredIdentifier()) else {
+                assert!(diag.has_error());
+                return;
+            };
+            let values = n.EnumValue().filter_map(|v| parser::identifier_text(&v)).collect();
+            let en = Enumeration { name: name.clone(), values, default_value: 0 };
+            let ty = Type::Enumeration(Rc::new(en));
+            local_registry.insert_type_with_name(ty, name);
+            //inner_structs.push(ty);
+        };
 
         for n in node.children() {
             match n.kind() {
@@ -108,6 +121,7 @@ impl Document {
                 SyntaxKind::StructDeclaration => {
                     process_struct(n.into(), diag, &mut local_registry)
                 }
+                SyntaxKind::EnumDeclaration => process_enum(n.into(), diag, &mut local_registry),
                 SyntaxKind::ExportsList => {
                     for n in n.children() {
                         match n.kind() {
@@ -116,6 +130,9 @@ impl Document {
                             }
                             SyntaxKind::StructDeclaration => {
                                 process_struct(n.into(), diag, &mut local_registry)
+                            }
+                            SyntaxKind::EnumDeclaration => {
+                                process_enum(n.into(), diag, &mut local_registry)
                             }
                             _ => {}
                         }
@@ -1653,7 +1670,7 @@ pub fn type_from_node(
     }
 }
 
-/// Create a Type::Object from a syntax_nodes::ObjectType
+/// Create a [`Type::Struct`] from a [`syntax_nodes::ObjectType`]
 pub fn type_struct_from_node(
     object_node: syntax_nodes::ObjectType,
     diag: &mut BuildDiagnostics,

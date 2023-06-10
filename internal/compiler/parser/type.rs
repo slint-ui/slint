@@ -86,6 +86,37 @@ pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
     true
 }
 
+#[cfg_attr(test, parser_test)]
+/// ```test,EnumDeclaration
+/// enum Foo {}
+/// enum Foo { el1 }
+/// enum Foo { el1, xxx, yyy }
+/// ```
+pub fn parse_enum_declaration(p: &mut impl Parser) -> bool {
+    debug_assert_eq!(p.peek().as_str(), "enum");
+    let mut p = p.start_node(SyntaxKind::EnumDeclaration);
+    p.consume(); // "enum"
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+
+    if !p.expect(SyntaxKind::LBrace) {
+        return false;
+    }
+    while p.nth(0).kind() != SyntaxKind::RBrace {
+        {
+            let mut p = p.start_node(SyntaxKind::EnumValue);
+            p.expect(SyntaxKind::Identifier);
+        }
+        if !p.test(SyntaxKind::Comma) {
+            break;
+        }
+    }
+    p.expect(SyntaxKind::RBrace);
+    true
+}
+
 pub fn parse_rustattr(p: &mut impl Parser) -> bool {
     let checkpoint = p.checkpoint();
     debug_assert_eq!(p.peek().as_str(), "@");
