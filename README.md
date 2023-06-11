@@ -207,11 +207,11 @@ request to add yours)
 
 ## License
 
-Slint is available under either a [proprietary license](LICENSES/LicenseRef-Slint-commercial.md)
-or [GNU GPLv3](LICENSES/GPL-3.0-only.txt)
+You can use Slint under ***any*** of the following licenses, at your choice:
 
-The proprietary license is provided free-of-charge in exchange for (1) consent that we can showcase the application, (2) attribution of Slint in the application and (3) feedback to improve Slint.
-Check out our [ambassador program](https://slint-ui.com/ambassador-program.html).
+1. [Royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-1.0.md),
+2. [GNU GPLv3](LICENSES/GPL-3.0-only.txt),
+3. [Paid license](https://slint.dev/pricing.html).
 
 See also the [Licensing FAQ](FAQ.md#licensing)
 
