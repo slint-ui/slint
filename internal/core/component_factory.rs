@@ -31,7 +31,7 @@ impl Debug for ComponentFactoryInner {
 
 /// A `ComponentFactory` can be used to create new Components at runtime,
 /// taking a factory function with no arguments and returning
-/// any `ComponentHandle<T>`.
+/// a [`ComponentHandle`].
 ///
 /// A `ComponentFactory` implements the `component-factory` type for
 /// properties in the Slint language.
