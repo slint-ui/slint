@@ -34,10 +34,10 @@ impl Debug for ComponentFactoryInner {
 /// any `ComponentHandle<T>`.
 ///
 /// A `ComponentFactory` implements the `component-factory` type for
-/// properties of the Slint language.
+/// properties in the Slint language.
 ///
-/// The `component-factory` is used by an `Embed` element in the Slint UI to
-/// embed UI elements based on the produced component below the `Embed` element.
+/// The `component-factory` is used by an `Embed` element in Slint files to
+/// embed UI elements based on the produced component within the `Embed` element.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ComponentFactory(Option<ComponentFactoryInner>);
 
