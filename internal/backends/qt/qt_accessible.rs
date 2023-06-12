@@ -275,10 +275,9 @@ cpp! {{
         Descendents(void *root_item) {
             rustDescendents = rust!(Descendents_ctor [root_item: *mut c_void as "void*"] ->
                     SharedVector<ItemRc> as "void*" {
-                let mut descendents = SharedVector::default();
                 i_slint_core::accessibility::accessible_descendents(
-                        &*(root_item as *mut ItemRc), &mut descendents);
-                descendents
+                        &*(root_item as *mut ItemRc))
+                .collect()
             });
         }
 
