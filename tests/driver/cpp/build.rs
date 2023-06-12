@@ -45,6 +45,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for testcase in test_driver_lib::collect_test_cases("cases")? {
         let test_function_name = testcase.identifier();
 
+        if &test_function_name == "elements_embed" {
+            // FIXME: Skip embedding test on C++ since ComponentFactory is not
+            // implemented there!
+            continue;
+        }
+
         write!(
             tests_file,
             r##"
