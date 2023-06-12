@@ -31,8 +31,10 @@ mod renderer {
     #[cfg(feature = "renderer-linuxkms-femtovg")]
     pub mod femtovg;
 
-    pub fn try_skia_then_femtovg(
-    ) -> Result<Box<dyn crate::fullscreenwindowadapter::Renderer>, i_slint_core::platform::PlatformError> {
+    pub fn try_skia_then_femtovg() -> Result<
+        Box<dyn crate::fullscreenwindowadapter::Renderer>,
+        i_slint_core::platform::PlatformError,
+    > {
         #[allow(unused_assignments)]
         let mut result = Err(format!("No renderer configured").into());
 
@@ -45,8 +47,7 @@ mod renderer {
         }
 
         #[cfg(feature = "renderer-linuxkms-femtovg")]
-        if result.is_err()
-        {
+        if result.is_err() {
             result = femtovg::FemtoVGRendererAdapter::new();
         }
 

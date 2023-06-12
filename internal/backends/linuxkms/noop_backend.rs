@@ -5,6 +5,9 @@ use i_slint_core::platform::PlatformError;
 pub struct Backend {}
 
 impl Backend {
+    pub fn new() -> Self {
+        Self::new_with_renderer_by_name(None)
+    }
     pub fn new_with_renderer_by_name(_renderer_name: Option<&str>) -> Self {
         Backend {}
     }

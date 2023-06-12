@@ -72,6 +72,9 @@ pub struct Backend {
 }
 
 impl Backend {
+    pub fn new() -> Self {
+        Self::new_with_renderer_by_name(None)
+    }
     pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Self {
         let (user_event_sender, user_event_receiver) = calloop::channel::channel();
 

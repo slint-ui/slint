@@ -42,9 +42,7 @@ impl i_slint_core::window::WindowAdapterSealed for FullscreenWindowAdapter {
 }
 
 impl FullscreenWindowAdapter {
-    pub fn new(
-        renderer: Box<dyn Renderer>,
-    ) -> Result<Rc<Self>, PlatformError> {        
+    pub fn new(renderer: Box<dyn Renderer>) -> Result<Rc<Self>, PlatformError> {
         Ok(Rc::<FullscreenWindowAdapter>::new_cyclic(|self_weak| FullscreenWindowAdapter {
             window: i_slint_core::api::Window::new(self_weak.clone()),
             renderer,

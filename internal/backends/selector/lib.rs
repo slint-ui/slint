@@ -3,7 +3,14 @@
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
-#![cfg_attr(not(any(feature = "i-slint-backend-qt", feature = "i-slint-backend-winit")), no_std)]
+#![cfg_attr(
+    not(any(
+        feature = "i-slint-backend-qt",
+        feature = "i-slint-backend-winit",
+        feature = "i-slint-backend-linuxkms"
+    )),
+    no_std
+)]
 
 extern crate alloc;
 
