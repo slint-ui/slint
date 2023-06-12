@@ -21,21 +21,21 @@ template<typename Component>
 inline void send_mouse_click(const Component *component, float x, float y)
 {
     auto crc = *component->self_weak.into_dyn().lock();
-    cbindgen_private::slint_send_mouse_click(&crc, x, y, &component->m_window.window_handle());
+    cbindgen_private::slint_send_mouse_click(&crc, x, y, &component->window().window_handle());
 }
 
 template<typename Component>
 inline void send_keyboard_char(const Component *component, const slint::SharedString &str,
                                bool pressed)
 {
-    cbindgen_private::slint_send_keyboard_char(&str, pressed, &component->m_window.window_handle());
+    cbindgen_private::slint_send_keyboard_char(&str, pressed, &component->window().window_handle());
 }
 
 template<typename Component>
 inline void send_keyboard_string_sequence(const Component *component,
                                           const slint::SharedString &str)
 {
-    cbindgen_private::send_keyboard_string_sequence(&str, &component->m_window.window_handle());
+    cbindgen_private::send_keyboard_string_sequence(&str, &component->window().window_handle());
 }
 
 #define assert_eq(A, B)                                                                            \
