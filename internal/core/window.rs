@@ -164,12 +164,11 @@ pub trait WindowAdapterSealed {
     ///
     /// The default implementation does nothing
     ///
-    /// Called from [`Window::set_size`], but contrary to it, does not change report the size to the Slint's Window element
+    /// Called from [`Window::set_size`]
     ///
-    /// When you recieve a resize event from the windowing system, the platform implementation should call
-    /// [`Window::set_size`] to communicate the new window size to Slint.
-    /// [`Window::set_size`] will call this function again, so you must be prepared to get recursions.
-    // FIXME: before making that public, we need to add a WindowEvent::Resized to avoid the above recursion
+    /// This function should sent the size to the Windowing system. If the window size actually changes, you
+    /// should dispatch a [`WindowEvent::Resized`](crate::platform::WindowEvent::Resized) using
+    /// [`Window::dispatch_event()`] to propagate the new size to the slint view
     fn set_size(&self, _size: WindowSize) {}
     /// Return the size of the Window on the screen
     fn size(&self) -> PhysicalSize;
