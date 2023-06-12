@@ -19,6 +19,8 @@ build-time = ["i-slint-compiler", "spin_on"]
 [dependencies]
 slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-0"] }
 i-slint-backend-testing = { path = "../../../internal/backends/testing" }
+slint-interpreter = { path = "../../../internal/interpreter", default-features = false, features = ["std", "compat-1-0"] }
+spin_on = "0.1"
 
 [build-dependencies]
 i-slint-compiler = { path = "../../../internal/compiler", features = ["rust", "display-diagnostics"], optional = true }
