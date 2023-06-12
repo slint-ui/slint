@@ -53,6 +53,9 @@ mod renderer {
     pub(crate) mod sw;
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+mod accesskit;
+
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm_input_helper;
 

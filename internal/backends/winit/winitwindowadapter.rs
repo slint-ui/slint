@@ -35,9 +35,6 @@ use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use once_cell::unsync::OnceCell;
 
-#[cfg(not(target_arch = "wasm32"))]
-mod accesskit;
-
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
         corelib::api::WindowPosition::Logical(pos) => {
@@ -127,7 +124,7 @@ pub struct WinitWindowAdapter {
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub accesskit_adapter: accesskit::AccessKitAdapter,
+    pub accesskit_adapter: crate::accesskit::AccessKitAdapter,
 }
 
 impl WinitWindowAdapter {
@@ -157,7 +154,10 @@ impl WinitWindowAdapter {
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
             #[cfg(not(target_arch = "wasm32"))]
-            accesskit_adapter: accesskit::AccessKitAdapter::new(self_weak.clone(), &*winit_window),
+            accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
+                self_weak.clone(),
+                &*winit_window,
+            ),
         });
 
         let id = self_rc.winit_window().id();
