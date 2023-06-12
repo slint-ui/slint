@@ -409,7 +409,7 @@ impl Window {
     /// Returns the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     pub fn position(&self) -> PhysicalPosition {
-        self.0.window_adapter().position()
+        self.0.window_adapter().position().unwrap_or_default()
     }
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including

@@ -1782,7 +1782,7 @@ impl WindowAdapterSealed for QtWindow {
         }
     }
 
-    fn position(&self) -> i_slint_core::api::PhysicalPosition {
+    fn position(&self) -> Option<i_slint_core::api::PhysicalPosition> {
         let widget_ptr = self.widget_ptr();
         let qp = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QPoint as "QPoint" {
             return widget_ptr->pos();
@@ -1790,6 +1790,7 @@ impl WindowAdapterSealed for QtWindow {
         // Qt returns logical coordinates, so scale those!
         i_slint_core::api::LogicalPosition::new(qp.x as _, qp.y as _)
             .to_physical(self.window().scale_factor())
+            .into()
     }
 
     fn set_position(&self, position: i_slint_core::api::WindowPosition) {

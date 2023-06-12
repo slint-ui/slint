@@ -144,12 +144,12 @@ pub trait WindowAdapterSealed {
     /// Returns the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     ///
-    /// The default implementation returns `(0,0)`
+    /// The default implementation returns `None`
     ///
     /// Called from [`Window::position()`]
-    // TODO: return an option, Make public
-    fn position(&self) -> PhysicalPosition {
-        Default::default()
+    // TODO: Make public
+    fn position(&self) -> Option<PhysicalPosition> {
+        None
     }
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
@@ -1145,7 +1145,7 @@ pub mod ffi {
         pos: &mut euclid::default::Point2D<i32>,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        *pos = window_adapter.position().to_euclid()
+        *pos = window_adapter.position().unwrap_or_default().to_euclid()
     }
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including

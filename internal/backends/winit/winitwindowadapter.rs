@@ -602,12 +602,12 @@ impl WindowAdapterSealed for WinitWindowAdapter {
         self
     }
 
-    fn position(&self) -> corelib::api::PhysicalPosition {
+    fn position(&self) -> Option<corelib::api::PhysicalPosition> {
         match self.winit_window().outer_position() {
             Ok(outer_position) => {
-                corelib::api::PhysicalPosition::new(outer_position.x, outer_position.y)
+                Some(corelib::api::PhysicalPosition::new(outer_position.x, outer_position.y))
             }
-            Err(_) => Default::default(),
+            Err(_) => None,
         }
     }
 
