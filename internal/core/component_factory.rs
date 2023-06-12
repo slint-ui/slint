@@ -3,11 +3,7 @@
 
 #![warn(missing_docs)]
 
-//! This module defines a `ComponentFactory`, which is intended to be passed
-//! around in properties. So it can get cloned and is comparable.
-//!
-//! The Factory is used to create new components that can be embedded into
-//! the UI.
+//! This module defines a `ComponentFactory` and related code.
 use core::fmt::Debug;
 
 use alloc::boxed::Box;
@@ -33,7 +29,15 @@ impl Debug for ComponentFactoryInner {
     }
 }
 
-/// A Box containing a `ComponentFactory` (or nothing)
+/// A `ComponentFactory` can be used to create new Components at runtime,
+/// taking a factory function with no arguments and returning
+/// a [`ComponentHandle`].
+///
+/// A `ComponentFactory` implements the `component-factory` type for
+/// properties in the Slint language.
+///
+/// The `component-factory` is used by an `Embed` element in Slint files to
+/// embed UI elements based on the produced component within the `Embed` element.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ComponentFactory(Option<ComponentFactoryInner>);
 
