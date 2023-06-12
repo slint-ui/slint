@@ -212,7 +212,7 @@ pub extern "C" fn slint_interpreter_value_to_image(val: &ValueOpaque) -> Option<
 pub struct StructOpaque([usize; 6]);
 #[repr(C)]
 #[cfg(target_pointer_width = "32")]
-pub struct StructOpaque([usize; 8]);
+pub struct StructOpaque([u64; 4]);
 /// Asserts that StructOpaque is at least as large as Struct, otherwise this would overflow
 const _: usize = std::mem::size_of::<StructOpaque>() - std::mem::size_of::<Struct>();
 const _: usize = std::mem::align_of::<StructOpaque>() - std::mem::align_of::<Struct>();
