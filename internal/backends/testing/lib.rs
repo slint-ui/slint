@@ -79,14 +79,6 @@ impl WindowAdapterSealed for TestingWindow {
         self
     }
 
-    fn position(&self) -> i_slint_core::api::PhysicalPosition {
-        unimplemented!()
-    }
-
-    fn set_position(&self, _position: i_slint_core::api::WindowPosition) {
-        unimplemented!()
-    }
-
     fn size(&self) -> PhysicalSize {
         self.size.get()
     }

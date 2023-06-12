@@ -514,7 +514,7 @@ declare_types! {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
             let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let pos = window_adapter.position().to_logical(window_adapter.window().scale_factor());
+            let pos = window_adapter.position().unwrap_or_default().to_logical(window_adapter.window().scale_factor());
 
             let point_object = JsObject::new(&mut cx);
             let x_value = JsNumber::new(&mut cx, pos.x).as_value(&mut cx);
@@ -528,7 +528,7 @@ declare_types! {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
             let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let pos = window_adapter.position();
+            let pos = window_adapter.position().unwrap_or_default();
 
             let point_object = JsObject::new(&mut cx);
             let x_value = JsNumber::new(&mut cx, pos.x).as_value(&mut cx);
