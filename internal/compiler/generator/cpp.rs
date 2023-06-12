@@ -732,9 +732,8 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         // FIXME: many of the different component bindings need to access this
         Access::Public,
         Declaration::Var(Var {
-            ty: "slint::Window".into(),
+            ty: "std::optional<slint::Window>".into(),
             name: "m_window".into(),
-            init: Some("slint::Window{slint::private_api::WindowAdapterRc()}".into()),
             ..Default::default()
         }),
     ));
@@ -780,7 +779,7 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         Declaration::Function(Function {
             name: "show".into(),
             signature: "()".into(),
-            statements: Some(vec!["m_window.show();".into()]),
+            statements: Some(vec!["window().show();".into()]),
             ..Default::default()
         }),
     ));
@@ -790,7 +789,7 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         Declaration::Function(Function {
             name: "hide".into(),
             signature: "()".into(),
-            statements: Some(vec!["m_window.hide();".into()]),
+            statements: Some(vec!["window().hide();".into()]),
             ..Default::default()
         }),
     ));
@@ -800,10 +799,15 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         Declaration::Function(Function {
             name: "window".into(),
             signature: "() const -> slint::Window&".into(),
-            statements: Some(vec![format!(
-                "return const_cast<{} *>(this)->m_window;",
-                component_struct.name
-            )]),
+            statements: Some(vec![
+                format!("auto self = const_cast<{} *>(this);", component_struct.name),
+                "if (!m_window.has_value()) {".into(),
+                "   auto &window = self->m_window.emplace(slint::private_api::WindowAdapterRc());"
+                    .into(),
+                "   window.window_handle().set_component(*self);".into(),
+                "}".into(),
+                "return self->m_window.value();".into(),
+            ]),
             ..Default::default()
         }),
     ));
@@ -1225,15 +1229,12 @@ fn generate_item_tree(
     ];
 
     if parent_ctx.is_none() {
-        create_code.extend([format!(
-            "{}->m_window.window_handle().set_component(*self_rc);",
-            root_access
-        )]);
+        create_code.push("slint::cbindgen_private::slint_ensure_backend();".into());
     }
 
     create_code.extend([
         format!(
-            "{}->m_window.window_handle().register_component(self, self->item_array());",
+            "if (auto &window = {}->m_window) window->window_handle().register_component(self, self->item_array());",
             root_access
         ),
         format!("self->init({}, self->self_weak, 0, 1 {});", root_access, init_parent_parameters),
@@ -1266,7 +1267,7 @@ fn generate_item_tree(
     let mut destructor = vec!["auto self = this;".to_owned()];
 
     destructor.push(format!(
-        "{}->m_window.window_handle().unregister_component(self, item_array());",
+        "if (auto &window = {}->m_window) window->window_handle().unregister_component(self, item_array());",
         root_access
     ));
 

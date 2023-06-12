@@ -30,6 +30,15 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn slint_ensure_backend() {
+    i_slint_backend_selector::with_platform(|_b| {
+        // Nothing to do, just make sure a backend was created
+        Ok(())
+    })
+    .unwrap()
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn slint_run_event_loop() {
     i_slint_backend_selector::with_platform(|b| b.run_event_loop()).unwrap();
 }
