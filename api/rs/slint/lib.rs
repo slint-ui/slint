@@ -171,23 +171,23 @@ The follow table summarizes the entire mapping:
 
 | `.slint` Type | Rust Type | Note |
 | --- | --- | --- |
-| `int` | `i32` | |
-| `float` | `f32` | |
-| `bool` | `bool` | |
-| `string` | [`SharedString`] | A reference-counted string type that can be easily converted to a str reference. |
-| `color` | [`Color`] | |
-| `brush` | [`Brush`] | |
-| `image` | [`Image`] | |
-| `physical_length` | `f32` | The unit are physical pixels. |
-| `length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
-| `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with millisecond precision. |
 | `angle` | `f32` | The value in degrees |
-| `relative-font-size` | `f32` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
-| structure | `struct` of the same name | |
 | anonymous object | anonymous tuple | The fields are in alphabetical order. |
-| enumeration | `enum` of the same name | The values are converted to CamelCase |
-| array | [`ModelRc`] | Arrays are represented as models, so that their contents can change dynamically. |
+| `array` | [`ModelRc`] | Arrays are represented as models, so that their contents can change dynamically. |
+| `bool` | `bool` | |
+| `brush` | [`Brush`] | |
+| `color` | [`Color`] | |
 | `component-factory` | [`ComponentFactory`] | A factory for components that can be added at runtime. |
+| `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with millisecond precision. |
+| enumeration | `enum` of the same name | The values are converted to CamelCase |
+| `float` | `f32` | |
+| `image` | [`Image`] | |
+| `int` | `i32` | |
+| `length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
+| `physical_length` | `f32` | The unit are physical pixels. |
+| `relative-font-size` | `f32` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
+| `string` | [`SharedString`] | A reference-counted string type that can be easily converted to a str reference. |
+| structure | `struct` of the same name | |
 
 For user defined structures in the .slint, an extra struct is generated.
 For example, if the `.slint` contains
