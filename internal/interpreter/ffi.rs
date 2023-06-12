@@ -215,7 +215,7 @@ pub struct StructOpaque([usize; 6]);
 pub struct StructOpaque([usize; 8]);
 /// Asserts that StructOpaque is at least as large as Struct, otherwise this would overflow
 const _: usize = std::mem::size_of::<StructOpaque>() - std::mem::size_of::<Struct>();
-const _: usize = std::mem::layout_of::<StructOpaque>() - std::mem::layout_of::<Struct>();
+const _: usize = std::mem::align_of::<StructOpaque>() - std::mem::align_of::<Struct>();
 
 impl StructOpaque {
     fn as_struct(&self) -> &Struct {
@@ -275,7 +275,7 @@ pub struct StructIteratorOpaque<'a>([usize; 5], std::marker::PhantomData<StructI
 const _: usize =
     std::mem::size_of::<StructIteratorOpaque>() - std::mem::size_of::<StructIterator>();
 const _: usize =
-    std::mem::layout_of::<StructIteratorOpaque>() - std::mem::layout_of::<StructIterator>();
+    std::mem::align_of::<StructIteratorOpaque>() - std::mem::align_of::<StructIterator>();
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_struct_iterator_destructor(
@@ -648,7 +648,7 @@ pub struct ModelNotifyOpaque([usize; 8]);
 pub struct ModelNotifyOpaque([usize; 12]);
 /// Asserts that ModelNotifyOpaque is at least as large as ModelNotify, otherwise this would overflow
 const _: usize = std::mem::size_of::<ModelNotifyOpaque>() - std::mem::size_of::<ModelNotify>();
-const _: usize = std::mem::layout_of::<ModelNotifyOpaque>() - std::mem::layout_of::<ModelNotify>();
+const _: usize = std::mem::align_of::<ModelNotifyOpaque>() - std::mem::align_of::<ModelNotify>();
 
 impl ModelNotifyOpaque {
     fn as_model_notify(&self) -> &ModelNotify {
