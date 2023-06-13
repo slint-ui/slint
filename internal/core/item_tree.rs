@@ -889,6 +889,14 @@ mod tests {
             }
         }
 
+        fn embed_component(
+            self: core::pin::Pin<&Self>,
+            _parent_component: &ComponentWeak,
+            _item_tree_index: usize,
+        ) -> bool {
+            false
+        }
+
         fn layout_info(self: core::pin::Pin<&Self>, _1: Orientation) -> LayoutInfo {
             unimplemented!("Not needed for this test")
         }
