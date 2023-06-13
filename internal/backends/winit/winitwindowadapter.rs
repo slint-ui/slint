@@ -20,9 +20,9 @@ use crate::renderer::WinitCompatibleRenderer;
 use const_field_offset::FieldOffsets;
 
 use corelib::component::ComponentRc;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(enable_accesskit)]
 use corelib::component::ComponentRef;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(enable_accesskit)]
 use corelib::items::ItemRef;
 use corelib::items::{ItemRc, MouseCursor};
 
@@ -123,7 +123,7 @@ pub struct WinitWindowAdapter {
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(enable_accesskit)]
     pub accesskit_adapter: crate::accesskit::AccessKitAdapter,
 }
 
@@ -153,7 +153,7 @@ impl WinitWindowAdapter {
             renderer: Box::new(renderer),
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(enable_accesskit)]
             accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
                 self_weak.clone(),
                 &*winit_window,
@@ -655,11 +655,11 @@ impl WindowAdapterSealed for WinitWindowAdapter {
     }
 
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(enable_accesskit)]
         self.accesskit_adapter.handle_focus_change(_new);
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(enable_accesskit)]
     fn unregister_component<'a>(
         &self,
         _component: ComponentRef,

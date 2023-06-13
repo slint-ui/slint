@@ -502,9 +502,9 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
         match event {
             Event::WindowEvent { event, window_id } => {
                 if let Some(window) = window_by_id(window_id) {
-                    #[cfg(target_arch = "wasm32")]
+                    #[cfg(not(enable_accesskit))]
                     let process_event = true;
-                    #[cfg(not(target_arch = "wasm32"))]
+                    #[cfg(enable_accesskit)]
                     let process_event =
                         window.accesskit_adapter.on_event(&window.winit_window(), &event);
 

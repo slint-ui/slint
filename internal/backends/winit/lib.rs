@@ -53,7 +53,7 @@ mod renderer {
     pub(crate) mod sw;
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(enable_accesskit)]
 mod accesskit;
 
 #[cfg(target_arch = "wasm32")]

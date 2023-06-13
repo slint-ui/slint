@@ -26,6 +26,7 @@ renderer-winit-skia-vulkan = ["i-slint-backend-winit/renderer-winit-skia-vulkan"
 renderer-winit-software = ["i-slint-backend-winit/renderer-winit-software"]
 
 rtti = ["i-slint-backend-winit?/rtti", "i-slint-backend-qt?/rtti"]
+accessibility = ["i-slint-backend-winit?/accessibility"]
 
 [dependencies]
 i-slint-core = { version = "=1.0.3", path = "../../../internal/core", default-features = false }
