@@ -1840,7 +1840,7 @@ impl WindowAdapterSealed for QtWindow {
     }
 }
 
-impl Renderer for QtWindow {
+impl i_slint_core::renderer::RendererSealed for QtWindow {
     fn text_size(
         &self,
         font_request: FontRequest,

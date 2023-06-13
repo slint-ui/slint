@@ -341,16 +341,16 @@ impl Window {
     /// # Example
     /// ```rust
     /// use std::rc::Rc;
-    /// use slint::platform::WindowAdapter;
-    /// use slint::Window;
+    /// use slint::platform::{WindowAdapter, Renderer};
+    /// use slint::{Window, PhysicalSize};
     /// struct MyWindowAdapter {
     ///     window: Window,
     ///     //...
     /// }
     /// impl WindowAdapter for MyWindowAdapter {
     ///    fn window(&self) -> &Window { &self.window }
-    ///    fn size(&self) -> i_slint_core::api::PhysicalSize { unimplemented!() }
-    ///    fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer { unimplemented!() }
+    ///    fn size(&self) -> PhysicalSize { unimplemented!() }
+    ///    fn renderer(&self) -> &dyn Renderer { unimplemented!() }
     /// }
     /// # impl i_slint_core::window::WindowAdapterSealed for MyWindowAdapter {
     /// # }
