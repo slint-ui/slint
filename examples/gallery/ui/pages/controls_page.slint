@@ -52,12 +52,6 @@ export component ControlsPage inherits Page {
                 enabled: GallerySettings.widgets-enabled;
             }
 
-            SpinBox {
-                vertical-stretch: 0;
-                value: 42;
-                enabled: GallerySettings.widgets-enabled;
-            }
-
             ComboBox {
                 model: [@tr("Select Something"), @tr("From this"), @tr("Combobox")];
                 enabled: GallerySettings.widgets-enabled;
@@ -72,12 +66,23 @@ export component ControlsPage inherits Page {
     }
 
     GroupBox {
-        title: @tr("LineEdit");
+        title: @tr("LineEdit - SpinBox");
         vertical-stretch: 0;
 
-        LineEdit {
-            placeholder-text: @tr("Enter some text");
-            enabled: GallerySettings.widgets-enabled;
+        HorizontalBox {
+            alignment: start;
+            padding: 0px;
+
+            LineEdit {
+                placeholder-text: @tr("Enter some text");
+                enabled: GallerySettings.widgets-enabled;
+            }
+
+            SpinBox {
+                vertical-stretch: 0;
+                value: 42;
+                enabled: GallerySettings.widgets-enabled;
+            }
         }
     }
 

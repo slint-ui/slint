@@ -1,0 +1,97 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+
+import { Palette, Typography, Paths } from "styling.slint";
+
+export component FocusBorder inherits Rectangle {
+    border-width: 2px;
+    border-color: Palette.focus-stroke-outer;
+
+    Rectangle {
+        x: parent.border-width;
+        y: parent.border-width;
+        width: parent.width - 2 * parent.border-width;
+        height: parent.height - 2 * parent.border-width;
+        border-width: 1px;
+        border-radius: parent.border-radius - 2px;
+        border-color: Palette.focus-stroke-inner;
+    }
+}
+
+export component MenuBorder inherits Rectangle {
+    border-radius: 7px;
+    background: Palette.acrylic-background;
+    drop-shadow-blur: 16px;
+    drop-shadow-offset-y: 8px;
+    drop-shadow-color: Palette.shadow;
+
+    Rectangle {
+        border-width: 1px;
+        border-radius: parent.border-radius;
+        border-color: Palette.surface-stroke-flyout;
+    }
+}
+
+export component ListItem {
+    callback clicked <=> i-touch-area.clicked;
+
+    in property <bool> selected;
+    in property <string> text <=> i-text.text;
+
+    min-width: i-layout.min-width;
+    min-height: max(34px, i-layout.min-height);
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+
+    i-background := Rectangle {
+        background: transparent;
+        border-radius: 4px;
+
+        i-layout := HorizontalLayout {
+            padding-left: 16px;
+            padding-right: 16px;
+            spacing: 4px;
+
+            i-text := Text {
+                color: Palette.text-primary;
+                font-size: Typography.body.font-size;
+                font-weight: Typography.body.font-weight;
+                vertical-alignment: center;
+                horizontal-alignment: left;
+                overflow: elide;
+
+                animate color { duration: 200ms; }
+            }
+        }
+
+        i-selector := Rectangle {
+            x: 0px;
+            y: (parent.height - self.height) / 2;
+            width: 3px;
+            height: 0px;
+            background: Palette.accent-default;
+            border-radius: 2px;
+
+            animate height { duration: 150ms; easing: ease-out; }
+        }
+
+        animate background { duration: 150ms; }
+    }
+
+    i-touch-area := TouchArea {}
+
+    states [
+        pressed when i-touch-area.pressed : {
+            i-background.background: Palette.sub-title-secondary;
+        }
+        hover when i-touch-area.has-hover : {
+            i-text.color: Palette.text-secondary;
+            i-background.background: Palette.sub-title-tertiary;
+            i-selector.height: root.selected ? 16px : 0;
+        }
+        selected when root.selected : {
+            i-background.background: Palette.sub-title-secondary;
+            i-selector.height: 16px;
+        }
+    ]
+}

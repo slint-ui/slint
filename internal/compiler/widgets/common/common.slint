@@ -4,105 +4,106 @@
 import { StyleMetrics, ScrollView } from "std-widgets-impl.slint";
 
 export component LineEditInner inherits Rectangle {
-    callback accepted(string);
-    callback edited(string);
+    callback accepted(string /* text */);
+    callback edited(string /* text */);
+
     in-out property <string> placeholder-text;
-    in-out property font-size <=> input.font-size;
-    in-out property text <=> input.text;
-    in-out property placeholder-color <=> placeholder.color;
-    in-out property enabled <=> input.enabled;
-    in-out property <bool> has-focus: input.has-focus;
-    in-out property input-type <=> input.input-type;
-    in-out property horizontal-alignment <=> input.horizontal-alignment;
-    in-out property read-only <=> input.read-only;
+    in-out property <length> font-size <=> i-text-input.font-size;
+    in-out property <string> text <=> i-text-input.text;
+    in-out property <brush> placeholder-color <=> i-placeholder.color;
+    in-out property <bool> enabled <=> i-text-input.enabled;
+    in-out property <bool> has-focus: i-text-input.has-focus;
+    in-out property <InputType> input-type <=> i-text-input.input-type;
+    in-out property <TextHorizontalAlignment> horizontal-alignment <=> i-text-input.horizontal-alignment;
+    in-out property <bool> read-only <=> i-text-input.read-only;
 
-
-    public function select-all() {
-        input.select-all();
-    }
-    public function cut() {
-        input.cut();
-    }
-    public function copy() {
-        input.copy();
-    }
-    public function paste() {
-        input.paste();
-    }    
-
-    min-height: input.preferred-height;
-    min-width: max(50px, placeholder.min-width);
+    min-height: i-text-input.preferred-height;
+    min-width: max(50px, i-placeholder.min-width);
     clip: true;
-    forward-focus: input;
-    placeholder := Text {
-        height: 100%; width: 100%;
+    forward-focus: i-text-input;
+
+    i-placeholder := Text {
+        width: 100%;
+        height: 100%;
         vertical-alignment: center;
-        text: (root.text == "" && input.preedit-text == "") ? root.placeholder-text : "";
-        font-size: input.font-size;
-        font-italic: input.font-italic;
-        font-weight: input.font-weight;
-        font-family: input.font-family;
+        text: (root.text == "" && i-text-input.preedit-text == "") ? root.placeholder-text : "";
+        font-size:  i-text-input.font-size;
+        font-italic: i-text-input.font-italic;
+        font-weight: i-text-input.font-weight;
+        font-family: i-text-input.font-family;
     }
-    input := TextInput {
-        property <length> computed_x;
-        x: min(0px, max(parent.width - self.width, self.computed_x));
+
+    i-text-input := TextInput {
+        property <length> computed-x;
+
+        x: min(0px, max(parent.width - self.width, self.computed-x));
         width: max(parent.width, self.preferred-width);
         height: 100%;
         color: self.enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
-        cursor-position-changed(cpos) => {
-            if (cpos.x + self.computed_x < StyleMetrics.layout-padding) {
-                self.computed_x = - cpos.x + StyleMetrics.layout-padding;
-            } else if (cpos.x + self.computed_x > parent.width - StyleMetrics.layout-padding) {
-                self.computed_x = parent.width - cpos.x - StyleMetrics.layout-padding;
-            }
-        }
-        accepted => { root.accepted(self.text); }
-        edited => { root.edited(self.text); }
         vertical-alignment: center;
         single-line: true;
+
+        cursor-position-changed(cpos) => {
+            if (cpos.x + self.computed-x < StyleMetrics.layout-padding) {
+                self.computed-x = - cpos.x + StyleMetrics.layout-padding;
+            } else if (cpos.x + self.computed-x > parent.width - StyleMetrics.layout-padding) {
+                self.computed-x = parent.width - cpos.x - StyleMetrics.layout-padding;
+            }
+        }
+
+        accepted => { root.accepted(self.text); }
+
+        edited => { root.edited(self.text); }
+    }
+
+    public function select-all() {
+        i-text-input.select-all();
+    }
+
+    public function cut() {
+        i-text-input.cut();
+    }
+
+    public function copy() {
+        i-text-input.copy();
+    }
+
+    public function paste() {
+        i-text-input.paste();
     }
 }
 
 export component TextEdit inherits ScrollView {
-    in property <length> font-size <=> input.font-size;
-    in-out property <string> text <=> input.text;
-    has-focus: input.has-focus;
-    enabled <=> input.enabled;
-    in property <TextWrap> wrap <=> input.wrap;
-    in property horizontal-alignment <=> input.horizontal-alignment;
-    in property read-only <=> input.read-only;
-    callback edited(string);
-    forward-focus: input;
+    callback edited(string /* text */);
 
-    public function select-all() {
-        input.select-all();
-    }
-    public function cut() {
-        input.cut();
-    }
-    public function copy() {
-        input.copy();
-    }
-    public function paste() {
-        input.paste();
-    }
+    in property <TextWrap> wrap <=> i-text-input.wrap;
+    in property horizontal-alignment <=> i-text-input.horizontal-alignment;
+    in property read-only <=> i-text-input.read-only;
+    in property <length> font-size <=> i-text-input.font-size;
+    in-out property <string> text <=> i-text-input.text;
 
+    forward-focus: i-text-input;
+    has-focus: i-text-input.has-focus;
+    enabled <=> i-text-input.enabled;
     horizontal-stretch: 1;
     vertical-stretch: 1;
-
-    viewport-width: root.wrap == TextWrap.word-wrap ? root.visible-width : max(root.visible-width, input.preferred-width);
-    viewport-height: max(self.visible-height, input.preferred-height);
+    viewport-width: root.wrap == TextWrap.word-wrap ? root.visible-width : max(root.visible-width, i-text-input.preferred-width);
+    viewport-height: max(self.visible-height, i-text-input.preferred-height);
 
     Rectangle {
         background: root.enabled ? StyleMetrics.textedit-background : StyleMetrics.textedit-background-disabled;
     }
 
-    input := TextInput {
+    i-text-input := TextInput {
         enabled: true;
-        edited => { root.edited(self.text); }
         color: self.enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
         single-line: false;
         wrap: word-wrap;
+
+        edited => {
+            root.edited(self.text);
+        }
+
         cursor-position-changed(cpos) => {
             if (cpos.x + root.viewport-x < StyleMetrics.layout-padding) {
                 root.viewport-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + StyleMetrics.layout-padding ));
@@ -117,27 +118,47 @@ export component TextEdit inherits ScrollView {
             }
         }
     }
+
+    public function select-all() {
+        i-text-input.select-all();
+    }
+
+    public function cut() {
+        i-text-input.cut();
+    }
+
+    public function copy() {
+        i-text-input.copy();
+    }
+
+    public function paste() {
+        i-text-input.paste();
+    }
 }
 export component AboutSlint {
     preferred-height: 100%;
     preferred-width: 100%;
-    min-height: lay.min-height;
-    min-width: lay.min-width;
-    lay := VerticalLayout {
+    min-height: i-layout.min-height;
+    min-width: i-layout.min-width;
+
+    i-layout := VerticalLayout {
         padding: 12px;
         spacing: 8px;
         alignment: start;
-        t := Text {
+
+        i-text := Text {
             text: "Made with";
             font-size: 24px;
             font-weight: 700;
             horizontal-alignment: center;
         }
+
         Image {
             source: StyleMetrics.dark-color-scheme ? @image-url("slint-logo-dark.svg") : @image-url("slint-logo-light.svg");
             preferred-width: 256px;
             min-height: 48px;
         }
+
         Text {
             text: "Version 1.1.0\nhttps://slint.dev/";
             font-size: 10px;
