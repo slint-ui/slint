@@ -71,20 +71,8 @@ impl WindowAdapterSealed for TestingWindow {
         Ok(())
     }
 
-    fn renderer(&self) -> &dyn Renderer {
-        self
-    }
-
     fn as_any(&self) -> &dyn std::any::Any {
         self
-    }
-
-    fn size(&self) -> PhysicalSize {
-        self.size.get()
-    }
-
-    fn set_size(&self, size: i_slint_core::api::WindowSize) {
-        self.size.set(size.to_physical(1.))
     }
 
     fn is_visible(&self) -> bool {
@@ -99,6 +87,18 @@ impl WindowAdapterSealed for TestingWindow {
 impl WindowAdapter for TestingWindow {
     fn window(&self) -> &i_slint_core::api::Window {
         &self.window
+    }
+
+    fn size(&self) -> PhysicalSize {
+        self.size.get()
+    }
+
+    fn set_size(&self, size: i_slint_core::api::WindowSize) {
+        self.size.set(size.to_physical(1.))
+    }
+
+    fn renderer(&self) -> &dyn Renderer {
+        self
     }
 }
 

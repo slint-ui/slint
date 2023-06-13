@@ -349,11 +349,10 @@ impl Window {
     /// }
     /// impl WindowAdapter for MyWindowAdapter {
     ///    fn window(&self) -> &Window { &self.window }
-    ///    //...
+    ///    fn size(&self) -> i_slint_core::api::PhysicalSize { unimplemented!() }
+    ///    fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer { unimplemented!() }
     /// }
     /// # impl i_slint_core::window::WindowAdapterSealed for MyWindowAdapter {
-    /// #   fn size(&self) -> i_slint_core::api::PhysicalSize { unimplemented!() }
-    /// #   fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer { unimplemented!() }
     /// # }
     ///
     /// fn create_window_adapter() -> Rc<dyn WindowAdapter> {
@@ -430,7 +429,7 @@ impl Window {
     /// a window frame (if present).
     pub fn set_size(&self, size: impl Into<WindowSize>) {
         let size = size.into();
-        self.0.window_adapter().set_size(size);
+        crate::window::WindowAdapter::set_size(&*self.0.window_adapter(), size);
     }
 
     /// Dispatch a window event to the scene.

@@ -2002,14 +2002,19 @@ impl MinimalSoftwareWindow {
             false
         }
     }
+
+    #[doc(hidden)]
+    /// Forward to the window through Deref
+    /// (Before 1.1, WindowAdapter didn't have set_size, so the one from Deref was used.
+    /// But in Slint 1.1, if one had imported the WindowAdapter trait, the other one would be found)
+    pub fn set_size(&self, size: impl Into<crate::api::WindowSize>) {
+        self.window.set_size(size);
+    }
 }
 
 impl crate::window::WindowAdapterSealed for MinimalSoftwareWindow {
     fn request_redraw(&self) {
         self.needs_redraw.set(true);
-    }
-    fn renderer(&self) -> &dyn Renderer {
-        &self.renderer
     }
 
     fn unregister_component<'a>(
@@ -2017,6 +2022,16 @@ impl crate::window::WindowAdapterSealed for MinimalSoftwareWindow {
         _component: crate::component::ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'a>>>,
     ) {
+    }
+}
+
+impl WindowAdapter for MinimalSoftwareWindow {
+    fn window(&self) -> &Window {
+        &self.window
+    }
+
+    fn renderer(&self) -> &dyn Renderer {
+        &self.renderer
     }
 
     fn size(&self) -> crate::api::PhysicalSize {
@@ -2026,12 +2041,6 @@ impl crate::window::WindowAdapterSealed for MinimalSoftwareWindow {
         self.size.set(size.to_physical(1.));
         self.window
             .dispatch_event(crate::platform::WindowEvent::Resized { size: size.to_logical(1.) })
-    }
-}
-
-impl WindowAdapter for MinimalSoftwareWindow {
-    fn window(&self) -> &Window {
-        &self.window
     }
 }
 

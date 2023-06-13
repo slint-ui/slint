@@ -1516,6 +1516,51 @@ impl WindowAdapter for QtWindow {
     fn window(&self) -> &i_slint_core::api::Window {
         &self.window
     }
+
+    fn renderer(&self) -> &dyn Renderer {
+        self
+    }
+
+    fn position(&self) -> Option<i_slint_core::api::PhysicalPosition> {
+        let widget_ptr = self.widget_ptr();
+        let qp = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QPoint as "QPoint" {
+            return widget_ptr->pos();
+        }};
+        // Qt returns logical coordinates, so scale those!
+        i_slint_core::api::LogicalPosition::new(qp.x as _, qp.y as _)
+            .to_physical(self.window().scale_factor())
+            .into()
+    }
+
+    fn set_position(&self, position: i_slint_core::api::WindowPosition) {
+        let physical_position = position.to_physical(self.window().scale_factor());
+        let widget_ptr = self.widget_ptr();
+        let pos = qttypes::QPoint { x: physical_position.x as _, y: physical_position.y as _ };
+        cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint"] {
+            widget_ptr->move(pos);
+        }};
+    }
+
+    fn set_size(&self, size: i_slint_core::api::WindowSize) {
+        let logical_size = size.to_logical(self.window().scale_factor());
+        let widget_ptr = self.widget_ptr();
+        let sz = qttypes::QSize {
+            width: logical_size.width.round() as _,
+            height: logical_size.height.round() as _,
+        };
+        // Qt uses logical units!
+        cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
+            widget_ptr->resize(sz);
+        }};
+    }
+
+    fn size(&self) -> i_slint_core::api::PhysicalSize {
+        let widget_ptr = self.widget_ptr();
+        let s = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
+            return widget_ptr->size();
+        }};
+        i_slint_core::api::PhysicalSize::new(s.width as _, s.height as _)
+    }
 }
 
 impl WindowAdapterSealed for QtWindow {
@@ -1760,10 +1805,6 @@ impl WindowAdapterSealed for QtWindow {
         }
     }
 
-    fn renderer(&self) -> &dyn Renderer {
-        self
-    }
-
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -1780,47 +1821,6 @@ impl WindowAdapterSealed for QtWindow {
                 }
             }};
         }
-    }
-
-    fn position(&self) -> Option<i_slint_core::api::PhysicalPosition> {
-        let widget_ptr = self.widget_ptr();
-        let qp = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QPoint as "QPoint" {
-            return widget_ptr->pos();
-        }};
-        // Qt returns logical coordinates, so scale those!
-        i_slint_core::api::LogicalPosition::new(qp.x as _, qp.y as _)
-            .to_physical(self.window().scale_factor())
-            .into()
-    }
-
-    fn set_position(&self, position: i_slint_core::api::WindowPosition) {
-        let physical_position = position.to_physical(self.window().scale_factor());
-        let widget_ptr = self.widget_ptr();
-        let pos = qttypes::QPoint { x: physical_position.x as _, y: physical_position.y as _ };
-        cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint"] {
-            widget_ptr->move(pos);
-        }};
-    }
-
-    fn set_size(&self, size: i_slint_core::api::WindowSize) {
-        let logical_size = size.to_logical(self.window().scale_factor());
-        let widget_ptr = self.widget_ptr();
-        let sz = qttypes::QSize {
-            width: logical_size.width.round() as _,
-            height: logical_size.height.round() as _,
-        };
-        // Qt uses logical units!
-        cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
-            widget_ptr->resize(sz);
-        }};
-    }
-
-    fn size(&self) -> i_slint_core::api::PhysicalSize {
-        let widget_ptr = self.widget_ptr();
-        let s = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
-            return widget_ptr->size();
-        }};
-        i_slint_core::api::PhysicalSize::new(s.width as _, s.height as _)
     }
 
     fn dark_color_scheme(&self) -> bool {
