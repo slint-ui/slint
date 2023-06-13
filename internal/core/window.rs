@@ -92,6 +92,18 @@ pub trait WindowAdapter {
     /// Return the size of the Window on the screen
     fn size(&self) -> PhysicalSize;
 
+    /// Issues a request to the windowing system to re-render the contents of the window.
+    ///
+    /// This request is typically asynchronous.
+    /// It is called when a property that was used during window rendering is marked as dirty.
+    ///
+    /// An implementation should simply post an event and perform the drawing in a subsequent iteration of the event loop.
+    /// It is important not to query any Slint properties to avoid introducing a dependency loop in the properties,
+    /// including the use of the render function, which itself queries properties.
+    ///
+    /// See also [`Window::request_redraw()`]
+    fn request_redraw(&self) {}
+
     /// Return the renderer.
     ///
     /// The `Renderer` trait is an internal trait that you are not expected to implement.
@@ -126,12 +138,6 @@ pub trait WindowAdapterInternal {
     fn hide(&self) -> Result<(), PlatformError> {
         Ok(())
     }
-
-    /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
-    /// request.
-    // TODO: make public, but document clearly that an implementation cannot query other properties, etc. - we call it from
-    // a property tracker.
-    fn request_redraw(&self) {}
 
     /// This function is called by the generated code when a component and therefore its tree of items are created.
     fn register_component(&self) {}
@@ -245,9 +251,7 @@ struct WindowRedrawTracker {
 impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
     fn notify(&self) {
         if let Some(window_adapter) = self.window_adapter_weak.upgrade() {
-            if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                window_adapter.request_redraw();
-            }
+            window_adapter.request_redraw();
         };
     }
 }
@@ -377,9 +381,7 @@ impl WindowInner {
                 default_font_size_prop.set(window_adapter.renderer().default_font_size());
             }
         }
-        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-            window_adapter.request_redraw();
-        }
+        window_adapter.request_redraw();
         let weak = Rc::downgrade(&window_adapter);
         crate::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = weak.upgrade() {
@@ -538,10 +540,10 @@ impl WindowInner {
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
     pub fn set_focus_item(&self, focus_item: &ItemRc) {
+        let old = self.take_focus_item();
+        let new = self.move_focus(focus_item.clone(), next_focus_item);
         let window_adapter = self.window_adapter();
         if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-            let old = self.take_focus_item();
-            let new = self.move_focus(focus_item.clone(), next_focus_item);
             window_adapter.handle_focus_change(old, new);
         }
     }
@@ -808,9 +810,7 @@ impl WindowInner {
             .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
         {
             None => {
-                if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
-                    x.request_redraw();
-                }
+                self.window_adapter().request_redraw();
                 PopupWindowLocation::ChildWindow(position)
             }
 
@@ -842,9 +842,7 @@ impl WindowInner {
                 if !popup_region.is_empty() {
                     let window_adapter = self.window_adapter();
                     window_adapter.renderer().mark_dirty_region(popup_region.to_box2d());
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.request_redraw();
-                    }
+                    window_adapter.request_redraw();
                 }
             }
         }
@@ -1183,9 +1181,7 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_request_redraw(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-            window_adapter.request_redraw();
-        }
+        window_adapter.request_redraw();
     }
 
     /// Returns the position of the window on the screen, in physical screen coordinates and including

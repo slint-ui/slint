@@ -309,17 +309,17 @@ impl WindowAdapter for WinitWindowAdapter {
         physical_size_to_slint(&self.winit_window().inner_size())
     }
 
+    fn request_redraw(&self) {
+        self.pending_redraw.set(true);
+        self.with_window_handle(&mut |window| window.request_redraw())
+    }
+
     fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {
-    fn request_redraw(&self) {
-        self.pending_redraw.set(true);
-        self.with_window_handle(&mut |window| window.request_redraw())
-    }
-
     fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
         let winit_window = self.winit_window();
 

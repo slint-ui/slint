@@ -394,9 +394,7 @@ impl Window {
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
     pub fn request_redraw(&self) {
-        if let Some(x) = self.0.window_adapter().internal(crate::InternalToken) {
-            x.request_redraw()
-        }
+        self.0.window_adapter().request_redraw()
     }
 
     /// This function returns the scale factor that allows converting between logical and
