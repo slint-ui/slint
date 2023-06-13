@@ -82,6 +82,16 @@ pub struct ComponentVTable {
     /// strictly speaking not an Item at all!
     pub parent_node: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, result: &mut ItemWeak),
 
+    /// This embeds this component into the item tree of another component
+    ///
+    /// Returns `true` if this component was embedded into the `parent_component`
+    /// at `parent_item_tree_index`.
+    pub embed_component: extern "C" fn(
+        core::pin::Pin<VRef<ComponentVTable>>,
+        parent_component: &ComponentWeak,
+        parent_item_tree_index: usize,
+    ) -> bool,
+
     /// Return the index of the current subtree or usize::MAX if this is not a subtree
     pub subtree_index: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> usize,
 
