@@ -42,6 +42,8 @@ use core::pin::Pin;
 use i_slint_core_macros::*;
 use vtable::*;
 
+mod component_container;
+pub use self::component_container::*;
 mod flickable;
 pub use flickable::*;
 mod text;
@@ -1393,6 +1395,10 @@ impl ItemConsts for BoxShadow {
 
 declare_item_vtable! {
     fn slint_get_BoxShadowVTable() -> BoxShadowVTable for BoxShadow
+}
+
+declare_item_vtable! {
+    fn slint_get_ComponentContainerVTable() -> ComponentContainerVTable for ComponentContainer
 }
 
 declare_item_vtable! {
