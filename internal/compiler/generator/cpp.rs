@@ -1086,6 +1086,17 @@ fn generate_item_tree(
         }),
     ));
 
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "embed_component".into(),
+            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] const slint::private_api::ComponentWeak *parent_component, [[maybe_unused]] const uintptr_t parent_index) -> bool".into(),
+            is_static: true,
+            statements: Some(vec!["return false; /* todo! */".into()]),
+            ..Default::default()
+        }),
+    ));
+
     // Statements will be overridden for repeated components!
     target_struct.members.push((
         Access::Private,
@@ -1193,7 +1204,7 @@ fn generate_item_tree(
         name: format!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
             "{{ visit_children, get_item_ref, get_subtree_range, get_subtree_component, \
-                get_item_tree, parent_node, subtree_index, layout_info, \
+                get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
                 accessible_role, accessible_string_property, \
                 slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
             item_tree_class_name
