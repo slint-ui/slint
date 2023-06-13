@@ -4,10 +4,14 @@
 import { Button } from "std-widgets.slint";
 
 export component TestCase inherits Rectangle {
+    cont1 := ComponentContainer { }
+
+    cont2 := ComponentContainer { }
+
     outside := Button { text: "Outside button"; }
 
-    in property<component-factory> e1;
-    in property<component-factory> e2;
+    in property<component-factory> c1 <=> cont1.component-factory;
+    in property<component-factory> c2 <=> cont2.component-factory;
     out property<bool> outside-focus <=> outside.has-focus;
 }
 
@@ -42,8 +46,8 @@ slint_testing::send_keyboard_string_sequence(&instance, "\t");
 assert!(instance.get_outside_focus()); // The outside button is the only thing
                                        // accepting focus at this point.
 
-instance.set_e1(factory.clone());
-instance.set_e2(factory);
+instance.set_c1(factory.clone());
+instance.set_c2(factory);
 
 assert!(instance.get_outside_focus()); // embedding does not move the focus
 ```
