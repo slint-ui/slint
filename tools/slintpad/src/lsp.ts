@@ -288,7 +288,7 @@ class PreviewerBackend {
                     is_event_loop_running = true; // Assume the winit caused the exception and that the event loop is up now
                 }
                 this.#instance = await component.create(this.canvas_id!); // eslint-disable-line
-                this.#instance.show();
+                await this.#instance.show();
             } else {
                 this.#instance = component.create_with_existing_window(
                     this.#instance,

@@ -26,7 +26,7 @@
         }
         if (component !== undefined) {
             let instance = await component.create(canvas_id);
-            instance.show();
+            await instance.show();
             all_instances.push(instance);
         }
     }
