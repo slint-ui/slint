@@ -660,6 +660,11 @@ impl WindowAdapterSealed for WinitWindowAdapter {
     }
 
     #[cfg(enable_accesskit)]
+    fn register_component(&self) {
+        self.accesskit_adapter.register_component();
+    }
+
+    #[cfg(enable_accesskit)]
     fn unregister_component<'a>(
         &self,
         _component: ComponentRef,
