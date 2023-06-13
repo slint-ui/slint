@@ -139,7 +139,7 @@ impl<T: Clone> ItemCache<T> {
 
     /// Function that must be called when a component is destroyed.
     ///
-    /// Usually can be called from [`crate::window::WindowAdapterSealed::unregister_component`]
+    /// Usually can be called from [`crate::window::WindowAdapterInternal::unregister_component`]
     pub fn component_destroyed(&self, component: crate::component::ComponentRef) {
         let component_ptr: *const _ =
             crate::component::ComponentRef::as_ptr(component).cast().as_ptr();

@@ -16,7 +16,7 @@ use i_slint_core::{
     platform::PlatformError,
     renderer::RendererSealed,
     software_renderer::{LineBufferProvider, MinimalSoftwareWindow},
-    window::WindowAdapterSealed,
+    window::WindowAdapterInternal,
 };
 
 pub struct SwrTestingBackend {

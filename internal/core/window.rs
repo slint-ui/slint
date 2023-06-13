@@ -57,7 +57,7 @@ fn input_as_key_event(input: KeyInputEvent, modifiers: KeyboardModifiers) -> Key
 /// yourself, but you should use the provided window adapter. Use
 /// [`MinimalSoftwareWindow`](crate::software_renderer::MinimalSoftwareWindow) when
 /// implementing your own [`platform`](crate::platform).
-pub trait WindowAdapter: WindowAdapterSealed {
+pub trait WindowAdapter: WindowAdapterInternal {
     /// Returns the window API.
     fn window(&self) -> &Window;
 
@@ -109,7 +109,7 @@ pub trait WindowAdapter: WindowAdapterSealed {
 // `#[doc(hidden)] fn internal(&self, InternalToken) -> Option<&WindowAdapterInternal> {None}`
 // TODO: add events for window receiving and loosing focus
 #[doc(hidden)]
-pub trait WindowAdapterSealed {
+pub trait WindowAdapterInternal {
     /// Registers the window with the windowing system.
     // TODO: make public, consider renaming to set_visible with a bool
     fn show(&self) -> Result<(), PlatformError> {
@@ -193,7 +193,7 @@ pub trait WindowAdapterSealed {
     }
 }
 
-/// This is the parameter from [`WindowAdapterSealed::input_method_request()`] which lets the editable text input field
+/// This is the parameter from [`WindowAdapterInternal::input_method_request()`] which lets the editable text input field
 /// communicate with the platform about input methods.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
