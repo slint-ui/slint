@@ -56,6 +56,10 @@ impl WindowAdapter for CppWindowAdapter {
     fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
+
+    fn request_redraw(&self) {
+        unsafe { (self.request_redraw)(self.user_data) }
+    }
 }
 
 impl WindowAdapterInternal for CppWindowAdapter {
@@ -66,10 +70,6 @@ impl WindowAdapterInternal for CppWindowAdapter {
     fn hide(&self) -> Result<(), PlatformError> {
         unsafe { (self.hide)(self.user_data) }
         Ok(())
-    }
-
-    fn request_redraw(&self) {
-        unsafe { (self.request_redraw)(self.user_data) }
     }
 }
 

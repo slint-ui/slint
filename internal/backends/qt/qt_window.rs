@@ -1562,6 +1562,13 @@ impl WindowAdapter for QtWindow {
         i_slint_core::api::PhysicalSize::new(s.width as _, s.height as _)
     }
 
+    fn request_redraw(&self) {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*"] {
+            return widget_ptr->update();
+        }}
+    }
+
     fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
@@ -1609,13 +1616,6 @@ impl WindowAdapterInternal for QtWindow {
             QEventLoopLocker();
         }};
         Ok(())
-    }
-
-    fn request_redraw(&self) {
-        let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*"] {
-            return widget_ptr->update();
-        }}
     }
 
     /// Apply windows property such as title to the QWidget*
