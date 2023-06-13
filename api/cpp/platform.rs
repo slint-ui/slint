@@ -43,13 +43,18 @@ impl WindowAdapter for CppWindowAdapter {
     fn window(&self) -> &Window {
         &self.window
     }
-}
 
-impl WindowAdapterSealed for CppWindowAdapter {
+    fn size(&self) -> PhysicalSize {
+        let s = unsafe { (self.size)(self.user_data) };
+        PhysicalSize::new(s.width, s.height)
+    }
+
     fn renderer(&self) -> &dyn Renderer {
         unsafe { core::mem::transmute((self.get_renderer_ref)(self.user_data)) }
     }
+}
 
+impl WindowAdapterSealed for CppWindowAdapter {
     fn show(&self) -> Result<(), PlatformError> {
         unsafe { (self.show)(self.user_data) };
         Ok(())
@@ -61,11 +66,6 @@ impl WindowAdapterSealed for CppWindowAdapter {
 
     fn request_redraw(&self) {
         unsafe { (self.request_redraw)(self.user_data) }
-    }
-
-    fn size(&self) -> PhysicalSize {
-        let s = unsafe { (self.size)(self.user_data) };
-        PhysicalSize::new(s.width, s.height)
     }
 }
 

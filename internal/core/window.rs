@@ -60,6 +60,46 @@ fn input_as_key_event(input: KeyInputEvent, modifiers: KeyboardModifiers) -> Key
 pub trait WindowAdapter: WindowAdapterSealed {
     /// Returns the window API.
     fn window(&self) -> &Window;
+
+    /// Returns the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    ///
+    /// The default implementation returns `None`
+    ///
+    /// Called from [`Window::position()`]
+    fn position(&self) -> Option<PhysicalPosition> {
+        None
+    }
+    /// Sets the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    ///
+    /// The default implementation does nothing
+    ///
+    /// Called from [`Window::set_position()`]
+    fn set_position(&self, _position: WindowPosition) {}
+
+    /// Request a new size for the window to the specified size on the screen, in physical or logical pixels
+    /// and excluding a window frame (if present).
+    ///
+    /// This is called from [`Window::set_size()`]
+    ///
+    /// The default implementation does nothing
+    ///
+    /// This function should sent the size to the Windowing system. If the window size actually changes, you
+    /// should dispatch a [`WindowEvent::Resized`](crate::platform::WindowEvent::Resized) using
+    /// [`Window::dispatch_event()`] to propagate the new size to the slint view
+    fn set_size(&self, _size: WindowSize) {}
+
+    /// Return the size of the Window on the screen
+    fn size(&self) -> PhysicalSize;
+
+    /// Return the renderer.
+    ///
+    /// The `Renderer` trait is an internal trait that you are not expected to implement.
+    /// In your implementation you should return a reference to an instance of one of the renderers provided by Slint.
+    ///
+    /// Currently, the only public struct that implement renderer is [`SoftwareRenderer`](crate::software_renderer::SoftwareRenderer).
+    fn renderer(&self) -> &dyn Renderer;
 }
 
 /// Implementation details behind [`WindowAdapter`], but since this
@@ -141,46 +181,10 @@ pub trait WindowAdapterSealed {
     // used for accessibility
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {}
 
-    /// Returns the position of the window on the screen, in physical screen coordinates and including
-    /// a window frame (if present).
-    ///
-    /// The default implementation returns `None`
-    ///
-    /// Called from [`Window::position()`]
-    // TODO: Make public
-    fn position(&self) -> Option<PhysicalPosition> {
-        None
-    }
-    /// Sets the position of the window on the screen, in physical screen coordinates and including
-    /// a window frame (if present).
-    ///
-    /// The default implementation does nothing
-    ///
-    /// Called from [`Window::set_position()`]
-    fn set_position(&self, _position: WindowPosition) {}
-
-    /// Resizes the window to the specified size on the screen, in physical or logical pixels
-    /// and excluding a window frame (if present).
-    ///
-    /// The default implementation does nothing
-    ///
-    /// Called from [`Window::set_size`]
-    ///
-    /// This function should sent the size to the Windowing system. If the window size actually changes, you
-    /// should dispatch a [`WindowEvent::Resized`](crate::platform::WindowEvent::Resized) using
-    /// [`Window::dispatch_event()`] to propagate the new size to the slint view
-    fn set_size(&self, _size: WindowSize) {}
-    /// Return the size of the Window on the screen
-    fn size(&self) -> PhysicalSize;
-
     /// returns wether a dark theme is used
     fn dark_color_scheme(&self) -> bool {
         false
     }
-
-    /// Return the renderer
-    // TODO: make the Renderer trait public, but sealed
-    fn renderer(&self) -> &dyn Renderer;
 
     /// Get the visibility of the window
     // todo: replace with WindowEvent::VisibilityChanged and require backend to dispatch event

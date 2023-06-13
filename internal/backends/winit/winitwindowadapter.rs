@@ -283,6 +283,31 @@ impl WindowAdapter for WinitWindowAdapter {
     fn window(&self) -> &corelib::api::Window {
         self.window.get().unwrap()
     }
+
+    fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
+        self.renderer().as_core_renderer()
+    }
+
+    fn position(&self) -> Option<corelib::api::PhysicalPosition> {
+        match self.winit_window().outer_position() {
+            Ok(outer_position) => {
+                Some(corelib::api::PhysicalPosition::new(outer_position.x, outer_position.y))
+            }
+            Err(_) => None,
+        }
+    }
+
+    fn set_position(&self, position: corelib::api::WindowPosition) {
+        self.winit_window().set_outer_position(position_to_winit(&position))
+    }
+
+    fn set_size(&self, size: corelib::api::WindowSize) {
+        self.winit_window().set_inner_size(window_size_to_slint(&size))
+    }
+
+    fn size(&self) -> corelib::api::PhysicalSize {
+        physical_size_to_slint(&self.winit_window().inner_size())
+    }
 }
 
 impl WindowAdapterSealed for WinitWindowAdapter {
@@ -559,10 +584,6 @@ impl WindowAdapterSealed for WinitWindowAdapter {
         });
     }
 
-    fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
-        self.renderer().as_core_renderer()
-    }
-
     fn input_method_request(&self, request: corelib::window::InputMethodRequest) {
         #[cfg(not(target_arch = "wasm32"))]
         self.with_window_handle(&mut |winit_window| {
@@ -600,27 +621,6 @@ impl WindowAdapterSealed for WinitWindowAdapter {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
-    }
-
-    fn position(&self) -> Option<corelib::api::PhysicalPosition> {
-        match self.winit_window().outer_position() {
-            Ok(outer_position) => {
-                Some(corelib::api::PhysicalPosition::new(outer_position.x, outer_position.y))
-            }
-            Err(_) => None,
-        }
-    }
-
-    fn set_position(&self, position: corelib::api::WindowPosition) {
-        self.winit_window().set_outer_position(position_to_winit(&position))
-    }
-
-    fn set_size(&self, size: corelib::api::WindowSize) {
-        self.winit_window().set_inner_size(window_size_to_slint(&size))
-    }
-
-    fn size(&self) -> corelib::api::PhysicalSize {
-        physical_size_to_slint(&self.winit_window().inner_size())
     }
 
     fn dark_color_scheme(&self) -> bool {
