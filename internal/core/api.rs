@@ -352,8 +352,6 @@ impl Window {
     ///    fn size(&self) -> PhysicalSize { unimplemented!() }
     ///    fn renderer(&self) -> &dyn Renderer { unimplemented!() }
     /// }
-    /// # impl i_slint_core::window::WindowAdapterInternal for MyWindowAdapter {
-    /// # }
     ///
     /// fn create_window_adapter() -> Rc<dyn WindowAdapter> {
     ///    Rc::<MyWindowAdapter>::new_cyclic(|weak| {
@@ -396,7 +394,9 @@ impl Window {
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
     pub fn request_redraw(&self) {
-        self.0.window_adapter().request_redraw();
+        if let Some(x) = self.0.window_adapter().internal(crate::InternalToken) {
+            x.request_redraw()
+        }
     }
 
     /// This function returns the scale factor that allows converting between logical and
@@ -502,7 +502,11 @@ impl Window {
     /// Returns the visibility state of the window. This function can return false even if you previously called show()
     /// on it, for example if the user minimized the window.
     pub fn is_visible(&self) -> bool {
-        self.0.window_adapter().is_visible()
+        self.0
+            .window_adapter()
+            .internal(crate::InternalToken)
+            .map(|w| w.is_visible())
+            .unwrap_or(false)
     }
 }
 

@@ -52,12 +52,11 @@ fn input_as_key_event(input: KeyInputEvent, modifiers: KeyboardModifiers) -> Key
 /// internal type from the backend that provides functionality such as device-independent pixels,
 /// window resizing, and other typically windowing system related tasks.
 ///
-/// This trait is [sealed](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed),
-/// meaning that you are not expected to implement this trait
+/// You are not expected to implement this trait
 /// yourself, but you should use the provided window adapter. Use
 /// [`MinimalSoftwareWindow`](crate::software_renderer::MinimalSoftwareWindow) when
 /// implementing your own [`platform`](crate::platform).
-pub trait WindowAdapter: WindowAdapterInternal {
+pub trait WindowAdapter {
     /// Returns the window API.
     fn window(&self) -> &Window;
 
@@ -100,6 +99,11 @@ pub trait WindowAdapter: WindowAdapterInternal {
     ///
     /// Currently, the only public struct that implement renderer is [`SoftwareRenderer`](crate::software_renderer::SoftwareRenderer).
     fn renderer(&self) -> &dyn Renderer;
+
+    #[doc(hidden)]
+    fn internal(&self, _: crate::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        None
+    }
 }
 
 /// Implementation details behind [`WindowAdapter`], but since this
@@ -240,7 +244,9 @@ struct WindowRedrawTracker {
 impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
     fn notify(&self) {
         if let Some(window_adapter) = self.window_adapter_weak.upgrade() {
-            window_adapter.request_redraw();
+            if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+                window_adapter.request_redraw();
+            }
         };
     }
 }
@@ -370,7 +376,9 @@ impl WindowInner {
                 default_font_size_prop.set(window_adapter.renderer().default_font_size());
             }
         }
-        window_adapter.request_redraw();
+        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+            window_adapter.request_redraw();
+        }
         let weak = Rc::downgrade(&window_adapter);
         crate::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = weak.upgrade() {
@@ -529,9 +537,12 @@ impl WindowInner {
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
     pub fn set_focus_item(&self, focus_item: &ItemRc) {
-        let old = self.take_focus_item();
-        let new = self.move_focus(focus_item.clone(), next_focus_item);
-        self.window_adapter().handle_focus_change(old, new);
+        let window_adapter = self.window_adapter();
+        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+            let old = self.take_focus_item();
+            let new = self.move_focus(focus_item.clone(), next_focus_item);
+            window_adapter.handle_focus_change(old, new);
+        }
     }
 
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
@@ -620,7 +631,10 @@ impl WindowInner {
             .map(next_focus_item)
             .unwrap_or_else(|| ItemRc::new(component, 0));
         let end_item = self.move_focus(start_item.clone(), next_focus_item);
-        self.window_adapter().handle_focus_change(Some(start_item), end_item);
+        let window_adapter = self.window_adapter();
+        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+            window_adapter.handle_focus_change(Some(start_item), end_item);
+        }
     }
 
     /// Move keyboard focus to the previous item.
@@ -630,7 +644,10 @@ impl WindowInner {
             self.take_focus_item().unwrap_or_else(|| ItemRc::new(component, 0)),
         );
         let end_item = self.move_focus(start_item.clone(), previous_focus_item);
-        self.window_adapter().handle_focus_change(Some(start_item), end_item);
+        let window_adapter = self.window_adapter();
+        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+            window_adapter.handle_focus_change(Some(start_item), end_item);
+        }
     }
 
     /// Marks the window to be the active window. This typically coincides with the keyboard
@@ -649,6 +666,9 @@ impl WindowInner {
     /// If the component's root item is a Window element, then this function synchronizes its properties, such as the title
     /// for example, with the properties known to the windowing system.
     pub fn update_window_properties(&self) {
+        let window_adapter = self.window_adapter();
+        let Some(window_adapter) = window_adapter.internal(crate::InternalToken) else {return};
+
         // No `if !dirty { return; }` check here because the backend window may be newly mapped and not up-to-date, so force
         // an evaluation.
         self.pinned_fields
@@ -658,12 +678,12 @@ impl WindowInner {
             .evaluate_as_dependency_root(|| {
                 let component = self.component();
                 let component = ComponentRc::borrow_pin(&component);
-                self.window_adapter().apply_geometry_constraint(
+                window_adapter.apply_geometry_constraint(
                     component.as_ref().layout_info(crate::layout::Orientation::Horizontal),
                     component.as_ref().layout_info(crate::layout::Orientation::Vertical),
                 );
                 if let Some(window_item) = self.window_item() {
-                    self.window_adapter().apply_window_properties(window_item.as_pin_ref());
+                    window_adapter.apply_window_properties(window_item.as_pin_ref());
                 }
             });
     }
@@ -707,7 +727,9 @@ impl WindowInner {
     /// to input events once the event loop spins.
     pub fn show(&self) -> Result<(), PlatformError> {
         self.update_window_properties();
-        self.window_adapter().show()?;
+        if let Some(window_adapter) = self.window_adapter().internal(crate::InternalToken) {
+            window_adapter.show()?;
+        }
         // Make sure that the window's inner size is in sync with the root window item's
         // width/height.
         self.set_window_item_geometry(
@@ -719,7 +741,17 @@ impl WindowInner {
 
     /// De-registers the window with the windowing system.
     pub fn hide(&self) -> Result<(), PlatformError> {
-        self.window_adapter().hide()
+        if let Some(window_adapter) = self.window_adapter().internal(crate::InternalToken) {
+            window_adapter.hide()?;
+        }
+        Ok(())
+    }
+
+    /// returns wether a dark theme is used
+    pub fn dark_color_scheme(&self) -> bool {
+        self.window_adapter()
+            .internal(crate::InternalToken)
+            .map_or(false, |x| x.dark_color_scheme())
     }
 
     /// Show a popup at the given position relative to the item
@@ -769,9 +801,15 @@ impl WindowInner {
             height_property.set(size.height_length());
         };
 
-        let location = match self.window_adapter().create_popup(LogicalRect::new(position, size)) {
+        let location = match self
+            .window_adapter()
+            .internal(crate::InternalToken)
+            .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
+        {
             None => {
-                self.window_adapter().request_redraw();
+                if let Some(x) = self.window_adapter().internal(crate::InternalToken) {
+                    x.request_redraw();
+                }
                 PopupWindowLocation::ChildWindow(position)
             }
 
@@ -803,7 +841,9 @@ impl WindowInner {
                 if !popup_region.is_empty() {
                     let window_adapter = self.window_adapter();
                     window_adapter.renderer().mark_dirty_region(popup_region.to_box2d());
-                    window_adapter.request_redraw();
+                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+                        window_adapter.request_redraw();
+                    }
                 }
             }
         }
@@ -939,14 +979,18 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.show().unwrap();
+        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+            window_adapter.show().unwrap();
+        }
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowAdapterRcOpaque) {
-        let window = &*(handle as *const Rc<dyn WindowAdapter>);
-        window.hide().unwrap();
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+            window_adapter.hide().unwrap();
+        }
     }
 
     /// Returns the visibility state of the window. This function can return false even if you previously called show()
@@ -956,7 +1000,7 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
         let window = &*(handle as *const Rc<dyn WindowAdapter>);
-        window.is_visible()
+        window.internal(crate::InternalToken).map_or(false, |w| w.is_visible())
     }
 
     /// Returns the window scale factor.
@@ -1138,7 +1182,9 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_request_redraw(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.request_redraw();
+        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+            window_adapter.request_redraw();
+        }
     }
 
     /// Returns the position of the window on the screen, in physical screen coordinates and including
@@ -1212,7 +1258,7 @@ pub mod ffi {
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.dark_color_scheme()
+        window_adapter.internal(crate::InternalToken).map_or(false, |x| x.dark_color_scheme())
     }
 
     /// Dispatch a key pressed or release event

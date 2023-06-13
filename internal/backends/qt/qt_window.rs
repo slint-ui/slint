@@ -1561,6 +1561,10 @@ impl WindowAdapter for QtWindow {
         }};
         i_slint_core::api::PhysicalSize::new(s.width as _, s.height as _)
     }
+
+    fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        Some(self)
+    }
 }
 
 impl WindowAdapterInternal for QtWindow {
@@ -2221,7 +2225,9 @@ pub(crate) mod ffi {
     pub extern "C" fn slint_qt_get_widget(
         window_adapter: &i_slint_core::window::WindowAdapterRc,
     ) -> *mut c_void {
-        <dyn std::any::Any>::downcast_ref(window_adapter.as_any())
+        window_adapter
+            .internal(i_slint_core::InternalToken)
+            .and_then(|wa| <dyn std::any::Any>::downcast_ref(wa.as_any()))
             .map_or(std::ptr::null_mut(), |win: &QtWindow| {
                 win.widget_ptr().cast::<c_void>().as_ptr()
             })

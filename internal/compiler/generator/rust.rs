@@ -2510,7 +2510,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::DarkColorScheme => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(#window_adapter_tokens.dark_color_scheme())
+            quote!(slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_adapter_tokens.window()).dark_color_scheme())
         }
         BuiltinFunction::TextInputFocused => {
             let window_adapter_tokens = access_window_adapter_field(ctx);

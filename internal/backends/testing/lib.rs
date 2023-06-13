@@ -100,6 +100,10 @@ impl WindowAdapter for TestingWindow {
     fn renderer(&self) -> &dyn Renderer {
         self
     }
+
+    fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        Some(self)
+    }
 }
 
 impl RendererSealed for TestingWindow {
@@ -240,8 +244,8 @@ pub fn access_testing_window<R>(
 ) -> R {
     i_slint_core::window::WindowInner::from_pub(&window)
         .window_adapter()
-        .as_any()
-        .downcast_ref::<TestingWindow>()
+        .internal(i_slint_core::InternalToken)
+        .and_then(|wa| wa.as_any().downcast_ref::<TestingWindow>())
         .map(|adapter| callback(adapter))
         .expect("access_testing_window called without testing backend/adapter")
 }

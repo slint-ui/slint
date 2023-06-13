@@ -785,9 +785,12 @@ fn call_builtin_function(
             Value::Brush(Brush::SolidColor(Color::from_argb_u8(a, r, g, b)))
         }
         BuiltinFunction::DarkColorScheme => match local_context.component_instance {
-            ComponentInstance::InstanceRef(component) => {
-                Value::Bool(component.window_adapter().dark_color_scheme())
-            }
+            ComponentInstance::InstanceRef(component) => Value::Bool(
+                component
+                    .window_adapter()
+                    .internal(corelib::InternalToken)
+                    .map_or(false, |x| x.dark_color_scheme()),
+            ),
             ComponentInstance::GlobalComponent(_) => {
                 panic!("Cannot get the window from a global component")
             }
