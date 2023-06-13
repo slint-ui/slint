@@ -1386,6 +1386,12 @@ fn generate_item_tree(
         )
     };
 
+    let embedding_function = if parent_ctx.is_some() {
+        quote!(todo!("Components written in Rust can not get embedded yet."))
+    } else {
+        quote!(false)
+    };
+
     let parent_item_expression = parent_ctx.and_then(|parent| {
         parent.repeater_index.map(|idx| {
             let sub_component_offset = parent.ctx.current_sub_component.unwrap().repeated[idx].index_in_tree;
@@ -1541,6 +1547,10 @@ fn generate_item_tree(
 
             fn parent_node(self: ::core::pin::Pin<&Self>, _result: &mut slint::private_unstable_api::re_exports::ItemWeak) {
                 #parent_item_expression
+            }
+
+            fn embed_component(self: ::core::pin::Pin<&Self>, _parent_component: &slint::private_unstable_api::re_exports::ComponentWeak, _item_tree_index: usize) -> bool {
+                #embedding_function
             }
 
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::private_unstable_api::re_exports::Orientation) -> slint::private_unstable_api::re_exports::LayoutInfo {
