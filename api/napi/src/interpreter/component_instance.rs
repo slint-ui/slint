@@ -8,12 +8,12 @@ use super::JsComponentDefinition;
 
 #[napi(js_name = "JsComponentInstance")]
 pub struct JsComponentInstance {
-    internal: ComponentInstance,
+    inner: ComponentInstance,
 }
 
 impl From<ComponentInstance> for JsComponentInstance {
     fn from(instance: ComponentInstance) -> Self {
-        Self { internal: instance }
+        Self { inner: instance }
     }
 }
 
@@ -26,18 +26,18 @@ impl JsComponentInstance {
 
     #[napi]
     pub fn definition(&self) -> JsComponentDefinition {
-        self.internal.definition().into()
+        self.inner.definition().into()
     }
 
     #[napi]
     pub fn run(&self) {
-        self.internal.run().unwrap()
+        self.inner.run().unwrap()
     }
 
     #[napi]
     pub fn get_property(&self, env: Env, name: String) -> Result<JsUnknown> {
         let value = self
-            .internal
+            .inner
             .get_property(name.as_ref())
             .map_err(|e| Error::from_reason(format!("{e}")))?;
         super::value::to_js_unknown(&env, &value)
@@ -45,22 +45,16 @@ impl JsComponentInstance {
 
     #[napi]
     pub fn set_property(&self, env: Env, name: String, js_value: JsUnknown) -> Result<()> {
-        let expected_type = self
-            .internal
-            .definition()
-            .properties()
-            .find_map(
-                |(prop_name, prop_type)| {
-                    if name == prop_name {
-                        Some(prop_type)
-                    } else {
-                        None
-                    }
-                },
-            )
-            .ok_or_else(|| Error::from_reason(format!("Cannot set unknown property {name}")))?;
-        let value = super::value::to_value(&env, js_value, expected_type)?;
-        self.internal.set_property(&name, value).map_err(|e| Error::from_reason(format!("{e}")))?;
+        let value = super::value::to_value(
+            &env,
+            &self.inner,
+            js_value,
+            &self
+                .inner
+                .get_property(&name)
+                .map_err(|_| napi::Error::from_reason("Cannot get property."))?,
+        )?;
+        self.inner.set_property(&name, value).map_err(|e| Error::from_reason(format!("{e}")))?;
         Ok(())
     }
 }
