@@ -7,7 +7,7 @@
 use i_slint_core::graphics::euclid::{Point2D, Size2D};
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
-use i_slint_core::renderer::Renderer;
+use i_slint_core::renderer::{Renderer, RendererSealed};
 use i_slint_core::window::WindowAdapterSealed;
 use i_slint_core::window::{InputMethodRequest, WindowAdapter};
 
@@ -102,7 +102,7 @@ impl WindowAdapter for TestingWindow {
     }
 }
 
-impl Renderer for TestingWindow {
+impl RendererSealed for TestingWindow {
     fn text_size(
         &self,
         _font_request: i_slint_core::graphics::FontRequest,

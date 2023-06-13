@@ -14,7 +14,7 @@ use i_slint_core::{
     },
     item_rendering::DirtyRegion,
     platform::PlatformError,
-    renderer::Renderer,
+    renderer::RendererSealed,
     software_renderer::{LineBufferProvider, MinimalSoftwareWindow},
     window::WindowAdapterSealed,
 };

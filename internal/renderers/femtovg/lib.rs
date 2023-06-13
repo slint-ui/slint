@@ -19,7 +19,7 @@ use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
 use i_slint_core::platform::PlatformError;
-use i_slint_core::renderer::Renderer;
+use i_slint_core::renderer::RendererSealed;
 use i_slint_core::window::WindowInner;
 use i_slint_core::Brush;
 
@@ -309,7 +309,7 @@ impl FemtoVGRenderer {
     }
 }
 
-impl Renderer for FemtoVGRenderer {
+impl RendererSealed for FemtoVGRenderer {
     fn text_size(
         &self,
         font_request: i_slint_core::graphics::FontRequest,

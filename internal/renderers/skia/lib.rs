@@ -191,7 +191,7 @@ impl SkiaRenderer {
     }
 }
 
-impl i_slint_core::renderer::Renderer for SkiaRenderer {
+impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
     fn text_size(
         &self,
         font_request: i_slint_core::graphics::FontRequest,

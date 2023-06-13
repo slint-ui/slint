@@ -16,7 +16,7 @@ use crate::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, PointLengths,
     RectLengths, ScaleFactor, SizeLengths,
 };
-use crate::renderer::Renderer;
+use crate::renderer::{Renderer, RendererSealed};
 use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
 use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
@@ -344,7 +344,7 @@ impl SoftwareRenderer {
 }
 
 #[doc(hidden)]
-impl Renderer for SoftwareRenderer {
+impl RendererSealed for SoftwareRenderer {
     fn text_size(
         &self,
         font_request: crate::graphics::FontRequest,
