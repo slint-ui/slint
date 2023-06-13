@@ -8,7 +8,7 @@ use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::software_renderer::{RepaintBufferType, SoftwareRenderer};
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
-use i_slint_core::window::{WindowAdapter, WindowAdapterSealed};
+use i_slint_core::window::{WindowAdapter, WindowAdapterInternal};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 use std::rc::Rc;
 
@@ -54,7 +54,7 @@ impl WindowAdapter for CppWindowAdapter {
     }
 }
 
-impl WindowAdapterSealed for CppWindowAdapter {
+impl WindowAdapterInternal for CppWindowAdapter {
     fn show(&self) -> Result<(), PlatformError> {
         unsafe { (self.show)(self.user_data) };
         Ok(())

@@ -25,7 +25,7 @@ use corelib::items::MouseCursor;
 use corelib::layout::Orientation;
 use corelib::lengths::{LogicalLength, LogicalSize};
 use corelib::platform::{PlatformError, WindowEvent};
-use corelib::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
+use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
@@ -310,7 +310,7 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 }
 
-impl WindowAdapterSealed for WinitWindowAdapter {
+impl WindowAdapterInternal for WinitWindowAdapter {
     fn request_redraw(&self) {
         self.pending_redraw.set(true);
         self.with_window_handle(&mut |window| window.request_redraw())

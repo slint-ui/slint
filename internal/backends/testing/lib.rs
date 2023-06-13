@@ -8,7 +8,7 @@ use i_slint_core::graphics::euclid::{Point2D, Size2D};
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use i_slint_core::renderer::{Renderer, RendererSealed};
-use i_slint_core::window::WindowAdapterSealed;
+use i_slint_core::window::WindowAdapterInternal;
 use i_slint_core::window::{InputMethodRequest, WindowAdapter};
 
 use std::cell::RefCell;
@@ -60,7 +60,7 @@ pub struct TestingWindow {
     pub ime_requests: RefCell<Vec<InputMethodRequest>>,
 }
 
-impl WindowAdapterSealed for TestingWindow {
+impl WindowAdapterInternal for TestingWindow {
     fn show(&self) -> Result<(), PlatformError> {
         self.shown.set(true);
         Ok(())

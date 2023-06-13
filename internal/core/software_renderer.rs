@@ -2012,7 +2012,7 @@ impl MinimalSoftwareWindow {
     }
 }
 
-impl crate::window::WindowAdapterSealed for MinimalSoftwareWindow {
+impl crate::window::WindowAdapterInternal for MinimalSoftwareWindow {
     fn request_redraw(&self) {
         self.needs_redraw.set(true);
     }

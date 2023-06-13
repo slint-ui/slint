@@ -352,7 +352,7 @@ impl Window {
     ///    fn size(&self) -> PhysicalSize { unimplemented!() }
     ///    fn renderer(&self) -> &dyn Renderer { unimplemented!() }
     /// }
-    /// # impl i_slint_core::window::WindowAdapterSealed for MyWindowAdapter {
+    /// # impl i_slint_core::window::WindowAdapterInternal for MyWindowAdapter {
     /// # }
     ///
     /// fn create_window_adapter() -> Rc<dyn WindowAdapter> {
