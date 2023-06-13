@@ -192,10 +192,10 @@ pub extern "C" fn slint_interpreter_value_to_brush(val: &ValueOpaque) -> Option<
 }
 
 #[no_mangle]
-pub extern "C" fn slint_interpreter_value_to_struct(val: &ValueOpaque) -> Option<&StructOpaque> {
+pub extern "C" fn slint_interpreter_value_to_struct(val: &ValueOpaque) -> *const StructOpaque {
     match val.as_value() {
-        Value::Struct(s) => Some(unsafe { std::mem::transmute::<&Struct, &StructOpaque>(s) }),
-        _ => None,
+        Value::Struct(s) => s as *const Struct as *const StructOpaque,
+        _ => std::ptr::null(),
     }
 }
 
@@ -213,9 +213,8 @@ pub struct StructOpaque([usize; 6]);
 #[repr(C)]
 #[cfg(target_pointer_width = "32")]
 pub struct StructOpaque([u64; 4]);
-/// Asserts that StructOpaque is at least as large as Struct, otherwise this would overflow
-const _: usize = std::mem::size_of::<StructOpaque>() - std::mem::size_of::<Struct>();
-const _: usize = std::mem::align_of::<StructOpaque>() - std::mem::align_of::<Struct>();
+const _: [(); std::mem::size_of::<StructOpaque>()] = [(); std::mem::size_of::<Struct>()];
+const _: [(); std::mem::align_of::<StructOpaque>()] = [(); std::mem::align_of::<Struct>()];
 
 impl StructOpaque {
     fn as_struct(&self) -> &Struct {
@@ -272,10 +271,10 @@ pub extern "C" fn slint_interpreter_struct_set_field<'a>(
 type StructIterator<'a> = std::collections::hash_map::Iter<'a, String, Value>;
 #[repr(C)]
 pub struct StructIteratorOpaque<'a>([usize; 5], std::marker::PhantomData<StructIterator<'a>>);
-const _: usize =
-    std::mem::size_of::<StructIteratorOpaque>() - std::mem::size_of::<StructIterator>();
-const _: usize =
-    std::mem::align_of::<StructIteratorOpaque>() - std::mem::align_of::<StructIterator>();
+const _: [(); std::mem::size_of::<StructIteratorOpaque>()] =
+    [(); std::mem::size_of::<StructIterator>()];
+const _: [(); std::mem::align_of::<StructIteratorOpaque>()] =
+    [(); std::mem::align_of::<StructIterator>()];
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_struct_iterator_destructor(
