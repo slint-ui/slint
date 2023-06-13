@@ -184,8 +184,6 @@ impl WrappedCompiledComp {
                     .unwrap_throw();
             }
         })).unchecked_into::<InstancePromise>())
-
-        //Ok()
     }
     /// Creates this compiled component in the canvas of the provided instance.
     /// For this to work, the provided instance needs to be visible (show() must've been
@@ -213,8 +211,55 @@ impl Clone for WrappedInstance {
 impl WrappedInstance {
     /// Marks this instance for rendering and input handling.
     #[wasm_bindgen]
-    pub fn show(&self) -> Result<(), JsValue> {
-        self.0.show().map_err(|e| -> JsValue { format!("{e}").into() })
+    pub fn show(&self) -> Result<js_sys::Promise, JsValue> {
+        Ok(js_sys::Promise::new(&mut |resolve, reject| {
+            let inst_weak = self.0.as_weak();
+
+            if let Err(e) = slint_interpreter::invoke_from_event_loop({
+                let resolve = send_wrapper::SendWrapper::new(resolve);
+                let reject = send_wrapper::SendWrapper::new(reject.clone());
+                move || {
+                    let resolve = resolve.take();
+                    let reject = reject.take();
+                    match inst_weak.upgrade() {
+                        Some(instance) => match instance.show() {
+                            Ok(()) => {
+                                resolve.call0(&JsValue::UNDEFINED).unwrap_throw();
+                            }
+                            Err(e) => {
+                                reject
+                                    .call1(
+                                        &JsValue::UNDEFINED,
+                                        &JsValue::from(format!(
+                                            "Calling show() on ComponentInstance failed: {e}"
+                                        )),
+                                    )
+                                    .unwrap_throw();
+                            }
+                        },
+                        None => {
+                            reject
+                            .call1(
+                                &JsValue::UNDEFINED,
+                                &JsValue::from(format!(
+                                    "Calling show() on ComponentInstance failed because instance was deleted too soon"
+                                )),
+                            )
+                            .unwrap_throw();
+                        }
+                    }
+                }
+            }) {
+                reject
+                .call1(
+                    &JsValue::UNDEFINED,
+                    &JsValue::from(
+                        format!("internal error: Failed to queue closure for event loop invocation: {e}"),
+                    ),
+                )
+                .unwrap_throw();
+            }
+        }))
     }
     /// Hides this instance and prevents further updates of the canvas element.
     #[wasm_bindgen]

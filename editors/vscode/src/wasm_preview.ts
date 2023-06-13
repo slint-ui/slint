@@ -245,7 +245,7 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
                     // ignore winit event loop exception
                 }
                 current_instance = await component.create("slint_canvas");
-                current_instance.show();
+                await current_instance.show();
             }
             current_instance?.set_design_mode(design_mode);
             current_instance?.on_element_selected(element_selected);
