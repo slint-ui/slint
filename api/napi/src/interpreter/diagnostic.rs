@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-
 use napi::bindgen_prelude::{FromNapiValue, ToNapiValue};
 use slint_interpreter::{Diagnostic, DiagnosticLevel};
 

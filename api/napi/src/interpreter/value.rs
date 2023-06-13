@@ -1,6 +1,7 @@
-use napi::{bindgen_prelude::*, JsBoolean, JsNumber, JsString};
-use napi::{Env, JsUnknown, Result};
-use slint_interpreter::{Value, ValueType};
+use crate::{JsBrush, JsImageData, JsModel};
+use i_slint_core::{graphics::Image, Brush, model::ModelRc};
+use napi::{bindgen_prelude::*, Env, JsBoolean, JsExternal, JsNumber, JsString, JsUnknown, Result};
+use slint_interpreter::{ComponentInstance, Struct, Value, ValueType};
 
 #[napi(js_name = "ValueType")]
 pub enum JsValueType {
@@ -35,26 +36,15 @@ pub struct JsProperty {
     pub value_type: JsValueType,
 }
 
-// #[napi(js_name = "Value")]
-// pub enum JsValue {
-//     Void,
-//     Number(f64),
-//     String(SharedString),
-//     Bool(bool),
-//     Image(Image),
-//     Model(ModelRc<Value>),
-//     Struct(Struct),
-//     Brush(Brush),
-//     // some variants omitted
-// }
-
 pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
     match value {
         Value::Void => env.get_null().map(|v| v.into_unknown()),
         Value::Number(number) => env.create_double(*number).map(|v| v.into_unknown()),
         Value::String(string) => env.create_string(string).map(|v| v.into_unknown()),
         Value::Bool(value) => env.get_boolean(*value).map(|v| v.into_unknown()),
-        //                        Image(image) => {} TODO: https://github.com/slint-ui/slint/issues/2474 - return struct that has same properties/etc./shape as ImageData: https://developer.mozilla.org/en-US/docs/Web/API/ImageData
+        Value::Image(image) => {
+            Ok(JsImageData::from(image.clone()).into_instance(*env)?.as_object(*env).into_unknown())
+        }
         //                        Model(model) => {} TODO: Try to create a Rust type that stores ModelRc<Value> and exposes it in a nice JS API (see Model<T> interface in api/node/lib/index.ts)
         Value::Struct(struct_value) => {
             let mut o = env.create_object()?;
@@ -63,13 +53,23 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
             }
             Ok(o.into_unknown())
         }
-        //                      Brush(brush) => {}
+        Value::Brush(brush) => {
+            Ok(JsBrush::from(brush.clone()).into_instance(*env)?.as_object(*env).into_unknown())
+        }
+        Value::Model(model) => {
+            Ok(JsModel::from(model.clone()).into_instance(*env)?.as_object(*env).into_unknown())
+        }
         _ => env.get_undefined().map(|v| v.into_unknown()),
     }
 }
 
-pub fn to_value(_env: &Env, unknown: JsUnknown, type_hint: ValueType) -> Result<Value> {
-    Ok(match type_hint {
+pub fn to_value(
+    env: &Env,
+    instance: &ComponentInstance,
+    unknown: JsUnknown,
+    value: &Value,
+) -> Result<Value> {
+    Ok(match value.value_type() {
         ValueType::Void => Value::Void,
         ValueType::Number => {
             let js_number: JsNumber = unknown.try_into()?;
@@ -84,16 +84,39 @@ pub fn to_value(_env: &Env, unknown: JsUnknown, type_hint: ValueType) -> Result<
             Value::Bool(js_bool.get_value()?)
         }
         ValueType::Image => {
-            todo!("Pretend unknown is a JS object that has ImageData properties; read them and try to create slint::Image")
+            let js_image: JsExternal = unknown.coerce_to_object()?.get("inner")?.unwrap();
+            Value::Image(env.get_value_external::<Image>(&js_image)?.clone())
         }
         ValueType::Model => {
-            todo!("Instantiate a Rust type that implements Model<Value>, stores JsUnknown as JsObject and treats it as if it implements the Model<T> interface")
+            let js_model: JsExternal = unknown.coerce_to_object()?.get("inner")?.unwrap();
+            Value::Model(env.get_value_external::<ModelRc<Value>>(&js_model)?.clone())
+            // todo!("Instantiate a Rust type that implements Model<Value>, stores JsUnknown as JsObject and treats it as if it implements the Model<T> interface")
         }
         ValueType::Struct => {
-            todo!("Use private interpreter API to find out what fields are expected; Then create slint_interpreter::Struct")
+            let js_object = unknown.coerce_to_object()?;
+            let property_names = js_object.get_property_names()?;
+            let property_len = property_names.get_array_length()?;
+            let mut s_vec = vec![];
+
+            if let Value::Struct(s) = value {
+                for i in 0..property_len {
+                    let key = property_names.get_element::<JsString>(i)?;
+                    let key_string = key.into_utf8()?.into_owned()?;
+
+                    if let Some(value) = s.get_field(&key_string) {
+                        s_vec.push((
+                            key_string,
+                            to_value(env, instance, js_object.get_property(key)?, value)?,
+                        ));
+                    }
+                }
+            }
+
+            Value::Struct(s_vec.iter().cloned().collect::<Struct>().into())
         }
         ValueType::Brush => {
-            todo!()
+            let js_brush: JsExternal = unknown.coerce_to_object()?.get("inner")?.unwrap();
+            Value::Brush(env.get_value_external::<Brush>(&js_brush)?.clone())
         }
         _ => {
             todo!()
