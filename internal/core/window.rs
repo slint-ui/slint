@@ -98,6 +98,7 @@ pub trait WindowAdapter {
     /// In your implementation you should return a reference to an instance of one of the renderers provided by Slint.
     ///
     /// Currently, the only public struct that implement renderer is [`SoftwareRenderer`](crate::software_renderer::SoftwareRenderer).
+    #[doc(hidden)]
     fn renderer(&self) -> &dyn Renderer;
 
     #[doc(hidden)]
