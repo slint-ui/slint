@@ -503,7 +503,9 @@ impl Item for TouchArea {
         let hovering = !matches!(event, MouseEvent::Exit);
         Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(hovering);
         if hovering {
-            window_adapter.set_mouse_cursor(self.mouse_cursor());
+            if let Some(x) = window_adapter.internal(crate::InternalToken) {
+                x.set_mouse_cursor(self.mouse_cursor());
+            }
         }
         InputEventFilterResult::ForwardAndInterceptGrab
     }
@@ -516,7 +518,9 @@ impl Item for TouchArea {
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
             Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
-            window_adapter.set_mouse_cursor(MouseCursor::Default);
+            if let Some(x) = window_adapter.internal(crate::InternalToken) {
+                x.set_mouse_cursor(MouseCursor::Default);
+            }
         }
         if !self.enabled() {
             return InputEventResult::EventIgnored;

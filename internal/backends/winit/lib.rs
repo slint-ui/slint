@@ -277,8 +277,8 @@ fn winit_window_rc_for_window(
 ) -> Option<Rc<winit::window::Window>> {
     i_slint_core::window::WindowInner::from_pub(&window)
         .window_adapter()
-        .as_any()
-        .downcast_ref::<WinitWindowAdapter>()
+        .internal(i_slint_core::InternalToken)
+        .and_then(|wa| wa.as_any().downcast_ref::<WinitWindowAdapter>())
         .map(|adapter| adapter.winit_window())
 }
 

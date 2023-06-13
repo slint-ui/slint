@@ -129,7 +129,7 @@ pub fn register_component<Base>(
     window_adapter: Option<Rc<dyn WindowAdapter>>,
 ) {
     item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init());
-    if let Some(adapter) = window_adapter {
+    if let Some(adapter) = window_adapter.as_ref().and_then(|a| a.internal(crate::InternalToken)) {
         adapter.register_component();
     }
 }
@@ -145,8 +145,9 @@ pub fn unregister_component<Base>(
         component,
         &mut item_array.iter().map(|item| item.apply_pin(base)),
     ).expect("Fatal error encountered when freeing graphics resources while destroying Slint component");
-    window_adapter
-        .unregister_component(component, &mut item_array.iter().map(|item| item.apply_pin(base)));
+    if let Some(w) = window_adapter.internal(crate::InternalToken) {
+        w.unregister_component(component, &mut item_array.iter().map(|item| item.apply_pin(base)));
+    }
 }
 
 #[cfg(feature = "ffi")]

@@ -52,6 +52,10 @@ impl WindowAdapter for CppWindowAdapter {
     fn renderer(&self) -> &dyn Renderer {
         unsafe { core::mem::transmute((self.get_renderer_ref)(self.user_data)) }
     }
+
+    fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        Some(self)
+    }
 }
 
 impl WindowAdapterInternal for CppWindowAdapter {

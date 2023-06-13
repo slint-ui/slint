@@ -308,6 +308,10 @@ impl WindowAdapter for WinitWindowAdapter {
     fn size(&self) -> corelib::api::PhysicalSize {
         physical_size_to_slint(&self.winit_window().inner_size())
     }
+
+    fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        Some(self)
+    }
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {

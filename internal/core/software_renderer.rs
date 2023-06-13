@@ -18,7 +18,7 @@ use crate::lengths::{
 };
 use crate::renderer::{Renderer, RendererSealed};
 use crate::textlayout::{AbstractFont, FontMetrics, TextParagraphLayout};
-use crate::window::{WindowAdapter, WindowInner};
+use crate::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
 use alloc::{vec, vec::Vec};
@@ -2012,7 +2012,7 @@ impl MinimalSoftwareWindow {
     }
 }
 
-impl crate::window::WindowAdapterInternal for MinimalSoftwareWindow {
+impl WindowAdapterInternal for MinimalSoftwareWindow {
     fn request_redraw(&self) {
         self.needs_redraw.set(true);
     }
@@ -2041,6 +2041,10 @@ impl WindowAdapter for MinimalSoftwareWindow {
         self.size.set(size.to_physical(1.));
         self.window
             .dispatch_event(crate::platform::WindowEvent::Resized { size: size.to_logical(1.) })
+    }
+
+    fn internal(&self, _: crate::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        Some(self)
     }
 }
 

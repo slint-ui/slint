@@ -561,10 +561,12 @@ pub extern "C" fn slint_interpreter_component_instance_show(
 ) {
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
-    if is_visible {
-        comp.borrow_instance().window_adapter().show().unwrap();
-    } else {
-        comp.borrow_instance().window_adapter().hide().unwrap();
+    if let Some(w) = comp.borrow_instance().window_adapter().internal(i_slint_core::InternalToken) {
+        if is_visible {
+            w.show().unwrap();
+        } else {
+            w.hide().unwrap();
+        }
     }
 }
 

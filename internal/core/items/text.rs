@@ -366,11 +366,15 @@ impl Item for TextInput {
                 self.copy_clipboard(Clipboard::SelectionClipboard);
             }
             MouseEvent::Exit => {
-                window_adapter.set_mouse_cursor(super::MouseCursor::Default);
+                if let Some(x) = window_adapter.internal(crate::InternalToken) {
+                    x.set_mouse_cursor(super::MouseCursor::Default);
+                }
                 self.as_ref().pressed.set(0)
             }
             MouseEvent::Moved { position } => {
-                window_adapter.set_mouse_cursor(super::MouseCursor::Text);
+                if let Some(x) = window_adapter.internal(crate::InternalToken) {
+                    x.set_mouse_cursor(super::MouseCursor::Text);
+                }
                 let pressed = self.as_ref().pressed.get();
                 if pressed > 0 {
                     let clicked_offset =
@@ -559,9 +563,11 @@ impl Item for TextInput {
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(true);
                 // FIXME: This should be tracked by a PropertyTracker in window and toggled when read_only() toggles.
                 if !self.read_only() {
-                    window_adapter.input_method_request(InputMethodRequest::Enable {
-                        input_type: self.input_type(),
-                    });
+                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+                        window_adapter.input_method_request(InputMethodRequest::Enable {
+                            input_type: self.input_type(),
+                        });
+                    }
                 }
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
@@ -569,7 +575,9 @@ impl Item for TextInput {
                 self.hide_cursor();
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 if !self.read_only() {
-                    window_adapter.input_method_request(InputMethodRequest::Disable {});
+                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
+                        window_adapter.input_method_request(InputMethodRequest::Disable {});
+                    }
                 }
             }
         }
@@ -884,13 +892,15 @@ impl TextInput {
         if self.read_only() {
             return;
         }
-        let cursor_position = self.cursor_position(&self.text());
-        let cursor_point_relative =
-            self.cursor_rect_for_byte_offset(cursor_position, window_adapter).to_box2d().max;
-        let cursor_point_absolute = self_rc.map_to_window(cursor_point_relative);
-        window_adapter.input_method_request(InputMethodRequest::SetPosition {
-            position: crate::api::LogicalPosition::from_euclid(cursor_point_absolute.into()),
-        });
+        if let Some(w) = window_adapter.internal(crate::InternalToken) {
+            let cursor_position = self.cursor_position(&self.text());
+            let cursor_point_relative =
+                self.cursor_rect_for_byte_offset(cursor_position, window_adapter).to_box2d().max;
+            let cursor_point_absolute = self_rc.map_to_window(cursor_point_relative);
+            w.input_method_request(InputMethodRequest::SetPosition {
+                position: crate::api::LogicalPosition::from_euclid(cursor_point_absolute.into()),
+            });
+        }
     }
 
     fn select_and_delete(
