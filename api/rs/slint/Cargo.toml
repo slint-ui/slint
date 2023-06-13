@@ -66,7 +66,7 @@ software-renderer-systemfonts = ["i-slint-core/software-renderer-systemfonts"]
 ## **Safety** : You must ensure that there is only one single thread that call into the Slint API
 unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
 
-## Enable integration with operating system provided accessibility APIs (default: enabled)
+## Enable integration with operating system provided accessibility APIs
 ##
 ## Enabling this feature will try to expose the tree of UI elements to OS provided accessibility
 ## APIs to support screen readers and other assistive technologies.
