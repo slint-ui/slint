@@ -10,9 +10,10 @@ use accesskit::{
     Action, ActionRequest, CheckedState, Node, NodeBuilder, NodeId, Role, Tree, TreeUpdate,
 };
 use i_slint_core::accessibility::AccessibleStringProperty;
+use i_slint_core::item_tree::ItemWeak;
 use i_slint_core::items::{ItemRc, WindowItem};
+use i_slint_core::window::WindowInner;
 use i_slint_core::{component::ComponentRef, lengths::ScaleFactor};
-use i_slint_core::{component::ComponentVTable, window::WindowInner};
 use i_slint_core::{properties::PropertyTracker, window::WindowAdapter};
 
 use super::WinitWindowAdapter;
@@ -21,7 +22,8 @@ use super::WinitWindowAdapter;
 ///
 /// The entire item tree is mapped to accesskit's node tree. Any changes to an individual accessible item results
 /// in an access kit tree update with just changed nodes. Any changes in the tree structure result in a complete
-/// tree rebuild. This could be implemented more efficiently.
+/// tree rebuild. This could be implemented more efficiently, but it requires encoding the item index, raw vrc pointer,
+/// and tree generation into the nodeid.
 ///
 /// For unix it's necessary to inform accesskit about any changes to the position or size of the window, hence
 /// the `on_event` function that needs calling.
@@ -38,8 +40,8 @@ pub struct AccessKitAdapter {
     window_adapter_weak: Weak<WinitWindowAdapter>,
 
     node_classes: RefCell<accesskit::NodeClassSet>,
-    tree_generation: Cell<u16>,
-    all_nodes: RefCell<Vec<CachedNode>>,
+    tree_generation: Cell<usize>,
+    all_nodes: RefCell<Vec<MappedNode>>,
     global_property_tracker: Pin<Box<PropertyTracker<AccessibilitiesPropertyTracker>>>,
 }
 
@@ -58,7 +60,7 @@ impl AccessKitAdapter {
             ),
             window_adapter_weak: window_adapter_weak.clone(),
             node_classes: RefCell::new(accesskit::NodeClassSet::new()),
-            tree_generation: Cell::new(0),
+            tree_generation: Cell::new(1),
             all_nodes: Default::default(),
             global_property_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
                 AccessibilitiesPropertyTracker { window_adapter_weak: window_adapter_weak.clone() },
@@ -78,7 +80,7 @@ impl AccessKitAdapter {
         self.inner.update_if_active(|| TreeUpdate {
             nodes: vec![],
             tree: None,
-            focus: new.map(|item| node_id_for_item_rc(item, self.tree_generation.get())),
+            focus: new.map(|item| self.find_node_id_by_item_rc(item).unwrap()),
         })
     }
 
@@ -86,8 +88,7 @@ impl AccessKitAdapter {
         let Some(window_adapter) = self.window_adapter_weak.upgrade() else { return };
         match request.action {
             Action::Focus => {
-                if let Some(item) = item_rc_for_node_id(request.target, self.tree_generation.get())
-                {
+                if let Some(item) = self.item_rc_for_node_id(request.target) {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(&item);
                 }
             }
@@ -109,6 +110,50 @@ impl AccessKitAdapter {
         });
     }
 
+    fn add_node(&self, node: MappedNode) -> NodeId {
+        let index: usize = self.all_nodes.borrow().len();
+        let id = NodeId(
+            std::num::NonZeroU128::new(
+                (index as u128) << usize::BITS
+                    | (self.tree_generation.get() as u128 & usize::MAX as u128),
+            )
+            .unwrap(),
+        );
+        self.all_nodes.borrow_mut().push(node);
+        id
+    }
+
+    fn nodes_iter(&self) -> NodeIter<'_> {
+        NodeIter {
+            nodes: Some(std::cell::Ref::map(self.all_nodes.borrow(), |vec| &vec[..])),
+            index: 0,
+            tree_generation: self.tree_generation.get(),
+        }
+    }
+
+    fn item_rc_for_node_id(&self, id: NodeId) -> Option<ItemRc> {
+        let index: usize = (id.0.get() >> usize::BITS) as _;
+        let generation: usize = (id.0.get() & usize::MAX as u128) as _;
+        if generation != self.tree_generation.get() {
+            return None;
+        }
+        self.all_nodes.borrow().get(index).and_then(|cached_node| cached_node.item.upgrade())
+    }
+
+    fn find_node_id_by_item_rc(&self, mut item: ItemRc) -> Option<NodeId> {
+        while !item.is_accessible() {
+            if let Some(parent) = item.parent_item() {
+                item = parent;
+            } else {
+                break;
+            }
+        }
+
+        self.nodes_iter().find_map(|(id, cached_node)| {
+            cached_node.item.upgrade().and_then(|cached_item| (cached_item.eq(&item)).then(|| id))
+        })
+    }
+
     fn rebuild_tree_of_dirty_nodes(&self) {
         if !self.global_property_tracker.is_dirty() {
             return;
@@ -127,28 +172,18 @@ impl AccessKitAdapter {
             self.global_property_tracker.as_ref().evaluate_as_dependency_root(|| {
                 let scale_factor = ScaleFactor::new(window.scale_factor());
 
-                let all_nodes = self.all_nodes.borrow();
+                let nodes = self.nodes_iter().filter_map(|(id, cached_node)| {
+                    cached_node.tracker.as_ref().evaluate_if_dirty(|| {
+                        let item = cached_node.item.upgrade()?;
 
-                let nodes = all_nodes.iter().filter_map(|cached_node| {
-                    if !cached_node.tracker.is_dirty() {
-                        return None;
-                    }
-                    cached_node
-                        .tracker
-                        .as_ref()
-                        .evaluate_if_dirty(|| {
-                            let item =
-                                item_rc_for_node_id(cached_node.id, self.tree_generation.get())?;
+                        let mut builder = self.build_node_without_children(&item, scale_factor);
 
-                            let mut builder = self.build_node_without_children(&item, scale_factor);
+                        builder.set_children(cached_node.children.clone());
 
-                            builder.set_children(cached_node.children.clone());
+                        let node = builder.build(&mut self.node_classes.borrow_mut());
 
-                            let node = builder.build(&mut self.node_classes.borrow_mut());
-
-                            Some((cached_node.id, node))
-                        })
-                        .unwrap() // Must be Some() because `is_dirty` returned true.
+                        Some((id, node))
+                    })?
                 });
 
                 let update = TreeUpdate {
@@ -158,7 +193,7 @@ impl AccessKitAdapter {
                         .focus_item
                         .borrow()
                         .upgrade()
-                        .map(|item| node_id_for_item_rc(item, self.tree_generation.get())),
+                        .and_then(|item| self.find_node_id_by_item_rc(item)),
                 };
 
                 update
@@ -174,25 +209,20 @@ impl AccessKitAdapter {
     ) -> NodeId {
         let tracker = Box::pin(PropertyTracker::default());
 
-        let (id, children) = tracker.as_ref().evaluate(|| {
-            let mut builder = self.build_node_without_children(&item, scale_factor);
+        let mut builder =
+            tracker.as_ref().evaluate(|| self.build_node_without_children(&item, scale_factor));
 
-            let children = i_slint_core::accessibility::accessible_descendents(&item)
-                .map(|child| self.build_node_for_item_recursively(child, nodes, scale_factor))
-                .collect::<Vec<NodeId>>();
+        let children = i_slint_core::accessibility::accessible_descendents(&item)
+            .map(|child| self.build_node_for_item_recursively(child, nodes, scale_factor))
+            .collect::<Vec<NodeId>>();
 
-            builder.set_children(children.clone());
+        builder.set_children(children.clone());
 
-            let id = node_id_for_item_rc(item, self.tree_generation.get());
+        let id = self.add_node(MappedNode { item: item.downgrade(), children, tracker });
+        let node = builder.build(&mut self.node_classes.borrow_mut());
 
-            let node = builder.build(&mut self.node_classes.borrow_mut());
+        nodes.push((id, node));
 
-            nodes.push((id, node));
-
-            (id, children)
-        });
-
-        self.all_nodes.borrow_mut().push(CachedNode { id, children, tracker });
         id
     }
 
@@ -222,7 +252,7 @@ impl AccessKitAdapter {
                     .focus_item
                     .borrow()
                     .upgrade()
-                    .map(|item| node_id_for_item_rc(item, tree_generation)),
+                    .and_then(|item| self.find_node_id_by_item_rc(item)),
             };
 
             update
@@ -349,45 +379,42 @@ impl AccessKitAdapter {
     }
 }
 
-// Encode a u128 accesskit node id for an ItemRc by assuming that the ItemRc remains
-// alive and storing the item index, raw VRc inner pointer, and a tree generation index
-// in the u128.
-fn node_id_for_item_rc(mut item: ItemRc, tree_generation: u16) -> NodeId {
-    while !item.is_accessible() {
-        if let Some(parent) = item.parent_item() {
-            item = parent;
-        } else {
-            break;
-        }
-    }
-
-    let component_ptr = item.component().as_raw_ptr();
-    let component_usize: u128 = component_ptr as usize as u128;
-    let item_index: u128 = item.index() as u32 as u128;
-
-    let encoded_id = std::num::NonZeroU128::new(
-        (component_usize << 64) | ((tree_generation as u128) << 48) | item_index,
-    )
-    .unwrap();
-    NodeId(encoded_id)
+struct NodeIter<'a> {
+    nodes: Option<std::cell::Ref<'a, [MappedNode]>>,
+    index: usize,
+    tree_generation: usize,
 }
 
-fn item_rc_for_node_id(id: NodeId, expected_generation: u16) -> Option<ItemRc> {
-    let encoded_component = id.0.get() >> 64;
-    let encoded_generation = ((id.0.get() >> 48) & 0xffff) as u16;
-    let encoded_item_index = (id.0.get() & 0xffffffff) as u32;
+impl<'a> Iterator for NodeIter<'a> {
+    type Item = (NodeId, std::cell::Ref<'a, MappedNode>);
 
-    if encoded_generation != expected_generation {
-        return None;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.nodes.is_none() {
+            return None;
+        }
+
+        let Some(remaining_slice) = self.nodes.take() else { return None; };
+
+        if remaining_slice.is_empty() {
+            return None;
+        }
+
+        let (head, tail) =
+            std::cell::Ref::map_split(remaining_slice, |slice| (&slice[0], &slice[1..]));
+        self.nodes.replace(tail);
+
+        let index = self.index;
+        self.index += 1;
+        let id = NodeId(
+            std::num::NonZeroU128::new(
+                (index as u128) << usize::BITS
+                    | (self.tree_generation as u128 & usize::MAX as u128),
+            )
+            .unwrap(),
+        );
+
+        Some((id, head))
     }
-
-    // Safety: When the tree structure changes, the tree generation value is increased, causing a mismatch
-    // caught earlier. Therefore, at this point the pointer should be safe to convert back into a VRc.
-    let component_rc = unsafe {
-        vtable::VRc::<ComponentVTable, vtable::Dyn>::from_raw_ptr(encoded_component as *const _)
-    };
-
-    Some(ItemRc::new(component_rc, encoded_item_index as usize))
 }
 
 struct AccessibilitiesPropertyTracker {
@@ -405,8 +432,8 @@ impl i_slint_core::properties::PropertyDirtyHandler for AccessibilitiesPropertyT
     }
 }
 
-struct CachedNode {
-    id: NodeId,
+struct MappedNode {
+    item: ItemWeak,
     children: Vec<NodeId>,
     tracker: Pin<Box<PropertyTracker>>,
 }
