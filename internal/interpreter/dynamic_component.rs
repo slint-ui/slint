@@ -771,6 +771,7 @@ pub(crate) fn generate_component<'id>(
         use i_slint_core::items::*;
         rtti.extend(
             [
+                rtti_for::<ComponentContainer>(),
                 rtti_for::<Empty>(),
                 rtti_for::<ImageItem>(),
                 rtti_for::<ClippedImage>(),
