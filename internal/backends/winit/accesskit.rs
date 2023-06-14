@@ -184,10 +184,9 @@ impl AccessKitAdapter {
 
         self.inner.update_if_active(|| {
             self.global_property_tracker.as_ref().evaluate_as_dependency_root(|| {
-                let scale_factor = ScaleFactor::new(window.scale_factor());
-
                 let nodes = self.nodes_iter().filter_map(|(id, cached_node)| {
                     cached_node.tracker.as_ref().evaluate_if_dirty(|| {
+                        let scale_factor = ScaleFactor::new(window.scale_factor());
                         let item = cached_node.item.upgrade()?;
 
                         let mut builder = self.build_node_without_children(&item, scale_factor);
