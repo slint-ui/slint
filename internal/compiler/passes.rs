@@ -27,6 +27,7 @@ pub mod infer_aliases_types;
 mod inlining;
 mod lower_absolute_coordinates;
 mod lower_accessibility;
+mod lower_component_container;
 mod lower_layout;
 mod lower_popups;
 mod lower_property_to_element;
@@ -116,6 +117,8 @@ pub async fn run_passes(
         flickable::handle_flickable(component, &global_type_registry.borrow());
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
+        lower_component_container::lower_component_container(component, diag);
+
         lower_layout::lower_layouts(component, type_loader, diag).await;
         default_geometry::default_geometry(component, diag);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
