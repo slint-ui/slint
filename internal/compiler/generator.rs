@@ -7,6 +7,8 @@ The module responsible for the code generation.
 There is one sub module for every language
 */
 
+// cSpell: ignore deque subcomponent
+
 use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
@@ -52,7 +54,7 @@ impl std::str::FromStr for OutputFormat {
             #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
             "llr" => Ok(Self::Llr),
-            _ => Err(format!("Unknown outpout format {}", s)),
+            _ => Err(format!("Unknown output format {}", s)),
         }
     }
 }
