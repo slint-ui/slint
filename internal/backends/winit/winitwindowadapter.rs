@@ -656,7 +656,7 @@ impl WindowAdapterSealed for WinitWindowAdapter {
 
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {
         #[cfg(enable_accesskit)]
-        self.accesskit_adapter.handle_focus_change(_new);
+        self.accesskit_adapter.handle_focus_item_change();
     }
 
     #[cfg(enable_accesskit)]

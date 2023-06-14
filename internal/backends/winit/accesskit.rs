@@ -73,15 +73,39 @@ impl AccessKitAdapter {
         window: &winit::window::Window,
         event: &winit::event::WindowEvent<'_>,
     ) -> bool {
-        self.inner.on_event(window, event)
+        match event {
+            winit::event::WindowEvent::Focused(_) => {
+                self.global_property_tracker.set_dirty();
+                let win = self.window_adapter_weak.clone();
+                i_slint_core::timers::Timer::single_shot(Default::default(), move || {
+                    if let Some(window_adapter) = win.upgrade() {
+                        window_adapter.accesskit_adapter.rebuild_tree_of_dirty_nodes();
+                    };
+                });
+                true // keep processing
+            }
+            _ => self.inner.on_event(window, event),
+        }
     }
 
-    pub fn handle_focus_change(&self, new: Option<ItemRc>) {
+    pub fn handle_focus_item_change(&self) {
         self.inner.update_if_active(|| TreeUpdate {
             nodes: vec![],
             tree: None,
-            focus: new.map(|item| self.find_node_id_by_item_rc(item).unwrap()),
+            focus: self.focus_node(),
         })
+    }
+
+    fn focus_node(&self) -> Option<NodeId> {
+        let window_adapter = self.window_adapter_weak.upgrade()?;
+        if !window_adapter.winit_window().has_focus() {
+            return None;
+        }
+        let window_inner = WindowInner::from_pub(window_adapter.window());
+        let focus_item = window_inner.focus_item.borrow().upgrade().or_else(|| {
+            window_inner.try_component().map(|component_rc| ItemRc::new(component_rc, 0))
+        })?;
+        self.find_node_id_by_item_rc(focus_item)
     }
 
     fn handle_request(&self, request: ActionRequest) {
@@ -199,15 +223,8 @@ impl AccessKitAdapter {
                     })?
                 });
 
-                let update = TreeUpdate {
-                    nodes: nodes.collect(),
-                    tree: None,
-                    focus: WindowInner::from_pub(window)
-                        .focus_item
-                        .borrow()
-                        .upgrade()
-                        .and_then(|item| self.find_node_id_by_item_rc(item)),
-                };
+                let update =
+                    TreeUpdate { nodes: nodes.collect(), tree: None, focus: self.focus_node() };
 
                 update
             })
@@ -257,15 +274,7 @@ impl AccessKitAdapter {
             )
         });
 
-        let update = TreeUpdate {
-            nodes,
-            tree: Some(Tree::new(root_id)),
-            focus: window_inner
-                .focus_item
-                .borrow()
-                .upgrade()
-                .and_then(|item| self.find_node_id_by_item_rc(item)),
-        };
+        let update = TreeUpdate { nodes, tree: Some(Tree::new(root_id)), focus: self.focus_node() };
         update
     }
 
