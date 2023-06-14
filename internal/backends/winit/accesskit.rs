@@ -121,10 +121,6 @@ impl AccessKitAdapter {
     }
 
     pub fn register_component<'a>(&self) {
-        self.all_nodes.borrow_mut().clear();
-
-        self.tree_generation.set(self.tree_generation.get() + 1);
-
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = win.upgrade() {
@@ -135,10 +131,6 @@ impl AccessKitAdapter {
     }
 
     pub fn unregister_component<'a>(&self, _component: ComponentRef) {
-        self.all_nodes.borrow_mut().clear();
-
-        self.tree_generation.set(self.tree_generation.get() + 1);
-
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = win.upgrade() {
@@ -262,6 +254,8 @@ impl AccessKitAdapter {
         let window_inner = i_slint_core::window::WindowInner::from_pub(window);
 
         let root_item = ItemRc::new(window_inner.component(), 0);
+
+        self.tree_generation.set(self.tree_generation.get() + 1);
 
         self.all_nodes.borrow_mut().clear();
         let mut nodes = Vec::new();
