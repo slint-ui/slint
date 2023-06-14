@@ -1,5 +1,5 @@
 {
-    "//": "cSpell: ignore lumino dragdrop frsource ",
+    "//": "cSpell: ignore codingame dragdrop frsource lumino ",
     "name": "slintpad",
     "version": "1.0.3",
     "description": "",
@@ -19,7 +19,8 @@
         "test:cypress_run-chromium": "cypress run --browser=chromium --e2e",
         "test:cypress_open-chromium": "cypress open --browser=chromium --e2e",
         "test:cypress_run-ff": "cypress run --browser=firefox --e2e",
-        "test:cypress_open-ff": "cypress open --browser=firefox --e2e"
+        "test:cypress_open-ff": "cypress open --browser=firefox --e2e",
+        "slintpad:prepublish": "npm run build:wasm_lsp-release && npm run build:wasm_preview-release"
     },
     "keywords": [],
     "author": "",
