@@ -235,6 +235,7 @@ fn duplicate_element_with_mapping(
             .map(|x| duplicate_element_with_mapping(x, mapping, root_component, priority_delta))
             .collect(),
         repeated: elem.repeated.clone(),
+        is_component_placeholder: elem.is_component_placeholder,
         node: elem.node.clone(),
         enclosing_component: Rc::downgrade(root_component),
         states: elem.states.clone(),
