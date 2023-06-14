@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore lumino inmemory mimetypes printerdemo
+// cSpell: ignore edcore lumino inmemory mimetypes printerdemo
 //
 import "monaco-editor/esm/vs/editor/edcore.main.js";
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
@@ -849,7 +849,8 @@ export class EditorWidget extends Widget {
 
     async set_demo(location: string) {
         if (location) {
-            let tag = "master";
+            const default_tag = "XXXX_DEFAULT_TAG_XXXX";
+            let tag = default_tag.startsWith("XXXX_DEFAULT_TAG_") ? "master" : default_tag;
             {
                 let found;
                 if (
