@@ -1,21 +1,16 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#, fuzzy
+
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-06-13 03:03+0000\n"
+"POT-Creation-Date: 2023-06-14 03:04+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: \n"
+"Plural-Forms: nplurals=1; plural=0;\n"
 
 #: ./gallery.slint:14 ./gallery.slint:19
 msgctxt "App"
@@ -59,7 +54,10 @@ msgstr ""
 
 #: ./ui/pages/list_view_page.slint:10
 msgctxt "ListViewPage"
-msgid "ListViews can be used to display a list of elements. The StandardListBox is like the default ListView just with a default text based definition of the visual items. Both can be imported from \"std-widgets.slint\""
+msgid ""
+"ListViews can be used to display a list of elements. The StandardListBox is "
+"like the default ListView just with a default text based definition of the "
+"visual items. Both can be imported from \"std-widgets.slint\""
 msgstr ""
 
 #: ./ui/pages/list_view_page.slint:25
@@ -104,7 +102,11 @@ msgstr ""
 
 #: ./ui/pages/controls_page.slint:11
 msgctxt "ControlsPage"
-msgid "This page gives an overview of the default widget set provided by Slint. The widgets are available in different styles native, fluent-(dark/light) and material-(dark/light). The widgets can be imported from \"std-widgets.slint\"."
+msgid ""
+"This page gives an overview of the default widget set provided by Slint. The "
+"widgets are available in different styles native, fluent-(dark/light) and "
+"material-(dark/light). The widgets can be imported from "
+"\"std-widgets.slint\"."
 msgstr ""
 
 #: ./ui/pages/controls_page.slint:15
@@ -187,52 +189,52 @@ msgctxt "ControlsPage"
 msgid "ProgressIndicator"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:112
+#: ./ui/pages/controls_page.slint:113
 msgctxt "ControlsPage"
 msgid "indeterminate"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:119
+#: ./ui/pages/controls_page.slint:120
 msgctxt "ControlsPage"
 msgid "TabWidget"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:123
+#: ./ui/pages/controls_page.slint:124
 msgctxt "ControlsPage"
 msgid "Tab 1"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:129
+#: ./ui/pages/controls_page.slint:130
 msgctxt "ControlsPage"
 msgid "Content of tab 1"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:135
+#: ./ui/pages/controls_page.slint:136
 msgctxt "ControlsPage"
 msgid "Click me"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:144
+#: ./ui/pages/controls_page.slint:145
 msgctxt "ControlsPage"
 msgid "Tab 2"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:150
+#: ./ui/pages/controls_page.slint:151
 msgctxt "ControlsPage"
 msgid "Content of tab 2"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:156
+#: ./ui/pages/controls_page.slint:157
 msgctxt "ControlsPage"
 msgid "Check me"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:165
+#: ./ui/pages/controls_page.slint:166
 msgctxt "ControlsPage"
 msgid "Tab 3"
 msgstr ""
 
-#: ./ui/pages/controls_page.slint:169
+#: ./ui/pages/controls_page.slint:170
 msgctxt "ControlsPage"
 msgid "Content of tab 3"
 msgstr ""
@@ -244,7 +246,9 @@ msgstr ""
 
 #: ./ui/pages/text_edit_page.slint:10
 msgctxt "TextEditPage"
-msgid "Similar to LineEdit, but can be used to enter several lines of text. The widget can be imported from \"std-widgets.slint\"."
+msgid ""
+"Similar to LineEdit, but can be used to enter several lines of text. The "
+"widget can be imported from \"std-widgets.slint\"."
 msgstr ""
 
 #: ./ui/pages/text_edit_page.slint:15
@@ -255,10 +259,14 @@ msgstr ""
 #. min-width: 200px;
 #: ./ui/pages/text_edit_page.slint:18
 msgctxt "TextEditPage"
-msgid "This is our TextEdit widget, which allows for editing text that spans over multiple paragraphs.\n"
+msgid ""
+"This is our TextEdit widget, which allows for editing text that spans over "
+"multiple paragraphs.\n"
 "For example this line starts in a new paragraph.\n"
 "\n"
-"When the amount of lines - due to wrapping and number of paragraphs - exceeds the available vertical height, a vertical scrollbar is shown that allows scrolling.\n"
+"When the amount of lines - due to wrapping and number of paragraphs - "
+"exceeds the available vertical height, a vertical scrollbar is shown that "
+"allows scrolling.\n"
 "You may want to enter a bit of text here then in order to make them visible."
 msgstr ""
 
@@ -274,7 +282,9 @@ msgstr ""
 
 #: ./ui/pages/table_view_page.slint:23
 msgctxt "TableViewPage"
-msgid "StandardTableView can be used to display a list of text elements in columns and rows. It can be imported from \"std-widgets.slint\""
+msgid ""
+"StandardTableView can be used to display a list of text elements in columns "
+"and rows. It can be imported from \"std-widgets.slint\""
 msgstr ""
 
 #: ./ui/pages/table_view_page.slint:29
@@ -301,3 +311,4 @@ msgstr ""
 msgctxt "TableViewPage"
 msgid "Header 4"
 msgstr ""
+
