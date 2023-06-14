@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::pin::Pin;
+use std::ptr::NonNull;
 use std::rc::Weak;
 use std::sync::{Arc, Condvar, Mutex};
 
@@ -10,10 +12,12 @@ use accesskit::{
     Action, ActionRequest, CheckedState, Node, NodeBuilder, NodeId, Role, Tree, TreeUpdate,
 };
 use i_slint_core::accessibility::AccessibleStringProperty;
-use i_slint_core::item_tree::ItemWeak;
 use i_slint_core::items::{ItemRc, WindowItem};
 use i_slint_core::window::WindowInner;
-use i_slint_core::{component::ComponentRef, lengths::ScaleFactor};
+use i_slint_core::{
+    component::{ComponentRc, ComponentRef, ComponentWeak},
+    lengths::ScaleFactor,
+};
 use i_slint_core::{properties::PropertyTracker, window::WindowAdapter};
 
 use super::WinitWindowAdapter;
@@ -22,8 +26,8 @@ use super::WinitWindowAdapter;
 ///
 /// The entire item tree is mapped to accesskit's node tree. Any changes to an individual accessible item results
 /// in an access kit tree update with just changed nodes. Any changes in the tree structure result in a complete
-/// tree rebuild. This could be implemented more efficiently, but it requires encoding the item index, raw vrc pointer,
-/// and tree generation into the nodeid.
+/// tree rebuild. This could be implemented more efficiently, but that isn't essential; AccessKit will avoid firing
+/// gratuitious events for full-tree updates as long as the node IDs are stable.
 ///
 /// For unix it's necessary to inform accesskit about any changes to the position or size of the window, hence
 /// the `on_event` function that needs calling.
@@ -40,8 +44,10 @@ pub struct AccessKitAdapter {
     window_adapter_weak: Weak<WinitWindowAdapter>,
 
     node_classes: RefCell<accesskit::NodeClassSet>,
-    tree_generation: Cell<usize>,
-    all_nodes: RefCell<Vec<MappedNode>>,
+    next_component_id: Cell<usize>,
+    components_by_id: RefCell<HashMap<usize, ComponentWeak>>,
+    component_ids: RefCell<HashMap<NonNull<u8>, usize>>,
+    all_nodes: RefCell<Vec<CachedNode>>,
     global_property_tracker: Pin<Box<PropertyTracker<AccessibilitiesPropertyTracker>>>,
 }
 
@@ -60,7 +66,9 @@ impl AccessKitAdapter {
             ),
             window_adapter_weak: window_adapter_weak.clone(),
             node_classes: RefCell::new(accesskit::NodeClassSet::new()),
-            tree_generation: Cell::new(1),
+            next_component_id: Cell::new(1),
+            components_by_id: Default::default(),
+            component_ids: Default::default(),
             all_nodes: Default::default(),
             global_property_tracker: Box::pin(PropertyTracker::new_with_dirty_handler(
                 AccessibilitiesPropertyTracker { window_adapter_weak: window_adapter_weak.clone() },
@@ -130,7 +138,12 @@ impl AccessKitAdapter {
         });
     }
 
-    pub fn unregister_component<'a>(&self, _component: ComponentRef) {
+    pub fn unregister_component<'a>(&self, component: ComponentRef) {
+        let component_ptr = ComponentRef::as_ptr(component);
+        if let Some(component_id) = self.component_ids.borrow_mut().remove(&component_ptr) {
+            self.components_by_id.borrow_mut().remove(&component_id);
+        }
+
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = win.upgrade() {
@@ -140,34 +153,11 @@ impl AccessKitAdapter {
         });
     }
 
-    fn add_node(&self, node: MappedNode) -> NodeId {
-        let index: usize = self.all_nodes.borrow().len();
-        let id = NodeId(
-            std::num::NonZeroU128::new(
-                (index as u128) << usize::BITS
-                    | (self.tree_generation.get() as u128 & usize::MAX as u128),
-            )
-            .unwrap(),
-        );
-        self.all_nodes.borrow_mut().push(node);
-        id
-    }
-
-    fn nodes_iter(&self) -> NodeIter<'_> {
-        NodeIter {
-            nodes: Some(std::cell::Ref::map(self.all_nodes.borrow(), |vec| &vec[..])),
-            index: 0,
-            tree_generation: self.tree_generation.get(),
-        }
-    }
-
     fn item_rc_for_node_id(&self, id: NodeId) -> Option<ItemRc> {
-        let index: usize = (id.0.get() >> usize::BITS) as _;
-        let generation: usize = (id.0.get() & usize::MAX as u128) as _;
-        if generation != self.tree_generation.get() {
-            return None;
-        }
-        self.all_nodes.borrow().get(index).and_then(|cached_node| cached_node.item.upgrade())
+        let component_id: usize = (id.0.get() >> usize::BITS) as _;
+        let index: usize = (id.0.get() & usize::MAX as u128) as _;
+        let component = self.components_by_id.borrow().get(&component_id)?.upgrade()?;
+        Some(ItemRc::new(component, index))
     }
 
     fn find_node_id_by_item_rc(&self, mut item: ItemRc) -> Option<NodeId> {
@@ -179,9 +169,20 @@ impl AccessKitAdapter {
             }
         }
 
-        self.nodes_iter().find_map(|(id, cached_node)| {
-            cached_node.item.upgrade().and_then(|cached_item| (cached_item.eq(&item)).then(|| id))
-        })
+        self.encode_item_node_id(&item)
+    }
+
+    fn encode_item_node_id(&self, item: &ItemRc) -> Option<NodeId> {
+        let component = item.component();
+        let component_ptr = ComponentRef::as_ptr(ComponentRc::borrow(&component));
+        let component_id = *(self.component_ids.borrow().get(&component_ptr)?);
+        let index = item.index();
+        Some(NodeId(
+            std::num::NonZeroU128::new(
+                (component_id as u128) << usize::BITS | (index as u128 & usize::MAX as u128),
+            )
+            .unwrap(),
+        ))
     }
 
     fn rebuild_tree_of_dirty_nodes(&self) {
@@ -200,10 +201,11 @@ impl AccessKitAdapter {
 
         self.inner.update_if_active(|| {
             self.global_property_tracker.as_ref().evaluate_as_dependency_root(|| {
-                let nodes = self.nodes_iter().filter_map(|(id, cached_node)| {
+                let all_nodes = self.all_nodes.borrow();
+                let nodes = all_nodes.iter().filter_map(|cached_node| {
                     cached_node.tracker.as_ref().evaluate_if_dirty(|| {
                         let scale_factor = ScaleFactor::new(window.scale_factor());
-                        let item = cached_node.item.upgrade()?;
+                        let item = self.item_rc_for_node_id(cached_node.id)?;
 
                         let mut builder = self.build_node_without_children(&item, scale_factor);
 
@@ -211,7 +213,7 @@ impl AccessKitAdapter {
 
                         let node = builder.build(&mut self.node_classes.borrow_mut());
 
-                        Some((id, node))
+                        Some((cached_node.id, node))
                     })?
                 });
 
@@ -240,7 +242,19 @@ impl AccessKitAdapter {
 
         builder.set_children(children.clone());
 
-        let id = self.add_node(MappedNode { item: item.downgrade(), children, tracker });
+        let component = item.component();
+        let component_ptr = ComponentRef::as_ptr(ComponentRc::borrow(&component));
+        if !self.component_ids.borrow().contains_key(&component_ptr) {
+            let component_id = self.next_component_id.get();
+            self.next_component_id.set(component_id + 1);
+            self.component_ids.borrow_mut().insert(component_ptr, component_id);
+            self.components_by_id
+                .borrow_mut()
+                .insert(component_id, ComponentRc::downgrade(&component));
+        }
+
+        let id = self.encode_item_node_id(&item).unwrap();
+        self.all_nodes.borrow_mut().push(CachedNode { id, children, tracker });
         let node = builder.build(&mut self.node_classes.borrow_mut());
 
         nodes.push((id, node));
@@ -254,8 +268,6 @@ impl AccessKitAdapter {
         let window_inner = i_slint_core::window::WindowInner::from_pub(window);
 
         let root_item = ItemRc::new(window_inner.component(), 0);
-
-        self.tree_generation.set(self.tree_generation.get() + 1);
 
         self.all_nodes.borrow_mut().clear();
         let mut nodes = Vec::new();
@@ -392,44 +404,6 @@ impl AccessKitAdapter {
     }
 }
 
-struct NodeIter<'a> {
-    nodes: Option<std::cell::Ref<'a, [MappedNode]>>,
-    index: usize,
-    tree_generation: usize,
-}
-
-impl<'a> Iterator for NodeIter<'a> {
-    type Item = (NodeId, std::cell::Ref<'a, MappedNode>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.nodes.is_none() {
-            return None;
-        }
-
-        let Some(remaining_slice) = self.nodes.take() else { return None; };
-
-        if remaining_slice.is_empty() {
-            return None;
-        }
-
-        let (head, tail) =
-            std::cell::Ref::map_split(remaining_slice, |slice| (&slice[0], &slice[1..]));
-        self.nodes.replace(tail);
-
-        let index = self.index;
-        self.index += 1;
-        let id = NodeId(
-            std::num::NonZeroU128::new(
-                (index as u128) << usize::BITS
-                    | (self.tree_generation as u128 & usize::MAX as u128),
-            )
-            .unwrap(),
-        );
-
-        Some((id, head))
-    }
-}
-
 struct AccessibilitiesPropertyTracker {
     window_adapter_weak: Weak<WinitWindowAdapter>,
 }
@@ -445,8 +419,8 @@ impl i_slint_core::properties::PropertyDirtyHandler for AccessibilitiesPropertyT
     }
 }
 
-struct MappedNode {
-    item: ItemWeak,
+struct CachedNode {
+    id: NodeId,
     children: Vec<NodeId>,
     tracker: Pin<Box<PropertyTracker>>,
 }
