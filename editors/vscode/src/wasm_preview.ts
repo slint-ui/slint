@@ -237,18 +237,23 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
         if (component !== undefined) {
             document.getElementById("slint_error_div").innerHTML = "";
             if (current_instance !== null) {
-                current_instance = await component.create_with_existing_window(current_instance);
+                current_instance = component.create_with_existing_window(await current_instance);
             } else {
                 try {
                     slint.run_event_loop();
                 } catch (e) {
                     // ignore winit event loop exception
                 }
-                current_instance = await component.create("slint_canvas");
-                await current_instance.show();
+                current_instance = (async () => {
+                    let new_instance = await component.create("slint_canvas");
+                    await new_instance.show();
+                    return new_instance;
+                })();
             }
-            current_instance?.set_design_mode(design_mode);
-            current_instance?.on_element_selected(element_selected);
+            if (current_instance !== null) {
+                (await current_instance).set_design_mode(design_mode);
+                (await current_instance).on_element_selected(element_selected);    
+            }
         }
     }
 
@@ -265,12 +270,14 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
             }
         } else if (event.data.command === "highlight") {
             if (current_instance) {
-                current_instance.highlight(event.data.data.path, event.data.data.offset);
+                (await current_instance).highlight(event.data.data.path, event.data.data.offset);
             }
         } else if (event.data.command === "toggle_design_mode") {
             design_mode = !design_mode;
-            current_instance?.set_design_mode(design_mode);
-            current_instance?.on_element_selected(element_selected);
+            if (current_instance != null) {
+                (await current_instance).set_design_mode(design_mode);
+                (await current_instance).on_element_selected(element_selected);    
+            }
         }
     });
 

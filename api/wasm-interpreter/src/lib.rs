@@ -185,23 +185,24 @@ impl WrappedCompiledComp {
             }
         })).unchecked_into::<InstancePromise>())
     }
-    /// Creates this compiled component in the canvas of the provided instance.
+    /// Creates this compiled component in the canvas of the provided instance, wrapped in a promise.
     /// For this to work, the provided instance needs to be visible (show() must've been
     /// called) and the event loop must be running (`slint.run_event_loop()`). After this
     /// call the provided instance is not rendered anymore and can be discarded.
+    ///
+    /// Note that the promise will only be resolved after calling `slint.run_event_loop()`.
     #[wasm_bindgen]
     pub fn create_with_existing_window(
         &self,
         instance: WrappedInstance,
     ) -> Result<InstancePromise, JsValue> {
         Ok(JsValue::from(js_sys::Promise::new(&mut |resolve, reject| {
-            let comp = send_wrapper::SendWrapper::new(self.0.clone());
-            let instance = send_wrapper::SendWrapper::new(instance.0.clone_strong());
-            let resolve = send_wrapper::SendWrapper::new(resolve);
+            let params = send_wrapper::SendWrapper::new((self.0.clone(), instance.0.clone_strong(), resolve));
             if let Err(e) = slint_interpreter::invoke_from_event_loop(move || {
+                let (comp, instance, resolve) = params.take();
                 let instance =
-                    WrappedInstance(comp.take().create_with_existing_window(instance.take().window()).unwrap());
-                resolve.take().call1(&JsValue::UNDEFINED, &JsValue::from(instance)).unwrap_throw();
+                    WrappedInstance(comp.create_with_existing_window(instance.window()).unwrap());
+                resolve.call1(&JsValue::UNDEFINED, &JsValue::from(instance)).unwrap_throw();
             }) {
                 reject
                     .call1(
@@ -228,11 +229,15 @@ impl Clone for WrappedInstance {
 #[wasm_bindgen]
 impl WrappedInstance {
     /// Marks this instance for rendering and input handling.
+    ///
+    /// Note that the promise will only be resolved after calling `slint.run_event_loop()`.
     #[wasm_bindgen]
     pub fn show(&self) -> Result<js_sys::Promise, JsValue> {
         self.invoke_from_event_loop_wrapped_in_promise(|instance| instance.show())
     }
     /// Hides this instance and prevents further updates of the canvas element.
+    ///
+    /// Note that the promise will only be resolved after calling `slint.run_event_loop()`.
     #[wasm_bindgen]
     pub fn hide(&self) -> Result<js_sys::Promise, JsValue> {
         self.invoke_from_event_loop_wrapped_in_promise(|instance| instance.hide())
@@ -250,13 +255,13 @@ impl WrappedInstance {
             let inst_weak = self.0.as_weak();
 
             if let Err(e) = slint_interpreter::invoke_from_event_loop({
-                let resolve = send_wrapper::SendWrapper::new(resolve);
-                let reject = send_wrapper::SendWrapper::new(reject.clone());
-                let callback = send_wrapper::SendWrapper::new(callback.take().unwrap());
+                let params = send_wrapper::SendWrapper::new((
+                    resolve,
+                    reject.clone(),
+                    callback.take().unwrap(),
+                ));
                 move || {
-                    let resolve = resolve.take();
-                    let reject = reject.take();
-                    let callback = callback.take();
+                    let (resolve, reject, callback) = params.take();
                     match inst_weak.upgrade() {
                         Some(instance) => match callback(&instance) {
                             Ok(()) => {

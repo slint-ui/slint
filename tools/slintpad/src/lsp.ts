@@ -113,12 +113,13 @@ type BackendChatter =
       };
 
 type HighlightInfo = { file: string; offset: number };
+type InstanceCallback<R> = (_instance: slint_preview.WrappedInstance) => R;
 
 class PreviewerBackend {
     #client_port: MessagePort;
     #lsp_port: MessagePort;
     #canvas_id: string | null = null;
-    #instance: slint_preview.WrappedInstance | null = null;
+    #instance: Promise<slint_preview.WrappedInstance> | null = null;
     #to_highlight: HighlightInfo = { file: "", offset: 0 };
     #picker_mode = false;
 
@@ -195,9 +196,9 @@ class PreviewerBackend {
         this.configure_picker_mode();
     }
 
-    protected configure_picker_mode() {
-        if (this.#instance !== null) {
-            this.#instance.on_element_selected(
+    protected async configure_picker_mode() {
+        await this.with_instance((instance) => {
+            instance.on_element_selected(
                 (
                     url: string,
                     start_line: number,
@@ -213,8 +214,15 @@ class PreviewerBackend {
                     });
                 },
             );
-            this.#instance.set_design_mode(this.#picker_mode);
+            instance.set_design_mode(this.#picker_mode);
+        })
+    }
+
+    private async with_instance<R>(callback: InstanceCallback<R>): Promise<R | null> {
+        if (this.#instance == null) {
+            return null;
         }
+        return callback(await this.#instance);
     }
 
     set canvas_id(id: string | null) {
@@ -276,22 +284,25 @@ class PreviewerBackend {
                     // the model markers.
                     is_event_loop_running = true; // Assume the winit caused the exception and that the event loop is up now
                 }
-                this.#instance = await component.create(this.canvas_id!); // eslint-disable-line
-                await this.#instance.show();
+                this.#instance = (async () => {
+                    let new_instance = await component.create(this.canvas_id!); // eslint-disable-line
+                    await new_instance.show();
+                    return new_instance;
+                })();
             } else {
-                this.#instance = await component.create_with_existing_window(
-                    this.#instance,
+                this.#instance = component.create_with_existing_window(
+                    await this.#instance,
                 );
-                this.configure_picker_mode();
+                await this.configure_picker_mode();
             }
         }
 
         return Promise.resolve(markers);
     }
 
-    private highlight(file_path: string, offset: number) {
+    private async highlight(file_path: string, offset: number) {
         this.#to_highlight = { file: file_path, offset: offset };
-        this.#instance?.highlight(file_path, offset);
+        this.with_instance((instance) => instance.highlight(file_path, offset))
     }
 }
 
