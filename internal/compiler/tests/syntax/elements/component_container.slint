@@ -1,0 +1,27 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export component Foo inherits Rectangle {
+    ComponentContainer {
+//  ^error{ComponentContainers may not have children}
+        @children
+    }
+}
+
+export Bar := Rectangle {
+    Foo { Text {} }
+    ComponentContainer {
+//  ^error{ComponentContainers may not have children}
+        Text {}
+    }
+    ComponentContainer {
+//  ^error{ComponentContainers may not have children}
+        Text { }
+        for x in 2: Rectangle {}
+        Text { }
+        for x in 2: Rectangle {}
+    }
+
+    ComponentContainer {
+    }
+}
