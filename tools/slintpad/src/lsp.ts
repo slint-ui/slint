@@ -120,7 +120,6 @@ class PreviewerBackend {
     #canvas_id: string | null = null;
     #instance: slint_preview.WrappedInstance | null = null;
     #to_highlight: HighlightInfo = { file: "", offset: 0 };
-    #is_rendering = false;
     #picker_mode = false;
 
     constructor(client_port: MessagePort, lsp_port: MessagePort) {
@@ -142,15 +141,6 @@ class PreviewerBackend {
                 }
                 if (m.data.command === "render") {
                     const port = m.ports[0];
-                    if (this.#is_rendering) {
-                        port.postMessage({
-                            type: "Error",
-                            data: "Already rendering",
-                        });
-                        port.close();
-                        return;
-                    }
-                    this.#is_rendering = true;
 
                     this.render(
                         m.data.style,
@@ -192,8 +182,7 @@ class PreviewerBackend {
                         .catch((e) => {
                             port.postMessage({ type: "Error", data: e });
                             port.close();
-                        });
-                    this.#is_rendering = false;
+                        })
                 }
             } catch (e) {
                 client_port.postMessage({ type: "Error", data: e });
@@ -290,7 +279,7 @@ class PreviewerBackend {
                 this.#instance = await component.create(this.canvas_id!); // eslint-disable-line
                 await this.#instance.show();
             } else {
-                this.#instance = component.create_with_existing_window(
+                this.#instance = await component.create_with_existing_window(
                     this.#instance,
                 );
                 this.configure_picker_mode();

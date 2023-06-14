@@ -193,8 +193,26 @@ impl WrappedCompiledComp {
     pub fn create_with_existing_window(
         &self,
         instance: WrappedInstance,
-    ) -> Result<WrappedInstance, JsValue> {
-        Ok(WrappedInstance(self.0.create_with_existing_window(instance.0.window()).unwrap()))
+    ) -> Result<InstancePromise, JsValue> {
+        Ok(JsValue::from(js_sys::Promise::new(&mut |resolve, reject| {
+            let comp = send_wrapper::SendWrapper::new(self.0.clone());
+            let instance = send_wrapper::SendWrapper::new(instance.0.clone_strong());
+            let resolve = send_wrapper::SendWrapper::new(resolve);
+            if let Err(e) = slint_interpreter::invoke_from_event_loop(move || {
+                let instance =
+                    WrappedInstance(comp.take().create_with_existing_window(instance.take().window()).unwrap());
+                resolve.take().call1(&JsValue::UNDEFINED, &JsValue::from(instance)).unwrap_throw();
+            }) {
+                reject
+                    .call1(
+                        &JsValue::UNDEFINED,
+                        &JsValue::from(
+                            format!("internal error: Failed to queue closure for event loop invocation: {e}"),
+                        ),
+                    )
+                    .unwrap_throw();
+            }
+        })).unchecked_into::<InstancePromise>())
     }
 }
 
@@ -212,17 +230,35 @@ impl WrappedInstance {
     /// Marks this instance for rendering and input handling.
     #[wasm_bindgen]
     pub fn show(&self) -> Result<js_sys::Promise, JsValue> {
+        self.invoke_from_event_loop_wrapped_in_promise(|instance| instance.show())
+    }
+    /// Hides this instance and prevents further updates of the canvas element.
+    #[wasm_bindgen]
+    pub fn hide(&self) -> Result<js_sys::Promise, JsValue> {
+        self.invoke_from_event_loop_wrapped_in_promise(|instance| instance.hide())
+    }
+
+    fn invoke_from_event_loop_wrapped_in_promise(
+        &self,
+        callback: impl FnOnce(
+                &slint_interpreter::ComponentInstance,
+            ) -> Result<(), slint_interpreter::PlatformError>
+            + 'static,
+    ) -> Result<js_sys::Promise, JsValue> {
+        let callback = std::cell::RefCell::new(Some(callback));
         Ok(js_sys::Promise::new(&mut |resolve, reject| {
             let inst_weak = self.0.as_weak();
 
             if let Err(e) = slint_interpreter::invoke_from_event_loop({
                 let resolve = send_wrapper::SendWrapper::new(resolve);
                 let reject = send_wrapper::SendWrapper::new(reject.clone());
+                let callback = send_wrapper::SendWrapper::new(callback.take().unwrap());
                 move || {
                     let resolve = resolve.take();
                     let reject = reject.take();
+                    let callback = callback.take();
                     match inst_weak.upgrade() {
-                        Some(instance) => match instance.show() {
+                        Some(instance) => match callback(&instance) {
                             Ok(()) => {
                                 resolve.call0(&JsValue::UNDEFINED).unwrap_throw();
                             }
@@ -231,7 +267,7 @@ impl WrappedInstance {
                                     .call1(
                                         &JsValue::UNDEFINED,
                                         &JsValue::from(format!(
-                                            "Calling show() on ComponentInstance failed: {e}"
+                                            "Invocation on ComponentInstance from within event loop failed: {e}"
                                         )),
                                     )
                                     .unwrap_throw();
@@ -242,7 +278,7 @@ impl WrappedInstance {
                             .call1(
                                 &JsValue::UNDEFINED,
                                 &JsValue::from(format!(
-                                    "Calling show() on ComponentInstance failed because instance was deleted too soon"
+                                    "Invocation on ComponentInstance failed because instance was deleted too soon"
                                 )),
                             )
                             .unwrap_throw();
@@ -260,11 +296,6 @@ impl WrappedInstance {
                 .unwrap_throw();
             }
         }))
-    }
-    /// Hides this instance and prevents further updates of the canvas element.
-    #[wasm_bindgen]
-    pub fn hide(&self) -> Result<(), JsValue> {
-        self.0.hide().map_err(|e| -> JsValue { format!("{e}").into() })
     }
 
     /// THIS FUNCTION IS NOT PART THE PUBLIC API!

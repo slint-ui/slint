@@ -237,7 +237,7 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
         if (component !== undefined) {
             document.getElementById("slint_error_div").innerHTML = "";
             if (current_instance !== null) {
-                current_instance = component.create_with_existing_window(current_instance);
+                current_instance = await component.create_with_existing_window(current_instance);
             } else {
                 try {
                     slint.run_event_loop();
