@@ -21,7 +21,7 @@
       - [Can Alice use the MIT license header to the source code of AliceApp application?](#can-alice-use-the-mit-license-header-to-the-source-code-of-aliceapp-application)
       - [Under what license should she distribute the AliceApp binary?](#under-what-license-should-she-distribute-the-aliceapp-binary)
       - [How can Alice make it clear to Bob that he can distribute BobApp under a proprietary license?](#how-can-alice-make-it-clear-to-bob-that-he-can-distribute-bobapp-under-a-proprietary-license)
-- [Miscelleneous](#miscelleneous)
+- [Miscellaneous](#miscellaneous)
   - [Do you provide Support?](#do-you-provide-support)
 
 ## General
@@ -71,7 +71,7 @@ You need to do all of the following:
 
 There are 2 limitations:
 
-1. You are not permitted to distribute or make Slint publicly available alone and without integration into an application. or this purpose you may use the Software under the GNU General Public License, version 3.
+1. You are not permitted to distribute or make Slint publicly available alone and without integration into an application. For this purpose you may use the Software under the GNU General Public License, version 3.
 2. You are not permitted the use Slint within Embedded Systems. An Embedded System is a computer system designed to perform a specific task within a larger mechanical or electrical system. For the purposes of this license, mobile phones are not considered to be Embedded Systems.
   
 #### Scenario: What happens if my application is open-source (e.g. under MIT), forked by a different person and then redistributed?
