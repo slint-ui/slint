@@ -277,10 +277,18 @@ lazy_static! {
         ("^docs/language/conf.py$", LicenseLocation::NoLicense),
         ("^editors/tree-sitter-slint/binding.gyp$", LicenseLocation::NoLicense), // liberal license
         ("^editors/tree-sitter-slint/test-to-corpus.py$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
         ("^Cargo.lock$", LicenseLocation::NoLicense),
 
+        // filename based matches:
+        ("(^|/)CMakeLists.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("(^|/)Cargo.toml$", LicenseLocation::Crate),
+        ("(^|/)Dockerfile", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("(^|/)\\.eslintrc.yml$", LicenseLocation::NoLicense),
+        ("(^|/)memory.x$", LicenseLocation::NoLicense), // third-party file
+        ("(^|/)webpack\\..+\\.js$", LicenseLocation::NoLicense),
+
         // Path prefix matches:
+        ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
         ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
         ("^api/cpp/docs/_templates/", LicenseLocation::NoLicense),
         ("^docs/tutorial/theme/", LicenseLocation::NoLicense),
@@ -288,16 +296,10 @@ lazy_static! {
         ("^helper_crates/const-field-offset/", LicenseLocation::NoLicense), // liberal license
         ("^helper_crates/document-features/", LicenseLocation::NoLicense), // liberal license
 
-        // Filename/directory based matches
-        ("[/^]CMakeLists.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("[/^]Cargo.toml$", LicenseLocation::Crate),
-        ("[/^]Dockerfile", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("[/^]LICENSES/", LicenseLocation::NoLicense),
-        ("[/^]LICENSE", LicenseLocation::NoLicense),
-        ("[/^]README$", LicenseLocation::NoLicense),
-        ("[/^]\\.eslintrc.yml$", LicenseLocation::NoLicense),
-        ("[/^]memory.x$", LicenseLocation::NoLicense), // third-party file
-        ("[/^]webpack\\..+\\.js$", LicenseLocation::NoLicense),
+        // directory based matches
+        ("(^|/)LICENSES/", LicenseLocation::NoLicense),
+        ("(^|/)LICENSE", LicenseLocation::NoLicense),
+        ("(^|/)README$", LicenseLocation::NoLicense),
 
         // Extension matches:
         ("\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
