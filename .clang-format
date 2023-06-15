@@ -21,8 +21,8 @@ ColumnLimit: 100
 # PenaltyExcessCharacter: 4
 
 # Disable reflow of qdoc comments: indentation rules are different.
-# Translation comments are also excluded.
-CommentPragmas: "^!|^:"
+# Translation comments and SDPX-License-Identifiers either.
+CommentPragmas: "^(!|:|\\s*SPDX-License-Identifier: )"
 
 # We want a space between the type and the star for pointer types.
 PointerBindsToType: false
