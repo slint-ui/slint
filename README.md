@@ -116,7 +116,7 @@ The `docs` folder contains a lot more information, including
 Refer to the README of each language directory in the `api` folder:
 
 - [C++](api/cpp) ([Documentation][#15] | [Tutorial][#16] | [Getting Started Template][#17])
-- [Rust](api/rs/slint) [![Crates.io][def]][#19] ([Documentation][#20] | [Tutorial][#21] | [Tutorial Video][#22] | [Getting Started Template][#23])
+- [Rust](api/rs/slint) [![Crates.io][#18]][#19] ([Documentation][#20] | [Tutorial][#21] | [Tutorial Video][#22] | [Getting Started Template][#23])
 - [JavaScript/NodeJS (Beta)](api/node) [![npm][#24]][#25] ([Documentation][#26] | [Tutorial][#27] | [Getting Started Template][#28])
 
 ## Architecture
@@ -266,7 +266,7 @@ You can of course also contact us privately via email to [info@slint-ui.com](mai
 [#15]: https://slint-ui.com/docs/cpp
 [#16]: https://slint-ui.com/docs/tutorial/cpp
 [#17]: https://github.com/slint-ui/slint-cpp-template
-[def]: https://img.shields.io/crates/v/slint
+[#18]: https://img.shields.io/crates/v/slint
 [#19]: https://crates.io/crates/slint
 [#20]: https://slint-ui.com/docs/rust/slint/
 [#21]: https://slint-ui.com/docs/tutorial/rust
