@@ -426,12 +426,16 @@ struct CachedNode {
 }
 
 struct ActionForwarder {
-    wrapped_window_adapter_weak: send_wrapper::SendWrapper<Weak<WinitWindowAdapter>>,
+    wrapped_window_adapter_weak: Arc<send_wrapper::SendWrapper<Weak<WinitWindowAdapter>>>,
 }
 
 impl ActionForwarder {
     pub fn new(window_adapter: &Weak<WinitWindowAdapter>) -> Self {
-        Self { wrapped_window_adapter_weak: send_wrapper::SendWrapper::new(window_adapter.clone()) }
+        Self {
+            wrapped_window_adapter_weak: Arc::new(send_wrapper::SendWrapper::new(
+                window_adapter.clone(),
+            )),
+        }
     }
 }
 
@@ -439,7 +443,7 @@ impl accesskit::ActionHandler for ActionForwarder {
     fn do_action(&self, request: ActionRequest) {
         let wrapped_window_adapter_weak = self.wrapped_window_adapter_weak.clone();
         i_slint_core::api::invoke_from_event_loop(move || {
-            let Some(window_adapter) = wrapped_window_adapter_weak.take().upgrade() else { return };
+            let Some(window_adapter) = wrapped_window_adapter_weak.as_ref().clone().take().upgrade() else { return };
             window_adapter.accesskit_adapter.handle_request(request)
         })
         .ok();
