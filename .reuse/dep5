@@ -3,7 +3,7 @@ Upstream-Name: slint
 Upstream-Contact: Slint Developers <info@slint-ui.com>
 Source: https://slint-ui.com/
 
-Files: */slint-logo-*.svg */slint-logo-*.png
+Files: */slint-logo-*.svg */slint-logo-*.png */madewithslint-logo-*.svg */madewithslint-logo-*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: CC-BY-ND-4.0
 
