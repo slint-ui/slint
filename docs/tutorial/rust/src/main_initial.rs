@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
-// MIT
+// SPDX-License-Identifier: MIT
 
 #[allow(dead_code)]
 // ANCHOR: main
