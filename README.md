@@ -34,11 +34,10 @@ We invite you to use Slint and be part of its community.
 Slint is in active development. The state of support for each platform is as
 follows:
 
-- **Embedded**: *Ready* Slint runtime requires less than 300KiB of RAM. Slint is
-    being used by customers in production projects on embedded devices running
-    embedded Linux and Windows. Slint can run on different processor architectures
-    such as ARM Cortex M, ESP32, STM32 from the MCU category to ARM Cortex A,
-    Intel x86 from the MPU category.
+- **Embedded**: *Ready* Slint is being used by customers in production on embedded
+    devices running embedded Linux and Windows. The Slint run-time requires less than
+    300KiB of RAM and can run on different processor architectures such as ARM Cortex M,
+    ESP32, STM32 from the MCU category to ARM Cortex A, Intel x86 from the MPU category.
 - **Desktop**: *In Progress*. While Slint is a good fit on Windows, Linux and Mac,
     we are working on improving the platform support in subsequent releases.
 - **Web**: *In Progress*. Slint apps can be compiled to WebAssembly and can run
