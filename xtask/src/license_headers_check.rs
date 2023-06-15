@@ -630,7 +630,7 @@ impl LicenseHeaderCheck {
 
         if !doc.published()? {
             // Skip further tests for package that are not published
-            return Ok(());
+            return doc.save_if_changed();
         }
 
         if doc.check_and_fix_package_string_field(false, "homepage", ALLOWED_HOMEPAGE).is_err() {
