@@ -23,7 +23,7 @@ impl LicenseTagStyle {
             tag_start: "// Copyright © ",
             line_prefix: "//",
             line_indentation: " ",
-            tag_end: const_format::concatcp!("// ", EXPECTED_SPDX_ID, '\n'),
+            tag_end: const_format::concatcp!("// ", SPDX_LICENSE_LINE),
         }
     }
 
@@ -32,7 +32,7 @@ impl LicenseTagStyle {
             tag_start: "# Copyright © ",
             line_prefix: "#",
             line_indentation: " ",
-            tag_end: const_format::concatcp!("# ", EXPECTED_SPDX_ID, '\n'),
+            tag_end: const_format::concatcp!("# ", SPDX_LICENSE_LINE),
         }
     }
 
@@ -41,7 +41,7 @@ impl LicenseTagStyle {
             tag_start: ".. Copyright © ",
             line_prefix: "..",
             line_indentation: " ",
-            tag_end: const_format::concatcp!(".. ", EXPECTED_SPDX_ID, '\n'),
+            tag_end: const_format::concatcp!(".. ", SPDX_LICENSE_LINE),
         }
     }
 }
@@ -54,13 +54,18 @@ struct SourceFileWithTags<'a> {
 
 impl<'a> SourceFileWithTags<'a> {
     fn new(source: &'a str, style: &'a LicenseTagStyle) -> Self {
+        // This assumes that all LicenseTagStyle end with a SPDX license identifier line!
         let location = match source.find(style.tag_start) {
             Some(start) => {
-                let end = source[start..]
+                let end_tag = source[start..]
                     .find(style.tag_end)
                     .map(|idx| start + idx + style.tag_end.len())
                     .unwrap_or_default();
-                if end > start {
+                if end_tag > start {
+                    let end = source[end_tag..]
+                        .find('\n')
+                        .map(|idx| end_tag + idx + 1)
+                        .unwrap_or(end_tag);
                     Some(std::ops::Range { start, end })
                 } else {
                     None
@@ -85,26 +90,26 @@ impl<'a> SourceFileWithTags<'a> {
         &self.source[tag_loc.start..tag_loc.end]
     }
 
-    fn tag_matches(&self, expected_tag: &LicenseHeader) -> bool {
+    fn tag_matches(&self, expected_tag: &LicenseHeader, license: &str) -> bool {
         let tag_loc = match &self.tag_location {
             Some(loc) => loc,
             None => return false,
         };
 
-        let expected_tag_str = expected_tag.to_string(self.tag_style);
+        let expected_tag_str = expected_tag.to_string(self.tag_style, license);
         let found_tag = &self.source[tag_loc.start..tag_loc.end];
         expected_tag_str == found_tag
     }
 
-    fn replace_tag(&self, replacement: &LicenseHeader) -> String {
+    fn replace_tag(&self, replacement: &LicenseHeader, license: &str) -> String {
         let loc = &self.tag_location;
         let next_char = if let Some(range) = loc {
             self.source.as_bytes().get(range.end)
         } else {
-            self.source.as_bytes().get(0)
+            self.source.as_bytes().first()
         };
 
-        let new_header = replacement.to_string(self.tag_style);
+        let new_header = replacement.to_string(self.tag_style, license);
         let new_header = if next_char == Some(&b'\n') || next_char.is_none() {
             new_header
         } else {
@@ -133,7 +138,7 @@ blah"#,
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "foo"),
             r#"// TEST_LICENSE
 
 blah"#
@@ -151,7 +156,7 @@ blah"#,
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
             r#"// TEST_LICENSE
 
 blah"#
@@ -161,7 +166,7 @@ blah"#
     {
         let test_source = SourceFileWithTags::new("blah", &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
             r#"// TEST_LICENSE
 
 blah"#
@@ -171,17 +176,18 @@ blah"#
     {
         let test_source = SourceFileWithTags::new("\nblah", &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
-            r#"// TEST_LICENSE
+            test_source.replace_tag(&LicenseHeader(&[SPDX_LICENSE_LINE]), "bar"),
+            String::from("// ")
+                + SPDX_LICENSE_LINE
+                + r#"bar
 
 blah"#
-                .to_string()
         );
     }
     {
         let test_source = SourceFileWithTags::new("", &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
             r#"// TEST_LICENSE
 "#
             .to_string()
@@ -203,7 +209,7 @@ blah"#,
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
             r#"# TEST_LICENSE
 
 blah"#
@@ -213,7 +219,7 @@ blah"#
     {
         let test_source = SourceFileWithTags::new(r#"blah"#, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
             r#"# TEST_LICENSE
 
 blah"#
@@ -236,7 +242,7 @@ blah"#,
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
             r#".. TEST_LICENSE
 
 blah"#
@@ -246,7 +252,7 @@ blah"#
     {
         let test_source = SourceFileWithTags::new(r#"blah"#, &style);
         assert_eq!(
-            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"]), "bar"),
             r#".. TEST_LICENSE
 
 blah"#
@@ -345,13 +351,30 @@ lazy_static! {
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
     .collect();
+}
+
+lazy_static! {
+    static ref LICENSE_FOR_FILE: Vec<(regex::Regex, &'static str)> = [
+        ("^helper_crates/const-field-offset/", MIT_OR_APACHE2_LICENSE),
+        ("^examples/", MIT_LICENSE),
+        ("^docs/tutorial/", MIT_LICENSE),
+        (".*", TRIPLE_LICENSE),
+    ]
+    .iter()
+    .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
+    .collect();
     // cspell:enable
 }
+
+const TRIPLE_LICENSE: &str =
+    "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial";
+const MIT_LICENSE: &str = "MIT";
+const MIT_OR_APACHE2_LICENSE: &str = "MIT OR Apache-2.0";
 
 pub struct LicenseHeader<'a>(&'a [&'a str]);
 
 impl<'a> LicenseHeader<'a> {
-    fn to_string(&self, style: &LicenseTagStyle) -> String {
+    fn to_string(&self, style: &LicenseTagStyle, license: &str) -> String {
         let mut result = String::new();
         for line in self.0 {
             result += style.line_prefix;
@@ -359,18 +382,24 @@ impl<'a> LicenseHeader<'a> {
                 result += style.line_indentation;
             }
             result += line;
+            if line == &SPDX_LICENSE_LINE {
+                result.push_str(license);
+            }
             result += "\n";
         }
         result
     }
 }
 
-const EXPECTED_SPDX_EXPRESSION: &str = "GPL-3.0-only OR LicenseRef-Slint-commercial";
-const EXPECTED_SPDX_ID: &str =
-    const_format::concatcp!("SP", "DX-License-Identifier: ", EXPECTED_SPDX_EXPRESSION); // Do not confuse the reuse tool
+#[cfg(test)]
+const EXPECTED_SPDX_EXPRESSION: &str =
+    "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial";
+
+const SPDX_LICENSE_ID: &str = const_format::concatcp!("SP", "DX-License-Identifier:"); // Do not confuse the reuse tool
+const SPDX_LICENSE_LINE: &str = const_format::concatcp!(SPDX_LICENSE_ID, " "); // Do not confuse the reuse tool
 
 const EXPECTED_HEADER: LicenseHeader<'static> =
-    LicenseHeader(&["Copyright © SixtyFPS GmbH <info@slint-ui.com>", EXPECTED_SPDX_ID]);
+    LicenseHeader(&["Copyright © SixtyFPS GmbH <info@slint-ui.com>", SPDX_LICENSE_LINE]);
 
 const EXPECTED_HOMEPAGE: &str = "https://slint-ui.com";
 const ALLOWED_HOMEPAGE: &str = "https://slint.rs";
@@ -558,44 +587,42 @@ impl LicenseHeaderCheck {
         }
     }
 
-    fn check_file_tags(&self, path: &Path, style: &LicenseTagStyle) -> Result<()> {
+    fn check_file_tags(&self, path: &Path, style: &LicenseTagStyle, license: &str) -> Result<()> {
         let source = &std::fs::read_to_string(path).context("Error reading file")?;
 
         let source = SourceFileWithTags::new(source, style);
 
         if !source.has_tag() {
             if self.fix_it {
-                eprintln!(
-                    "Fixing up {} as instructed. It's missing a license header.",
-                    path.to_str().unwrap()
-                );
-                let source = source.replace_tag(&EXPECTED_HEADER);
-                std::fs::write(path, &source).context("Error writing source")
+                eprintln!("Fixing up {path:?} as instructed. It's missing a license header.");
+                let source = source.replace_tag(&EXPECTED_HEADER, license);
+                std::fs::write(path, source).context("Error writing source")
             } else {
                 Err(anyhow::anyhow!("Missing tag"))
             }
-        } else if source.tag_matches(&EXPECTED_HEADER) {
+        } else if source.tag_matches(&EXPECTED_HEADER, license) {
             Ok(())
         } else if self.fix_it {
-            let source = source.replace_tag(&EXPECTED_HEADER);
-            std::fs::write(path, &source).context("Error writing new source")
+            eprintln!("Fixing up {path:?} as instructed. It has a wrong license header.");
+            let source = source.replace_tag(&EXPECTED_HEADER, license);
+            std::fs::write(path, source).context("Error writing new source")
         } else {
             Err(anyhow::anyhow!(
                 "unexpected header.\nexpected: {}\nfound: {}",
-                EXPECTED_HEADER.to_string(style),
+                EXPECTED_HEADER.to_string(style, license),
                 source.found_tag()
             ))
         }
     }
 
-    fn check_cargo_toml(&self, path: &Path) -> Result<()> {
+    fn check_cargo_toml(&self, path: &Path, license: &str) -> Result<()> {
         let mut doc = CargoToml::new(path)?;
 
         if doc.is_workspace() {
             return Ok(());
         }
 
-        doc.check_and_fix_package_string_field(self.fix_it, "license", EXPECTED_SPDX_EXPRESSION)?;
+        doc.check_and_fix_package_string_field(self.fix_it, "license", license)?;
 
         if !doc.published()? {
             // Skip further tests for package that are not published
@@ -664,11 +691,20 @@ impl LicenseHeaderCheck {
             .find_map(|(regex, style)| if regex.is_match(path_str) { Some(style) } else { None })
             .with_context(|| "Cannot determine the expected license header style. Please fix the license checking xtask.")?;
 
+        let license = LICENSE_FOR_FILE
+            .iter()
+            .find_map(
+                |(regex, license)| if regex.is_match(path_str) { Some(license) } else { None },
+            )
+            .with_context(|| {
+                "Cannot determine the expected license. Please fix the license checking xtask."
+            })?;
+
         match location {
-            LicenseLocation::Tag(tag_style) => self.check_file_tags(path, tag_style),
+            LicenseLocation::Tag(tag_style) => self.check_file_tags(path, tag_style, license),
             LicenseLocation::Crate => {
-                self.check_file_tags(path, &LicenseTagStyle::shell_comment_style())?;
-                self.check_cargo_toml(path)
+                self.check_file_tags(path, &LicenseTagStyle::shell_comment_style(), license)?;
+                self.check_cargo_toml(path, license)
             }
             LicenseLocation::NoLicense => {
                 if self.verbose {
