@@ -3,7 +3,7 @@
 
 [package]
 name = "uefi-demo"
-version = "1.0.3"
+version = "1.1.0"
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 build = "build.rs"

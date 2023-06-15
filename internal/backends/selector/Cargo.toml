@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-backend-selector"
-version = "1.0.3"
+version = "1.1.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -29,8 +29,8 @@ rtti = ["i-slint-backend-winit?/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
 
 [dependencies]
-i-slint-core = { version = "=1.0.3", path = "../../../internal/core", default-features = false }
-i-slint-backend-winit = { version = "=1.0.3", path = "../winit", optional = true }
-i-slint-backend-qt = { version = "=1.0.3", path = "../qt", optional = true }
+i-slint-core = { version = "=1.1.0", path = "../../../internal/core", default-features = false }
+i-slint-backend-winit = { version = "=1.1.0", path = "../winit", optional = true }
+i-slint-backend-qt = { version = "=1.1.0", path = "../qt", optional = true }
 
 cfg-if = "1"

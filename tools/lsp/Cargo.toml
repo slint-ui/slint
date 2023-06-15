@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-lsp"
-version = "1.0.3"
+version = "1.1.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -62,7 +62,7 @@ preview-api = []
 default = ["backend-qt", "backend-winit", "renderer-winit-femtovg", "preview"]
 
 [dependencies]
-i-slint-compiler = { version = "=1.0.3", path = "../../internal/compiler"}
+i-slint-compiler = { version = "=1.1.0", path = "../../internal/compiler"}
 dunce = "1.0.1"
 euclid = "0.22"
 lsp-types = { version = "0.94.0", features = ["proposed"] }
@@ -72,9 +72,9 @@ rowan = "0.15.5"
 
 
 # for the preview
-i-slint-core = { version = "=1.0.3", path = "../../internal/core", optional = true }
-slint-interpreter = { version = "=1.0.3", path = "../../internal/interpreter", default-features = false, features = ["compat-1-0", "highlight"], optional = true  }
-i-slint-backend-selector = { version = "=1.0.3", path="../../internal/backends/selector", optional = true }
+i-slint-core = { version = "=1.1.0", path = "../../internal/core", optional = true }
+slint-interpreter = { version = "=1.1.0", path = "../../internal/interpreter", default-features = false, features = ["compat-1-0", "highlight"], optional = true  }
+i-slint-backend-selector = { version = "=1.1.0", path="../../internal/backends/selector", optional = true }
 # Enable image-rs' default features to make all image formats available for the preview
 image = { version = "0.24.0", optional = true }
 
