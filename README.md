@@ -61,7 +61,7 @@ with special needs.
 
 | RaspberryPi                         | STM32                          | RP2040                         |
 | ----------------------------------- | ------------------------------ | ------------------------------ |
-| [Video of Slint on RaspberryPi][#1] | [Video of Slint on STM32][#2]  | [Video of Slint on RP2040][#3] |
+| [Video of Slint on Raspberry Pi][#1] | [Video of Slint on STM32][#2]  | [Video of Slint on RP2040][#3] |
 
 ### Desktop
 
