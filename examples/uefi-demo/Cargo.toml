@@ -5,7 +5,7 @@
 name = "uefi-demo"
 version = "1.0.3"
 edition = "2021"
-license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+license = "MIT"
 build = "build.rs"
 publish = false
 

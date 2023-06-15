@@ -1,6 +1,6 @@
 #!/bin/sh
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: MIT
 
 # Run the script, translate, run the script again
 

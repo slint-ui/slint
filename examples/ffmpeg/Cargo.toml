@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: MIT
 
 [package]
 name = "ffmpeg"
@@ -7,7 +7,7 @@ version = "1.0.3"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 build = "build.rs"
-license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+license = "MIT"
 publish = false
 
 [[bin]]
