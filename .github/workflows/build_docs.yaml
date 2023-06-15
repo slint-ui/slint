@@ -64,8 +64,8 @@ jobs:
       run: |
         find  -iname \*.h -o -iname \*.cpp | xargs clang-format -i
         git diff --exit-code
-    #- name: Check license headers
-    #  run: cargo xtask check_license_headers --show-all
+    - name: Check license headers
+      run: cargo xtask check_license_headers --show-all
     - name: Check Enum docs
       run: |
         cargo xtask enumdocs
