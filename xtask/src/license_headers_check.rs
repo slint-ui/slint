@@ -481,13 +481,12 @@ impl CargoToml {
         self.doc
             .as_table()
             .get("package")
-            .map(|p| p.as_table())
-            .flatten()
+            .and_then(|p| p.as_table())
             .ok_or_else(|| anyhow::anyhow!("Invalid Cargo.toml -- cannot find package section"))
     }
 
     fn dependencies(&self, dep_type: &str) -> Vec<(String, CargoDependency)> {
-        match self.doc.as_table().get(dep_type).map(|d| d.as_table()).flatten() {
+        match self.doc.as_table().get(dep_type).and_then(|d| d.as_table()) {
             Some(dep_table) => dep_table
                 .iter()
                 .filter_map(|(name, entry)| {
