@@ -11,7 +11,7 @@
 # Webkit style was loosely based on the Qt style
 BasedOnStyle: WebKit
 
-Standard: Cpp11
+Standard: "c++20"
 
 # Column width is limited to 100 in accordance with Qt Coding Style.
 # https://wiki.qt.io/Qt_Coding_Style
@@ -37,7 +37,7 @@ BreakBeforeBinaryOperators: NonAssignment
 BreakBeforeBraces: Custom
 BraceWrapping:
     AfterClass: true
-    AfterControlStatement: false
+    AfterControlStatement: Never
     AfterEnum: false
     AfterFunction: true
     AfterNamespace: false
@@ -65,8 +65,8 @@ IndentPPDirectives: AfterHash
 # Horizontally align arguments after an open bracket.
 # The coding style does not specify the following, but this is what gives
 # results closest to the existing code.
-AlignAfterOpenBracket: true
-AlwaysBreakTemplateDeclarations: true
+AlignAfterOpenBracket: "Align"
+AlwaysBreakTemplateDeclarations: "Yes"
 
 # Ideally we should also allow less short function in a single line, but
 # clang-format does not handle that.
@@ -76,7 +76,7 @@ AllowShortFunctionsOnASingleLine: Inline
 # separate categories with an empty line. It does not specify the order within
 # the categories. Since the SortInclude feature of clang-format does not
 # re-order includes separated by empty lines, the feature is not used.
-SortIncludes: false
+SortIncludes: "Never"
 
 # macros for which the opening brace stays attached.
 ForEachMacros:   [ foreach, Q_FOREACH, BOOST_FOREACH, forever, Q_FOREVER, QBENCHMARK, QBENCHMARK_ONCE ]
