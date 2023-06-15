@@ -125,4 +125,4 @@ Alice can add a note that Bob can distribute BobApp under a proprietary license 
 
 ### Do you provide Support?
 
-Yes, we offer paid support in addition to the community support on [GitHub Discussions](https://github.com/slint-ui/slint/discussions) and on our [Mattermost chat](https://chat.slint-ui.com). Please contact us at [info@slint-ui.com](mailto:info@slint-ui.com) to know more.
+Yes, we offer paid support in addition to the community support on [GitHub Discussions](https://github.com/slint-ui/slint/discussions) and on our [Mattermost chat](https://chat.slint-ui.com). For more information, please contact us at [info@slint-ui.com](mailto:info@slint-ui.com).
