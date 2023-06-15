@@ -462,6 +462,7 @@ impl CargoDependency {
 }
 
 struct CargoToml {
+    path: std::path::PathBuf,
     doc: toml_edit::Document,
     edited: bool,
 }
@@ -469,7 +470,7 @@ struct CargoToml {
 impl CargoToml {
     fn new(path: &Path) -> Result<Self> {
         let source = &std::fs::read_to_string(path).context("Error reading file")?;
-        Ok(Self { doc: source.parse()?, edited: false })
+        Ok(Self { doc: source.parse()?, edited: false, path: path.to_path_buf() })
     }
 
     fn is_workspace(&self) -> bool {
@@ -540,9 +541,9 @@ impl CargoToml {
         Ok(self.package()?.get("publish").map(|v| v.as_bool().unwrap()).unwrap_or(true))
     }
 
-    fn save_if_changed(&self, path: &Path) -> Result<()> {
+    fn save_if_changed(&self) -> Result<()> {
         if self.edited {
-            std::fs::write(path, &self.doc.to_string()).context("Error writing new Cargo.toml")
+            std::fs::write(&self.path, self.doc.to_string()).context("Error writing new Cargo.toml")
         } else {
             Ok(())
         }
@@ -676,11 +677,7 @@ impl LicenseHeaderCheck {
             }
         }
 
-        if self.fix_it {
-            doc.save_if_changed(path)?;
-        }
-
-        Ok(())
+        doc.save_if_changed()
     }
 
     fn check_file(&self, path: &Path) -> Result<()> {
