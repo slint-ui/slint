@@ -506,26 +506,30 @@ impl CargoToml {
         expected_str: &'a str,
     ) -> Result<()> {
         match self.package()?.get(field) {
-            Some(field_value) => match field_value.as_str() {
-                Some(text) => {
-                    if text != expected_str {
-                        if fix_it {
-                            self.doc["package"][field] = toml_edit::value(expected_str);
-                            self.edited = true;
-                        } else {
-                            return Err(anyhow::anyhow!(
-                                "Incorrect {}. Found {} expected {}",
-                                field,
-                                text,
-                                expected_str
-                            ));
+            Some(field_value) => {
+                match field_value.as_str() {
+                    Some(text) => {
+                        if text != expected_str {
+                            if fix_it {
+                                eprintln!("Fixing up {:?} as instructed. It has unexpected data in {field}.", self.path);
+                                self.doc["package"][field] = toml_edit::value(expected_str);
+                                self.edited = true;
+                            } else {
+                                return Err(anyhow::anyhow!(
+                                    "Incorrect {}. Found {} expected {}",
+                                    field,
+                                    text,
+                                    expected_str
+                                ));
+                            }
                         }
                     }
+                    None => return Err(anyhow::anyhow!("{} field is not a string", field)),
                 }
-                None => return Err(anyhow::anyhow!("{} field is not a string", field)),
-            },
+            }
             None => {
                 if fix_it {
+                    eprintln!("Fixing up {:?} as instructed. It has no {field}.", self.path);
                     self.doc["package"][field] = toml_edit::value(expected_str);
                     self.edited = true;
                 } else {
