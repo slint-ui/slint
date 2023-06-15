@@ -2,7 +2,7 @@
 
 We warmly welcome contributions to the project. Let's discuss ideas or questions
 in [Github discussions](https://github.com/slint-ui/slint/discussions).
-Please feel welcome to open github issues, pull requests or comment for example
+Please feel welcome to open GitHub issues, pull requests, or comment for example
 on [RFC tagged](https://github.com/slint-ui/slint/labels/rfc) issues.
 
 ## Contributor License Agreement
