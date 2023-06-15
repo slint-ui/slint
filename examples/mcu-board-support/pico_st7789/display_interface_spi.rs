@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: MIT
 
 //! The `display-interface-spi` crate cannot be used because it doesn't "flush" the spi between
 //! the write and the changes in the CS and DC pin. This results in artifacts being shown on the

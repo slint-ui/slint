@@ -1,6 +1,6 @@
 #!/bin/bash -e
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: MIT
 
 OUTPUT=$(slint-viewer - --save-data - << EOF
 import { StandardButton, GridBox, LineEdit } from "std-widgets.slint";

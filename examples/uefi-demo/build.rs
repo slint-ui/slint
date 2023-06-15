@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: MIT
 
 fn main() {
     slint_build::compile_with_config(
