@@ -84,7 +84,7 @@ The license does not restrict 'if' and 'how' the modifications to Slint should b
 
 #### If Slint were to be taken over by a larger company or the current owners were to have a change of heart, can they revoke existing licenses?
 
-The commitment to provide Slint under a Royalty-free license has been included in the [Contributors License Agreement (CLA)](http://cla-assistant.io/slint-ui/slint) and thereby with the larger Slint community.
+We have a commitment to the larger Slint community to provide Slint under a Royalty-free license. This commitment is included in the [Contributors License Agreement (CLA)](http://cla-assistant.io/slint-ui/slint).
 
 ### GPLv3
 
