@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 /*! Set the width and height of Rectangle, TouchArea, ... to 100%,
     the implicit width or aspect ratio preserving for Images.
