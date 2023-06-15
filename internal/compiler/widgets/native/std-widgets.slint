@@ -216,7 +216,8 @@ export component StandardListView inherits StandardListViewBase {
 
 export component ComboBox inherits NativeComboBox {
     in property <[string]> model;
-    in-out property <int> current-index : -1;
+    in-out property <int> current-index : 0;
+    current-value: root.model[root.current-index];
     out property has-focus <=> fs.has-focus;
     enabled: true;
     callback selected(string);
@@ -227,7 +228,6 @@ export component ComboBox inherits NativeComboBox {
 
     popup := PopupWindow {
         x:0;
-        Rectangle { background: NativeStyleMetrics.window-background; }
         NativeComboBoxPopup {
             width: 100%;
             height: 100%;
@@ -240,6 +240,7 @@ export component ComboBox inherits NativeComboBox {
                 item: { text: value };
                 is-selected: root.current-index == i;
                 has-hover: ta.has-hover;
+                combobox: true;
                 ta := TouchArea {
                     clicked => {
                         if (root.enabled) {
