@@ -9,31 +9,31 @@ License: CC-BY-ND-4.0
 
 Files: .clang-format .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
-License: GPL-3.0-only OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-Files: *.md
+Files: *.md api/cpp/docs/* docs/*
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
-License: GPL-3.0-only OR LicenseRef-Slint-commercial
+License: MIT
 
 Files: *.pot *.po *.mo
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
-License: GPL-3.0-only OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: helper_crates/vtable/*
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
-License: GPL-3.0-only OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: helper_crates/const-field-offset/*
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: MIT or Apache-2.0
 
-Files:  api/cpp/docs/* docs/* api/*/*.json
+Files: api/*/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
-License: GPL-3.0-only OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files:  examples/*.json examples/*/README examples/*/README.txt examples/qt_viewer/interface.ui
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
-License: GPL-3.0-only OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: examples/memory/icons/*.svg examples/memory/icons/*.png
 Copyright: Fontawesome project <https://fontawesome.com/license/free>
@@ -53,23 +53,23 @@ License: LGPL-3.0-only
 
 Files: editors/sublime/LSP.sublime-settings
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
-License: GPL-3.0-only OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: editors/tree-sitter-slint/binding.gyp editors/tree-sitter-slint/CONTRIBUTING.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
-License: GPL-3.0-only OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: tools/slintpad/*.html tools/slintpad/styles/*.css tools/slintpad/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
-License: GPL-3.0-only OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: editors/vscode/*.json editors/vscode/README.md editors/vscode/css/*.css editors/tree-sitter-slint/corpus/*.txt
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
-License: GPL-3.0-only OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: tests/screenshots/references/software/*/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
-License: GPL-3.0-only OR LicenseRef-Slint-commercial
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: examples/carousel/icons/*.svg
 Copyright: Material Icons <https://fonts.google.com/icons?selected=Material+Iconse>

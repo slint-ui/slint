@@ -357,7 +357,8 @@ lazy_static! {
     static ref LICENSE_FOR_FILE: Vec<(regex::Regex, &'static str)> = [
         ("^helper_crates/const-field-offset/", MIT_OR_APACHE2_LICENSE),
         ("^examples/", MIT_LICENSE),
-        ("^docs/tutorial/", MIT_LICENSE),
+        ("^docs/", MIT_LICENSE),
+        ("^api/cpp/docs/", MIT_LICENSE),
         (".*", TRIPLE_LICENSE),
     ]
     .iter()
