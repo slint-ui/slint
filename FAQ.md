@@ -102,22 +102,21 @@ Yes, provided the person distributing the proprietary program acquired a Slint p
 
 You can add a note as part of your license that to distribute a proprietary licensed program, one can acquire a Slint proprietary license or the dependency to Slint should be removed.
 
-#### My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?
+#### My MIT-licensed program links to Slint GPLv3. Under what license can I release the entire work i.e my Program combined with Slint?
 
 While your software modules can remain under the MIT-license, the work as a whole must be licensed under the GPL.
-Hence, the binary must be made available under the GPLv3.
 
 #### Scenario: Alice is a software developer, she wants her code to be licensed under MIT. She is developing an application "AliceApp" that links to Slint GPLv3. Alice also wants to allow that Bob, a user of AliceApp, can fork AliceApp into a proprietary application called BobApp
 
-##### Can Alice use the MIT license header to the source code of AliceApp application?
+- Can Alice use the MIT license header to the source code of AliceApp application?
 
 Yes. Alice can license her copyrighted source code under any license compatible with GPLv3. Refer FAQ [If I link my program with Slint GPLv3, does it mean that I have to license my program under the GPLv3, too?](#if-i-link-my-program-with-slint-gplv3-does-it-mean-that-i-have-to-license-my-program-under-the-gplv3-too)
 
-##### Under what license should she distribute the AliceApp binary?
+- Under what license should she distribute the AliceApp binary?
 
 Under GPLv3. While the different software modules can remain under any license compatible with GPLv3, the work as a whole must be licensed under the GPL. Refer FAQ [My MIT-licensed program links to Slint GPLv3. Under what license can I release the binary of my program?](#my-mit-licensed-program-links-to-slint-gplv3-under-what-license-can-i-release-the-binary-of-my-program)
 
-##### How can Alice make it clear to Bob that he can distribute BobApp under a proprietary license?
+- How can Alice make it clear to Bob that he can distribute BobApp under a proprietary license?
 
 Alice can add a note that Bob can distribute BobApp under a proprietary license if he either acquires a Slint proprietary license or removes the dependency to Slint.
 
