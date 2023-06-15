@@ -232,9 +232,9 @@ located remotely in Germany.
 
 ### Stay up to date
 
-- Follow [@slint-ui](https://twitter.com/slint_ui) on Twitter
-- Follow [@slint@fosstodon.org](https://mastodon.social/@slint@fosstodon.org) on Mastodon
-- Follow [@slint-ui](https://www.linkedin.com/company/slint-ui/) on LinkedIn
+- Follow [@slint-ui](https://twitter.com/slint_ui) on Twitter.
+- Follow [@slint@fosstodon.org](https://mastodon.social/@slint@fosstodon.org) on Mastodon.
+- Follow [@slint-ui](https://www.linkedin.com/company/slint-ui/) on LinkedIn.
 - Keep an eye out for our [🥠 Weekly Status Updates](https://slint-ui.com/thisweek/).
 
 ### Contact us
