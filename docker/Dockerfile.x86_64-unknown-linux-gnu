@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 # Use cross-image once https://github.com/rust-embedded/cross/pull/591 is merged & released
 # FROM rustembedded/cross:x86_64-unknown-linux-gnu

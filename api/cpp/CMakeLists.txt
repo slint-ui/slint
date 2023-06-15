@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 cmake_minimum_required(VERSION 3.21)
 project(Slint HOMEPAGE_URL "https://slint-ui.com/" LANGUAGES CXX VERSION 1.0.0)

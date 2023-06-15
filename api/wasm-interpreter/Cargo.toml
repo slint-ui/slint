@@ -1,12 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 [package]
 name = "slint-wasm-interpreter"
 version = "1.1.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
-license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial"
 publish = false
 description = "Slint wasm glue"
 repository = "https://github.com/slint-ui/slint"

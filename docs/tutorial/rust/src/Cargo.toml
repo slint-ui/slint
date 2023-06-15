@@ -1,12 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: MIT
 
 [package]
 name = "src"
 version = "1.1.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
-license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+license = "MIT"
 description = "Binaries for Rust version of Memory Tutorial of Slint"
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint-ui.com"

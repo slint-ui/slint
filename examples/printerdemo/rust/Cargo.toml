@@ -8,7 +8,7 @@ authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 build = "build.rs"
 publish = false
-license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+license = "MIT"
 
 [[bin]]
 path = "main.rs"
