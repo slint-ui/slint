@@ -163,6 +163,18 @@ impl OpenGLContext {
             .into()
         })?;
 
+        // Sanity check, as all this might succeed on Windows without working GL drivers, but this will fail:
+        if context
+            .display()
+            .get_proc_address(&std::ffi::CString::new("glCreateShader").unwrap())
+            .is_null()
+        {
+            return Err(format!(
+                "Failed to initialize OpenGL driver: Could not locate glCreateShader symbol"
+            )
+            .into());
+        }
+
         Ok((window, Self { context, surface }))
     }
 }
