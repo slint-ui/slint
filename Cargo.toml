@@ -93,7 +93,7 @@ resolver="2"
 rust-version = "1.66"
 
 [workspace.dependencies]
-resvg = { version= "0.33.0", default-features = false, features = ["text"] }
+resvg = { version= "0.34.0", default-features = false, features = ["text"] }
 fontdb = { version = "0.14.1", default-features = false }
 yeslogic-fontconfig-sys = { version = "3.2.0", features = ["dlopen"] }
 send_wrapper = { version = "0.6.0" }

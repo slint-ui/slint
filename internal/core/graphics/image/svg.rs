@@ -35,7 +35,7 @@ impl core::fmt::Debug for ParsedSVG {
 
 impl ParsedSVG {
     pub fn size(&self) -> crate::graphics::IntSize {
-        let size = resvg::IntSize::from_usvg(self.svg_tree.size);
+        let size = self.svg_tree.size.to_int_size();
         [size.width(), size.height()].into()
     }
 
@@ -49,9 +49,9 @@ impl ParsedSVG {
         size: euclid::Size2D<u32, PhysicalPx>,
     ) -> Result<SharedImageBuffer, usvg::Error> {
         let tree = &self.svg_tree;
-        let target_size = resvg::IntSize::new(size.width, size.height)
+        let target_size = tiny_skia::IntSize::from_wh(size.width, size.height)
             .ok_or(usvg::Error::InvalidSize)?
-            .scale_to(resvg::IntSize::from_usvg(tree.size));
+            .scale_to(tree.size.to_int_size());
         let target_size_f = target_size.to_size();
 
         let transform = tiny_skia::Transform::from_scale(
