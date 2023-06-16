@@ -166,6 +166,8 @@ will appear on the right of the editor pane.
 ## JetBrains IDE
 Tested with: CLion 2022.1 (on linux)
 
+Tested and doesn't work with 2023.1+ (on Linux). Plugin is no longer maintained.
+
 *Note: This may/should work for other JetBrains-products also. If you test it please add your results to the above list.*
 
 ### LSP Support
