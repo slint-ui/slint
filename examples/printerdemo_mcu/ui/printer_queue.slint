@@ -3,8 +3,13 @@
 
 import { DemoPalette, PushButton } from "./common.slint";
 
+enum JobStatus {
+    Waiting,
+    Printing
+}
+
 export struct PrinterQueueItem  {
-    status: string, // WAITING..., PRINTING
+    status: JobStatus,
     progress: int,
     title: string,
     owner: string,
@@ -19,10 +24,20 @@ export global PrinterQueue  {
     callback pause-job(int);
 
     in property <[PrinterQueueItem]> printer-queue: [
-        { status: "PRINTING", progress: 63, title: "Slint-Demo.jpeg", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: "WAITING...", title: "Adressliste.docx", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: "WAITING...", title: "210106-FinalPresentation.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: JobStatus.Printing, progress: 63, title: "Slint-Demo.jpeg", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: JobStatus.Waiting, title: "Adressliste.docx", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: JobStatus.Waiting, title: "210106-FinalPresentation.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
     ];
+
+    function statusString(status: JobStatus) -> string {
+        if (status == JobStatus.Printing) {
+            "PRINTING"
+        } else if (status == JobStatus.Waiting) {
+            "WAITING..."
+        } else {
+            "Unknown job status"
+        }
+    }    
 }
 
 
@@ -160,10 +175,10 @@ component NarrowPrintQueueElement inherits Rectangle {
                 Text {
                     // TODO: text-transform: uppercase
                     text: {
-                        if (root.queue-item.status == "PRINTING") {
-                        "\{root.queue-item.progress}% - \{root.queue-item.status}"
+                        if (root.queue-item.status == JobStatus.Printing) {
+                        "\{root.queue-item.progress}% - \{PrinterQueue.statusString(root.queue-item.status)}"
                         } else {
-                            root.queue-item.status
+                            PrinterQueue.statusString(root.queue-item.status)
                         }
                     }
                     color: DemoPalette.status-label-text-color;
