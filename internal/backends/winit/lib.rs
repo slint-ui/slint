@@ -89,6 +89,33 @@ cfg_if::cfg_if! {
     }
 }
 
+fn try_create_window_with_fallback_renderer() -> Option<Rc<dyn WindowAdapter>> {
+    #[cfg(any(
+        feature = "renderer-winit-skia",
+        feature = "renderer-winit-skia-opengl",
+        feature = "renderer-winit-skia-vulkan"
+    ))]
+    {
+        if let Ok(window) = window_factory_fn::<renderer::skia::SkiaRenderer>() {
+            return Some(window);
+        }
+    }
+    #[cfg(any(feature = "renderer-winit-femtovg"))]
+    {
+        if let Ok(window) = window_factory_fn::<renderer::femtovg::GlutinFemtoVGRenderer>() {
+            return Some(window);
+        }
+    }
+    #[cfg(any(feature = "renderer-winit-software"))]
+    {
+        if let Ok(window) = window_factory_fn::<renderer::sw::WinitSoftwareRenderer>() {
+            return Some(window);
+        }
+    }
+
+    None
+}
+
 #[doc(hidden)]
 #[cold]
 #[cfg(not(target_arch = "wasm32"))]
@@ -184,7 +211,12 @@ fn send_event_via_global_event_loop_proxy(
 
 impl i_slint_core::platform::Platform for Backend {
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        (self.window_factory_fn)()
+        (self.window_factory_fn)().or_else(|e| {
+            try_create_window_with_fallback_renderer().ok_or_else(|| {
+                format!("Winit backend failed to find a suitable renderer. Last failure was: {e}")
+                    .into()
+            })
+        })
     }
 
     #[doc(hidden)]
