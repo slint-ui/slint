@@ -44,17 +44,21 @@ struct Cli {
     include_paths: Vec<std::path::PathBuf>,
 
     /// The style name for the preview ('native' or 'fluent')
-    #[arg(long, name = "style name", default_value_t, action)]
-    style: String,
+    #[arg(long, name     = "style name", default_value_t, action)]
+             style: String,
 
     /// The backend used for the preview ('GL' or 'Qt')
     #[arg(long, name = "backend", default_value_t, action)]
-    backend: String,
+    backend:            String,
 }
 
 enum OutgoingRequest {
     Pending(Waker),
-    Done(lsp_server::Response),
+
+
+        Done(lsp_server::Response),
+
+
 }
 
 type OutgoingRequestQueue = Arc<Mutex<HashMap<RequestId, OutgoingRequest>>>;

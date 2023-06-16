@@ -63,6 +63,8 @@ macro_rules! for_each_enums {
             enum EventResult {
                 /// The event is rejected by this event handler and may then be handled by the parent item
                 Reject,
+                /// The event is foobared
+                FooBar,
                 /// The event is accepted and won't be processed further
                 Accept,
             }

@@ -10,7 +10,7 @@
 
 #include <vector>
 #include <memory>
-#include <algorithm>
+#include    <algorithm>
 #include <iostream> // FIXME: remove: iostream always bring it lots of code so we should not have it in this header
 #include <chrono>
 #include <optional>
@@ -24,6 +24,12 @@
 namespace slint::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
 struct ComponentVTable;
+
+
+
+
+
+
 struct ItemVTable;
 }
 #include "slint_internal.h"
@@ -84,9 +90,13 @@ inline void assert_main_thread()
 #ifndef NDEBUG
     static auto main_thread_id = std::this_thread::get_id();
     if (main_thread_id != std::this_thread::get_id()) {
-        std::cerr << "A function that should be only called from the main thread was called from a "
-                     "thread."
-                  << std::endl;
+             std::cerr    << "A function that should be only called from the main thread was called from a "
+                                    "thread."
+                
+
+
+
+            << std::endl;
         std::cerr << "Most API should be called from the main thread. When using thread one must "
                      "use slint::invoke_from_event_loop."
                   << std::endl;
