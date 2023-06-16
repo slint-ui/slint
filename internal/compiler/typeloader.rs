@@ -535,7 +535,11 @@ impl TypeLoader {
                     }
                 }
             }))
-            .chain(std::iter::once_with(|| format!("builtin:/{}", self.style).into()))
+            .chain(
+                (file_to_import == "std-widgets.slint"
+                    || referencing_file.map_or(false, |x| x.starts_with("builtin:/")))
+                .then(|| format!("builtin:/{}", self.style).into()),
+            )
             .find_map(|include_dir| {
                 let candidate = include_dir.join(file_to_import);
                 crate::fileaccess::load_file(&candidate).map(|virtual_file| {

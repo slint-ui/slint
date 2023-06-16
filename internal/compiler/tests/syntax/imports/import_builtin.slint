@@ -1,0 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+
+// Even if that file exist in the style, it shouldn't be loaded
+import { StyleMetrics } from "std-widgets-impl.slint";
+//                           ^error{Cannot find requested import "std-widgets-impl.slint" in the include search path}
