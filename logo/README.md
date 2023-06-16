@@ -1,6 +1,6 @@
 
 This directory contains the different versions of the Slint logo.
-It is (manually) copied into the website under https://slint-ui.com/logo/
+It is (manually) copied into the website under https://slint.dev/logo/
 
 ## Branding Guidelines
 

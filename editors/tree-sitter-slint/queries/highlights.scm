@@ -1,4 +1,4 @@
-; Copyright © SixtyFPS GmbH <info@slint-ui.com>
+; Copyright © SixtyFPS GmbH <info@slint.dev>
 ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 (comment) @comment @spell

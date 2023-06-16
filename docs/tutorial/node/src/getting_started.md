@@ -1,7 +1,7 @@
 # Getting Started
 
 In this tutorial, we use JavaScript as the host programming language. We also support other programming languages like
-[Rust](https://slint-ui.com/docs/rust/slint/) or [C++](https://slint-ui.com/docs/cpp/).
+[Rust](https://slint.dev/docs/rust/slint/) or [C++](https://slint.dev/docs/cpp/).
 
 You'll need a development environment with [Node.js 16](https://nodejs.org/download/release/v16.19.1/) and [npm](https://www.npmjs.com/) installed. More recent
 versions of NodeJS are currently not supported, for details check [Issue #961](https://github.com/slint-ui/slint/issues/961).
@@ -42,6 +42,6 @@ npm start
 
 and a window will appear with the green "Hello World" greeting.
 
-![Screenshot of initial tutorial app showing Hello World](https://slint-ui.com/blog/memory-game-tutorial/getting-started.png "Hello World")
+![Screenshot of initial tutorial app showing Hello World](https://slint.dev/blog/memory-game-tutorial/getting-started.png "Hello World")
 
 Feel free to use your favorite IDE for this purpose.

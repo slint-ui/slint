@@ -1,4 +1,4 @@
-// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 /*!
@@ -41,7 +41,7 @@ fn main() {
 }
 ```
 */
-#![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
 
 #[cfg(not(feature = "default"))]

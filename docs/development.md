@@ -69,7 +69,7 @@ We use a rather complex mechanism to expose internal data structures implemented
 
 As a starting point, we recommend reading the blog entry we published about this:
 
-[https://slint-ui.com/blog/expose-rust-library-to-other-languages.html](https://slint-ui.com/blog/expose-rust-library-to-other-languages.html)
+[https://slint.dev/blog/expose-rust-library-to-other-languages.html](https://slint.dev/blog/expose-rust-library-to-other-languages.html)
 
 What this article omits are how we invoke cbindgen and what kind of tweaks we apply on various levels:
 

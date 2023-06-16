@@ -1,4 +1,4 @@
-**NOTE**: This library is an **internal** crate of the [Slint project](https://slint-ui.com).
+**NOTE**: This library is an **internal** crate of the [Slint project](https://slint.dev).
 This crate should **not be used directly** by applications using Slint.
 You should use the `slint` crate instead.
 
@@ -6,7 +6,7 @@ You should use the `slint` crate instead.
 only be used with `version = "=x.y.z"` in Cargo.toml.
 
 
-The purpose of this crate is to select the default backend for [Slint](https://slint-ui.com)
+The purpose of this crate is to select the default backend for [Slint](https://slint.dev)
 
 The backend can either be a runtime or a build time decision.  The runtime decision is decided
 by the `SLINT_BACKEND` environment variable. The built time default depends on the platform.

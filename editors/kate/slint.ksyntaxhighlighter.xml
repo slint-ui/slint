@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- Copyright © SixtyFPS GmbH <info@slint-ui.com> -->
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial -->
 
-<language name="Slint" version="1" kateversion="5.0" section="Sources" extensions="*.slint" mimetype="text/slint" indenter="cstyle" license="GPL" author="info@slint-ui.com" priority="6">
+<language name="Slint" version="1" kateversion="5.0" section="Sources" extensions="*.slint" mimetype="text/slint" indenter="cstyle" license="GPL" author="info@slint.dev" priority="6">
 <highlighting>
     <list name="types">
       <item>int</item>

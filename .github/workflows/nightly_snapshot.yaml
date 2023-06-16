@@ -1,4 +1,4 @@
-# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 # Build various demo binaries, c++ packages and documentation and publish them on the website
@@ -312,7 +312,7 @@ jobs:
             cp -a ../target/doc/* snapshots/$target_branch/docs/rust/
 
             # Fix up link to Slint language documentation
-            sed -i "s!https://slint-ui.com/releases/.*/docs/!../../!" snapshots/$target_branch/docs/rust/slint/*.html
+            sed -i "s!https://slint.dev/releases/.*/docs/!../../!" snapshots/$target_branch/docs/rust/slint/*.html
 
             for lang in rust cpp node; do
                 mkdir -p snapshots/$target_branch/docs/tutorial/$lang

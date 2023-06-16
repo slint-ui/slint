@@ -2,11 +2,11 @@
 
 [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui)
 
-[Slint](https://slint-ui.com/) is a UI toolkit that supports different programming languages.
+[Slint](https://slint.dev/) is a UI toolkit that supports different programming languages.
 Slint-node is the integration with node.
 
-The complete Node documentation can be viewed online at https://slint-ui.com/docs/node/.
-To get started you can use the [Walk-through tutorial](https://slint-ui.com/docs/tutorial/node).
+The complete Node documentation can be viewed online at https://slint.dev/docs/node/.
+To get started you can use the [Walk-through tutorial](https://slint.dev/docs/tutorial/node).
 We also have a [Getting Started Template](https://github.com/slint-ui/slint-nodejs-template) repository with
 the code of a minimal application using Slint that can be used as a starting point to your program.
 

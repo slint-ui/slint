@@ -7,5 +7,5 @@ We recommend the following links to continue:
 
   * [Examples](https://github.com/slint-ui/slint/tree/master/examples): In the Slint repository we have collected a few demos and examples. These are a great starting point to learn how to use many Slint features.
     * [Todo Example](https://github.com/slint-ui/slint/tree/master/examples/todo): This is one of the examples that implements a classic use-case.
-    * [Memory Puzzle](https://github.com/slint-ui/slint/tree/master/examples/memory): This is a slightly more polished version of the code in this example. And you can <a href="https://slint-ui.com/demos/memory/" target="_blank">play the wasm version</a> in your browser.
-  * [Slint API Docs](https://slint-ui.com/docs/node/): The reference documentation for the NodeJS library.
+    * [Memory Puzzle](https://github.com/slint-ui/slint/tree/master/examples/memory): This is a slightly more polished version of the code in this example. And you can <a href="https://slint.dev/demos/memory/" target="_blank">play the wasm version</a> in your browser.
+  * [Slint API Docs](https://slint.dev/docs/node/): The reference documentation for the NodeJS library.

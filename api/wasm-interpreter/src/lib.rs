@@ -1,4 +1,4 @@
-// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 //! This wasm library can be loaded from JS to load and display the content of .slint files

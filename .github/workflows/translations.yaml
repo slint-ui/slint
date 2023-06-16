@@ -1,4 +1,4 @@
-# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 # Run slint-tr-extractor and msgfmt
@@ -47,7 +47,7 @@ jobs:
 
       - name: commit
         run: |
-          git config --global user.email "noreply@slint-ui.com"
+          git config --global user.email "noreply@slint.dev"
           git config --global user.name "Update Translations Bot"
           git add examples
           git commit -a -m 'Update Translations: extract strings'

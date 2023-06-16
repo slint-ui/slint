@@ -50,7 +50,7 @@ types of programming languages.
 
 ## Licensing
 
-Slint is available under a [royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-1.0.md) or [GNU GPLv3](LICENSES/GPL-3.0-only.txt), at your choice. For paid plans, visit our website [https://slint-ui.com](https://slint-ui.com) or contact us at [info@slint-ui.com](mailto:info@slint-ui.com).
+Slint is available under a [royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-1.0.md) or [GNU GPLv3](LICENSES/GPL-3.0-only.txt), at your choice. For paid plans, visit our website [https://slint.dev](https://slint.dev) or contact us at [info@slint.dev](mailto:info@slint.dev).
 
 ### Royalty-free license
 
@@ -62,7 +62,7 @@ This license is suitable for those who develop desktop or web applications and d
 
 You need to do all of the following:
 
-1. Display the [`AboutSlint`](https://slint-ui.com/snapshots/master/docs/slint/src/builtins/widgets.html#aboutslint) widget in an "About" screen or dialog that is accessible from the top level menu of your application.
+1. Display the [`AboutSlint`](https://slint.dev/snapshots/master/docs/slint/src/builtins/widgets.html#aboutslint) widget in an "About" screen or dialog that is accessible from the top level menu of your application.
 2. Display the [Slint attribution badge](https://github.com/slint-ui/slint/tree/master/logo/madewithslint) on a public webpage, where the binaries of your application can be downloaded from, in such a way that it can be easily found by any visitor to that page.
 3. You may not remove or alter any license notices (including copyright notices, disclaimers of warranty, or limitations of liability) contained within the source code form of Slint.
 4. You allow us to use your application on our website and in advertising materials as a reference and to display your logo and trademark for this purpose.
@@ -124,4 +124,4 @@ Alice can add a note that Bob can distribute BobApp under a proprietary license 
 
 ### Do you provide Support?
 
-Yes, we offer paid support in addition to the community support on [GitHub Discussions](https://github.com/slint-ui/slint/discussions) and on our [Mattermost chat](https://chat.slint-ui.com). For more information, please contact us at [info@slint-ui.com](mailto:info@slint-ui.com).
+Yes, we offer paid support in addition to the community support on [GitHub Discussions](https://github.com/slint-ui/slint/discussions) and on our [Mattermost chat](https://chat.slint.dev). For more information, please contact us at [info@slint.dev](mailto:info@slint.dev).

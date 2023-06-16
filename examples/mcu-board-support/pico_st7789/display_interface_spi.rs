@@ -1,4 +1,4 @@
-// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
 //! The `display-interface-spi` crate cannot be used because it doesn't "flush" the spi between

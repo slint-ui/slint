@@ -1,4 +1,4 @@
-// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
@@ -22,7 +22,7 @@ export Demo := Window {
     }
     Image {
         y: 50px;
-        source: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
+        source: @image-url("https://slint.dev/logo/slint-logo-full-light.svg");
     }
 }
 `;

@@ -1,10 +1,10 @@
-# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 [package]
 name = "figma_import"
 version = "1.1.0"
-authors = ["Slint Developers <info@slint-ui.com>"]
+authors = ["Slint Developers <info@slint.dev>"]
 description = "A figma file importer for Slint"
 edition = "2021"
 license = "GPL-3.0-only"

@@ -1,16 +1,16 @@
-# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 [package]
 name = "slint-cpp"
 version = "1.1.0"
-authors = ["Slint Developers <info@slint-ui.com>"]
+authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 build = "build.rs"
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial"
 description = "Slint C++ integration"
 repository = "https://github.com/slint-ui/slint"
-homepage = "https://slint-ui.com"
+homepage = "https://slint.dev"
 publish = false
 rust-version.workspace = true
 # prefix used to convey path to generated includes to the C++ test driver

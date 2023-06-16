@@ -1,8 +1,8 @@
 # SlintPad
 
 This directory contains the frontend code for SlintPad, the online code editor
-which is hosted on https://slint-ui.com/editor (last stable) and
-https://slint-ui.com/snapshots/master/editor (nightly).
+which is hosted on https://slint.dev/editor (last stable) and
+https://slint.dev/snapshots/master/editor (nightly).
 
 To try it out locally type this in this directory:
 
@@ -33,13 +33,13 @@ The `preview.html` page contains only the preview and the code must be given via
 
     Example: this loads the printerdemo.slint file from the github URL
 
-    -   https://slint-ui.com/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/printerdemo/ui/printerdemo.slint
-    -   https://slint-ui.com/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/printerdemo/ui/printerdemo.slint
+    -   https://slint.dev/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/printerdemo/ui/printerdemo.slint
+    -   https://slint.dev/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/printerdemo/ui/printerdemo.slint
 
 -   `?snippet=` query argument, followed by the URL-encoded slint code, will simply load this code
     this is what is used tor the permalink feature
 
     Example: a simple code with "Hello Slint"
 
-    -   https://slint-ui.com/editor/?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D
-    -   https://slint-ui.com/editor/preview.html?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D
+    -   https://slint.dev/editor/?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D
+    -   https://slint.dev/editor/preview.html?snippet=_+%3A%3D+Text+%7B+text%3A+%22Hello+Slint%22%3B+%7D

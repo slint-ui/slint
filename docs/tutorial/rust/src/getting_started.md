@@ -18,7 +18,7 @@ Then we edit `Cargo.toml` to add the slint dependency using `cargo add`:
 cargo add slint@1.1.0
 ```
 
-Finally we copy the hello world program from the [Slint documentation](https://slint-ui.com/docs/rust/slint/) into our `src/main.rs`:
+Finally we copy the hello world program from the [Slint documentation](https://slint.dev/docs/rust/slint/) into our `src/main.rs`:
 
 ```rust,noplayground
 {{#include main_initial.rs:main}}
@@ -26,4 +26,4 @@ Finally we copy the hello world program from the [Slint documentation](https://s
 
 We run this example with `cargo run` and a window will appear with the green "Hello World" greeting.
 
-![Screenshot of initial tutorial app showing Hello World](https://slint-ui.com/blog/memory-game-tutorial/getting-started.png "Hello World")
+![Screenshot of initial tutorial app showing Hello World](https://slint.dev/blog/memory-game-tutorial/getting-started.png "Hello World")

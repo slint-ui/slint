@@ -1,5 +1,5 @@
 #!/bin/bash -e
-# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
 # This script converts the NotoSans font from https://www.google.com/get/noto/#sans-lgc

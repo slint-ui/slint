@@ -2,7 +2,7 @@
 
 Version 2.0
 
-Copyright © 2023 SixtyFPS GmbH <https://slint-ui.com/imprint.html>
+Copyright © 2023 SixtyFPS GmbH <https://slint.dev/imprint.html>
 
 SixtyFPS GmbH with offices at Oranienburger Str. 44, 16540 Hohen Neuendorf,
 Germany (**SixtyFPS**, **us**, **we** or **our**) grants a license to the

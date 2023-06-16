@@ -18,11 +18,11 @@ loads an icon with the <span class="hljs-built_in">@image-url()</span> macro.
 When using the `slint!` macro, the path is relative to the folder in which the Cargo.toml is located.
 When using .slint files, it's relative to the folder of the .slint file containing it.
 This icon and others we're going to use later need to be installed first. You can download a
-[Zip archive](https://slint-ui.com/blog/memory-game-tutorial/icons.zip) that we have prepared and extract it with the
+[Zip archive](https://slint.dev/blog/memory-game-tutorial/icons.zip) that we have prepared and extract it with the
 following two commands:
 
 ```sh
-curl -O https://slint-ui.com/blog/memory-game-tutorial/icons.zip
+curl -O https://slint.dev/blog/memory-game-tutorial/icons.zip
 unzip icons.zip
 ```
 
@@ -31,4 +31,4 @@ This should unpack an `icons` directory containing a bunch of icons.
 Running the program with `cargo run` gives us a window on the screen that shows the icon of a bus on a
 blue background.
 
-![Screenshot of the first tile](https://slint-ui.com/blog/memory-game-tutorial/memory-tile.png "Memory Tile Screenshot")
+![Screenshot of the first tile](https://slint.dev/blog/memory-game-tutorial/memory-tile.png "Memory Tile Screenshot")

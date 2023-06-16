@@ -1,15 +1,15 @@
-# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 [package]
 name = "vtable"
 version = "0.1.10"
-authors = ["Slint Developers <info@slint-ui.com>"]
+authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial"
 description = "Helper crate to generate ffi-friendly virtual tables"
 repository = "https://github.com/slint-ui/slint"
-homepage = "https://slint-ui.com"
+homepage = "https://slint.dev"
 
 [lib]
 

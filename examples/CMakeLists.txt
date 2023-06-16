@@ -1,4 +1,4 @@
-# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 cmake_minimum_required(VERSION 3.21)
 project(SlintExamples LANGUAGES CXX)

@@ -1,6 +1,6 @@
 # Slint Updater
 
-This program is a tool to upgrade `.slint` files from the [Slint Project](https://slint-ui.com) to the latest syntax.
+This program is a tool to upgrade `.slint` files from the [Slint Project](https://slint.dev) to the latest syntax.
 
 The Slint Design Language evolves, with new features being added and old ones marked for deprecation. Use this tool to
 automatically upgrade your `.slint` files to the latest syntax.

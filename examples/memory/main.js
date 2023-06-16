@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
 let slint = require("slint-ui");

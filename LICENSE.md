@@ -8,4 +8,4 @@ You can use Slint under ***any*** of the following licenses, at your choice:
 
 Third party licenses listed in the `LICENSES` folder also apply to parts of the product.
 
-Contact us at [info@slint-ui.com](mailto:info@slint-ui.com) if you have any questions regarding licensing.
+Contact us at [info@slint.dev](mailto:info@slint.dev) if you have any questions regarding licensing.

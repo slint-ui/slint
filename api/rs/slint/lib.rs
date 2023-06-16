@@ -1,4 +1,4 @@
-// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 // cSpell: ignore buildrs
@@ -9,13 +9,13 @@
 This crate is the main entry point for embedding user interfaces designed with
 [Slint](https://slint.rs/) in Rust programs.
 */
-#![doc = concat!("If you are new to Slint, start with the [Walk-through tutorial](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/tutorial/rust)")]
+#![doc = concat!("If you are new to Slint, start with the [Walk-through tutorial](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/tutorial/rust)")]
 /*! If you are already familiar with Slint, the following topics provide related information.
 
 ## Related topics
 
 */
-#![doc = concat!("* [The Slint Language Documentation](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint)")]
+#![doc = concat!("* [The Slint Language Documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint)")]
 /*! * [Slint on Microcontrollers](docs::mcu)
  * [Debugging Techniques](docs::debugging_techniques)
 
@@ -27,7 +27,7 @@ of including them in Rust:
  - The `.slint` code is [inline in a macro](#the-slint-code-in-a-macro).
  - The `.slint` code in [external files compiled with `build.rs`](#the-slint-code-in-external-files-is-compiled-with-buildrs)
 */
-#![doc = concat!(" - The `.slint` code is loaded dynamically at run-time from the file system, by using the [interpreter API](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint_interpreter/).")]
+#![doc = concat!(" - The `.slint` code is loaded dynamically at run-time from the file system, by using the [interpreter API](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint_interpreter/).")]
 /*!
 
 With the first two methods, the markup code is translated to Rust code and each component is turned into a Rust
@@ -57,7 +57,7 @@ fn main() {
 ### The .slint code in external files is compiled with `build.rs`
 
 When your design becomes bigger in terms of markup code, you may want move it to a dedicated*/
-#![doc = concat!("`.slint` file. It's also possible to split a `.slint` file into multiple files using [modules](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/reference/modules.html).")]
+#![doc = concat!("`.slint` file. It's also possible to split a `.slint` file into multiple files using [modules](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/reference/modules.html).")]
 /*!Use a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile
 your main `.slint` file:
 
@@ -232,7 +232,7 @@ struct MyStruct {
 ## Exported Global singletons
 
 */
-#![doc = concat!("When you export a [global singleton](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/reference/globals.html) from the main file,")]
+#![doc = concat!("When you export a [global singleton](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint/src/reference/globals.html) from the main file,")]
 /*! it is also generated with the exported name. Like the main component, the generated struct have
 inherent method to access the properties and callback:
 
@@ -252,7 +252,7 @@ See the [documentation of the `Global` trait](Global) for an example.
 #![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
-#![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;

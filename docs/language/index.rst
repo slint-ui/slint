@@ -1,4 +1,4 @@
-.. Copyright © SixtyFPS GmbH <info@slint-ui.com>
+.. Copyright © SixtyFPS GmbH <info@slint.dev>
 .. SPDX-License-Identifier: MIT
 
 Introduction
@@ -7,7 +7,7 @@ Introduction
 The Slint Language
 ------------------
 
-`Slint <https://slint-ui.com>`_ comes with an easy to learn and use language for you to describe user
+`Slint <https://slint.dev>`_ comes with an easy to learn and use language for you to describe user
 interfaces with. It is readable to both humans and machines.
 
 This way, we have excellent tooling on one side, while also enabling
@@ -28,7 +28,7 @@ side of the project.
 
 
 The Slint design markup language describes extensible graphical user interfaces using the
-`Slint framework <https://slint-ui.com>`_
+`Slint framework <https://slint.dev>`_
 
 - Place and compose a tree of visual elements in a window using a textual representation.
 - Configure the appearance of elements via properties. For example a `Text` element has a `text`
@@ -47,12 +47,12 @@ logic is written in a different programming language using the Slint API.
 Getting Started
 ---------------
 
-To use `Slint <https://slint-ui.com>`_ you need to embed your slint files in a project written
+To use `Slint <https://slint.dev>`_ you need to embed your slint files in a project written
 in a supported programming language, like C++, Rust, or JavaScript.
 
 There are three different pathways to get started with Slint:
 
-1. `SlintPad <https://slint-ui.com/editor>`_ - Use this to get a feel of the Slint design markup language.
+1. `SlintPad <https://slint.dev/editor>`_ - Use this to get a feel of the Slint design markup language.
    This is a web browser-based tool where you can try Slint out.
 
 2. As a UI Designer, working with Slint files locally, we recommend the following combination of software tools:
@@ -63,9 +63,9 @@ There are three different pathways to get started with Slint:
 3. As a Software Developer, integrating Slint into a new or existing code base, choose one of these languages to
    get started:
 
-   - `C++ <https://slint-ui.com/docs/cpp/>`_
-   - `Rust <https://slint-ui.com/docs/rust/slint/>`_
-   - `JavaScript <https://slint-ui.com/docs/node/>`_
+   - `C++ <https://slint.dev/docs/cpp/>`_
+   - `Rust <https://slint.dev/docs/rust/slint/>`_
+   - `JavaScript <https://slint.dev/docs/node/>`_
 
 .. toctree::
    :hidden:
