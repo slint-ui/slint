@@ -1,10 +1,10 @@
-# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
 [package]
 name = "plotter"
 version = "1.1.0"
-authors = ["Slint Developers <info@slint-ui.com>"]
+authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 publish = false
 license = "MIT"

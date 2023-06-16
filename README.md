@@ -102,7 +102,7 @@ export component HelloWorld inherits Window {
 
 ### Documentation
 
-For more details, check out the [Slint Language Documentation](https://slint-ui.com/docs/slint).
+For more details, check out the [Slint Language Documentation](https://slint.dev/docs/slint).
 
 The [examples](examples) folder contains examples and demos, showing how to
 use the Slint markup language and how to interact with a Slint user interface
@@ -124,7 +124,7 @@ An application is composed of the business logic written in Rust, C++, or
 JavaScript and the `.slint` user interface design markup, which is compiled to
 native code.
 
-![Architecture Overview](https://slint-ui.com/resources/architecture.drawio.svg)
+![Architecture Overview](https://slint.dev/resources/architecture.drawio.svg)
 
 ### Compiler
 
@@ -167,7 +167,7 @@ We have a few tools to help with the development of .slint files:
 - A [**slint-viewer**](./tools/viewer) tool which displays the .slint files. The
   `--auto-reload` argument makes it easy to preview your UI while you are
   working on it (when using the LSP preview is not possible).
-- [**SlintPad**](https://slint-ui.com/editor), an online editor to try out .slint syntax
+- [**SlintPad**](https://slint.dev/editor), an online editor to try out .slint syntax
   without installing anything ([sources](./tools/slintpad)).
 - An [**updater**](./tools/updater) to convert the .slint files from
   previous versions to newer versions.
@@ -235,7 +235,7 @@ located remotely in Germany.
 - Follow [@slint-ui](https://twitter.com/slint_ui) on Twitter.
 - Follow [@slint@fosstodon.org](https://mastodon.social/@slint@fosstodon.org) on Mastodon.
 - Follow [@slint-ui](https://www.linkedin.com/company/slint-ui/) on LinkedIn.
-- Keep an eye out for our [🥠 Weekly Status Updates](https://slint-ui.com/thisweek/).
+- Keep an eye out for our [🥠 Weekly Status Updates](https://slint.dev/thisweek/).
 
 ### Contact us
 
@@ -243,36 +243,36 @@ Feel free to join [Github discussions](https://github.com/slint-ui/slint/discuss
 for general chat or questions. Use [Github issues](https://github.com/slint-ui/slint/issues)
 to report public suggestions or bugs.
 
-We chat in [our Mattermost instance](https://chat.slint-ui.com) where you are
+We chat in [our Mattermost instance](https://chat.slint.dev) where you are
 welcome to listen in or ask your questions.
 
-You can of course also contact us privately via email to [info@slint-ui.com](mailto://info@slint-ui.com).
+You can of course also contact us privately via email to [info@slint.dev](mailto://info@slint.dev).
 
 [#1]: https://www.youtube.com/watch?v=_BDbNHrjK7g
 [#2]: https://www.youtube.com/watch?v=NNNOJJsOAis
 [#3]: https://www.youtube.com/watch?v=dkBwNocItGs
-[#4]: https://slint-ui.com/resources/gallery_win_screenshot.png "Gallery"
-[#5]: https://slint-ui.com/resources/gallery_mac_screenshot.png "Gallery"
-[#6]: https://slint-ui.com/resources/gallery_linux_screenshot.png "Gallery"
-[#7]: https://slint-ui.com/resources/printerdemo_screenshot.png "Printer Demo"
-[#8]: https://slint-ui.com/demos/printerdemo/
-[#9]: https://slint-ui.com/resources/puzzle_screenshot.png "Slide Puzzle"
-[#10]: https://slint-ui.com/demos/slide_puzzle/
-[#11]: https://slint-ui.com/resources/energy-monitor-screenshot.png "Energy Monitor Demo"
-[#12]: https://slint-ui.com/demos/energy-monitor/
-[#13]: https://slint-ui.com/resources/gallery_screenshot.png "Gallery Demo"
-[#14]: https://slint-ui.com/demos/gallery/
-[#15]: https://slint-ui.com/docs/cpp
-[#16]: https://slint-ui.com/docs/tutorial/cpp
+[#4]: https://slint.dev/resources/gallery_win_screenshot.png "Gallery"
+[#5]: https://slint.dev/resources/gallery_mac_screenshot.png "Gallery"
+[#6]: https://slint.dev/resources/gallery_linux_screenshot.png "Gallery"
+[#7]: https://slint.dev/resources/printerdemo_screenshot.png "Printer Demo"
+[#8]: https://slint.dev/demos/printerdemo/
+[#9]: https://slint.dev/resources/puzzle_screenshot.png "Slide Puzzle"
+[#10]: https://slint.dev/demos/slide_puzzle/
+[#11]: https://slint.dev/resources/energy-monitor-screenshot.png "Energy Monitor Demo"
+[#12]: https://slint.dev/demos/energy-monitor/
+[#13]: https://slint.dev/resources/gallery_screenshot.png "Gallery Demo"
+[#14]: https://slint.dev/demos/gallery/
+[#15]: https://slint.dev/docs/cpp
+[#16]: https://slint.dev/docs/tutorial/cpp
 [#17]: https://github.com/slint-ui/slint-cpp-template
 [#18]: https://img.shields.io/crates/v/slint
 [#19]: https://crates.io/crates/slint
-[#20]: https://slint-ui.com/docs/rust/slint/
-[#21]: https://slint-ui.com/docs/tutorial/rust
+[#20]: https://slint.dev/docs/rust/slint/
+[#21]: https://slint.dev/docs/tutorial/rust
 [#22]: https://youtu.be/WBcv4V-whHk
 [#23]: https://github.com/slint-ui/slint-rust-template
 [#24]: https://img.shields.io/npm/v/slint-ui
 [#25]: https://www.npmjs.com/package/slint-ui
-[#26]: https://slint-ui.com/docs/node
-[#27]: https://slint-ui.com/docs/tutorial/node
+[#26]: https://slint.dev/docs/node
+[#27]: https://slint.dev/docs/tutorial/node
 [#28]: https://github.com/slint-ui/slint-nodejs-template

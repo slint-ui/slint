@@ -8,9 +8,9 @@ A fictional user interface for the touch screen of a printer
 
 | `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- | --- | --- |
-| [`ui.slint`](./printerdemo/ui/printerdemo.slint) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp) | [`main.js`](./printerdemo/node/main.js) | [Online simulation](https://slint-ui.com/snapshots/master/demos/printerdemo/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/printerdemo/ui/printerdemo.slint) |
+| [`ui.slint`](./printerdemo/ui/printerdemo.slint) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp) | [`main.js`](./printerdemo/node/main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/printerdemo/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/printerdemo/ui/printerdemo.slint) |
 
-![Screenshot of the Printer Demo](https://slint-ui.com/resources/printerdemo_screenshot.png "Printer Demo")
+![Screenshot of the Printer Demo](https://slint.dev/resources/printerdemo_screenshot.png "Printer Demo")
 
 ### [`gallery`](./gallery)
 
@@ -18,9 +18,9 @@ A simple application showing the different widgets
 
 | `.slint` Design | Rust Source | C++ Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- | --- |
-| [`gallery.slint`](./gallery/gallery.slint) | [`main.rs`](./gallery/main.rs) | [`main.cpp`](./gallery/main.cpp) | [Online simulation](https://slint-ui.com/snapshots/master/demos/gallery/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/gallery/gallery.slint) |
+| [`gallery.slint`](./gallery/gallery.slint) | [`main.rs`](./gallery/main.rs) | [`main.cpp`](./gallery/main.cpp) | [Online simulation](https://slint.dev/snapshots/master/demos/gallery/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/gallery/gallery.slint) |
 
-![Screenshot of the Gallery on Windows](https://slint-ui.com/resources/gallery_win_screenshot.png "Gallery")
+![Screenshot of the Gallery on Windows](https://slint.dev/resources/gallery_win_screenshot.png "Gallery")
 
 ### [`energy-monitor`](./energy-monitor)
 
@@ -28,9 +28,9 @@ A fictional user interface of a device that monitors energy consumption in a bui
 
 | `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- |
-| [`desktop_window.slint`](./energy-monitor/ui/desktop_window.slint) | [`main.rs`](./energy-monitor/src/main.rs) | [Online simulation](https://slint-ui.com/snapshots/master/demos/energy-monitor/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/energy-monitor/ui/desktop_window.slint) |
+| [`desktop_window.slint`](./energy-monitor/ui/desktop_window.slint) | [`main.rs`](./energy-monitor/src/main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/energy-monitor/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/energy-monitor/ui/desktop_window.slint) |
 
-![Screenshot of the Energy-Monitor Demo](https://slint-ui.com/resources/energy-monitor-screenshot.png "Energy Monitor")
+![Screenshot of the Energy-Monitor Demo](https://slint.dev/resources/energy-monitor-screenshot.png "Energy Monitor")
 
 ### [`todo`](./todo)
 
@@ -38,9 +38,9 @@ A simple todo mvc application
 
 | `.slint` Design | Rust Source | C++ Source | NodeJS | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- | --- | --- |
-| [`todo.slint`](./todo/ui/todo.slint) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://slint-ui.com/snapshots/master/demos/todo/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/todo/ui/todo.slint) |
+| [`todo.slint`](./todo/ui/todo.slint) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/todo/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/todo/ui/todo.slint) |
 
-![Screenshot of the Todo Demo](https://slint-ui.com/resources/todo_screenshot.png "Todo Demo")
+![Screenshot of the Todo Demo](https://slint.dev/resources/todo_screenshot.png "Todo Demo")
 
 ### [`carousel`](./carousel)
 
@@ -50,7 +50,7 @@ The example can be run on desktop, wasm and mcu platforms
 
 | `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- | --- | --- |
-| [`ui.slint`](./carousel/ui/carousel_demo.slint) | [`main.rs`](./carousel/rust/main.rs) | [`main.cpp`](./carousel/cpp/main.cpp) | [`main.js`](./carousel/node/main.js) | [Online simulation](https://slint-ui.com/snapshots/master/demos/carousel/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/carousel/ui/carousel_demo.slint) |
+| [`ui.slint`](./carousel/ui/carousel_demo.slint) | [`main.rs`](./carousel/rust/main.rs) | [`main.cpp`](./carousel/cpp/main.cpp) | [`main.js`](./carousel/node/main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/carousel/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/carousel/ui/carousel_demo.slint) |
 
 ![Screenshot of the Carousel Demo](https://user-images.githubusercontent.com/6715107/196679740-840a4b67-afaa-4d47-9a31-bfe643c7de48.png "Carousel Demo")
 
@@ -60,20 +60,20 @@ Puzzle game based on a Flutter example. See [Readme](./slide_puzzle)
 
 | `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- |
-| [`slide_puzzle.slint`](./slide_puzzle/slide_puzzle.slint) | [`main.rs`](./slide_puzzle/main.rs) | [Online simulation](https://slint-ui.com/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/slide_puzzle/slide_puzzle.slint) |
+| [`slide_puzzle.slint`](./slide_puzzle/slide_puzzle.slint) | [`main.rs`](./slide_puzzle/main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/slide_puzzle/slide_puzzle.slint) |
 
-![Screenshot of the Slide Puzzle](https://slint-ui.com/resources/puzzle_screenshot.png "Slide Puzzle")
+![Screenshot of the Slide Puzzle](https://slint.dev/resources/puzzle_screenshot.png "Slide Puzzle")
 
 ### [`memory`](./memory)
 
 A basic memory game used as an example the tutorial:
 
-* [Memory Game Tutorial (Rust)](https://slint-ui.com/docs/tutorial/rust)
-* [Memory Game Tutorial (C++)](https://slint-ui.com/docs/tutorial/cpp)
+* [Memory Game Tutorial (Rust)](https://slint.dev/docs/tutorial/rust)
+* [Memory Game Tutorial (C++)](https://slint.dev/docs/tutorial/cpp)
 
 | `.slint` Design | Rust Source | C++ Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- | --- |
-| [`memory.slint`](./memory/memory.slint) | [`main.rs`](./memory/main.rs) | [`memory.cpp`](./memory/memory.cpp) | [Online simulation](https://slint-ui.com/snapshots/master/demos/memory/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/memory/memory.slint) |
+| [`memory.slint`](./memory/memory.slint) | [`main.rs`](./memory/main.rs) | [`memory.cpp`](./memory/memory.cpp) | [Online simulation](https://slint.dev/snapshots/master/demos/memory/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/memory/memory.slint) |
 
 ### [`iot-dashboard`](./iot-dashboard)
 
@@ -83,9 +83,9 @@ Also show how a way to dynamically load widgets with the interpreter from C++.
 
 | `.slint` Design | C++ Source | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- |
-| [`main.slint`](./iot-dashboard/main.slint) | [`main.cpp`](./iot-dashboard/main.cpp)   | [Online preview](https://slint-ui.com/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/iot-dashboard/main.slint) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/iot-dashboard/main.slint) |
+| [`main.slint`](./iot-dashboard/main.slint) | [`main.cpp`](./iot-dashboard/main.cpp)   | [Online preview](https://slint.dev/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/iot-dashboard/main.slint) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/iot-dashboard/main.slint) |
 
-![Screenshot of the IOT Dashboard](https://slint-ui.com/resources/iot-dashboard_screenshot.png "IOT Dashboard")
+![Screenshot of the IOT Dashboard](https://slint.dev/resources/iot-dashboard_screenshot.png "IOT Dashboard")
 
 ### [`imagefilter`](./imagefilter)
 
@@ -94,9 +94,9 @@ and feed the result into Slint.
 
 |  Source | Online wasm Preview |
 | --- | --- |
-| [`main.rs`](./imagefilter/main.rs)   | [Online simulation](https://slint-ui.com/snapshots/master/demos/imagefilter/) |
+| [`main.rs`](./imagefilter/main.rs)   | [Online simulation](https://slint.dev/snapshots/master/demos/imagefilter/) |
 
-![Screenshot of the imagefilter example](https://slint-ui.com/resources/imagefilter_screenshot.png "Image Filter")
+![Screenshot of the imagefilter example](https://slint.dev/resources/imagefilter_screenshot.png "Image Filter")
 
 ### [`plotter`](./plotter)
 
@@ -105,9 +105,9 @@ graph and integrate the result into Slint.
 
 | `.slint` Design | Rust Source | Online wasm Preview |
 | --- |  --- | --- |
-| [`plotter.slint`](./plotter/plotter.slint) | [`main.rs`](./plotter/main.rs) | [Online simulation](https://slint-ui.com/snapshots/master/demos/plotter/) |
+| [`plotter.slint`](./plotter/plotter.slint) | [`main.rs`](./plotter/main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/plotter/) |
 
-![Screenshot of the plotter example](https://slint-ui.com/resources/plotter_screenshot.png "Plotter")
+![Screenshot of the plotter example](https://slint.dev/resources/plotter_screenshot.png "Plotter")
 
 ### [`bash`](./bash)
 
@@ -119,9 +119,9 @@ A Rust and C++ example that shows how render Slint on top of graphical effect re
 
 | `.slint` Design | Rust Source | C++ Source | Online wasm Preview |
 | --- | --- | --- | --- |
-| [`scene.slint`](./opengl_underlay/scene.slint) | [`main.rs`](./opengl_underlay/main.rs) | [`main.cpp`](./opengl_underlay/main.cpp) | [Online simulation](https://slint-ui.com/snapshots/master/demos/opengl_underlay/) |
+| [`scene.slint`](./opengl_underlay/scene.slint) | [`main.rs`](./opengl_underlay/main.rs) | [`main.cpp`](./opengl_underlay/main.cpp) | [Online simulation](https://slint.dev/snapshots/master/demos/opengl_underlay/) |
 
-![Screenshot of the OpenGL Underlay Example on Windows](https://slint-ui.com/resources/opengl_underlay_screenshot.png "OpenGL Underlay")
+![Screenshot of the OpenGL Underlay Example on Windows](https://slint.dev/resources/opengl_underlay_screenshot.png "OpenGL Underlay")
 
 ### [`opengl_texture`](./opengl_texture)
 

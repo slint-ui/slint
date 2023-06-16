@@ -1,4 +1,4 @@
-# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 # Configuration file for the Sphinx documentation builder.
@@ -23,7 +23,7 @@ import textwrap
 
 project = "Slint C++ API"
 copyright = "SixtyFPS GmbH"
-author = "Slint Developers <info@slint-ui.com>"
+author = "Slint Developers <info@slint.dev>"
 
 # The full version, including alpha/beta/rc tags
 version = "1.1.0"
@@ -104,7 +104,7 @@ html_static_path = ["_static"]
 
 html_show_sourcelink = False
 
-html_logo = "https://slint-ui.com/logo/slint-logo-small-light.svg"
+html_logo = "https://slint.dev/logo/slint-logo-small-light.svg"
 
 myst_enable_extensions = [
     "html_image",

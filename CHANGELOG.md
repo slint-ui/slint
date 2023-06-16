@@ -369,7 +369,7 @@ All notable changes to this project are documented in this file.
  - Added `animation-tick()`.
  - `SharedString` implements `std::fmt::Write` and added `slint::format!`.
  - `Image` can now be rotated with the `rotation-*` properties.
- - Use docking widgets and integration of slint-lsp into the [Online Code Editor](https://slint-ui.com/editor).
+ - Use docking widgets and integration of slint-lsp into the [Online Code Editor](https://slint.dev/editor).
 
 
 ### Fixed

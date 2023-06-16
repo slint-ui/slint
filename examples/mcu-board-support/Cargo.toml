@@ -1,16 +1,16 @@
-# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
 [package]
 name = "mcu-board-support"
 version = "1.1.0"
-authors = ["Slint Developers <info@slint-ui.com>"]
+authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 license = "MIT"
 publish = false
 description = "Internal helper that includes support for different MCUs, for use in Slint examples"
 repository = "https://github.com/slint-ui/slint"
-homepage = "https://slint-ui.com"
+homepage = "https://slint.dev"
 links = "mcu_board_support" # just so we can pass metadata to the slint build crate
 
 [lib]

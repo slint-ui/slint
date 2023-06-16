@@ -29,4 +29,4 @@ to the current element.
 Running this gives us a window on the screen with a rectangle that opens up to show us the bus icon, when clicking on
 it. Subsequent clicks will close and open the curtain again.
 
-<video autoplay loop muted playsinline src="https://slint-ui.com/blog/memory-game-tutorial/polishing-the-tile.mp4"></video>
+<video autoplay loop muted playsinline src="https://slint.dev/blog/memory-game-tutorial/polishing-the-tile.mp4"></video>

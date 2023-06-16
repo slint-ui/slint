@@ -1,6 +1,6 @@
 # Slint on Microcontrollers
 
-![](https://slint-ui.com/blog/porting-slint-to-microcontrollers/rp-pico_and_screen.jpg)
+![](https://slint.dev/blog/porting-slint-to-microcontrollers/rp-pico_and_screen.jpg)
 
 The following sections explain how to use Slint to develop a UI on a Microcontroller (MCU) in a bare metal environment.
 
@@ -36,7 +36,7 @@ you need to disable the default features.
 
 In the snippet above, three features are selected:
 
- * `compat-1-0`: We select this feature when disabling the default features. For a detailed explanation see our blog post ["Adding default cargo features without breaking Semantic Versioning"](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html).
+ * `compat-1-0`: We select this feature when disabling the default features. For a detailed explanation see our blog post ["Adding default cargo features without breaking Semantic Versioning"](https://slint.dev/blog/rust-adding-default-cargo-feature.html).
  * `unsafe-single-threaded`: Slint internally uses Rust's [`thread_local!`](https://doc.rust-lang.org/std/macro.thread_local.html) macro to store global data.
    This macro is only available in the Rust Standard Library (std), but not in bare metal environments. As a fallback, the `unsafe-single-threaded`
    feature changes Slint to use unsafe static for storage. This way, you guarantee to use Slint API only from a single thread, and not from interrupt handlers.

@@ -1,10 +1,10 @@
-// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 // cSpell:ignore punct
 
 #![doc = include_str!("README.md")]
-#![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
+#![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
 extern crate proc_macro;
 use std::path::Path;
@@ -303,7 +303,7 @@ fn extract_include_paths(
 /// you can use place Slint code and the named exported components will be available for instantiation.
 ///
 /// For the documentation about the syntax of the language, see
-#[doc = concat!("[The Slint Language Documentation](https://slint-ui.com/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint)")]
+#[doc = concat!("[The Slint Language Documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/slint)")]
 ///
 /// When `import`ing `.slint` files or loading images with `@image-url`, the specified paths are relative to the
 /// the directory that contains Cargo.toml.

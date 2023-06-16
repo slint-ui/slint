@@ -1,7 +1,7 @@
 # Getting Started
 
 In this tutorial, we use C++ as the host programming language. We also support other programming languages like
-[Rust](https://slint-ui.com/docs/rust/slint/) or [JavaScript](https://slint-ui.com/docs/node/).
+[Rust](https://slint.dev/docs/rust/slint/) or [JavaScript](https://slint.dev/docs/node/).
 
 You will need a development environment that can compile C++20, [CMake 3.21](https://cmake.org/download/),
 and we recommend [Ninja](https://ninja-build.org) for `-GNinja`.
@@ -77,7 +77,7 @@ If you are stepping through this tutorial on a Windows machine, you can run it w
 memory_game
 ```
 
-![Screenshot of initial tutorial app showing Hello World](https://slint-ui.com/blog/memory-game-tutorial/getting-started.png "Hello World")
+![Screenshot of initial tutorial app showing Hello World](https://slint.dev/blog/memory-game-tutorial/getting-started.png "Hello World")
 
 Feel free to use your favorite IDE for this purpose, or use out-of-tree build, or Ninja, ...
 We just keep it simple here for the purpose of this blog.

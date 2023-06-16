@@ -1,6 +1,6 @@
 # Viewer for Slint
 
-This program is a viewer for `.slint` files from the [Slint Project](https://slint-ui.com).
+This program is a viewer for `.slint` files from the [Slint Project](https://slint.dev).
 
 ## Installation
 

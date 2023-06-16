@@ -12,7 +12,7 @@ The complete Rust documentation for Slint can be viewed online at https://slint.
 
 ## Getting Started
 
-The [crate documentation](https://slint-ui.com/docs/rust/slint/) shows how to use this crate.
+The [crate documentation](https://slint.dev/docs/rust/slint/) shows how to use this crate.
 
 ### Hello World
 
@@ -41,7 +41,7 @@ fn main() {
 }
 ```
 
-The [`slint` crate documentation](https://slint-ui.com/docs/rust/slint/)
+The [`slint` crate documentation](https://slint.dev/docs/rust/slint/)
 contains more advanced examples and alternative ways to use this crate.
 
 To quickly get started, you can use the [Template Repository](https://github.com/slint-ui/slint-rust-template) with

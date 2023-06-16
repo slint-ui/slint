@@ -1,4 +1,4 @@
-// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 // cSpell: ignore datetime dotdot
@@ -400,9 +400,9 @@ const SPDX_LICENSE_ID: &str = const_format::concatcp!("SP", "DX-License-Identifi
 const SPDX_LICENSE_LINE: &str = const_format::concatcp!(SPDX_LICENSE_ID, " "); // Do not confuse the reuse tool
 
 const EXPECTED_HEADER: LicenseHeader<'static> =
-    LicenseHeader(&["Copyright © SixtyFPS GmbH <info@slint-ui.com>", SPDX_LICENSE_LINE]);
+    LicenseHeader(&["Copyright © SixtyFPS GmbH <info@slint.dev>", SPDX_LICENSE_LINE]);
 
-const EXPECTED_HOMEPAGE: &str = "https://slint-ui.com";
+const EXPECTED_HOMEPAGE: &str = "https://slint.dev";
 const ALLOWED_HOMEPAGE: &str = "https://slint.rs";
 const EXPECTED_REPOSITORY: &str = "https://github.com/slint-ui/slint";
 

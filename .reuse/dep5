@@ -1,38 +1,38 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: slint
-Upstream-Contact: Slint Developers <info@slint-ui.com>
-Source: https://slint-ui.com/
+Upstream-Contact: Slint Developers <info@slint.dev>
+Source: https://slint.dev/
 
 Files: */slint-logo-*.svg */slint-logo-*.png */madewithslint-logo-*.svg */madewithslint-logo-*.png
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: CC-BY-ND-4.0
 
 Files: .clang-format .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: *.md api/cpp/docs/* docs/*
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
 Files: *.pot *.po *.mo
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: helper_crates/vtable/*
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: helper_crates/const-field-offset/*
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT or Apache-2.0
 
 Files: api/*/*.json
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files:  examples/*.json examples/*/README examples/*/README.txt examples/qt_viewer/interface.ui
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: examples/memory/icons/*.svg examples/memory/icons/*.png
@@ -52,23 +52,23 @@ Copyright: The Qt Company <https://qt.io/>
 License: LGPL-3.0-only
 
 Files: editors/sublime/LSP.sublime-settings
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: editors/tree-sitter-slint/binding.gyp editors/tree-sitter-slint/CONTRIBUTING.md
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: tools/slintpad/*.html tools/slintpad/styles/*.css tools/slintpad/*.json
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: editors/vscode/*.json editors/vscode/README.md editors/vscode/css/*.css editors/tree-sitter-slint/corpus/*.txt
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: tests/screenshots/references/software/*/*.png
-Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 Files: examples/carousel/icons/*.svg
