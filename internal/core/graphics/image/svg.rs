@@ -14,7 +14,7 @@ use resvg::{
 use usvg::TreeParsing;
 
 pub struct ParsedSVG {
-    svg_tree: usvg::Tree,
+    svg_tree: resvg::Tree,
     cache_key: ImageCacheKey,
 }
 
@@ -35,7 +35,7 @@ impl core::fmt::Debug for ParsedSVG {
 
 impl ParsedSVG {
     pub fn size(&self) -> crate::graphics::IntSize {
-        let size = self.svg_tree.size.to_screen_size();
+        let size = resvg::IntSize::from_usvg(self.svg_tree.size);
         [size.width(), size.height()].into()
     }
 
@@ -49,14 +49,25 @@ impl ParsedSVG {
         size: euclid::Size2D<u32, PhysicalPx>,
     ) -> Result<SharedImageBuffer, usvg::Error> {
         let tree = &self.svg_tree;
-        let fit = resvg::FitTo::Size(size.width, size.height);
-        let size = fit.fit_to(tree.size.to_screen_size()).ok_or(usvg::Error::InvalidSize)?;
-        let mut buffer = SharedPixelBuffer::new(size.width(), size.height());
-        let skia_buffer =
-            tiny_skia::PixmapMut::from_bytes(buffer.make_mut_bytes(), size.width(), size.height())
-                .ok_or(usvg::Error::InvalidSize)?;
-        resvg::render(tree, fit, Default::default(), skia_buffer)
-            .ok_or(usvg::Error::InvalidSize)?;
+        let target_size = resvg::IntSize::new(size.width, size.height)
+            .ok_or(usvg::Error::InvalidSize)?
+            .scale_to(resvg::IntSize::from_usvg(tree.size));
+        let target_size_f = target_size.to_size();
+
+        let transform = tiny_skia::Transform::from_scale(
+            target_size_f.width() as f32 / tree.size.width() as f32,
+            target_size_f.height() as f32 / tree.size.height() as f32,
+        );
+
+        let mut buffer = SharedPixelBuffer::new(target_size.width(), target_size.height());
+        let mut skia_buffer = tiny_skia::PixmapMut::from_bytes(
+            buffer.make_mut_bytes(),
+            target_size.width(),
+            target_size.height(),
+        )
+        .ok_or(usvg::Error::InvalidSize)?;
+
+        tree.render(transform, &mut skia_buffer);
         Ok(SharedImageBuffer::RGBA8Premultiplied(buffer))
     }
 }
@@ -85,6 +96,7 @@ pub fn load_from_path(
     with_svg_options(|options| {
         usvg::Tree::from_data(&svg_data, options)
             .map(fixup_text)
+            .map(|usvg_tree| resvg::Tree::from_usvg(&usvg_tree))
             .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     })
@@ -94,6 +106,7 @@ pub fn load_from_data(slice: &[u8], cache_key: ImageCacheKey) -> Result<ParsedSV
     with_svg_options(|options| {
         usvg::Tree::from_data(slice, options)
             .map(fixup_text)
+            .map(|usvg_tree| resvg::Tree::from_usvg(&usvg_tree))
             .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
     })
 }

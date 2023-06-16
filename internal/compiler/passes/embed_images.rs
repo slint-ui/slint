@@ -302,16 +302,14 @@ fn load_image(
                 image::error::LimitErrorKind::DimensionError,
             ))
         };
-        let skia_buffer =
+        let mut skia_buffer =
             tiny_skia::PixmapMut::from_bytes(buffer.as_mut_slice(), width as u32, height as u32)
                 .ok_or_else(size_error)?;
-        resvg::render(
-            &tree,
-            resvg::FitTo::Original,
+        let rtree = resvg::Tree::from_usvg(&tree);
+        rtree.render(
             tiny_skia::Transform::from_scale(scale_factor as _, scale_factor as _),
-            skia_buffer,
-        )
-        .ok_or_else(size_error)?;
+            &mut skia_buffer,
+        );
         return image::RgbaImage::from_raw(width as u32, height as u32, buffer)
             .ok_or_else(size_error)
             .map(|img| {
