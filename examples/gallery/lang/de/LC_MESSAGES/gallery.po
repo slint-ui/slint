@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-06-15 03:04+0000\n"
+"POT-Creation-Date: 2023-06-16 03:04+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: German (https://app.transifex.com/slint/teams/170022/de/)\n"
@@ -50,78 +50,6 @@ msgstr ""
 #: gallery.slint:20
 msgctxt "Menu"
 msgid "About"
-msgstr ""
-
-#: ui/pages/page.slint:25
-#, fuzzy
-msgctxt "Page"
-msgid "Widgets enabled"
-msgstr "Slint Widgets Galerie"
-
-#: ui/pages/list_view_page.slint:9
-msgctxt "ListViewPage"
-msgid "ListView"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:10
-msgctxt "ListViewPage"
-msgid ""
-"ListViews can be used to display a list of elements. The StandardListBox is "
-"like the default ListView just with a default text based definition of the "
-"visual items. Both can be imported from \"std-widgets.slint\""
-msgstr ""
-
-#: ui/pages/list_view_page.slint:25
-msgctxt "ListViewPage"
-msgid "Item {}"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "Lorem"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "ipsum"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "dolor"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "sit"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "amet"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "consetetur"
 msgstr ""
 
 #: ui/pages/controls_page.slint:10
@@ -274,6 +202,12 @@ msgctxt "ControlsPage"
 msgid "Content of tab 3"
 msgstr ""
 
+#: ui/pages/page.slint:25
+#, fuzzy
+msgctxt "Page"
+msgid "Widgets enabled"
+msgstr "Slint Widgets Galerie"
+
 #: ui/pages/text_edit_page.slint:9
 msgctxt "TextEditPage"
 msgid "TextEdit"
@@ -308,6 +242,72 @@ msgstr ""
 #: ui/pages/text_edit_page.slint:25
 msgctxt "TextEditPage"
 msgid "No-Wrap"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:9
+msgctxt "ListViewPage"
+msgid "ListView"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:10
+msgctxt "ListViewPage"
+msgid ""
+"ListViews can be used to display a list of elements. The StandardListBox is "
+"like the default ListView just with a default text based definition of the "
+"visual items. Both can be imported from \"std-widgets.slint\""
+msgstr ""
+
+#: ui/pages/list_view_page.slint:25
+msgctxt "ListViewPage"
+msgid "Item {}"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "Lorem"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "ipsum"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "dolor"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "sit"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "amet"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "consetetur"
 msgstr ""
 
 #: ui/pages/table_view_page.slint:22
