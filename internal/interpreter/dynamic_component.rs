@@ -245,6 +245,7 @@ pub type DynamicComponentVRc = vtable::VRc<ComponentVTable, ErasedComponentBox>;
 pub(crate) struct ComponentExtraData {
     pub(crate) globals: OnceCell<crate::global_component::GlobalStorage>,
     pub(crate) self_weak: OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
+    pub(crate) embedding_position: OnceCell<(ComponentWeak, usize)>,
     // resource id -> file path
     pub(crate) embedded_file_resources: OnceCell<HashMap<usize, String>>,
     #[cfg(target_arch = "wasm32")]
@@ -1654,31 +1655,66 @@ extern "C" fn subtree_index(component: ComponentRefPin) -> usize {
 unsafe extern "C" fn parent_node(component: ComponentRefPin, result: &mut ItemWeak) {
     generativity::make_guard!(guard);
     let instance_ref = InstanceRef::from_pin_ref(component, guard);
-    let parent_item_index = instance_ref
-        .component_type
-        .original
-        .parent_element
-        .upgrade()
-        .and_then(|e| e.borrow().item_index.get().cloned());
-    if let (Some(parent_offset), Some(parent_index)) =
-        (instance_ref.component_type.parent_component_offset, parent_item_index)
-    {
-        if let Some(parent) = parent_offset.apply(instance_ref.as_ref()).get() {
-            generativity::make_guard!(new_guard);
-            let parent_instance = InstanceRef::from_pin_ref(*parent, new_guard);
-            let parent_rc =
-                parent_instance.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
-            *result = ItemRc::new(parent_rc, parent_index).downgrade();
-        };
+
+    let component_and_index = {
+        // Normal inner-compilation unit case:
+        if let Some(parent_offset) = instance_ref.component_type.parent_component_offset {
+            let parent_item_index = instance_ref
+                .component_type
+                .original
+                .parent_element
+                .upgrade()
+                .and_then(|e| e.borrow().item_index.get().cloned())
+                .unwrap_or(usize::MAX);
+            let parent_component = parent_offset.apply(instance_ref.as_ref()).get().map(|prp| {
+                generativity::make_guard!(new_guard);
+                let instance = InstanceRef::from_pin_ref(*prp, new_guard);
+                instance.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap()
+            });
+            (parent_component, parent_item_index)
+        } else if let Some((parent_component, parent_index)) = instance_ref
+            .component_type
+            .extra_data_offset
+            .apply(instance_ref.as_ref())
+            .embedding_position
+            .get()
+        {
+            (parent_component.upgrade(), *parent_index)
+        } else {
+            (None, usize::MAX)
+        }
+    };
+
+    if let (Some(component), index) = component_and_index {
+        *result = ItemRc::new(component, index).downgrade();
     }
 }
 
 unsafe extern "C" fn embed_component(
-    _component: ComponentRefPin,
-    _parent_component: &ComponentWeak,
-    _parent_item_tree_index: usize,
+    component: ComponentRefPin,
+    parent_component: &ComponentWeak,
+    parent_item_tree_index: usize,
 ) -> bool {
-    false
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+
+    if instance_ref.component_type.parent_component_offset.is_some() {
+        // We are not the root of the compilation unit tree... Can not embed this!
+        return false;
+    }
+
+    {
+        // sanity check parent:
+        let prc = parent_component.upgrade().unwrap();
+        let pref = vtable::VRc::borrow_pin(&prc);
+        let it = pref.as_ref().get_item_tree();
+        if !matches!(it.get(parent_item_tree_index), Some(ItemTreeNode::DynamicTree { .. })) {
+            panic!("Trying to embed into a non-dynamic index in the parents item tree")
+        }
+    }
+
+    let extra_data = instance_ref.component_type.extra_data_offset.apply(instance_ref.as_ref());
+    extra_data.embedding_position.set((parent_component.clone(), parent_item_tree_index)).is_ok()
 }
 
 extern "C" fn accessible_role(component: ComponentRefPin, item_index: usize) -> AccessibleRole {
