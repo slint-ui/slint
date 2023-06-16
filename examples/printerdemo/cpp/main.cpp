@@ -39,7 +39,7 @@ int main()
         char time_buf[100] = { 0 };
         std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S %d/%m/%Y", std::localtime(&now));
         PrinterQueueItem item;
-        item.status = "WAITING...";
+        item.status = JobStatus::Waiting;
         item.progress = 0;
         item.title = std::move(name);
         item.owner = "joe@example.com";
@@ -59,7 +59,7 @@ int main()
             if (top_item.progress > 100) {
                 printer_queue->erase(0);
             } else {
-                top_item.status = "PRINTING";
+                top_item.status = JobStatus::Printing;
                 printer_queue->set_row_data(0, top_item);
             }
         }

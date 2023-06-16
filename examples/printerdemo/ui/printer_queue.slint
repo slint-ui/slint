@@ -3,8 +3,13 @@
 
 import { DemoPalette, PushButton } from "./common.slint";
 
+enum JobStatus {
+    Waiting,
+    Printing
+}
+
 export struct PrinterQueueItem  {
-    status: string, // WAITING..., PRINTING
+    status: JobStatus,
     progress: int,
     title: string,
     owner: string,
@@ -19,10 +24,20 @@ export global PrinterQueue  {
     callback pause-job(int);
 
     in property <[PrinterQueueItem]> printer-queue: [
-        { status: @tr("PRINTING"), progress: 63, title: "210106-FinalPresentation.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: @tr("WAITING..."), title: "Adressliste.docx", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: @tr("WAITING..."), title: "Salaries.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: JobStatus.Printing, progress: 63, title: "210106-FinalPresentation.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: JobStatus.Waiting, title: "Adressliste.docx", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: JobStatus.Waiting, title: "Salaries.pdf", owner: "info@slint.dev", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
     ];
+
+    function statusString(status: JobStatus) -> string {
+        if (status == JobStatus.Printing) {
+            @tr("PRINTING")
+        } else if (status == JobStatus.Waiting) {
+            @tr("WAITING...")
+        } else {
+            @tr("Unknown job status")
+        }
+    }    
 }
 
 
@@ -160,9 +175,9 @@ component NarrowPrintQueueElement inherits Rectangle {
                     // TODO: text-transform: uppercase
                     text: {
                         if (root.queue-item.progress > 0) {
-                            @tr("{}% - {}",root.queue-item.progress,  root.queue-item.status)
+                            @tr("{}% - {}",root.queue-item.progress, PrinterQueue.statusString(root.queue-item.status))
                         } else {
-                            root.queue-item.status
+                            PrinterQueue.statusString(root.queue-item.status)
                         }
                     }
                     color: DemoPalette.status-label-text-color;
@@ -269,9 +284,9 @@ component WidePrintQueueElement inherits Rectangle {
                 // TODO: text-transform: uppercase
                 text: {
                     if (root.queue-item.progress > 0) {
-                        @tr("{}% - {}",root.queue-item.progress,  root.queue-item.status)
+                        @tr("{}% - {}",root.queue-item.progress, PrinterQueue.statusString(root.queue-item.status))
                     } else {
-                        root.queue-item.status
+                        PrinterQueue.statusString(root.queue-item.status)
                     }
                 }
                 color: DemoPalette.status-label-text-color;
