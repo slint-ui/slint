@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-06-16 03:04+0000\n"
+"POT-Creation-Date: 2023-06-17 03:04+0000\n"
 "PO-Revision-Date: 2023-06-09 07:56+0200\n"
 "Last-Translator: Olivier Goffart <ogoffart@bepointbe.be>\n"
 "Language-Team: German <kde-i18n-de@kde.org>\n"
@@ -417,62 +417,67 @@ msgctxt "ScanPage"
 msgid "Start scanning"
 msgstr "Démarrer le scan"
 
-#: ui/printer_queue.slint:22
+#: ui/printer_queue.slint:34
 msgctxt "PrinterQueue"
 msgid "PRINTING"
 msgstr "IMPRESSION"
 
-#: ui/printer_queue.slint:23 ui/printer_queue.slint:24
+#: ui/printer_queue.slint:36
 msgctxt "PrinterQueue"
 msgid "WAITING..."
 msgstr "ATTENTE"
 
-#: ui/printer_queue.slint:49
+#: ui/printer_queue.slint:38
+msgctxt "PrinterQueue"
+msgid "Unknown job status"
+msgstr ""
+
+#: ui/printer_queue.slint:64
 msgctxt "PrintDetails"
 msgid "Job Owner"
 msgstr "Propriétaire"
 
-#: ui/printer_queue.slint:66
+#: ui/printer_queue.slint:81
 msgctxt "PrintDetails"
 msgid "Pages"
 msgstr "Pages"
 
-#: ui/printer_queue.slint:83
+#: ui/printer_queue.slint:98
 msgctxt "PrintDetails"
 msgid "Size"
 msgstr "Taille"
 
-#: ui/printer_queue.slint:100
+#: ui/printer_queue.slint:115
 msgctxt "PrintDetails"
 msgid "Submitted"
 msgstr "Soumission"
 
-#: ui/printer_queue.slint:163
+#: ui/printer_queue.slint:178
 msgctxt "NarrowPrintQueueElement"
 msgid "{}% - {}"
 msgstr "{}% - {}"
 
-#: ui/printer_queue.slint:197
+#: ui/printer_queue.slint:212
 msgctxt "NarrowPrintQueueElement"
 msgid "More   "
 msgstr "Détails"
 
-#: ui/printer_queue.slint:272
+#: ui/printer_queue.slint:287
 msgctxt "WidePrintQueueElement"
 msgid "{}% - {}"
 msgstr "{}% - {}"
 
-#: ui/printer_queue.slint:311
+#: ui/printer_queue.slint:326
 msgctxt "WidePrintQueueElement"
 msgid "Pause"
 msgstr "Pause"
 
-#: ui/printer_queue.slint:317
+#: ui/printer_queue.slint:332
 msgctxt "WidePrintQueueElement"
 msgid "Delete"
 msgstr "Supprimer"
 
-#: ui/printer_queue.slint:363
+#: ui/printer_queue.slint:378
 msgctxt "PrinterQueueView"
 msgid "Printing Queue"
 msgstr "File d'attente"
