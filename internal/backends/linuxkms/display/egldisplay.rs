@@ -118,12 +118,26 @@ impl raw_window_handle::HasDisplayHandle for EglDisplay {
 }
 
 pub fn create_egl_display() -> Result<EglDisplay, PlatformError> {
+    if let Ok(drm_devices) = std::fs::read_dir("/dev/dri/") {
+        for device in drm_devices {
+            if let Ok(device) = device.map_err(|e| format!("Error opening DRM device: {e}")) {
+                let res = try_create_egl_display(&device.path());
+                if res.is_ok() {
+                    return res;
+                }
+            }
+        }
+    }
+    Err("Could not create an egl display".into())
+}
+
+pub fn try_create_egl_display(device: &std::path::Path) -> Result<EglDisplay, PlatformError> {
     let drm_device = SharedFd(Arc::new(
         std::fs::OpenOptions::new()
             .read(true)
             .write(true)
-            .open("/dev/dri/card0")
-            .map_err(|err| format!("Error opening /dev/dri/card0: {}", err))?,
+            .open(device)
+            .map_err(|err| format!("Error opening {:?}: {}", device, err))?,
     ));
 
     let resources = drm_device
