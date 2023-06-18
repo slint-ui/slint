@@ -5,16 +5,16 @@ Use Slint's translation infrastructure to make your application available in dif
 Complete the following steps to translate your application:
 
 1. Identify all user visible strings that need to be translated and annotate them with the `@tr()` macro.
-2. Extract translatable strings using the `slint-tr-extractor` tool and generate `.pot` files.
+2. Extract annotated strings using the `slint-tr-extractor` tool and generate `.pot` files.
 3. Use a third-party tool to translate the strings into a target language, as `.po` files.
 4. Use gettext's `msgfmt` tool to convert `.po` files into run-time loadable `.mo` files.
-5. Use Slint's API select and load `.mo` files at run-time based on the user's locale settings.
+5. Use Slint's API select and load `.mo` files at run-time, based on the user's locale settings.
    At this point, all strings marked for translation will automatically be rendered in the target language.
 
 ## Annotating Translatable Strings
 
 Use the `@tr` macro in `.slint` files to mark that a string is meant to be translated. This macro
-will take care both of the translation and the formatting by replacing `{}` placeholders.
+will take care of both the translation and the formatting, by replacing `{}` placeholders.
 
 The first argument must be a plain string literal, followed by the arguments:
 
@@ -29,8 +29,8 @@ export component Example {
 
 ### Formatting
 
-The `@tr` macro replaces each `{}` placeholder in the translate string with the corresponding argument.
-It's also possible to re-order the arguments using `{0}`, `{1}` and so on. Translators can use ordered
+The `@tr` macro replaces each `{}` placeholder in the string marked for translation with the corresponding argument.
+It's also possible to re-order the arguments using `{0}`, `{1}`, and so on. Translators can use ordered
 placeholders even if the original string did not.
 
 The literal characters `{` and `}` may be included in a string by preceding them with the same character.
@@ -85,11 +85,18 @@ find -name \*.slint | xargs slint-tr-extractor -o MY_PROJECT.pot
 This will create a file called `MY_PROJECT.pot`. Replace MY_PROJECT with your actual project name.
 To learn how the project name affects the lookup of translations, see the sections below.
 
+`.pot` files are [Gettext](https://www.gnu.org/software/gettext/) template files.
+
 ## Translate the Strings
 
-`.pot` file are [Gettext](https://www.gnu.org/software/gettext/) template files. It's the same as a `.po` file, but doesn't contain actual
-translations. They can be created and edited by hand with a text editor, or there are a few tools you can use to translate them, such as the
-following:
+Start a new translation by creating a `.po` file from a `.pot` file. Both file formats are identical.
+You can either copy the file manually or use a tool like Gettext's `msginit` to start a new `.po` file.
+
+The `.po` file will contain the strings in a target language.
+
+`.po` and `.pot` files are plain text files, that you can edit with a text editor. We recommend
+using a dedicated translation tool for working with them, such as the following:
+
  - [poedit](https://poedit.net/)
  - [OmegaT](https://omegat.org/)
  - [Lokalize](https://userbase.kde.org/Lokalize)
@@ -148,17 +155,18 @@ Suppose your `Cargo.toml` contains the following lines and the user's locale is 
 name = "gallery"
 ```
 
-With these sttings, Slint will look for `gallery.mo` in the `lang/fr/LC_MESSAGES/gallery.mo`.
+With these settings, Slint will look for `gallery.mo` in the `lang/fr/LC_MESSAGES/gallery.mo`.
 
 ### Select and Load Translations with C++
 
-You need to enable the feature by passing `-DSLINT_FEATURE_GETTEXT=1` when compiling Slint.
+First, enable the `SLINT_FEATURE_GETTEXT` cmake option when compiling Slint, to gain access to
+the translations API and activate run-time translation support.
 
-In C++ application using cmake, the `domain_name` is the CMake target name.
+In C++ applications using cmake, the `domain_name` is the CMake target name.
 
-You will also need to bind the domain to a path using the standard gettext library.
+Next, bind the text domain to a path using the standard gettext library.
 
-To do so, you can add this in your CMakeLists.txt
+To do so, add this in your CMakeLists.txt
 
 ```cmake
 find_package(Intl)
@@ -168,7 +176,7 @@ if(Intl_FOUND)
 endif()
 ```
 
-You can then setup the locale and the bindtext domain
+You can then setup the locale and the text domain
 
 ```c++
 #ifdef HAVE_GETTEXT
@@ -186,10 +194,13 @@ int main()
 }
 ```
 
+Suppose you're using the above and the user's locale is set to `fr`,
+Slint will look for `gallery.mo` in the `lang/fr/LC_MESSAGES/gallery.mo`.
+
 ## Previewing Translations with `slint-viewer`
 
-The `slint-viewer` need to be compiled with the `gettext` feature
+Use `slint-viewer` to preview translations when previewing `.slint` files:
 
-When previewing `.slint` files with `slint-viewer`, use the `--translation-domain` and `--translation-dir`.
-command line option to automatically load translations and display them based on the current locale.
-
+1. Enable the `gettext` feature when compiling `slint-viewer`.
+2. Use the `--translation-domain` and `translation-dir` command line options to
+   load translations and display them based on the current locale.
