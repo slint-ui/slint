@@ -154,7 +154,8 @@ Rendering backends and styles are configurable at compile time:
 - The `femtovg` renderer uses OpenGL ES 2.0 for rendering.
 - The `skia` renderer uses [Skia](https://skia.org) for rendering.
 - The `software` renderer uses the CPU with no additional dependencies.
-- When Qt is installed on the system, the `native` style uses Qt's QStyle to achieve native looking widgets.
+
+NOTE: When Qt is installed on the system, the `native` style uses Qt's QStyle to achieve native looking widgets.
 
 ### Tooling
 
