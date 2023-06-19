@@ -4,8 +4,8 @@
 import { Typography, Palette } from "styling.slint";
 
 export component LineEdit {
-    callback accepted(string);
-    callback edited(string);
+    callback accepted(string /* text */);
+    callback edited(string /* text */);
 
     in property <bool> enabled <=> i-text-input.enabled;
     in property <InputType> input-type <=> i-text-input.input-type;
@@ -20,6 +20,7 @@ export component LineEdit {
     horizontal-stretch: 1;
     min-width: max(160px, i-layout.min-height);
     min-height: max(32px, i-layout.min-height);
+    forward-focus: i-text-input;
 
     i-background := Rectangle {
         border-radius: 4px;
