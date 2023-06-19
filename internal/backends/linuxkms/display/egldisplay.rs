@@ -118,17 +118,18 @@ impl raw_window_handle::HasDisplayHandle for EglDisplay {
 }
 
 pub fn create_egl_display() -> Result<EglDisplay, PlatformError> {
+    let mut last_err = None;
     if let Ok(drm_devices) = std::fs::read_dir("/dev/dri/") {
         for device in drm_devices {
             if let Ok(device) = device.map_err(|e| format!("Error opening DRM device: {e}")) {
-                let res = try_create_egl_display(&device.path());
-                if res.is_ok() {
-                    return res;
+                match try_create_egl_display(&device.path()) {
+                    Ok(dsp) => return Ok(dsp),
+                    Err(e) => last_err = Some(e),
                 }
             }
         }
     }
-    Err("Could not create an egl display".into())
+    Err(last_err.unwrap_or_else(|| "Could not create an egl display".into()))
 }
 
 pub fn try_create_egl_display(device: &std::path::Path) -> Result<EglDisplay, PlatformError> {
