@@ -1,0 +1,135 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+
+import { Typography, Palette, Icons } from "styling.slint";
+import { MenuBorder, ListItem, FocusBorder } from "components.slint";
+
+export component ComboBox {
+    callback selected(string /* current-value */);
+
+    in property <[string]> model;
+    in property <bool> enabled <=> i-focus-scope.enabled;
+    out property <bool> has-focus <=> i-focus-scope.has-focus;
+    in-out property <int> current-index: 0;
+    in-out property <string> current-value: root.model[root.current-index];
+
+    min-width: max(160px, i-layout.min-height);
+    min-height: max(32px, i-layout.min-height);
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    forward-focus: i-focus-scope;
+
+    i-focus-scope := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.UpArrow) {
+                root.move-selection-up();
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+
+                root.move-selection-down();
+                return accept;
+            } else if (event.text == Key.Return) {
+                i-popup.show();
+            }
+            return reject;
+        }
+
+        i-touch-area := TouchArea {
+            clicked => {
+                root.focus();
+                i-popup.show();
+            }
+        }
+    }
+
+    i-background := Rectangle {
+        border-radius: 3px;
+        background: Palette.control-default;
+        border-width: 1px;
+        border-color: Palette.control-border;
+
+        i-layout := HorizontalLayout {
+            padding-left: 11px;
+            padding-right: 11px;
+            spacing: 8px;
+
+            i-text := Text {
+                horizontal-alignment: left;
+                vertical-alignment: center;
+                font-size: Typography.body.font-size;
+                font-weight: Typography.body.font-weight;
+                color: Palette.text-primary;
+                text: root.current-value;
+            }
+
+            i-icon := Image {
+                colorize: Palette.text-secondary;
+                width: 8px;
+                y: (parent.height - self.height) / 2;
+                source: Icons.dropdown;
+
+                animate colorize { duration: 150ms; }
+            }
+        }
+
+        animate border-color { duration: 200ms; }
+    }
+
+    // focus border
+    if (root.has-focus && root.enabled) : FocusBorder {
+        border-radius: i-background.border-radius;
+    }
+
+    i-popup := PopupWindow {
+        x: 0;
+        y: root.height + 1px;
+        width: root.width;
+
+        MenuBorder {
+            VerticalLayout {
+                padding: 4px;
+
+                for value[index] in root.model : ListItem {
+                    text: value;
+                    selected: index == root.current-index;
+
+                    clicked => {
+                        root.select(index);
+                    }
+                }
+            }
+        }
+    }
+
+    function select(index: int) {
+        root.current-index = index;
+        root.current-value = root.model[root.current-index];
+        root.selected(root.current-value);
+    }
+
+    function move-selection-up() {
+        root.select(Math.max(root.current-index - 1, 0));
+    }
+
+    function move-selection-down() {
+        root.select(Math.min(root.current-index + 1, root.model.length - 1));
+    }
+
+    states [
+        disabled when !root.enabled : {
+            i-background.background: Palette.control-disabled;
+            i-background.border-color: Palette.control-stroke;
+            i-text.color: Palette.text-disabled;
+            i-icon.colorize: Palette.text-disabled;
+        }
+        pressed when i-touch-area.pressed : {
+            i-background.background: Palette.control-alt-tertiary;
+            i-background.border-color: Palette.control-stroke;
+            i-text.color: Palette.text-secondary;
+            i-icon.colorize: Palette.text-tertiary;
+        }
+        hover when i-touch-area.has-hover : {
+            i-background.background: Palette.control-secondary;
+        }
+    ]
+}

@@ -78,3 +78,7 @@ License: Apache-2.0
 Files: examples/carousel/fonts/*.ttf
 Copyright: Roboto <https://fonts.google.com/specimen/Roboto/about>
 License: Apache-2.0
+
+Files: internal/compiler/widgets/fluent-base/_*.svg
+Copyright: Copyright © Microsoft Corporation <https://github.com/microsoft/fluentui-system-icons/blob/main/LICENSE>
+License: MIT

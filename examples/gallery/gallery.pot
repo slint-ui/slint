@@ -83,7 +83,7 @@ msgstr ""
 
 #: ./ui/pages/controls_page.slint:42
 msgctxt "ControlsPage"
-msgid "CheckBox - SpinBox - ComboBox - Switch"
+msgid "CheckBox - ComboBox - Switch"
 msgstr ""
 
 #: ./ui/pages/controls_page.slint:50
@@ -118,7 +118,7 @@ msgstr ""
 
 #: ./ui/pages/controls_page.slint:75
 msgctxt "ControlsPage"
-msgid "LineEdit"
+msgid "LineEdit - SpinBox"
 msgstr ""
 
 #: ./ui/pages/controls_page.slint:79
