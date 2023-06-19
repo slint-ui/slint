@@ -164,8 +164,6 @@ impl i_slint_core::platform::Platform for Backend {
         quit_loop.store(false, std::sync::atomic::Ordering::Release);
 
         while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
-            i_slint_core::platform::update_timers_and_animations();
-
             let next_timeout = if adapter.window().has_active_animations() {
                 Some(std::time::Duration::from_millis(16))
             } else {
@@ -175,6 +173,8 @@ impl i_slint_core::platform::Platform for Backend {
             event_loop
                 .dispatch(next_timeout, &mut loop_data)
                 .map_err(|e| format!("Error dispatch events: {e}"))?;
+
+            i_slint_core::platform::update_timers_and_animations();
 
             adapter.render_if_needed()?;
         }
