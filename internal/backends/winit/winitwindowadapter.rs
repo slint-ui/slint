@@ -143,7 +143,7 @@ impl WinitWindowAdapter {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: OnceCell::with_value(corelib::api::Window::new(self_weak.clone() as _)),
             #[cfg(target_arch = "wasm32")]
-            self_weak: Default::default(),
+            self_weak: self_weak.clone(),
             currently_pressed_key_code: Default::default(),
             pending_redraw: Default::default(),
             dark_color_scheme: Default::default(),
