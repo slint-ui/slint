@@ -123,10 +123,9 @@ export component Example inherits Window {
 }
 ```
 
-## `GridBox`
+## `GroupBox`
 
-A `GridBox` is a [`GridLayout`](elements.md#gridlayout) where the spacing and padding values
-depend on the style instead of defaulting to 0.
+A `GroupBox` is a container that groups its children together under a common title.
 
 ### Properties
 
@@ -149,6 +148,12 @@ export component Example inherits Window {
     }
 }
 ```
+
+## `GridBox`
+
+A `GridBox` is a [`GridLayout`](elements.md#gridlayout) where the spacing and padding values
+depend on the style instead of defaulting to 0.
+
 
 ## `HorizontalBox`
 
