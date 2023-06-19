@@ -446,7 +446,7 @@ fn generate_struct(
 
     let attributes = if let Some(feature) = rust_attributes {
         let attr =
-            feature.iter().map(|f| match TokenStream::from_str(format!(r#"#[{}]"#, f).as_str()) {
+            feature.iter().map(|f| match TokenStream::from_str(format!(r#"#[{f}]"#).as_str()) {
                 Ok(eval) => eval,
                 Err(_) => quote! {},
             });
@@ -475,8 +475,17 @@ fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
             quote!(#i)
         }
     });
+    let rust_attr = en.node.as_ref().and_then(|node| {
+        node.AtRustAttr().map(|attr| {
+            match TokenStream::from_str(format!(r#"#[{}]"#, attr.text()).as_str()) {
+                Ok(eval) => eval,
+                Err(_) => quote! {},
+            }
+        })
+    });
     quote! {
         #[derive(Default, Copy, Clone, PartialEq, Debug)]
+        #rust_attr
         pub enum #enum_name {
             #(#enum_values,)*
         }

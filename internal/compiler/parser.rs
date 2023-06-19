@@ -432,7 +432,7 @@ declare_syntax! {
         /// `struct Foo { ... }`
         StructDeclaration -> [DeclaredIdentifier, ObjectType, ?AtRustAttr],
         /// `enum Foo { bli, bla, blu }`
-        EnumDeclaration -> [DeclaredIdentifier, *EnumValue],
+        EnumDeclaration -> [DeclaredIdentifier, *EnumValue, ?AtRustAttr],
         /// The value is a Identifier
         EnumValue -> [],
         /// `@rust-attr(...)`
@@ -497,8 +497,12 @@ mod parser_trait {
         #[must_use = "use start_node_at to use this checkpoint"]
         fn checkpoint(&mut self) -> Self::Checkpoint;
         #[must_use = "The node will be finished when it is dropped"]
-        fn start_node_at(&mut self, checkpoint: Self::Checkpoint, kind: SyntaxKind) -> Node<Self> {
-            self.start_node_impl(kind, Some(checkpoint), NodeToken(()));
+        fn start_node_at(
+            &mut self,
+            checkpoint: impl Into<Option<Self::Checkpoint>>,
+            kind: SyntaxKind,
+        ) -> Node<Self> {
+            self.start_node_impl(kind, checkpoint.into(), NodeToken(()));
             Node(self)
         }
 

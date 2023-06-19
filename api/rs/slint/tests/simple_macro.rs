@@ -20,13 +20,20 @@ fn empty_stuff() {
 fn test_serialize_deserialize_struct() {
     i_slint_backend_testing::init();
     slint! {
+
+        @rust-attr(derive(serde::Serialize, serde::Deserialize))
+        export enum TestEnum {
+            hello, world, xxx
+        }
+
         @rust-attr(derive(serde::Serialize, serde::Deserialize))
         export struct TestStruct {
+            enum: TestEnum,
             foo: int,
         }
         export component Test { }
     }
-    let data = TestStruct { foo: 1 };
+    let data = TestStruct { foo: 1, r#enum: TestEnum::World };
     let serialized = serde_json::to_string(&data).unwrap();
     let deserialized: TestStruct = serde_json::from_str(&serialized).unwrap();
     assert_eq!(data, deserialized);
