@@ -1,513 +1,212 @@
 <!doctype html>
 <html lang="en">
+
     <head>
-        <!-- cSpell: ignore Termina liga -->
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
         <meta name="author" content="SixtyFPS GmbH" />
-        <link rel="shortcut icon" href="/favicon.ico" />
-        <link rel="icon" type="image/png" href="/favicon.png" />
-        <!-- fonts-->
 
-        <style>
-            @font-face {
-                font-family: "Overpass";
-                font-style: normal;
-                font-weight: 700;
-                src: url("/fonts/Overpass/Overpass-Bold.woff2");
-            }
-            @font-face {
-                font-family: "Overpass";
-                font-style: normal;
-                font-weight: 400;
-                src: url("/fonts/Overpass/Overpass-Regular.woff2");
-            }
-            @font-face {
-                font-family: "Termina";
-                font-style: normal;
-                font-weight: 700;
-                src: url("/fonts/Termina/Termina-Bold.woff2");
-            }
-        </style>
+        <!--====== Favicon Icon ======-->
+        <link rel="shortcut icon" href="https://slint.dev/assets/img/favicon.ico">
+        <link rel="icon" type="image/x-icon" href="https://slint.dev/assets/img/favicon.svg">
 
-        <style>
-            :root {
-                --SLINT_blue: #0025ff;
-                --SLINT_black: #000000;
-                --SLINT_white: white;
-                --SLINT_fond_bright: #fbfdff;
-                --SLINT_fond_dark: #e7e9f4;
-                --Gradient_Radial_DARK: radial-gradient(
-                    166.77% 121.81% at 72.08% 71.04%,
-                    #2c2f36 10%,
-                    #202328 33%,
-                    #040708 94%
-                );
-                --SLINT_Dark_Grey1: #2c2f36;
-                --LINK_Yellow_Green: #dbff00;
-                --section-width: 46rem;
+        <!-- ===== All CSS files ===== -->
+        <link rel="stylesheet" href="https://slint.dev/assets/css/style.css?v=1.3.0" />
 
-                font-size: 24px;
-            }
-
-            * {
-                box-sizing: border-box;
-            }
-
-            body {
-                padding: 0;
-                margin: 0;
-
-                font-family: "Overpass", sans-serif;
-                font-style: normal;
-                font-feature-settings: "liga" off;
-                padding-top: 80px; /* for the nav */
-
-                background: white;
-            }
-
-            :target::before {
-                /* for the nav */
-                content: "";
-                display: block;
-                height: 80px;
-                margin: -80px 0 0 0;
-            }
-
-            section:target::before {
-                /* It's better to have a bigger gap between sections than putting the wrong background */
-                margin-top: -30px;
-                margin-bottom: -30px;
-            }
-
-            a {
-                text-decoration: none;
-                color: var(--SLINT_blue);
-            }
-            a:hover {
-                text-decoration: underline;
-            }
-
-            h1,
-            h2,
-            h3,
-            h4,
-            h5,
-            h6 {
-                font-weight: bold;
-                font-family: "Termina", sans-serif;
-                padding: 0;
-                line-height: 110%;
-            }
-
-            img {
-                border: none;
-                padding: 0;
-                margin: 0;
-            }
-        </style>
-
-        <style>
-            /* Desktop */
-            nav#Nav {
-                top: 0;
-                position: fixed;
-                width: 100vw;
-                height: 80px;
-                margin: 0;
-                padding: 0;
-                border: 0;
-                background: var(--SLINT_black);
-                color: var(--SLINT_white);
-
-                z-index: 10000;
-                white-space: nowrap;
-
-                display: flex;
-                flex-direction: row;
-                align-items: center;
-            }
-
-            nav#Nav > a#main_logo {
-                height: 85%;
-                padding: 6.5px 0px 6.5px 24px;
-            }
-
-            nav#Nav img {
-                height: 100%;
-            }
-
-            nav#Nav ul {
-                flex-grow: 1;
-
-                display: flex;
-                flex-direction: row;
-                align-items: flex-end;
-                justify-content: flex-end;
-                padding: 16px;
-                margin: 0;
-
-                font-weight: bold;
-                color: var(--SLINT_white);
-                font-size: 16px;
-            }
-
-            nav#Nav li {
-                align-self: center;
-                margin: 0px 0px;
-                padding: 16px;
-                list-style-type: none;
-            }
-
-            nav#Nav a {
-                color: inherit;
-            }
-
-            nav#Nav #Hamburger {
-                display: none;
-            }
-
-            #Header {
-                padding: 0px;
-                margin: 0px;
-                width: 100%;
-                background: var(--SLINT_black);
-                background-image: url("https://slint.dev/new_images/Header.svg");
-                background-repeat: no-repeat;
-                background-size: cover;
-                background-position: center;
-                color: var(--SLINT_white);
-                padding: 4rem 5.3rem 3rem 5.3rem;
-            }
-
-            #Header h2,
-            #Header h1 {
-                font-size: 88px;
-                line-height: 110%;
-                max-width: var(--section-width);
-                margin: auto;
-            }
-            #Header small {
-                display: block;
-                max-width: var(--section-width);
-                margin: auto;
-                font-size: 1rem;
-            }
-
-            #Footer {
-                color: var(--SLINT_white);
-                background: radial-gradient(
-                    165.83% 121.13% at 86.81% -12.61%,
-                    #2c2f36 0%,
-                    #040708 53.92%
-                );
-                display: flex;
-                justify-content: space-around;
-                align-items: center;
-                padding: 4vw;
-                clear: both;
-            }
-
-            #Footer > div {
-                font-size: 16px;
-                display: flex;
-                flex-direction: column;
-                align-items: start;
-            }
-
-            #Footer h6 {
-                font-size: inherit;
-                padding: 0;
-                margin: 0 0 1.5ex 0;
-                font-weight: bold;
-            }
-
-            #Footer a {
-                color: white;
-                margin: 0 0 1ex 0;
-            }
-
-            body > section {
-                background: radial-gradient(
-                    94.58% 219.72% at 25.28% -66.56%,
-                    #2c2f36 8.15%,
-                    #040708 59%
-                );
-                padding: 0 0 3em 0;
-                color: var(--SLINT_white);
-                margin: 0;
-            }
-            body > section a {
-                color: var(--LINK_Yellow_Green);
-            }
-            body > section > h2,
-            body > section > h1 {
-                font-weight: bold;
-                font-size: 56px;
-                line-height: 61px;
-                padding: 42px max(42px, (100vw - var(--section-width))/2 + 42px);
-                max-width: none;
-                margin: 0px;
-            }
-            body > section > h3:first-child {
-                padding: 1ex max(42px, (100vw - var(--section-width))/2 + 42px);
-                max-width: none;
-                margin: 0px;
-            }
-
-            body > section > :first-child {
-                padding-top: 2ex;
-                margin-top: 0;
-            }
-
-            body > section > * {
-                padding: 0px 84px;
-                max-width: var(--section-width);
-                margin-left: auto;
-                margin-right: auto;
-            }
-        </style>
-
-        <style>
-            @media (max-width: 800px) {
-                :root {
-                    font-size: 18px;
-                }
-
-                nav#Nav #Hamburger {
-                    display: block;
-                    flex-grow: 1;
-                    text-align: right;
-                    padding-right: 24px;
-                }
-
-                nav#Nav:not(:target) ul {
-                    height: 0;
-                }
-
-                nav#Nav:target a.hamburger-close {
-                    float: right;
-                    position: absolute;
-                    top: 0;
-                    right: 0;
-                    width: 50%;
-                    height: 100%;
-                }
-
-                nav#Nav ul {
-                    position: fixed;
-                    top: 80px;
-                    background: black;
-                    flex-direction: column;
-                    width: 100vw;
-                    height: calc(100vh - 80px);
-                    padding: 0;
-                    font-size: 37px;
-                    font-family: "Termina";
-                    justify-content: center;
-                    transition: height 150ms ease;
-                    overflow: hidden;
-                }
-
-                #Header {
-                    padding: 64px 26vw 76px 6vw;
-                }
-
-                #Header h2,
-                #Header h1 {
-                    line-height: 110%;
-                    font-size: 24px;
-                }
-
-                #Footer {
-                    background: radial-gradient(
-                        94.58% 219.72% at 25.28% -66.56%,
-                        #2c2f36 8.15%,
-                        #040708 59%
-                    );
-                    display: flex;
-                    flex-direction: column;
-                    justify-content: space-around;
-                    align-items: start;
-                    padding: 40px;
-                    gap: 60px;
-                }
-
-                body > section {
-                    background: radial-gradient(
-                        94.58% 219.72% at 25.28% -66.56%,
-                        #2c2f36 8.15%,
-                        #040708 59%
-                    );
-                    padding: 0 0 3em 0;
-                }
-
-                body > section > h2 {
-                    font-weight: bold;
-                    font-size: 30px;
-                    padding: 34px 3vw;
-                }
-
-                body > section > * {
-                    padding: 0px 3vw;
-                }
-
-                @media (max-height: 700px) {
-                    nav#Nav ul {
-                        font-size: 24px;
-                        flex-wrap: wrap;
-                    }
-                    nav#Nav il {
-                        padding: 0.75ex;
-                    }
-                }
-            }
-
-            a.btn {
-                background: var(--LINK_Yellow_Green);
-                color: black;
-                border-radius: 1000px;
-                padding: 2ex 4ex;
-                text-align: center;
-
-                font-weight: bold;
-                font-size: 0.55rem;
-                text-align: center;
-                letter-spacing: -0.02em;
-                margin: 1ex 0;
-            }
-
-        </style>
-
-        <meta name="description" content="Slint Toolkit" />
+        <!-- ===== Header from individual pages ===== -->
+        
         <title>Slint Documentation</title>
+    
     </head>
 
     <body>
-        <!-- Nav -->
-        <nav id="Nav">
-            <a href="https://slint.dev/" id="main_logo"
-                ><img src="https://slint.dev/new_images/slint_logo_neg_RGB.svg" alt="Slint logo"
-            /></a>
-        </nav>
-
-        <div id="Header">
-            <h2>Slint - The fast and easy UI Toolkit</h2>
-        </div>
-
-        <style>
-            #docs {
-                background: #2c2f36;
+        <script>
+            /* Check if dark theme is selected */
+            if (localStorage.getItem('theme') === 'dark') {
+              document.documentElement.classList.add('dark');
             }
-            #docs ul {
-                display: flex;
-                flex-direction: row;
-                justify-content: stretch;
-                align-items: start;
+            else if (localStorage.getItem('theme') === 'light') {
+              document.documentElement.classList.add('light');
             }
-            #docs li {
-                width: 100%;
-                display: grid;
-                grid-template-rows: 1fr .5fr auto;
-                justify-content: center;
-                margin: 0px;
-                padding: 0px 5px;
-                list-style-type: none;
-                text-align: center;
-                font-size: 24px;
-            }
+          </script>
 
-            #docs li img {
-                object-fit: contain;
-                border: none;
-                width: 130px;
-                height: 130px;
-                margin: 44px auto;
-            }
+        <div class="wrap">
+            <!-- ====== Header Start ====== -->
+            <header class="top">
+                <div class="header-wrap">
 
-            #docs li strong {
-                padding-bottom: 2ex;
-            }
+                    <a href="https://slint.dev/index.html" class="logo">Slint</a>
 
-            #docs li a {
-                display: block;
-                align-self: end;
-                justify-self: center;
+                    <nav class="main-navi">
 
-            }
+                        <ul>
+                            <li id="use-cases"><a href="https://slint.dev/use-cases.html">Use Cases</a></li>
+                            <li id="docs"><a href="https://slint.dev/docs.html">Docs</a></li>
+                            <li id="pricing"><a href="https://slint.dev/pricing.html">Pricing</a></li>
+                            <li id="community"><a href="https://slint.dev/community.html">Community</a></li>
+                            <li id="blog"><a href="https://slint.dev/blog">Blog</a></li>
+                            <!-- <li class="search"><a href="/search-results.html">Search</a></li> -->
+                            <li class="theme theme-light"><a href="#">Theme</a></li>
+                            <li class="btn"><a href="https://slint.dev/get-started.html">Get Started</a></li>
+                        </ul>
 
-            @media (max-width: 800px) {
-                #docs ul {
-                    flex-wrap: wrap;
-                    row-gap: 24px;
-                }
-                #docs li {
-                    width: 400px;
-                }
-                #docs li:nth-child(2n) {
-                    border-right: none;
-                }
-            }
-        </style>
+                    </nav>
 
-        <section id="docs">
-            <h2>Documentation</h2>
+                    <!-- <a href="/search-results.html" class="search-mobile">Search</a> -->
 
-            <ul>
-                <li>
-                    <img src="https://slint.dev/new_images/slint_logo_white.svg" alt="Slint" />
-                    <strong>Slint Language</strong>
-                    <a class="btn" href="slint/index.html">📖 Slint Language Documentation</a>
-                </li>
-                <li>
-                    <img
-                        src="https://slint.dev/new_images/rust_logo_white.svg"
-                        alt="Rust Logo"
-                    />
-                    <strong>Using Slint in a Rust Project</strong>
-                    <a class="btn" href="rust/slint">📖 Rust Documentation</a>
-                    <br />
-                    <a class="btn" href="tutorial/rust">👨‍🏫 Rust Tutorial</a>
-                    <br />
-                    <a class="btn" href="https://youtu.be/WBcv4V-whHk" >🎬 Tutorial Video</a>
-                    <br />
-                    <a class="btn" href="https://github.com/slint-ui/slint-rust-template" >📝 Project Template</a >
-                </li>
-                <li>
-                    <img src="https://slint.dev/new_images/cpp_logo_white.svg" alt="C++ Logo" />
-                    <strong>Using Slint in a C++ Project</strong>
-                    <a class="btn" href="cpp/">📖 C++ Documentation</a>
-                    <br />
-                    <a class="btn" href="tutorial/cpp">👨‍🏫 C++ Tutorial</a>
-                    <br />
-                    <a class="btn" href="https://github.com/slint-ui/slint-rust-template" >📝 Project Template</a >
-                </li>
-                <li>
-                    <img src="https://slint.dev/new_images/node_logo_white.svg" alt="NodeJS Logo" />
-                    <strong>Using Slint in a NodeJS Project (Beta)</strong>
-                    <a class="btn" href="node">📖 NodeJS Documentation</a>
-                    <br />
-                    <a class="btn" href="tutorial/node">👨‍🏫 NodeJS Tutorial</a>
-                    <br />
-                    <a class="btn" href="https://github.com/slint-ui/slint-nodejs-template" >📝 Project Template</a >
-                </li>
-            </ul>
-        </section>
+                    <button class="hamburger" aria-label="menu" aria-expanded="false" aria-controls="nav">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
 
-        <div id="Footer">
-            <div>
-                <a href="https://slint.dev/" id="main_logo">
-                    <img src="https://slint.dev/new_images/slint_logo_neg_RGB.svg" alt="Slint logo" />
-                </a>
-                <address>Copyright © 2023 SixtyFPS GmbH</address>
-            </div>
+                </div><!-- .header-wrap -->
+            </header>
+            <!-- ====== Header End ====== -->
 
-            <div>
-                <h6>Company</h6>
-                <a href="https://github.com/slint-ui/slint">GitHub</a>
-                <a href="https://slint.dev/imprint.html">Imprint</a>
-                <a href="https://slint.dev/imprint.html#privacy">Privacy Policy</a>
-            </div>
-        </div>
+            
+        <main>
+
+            <!--
+            Section blocks on this page:
+            - one-column
+            -->
+
+            <section class="one-column">
+                <h1>Documentation</h1>
+            </section>
+
+            <section class="four-doc-boxes">
+                <div class="col-wrap">
+                    <div class="col-1">
+                        <h2>Browse</h2>
+                        <p>Whether you’re developing the UI or the backend, Slint's documentation will guide you.</p>
+                    </div>
+                </div>
+                <div class="col-wrap">
+                    <div class="col-2">
+                        <div class="price-box">
+                            <h5>DSL</h5>
+                            <h4>Slint Language</h4>
+                            <p><img src="https://slint.dev/assets/img/slint-favicon.svg"></p>
+                            <p><a href="slint/index.html" class="btn doc">Language Documentation</a></p>
+                        </div><!-- .price-box -->
+                    </div><!-- .col-2 -->
+                    <div class="col-2">
+                        <div class="col-wrap">
+                            <div class="price-box">
+                                <h5>APIs</h5>
+                                <h4>Using Rust</h4>
+                                <p><img src="https://slint.dev/assets/img/rust-logo.svg"></p>
+                                <p><a href="rust/slint" class="btn doc">API Documentation</a></p>
+                                <p><a href="tutorial/rust" class="btn doc">Tutorial</a></p>
+                                <p><a href="https://youtu.be/WBcv4V-whHk" class="btn">Tutorial Video</a></p>
+                                <p><a href="https://github.com/slint-ui/slint-rust-template" class="btn">Project Template</a></p>
+                            </div><!-- .price-box -->
+                            <div class="price-box">
+                                <h5>APIs</h5>
+                                <h4>Using C++</h4>
+                                <p><img src="https://slint.dev/assets/img/cpp_logo.svg"></p>
+                                <p><a href="cpp" class="btn doc">API Documentation</a></p>
+                                <p><a href="tutorial/cpp" class="btn doc">Tutorial</a></p>
+                                <p><a href="https://github.com/slint-ui/slint-cpp-template" class="btn">Project Template</a></p>
+                            </div><!-- .price-box -->
+                            <div class="price-box">
+                                <h5>APIs</h5>
+                                <h4>Using NodeJS (beta)</h4>
+                                <p><img src="https://slint.dev/assets/img/nodejs_logo.svg"></p>
+                                <p><a href="node" class="btn doc">API Documentation</a></p>
+                                <p><a href="tutorial/node" class="btn doc">Tutorial</a></p>
+                                <p><a href="https://github.com/slint-ui/slint-nodejs-template" class="btn">Project Template</a></p>
+                            </div><!-- .price-box -->
+                        </div><!-- .col-wrap -->
+                    </div><!-- .col-2 -->
+                </div><!-- .col-wrap -->
+            </section>
+
+        </main>
+    
+
+            <!-- ====== Footer Start ====== -->
+            <footer>
+                <div class="col-wrap">
+                    <div class="col-6">
+                        <p><img src="https://slint.dev/assets/img/slint-logo.svg" alt="Slint" width="141" height="47" class="footer-logo"></p>
+                        <p class="some-links">
+                            <a href="https://twitter.com/slint_ui"><img src="https://slint.dev/assets/img/icon-twitter.svg" alt="Twitter" width="40" height="40"></a>
+                            <a href="https://www.linkedin.com/company/slint-ui/"><img src="https://slint.dev/assets/img/icon-linkedin.svg" alt="Linkedin" width="40" height="40"></a>
+                            <a href="https://fosstodon.org/@slint"><img src="https://slint.dev/assets/img/icon-mastodon.svg" alt="Mastodon" width="40" height="40"></a>
+                            <!-- <a href="https://github.com/slint-ui/slint/discussions"><img src="https://slint.dev/assets/img/icon-github.svg" alt="Github Discussions" width="40" height="40"></a> -->
+                            <!-- <a href="https://chat.slint.dev/"><img src="https://slint.dev/assets/img/icon-some.svg" alt="" width="40" height="40"></a> -->
+                        </p>
+                        <p><img src="https://slint.dev/assets/img/annual-ross-index.svg" data-darkimg="https://slint.dev/assets/img/annual-ross-index-light.svg" data-lightimg="https://slint.dev/assets/img/annual-ross-index.svg" alt="Annual Ross index" width="260" height="52" class="annual-ross"></p>
+                    </div><!-- .col-6 -->
+                    <div class="col-6">
+                        <dl>
+                            <dt style="color: var(--light, var(--color_dark_gray)) var(--dark, var(--color_light_gray_2));">About</dt>
+                            <dd><a href="https://slint.dev/about-us.html">Us</a></dd>
+                            <dd><a href="https://slint.dev/investors.html">Investors</a></dd>
+                            <dd><a href="https://slint.dev/events.html">Events</a></dd>
+                            <dd><a href="https://slint.dev/careers.html">Careers</a></dd>
+                            <dd><a href="https://slint.dev/imprint.html">Imprint &amp; Privacy</a></dd>
+                        </dl>
+                    </div><!-- .col-6 -->
+                    <div class="col-6">
+                        <dl>
+                            <dt style="color: var(--light, var(--color_dark_gray)) var(--dark, var(--color_light_gray_2));">Explore</dt>
+                            <dd><a href="https://slint.dev/docs.html">Documentation</a></dd>
+                            <dd><a href="https://slint.dev/demos.html">Demos</a></dd>
+                            <dd><a href="https://slint.dev/videos.html">Videos</a></dd>
+                            <dd><a href="https://slint.dev/service-partners.html">Service Partners</a></dd>
+                            <dd><a href="https://slint.dev/silicon-partners.html">Silicon Partners</a></dd>
+                        </dl>
+                    </div><!-- .col-6 -->
+                    <div class="col-6">
+                        <dl>
+                            <dt style="color: var(--light, var(--color_dark_gray)) var(--dark, var(--color_light_gray_2));">Resources</dt>
+                            <dd><a href="https://slint.dev/pricing.html">Pricing</a></dd>
+                            <dd><a href="https://slint.dev/community.html">Community</a></dd>
+                            <dd><a href="https://slint.dev/blog">Blog</a></dd>
+                            <dd><a href="https://slint.dev/thisweek">Weekly</a></dd>
+                            <dd><a href="https://slint.dev/supported-boards.html">Supported Boards</a></dd>
+                        </dl>
+                    </div><!-- .col-6 -->
+                    <div class="col-6">
+                        <dl>
+                            <dt style="color: var(--light, var(--color_dark_gray)) var(--dark, var(--color_light_gray_2));">Compare</dt>
+                            <dd><a href="https://slint.dev/alternative-to-qt.html">Qt</a></dd>
+                            <dd><a href="https://slint.dev/alternative-to-lvgl.html">LVGL</a></dd>
+                            <dd><a href="https://slint.dev/alternative-to-flutter.html">Flutter</a></dd>
+                            <dd><a href="https://slint.dev/alternative-to-electron.html">Electron</a></dd>
+                            <dd><a href="https://slint.dev/declarative-rust-gui.html">Other Rust GUI Toolkits</a></dd>
+                        </dl>
+                    </div><!-- .col-6 -->
+                    <div class="col-6">
+                        <dl>
+                            <dt style="color: var(--light, var(--color_dark_gray)) var(--dark, var(--color_light_gray_2));">Contact us</dt>
+                            <dd><a href="mailto:sales@slint.dev?subject=Contact from Website">Email</a></dd>
+                            <dd><a href="https://chat.slint.dev">Chat</a></dd>
+                            <dd><a href="https://github.com/slint-ui/slint">GitHub</a></dd>
+                            <dd hidden><a href="#">Schedule meeting</a></dd>
+                            <dd hidden><a href="#">Github discussion</a></dd>
+                            <dd hidden><a href="#">Twitter</a></dd>
+                            <dd hidden><a href="#">Mastodon</a></dd>
+                            <dd hidden><a href="#">Linkedin</a></dd>
+                        </dl>
+                    </div><!-- .col-6 -->
+                </div>
+                <div class="col-wrap">
+                    <div class="col-1">
+                        <p>Copyright &copy; 2023 SixtyFPS GmbH</p>
+                    </div><!-- .col-1 -->
+                </div>
+            </footer>
+            <!-- ====== Footer End ====== -->
+        </div><!-- .wrap -->
+
+        <!-- ====== All Javascript Files ====== -->
+        <script src="https://slint.dev/assets/js/script.js?ver=1.2.5"></script>
     </body>
+
 </html>
