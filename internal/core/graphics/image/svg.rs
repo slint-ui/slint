@@ -49,9 +49,10 @@ impl ParsedSVG {
         size: euclid::Size2D<u32, PhysicalPx>,
     ) -> Result<SharedImageBuffer, usvg::Error> {
         let tree = &self.svg_tree;
-        let target_size = tiny_skia::IntSize::from_wh(size.width, size.height)
-            .ok_or(usvg::Error::InvalidSize)?
-            .scale_to(tree.size.to_int_size());
+
+        let target_size = tree.size.to_int_size().scale_to(
+            tiny_skia::IntSize::from_wh(size.width, size.height).ok_or(usvg::Error::InvalidSize)?,
+        );
         let target_size_f = target_size.to_size();
 
         let transform = tiny_skia::Transform::from_scale(
