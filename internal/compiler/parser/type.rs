@@ -68,9 +68,9 @@ pub fn parse_type_array(p: &mut impl Parser) {
 /// struct Foo { foo: bar, xxx: { aaa: bbb, } }
 /// struct Bar {}
 /// ```
-pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
+pub fn parse_struct_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) -> bool {
     debug_assert_eq!(p.peek().as_str(), "struct");
-    let mut p = p.start_node(SyntaxKind::StructDeclaration);
+    let mut p = p.start_node_at(checkpoint, SyntaxKind::StructDeclaration);
     p.consume(); // "struct"
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
@@ -92,9 +92,9 @@ pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
 /// enum Foo { el1 }
 /// enum Foo { el1, xxx, yyy }
 /// ```
-pub fn parse_enum_declaration(p: &mut impl Parser) -> bool {
+pub fn parse_enum_declaration<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) -> bool {
     debug_assert_eq!(p.peek().as_str(), "enum");
-    let mut p = p.start_node(SyntaxKind::EnumDeclaration);
+    let mut p = p.start_node_at(checkpoint, SyntaxKind::EnumDeclaration);
     p.consume(); // "enum"
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
@@ -117,8 +117,11 @@ pub fn parse_enum_declaration(p: &mut impl Parser) -> bool {
     true
 }
 
+/// ```test,AtRustAttr
+/// @rustattr(derive([()]), just some token({()}) ()..)
+/// @rustattr()
+/// ```
 pub fn parse_rustattr(p: &mut impl Parser) -> bool {
-    let checkpoint = p.checkpoint();
     debug_assert_eq!(p.peek().as_str(), "@");
     p.consume(); // "@"
     if p.peek().as_str() != "rust-attr" {
@@ -126,47 +129,26 @@ pub fn parse_rustattr(p: &mut impl Parser) -> bool {
     }
     p.consume(); // "rust-attr"
     p.expect(SyntaxKind::LParent);
-    parse_parentheses(&mut *p);
-    if p.peek().as_str() == "export" {
-        p.consume();
-    }
-    let mut p = p.start_node_at(checkpoint, SyntaxKind::StructDeclaration);
-    p.consume(); // "struct"
     {
-        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
-        p.expect(SyntaxKind::Identifier);
-    }
-
-    if p.peek().kind() == SyntaxKind::ColonEqual {
-        p.warning("':=' to declare a struct is deprecated. Remove the ':='");
-        p.consume();
-    }
-
-    parse_type_object(&mut *p);
-    true
-}
-
-fn parse_parentheses(p: &mut impl Parser) -> bool {
-    let mut p = p.start_node(SyntaxKind::AtRustAttr);
-    let mut opened = 0;
-    let mut closed = 0;
-    while closed <= opened {
-        if p.peek().kind() == SyntaxKind::LParent {
-            opened += 1;
+        let mut p = p.start_node(SyntaxKind::AtRustAttr);
+        let mut level = 1;
+        loop {
+            match p.peek().kind() {
+                SyntaxKind::LParent => level += 1,
+                SyntaxKind::RParent => {
+                    level -= 1;
+                    if level == 0 {
+                        break;
+                    }
+                }
+                SyntaxKind::Eof => {
+                    p.error("unmatched parentheses in @rust-attr");
+                    return false;
+                }
+                _ => {}
+            }
+            p.consume()
         }
-        if p.peek().kind() == SyntaxKind::RParent {
-            closed += 1;
-        }
-        if closed == opened && opened != 0 && closed != 0 && p.peek().kind() != SyntaxKind::RParent
-        {
-            p.error("Parse error: `)` or `,`");
-            return false;
-        }
-        p.consume();
     }
-    if p.peek().as_str() != "struct" && p.peek().as_str() != "export" {
-        p.error("Parse error: expected `struct` or `export`");
-        return false;
-    }
-    true
+    p.expect(SyntaxKind::RParent)
 }

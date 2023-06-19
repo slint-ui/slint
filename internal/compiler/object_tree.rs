@@ -7,8 +7,6 @@
 
 // cSpell: ignore qualname
 
-use itertools::{Either, Itertools};
-
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
 use crate::langtype::{BuiltinElement, Enumeration, NativeClass, Type};
@@ -19,6 +17,7 @@ use crate::parser;
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
+use itertools::Either;
 use std::cell::{Cell, RefCell};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -77,17 +76,9 @@ impl Document {
                               diag: &mut BuildDiagnostics,
                               local_registry: &mut TypeRegister,
                               inner_types: &mut Vec<Type>| {
-            let rust_attributes: Vec<String> = n
-                .children()
-                .filter(|child| child.kind() == SyntaxKind::AtRustAttr)
-                .map(|child| {
-                    let mut text = child.text().to_string();
-                    text.pop();
-                    text
-                })
-                .collect_vec();
+            let rust_attributes = n.AtRustAttr().map(|child| vec![child.text().to_string()]);
             let mut ty =
-                type_struct_from_node(n.ObjectType(), diag, local_registry, Some(rust_attributes));
+                type_struct_from_node(n.ObjectType(), diag, local_registry, rust_attributes);
             if let Type::Struct { name, .. } = &mut ty {
                 *name = parser::identifier_text(&n.DeclaredIdentifier());
             } else {

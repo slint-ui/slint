@@ -14,6 +14,7 @@ use super::r#type::{parse_enum_declaration, parse_rustattr, parse_struct_declara
 /// import { Base } from "somewhere"; Type := Base {}
 /// struct Foo { foo: foo }
 /// enum Foo { hello }
+/// @rust-attr(...) struct X {}
 /// /* empty */
 /// ```
 pub fn parse_document(p: &mut impl Parser) -> bool {
@@ -32,7 +33,7 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
 
         match p.peek().as_str() {
             "export" => {
-                if !parse_export(&mut *p) {
+                if !parse_export(&mut *p, None) {
                     break;
                 }
             }
@@ -42,42 +43,39 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
                 }
             }
             "struct" => {
-                if !parse_struct_declaration(&mut *p) {
+                if !parse_struct_declaration(&mut *p, None) {
                     break;
                 }
             }
             "enum" => {
-                if !parse_enum_declaration(&mut *p) {
+                if !parse_enum_declaration(&mut *p, None) {
                     break;
                 }
             }
             "@" if p.nth(1).as_str() == "rust-attr" => {
-                let mut is_export = false;
-                let mut i = 0;
-                loop {
-                    let value = p.nth(i);
-                    if value.as_str() == ")" && p.nth(i + 1).as_str() == "export" {
-                        is_export = true;
-                        break;
-                    } else if (value.as_str() == ")"
-                        && p.nth(i + 1).as_str() != "struct"
-                        && p.nth(i + 1).as_str() != "export"
-                        && p.nth(i + 1).as_str() != ")")
-                        || (value.as_str() == ")" && p.nth(i + 1).as_str() == "struct")
-                    {
-                        break;
-                    }
-                    i += 1;
+                let checkpoint = p.checkpoint();
+                if !parse_rustattr(&mut *p) {
+                    break;
                 }
-                if is_export {
-                    let mut p = p.start_node(SyntaxKind::ExportsList);
-                    if !parse_rustattr(&mut *p) {
-                        break;
-                    }
+                let is_export = p.nth(0).as_str() == "export";
+                let i = if is_export { 1 } else { 0 };
+                if !matches!(p.nth(i).as_str(), "enum" | "struct") {
+                    p.error("Expected enum or struct after @rust-attr");
+                    continue;
+                }
+                let r = if is_export {
+                    parse_export(&mut *p, Some(checkpoint))
                 } else {
-                    if !parse_rustattr(&mut *p) {
-                        break;
+                    if p.nth(0).as_str() == "struct" {
+                        parse_struct_declaration(&mut *p, Some(checkpoint))
+                    } else if p.nth(0).as_str() == "enum" {
+                        parse_enum_declaration(&mut *p, Some(checkpoint))
+                    } else {
+                        false
                     }
+                };
+                if !r {
+                    break;
                 }
             }
             _ => {
@@ -193,9 +191,10 @@ pub fn parse_qualified_name(p: &mut impl Parser) -> bool {
 /// export enum Foo { bar }
 /// export * from "foo";
 /// ```
-fn parse_export(p: &mut impl Parser) -> bool {
+fn parse_export<P: Parser>(p: &mut P, checkpoint: Option<P::Checkpoint>) -> bool {
     debug_assert_eq!(p.peek().as_str(), "export");
-    let mut p = p.start_node(SyntaxKind::ExportsList);
+    let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::ExportsList);
+
     p.expect(SyntaxKind::Identifier); // "export"
     if p.test(SyntaxKind::LBrace) {
         loop {
@@ -219,9 +218,9 @@ fn parse_export(p: &mut impl Parser) -> bool {
             }
         }
     } else if p.peek().as_str() == "struct" {
-        parse_struct_declaration(&mut *p)
+        parse_struct_declaration(&mut *p, checkpoint)
     } else if p.peek().as_str() == "enum" {
-        parse_enum_declaration(&mut *p)
+        parse_enum_declaration(&mut *p, checkpoint)
     } else if p.peek().kind == SyntaxKind::Star {
         let mut p = p.start_node(SyntaxKind::ExportModule);
         p.consume(); // *
