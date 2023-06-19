@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-import { Typography, Palette, Paths } from "styling.slint";
+import { Typography, Palette, Icons } from "styling.slint";
 import { MenuBorder, ListItem, FocusBorder } from "components.slint";
 
 export component ComboBox {
@@ -62,12 +62,13 @@ export component ComboBox {
                 text: root.current-value;
             }
 
-            i-icon := Path {
+            i-icon := Image {
+                colorize: Palette.text-secondary;
                 width: 8px;
-                height: 8px;
                 y: (parent.height - self.height) / 2;
-                fill: Palette.text-secondary;
-                commands: Paths.dropdown;
+                source: Icons.dropdown;
+
+                animate colorize { duration: 150ms; }
             }
         }
 
@@ -119,13 +120,13 @@ export component ComboBox {
             i-background.background: Palette.control-disabled;
             i-background.border-color: Palette.control-stroke;
             i-text.color: Palette.text-disabled;
-            i-icon.fill: Palette.text-disabled;
+            i-icon.colorize: Palette.text-disabled;
         }
         pressed when i-touch-area.pressed : {
             i-background.background: Palette.control-alt-tertiary;
             i-background.border-color: Palette.control-stroke;
             i-text.color: Palette.text-secondary;
-            i-icon.fill: Palette.text-tertiary;
+            i-icon.colorize: Palette.text-tertiary;
         }
         hover when i-touch-area.has-hover : {
             i-background.background: Palette.control-secondary;

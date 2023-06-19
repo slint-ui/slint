@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-import { Typography, Palette, Paths } from "styling.slint";
+import { Typography, Palette, Icons } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component CheckBox {
@@ -38,14 +38,14 @@ export component CheckBox {
                 border-radius: parent.border-radius;
             }
 
-            i-icon := Path {
+            i-icon := Image {
+                image-fit: contain;
                 visible: root.checked;
-                commands: Paths.check-mark;
-                fill: Palette.text-on-accent-primary;
+                source: Icons.check-mark;
+                colorize: Palette.text-on-accent-primary;
                 width: 12px;
-                height: 12px;
 
-                animate fill { duration: 150ms; }
+                animate colorize { duration: 150ms; }
             }
 
             animate background, border-color { duration: 150ms; }
@@ -93,13 +93,13 @@ export component CheckBox {
         disabled when !root.enabled : {
             i-border.border-color: Palette.control-strong-stroke-disabled;
             i-background.background: root.checked ? Palette.accent-disabled : Palette.control-alt-disabled;
-            i-icon.fill: Palette.text-on-accent-disabled;
+            i-icon.colorize: Palette.text-on-accent-disabled;
             root.text-color: Palette.text-disabled;
         }
         pressed when i-touch-area.pressed : {
             i-border.border-color: Palette.control-strong-stroke-disabled;
             i-background.background: root.checked ? Palette.accent-tertiary : Palette.control-alt-quartiary;
-            i-icon.fill: Palette.text-on-accent-secondary;
+            i-icon.colorize: Palette.text-on-accent-secondary;
         }
         hover when i-touch-area.has-hover : {
             i-background.background: root.checked ?  Palette.accent-secondary : Palette.control-alt-tertiary;

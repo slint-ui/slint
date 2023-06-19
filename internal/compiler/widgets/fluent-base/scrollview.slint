@@ -1,35 +1,33 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-import { Palette, Paths } from "styling.slint";
+import { Palette, Icons } from "styling.slint";
 
 component ScrollViewButton inherits TouchArea {
-    in property <string> path;
+    in property <image> icon;
 
     width: 8px;
     height: 8px;
 
-    i-path := Path {
+    i-icon := Image {
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         width: parent.width;
-        height: parent.height;
-        commands: root.path;
-        fill: Palette.control-stroke;
+        source: root.icon;
+        colorize: Palette.control-stroke;
 
-        animate fill, opacity { duration: 150ms; }
+        animate colorize, opacity { duration: 150ms; }
         animate width, height { duration: 150ms; easing: ease-out; }
     }
 
     states [
         pressed when root.pressed : {
             opacity: 1;
-            i-path.width: 6px;
-            i-path.height: 6px;
+            i-icon.width: 6px;
         }
         hover when root.has-hover : {
             opacity: 1;
-            i-path.fill: Palette.text-secondary;
+            i-icon.colorize: Palette.text-secondary;
         }
     ]
 }
@@ -86,7 +84,7 @@ component ScrollBar inherits Rectangle {
         opacity: 0;
         x: !root.horizontal ? (parent.width - self.width) / 2 : 4px;
         y: root.horizontal ? (parent.height - self.height) / 2 : 4px;
-        path: root.horizontal ? Paths.left : Paths.up;
+        icon: root.horizontal ? Icons.left : Icons.up;
 
         clicked => {
             root.value = min(0px, root.value + root.step-size);
@@ -97,7 +95,7 @@ component ScrollBar inherits Rectangle {
         opacity: 0;
         x: !root.horizontal ? (parent.width - self.width) / 2 : root.width - self.width - 4px;
         y: root.horizontal ? (parent.height - self.height) / 2 : root.height - self.height - 4px;
-        path: root.horizontal ? Paths.right : Paths.down;
+        icon: root.horizontal ? Icons.right : Icons.down;
 
         clicked => {
             root.value = max(-root.maximum, root.value - root.step-size);

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-import { Palette, Typography, Paths } from "styling.slint";
+import { Palette, Typography, Icons } from "styling.slint";
 import { ScrollView } from "scrollview.slint";
 
 component TableViewColumn inherits Rectangle {
@@ -23,13 +23,15 @@ component TableViewColumn inherits Rectangle {
             @children
         }
 
-        Path {
+        i-icon := Image {
+            image-fit: contain;
+            colorize: Palette.text-secondary;
             visible: root.sort-order != SortOrder.unsorted;
             width: 12px;
-            height: 12px;
             y: (parent.height - self.height) / 2;
-            commands: root.sort-order == SortOrder.ascending ? Paths.arrow-down : Paths.arrow-up;
-            fill: Palette.text-secondary;
+            source: root.sort-order == SortOrder.ascending ? Icons.arrow-down : Icons.arrow-up;
+
+            animate colorize { duration: 150ms; }
         }
     }
 
