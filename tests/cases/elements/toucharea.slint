@@ -1,12 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-TestCase := Rectangle {
-    property <int> touch1;
-    property <int> touch2;
-    property <int> touch3;
+export component TestCase  {
+    in-out property <int> touch1;
+    in-out property <int> touch2;
+    in-out property <int> touch3;
 
-    property <string> pointer-event-test;
+    in-out property <string> pointer-event-test;
 
     TouchArea {
         x: 100phx;
@@ -94,6 +94,9 @@ assert_eq(instance.get_pointer_event_test(), "downleftclickupleft");
 
 
 ```rust
+use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+
+
 let instance = TestCase::new().unwrap();
 // does not click on anything
 slint_testing::send_mouse_click(&instance, 5., 5.);
@@ -120,6 +123,16 @@ assert_eq!(instance.get_touch2(), 1);
 assert_eq!(instance.get_touch3(), 1);
 
 assert_eq!(instance.get_pointer_event_test().as_str(), "downleftclickupleft");
+
+instance.set_pointer_event_test("".into());
+// issue #2918:  press anywhere, release on a toucharea
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(70.0, 6.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(102.0, 103.0) });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(101.0, 104.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_pointer_event_test().as_str(), "upleft"); // no "clicked"
+assert_eq!(instance.get_touch1(), 1);
+assert_eq!(instance.get_touch2(), 1);
+assert_eq!(instance.get_touch3(), 1);
 
 ```
 
