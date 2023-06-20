@@ -5,7 +5,7 @@ export component TestCase {
     width: 500phx;
     height: 500phx;
 
-    property <bool> simple-inner-ok: simple-inner.absolute-x == 40phx && simple-inner.absolute-y == 60phx;
+    property <bool> simple-inner-ok: simple-inner.absolute-coordinates.x == 40phx && simple-inner.absolute-coordinates.y == 60phx;
     Rectangle {
         x: 10phx;
         y: 20phx;
@@ -16,23 +16,31 @@ export component TestCase {
         }
     }
     out property <bool> test: simple-inner-ok;
+    out property <Point> coords <=> simple-inner.absolute-coordinates;
 }
 
 /*
 ```rust
 let instance = TestCase::new().unwrap();
 assert!(instance.get_test());
+let pos: slint::LogicalPosition = instance.get_coords();
+assert_eq!(pos.x, 40.);
+assert_eq!(pos.y, 60.);
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
+slint::LogicalPosition pos = instance.get_coords();
+assert_eq(pos.x, 40);
+assert_eq(pos.y, 60);
 ```
 
 ```js
 let instance = new slint.TestCase({});
 assert(instance.test, 1);
+assert.deepEqual(instance.coords, { x: 40, y: 60});
 ```
 
 */

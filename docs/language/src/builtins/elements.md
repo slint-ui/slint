@@ -9,7 +9,7 @@ These properties are valid on all visible items:
 -   **`width`** and **`height`** (_in_ _length_): The size of the element. When set, this overrides the default size.
 -   **`x`** and **`y`** (_in_ _length_): The position of the element relative to its parent.
 -   **`z`** (_in_ _float_): Allows to specify a different order to stack the items with its siblings. (default value: 0)
--   **`absolute-x`** and **`absolute-y`** (_in_ _length_): The position of the element within the contained window.
+-   **`absolute-coordinates`** (_in_ _Point_): The position of the element within the contained window.
 
 ### Layout
 

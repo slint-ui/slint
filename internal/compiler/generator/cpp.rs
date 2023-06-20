@@ -2841,7 +2841,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::ItemAbsolutePosition => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
-                format!("slint_item_absolute_position(&{item_rc})")
+                format!("slint::LogicalPosition(slint_item_absolute_position(&{item_rc}))")
             } else {
                 panic!("internal error: invalid args to ItemAbsolutePosition {:?}", arguments)
             }
