@@ -82,15 +82,15 @@ export component ListItem {
 
     states [
         pressed when i-touch-area.pressed : {
-            i-background.background: Palette.sub-title-secondary;
+            i-background.background: selected ? Palette.subtle-secondary : Palette.subtle-tertiary;
         }
         hover when i-touch-area.has-hover : {
             i-text.color: Palette.text-secondary;
-            i-background.background: Palette.sub-title-tertiary;
+            i-background.background: selected ? Palette.subtle-tertiary : Palette.subtle-secondary;
             i-selector.height: root.selected ? 16px : 0;
         }
         selected when root.selected : {
-            i-background.background: Palette.sub-title-secondary;
+            i-background.background: Palette.subtle-secondary;
             i-selector.height: 16px;
         }
     ]
