@@ -34,7 +34,8 @@ impl Item for NativeProgressIndicator {
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         let indeterminate = self.indeterminate() as bool;
-        let progress = if indeterminate { 0 } else { (self.progress() * 100.) as i32 };
+        let progress =
+            if indeterminate { 0 } else { (self.progress().max(0.0).min(1.0) * 100.) as i32 };
 
         let size = cpp!(unsafe [
             progress as "int"
@@ -101,7 +102,7 @@ impl Item for NativeProgressIndicator {
 
     fn_render! { this dpr size painter widget _initial_state =>
         let indeterminate = this.indeterminate() as bool;
-        let progress = if indeterminate { 0 } else { (this.progress() * 100.) as i32 };
+        let progress = if indeterminate { 0 } else { (this.progress().max(0.0).min(1.0) * 100.) as i32 };
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
