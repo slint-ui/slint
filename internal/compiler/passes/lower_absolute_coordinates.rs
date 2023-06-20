@@ -25,8 +25,8 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
         });
     });
 
-    // Absolute item coordinates without the item local x/y.
-    let cached_absolute_item_prop_name = "cached-absolute-xy".to_string();
+    // Absolute item coordinates of the parent item.
+    let cached_parent_position_prop_name = "absolute-parent-position".to_string();
     let point_type = match BuiltinFunction::ItemAbsolutePosition.ty() {
         crate::langtype::Type::Function { return_type, .. } => return_type.as_ref().clone(),
         _ => unreachable!(),
@@ -37,13 +37,13 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
 
         elem.borrow_mut()
             .property_declarations
-            .entry(cached_absolute_item_prop_name.clone())
+            .entry(cached_parent_position_prop_name.clone())
             .or_insert_with(|| PropertyDeclaration {
                 property_type: point_type.clone(),
                 ..PropertyDeclaration::default()
             });
 
-        if !elem.borrow().bindings.contains_key(&cached_absolute_item_prop_name) {
+        if !elem.borrow().bindings.contains_key(&cached_parent_position_prop_name) {
             let point_binding = Expression::FunctionCall {
                 function: Box::new(Expression::BuiltinFunctionReference(
                     BuiltinFunction::ItemAbsolutePosition,
@@ -52,9 +52,10 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
                 arguments: vec![Expression::ElementReference(Rc::downgrade(&elem))],
                 source_location: None,
             };
-            elem.borrow_mut()
-                .bindings
-                .insert(cached_absolute_item_prop_name.clone(), RefCell::new(point_binding.into()));
+            elem.borrow_mut().bindings.insert(
+                cached_parent_position_prop_name.clone(),
+                RefCell::new(point_binding.into()),
+            );
         }
 
         // Create a binding to the hidden point property and add item local x/y. The
@@ -70,7 +71,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
                             lhs: Expression::StructFieldAccess {
                                 base: Expression::PropertyReference(NamedReference::new(
                                     &elem,
-                                    &cached_absolute_item_prop_name,
+                                    &cached_parent_position_prop_name,
                                 ))
                                 .into(),
                                 name: coord.to_string(),
