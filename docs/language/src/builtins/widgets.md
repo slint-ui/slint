@@ -254,7 +254,7 @@ The `ProgressIndicator` informs the user about the status of an on-going operati
 ### Properties
 
 -   **`indeterminate`**: (_in_ _bool_): Set to true if the progress of the operation cannot be determined by value (default value: `false`).
--   **`progress`** (_in_ _float_): Percentage of completion, as value between 0 and 1. Values outside 0. and 1. are capped
+-   **`progress`** (_in_ _float_): Percentage of completion, as value between 0 and 1. Values less than 0 or greater than 1 are capped.
 
 ### Example
 
