@@ -125,6 +125,8 @@ export component LineEdit {
     callback edited <=> inner.edited;
     horizontal-stretch: 1;
     vertical-stretch: 0;
+    min-width: max(160px, layout.min-height);
+    min-height: max(32px, layout.min-height);
 
     public function select-all() {
         inner.select-all();
@@ -146,7 +148,7 @@ export component LineEdit {
         height: 100%;
     }
 
-    HorizontalLayout {
+    layout := HorizontalLayout {
         padding-left: native.native-padding-left;
         padding-right: native.native-padding-right;
         padding-top: native.native-padding-top;
