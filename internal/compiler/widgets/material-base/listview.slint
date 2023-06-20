@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 
-import { ScrollView } from "widget-scrollview.slint";
-import { Item } from "widget-item.slint";
+import { ScrollView } from "scrollview.slint";
+import { ListItem } from "components.slint";
 
 // `ListView` is like a `Scrollview` but it should have a `for` element, and the content is automatically laid out in a list.
 export component ListView inherits ScrollView {
@@ -14,10 +14,10 @@ component StandardListViewBase inherits ListView {
     private property <length> item-height: self.viewport-height / self.model.length;
     private property <length> current-item-y: self.viewport-y + current-item * item-height;
 
-    in property<[StandardListViewItem]> model;
-    in-out property<int> current-item: -1;
+    in property <[StandardListViewItem]> model;
+    in-out property <int> current-item: -1;
 
-    for item[idx] in root.model : Item {
+    for item[idx] in root.model : ListItem {
         selected: idx == root.current-item;
         text: item.text;
 

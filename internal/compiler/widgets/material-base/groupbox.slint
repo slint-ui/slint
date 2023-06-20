@@ -1,32 +1,32 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-import { md } from "md.slint";
+import { Palette, Typography } from "styling.slint";
 
 // A container widget with a title.
 export component GroupBox {
-    in property <string> title <=> label.text;
-    in property<bool> enabled: true;
+    in property <string> title <=> i-text.text;
+    in property <bool> enabled: true;
 
     VerticalLayout {
         spacing: 4px;
 
-        label := Text {
-            color: md.sys.color.on-surface;
+        i-text := Text {
+            color: Palette.on-surface;
             // FIXME after Roboto font can be loaded
-            //font-family: md.sys.typescale.body-small.font;
-            font-size: md.sys.typescale.body-large.size;
-            font-weight: md.sys.typescale.body-small.weight;
+            //font-family: Typography.body-small.font;
+            font-size: Typography.body-large.font-size;
+            font-weight: Typography.body-small.font-weight;
             overflow: elide;
             horizontal-alignment: center;
         }
 
-        container := Rectangle {
+        i-background := Rectangle {
             border-radius: 16px;
             border-width: 1px;
-            border-color: md.sys.color.outline;
+            border-color: Palette.outline;
             vertical-stretch: 1;
-            background: md.sys.color.surface;
+            background: Palette.surface;
 
             HorizontalLayout {
                 padding: 16px;
@@ -40,9 +40,9 @@ export component GroupBox {
 
     states [
         disabled when !root.enabled : {
-            container.border-color: md.sys.color.on-surface;
-            container.opacity: 0.38;
-            label.opacity: 0.38;
+            i-background.border-color: Palette.on-surface;
+            i-background.opacity: 0.38;
+            i-text.opacity: 0.38;
         }
     ]
 }

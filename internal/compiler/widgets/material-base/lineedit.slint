@@ -1,0 +1,112 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+
+import { Palette, Typography } from "styling.slint";
+
+// Single line text input field with Material Design Outline TextField look and feel.
+export component LineEdit {
+    callback accepted(string /* text */);
+    callback edited(string /* text */);
+
+    in property <length> font-size <=> i-text-input.font-size;
+    in property <string> placeholder-text <=> i-placeholder.text;
+    in property <bool> enabled <=> i-text-input.enabled;
+    in property input-type <=> i-text-input.input-type;
+    in property horizontal-alignment <=> i-text-input.horizontal-alignment;
+    in property read-only <=> i-text-input.read-only;
+    out property <bool> has-focus: i-text-input.has-focus;
+    in-out property <string> text <=> i-text-input.text;
+
+    min-width: max(120px, i-layout.min-width);
+    min-height: max(56px, i-layout.min-height);
+    forward-focus: i-text-input;
+
+    i-background := Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: Palette.outline;
+    }
+
+    i-layout := HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+
+        Rectangle {
+            clip: true;
+
+            i-placeholder := Text {
+                width: 100%;
+                height: 100%;
+                color: Palette.outline-variant;
+                font-size: Typography.body-large.font-size;
+                font-weight: Typography.body-large.font-weight;
+                visible: false;
+                vertical-alignment: center;
+
+                states [
+                    empty when i-text-input.text == "" : {
+                        visible: true;
+                    }
+                ]
+            }
+
+            i-text-input := TextInput {
+                property <length> computed_x;
+                property <length> padding-outer: i-layout.padding-left + i-layout.padding-right;
+
+                x: min(0px, max(parent.width - self.width, self.computed_x));
+                width: max(parent.width, self.preferred-width);
+                height: 100%;
+                color: Palette.on-surface;
+                vertical-alignment: center;
+                font-size: Typography.body-large.font-size;
+                font-weight: Typography.body-large.font-weight;
+
+                accepted => {
+                    root.accepted(self.text);
+                }
+
+                edited => {
+                    root.edited(self.text);
+                }
+
+                cursor-position-changed(cpos) => {
+                    if (cpos.x + self.computed_x < self.padding-outer) {
+                        self.computed_x = - cpos.x + self.padding-outer;
+                    } else if (cpos.x + self.computed_x > parent.width - self.padding-outer) {
+                        self.computed_x = parent.width - cpos.x - self.padding-outer;
+                    }
+                }
+            }
+        }
+    }
+
+    public function select-all() {
+        i-text-input.select-all();
+    }
+    public function cut() {
+        i-text-input.cut();
+    }
+    public function copy() {
+        i-text-input.copy();
+    }
+    public function paste() {
+        i-text-input.paste();
+    }
+
+    states [
+        disabled when !root.enabled : {
+            i-background.border-color: Palette.on-surface;
+            i-background.opacity: 0.38;
+            i-text-input.opacity: 0.38;
+            i-placeholder.opacity: 0.38;
+        }
+        focused when root.has-focus : {
+            i-background.border-width: 2px;
+            i-background.border-color: Palette.primary;
+            i-text-input.color: Palette.primary;
+        }
+    ]
+}

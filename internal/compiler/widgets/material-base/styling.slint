@@ -1,0 +1,70 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+
+
+import { ColorSchemeSelector } from "color-scheme.slint";
+
+// typo settings
+struct TextStyle  {
+    font-size: relative-font-size,
+    font-weight: int
+}
+
+export global Typography {
+    out property <TextStyle> label-large: {
+        font-size: 14 * 0.0625rem,
+        font-weight: 500
+    };
+    out property <TextStyle> label-medium: {
+        font-size: 12 * 0.0625rem,
+        font-weight: 500
+    };
+    out property <TextStyle> body-large: {
+        font-size: 16 * 0.0625rem,
+        font-weight: 400
+    };
+    out property <TextStyle> body-small: {
+        font-size: 12 * 0.0625rem,
+        font-weight: 400
+    };
+    out property <TextStyle> title-small: {
+        font-size: 14 * 0.0625rem,
+        font-weight: 500
+    };
+}
+
+export global Elevation {
+    out property <length> level0: 0px;
+    out property <length> level1: 1px;
+    out property <length> level2: 2px;
+}
+
+export global Palette {
+    in-out property<bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
+
+    out property <brush> background: !root.dark-color-scheme ? #f8f3f9 : #2a282d;
+    out property <brush> surface: !root.dark-color-scheme ? #FFFBFE : #1C1B1F;
+    out property <brush> surface-variant: !root.dark-color-scheme ? #E7E0EC.darker(0.2) : #49454F;
+    out property <brush> on-surface: !root.dark-color-scheme ? #1C1B1F : #E6E1E5;
+    out property <brush> on-surface-variant: !root.dark-color-scheme ? #49454E : #CAC4D0;
+    out property <brush> surface-tint: !root.dark-color-scheme ? #6750A4 : #D0BCFF;
+    out property <brush> primary: !root.dark-color-scheme ? #6750A4 : #D0BCFF;
+    out property <brush> primary-container: !root.dark-color-scheme ? #4F378B : #4F378B;
+    out property <brush> primary-ripple: !root.dark-color-scheme ? #D0BCFF : #6750A4;
+    out property <brush> on-primary: !root.dark-color-scheme ? #FFFFFF : #371E73;
+    out property <brush> shadow: #000000;
+    out property <brush> outline: !root.dark-color-scheme ? #79747E : #938F99;
+    out property <brush> outline-variant: !root.dark-color-scheme ? #C4C7C5 : #444746;
+    out property <brush> secondary-container:  !root.dark-color-scheme ? #E8DEF8 : #4A4458;
+    out property <brush> on-secondary-container:  !root.dark-color-scheme ? #1E192B : #E8DEF8;
+    out property <brush> secondary-ripple: !root.dark-color-scheme ? #fffc : #000000;
+}
+
+export global Icons {
+    out property <image> arrow-downward: @image-url("_arrow-downward.svg");
+    out property <image> arrow-drop-down: @image-url("_arrow-drop-down.svg");
+    out property <image> arrow-drop-up: @image-url("_arrow-drop-up.svg");
+    out property <image> arrow-upward: @image-url("_arrow-upward.svg");
+    out property <image> check-mark: @image-url("_check-mark.svg");
+    out property <image> expand-more: @image-url("_expand-more.svg");
+}

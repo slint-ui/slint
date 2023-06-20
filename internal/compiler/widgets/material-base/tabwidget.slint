@@ -2,9 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 
-import { md } from "md.slint";
+import { Palette, Typography } from "styling.slint";
 
 export component TabWidgetImpl inherits Rectangle {
+    in property <length> tabbar-preferred-height;
+    in property <length> tabbar-preferred-width;
+    in property <length> content-min-height;
+    in property <length> content-min-width;
+    in property <int> current-index;
+    in property <int> current-focused;
     out property <length> content-x: 0;
     out property <length> content-y: root.tabbar-preferred-height;
     out property <length> content-height: root.height - root.tabbar-preferred-height;
@@ -14,13 +20,6 @@ export component TabWidgetImpl inherits Rectangle {
     out property <length> tabbar-height: root.tabbar-preferred-height;
     out property <length> tabbar-width: root.width;
 
-    in property <length> tabbar-preferred-height;
-    in property <length> tabbar-preferred-width;
-    in property <length> content-min-height;
-    in property <length> content-min-width;
-    in property <int> current-index;
-    in property <int> current-focused;
-
     preferred-width: root.content-min-width;
     min-width: max(root.content-min-width, root.tabbar-preferred-width);
     preferred-height: root.content-min-height + root.tabbar-preferred-height;
@@ -28,60 +27,63 @@ export component TabWidgetImpl inherits Rectangle {
 }
 
 export component TabImpl inherits Rectangle {
-    in property<string> title <=> label.text;
-    in property<bool> enabled: true;
-    property<bool> has-focus: root.current-focused == root.tab-index;
-    property<bool> active: root.tab-index == root.current;
-    in-out property<int> current; // The currently selected tab
+    private property<bool> has-focus: root.current-focused == root.tab-index;
+    private property<bool> active: root.tab-index == root.current;
+
     in property<int> current-focused; // The currently focused tab
     in property<int> tab-index; // The index of this tab
     in property<int> num-tabs; // The total number of tabs
+    in property<string> title <=> i-text.text;
+    in property<bool> enabled: true;
+    in-out property<int> current; // The currently selected tab
 
     height: 48px;
     accessible-role: tab;
     accessible-label: root.title;
 
-    container := Rectangle {
-        background: md.sys.color.surface;
+    i-container := Rectangle {
+        background: Palette.surface;
     }
 
-    state-layer := Rectangle {
-        opacity: !touch.pressed ? !touch.has-hover ? 0 : 0.08 : 0.12;
+    i-state-layer := Rectangle {
+        opacity: !i-touch-area.pressed ? !i-touch-area.has-hover ? 0 : 0.08 : 0.12;
         width: 100%;
         height: 100%;
-        border-radius: container.border-radius;
-        background: md.sys.color.primary;
+        border-radius: i-container.border-radius;
+        background: Palette.primary;
+
         animate opacity { duration: 250ms; easing: ease; }
      }
 
-    layout := HorizontalLayout {
+    i-layout := HorizontalLayout {
         padding-left: 16px;
         padding-right: 16px;
 
-        label := Text {
+        i-text := Text {
             vertical-alignment: center;
-            color: !root.active ? md.sys.color.on-surface : md.sys.color.primary;
+            color: !root.active ? Palette.on-surface : Palette.primary;
             // FIXME after Roboto font can be loaded
-            //font-family: md.sys.typescale.title-small.font;
-            font-size: md.sys.typescale.title-small.size;
-            font-weight: md.sys.typescale.title-small.weight;
+            //font-family: Typography.title-small.font;
+            font-size: Typography.title-small.font-size;
+            font-weight: Typography.title-small.font-weight;
 
             animate color { duration: 250ms; easing: ease; }
         }
     }
 
-    indicator := Rectangle {
+    i-indicator := Rectangle {
         opacity: !root.active ? 0 : 1;
         width: 100%;
         height: 3px;
         y: parent.height - self.height;
-        background: md.sys.color.primary;
+        background: Palette.primary;
 
         animate opacity { duration: 250ms; easing: ease; }
     }
 
-    touch := TouchArea {
+    i-touch-area := TouchArea {
         enabled <=> root.enabled;
+
         clicked => {
             root.current = root.tab-index;
         }
@@ -91,21 +93,23 @@ export component TabImpl inherits Rectangle {
 export component TabBarImpl {
     // injected properties:
     in-out property<int> current; // The currently selected tab
-    in-out property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
+    in-out property<int> current-focused: i-focus-scope.has-focus ? i-focus-scope.focused-tab : -1; // The currently focused tab
     in-out property<int> num-tabs; // The total number of tabs
-
-    HorizontalLayout {
-        alignment: start;
-        @children
-    }
 
     accessible-role: tab;
     accessible-delegate-focus: root.current-focused >= 0 ? root.current-focused : root.current;
 
-    fs := FocusScope {
-        x:0;
-        width: 0px; // Do not react on clicks
+    HorizontalLayout {
+        alignment: start;
+
+        @children
+    }
+
+    i-focus-scope := FocusScope {
         property<int> focused-tab: 0;
+
+        x: 0;
+        width: 0; // Do not react on clicks
 
         key-pressed(event) => {
             if (event.text == "\n") {

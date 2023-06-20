@@ -2,27 +2,25 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 // widget imports
-import { Button } from "widget-button.slint";
-import { CheckBox } from "widget-checkbox.slint";
-import { ScrollView } from "widget-scrollview.slint";
-import { md } from "md.slint";
-import { Switch } from "widget-switch.slint";
+import { Button } from "button.slint";
+import { CheckBox } from "checkbox.slint";
+import { ScrollView } from "scrollview.slint";
+import { Palette } from "styling.slint";
+import { Switch } from "switch.slint";
 
 export { Button, CheckBox, ScrollView, Switch }
 
 export global StyleMetrics  {
-    out property<length> layout-spacing: 16px;
-    out property<length> layout-padding: 16px;
-    out property<length> text-cursor-width: 2px;
+    out property <length> layout-spacing: 16px;
+    out property <length> layout-padding: 16px;
+    out property <length> text-cursor-width: 2px;
 
-    out property<color> default-text-color: md.sys.color.on-surface;
-    out property<color> textedit-background: transparent;
-    out property<color> textedit-text-color: md.sys.color.on-surface;
-    out property<color> textedit-background-disabled: transparent;
-    out property<color> textedit-text-color-disabled: md.sys.color.on-surface;
-    out property<bool> dark-color-scheme: md.dark-color-scheme;
-
+    out property <color> default-text-color: Palette.on-surface;
+    out property <color> textedit-background: transparent;
+    out property <color> textedit-text-color: Palette.on-surface;
+    out property <color> textedit-background-disabled: transparent;
+    out property <color> textedit-text-color-disabled: Palette.on-surface;
+    out property <bool> dark-color-scheme: Palette.dark-color-scheme;
     out property <string> default-font-family: "Roboto";
-
-    out property<color> window-background: md.sys.color.background;
+    out property <color> window-background: Palette.background;
 }

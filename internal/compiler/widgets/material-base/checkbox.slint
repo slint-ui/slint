@@ -1,0 +1,157 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+
+import { Palette, Typography, Icons } from "styling.slint";
+
+// Selection control that can be toggled between checked und unchecked by click.
+export component CheckBox {
+    callback toggled;
+
+    in property <string> text <=> i-text.text;
+    in property <bool> enabled: true;
+    out property <bool> has-focus: i-focus-scope.has-focus;
+    in-out property <bool> checked;
+
+    min-height: max(18px, i-layout.min-height);
+
+    accessible-label <=> i-text.text;
+    accessible-checkable: true;
+    accessible-checked <=> root.checked;
+    accessible-role: checkbox;
+
+    i-layout := HorizontalLayout {
+        spacing: 16px;
+
+        VerticalLayout {
+            alignment: center;
+
+            Rectangle {
+                width: 18px;
+                height: 18px;
+
+                i-container := Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 2px;
+                    border-width: 2px;
+                    border-color: Palette.on-surface;
+                }
+
+                i-state-layer := Rectangle {
+                    width: 40px;
+                    height: 40px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    opacity: 0;
+                    background: Palette.primary;
+                    border-radius: 20px;
+
+                    animate opacity { duration: 300ms; easing: ease; }
+                }
+
+                if (root.checked) : Image {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: 80%;
+                    height: 80%;
+                    source: Icons.check-mark;
+                    colorize: Palette.on-primary;
+
+                    states [
+                        disabled when !root.enabled : {
+                            colorize: Palette.on-surface;
+                        }
+                        hover-selected when i-touch-area.has-hover && root.checked : {
+                            colorize: Palette.on-primary;
+                        }
+                    ]
+                }
+            }
+        }
+
+        i-text := Text {
+            color: Palette.on-surface;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            vertical-stretch: 1;
+            font-size: Typography.title-small.font-size;
+            font-weight: Typography.title-small.font-weight;
+        }
+    }
+
+    i-touch-area := TouchArea {
+        x: i-layout.padding-left;
+        width: i-layout.width - i-layout.padding-left - i-layout.padding-right;
+        height: 100%;
+        enabled <=> root.enabled;
+
+        clicked => {
+            if (root.enabled) {
+                root.checked = !root.checked;
+                root.toggled();
+            }
+        }
+    }
+
+    i-focus-scope := FocusScope {
+        x:0;
+        width: 0px; // Do not react on clicks
+        enabled <=> root.enabled;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                 i-touch-area.clicked();
+                 return accept;
+            }
+            return reject;
+        }
+    }
+
+    states [
+        disabled-selected when !root.enabled && root.checked  : {
+            i-container.border-width: 0px;
+            i-container.border-color: transparent;
+            i-container.background: Palette.primary;
+            i-container.opacity: 0.38;
+            i-text.opacity: 0.38;
+            i-text.color: Palette.primary;
+        }
+        disabled when !root.enabled : {
+            i-container.opacity: 0.38;
+            i-text.opacity: 0.38;
+            i-text.color: Palette.primary;
+        }
+        pressed when i-touch-area.pressed && !root.checked : {
+            i-state-layer.opacity: 0.12;
+        }
+        pressed-selected when i-touch-area.pressed && root.checked : {
+            i-state-layer.opacity: 0.12;
+            i-state-layer.background: Palette.on-surface;
+            i-container.border-width: 0px;
+            i-container.border-color: transparent;
+            i-container.background: Palette.primary;
+        }
+        hover-selected when i-touch-area.has-hover && root.checked : {
+            i-state-layer.opacity: 0.08;
+            i-container.border-width: 0px;
+            i-container.border-color: transparent;
+            i-container.background: Palette.primary;
+        }
+        hover when i-touch-area.has-hover && !root.checked : {
+            i-state-layer.background: Palette.on-surface;
+            i-state-layer.opacity: 0.08;
+        }
+        selected when !i-touch-area.has-hover && root.checked : {
+            i-container.border-width: 0px;
+            i-container.border-color: transparent;
+            i-container.background: Palette.primary;
+        }
+        focused-selected when i-focus-scope.has-focus && root.checked : {
+            i-state-layer.opacity: 0.12;
+        }
+        focused when i-focus-scope.has-focus && !root.checked : {
+            i-state-layer.background: Palette.on-surface;
+            i-state-layer.opacity: 0.12;
+        }
+    ]
+}
