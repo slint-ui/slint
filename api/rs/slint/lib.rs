@@ -301,7 +301,7 @@ macro_rules! include_modules {
 /// Initialize translations when using the `gettext` feature.
 ///
 /// Call this in your main function with the path where translations are located.
-/// This function internally calls the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
+/// This macro internally calls the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
 ///
 /// The first argument of the macro must be an expression that implements `Into<std::path::PathBuf>`.
 /// It specifies the directory in which gettext should search for translations.
