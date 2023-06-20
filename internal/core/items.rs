@@ -532,6 +532,7 @@ impl Item for TouchArea {
                     LogicalSize::from_lengths(self.width(), self.height()),
                 )
                 .contains(position)
+                && self.pressed()
             {
                 Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
             }

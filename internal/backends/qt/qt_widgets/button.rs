@@ -259,11 +259,13 @@ impl Item for NativeButton {
             return InputEventResult::EventIgnored;
         }
 
+        let was_pressed = self.pressed();
+
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
             MouseEvent::Pressed { .. } => true,
             MouseEvent::Exit | MouseEvent::Released { .. } => false,
             MouseEvent::Moved { .. } => {
-                return if self.pressed() {
+                return if was_pressed {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventAccepted
@@ -277,6 +279,7 @@ impl Item for NativeButton {
                 LogicalSize::from_lengths(self.width(), self.height()),
             )
             .contains(position)
+                && was_pressed
             {
                 self.activate();
             }
