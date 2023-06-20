@@ -108,9 +108,7 @@ export component ControlsPage inherits Page {
 
             i-progress-indicator := ProgressIndicator {
                 min-width: 160px;
-                minimum: i-slider.minimum;
-                maximum: i-slider.maximum;
-                progress: i-slider.value;
+                progress: (i-slider.value - i-slider.minimum) / (i-slider.maximum - i-slider.minimum);
                 indeterminate: true;
             }
 

@@ -4,10 +4,6 @@
 import { Palette } from "styling.slint";
 
 export component ProgressIndicator {
-    private property <float> prog: (progress - minimum) / (maximum - minimum);
-
-    in property<float> maximum: 100;
-    in property<float> minimum: 0;
     in property<float> progress;
     in property <bool> indeterminate;
 
@@ -16,8 +12,6 @@ export component ProgressIndicator {
     vertical-stretch: 0;
     accessible-role: none;
     accessible-value: root.progress;
-    accessible-value-minimum: root.minimum;
-    accessible-value-maximum: root.maximum;
 
     Rectangle {
         clip: true;
@@ -29,7 +23,7 @@ export component ProgressIndicator {
         }
 
         i-track := Rectangle {
-            width: !root.indeterminate ?  parent.width * root.prog : parent.width;
+            width: !root.indeterminate ?  parent.width * min(1, max(0, root.progress)) : parent.width;
             height: 100%;
             x: !root.indeterminate ? 0px : -parent.width + (parent.width * mod(animation-tick(), 2s) / 1s);
             border-radius: 3px;
