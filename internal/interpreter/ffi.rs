@@ -153,7 +153,7 @@ pub extern "C" fn slint_interpreter_value_to_bool(val: &ValueOpaque) -> Option<&
     }
 }
 
-/// Extracts a SharedVector<ValueOpaque> out of the given value `val`, writes that into the
+/// Extracts a `SharedVector<ValueOpaque>` out of the given value `val`, writes that into the
 /// `out` parameter and returns true; returns false if the value does not hold an extractable
 /// array.
 #[no_mangle]

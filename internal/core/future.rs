@@ -104,7 +104,9 @@ impl<T> Future for JoinHandle<T> {
                 }
                 Poll::Pending
             }
-            FutureState::Finished(x) => Poll::Ready(x.take().expect("Polling completed future")),
+            FutureState::Finished(x) => {
+                Poll::Ready(x.take().expect("Polling completed or aborted JoinHandle"))
+            }
         }
     }
 }
@@ -113,7 +115,7 @@ impl<T> JoinHandle<T> {
     /// If the future hasn't completed yet, this will make the event loop stop polling the corresponding future and it will be dropped
     ///
     /// Once this handle has been aborted, it can no longer be polled
-    pub fn abort(&self) {
+    pub fn abort(self) {
         self.0.aborted.store(true, atomic::Ordering::Relaxed);
     }
 }
@@ -132,8 +134,7 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 ///
 /// # Example
 ///
-/// ```rust
-/// # i_slint_backend_testing::init();
+/// ```rust,no_run
 /// slint::spawn_local(async move {
 ///     // code here that can await
 /// }).unwrap();
