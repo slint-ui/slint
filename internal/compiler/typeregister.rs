@@ -118,7 +118,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
         .chain(RESERVED_ROTATION_PROPERTIES.iter())
         .chain(RESERVED_ACCESSIBILITY_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone()))
-        .chain(IntoIterator::into_iter([("absolute-coordinates", logical_point_type())]))
+        .chain(IntoIterator::into_iter([("absolute-position", logical_point_type())]))
         .chain(IntoIterator::into_iter([
             ("forward-focus", Type::ElementReference),
             ("focus", BuiltinFunction::SetFocusItem.ty()),

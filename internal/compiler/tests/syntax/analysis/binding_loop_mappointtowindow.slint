@@ -4,7 +4,7 @@
 export App := Rectangle {
     
     Rectangle {
-        x: inner.absolute-coordinates.x > 10px ? 10px : 0px;
+        x: inner.absolute-position.x > 10px ? 10px : 0px;
 //         ^error{The binding for the property 'x' is part of a binding loop}
         inner := Rectangle {
 //               ^error{The binding for the property 'cached-absolute-xy' is part of a binding loop}

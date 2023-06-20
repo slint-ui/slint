@@ -5,7 +5,7 @@ export component TestCase {
     width: 500phx;
     height: 500phx;
 
-    property <bool> simple-inner-ok: simple-inner.absolute-coordinates.x == 40phx && simple-inner.absolute-coordinates.y == 60phx;
+    property <bool> simple-inner-ok: simple-inner.absolute-position.x == 40phx && simple-inner.absolute-position.y == 60phx;
     Rectangle {
         x: 10phx;
         y: 20phx;
@@ -16,7 +16,7 @@ export component TestCase {
         }
     }
     out property <bool> test: simple-inner-ok;
-    out property <Point> coords <=> simple-inner.absolute-coordinates;
+    out property <Point> coords <=> simple-inner.absolute-position;
 }
 
 /*

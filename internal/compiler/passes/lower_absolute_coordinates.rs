@@ -19,7 +19,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         visit_all_named_references_in_element(elem, |nr| {
-            if nr.name() == "absolute-coordinates" {
+            if nr.name() == "absolute-position" {
                 to_materialize.insert(nr.clone());
             }
         });
@@ -59,7 +59,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
 
         // Create a binding to the hidden point property and add item local x/y. The
         // materialize properties pass is going to create the actual property for
-        // absolute-coordinates.
+        // absolute-position.
         let binding = Expression::Struct {
             ty: point_type.clone(),
             values: IntoIterator::into_iter(["x", "y"])
