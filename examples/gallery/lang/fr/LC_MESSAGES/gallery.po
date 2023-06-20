@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-06-19 03:03+0000\n"
+"POT-Creation-Date: 2023-06-20 03:04+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: French (https://app.transifex.com/slint/teams/170022/fr/)\n"
@@ -125,109 +125,109 @@ msgctxt "ControlsPage"
 msgid "(unchecked)"
 msgstr "(non-coché)"
 
-#: ui/pages/controls_page.slint:62
+#: ui/pages/controls_page.slint:56
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Select Something"
 msgstr "Selectionne quelque chose"
 
-#: ui/pages/controls_page.slint:62
+#: ui/pages/controls_page.slint:56
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "From this"
 msgstr "dans cette"
 
-#: ui/pages/controls_page.slint:62
+#: ui/pages/controls_page.slint:56
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Combobox"
 msgstr "Combobox"
 
-#: ui/pages/controls_page.slint:67
+#: ui/pages/controls_page.slint:61
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Flight Mode"
 msgstr "Mode Avion"
 
-#: ui/pages/controls_page.slint:75
+#: ui/pages/controls_page.slint:69
 #, fuzzy
 msgctxt "ControlsPage"
-msgid "LineEdit"
+msgid "LineEdit - SpinBox"
 msgstr "LineEdit"
 
-#: ui/pages/controls_page.slint:79
+#: ui/pages/controls_page.slint:77
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Enter some text"
 msgstr "Entrez du texte"
 
-#: ui/pages/controls_page.slint:85
+#: ui/pages/controls_page.slint:90
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Slider"
 msgstr "Slider"
 
-#: ui/pages/controls_page.slint:98
+#: ui/pages/controls_page.slint:103
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "ProgressIndicator"
 msgstr "ProgressIndicator"
 
-#: ui/pages/controls_page.slint:113
+#: ui/pages/controls_page.slint:118
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "indeterminate"
 msgstr "Indéterminé"
 
-#: ui/pages/controls_page.slint:120
+#: ui/pages/controls_page.slint:125
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "TabWidget"
 msgstr "TabWidget"
 
-#: ui/pages/controls_page.slint:124
+#: ui/pages/controls_page.slint:129
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Tab 1"
 msgstr "1ᵉʳ Onglet"
 
-#: ui/pages/controls_page.slint:130
+#: ui/pages/controls_page.slint:135
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Content of tab 1"
 msgstr "Contennu du 1ᵉʳ onglet"
 
-#: ui/pages/controls_page.slint:136
+#: ui/pages/controls_page.slint:141
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Click me"
 msgstr "Clickez moi"
 
-#: ui/pages/controls_page.slint:145
+#: ui/pages/controls_page.slint:150
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Tab 2"
 msgstr "2ᵉ Onglet"
 
-#: ui/pages/controls_page.slint:151
+#: ui/pages/controls_page.slint:156
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Content of tab 2"
 msgstr "Contenu du 2ᵉ onglet"
 
-#: ui/pages/controls_page.slint:157
+#: ui/pages/controls_page.slint:162
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Check me"
 msgstr "Cochez moi"
 
-#: ui/pages/controls_page.slint:166
+#: ui/pages/controls_page.slint:171
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Tab 3"
 msgstr "3ᵉ Onglet"
 
-#: ui/pages/controls_page.slint:170
+#: ui/pages/controls_page.slint:175
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Content of tab 3"
