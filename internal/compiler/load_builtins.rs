@@ -37,12 +37,13 @@ pub fn load_builtins(register: &mut TypeRegister) {
     for s in doc.StructDeclaration().chain(doc.ExportsList().flat_map(|e| e.StructDeclaration())) {
         let external_name = identifier_text(&s.DeclaredIdentifier()).unwrap();
         let mut ty = object_tree::type_struct_from_node(s.ObjectType(), &mut diag, register, None);
-        if let Type::Struct { name, .. } = &mut ty {
+        if let Type::Struct { name, node, .. } = &mut ty {
             *name = Some(
                 parse_annotation("name", &s.ObjectType())
                     .map_or_else(|| external_name.clone(), |s| s.unwrap())
                     .to_owned(),
             );
+            *node = None;
         } else {
             unreachable!()
         }
