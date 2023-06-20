@@ -41,7 +41,7 @@ jobs:
         key: ${{ runner.os }}-${{ github.job }}-mdbook
     - uses: ./.github/actions/setup-rust
       with:
-        toolchain: ${{ github.event.inputs.rustdoc_toolchain }}
+        toolchain: ${{ inputs.rustdoc_toolchain }}
         components: rustfmt
     - name: Install mdbook
       run: cargo install mdbook || true
