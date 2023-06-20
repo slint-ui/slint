@@ -47,8 +47,7 @@ impl LogicalPosition {
     pub(crate) fn to_euclid(&self) -> crate::lengths::LogicalPoint {
         [self.x as _, self.y as _].into()
     }
-    #[doc(hidden)]
-    pub fn from_euclid(p: crate::lengths::LogicalPoint) -> Self {
+    pub(crate) fn from_euclid(p: crate::lengths::LogicalPoint) -> Self {
         Self::new(p.x as _, p.y as _)
     }
 }
