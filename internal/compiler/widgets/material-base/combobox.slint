@@ -2,28 +2,27 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 
-import { md } from "md.slint";
-import { Item } from "widget-item.slint";
+import { Palette, Typography, Elevation, Icons } from "styling.slint";
+import { ListItem } from "components.slint";
 
 export component ComboBox {
+    callback selected(string /* current-value */);
+
+    in property enabled <=> i-focus-scope.enabled;
     in property <[string]> model;
+    out property <bool> has-focus <=> i-focus-scope.has-focus;
     in-out property <int> current-index : 0;
     in-out property <string> current-value: root.model[root.current-index];
-    callback selected(string);
-    out property has-focus <=> fs.has-focus;
-    in property enabled <=> fs.enabled;
-
-    accessible-role: combobox;
-    accessible-value <=> root.current-value;
 
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    min-width: 160px;
-    height: 56px;
+    min-width: max(160px, i-layout.min-width);
+    min-height: max(56px, i-layout.min-height);
+    accessible-role: combobox;
+    accessible-value <=> root.current-value;
+    forward-focus: i-focus-scope;
 
-    forward-focus: fs;
-
-    fs := FocusScope {
+    i-focus-scope := FocusScope {
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
                 root.current-index = Math.max(root.current-index - 1, 0);
@@ -38,65 +37,66 @@ export component ComboBox {
         }
     }
 
-
-    container := Rectangle {
+    i-background := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: 4px;
         border-width: 1px;
-        border-color: md.sys.color.outline;
+        border-color: Palette.outline;
     }
 
-    layout := HorizontalLayout {
+    i-layout := HorizontalLayout {
         padding-left: 16px;
         padding-right: 12px;
         spacing: 16px;
 
-        label := Text {
+        i-label := Text {
             text <=> root.current-value;
             height: 100%;
-            color: md.sys.color.on-surface;
+            color: Palette.on-surface;
             vertical-alignment: center;
             // FIXME after Roboto font can be loaded
-            // font-family: md.sys.typescale.body-large.font;
-            font-size: md.sys.typescale.body-large.size;
-            font-weight: md.sys.typescale.body-large.weight;
+            // font-family: Typography.body-large.font;
+            font-size: Typography.body-large.font-size;
+            font-weight: Typography.body-large.font-weight;
         }
 
-        icon := Path {
-            width: 16px;
-            height: 16px;
+        i-icon := Image {
+            width: 24px;
+            height: 24px;
             y: (parent.height - self.height) / 2;
-            commands: "m24 30.75-12-12 2.15-2.15L24 26.5l9.85-9.85L36 18.8Z";
-            fill: md.sys.color.on-surface;
+            source: Icons.expand-more;
+            colorize: Palette.on-surface;
         }
     }
 
-    touch := TouchArea {
+    i-touch-area := TouchArea {
         enabled <=> root.enabled;
+
         clicked => {
             root.focus();
-            popup.show();
+            i-popup.show();
         }
     }
 
-    popup := PopupWindow {
-        x:0;
+    i-popup := PopupWindow {
+        x: 0;
         y: root.height;
         width: root.width;
 
-        popup-container := Rectangle {
-            background: md.sys.color.surface;
-            drop-shadow-color: md.sys.color.shadow;
-            drop-shadow-blur: md.sys.elevation.level2;
+        i-popup-container := Rectangle {
+            background: Palette.surface;
+            drop-shadow-color: Palette.shadow;
+            drop-shadow-blur: Elevation.level2;
             drop-shadow-offset-y: 1px;
             border-radius: 4px;
         }
 
         VerticalLayout {
-            for value[idx] in root.model: Item {
+            for value[idx] in root.model: ListItem {
                 text: value;
                 selected: idx == root.current-index;
+
                 clicked => {
                     if (root.enabled) {
                         root.current-index = idx;
@@ -110,16 +110,16 @@ export component ComboBox {
 
     states [
         disabled when !root.enabled : {
-            container.border-color: md.sys.color.on-surface;
-            container.opacity: 0.38;
-            label.opacity: 0.38;
-            icon.opacity: 0.38;
+            i-background.border-color: Palette.on-surface;
+            i-background.opacity: 0.38;
+            i-label.opacity: 0.38;
+            i-icon.opacity: 0.38;
         }
         focused when root.has-focus : {
-            container.border-width: 2px;
-            container.border-color: md.sys.color.primary;
-            label.color: md.sys.color.primary;
-            icon.fill: md.sys.color.primary;
+            i-background.border-width: 2px;
+            i-background.border-color: Palette.primary;
+            i-label.color: Palette.primary;
+            i-icon.colorize: Palette.primary;
         }
     ]
 }

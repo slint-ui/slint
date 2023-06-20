@@ -82,3 +82,7 @@ License: Apache-2.0
 Files: internal/compiler/widgets/fluent-base/_*.svg
 Copyright: Copyright © Microsoft Corporation <https://github.com/microsoft/fluentui-system-icons/blob/main/LICENSE>
 License: MIT
+
+Files: internal/compiler/widgets/material-base/_*.svg
+Copyright: Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>
+License: Apache-2.0

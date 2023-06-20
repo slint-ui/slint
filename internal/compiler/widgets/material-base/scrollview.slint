@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 
-import { md } from "md.slint";
+import { Palette } from "styling.slint";
 
 component ScrollBar inherits Rectangle {
     in-out property <bool> horizontal;
@@ -10,34 +10,34 @@ component ScrollBar inherits Rectangle {
     in-out property<length> page-size;
     // this is always negative and bigger than  -maximum
     in-out property<length> value;
-    in-out property<bool> enabled <=> touch.enabled;
+    in-out property<bool> enabled <=> i-touch-area.enabled;
 
-    state_layer := Rectangle {
+    i-state-layer := Rectangle {
         width: 100%;
         height: 100%;
-        background: md.sys.color.primary;
+        background: Palette.primary;
         border-radius: 4px;
         opacity: 0;
-        visible: handle.width > 0 && handle.height > 0;
+        visible: i-handle.width > 0 && i-handle.height > 0;
         animate opacity { duration: 250ms; easing: ease; }
     }
 
-    handle := Rectangle {
-        x: !root.horizontal ? 0phx : (root.width - handle.width) * (-root.value / root.maximum);
-        y: root.horizontal ? 0phx : (root.height - handle.height) * (-root.value / root.maximum);
+    i-handle := Rectangle {
+        x: !root.horizontal ? 0phx : (root.width - i-handle.width) * (-root.value / root.maximum);
+        y: root.horizontal ? 0phx : (root.height - i-handle.height) * (-root.value / root.maximum);
         width: !root.horizontal ? parent.width : root.maximum <= 0phx ? 0phx : max(32px, parent.width * max(root.page-size / (root.maximum + root.page-size)));
         height: root.horizontal ? parent.height : root.maximum <= 0phx ? 0phx : max(32px, parent.height * (root.page-size / (root.maximum + root.page-size)));
 
-        container := Rectangle {
+        i-background := Rectangle {
             width: 100%;
             height: 100%;
             border-radius: 4px;
-            border-color: md.sys.color.outline;
+            border-color: Palette.outline;
             border-width: 1px;
         }
     }
 
-    touch := TouchArea {
+    i-touch-area := TouchArea {
         property <length> pressed-value;
 
         width: parent.width;
@@ -51,23 +51,23 @@ component ScrollBar inherits Rectangle {
         moved => {
             if (self.enabled && self.pressed) {
                 root.value = -max(0px, min(root.maximum, self.pressed-value + (
-                    root.horizontal ? (touch.mouse-x - touch.pressed-x) * (root.maximum / (root.width - handle.width))
-                               : (touch.mouse-y - touch.pressed-y) * (root.maximum / (root.height - handle.height))
+                    root.horizontal ? (i-touch-area.mouse-x - i-touch-area.pressed-x) * (root.maximum / (root.width - i-handle.width))
+                               : (i-touch-area.mouse-y - i-touch-area.pressed-y) * (root.maximum / (root.height - i-handle.height))
                 )));
             }
         }
     }
 
     states [
-        disabled when !touch.enabled : {
-            container.border-color: md.sys.color.on-surface;
-            handle.opacity: 0.12;
+        disabled when !i-touch-area.enabled : {
+            i-background.border-color: Palette.on-surface;
+            i-handle.opacity: 0.12;
         }
-        hover when touch.has-hover : {
-            state-layer.opacity: 0.08;
+        hover when i-touch-area.has-hover : {
+            i-state-layer.opacity: 0.08;
         }
-        pressed when touch.has-hover : {
-            state-layer.opacity: 0.12;
+        pressed when i-touch-area.has-hover : {
+            i-state-layer.opacity: 0.12;
         }
     ]
 }
@@ -91,7 +91,7 @@ export component ScrollView {
     preferred-width: 100%;
 
     Rectangle {
-        background: md.sys.color.surface;
+        background: Palette.surface;
     }
 
     fli := Flickable {

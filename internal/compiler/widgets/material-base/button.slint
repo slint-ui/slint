@@ -1,0 +1,83 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+
+import { StateLayer } from "components.slint";
+import { Typography, Palette, Elevation } from "styling.slint";
+
+// Default button widget with Material Design Filled Button look and feel.
+export component Button {
+    callback clicked;
+
+    in property<string> text <=> i-text.text;
+    in property<bool> enabled <=> i-state-layer.enabled;
+    in property<bool> checkable;
+    in property<image> icon;
+    in property <bool> primary;
+    out property<bool> has-focus: i-state-layer.has-focus;
+    out property<bool> pressed: self.enabled &&  i-state-layer.pressed;
+    in-out property<bool> checked;
+
+    min-height: max(40px, i-layout.min-height);
+    accessible-label <=> i-text.text;
+    accessible-role: button;
+    forward-focus: i-state-layer;
+
+    i-background := Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 20px;
+        background: root.primary ? Palette.primary : Palette.secondary-container;
+        drop-shadow-color: transparent;
+        drop-shadow-blur: Elevation.level0;
+        drop-shadow-offset-y: 1px;
+    }
+
+    i-state-layer := StateLayer {
+        has-ripple: true;
+        border-radius: i-background.border-radius;
+        background: Palette.on-secondary-container;
+        ripple-color: Palette.secondary-ripple;
+        selection-background: Palette.primary;
+        focusable: true;
+
+        clicked => {
+            if (root.checkable) {
+                root.checked = !root.checked;
+            }
+            root.clicked();
+        }
+    }
+
+    i-layout := HorizontalLayout {
+        padding-left: 24px;
+        padding-right: 24px;
+        spacing: 8px;
+
+        if (root.icon.width > 0 && root.icon.height > 0): Image {
+            source <=> root.icon;
+            width: 24px;
+            opacity: i-text.opacity;
+        }
+
+        i-text := Text {
+            color: root.primary ? Palette.on-primary : Palette.on-secondary-container;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            font-weight: Typography.label-large.font-weight;
+
+            animate color { duration: 250ms; easing: ease; }
+        }
+    }
+
+    states [
+        disabled when !root.enabled : {
+            i-background.background: Palette.on-surface;
+            i-background.opacity: 0.12;
+            i-text.opacity: 0.38;
+            i-text.color: Palette.on-surface;
+        }
+        checked when root.checked: {
+            i-text.color: Palette.on-primary;
+        }
+    ]
+}

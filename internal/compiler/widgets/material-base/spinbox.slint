@@ -1,71 +1,74 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-import { md } from "md.slint";
+import { Palette, Typography, Icons } from "styling.slint";
 
 component SpinBoxButton inherits Rectangle {
-    callback clicked <=> touch.clicked;
+    callback clicked <=> i-touch-area.clicked;
 
-    in-out property<bool> pressed: self.enabled && touch.pressed;
-    in-out property<bool> enabled <=> touch.enabled;
-    in-out property<float> icon-opacity: 1;
-    in-out property<brush> icon-fill: md.sys.color.on-primary;
+    in-out property <bool> pressed: self.enabled && i-touch-area.pressed;
+    in-out property <bool> enabled <=> i-touch-area.enabled;
+    in-out property <float> icon-opacity: 1;
+    in-out property <brush> icon-fill: Palette.on-primary;
 
     width: root.height;
 
-    container := Rectangle {
+    i-background := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: max(self.width, self.height) / 2;
-        background: md.sys.color.primary;
+        background: Palette.primary;
     }
 
-    state-layer := Rectangle {
-        x:0;y:0;
+    i-state-layer := Rectangle {
+        x: 0;
+        y: 0;
         opacity: 0;
-        width: container.width;
-        height: container.height;
-        border-radius: container.border-radius;
-        background: md.sys.color.on-primary;
+        width: i-background.width;
+        height: i-background.height;
+        border-radius: i-background.border-radius;
+        background: Palette.on-primary;
+
         animate opacity { duration: 250ms; easing: ease; }
      }
 
     Rectangle {
         width: 100%;
         height: 100%;
+
         @children
     }
 
-    touch := TouchArea { }
+    i-touch-area := TouchArea { }
 
     states [
         disabled when !root.enabled : {
-            container.background: md.sys.color.on-surface;
-            container.opacity: 0.12;
+            i-background.background: Palette.on-surface;
+            i-background.opacity: 0.12;
             icon-opacity: 0.38;
-            icon-fill: md.sys.color.on-surface;
+            icon-fill: Palette.on-surface;
         }
-        pressed when touch.pressed : {
-            state-layer.opacity: 0.12;
+        pressed when i-touch-area.pressed : {
+            i-state-layer.opacity: 0.12;
         }
-        hover when touch.has-hover : {
-            state-layer.opacity: 0.08;
+        hover when i-touch-area.has-hover : {
+            i-state-layer.opacity: 0.08;
         }
     ]
 }
 
 // Increment and decrement a value in the given range.
 export component SpinBox {
-    in-out property <int> value;
     in property <int> minimum;
     in property <int> maximum: 100;
-    in property <bool> enabled <=> fs.enabled;
-    out property <bool> has-focus <=> fs.has-focus;
-    forward-focus: fs;
+    in property <bool> enabled <=> i-focus-scope.enabled;
+    out property <bool> has-focus <=> i-focus-scope.has-focus;
+    in-out property <int> value;
 
+    forward-focus: i-focus-scope;
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    height: 56px;
+    min-height: max(56px, i-layout.min-height);
 
     accessible-role: spinbox;
     accessible-value: root.value;
@@ -73,7 +76,7 @@ export component SpinBox {
     accessible-value-maximum: root.maximum;
     accessible-value-step: (root.maximum - root.minimum) / 100;
 
-    fs := FocusScope {
+    i-focus-scope := FocusScope {
         key-pressed(event) => {
             if (root.enabled && event.text == Key.UpArrow && root.value < root.maximum) {
                 root.value += 1;
@@ -87,45 +90,44 @@ export component SpinBox {
         }
     }
 
-    container := Rectangle {
+    i-background := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: 4px;
         border-width: 1px;
-        border-color: md.sys.color.outline;
+        border-color: Palette.outline;
     }
 
-    layout := HorizontalLayout {
+    i-layout := HorizontalLayout {
         padding-top: 8px;
         padding-bottom: 8px;
         padding-left: 16px;
         padding-right: 12px;
         spacing: 16px;
 
-        label := Text {
+        i-text := Text {
             text: root.value;
             height: 100%;
-            color: md.sys.color.on-surface;
+            color: Palette.on-surface;
             vertical-alignment: center;
             // FIXME after Roboto font can be loaded
-            //font-family: md.sys.typescale.body-large.font;
-            font-size: md.sys.typescale.body-large.size;
-            font-weight: md.sys.typescale.body-large.weight;
+            //font-family: Typography.body-large.font;
+            font-size: Typography.body-large.font-size;
+            font-weight: Typography.body-large.font-weight;
         }
 
         VerticalLayout {
             spacing: 4px;
+
             SpinBoxButton {
                 enabled: root.enabled;
 
-                Path {
+                Image {
                     x: (parent.width - self.width) / 2;
                     y: (parent.height - self.height) / 2;
-                    width: 44%;
-                    height: 44%;
-                    commands: "M14.15 30.75 12 28.6l12-12 12 11.95-2.15 2.15L24 20.85Z";
+                    source: Icons.arrow-drop-up;
                     opacity: parent.icon-opacity;
-                    fill: parent.icon-fill;
+                    colorize: parent.icon-fill;
                 }
 
                 clicked => {
@@ -140,21 +142,18 @@ export component SpinBox {
             SpinBoxButton {
                 enabled: root.enabled;
 
-                Path {
+                Image {
                     x: (parent.width - self.width) / 2;
                     y: (parent.height - self.height) / 2;
-                    width: 44%;
-                    height: 44%;
-                    commands: "m24 30.75-12-12 2.15-2.15L24 26.5l9.85-9.85L36 18.8Z";
+                    source: Icons.arrow-drop-down;
                     opacity: parent.icon-opacity;
-                    fill: parent.icon-fill;
+                    colorize: parent.icon-fill;
                 }
 
                 clicked => {
                     if (root.value > root.minimum) {
                         root.value -= 1;
                     }
-
 
                     root.focus();
                 }
@@ -164,14 +163,14 @@ export component SpinBox {
 
     states [
         disabled when !root.enabled : {
-            container.border-color: md.sys.color.on-surface;
-            container.opacity: 0.38;
-            label.opacity: 0.38;
+            i-background.border-color: Palette.on-surface;
+            i-background.opacity: 0.38;
+            i-text.opacity: 0.38;
         }
         focused when root.has-focus : {
-            container.border-width: 2px;
-            container.border-color: md.sys.color.primary;
-            label.color: md.sys.color.primary;
+            i-background.border-width: 2px;
+            i-background.border-color: Palette.primary;
+            i-text.color: Palette.primary;
         }
     ]
 }

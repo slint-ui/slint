@@ -3,19 +3,19 @@
 
 import { LineEditInner } from "../common/common.slint";
 import { ScrollView } from "std-widgets-impl.slint";
-import { StateLayer } from "comp-state-layer.slint";
-import { md } from "md.slint";
+import { StateLayer } from "components.slint";
+import { Palette, Icons } from "styling.slint";
 
 component TableViewColumn inherits Rectangle {
-    callback clicked <=> state-layer.clicked;
+    callback clicked <=> i-state-layer.clicked;
     callback adjust_size(length);
 
     in property <SortOrder> sort-order: SortOrder.unsorted;
 
-    state-layer := StateLayer {
-        background: md.sys.color.primary;
-        selection-background: md.sys.color.secondary-container;
-        ripple-color: md.sys.color.primary-ripple;
+    i-state-layer := StateLayer {
+        background: Palette.primary;
+        selection-background: Palette.secondary-container;
+        ripple-color: Palette.primary-ripple;
         has-ripple: true;
     }
 
@@ -28,15 +28,15 @@ component TableViewColumn inherits Rectangle {
             @children
         }
 
-        Path {
+        Image {
             visible: root.sort-order != SortOrder.unsorted;
             width: 12px;
             height: 12px;
             y: (parent.height - self.height) / 2;
-            commands: root.sort-order == SortOrder.ascending ?
-                "M24 44 10 30l2.1-2.1 10.4 10.4V4h3v34.3l10.4-10.4L38 30Z" :
-                "M22.5 44V9.7L12.1 20.1 10 18 24 4l14 14-2.1 2.1L25.5 9.7V44Z";
-            fill: md.sys.color.on-surface;
+            source: root.sort-order == SortOrder.ascending ?
+                Icons.arrow-upward :
+                Icons.arrow-downward;
+            colorize: Palette.on-surface;
         }
     }
 
@@ -45,16 +45,17 @@ component TableViewColumn inherits Rectangle {
         y: parent.height - self.height;
         width: 100%;
         height: 1px;
-        background: md.sys.color.outline;
+        background: Palette.outline;
     }
 
     Rectangle {
-        width: 1px;
         x: parent.width - 1px;
-        background: movable-ta.has-hover ? md.sys.color.outline : transparent;
-        animate background { duration: 250ms; }
-        movable-ta := TouchArea {
+        width: 1px;
+        background: i-movable-touch-area.has-hover ? Palette.outline : transparent;
+
+        i-movable-touch-area := TouchArea {
             width: 10px;
+
             moved => {
                 if (self.pressed) {
                     adjust_size(self.mouse-x - self.pressed-x);
@@ -62,6 +63,8 @@ component TableViewColumn inherits Rectangle {
             }
             mouse-cursor: ew-resize;
         }
+
+        animate background { duration: 250ms; }
     }
 }
 
@@ -80,47 +83,47 @@ component TableViewCell inherits Rectangle {
         y: parent.height - self.height;
         width: 100%;
         height: 1px;
-        background: md.sys.color.outline;
+        background: Palette.outline;
     }
 }
 
 component TableViewRow inherits Rectangle {
-    callback clicked <=> state-layer.clicked;
+    callback clicked <=> i-state-layer.clicked;
 
     in property<bool> selected;
 
-    min-height: 42px;
+    min-height: max(42px, i-layout.min-height);
 
-    state-layer := StateLayer {
+    i-state-layer := StateLayer {
         checked: root.selected;
-        background: md.sys.color.primary;
-        selection-background: md.sys.color.secondary-container;
-        ripple-color: md.sys.color.primary-ripple;
+        background: Palette.primary;
+        selection-background: Palette.secondary-container;
+        ripple-color: Palette.primary-ripple;
         has-ripple: true;
     }
 
-    HorizontalLayout {
+    i-layout := HorizontalLayout {
        @children
     }
 
     states [
         selected when root.selected : {
-            state-layer.background: md.sys.color.secondary-container;
+            i-state-layer.background: Palette.secondary-container;
         }
     ]
 }
 
 export component StandardTableView {
-    private property <length> item-height: scroll-view.viewport-height / rows.length;
-    private property <length> current-item-y: scroll-view.viewport-y + current-row * item-height;
-
-    callback sort-ascending(int);
-    callback sort-descending(int);
-
+    private property <length> item-height: i-scroll-view.viewport-height / rows.length;
+    private property <length> current-item-y: i-scroll-view.viewport-y + current-row * item-height;
     private property <length> min-header-height: 42px;
+
+    callback sort-ascending(int /* column-index */);
+    callback sort-descending(int /* column-index */);
+
+    in property <[[StandardListViewItem]]> rows;
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
-    in property <[[StandardListViewItem]]> rows;
     in-out property<int> current-row: -1;
 
     min-width: 400px;
@@ -128,48 +131,17 @@ export component StandardTableView {
     horizontal-stretch: 1;
     vertical-stretch: 1;
 
-    public function set-current-row(index: int) {
-        if(index < 0 || index >= rows.length) {
-            return;
-        }
-
-        current-row = index;
-
-        if(current-item-y < 0) {
-            scroll-view.viewport-y += 0 - current-item-y;
-        }
-
-        if(current-item-y + item-height > scroll-view.visible-height) {
-            scroll-view.viewport-y -= current-item-y + item-height - scroll-view.visible-height;
-        }
-    }
-
-    function sort(index: int) {
-        if (root.current-sort-column != index) {
-            root.columns[root.current-sort-column].sort-order = SortOrder.unsorted;
-        }
-
-        if(root.columns[index].sort-order == SortOrder.ascending) {
-            root.columns[index].sort-order = SortOrder.descending;
-            root.sort-descending(index);
-        } else {
-            root.columns[index].sort-order = SortOrder.ascending;
-            root.sort-ascending(index);
-        }
-
-        root.current-sort-column = index;
-    }
-
     VerticalLayout {
         Rectangle {
             clip: true;
             vertical-stretch: 0;
-            min-height: header-layout.min-height;
+            min-height: i-header-layout.min-height;
 
-            header-layout := HorizontalLayout {
+            i-header-layout := HorizontalLayout {
                 padding-right: 20px;
                 min-height: root.min-header-height;
                 vertical-stretch: 0;
+
                 for column[index] in root.columns : TableViewColumn {
                     sort-order: column.sort-order;
                     horizontal-stretch: column.horizontal-stretch;
@@ -195,7 +167,7 @@ export component StandardTableView {
             }
         }
 
-        scroll-view := ScrollView {
+        i-scroll-view := ScrollView {
             vertical-stretch: 1;
 
             VerticalLayout {
@@ -239,7 +211,40 @@ export component StandardTableView {
                 root.set-current-row(root.current-row + 1);
                 return accept;
             }
+
             reject
+        }
+    }
+
+    function sort(index: int) {
+        if (root.current-sort-column != index) {
+            root.columns[root.current-sort-column].sort-order = SortOrder.unsorted;
+        }
+
+        if(root.columns[index].sort-order == SortOrder.ascending) {
+            root.columns[index].sort-order = SortOrder.descending;
+            root.sort-descending(index);
+        } else {
+            root.columns[index].sort-order = SortOrder.ascending;
+            root.sort-ascending(index);
+        }
+
+        root.current-sort-column = index;
+    }
+
+    public function set-current-row(index: int) {
+        if(index < 0 || index >= rows.length) {
+            return;
+        }
+
+        current-row = index;
+
+        if(current-item-y < 0) {
+            i-scroll-view.viewport-y += 0 - current-item-y;
+        }
+
+        if(current-item-y + item-height > i-scroll-view.visible-height) {
+            i-scroll-view.viewport-y -= current-item-y + item-height - i-scroll-view.visible-height;
         }
     }
 }
