@@ -132,11 +132,12 @@ unsafe impl<T: Send> Send for JoinHandle<T> {}
 ///
 /// # Example
 ///
-/// /// ```rust
+/// ```rust
 /// # i_slint_backend_testing::init();
 /// slint::spawn_local(async move {
 ///     // code here that can await
 /// }).unwrap();
+/// ```
 pub fn spawn_local<F: Future + 'static>(fut: F) -> Result<JoinHandle<F::Output>, EventLoopError> {
     // make sure we are in the backend's thread
     if crate::platform::PLATFORM_INSTANCE.with(|p| p.get().is_none()) {
