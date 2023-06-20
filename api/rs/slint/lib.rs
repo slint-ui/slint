@@ -298,15 +298,18 @@ macro_rules! include_modules {
     };
 }
 
-/// Initialize translations when using the `gettext` feature
+/// Initialize translations when using the `gettext` feature.
 ///
-/// Call this in your main function with the path where to find the translations.
-/// This will internally call the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext
+/// Call this in your main function with the path where translations are located.
+/// This macro internally calls the [`bindtextdomain`](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
 ///
-/// The translations will be found at `<dirname>/<locale>/LC_MESSAGES/<crate>.mo`
+/// The first argument of the macro must be an expression that implements `Into<std::path::PathBuf>`.
+/// It specifies the directory in which gettext should search for translations.
+///
+/// Translations are expected to be found at `<dirname>/<locale>/LC_MESSAGES/<crate>.mo`,
 /// where `dirname` is the directory passed as an argument to this macro,
-/// `locale` is a locale name (eg: `en` or `en_GB` or `fr`),
-///  and `crate` is the package obtained with the `CARGO_PKG_NAME` env variable
+/// `locale` is a locale name (e.g., `en`, `en_GB`, `fr`), and
+/// `crate` is the package name obtained from the `CARGO_PKG_NAME` environment variable.
 ///
 /// ### Example
 /// ```rust
@@ -316,14 +319,19 @@ macro_rules! include_modules {
 /// }
 /// ```
 ///
-/// For example, assuming this is in a crate called example, and the default locale
-/// is configured to be french, it will load translation at runtime from
-/// `/path/to/example/translations/fr/LC_MESSAGES/example.mo`
+/// For example, assuming this is in a crate called `example` and the default locale
+/// is configured to be French, it will load translations at runtime from
+/// `/path/to/example/translations/fr/LC_MESSAGES/example.mo`.
+///
+/// Another example of loading translations relative to the executable:
+/// ```rust
+/// slint::init_translations!(std::env::current_exe().unwrap().parent().unwrap().join("translations"));
+/// ```
 #[cfg(feature = "gettext")]
 #[macro_export]
 macro_rules! init_translations {
     ($dirname:expr) => {
-        $crate::private_unstable_api::init_translations(env!("CARGO_PKG_NAME"), $dirname)
+        $crate::private_unstable_api::init_translations(env!("CARGO_PKG_NAME"), $dirname);
     };
 }
 
