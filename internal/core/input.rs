@@ -170,6 +170,7 @@ pub mod key_codes {
 pub(crate) struct InternalKeyboardModifierState {
     left_alt: bool,
     right_alt: bool,
+    altgr: bool,
     left_control: bool,
     right_control: bool,
     left_meta: bool,
@@ -185,6 +186,7 @@ impl InternalKeyboardModifierState {
         if let Some(key_code) = text.chars().next() {
             match key_code {
                 key_codes::Alt => self.left_alt = pressed,
+                key_codes::AltGr => self.altgr = pressed,
                 key_codes::Control => self.left_control = pressed,
                 key_codes::ControlR => self.right_control = pressed,
                 key_codes::Shift => self.left_shift = pressed,
@@ -193,10 +195,27 @@ impl InternalKeyboardModifierState {
                 key_codes::MetaR => self.right_meta = pressed,
                 _ => return None,
             };
+
             // Encoded keyboard modifiers must appear as individual key events. This could
             // be relaxed by implementing a string split, but right now WindowEvent::KeyPressed
             // holds only a single char.
             debug_assert_eq!(key_code.len_utf8(), text.len());
+        }
+
+        // Special cases:
+        #[cfg(target_os = "windows")]
+        {
+            if self.altgr {
+                // Windows sends Ctrl followed by AltGr on AltGr. Disable the Ctrl again!
+                self.left_control = false;
+                self.right_control = false;
+            } else if self.control() && self.alt() {
+                // Windows treats Ctrl-Alt as AltGr
+                self.left_control = false;
+                self.right_control = false;
+                self.left_alt = false;
+                self.right_alt = false;
+            }
         }
 
         Some(self)
