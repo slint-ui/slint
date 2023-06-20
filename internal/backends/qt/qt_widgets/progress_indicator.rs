@@ -102,7 +102,7 @@ impl Item for NativeProgressIndicator {
 
     fn_render! { this dpr size painter widget _initial_state =>
         let indeterminate = this.indeterminate() as bool;
-        let progress = if indeterminate { 0 } else { (this.progress().max(0.0).min(1.0) * 100.) as i32 };
+        let progress = if indeterminate { -1 } else { (this.progress().max(0.0).min(1.0) * 100.) as i32 };
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
@@ -114,9 +114,10 @@ impl Item for NativeProgressIndicator {
             QPainter *painter_ = painter->get();
             QStyleOptionProgressBar option;
             option.rect = QRect(QPoint(), size / dpr);
-            option.maximum = 100;
+            option.maximum = progress < 0 ? 0 : 100;
             option.minimum = 0;
             option.progress = progress;
+            option.styleObject = widget;
 
             qApp->style()->drawControl(QStyle::CE_ProgressBar, &option, painter_, widget);
         });
