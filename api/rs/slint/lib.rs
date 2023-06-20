@@ -325,7 +325,7 @@ macro_rules! include_modules {
 ///
 /// Another example of loading translations relative to the executable:
 /// ```rust
-/// slint::init_translations!(std::env::current_exe().unwrap().parent().unwrap().join("lang"));
+/// slint::init_translations!(std::env::current_exe().unwrap().parent().unwrap().join("translations"));
 /// ```
 #[cfg(feature = "gettext")]
 #[macro_export]
