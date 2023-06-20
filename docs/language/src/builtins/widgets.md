@@ -254,9 +254,7 @@ The `ProgressIndicator` informs the user about the status of an on-going operati
 ### Properties
 
 -   **`indeterminate`**: (_in_ _bool_): Set to true if the progress of the operation cannot be determined by value (default value: `false`).
--   **`progress`** (_in-out_ _float_): The progress value of the operation, between `minimum` and `maximum`.
--   **`minimum`** (_in_ _float_): The minimum progress value, typically at the start of the operation (default value: 0).
--   **`maximum`** (_in_ _float_): The maximum progress value, typically reached when the operation completes (default value: 100).
+-   **`progress`** (_in_ _float_): Percentage of completion, as value between 0 and 1. Values outside 0. and 1. are capped
 
 ### Example
 

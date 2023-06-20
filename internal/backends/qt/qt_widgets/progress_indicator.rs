@@ -15,8 +15,6 @@ pub struct NativeProgressIndicator {
     pub height: Property<LogicalLength>,
     pub indeterminate: Property<bool>,
     pub progress: Property<f32>,
-    pub minimum: Property<f32>,
-    pub maximum: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -36,19 +34,15 @@ impl Item for NativeProgressIndicator {
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         let indeterminate = self.indeterminate() as bool;
-        let progress = if indeterminate { 0 } else { self.progress() as i32 };
-        let min = if indeterminate { 0 } else { self.minimum() as i32 };
-        let max = if indeterminate { 0 } else { self.maximum() as i32 };
+        let progress = if indeterminate { 0 } else { (self.progress() * 100.) as i32 };
 
         let size = cpp!(unsafe [
-            progress as "int",
-            min as "int",
-            max as "int"
+            progress as "int"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionProgressBar option;
-            option.maximum = max;
-            option.minimum = min;
+            option.maximum = 100;
+            option.minimum = 0;
             option.progress = progress;
             option.textVisible = false;
 
@@ -107,24 +101,20 @@ impl Item for NativeProgressIndicator {
 
     fn_render! { this dpr size painter widget _initial_state =>
         let indeterminate = this.indeterminate() as bool;
-        let progress = if indeterminate { 0 } else { this.progress() as i32 };
-        let min =  if indeterminate { 0 } else { this.minimum() as i32 };
-        let max =  if indeterminate { 0 } else { this.maximum() as i32 };
+        let progress = if indeterminate { 0 } else { (this.progress() * 100.) as i32 };
 
         cpp!(unsafe [
             painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
             progress as "int",
-            min as "int",
-            max as "int",
             dpr as "float"
         ] {
             QPainter *painter_ = painter->get();
             QStyleOptionProgressBar option;
             option.rect = QRect(QPoint(), size / dpr);
-            option.maximum = max;
-            option.minimum = min;
+            option.maximum = 100;
+            option.minimum = 0;
             option.progress = progress;
 
             qApp->style()->drawControl(QStyle::CE_ProgressBar, &option, painter_, widget);
