@@ -755,6 +755,8 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) -> Result<()
 /// to be called from callbacks triggered by the UI. After calling the function,
 /// it will return immediately and once control is passed back to the event loop,
 /// the initial call to `slint::run_event_loop()` will return.
+///
+/// This function can be called from any thread
 pub fn quit_event_loop() -> Result<(), EventLoopError> {
     crate::platform::event_loop_proxy()
         .ok_or(EventLoopError::NoEventLoopProvider)?
