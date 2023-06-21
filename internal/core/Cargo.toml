@@ -69,7 +69,7 @@ scoped-tls-hkt = { version = "0.1", optional = true }
 scopeguard =  { version = "1.1.0", default-features = false }
 slab = { version = "0.4.3", default-features = false }
 static_assertions = "1.1"
-strum = { version = "0.24.0", default-features = false, features = ["derive"] }
+strum = { version = "0.25.0", default-features = false, features = ["derive"] }
 unicode-segmentation = "1.8.0"
 unicode-linebreak = { version = "0.1.2", optional = true }
 unicode-script = { version = "0.5.3", optional = true }
