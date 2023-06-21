@@ -94,7 +94,9 @@ pub fn quit_ui_event_loop() {
         GUI_EVENT_LOOP_NOTIFIER.notify_one();
     }
 
-    let _ = i_slint_core::api::quit_event_loop();
+    let _ = i_slint_core::api::invoke_from_event_loop(move || {
+        let _ = i_slint_core::api::quit_event_loop();
+    });
 
     // Make sure then sender channel gets dropped
     if let Some(cache) = CONTENT_CACHE.get() {
