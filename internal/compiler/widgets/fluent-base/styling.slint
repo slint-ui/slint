@@ -4,7 +4,7 @@
 import { ColorSchemeSelector } from "color-scheme.slint";
 
 export struct TextStyle {
-    font-size: length,
+    font-size: relative-font-size,
     font-weight: int,
 }
 
@@ -14,12 +14,12 @@ export global Typography {
     out property <int> semibold-font-weight: 600;
 
     out property <TextStyle> body: {
-        font-size: 14px,
+        font-size: 14 * 0.0769rem,
         font-weight: regular-font-weight
     };
 
     out property <TextStyle> body-strong: {
-        font-size: 14px,
+        font-size: 14 * 0.0769rem,
         font-weight: semibold-font-weight
     };
 }
