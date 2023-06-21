@@ -45,6 +45,9 @@ jobs:
           msgfmt $po/printerdemo.po -o $po/printerdemo.mo
           done
 
+      - name: "Fix license headers"
+        run: cargo xtask check_license_headers --fix-it
+
       - name: commit
         run: |
           git config --global user.email "noreply@slint.dev"
