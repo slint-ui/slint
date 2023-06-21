@@ -59,7 +59,7 @@ i-slint-renderer-femtovg = { version = "=1.1.0", path = "../../renderers/femtovg
 i-slint-renderer-skia = { version = "=1.1.0", path = "../../renderers/skia", optional = true }
 
 # For the software renderer
-softbuffer = { version = "0.2.0", optional = true }
+softbuffer = { version = "0.3.0", optional = true }
 imgref = { version = "1.6.1", optional = true }
 rgb = { version = "0.8.27", optional = true }
 
