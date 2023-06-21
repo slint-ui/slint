@@ -11,7 +11,7 @@ use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{
     recurse_elem_including_sub_components_no_borrow, visit_all_named_references_in_element,
-    Component, PropertyDeclaration,
+    Component,
 };
 
 pub fn lower_absolute_coordinates(component: &Rc<Component>) {
@@ -25,8 +25,6 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
         });
     });
 
-    // Absolute item coordinates of the parent item.
-    let cached_parent_position_prop_name = "absolute-parent-position".to_string();
     let point_type = match BuiltinFunction::ItemAbsolutePosition.ty() {
         crate::langtype::Type::Function { return_type, .. } => return_type.as_ref().clone(),
         _ => unreachable!(),
@@ -35,56 +33,51 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
     for nr in to_materialize {
         let elem = nr.element();
 
-        elem.borrow_mut()
-            .property_declarations
-            .entry(cached_parent_position_prop_name.clone())
-            .or_insert_with(|| PropertyDeclaration {
-                property_type: point_type.clone(),
-                ..PropertyDeclaration::default()
-            });
+        // Create a binding for the `absolute-position` property. The
+        // materialize properties pass is going to create the actual property later.
 
-        if !elem.borrow().bindings.contains_key(&cached_parent_position_prop_name) {
-            let point_binding = Expression::FunctionCall {
-                function: Box::new(Expression::BuiltinFunctionReference(
-                    BuiltinFunction::ItemAbsolutePosition,
-                    None,
-                )),
-                arguments: vec![Expression::ElementReference(Rc::downgrade(&elem))],
-                source_location: None,
-            };
-            elem.borrow_mut().bindings.insert(
-                cached_parent_position_prop_name.clone(),
-                RefCell::new(point_binding.into()),
-            );
-        }
-
-        // Create a binding to the hidden point property and add item local x/y. The
-        // materialize properties pass is going to create the actual property for
-        // absolute-position.
-        let binding = Expression::Struct {
+        let parent_position_var = Box::new(Expression::ReadLocalVariable {
+            name: "parent_position".into(),
             ty: point_type.clone(),
-            values: IntoIterator::into_iter(["x", "y"])
-                .map(|coord| {
-                    (
-                        coord.to_string(),
-                        Expression::BinaryExpression {
-                            lhs: Expression::StructFieldAccess {
-                                base: Expression::PropertyReference(NamedReference::new(
-                                    &elem,
-                                    &cached_parent_position_prop_name,
+        });
+
+        let binding = Expression::CodeBlock(vec![
+            Expression::StoreLocalVariable {
+                name: "parent_position".into(),
+                value: Expression::FunctionCall {
+                    function: Box::new(Expression::BuiltinFunctionReference(
+                        BuiltinFunction::ItemAbsolutePosition,
+                        None,
+                    )),
+                    arguments: vec![Expression::ElementReference(Rc::downgrade(&elem))],
+                    source_location: None,
+                }
+                .into(),
+            },
+            Expression::Struct {
+                ty: point_type.clone(),
+                values: IntoIterator::into_iter(["x", "y"])
+                    .map(|coord| {
+                        (
+                            coord.to_string(),
+                            Expression::BinaryExpression {
+                                lhs: Expression::StructFieldAccess {
+                                    base: parent_position_var.clone(),
+                                    name: coord.to_string(),
+                                }
+                                .into(),
+                                rhs: Expression::PropertyReference(NamedReference::new(
+                                    &elem, &coord,
                                 ))
                                 .into(),
-                                name: coord.to_string(),
-                            }
-                            .into(),
-                            rhs: Expression::PropertyReference(NamedReference::new(&elem, &coord))
-                                .into(),
-                            op: '+',
-                        },
-                    )
-                })
-                .collect(),
-        };
+                                op: '+',
+                            },
+                        )
+                    })
+                    .collect(),
+            },
+        ]);
+
         elem.borrow_mut().bindings.insert(nr.name().to_string(), RefCell::new(binding.into()));
     }
 }
