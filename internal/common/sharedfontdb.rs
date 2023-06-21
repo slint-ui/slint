@@ -114,7 +114,7 @@ fn init_fontdb() -> FontDatabase {
         target_os = "ios",
         target_arch = "wasm32"
     )))]
-    let mut fontconfig_fallback_families;
+    let mut fontconfig_fallback_families = Vec::new();
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -132,18 +132,29 @@ fn init_fontdb() -> FontDatabase {
                 target_os = "ios",
                 target_arch = "wasm32"
             )))] {
-                let default_sans_serif_family = {
-                    fontconfig_fallback_families = fontconfig::find_families("sans-serif")
-                        .into_iter()
-                        .map(|s| s.into())
-                        .collect::<Vec<String>>();
-                    fontconfig_fallback_families.remove(0)
-                };
-            } else {
-                let default_sans_serif_family = "Arial";
+                match fontconfig::find_families("sans-serif") {
+                    Ok(mut fallback_families) => {
+                        if !fallback_families.is_empty() {
+                            let default_sans_serif_family = fallback_families.remove(0);
+                            font_db.set_sans_serif_family(default_sans_serif_family);
+                        }
+                        fontconfig_fallback_families = fallback_families;
+                    }
+                    Err(e) => {
+                        eprintln!("Error opening libfontconfig.so.1: {}", e);
+                    }
+                }
             }
         }
-        font_db.set_sans_serif_family(default_sans_serif_family);
+        if font_db
+            .query(&fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() })
+            .is_none()
+        {
+            panic!(
+                "Unable to determine default font. Failed to locale font for family {}",
+                font_db.family_name(&fontdb::Family::SansSerif)
+            )
+        }
     }
 
     FontDatabase {

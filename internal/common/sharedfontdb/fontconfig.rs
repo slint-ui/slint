@@ -16,10 +16,9 @@ struct FcFontSet {
 }
 
 // This is duplicated in the slint-compiler's glyph embedding code
-pub fn find_families(requested_family: &str) -> Vec<String> {
+pub fn find_families(requested_family: &str) -> Result<Vec<String>, libloading::Error> {
     unsafe {
-        let fontconfig = libloading::Library::new("libfontconfig.so.1")
-            .expect("Unable to dlopen libfontconfig.so.1");
+        let fontconfig = libloading::Library::new("libfontconfig.so.1")?;
         let fc_init_load_config_and_fonts: libloading::Symbol<
             unsafe extern "C" fn() -> *mut c_void,
         > = fontconfig
@@ -102,6 +101,6 @@ pub fn find_families(requested_family: &str) -> Vec<String> {
         fc_font_set_destroy(result_set);
         fc_pattern_destroy(pattern);
         fc_config_destroy(config);
-        families
+        Ok(families)
     }
 }
