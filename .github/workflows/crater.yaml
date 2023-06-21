@@ -20,54 +20,59 @@ jobs:
       matrix:
         git_url:
           - "https://github.com/slint-ui/cargo-ui"
-          # - "https://github.com/Futsch1/image-sieve" (not poted to 0.3)
+          - "https://github.com/Futsch1/image-sieve"
           - "https://github.com/jturcotte/chiptrack"
-          #- "https://codeberg.org/moire/moire"
+          - "https://codeberg.org/moire/moire"
           #- "https://github.com/Project-Trains/launcher"
           #- "https://github.com/jannes/han-cihui"
           #- "https://github.com/leofidus/ntfs-explorer"
-          - "https://github.com/gsuyemoto/rust-bombfield"
+          #- "https://github.com/gsuyemoto/rust-bombfield"
           - "https://github.com/Decodetalkers/launchre"
-          - "https://github.com/kizeevov/l5"
-          - "https://github.com/SergioGasquez/espup-slint"
-          - "https://github.com/Ouam74/RUST_Real-time_plots_using_SLINT_and_PLOTTERS.rs"
+          - "https://github.com/Decodetalkers/haruhishot"
+          #- "https://github.com/kizeevov/l5"
+          #- "https://github.com/SergioGasquez/espup-slint"
           - "https://github.com/smalltext/trace-slint/"
           - "https://github.com/danrauch/thermocam"
           - "https://github.com/saturn77/magnet"
-          - "https://github.com/azavgo/bouncing_ball"
           - "https://codeberg.org/flovansl/co_sl"
+          - "https://github.com/nununoisy/gb-presenter-rs"
+          - "https://github.com/nununoisy/nsf-presenter-rs"
+          - "https://github.com/GaspardCulis/slint-tetris"
+          - "https://github.com/Heng30/chatbox"
+          - "https://github.com/link9c/media_backup"
+          - "https://github.com/danvonk/slintlearn"
         sub_path: ["."]
 
         include:
           - git_url: "https://github.com/griccardos/rusl"
             sub_path: "slint"
-          - git_url: "https://github.com/erlangen-dev/coffee-caller"
-            sub_path: "frontend-desktop"
-
-
-    runs-on: ubuntu-20.04
+          - git_url: "https://github.com/Berrysoft/tunet-rust"
+            sub_path: "tunet-gui"
+          - git_url: "https://github.com/DanielMadmon/tasker"
+            sub_path: "bin/tasker_gui"
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/install-linux-dependencies
-      with:
-        extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev
-    # Don't use the cache because we don't run this job often, and it would cache the .cargo/config with extra keys
-    - uses: dtolnay/rust-toolchain@stable
-    - name: setup patch
-      run: |
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/install-linux-dependencies
+        with:
+          extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev
+      # Don't use the cache because we don't run this job often, and it would cache the .cargo/config with extra keys
+      - uses: dtolnay/rust-toolchain@stable
+      - name: setup patch
+        run: |
           echo "" >> ~/.cargo/config
           echo [patch.crates-io] >> ~/.cargo/config
           echo slint = { path = \"$GITHUB_WORKSPACE/api/rs/slint\" } >> ~/.cargo/config
           echo slint-build = { path = \"$GITHUB_WORKSPACE/api/rs/build\" }  >> ~/.cargo/config
-    - name: Checkout the repo
-      run: |
+      - name: Checkout the repo
+        run: |
           cd $HOME
           git clone ${{ matrix.git_url }}  the_repo --depth 1
           cd the_repo
           git submodule update --init
-    - name: build
-      run: |
-        cd $HOME/the_repo
-        cd ${{ matrix.sub_path }}
-        cargo update
-        cargo build
+      - name: build
+        run: |
+          cd $HOME/the_repo
+          cd ${{ matrix.sub_path }}
+          cargo update
+          cargo build
