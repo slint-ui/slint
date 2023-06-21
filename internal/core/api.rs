@@ -756,7 +756,7 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) -> Result<()
 /// it will return immediately and once control is passed back to the event loop,
 /// the initial call to `slint::run_event_loop()` will return.
 ///
-/// Calling this function from anoter thread than the main thread may result in a panic
+/// Calling this function from another thread than the main thread may result in a panic
 pub fn quit_event_loop() -> Result<(), EventLoopError> {
     crate::platform::event_loop_proxy()
         .ok_or(EventLoopError::NoEventLoopProvider)?
