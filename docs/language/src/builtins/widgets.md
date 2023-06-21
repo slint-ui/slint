@@ -140,15 +140,15 @@ A `GroupBox` is a container that groups its children together under a common tit
 ### Example
 
 ```slint
-import { GroupBox } from "std-widgets.slint";
+import { GroupBox , VerticalBox, CheckBox } from "std-widgets.slint";
 export component Example inherits Window {
     width: 200px;
     height: 100px;
     GroupBox {
-        title: "A Nice Title";
-        Text {
-            text: "Hello World";
-            color: blue;
+        title: "Groceries";
+        VerticalLayout {
+            CheckBox { text: "Bread"; checked: true ;}
+            CheckBox { text: "Fruits"; }
         }
     }
 }
