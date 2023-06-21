@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-06-20 03:04+0000\n"
+"POT-Creation-Date: 2023-06-21 03:04+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: German (https://app.transifex.com/slint/teams/170022/de/)\n"
@@ -50,6 +50,151 @@ msgstr ""
 #: gallery.slint:20
 msgctxt "Menu"
 msgid "About"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:9
+msgctxt "ListViewPage"
+msgid "ListView"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:10
+msgctxt "ListViewPage"
+msgid ""
+"ListViews can be used to display a list of elements. The StandardListBox is "
+"like the default ListView just with a default text based definition of the "
+"visual items. Both can be imported from \"std-widgets.slint\""
+msgstr ""
+
+#: ui/pages/list_view_page.slint:25
+msgctxt "ListViewPage"
+msgid "Item {}"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "Lorem"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "ipsum"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "dolor"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "sit"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "amet"
+msgstr ""
+
+#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
+#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
+#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
+#: ui/pages/list_view_page.slint:43
+msgctxt "ListViewPage"
+msgid "consetetur"
+msgstr ""
+
+#: ui/pages/page.slint:25
+#, fuzzy
+msgctxt "Page"
+msgid "Widgets enabled"
+msgstr "Slint Widgets Galerie"
+
+#: ui/pages/table_view_page.slint:22
+msgctxt "TableViewPage"
+msgid "TableView"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:23
+msgctxt "TableViewPage"
+msgid ""
+"StandardTableView can be used to display a list of text elements in columns "
+"and rows. It can be imported from \"std-widgets.slint\""
+msgstr ""
+
+#: ui/pages/table_view_page.slint:29
+msgctxt "TableViewPage"
+msgid "StandardTableView"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:42
+msgctxt "TableViewPage"
+msgid "Header 1"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:43
+msgctxt "TableViewPage"
+msgid "Header 2"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:44
+msgctxt "TableViewPage"
+msgid "Header 3"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:45
+msgctxt "TableViewPage"
+msgid "Header 4"
+msgstr ""
+
+#: ui/pages/text_edit_page.slint:9
+msgctxt "TextEditPage"
+msgid "TextEdit"
+msgstr ""
+
+#: ui/pages/text_edit_page.slint:10
+msgctxt "TextEditPage"
+msgid ""
+"Similar to LineEdit, but can be used to enter several lines of text. The "
+"widget can be imported from \"std-widgets.slint\"."
+msgstr ""
+
+#: ui/pages/text_edit_page.slint:15
+msgctxt "TextEditPage"
+msgid "Word-Wrap"
+msgstr ""
+
+#. min-width: 200px;
+#: ui/pages/text_edit_page.slint:18
+msgctxt "TextEditPage"
+msgid ""
+"This is our TextEdit widget, which allows for editing text that spans over "
+"multiple paragraphs.\n"
+"For example this line starts in a new paragraph.\n"
+"\n"
+"When the amount of lines - due to wrapping and number of paragraphs - "
+"exceeds the available vertical height, a vertical scrollbar is shown that "
+"allows scrolling.\n"
+"You may want to enter a bit of text here then in order to make them visible."
+msgstr ""
+
+#: ui/pages/text_edit_page.slint:25
+msgctxt "TextEditPage"
+msgid "No-Wrap"
 msgstr ""
 
 #: ui/pages/controls_page.slint:10
@@ -152,197 +297,52 @@ msgctxt "ControlsPage"
 msgid "ProgressIndicator"
 msgstr ""
 
-#: ui/pages/controls_page.slint:118
+#: ui/pages/controls_page.slint:116
 msgctxt "ControlsPage"
 msgid "indeterminate"
 msgstr ""
 
-#: ui/pages/controls_page.slint:125
+#: ui/pages/controls_page.slint:123
 msgctxt "ControlsPage"
 msgid "TabWidget"
 msgstr ""
 
-#: ui/pages/controls_page.slint:129
+#: ui/pages/controls_page.slint:127
 msgctxt "ControlsPage"
 msgid "Tab 1"
 msgstr ""
 
-#: ui/pages/controls_page.slint:135
+#: ui/pages/controls_page.slint:133
 msgctxt "ControlsPage"
 msgid "Content of tab 1"
 msgstr ""
 
-#: ui/pages/controls_page.slint:141
+#: ui/pages/controls_page.slint:139
 msgctxt "ControlsPage"
 msgid "Click me"
 msgstr ""
 
-#: ui/pages/controls_page.slint:150
+#: ui/pages/controls_page.slint:148
 msgctxt "ControlsPage"
 msgid "Tab 2"
 msgstr ""
 
-#: ui/pages/controls_page.slint:156
+#: ui/pages/controls_page.slint:154
 msgctxt "ControlsPage"
 msgid "Content of tab 2"
 msgstr ""
 
-#: ui/pages/controls_page.slint:162
+#: ui/pages/controls_page.slint:160
 msgctxt "ControlsPage"
 msgid "Check me"
 msgstr ""
 
-#: ui/pages/controls_page.slint:171
+#: ui/pages/controls_page.slint:169
 msgctxt "ControlsPage"
 msgid "Tab 3"
 msgstr ""
 
-#: ui/pages/controls_page.slint:175
+#: ui/pages/controls_page.slint:173
 msgctxt "ControlsPage"
 msgid "Content of tab 3"
-msgstr ""
-
-#: ui/pages/page.slint:25
-#, fuzzy
-msgctxt "Page"
-msgid "Widgets enabled"
-msgstr "Slint Widgets Galerie"
-
-#: ui/pages/text_edit_page.slint:9
-msgctxt "TextEditPage"
-msgid "TextEdit"
-msgstr ""
-
-#: ui/pages/text_edit_page.slint:10
-msgctxt "TextEditPage"
-msgid ""
-"Similar to LineEdit, but can be used to enter several lines of text. The "
-"widget can be imported from \"std-widgets.slint\"."
-msgstr ""
-
-#: ui/pages/text_edit_page.slint:15
-msgctxt "TextEditPage"
-msgid "Word-Wrap"
-msgstr ""
-
-#. min-width: 200px;
-#: ui/pages/text_edit_page.slint:18
-msgctxt "TextEditPage"
-msgid ""
-"This is our TextEdit widget, which allows for editing text that spans over "
-"multiple paragraphs.\n"
-"For example this line starts in a new paragraph.\n"
-"\n"
-"When the amount of lines - due to wrapping and number of paragraphs - "
-"exceeds the available vertical height, a vertical scrollbar is shown that "
-"allows scrolling.\n"
-"You may want to enter a bit of text here then in order to make them visible."
-msgstr ""
-
-#: ui/pages/text_edit_page.slint:25
-msgctxt "TextEditPage"
-msgid "No-Wrap"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:9
-msgctxt "ListViewPage"
-msgid "ListView"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:10
-msgctxt "ListViewPage"
-msgid ""
-"ListViews can be used to display a list of elements. The StandardListBox is "
-"like the default ListView just with a default text based definition of the "
-"visual items. Both can be imported from \"std-widgets.slint\""
-msgstr ""
-
-#: ui/pages/list_view_page.slint:25
-msgctxt "ListViewPage"
-msgid "Item {}"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "Lorem"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "ipsum"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "dolor"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "sit"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "amet"
-msgstr ""
-
-#: ui/pages/list_view_page.slint:37 ui/pages/list_view_page.slint:38
-#: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
-#: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
-#: ui/pages/list_view_page.slint:43
-msgctxt "ListViewPage"
-msgid "consetetur"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:22
-msgctxt "TableViewPage"
-msgid "TableView"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:23
-msgctxt "TableViewPage"
-msgid ""
-"StandardTableView can be used to display a list of text elements in columns "
-"and rows. It can be imported from \"std-widgets.slint\""
-msgstr ""
-
-#: ui/pages/table_view_page.slint:29
-msgctxt "TableViewPage"
-msgid "StandardTableView"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:42
-msgctxt "TableViewPage"
-msgid "Header 1"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:43
-msgctxt "TableViewPage"
-msgid "Header 2"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:44
-msgctxt "TableViewPage"
-msgid "Header 3"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:45
-msgctxt "TableViewPage"
-msgid "Header 4"
 msgstr ""
