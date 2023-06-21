@@ -259,7 +259,8 @@ fn main_loop(connection: &Connection, init_param: InitializeParams) -> Result<()
     for msg in &connection.receiver {
         match msg {
             Message::Request(req) => {
-                if connection.handle_shutdown(&req)? {
+                // ignore errors when shutdown
+                if connection.handle_shutdown(&req).unwrap_or(false) {
                     return Ok(());
                 }
                 futures.push(Box::pin(rh.handle_request(req, &ctx)));

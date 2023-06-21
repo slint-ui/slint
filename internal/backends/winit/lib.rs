@@ -233,11 +233,8 @@ impl i_slint_core::platform::Platform for Backend {
         struct Proxy;
         impl EventLoopProxy for Proxy {
             fn quit_event_loop(&self) -> Result<(), i_slint_core::api::EventLoopError> {
-                crate::event_loop::with_window_target(|event_loop| {
-                    event_loop
-                        .event_loop_proxy()
-                        .send_event(SlintUserEvent::CustomEvent { event: CustomEvent::Exit })
-                        .map_err(|_| i_slint_core::api::EventLoopError::EventLoopTerminated)
+                send_event_via_global_event_loop_proxy(SlintUserEvent::CustomEvent {
+                    event: CustomEvent::Exit,
                 })
             }
 
