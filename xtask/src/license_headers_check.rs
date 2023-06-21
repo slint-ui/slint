@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-// cSpell: ignore datetime dotdot
+// cSpell: ignore datetime dotdot gettext
 
 use anyhow::Context;
 use anyhow::Result;
@@ -73,6 +73,16 @@ impl<'a> SourceFileWithTags<'a> {
             }
             None => None,
         };
+
+        // Find default gettext copyright statements
+        let location = location.or_else(|| {
+            let Some(start) = source.find("# SOME DESCRIPTIVE TITLE").or_else(|| source.find("# Copyright (C) ")) else { return None; };
+            let end_line = "# This file is distributed under the same license as the ";
+            let Some(end) = source[start..].find(end_line) else { return None; };
+            let end = start + end + end_line.len();
+            let Some(end_nl) = source[end..].find('\n') else { return None; };
+            Some(std::ops::Range {start, end: end + end_nl + 1})
+        });
 
         Self { source, tag_style: style, tag_location: location }
     }
@@ -328,8 +338,8 @@ lazy_static! {
         ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.png$", LicenseLocation::NoLicense),
         ("\\.mo$", LicenseLocation::NoLicense),
-        ("\\.po$", LicenseLocation::NoLicense),
-        ("\\.pot$", LicenseLocation::NoLicense),
+        ("\\.po$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("\\.pot$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
         ("\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),

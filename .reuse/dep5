@@ -7,23 +7,23 @@ Files: */slint-logo-*.svg */slint-logo-*.png */madewithslint-logo-*.svg */madewi
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: CC-BY-ND-4.0
 
-Files: .clang-format .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock
+Files: .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-Files: *.md api/cpp/docs/* docs/*
+Files: *.md api/cpp/docs/*/*.html api/cpp/docs/*/*.css docs/*/*.css docs/*/*.html docs/*/book.toml docs/*/package.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: *.pot *.po *.mo
+Files: examples/*/LC_MESSAGES/*.mo
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: MIT
+
+Files: helper_crates/vtable/*.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-Files: helper_crates/vtable/*
-Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
-
-Files: helper_crates/const-field-offset/*
+Files: helper_crates/const-field-offset/*.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT or Apache-2.0
 
@@ -46,10 +46,6 @@ License: Unlicense
 Files: examples/iot-dashboard/images/*.svg examples/iot-dashboard/images/*.png
 Copyright: Uwe Rathmann <https://github.com/uwerat/qskinny/tree/master/examples/iotdashboard/images>
 License: LicenseRef-qskinny
-
-Files: internal/backends/qt/QtThirdPartySoftware_Listing.txt
-Copyright: The Qt Company <https://qt.io/>
-License: LGPL-3.0-only
 
 Files: editors/sublime/LSP.sublime-settings
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>

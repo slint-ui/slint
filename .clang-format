@@ -1,11 +1,5 @@
-# Copyright (C) 2016 Olivier Goffart <ogoffart@woboq.com>
-#
-# You may use this file under the terms of the 3-clause BSD license.
-# See the file LICENSE from this package for details.
-
-# This is the clang-format configuration style to be used by Qt,
-# based on the rules from https://wiki.qt.io/Qt_Coding_Style and
-# https://wiki.qt.io/Coding_Conventions
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 ---
 # Webkit style was loosely based on the Qt style
@@ -22,7 +16,7 @@ ColumnLimit: 100
 
 # Disable reflow of qdoc comments: indentation rules are different.
 # Translation comments and SDPX-License-Identifiers either.
-CommentPragmas: "^(!|:|\\s*SPDX-License-Identifier: )"
+CommentPragmas: "^(!|:|\\s*[S]PDX-License-Identifier: )"
 
 # We want a space between the type and the star for pointer types.
 PointerBindsToType: false
@@ -79,7 +73,16 @@ AllowShortFunctionsOnASingleLine: Inline
 SortIncludes: "Never"
 
 # macros for which the opening brace stays attached.
-ForEachMacros:   [ foreach, Q_FOREACH, BOOST_FOREACH, forever, Q_FOREVER, QBENCHMARK, QBENCHMARK_ONCE ]
+ForEachMacros:
+    [
+        foreach,
+        Q_FOREACH,
+        BOOST_FOREACH,
+        forever,
+        Q_FOREVER,
+        QBENCHMARK,
+        QBENCHMARK_ONCE,
+    ]
 
 # Break constructor initializers before the colon and after the commas.
 BreakConstructorInitializers: BeforeColon
