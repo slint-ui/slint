@@ -64,7 +64,7 @@ jobs:
           echo [patch.crates-io] >> ~/.cargo/config
           echo slint = { path = \"$GITHUB_WORKSPACE/api/rs/slint\" } >> ~/.cargo/config
           echo slint-build = { path = \"$GITHUB_WORKSPACE/api/rs/build\" }  >> ~/.cargo/config
-          echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/api/rs/build\" }  >> ~/.cargo/config
+          echo i-slint-backend-winit = { path = \"$GITHUB_WORKSPACE/internal/backends/winit\" }  >> ~/.cargo/config
       - name: Checkout the repo
         run: |
           cd $HOME
