@@ -12,13 +12,14 @@ export component TextEdit {
     in property <bool> read-only <=> i-text-input.read-only;
     in property <length> font-size <=> i-text-input.font-size;
     in property <bool> enabled <=> i-text-input.enabled;
-    out property <bool> has-focus: i-text-input.has-focus;
+    in-out property <bool> has-focus: i-text-input.has-focus;
     out property <length> visible-width <=> i-scroll-view.visible-width;
     out property <length> visible-height <=> i-scroll-view.visible-height;
     in-out property <string> text <=> i-text-input.text;
     in-out property <length> viewport-x <=> i-scroll-view.viewport-x;
     in-out property <length> viewport-y <=> i-scroll-view.viewport-y;
     in-out property <length> viewport-width <=> i-scroll-view.viewport-width;
+    in-out property <length> viewport-height <=> i-scroll-view.viewport-height;
 
     forward-focus: i-text-input;
     horizontal-stretch: 1;
