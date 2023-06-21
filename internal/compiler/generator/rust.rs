@@ -2536,7 +2536,7 @@ fn compile_builtin_function_call(
             if let [Expression::PropertyReference(pr)] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 quote!(
-                    (*#item_rc).map_to_window(Default::default()).to_untyped()
+                    slint::private_unstable_api::re_exports::logical_position_to_api((*#item_rc).map_to_window(Default::default()))
                 )
             } else {
                 panic!("internal error: invalid args to MapPointToWindow {:?}", arguments)

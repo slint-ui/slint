@@ -1449,7 +1449,7 @@ pub struct PointerEvent {
 pub unsafe extern "C" fn slint_item_absolute_position(
     self_component: &vtable::VRc<crate::component::ComponentVTable>,
     self_index: usize,
-) -> Point {
+) -> LogicalPoint {
     let self_rc = ItemRc::new(self_component.clone(), self_index);
-    self_rc.map_to_window(Default::default()).to_untyped()
+    self_rc.map_to_window(Default::default())
 }

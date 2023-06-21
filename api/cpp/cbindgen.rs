@@ -63,7 +63,7 @@ fn default_config() -> cbindgen::Config {
             ("VoidArg".into(), "void".into()),
             ("KeyEventArg".into(), "KeyEvent".into()),
             ("PointerEventArg".into(), "PointerEvent".into()),
-            ("PointArg".into(), "Point".into()),
+            ("PointArg".into(), "slint::LogicalPosition".into()),
             ("FloatArg".into(), "float".into()),
             ("Coord".into(), "float".into()),
         ]

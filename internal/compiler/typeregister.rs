@@ -21,9 +21,6 @@ pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
     ("z", Type::Float32),
 ];
 
-pub(crate) const RESERVED_ABSOLUTE_GEOMETRY_PROPERTIES: &[(&str, Type)] =
-    &[("absolute-x", Type::LogicalLength), ("absolute-y", Type::LogicalLength)];
-
 pub const RESERVED_LAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("min-width", Type::LogicalLength),
     ("min-height", Type::LogicalLength),
@@ -115,13 +112,13 @@ pub const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
 pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
     RESERVED_GEOMETRY_PROPERTIES
         .iter()
-        .chain(RESERVED_ABSOLUTE_GEOMETRY_PROPERTIES.iter())
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_ROTATION_PROPERTIES.iter())
         .chain(RESERVED_ACCESSIBILITY_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone()))
+        .chain(IntoIterator::into_iter([("absolute-position", logical_point_type())]))
         .chain(IntoIterator::into_iter([
             ("forward-focus", Type::ElementReference),
             ("focus", BuiltinFunction::SetFocusItem.ty()),
@@ -234,6 +231,7 @@ impl TypeRegister {
         register.insert_type(Type::Angle);
         register.insert_type(Type::Brush);
         register.insert_type(Type::Rem);
+        register.types.insert("Point".into(), logical_point_type());
 
         BUILTIN_ENUMS.with(|e| e.fill_register(&mut register));
 
@@ -402,7 +400,6 @@ impl TypeRegister {
     }
 }
 
-/// This is identical with builtins.slint's Point type (TODO: use that in the future)
 pub fn logical_point_type() -> Type {
     Type::Struct {
         fields: IntoIterator::into_iter([
@@ -410,7 +407,7 @@ pub fn logical_point_type() -> Type {
             ("y".to_owned(), Type::LogicalLength),
         ])
         .collect(),
-        name: Some("Point".into()),
+        name: Some("slint::LogicalPosition".into()),
         node: None,
         rust_attributes: None,
     }

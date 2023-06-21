@@ -187,6 +187,7 @@ The follow table summarizes the entire mapping:
 | anonymous object | anonymous tuple | The fields are in alphabetical order. |
 | enumeration | `enum` of the same name | The values are converted to CamelCase |
 | array | [`ModelRc`] | Arrays are represented as models, so that their contents can change dynamically. |
+| `Point` | [`LogicalPosition`] | A struct with `x` and `y` fields, representing logical coordinates. |
 
 For user defined structures in the .slint, an extra struct is generated.
 For example, if the `.slint` contains
