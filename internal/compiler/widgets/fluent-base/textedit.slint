@@ -1,0 +1,110 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+
+import { Typography, Palette } from "styling.slint";
+import { ScrollView } from "scrollview.slint";
+
+export component TextEdit {
+    callback edited(string /* text */);
+
+    in property <TextWrap> wrap <=> i-text-input.wrap;
+    in property <TextHorizontalAlignment> horizontal-alignment <=> i-text-input.horizontal-alignment;
+    in property <bool> read-only <=> i-text-input.read-only;
+    in property <length> font-size <=> i-text-input.font-size;
+    in property <bool> enabled <=> i-text-input.enabled;
+    in-out property <bool> has-focus: i-text-input.has-focus;
+    out property <length> visible-width <=> i-scroll-view.visible-width;
+    out property <length> visible-height <=> i-scroll-view.visible-height;
+    in-out property <string> text <=> i-text-input.text;
+    in-out property <length> viewport-x <=> i-scroll-view.viewport-x;
+    in-out property <length> viewport-y <=> i-scroll-view.viewport-y;
+    in-out property <length> viewport-width <=> i-scroll-view.viewport-width;
+    in-out property <length> viewport-height <=> i-scroll-view.viewport-height;
+
+    forward-focus: i-text-input;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    i-background := Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 4px;
+        background: Palette.control-default;
+        border-width: 1px;
+        border-color: Palette.text-control-border;
+
+        i-scroll-view := ScrollView {
+            x: 12px;
+            y: 12px;
+            width: parent.width - 24px;
+            height: parent.height - 24px;
+            viewport-width: root.wrap == TextWrap.word-wrap ? self.visible-width : max(self.visible-width, i-text-input.preferred-width);
+            viewport-height: max(self.visible-height, i-text-input.preferred-height);
+
+            i-text-input := TextInput {
+                enabled: true;
+                color: Palette.text-primary;
+                font-size: Typography.body.font-size;
+                font-weight: Typography.body.font-weight;
+                selection-background-color: Palette.accent-selected-text;
+                selection-foreground-color: self.color;
+                single-line: false;
+                wrap: word-wrap;
+
+                edited => {
+                    root.edited(self.text);
+                }
+
+                cursor-position-changed(cpos) => {
+                    if (cpos.x + root.viewport-x < 12px) {
+                        root.viewport-x = min(0px, max(parent.visible-width - self.width,  - cpos.x + 12px ));
+                    } else if (cpos.x + root.viewport-x > parent.visible-width - 12px) {
+                        root.viewport-x = min(0px, max(parent.visible-width - self.width,  parent.visible-width - cpos.x - 12px ));
+                    }
+                    if (cpos.y + root.viewport-y < 12px) {
+                        root.viewport-y = min(0px, max(parent.visible-height - self.height,  - cpos.y + 12px ));
+                    } else if (cpos.y + root.viewport-y > parent.visible-height - 12px - 20px) {
+                        // FIXME: font-height hardcoded to 20px
+                        root.viewport-y = min(0px, max(parent.visible-height - self.height,  parent.visible-height - cpos.y - 12px - 20px));
+                    }
+                }
+            }
+        }
+
+        i-focus-border := Rectangle {
+            x: parent.border-radius;
+            y: parent.height - self.height;
+            width: parent.width - 2 * parent.border-radius;
+            height: 2px;
+        }
+    }
+
+    public function select-all() {
+        i-text-input.select-all();
+    }
+
+    public function cut() {
+        i-text-input.cut();
+    }
+
+    public function copy() {
+        i-text-input.copy();
+    }
+
+    public function paste() {
+        i-text-input.paste();
+    }
+
+    states [
+        disabled when !root.enabled : {
+            i-background.background: Palette.control-disabled;
+            i-background.border-color: Palette.control-stroke;
+            i-text-input.color: Palette.text-disabled;
+        }
+        focused when root.has-focus : {
+            i-background.background: Palette.control-input-active;
+            i-background.border-color: Palette.control-stroke;
+            i-focus-border.background: Palette.accent-default;
+        }
+    ]
+}

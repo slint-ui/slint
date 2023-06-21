@@ -43,9 +43,13 @@ export component Slider {
         background: Palette.control-solid;
 
         i-thumb-border := Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
             width: 21px;
             height: self.width;
             border-radius: 10.5px;
+            border-width: 1px;
+            border-color: Palette.circle-border;
         }
 
         i-thumb-inner := Rectangle {
@@ -105,6 +109,7 @@ export component Slider {
         pressed when ( i-touch-area.pressed &&  i-touch-area.has-hover) || i-focus-scope.has-focus : {
             i-thumb-inner.width: 10px;
             i-thumb-inner.background: Palette.accent-tertiary;
+            i-thumb.border-color: Palette.control-stroke;
         }
         hover when i-touch-area.has-hover : {
             i-thumb-inner.width: 14px;

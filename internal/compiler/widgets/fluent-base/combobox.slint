@@ -64,9 +64,9 @@ export component ComboBox {
 
             i-icon := Image {
                 colorize: Palette.text-secondary;
-                width: 8px;
-                y: (parent.height - self.height) / 2;
+                width: 12px;
                 source: Icons.dropdown;
+                y: 2px;
 
                 animate colorize { duration: 150ms; }
             }
@@ -82,7 +82,7 @@ export component ComboBox {
 
     i-popup := PopupWindow {
         x: 0;
-        y: root.height + 1px;
+        y: -46px;
         width: root.width;
 
         MenuBorder {

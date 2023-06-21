@@ -10,6 +10,8 @@ component TableViewColumn inherits Rectangle {
 
     in property <SortOrder> sort-order: SortOrder.unsorted;
 
+    background: Palette.background;
+
     i-touch-area := TouchArea {
         width: parent.width - 11px;
     }
@@ -69,14 +71,12 @@ component TableViewColumn inherits Rectangle {
 
     states [
         pressed when i-touch-area.pressed : {
-            background: Palette.control-tertiary;
-        }
-        hover when i-touch-area.has-hover : {
             background: Palette.control-secondary;
         }
+        hover when i-touch-area.has-hover : {
+            background: Palette.sub-title-tertiary;
+        }
     ]
-
-    animate background { duration: 150ms; }
 }
 
 component TableViewCell inherits Rectangle {
@@ -94,10 +94,12 @@ component TableViewRow inherits Rectangle {
     callback clicked <=> i-touch-area.clicked;
 
     in property<bool> selected;
+    in property <bool> even;
 
     min-width: i-layout.min-width;
     min-height: max(34px, i-layout.min-height);
     border-radius: 4px;
+    background: root.even ? Palette.control-default : transparent;
 
     i-touch-area := TouchArea {}
 
@@ -118,19 +120,17 @@ component TableViewRow inherits Rectangle {
 
     states [
         pressed when i-touch-area.pressed : {
-            root.background: Palette.sub-title-secondary;
+            root.background: selected ? Palette.subtle-secondary : Palette.subtle-tertiary;
         }
-        hover when  i-touch-area.has-hover : {
-            root.background: Palette.sub-title-tertiary;
+        hover when i-touch-area.has-hover : {
+            root.background: selected ? Palette.subtle-tertiary : Palette.subtle-secondary;
             i-selector.height: root.selected ? 16px : 0;
         }
         selected when root.selected : {
-            root.background: Palette.sub-title-tertiary;
-            i-selector.height: root.selected ? 16px : 0;
+            root.background: Palette.subtle-secondary;
+            i-selector.height: 16px;
         }
     ]
-
-    animate background { duration: 150ms; }
 }
 
 export component StandardTableView {
@@ -160,7 +160,7 @@ export component StandardTableView {
             i-header-layout := HorizontalLayout {
                 width: max(self.preferred-width, parent.width);
                 x: i-scroll-view.viewport-x;
-                padding-right: 20px;
+                padding-right: 6px;
                 min-height: root.min-header-height;
 
                 for column[index] in root.columns : TableViewColumn {
@@ -198,6 +198,7 @@ export component StandardTableView {
 
                 for row[idx] in root.rows : TableViewRow {
                     selected: idx == root.current-row;
+                    even: mod(idx, 2) == 0;
 
                     for cell[index] in row : TableViewCell {
                         private property <bool> has_inner_focus;
@@ -216,7 +217,7 @@ export component StandardTableView {
                                 text: cell.text;
                                 font-weight: Typography.body.font-weight;
                                 font-size: Typography.body.font-size;
-                                color: Palette.text-primary;
+                                color: mod(idx, 2) == 0 ? Palette.text-primary : Palette.text-secondary;
                             }
                         }
                     }
