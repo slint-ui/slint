@@ -37,7 +37,7 @@ export global PrinterQueue  {
         } else {
             "Unknown job status"
         }
-    }    
+    }
 }
 
 
@@ -156,8 +156,10 @@ component NarrowPrintQueueElement inherits Rectangle {
 
 
     TouchArea {
-        clicked => {
-            root.expanded = !root.expanded;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.up) {
+                root.expanded = !root.expanded;
+            }
         }
     }
 
