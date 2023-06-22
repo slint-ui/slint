@@ -18,7 +18,7 @@ clap = { version = "4.0", features = ["derive", "wrap_help"] }
 polib = "0.2"
 
 [dev-dependencies]
-itertools = "0.10.5"
+itertools = "0.11"
 
 [[bin]]
 name = "slint-tr-extractor"
