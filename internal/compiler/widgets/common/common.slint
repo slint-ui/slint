@@ -146,15 +146,8 @@ export component AboutSlint {
         spacing: 8px;
         alignment: start;
 
-        i-text := Text {
-            text: "Made with";
-            font-size: 24px;
-            font-weight: 700;
-            horizontal-alignment: center;
-        }
-
         Image {
-            source: StyleMetrics.dark-color-scheme ? @image-url("slint-logo-dark.svg") : @image-url("slint-logo-light.svg");
+            source: StyleMetrics.dark-color-scheme ? @image-url("madewithslint-logo-dark.svg") : @image-url("madewithslint-logo-light.svg");
             preferred-width: 256px;
             min-height: 48px;
         }
