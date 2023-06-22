@@ -126,6 +126,16 @@ public:
     ///
     /// The texture must be bindable against the `GL_TEXTURE_2D` target, have `GL_RGBA` as format
     /// for the pixel data.
+    ///
+    /// Safety:
+    ///
+    /// This function is unsafe because invalid texture ids may lead to undefind behavior in OpenGL
+    /// drivers. A valid texture id is one that was created by the same OpenGL context that is
+    /// current during any of the invocations of the callback set on
+    /// [`Window::set_rendering_notifier()`]. OpenGL contexts between instances of [`slint::Window`]
+    /// are not sharing resources. Consequently
+    /// [`slint::Image`] objects created from borrowed OpenGL textures cannot be shared between
+    /// different windows.
     [[nodiscard]] static Image create_from_borrowed_gl_2d_rgba_texture(uint32_t texture_id,
                                                                        Size<unsigned int> size)
     {
