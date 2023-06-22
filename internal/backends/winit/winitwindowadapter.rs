@@ -3,7 +3,7 @@
 
 //! This module contains the GraphicsWindow that used to be within corelib.
 
-// cspell:ignore borderless corelib nesw webgl winit winsys xlib
+// cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
 
 use core::cell::Cell;
 #[cfg(target_arch = "wasm32")]
@@ -47,7 +47,7 @@ fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position
     }
 }
 
-fn window_size_to_slint(size: &corelib::api::WindowSize) -> winit::dpi::Size {
+fn window_size_to_winit(size: &corelib::api::WindowSize) -> winit::dpi::Size {
     match size {
         corelib::api::WindowSize::Logical(size) => {
             winit::dpi::Size::new(winit::dpi::LogicalSize::new(size.width, size.height))
@@ -420,7 +420,7 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn set_size(&self, size: corelib::api::WindowSize) {
-        self.winit_window().set_inner_size(window_size_to_slint(&size))
+        self.winit_window().set_inner_size(window_size_to_winit(&size))
     }
 
     fn size(&self) -> corelib::api::PhysicalSize {
