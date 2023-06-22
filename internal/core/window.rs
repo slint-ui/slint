@@ -97,7 +97,8 @@ pub trait WindowAdapter {
     /// This request is typically asynchronous.
     /// It is called when a property that was used during window rendering is marked as dirty.
     ///
-    /// An implementation should simply post an event and perform the drawing in a subsequent iteration of the event loop.
+    /// An implementation should repaint the window in a subsequent iteration of the event loop,
+    /// throttled to the screen refresh rate if possible.
     /// It is important not to query any Slint properties to avoid introducing a dependency loop in the properties,
     /// including the use of the render function, which itself queries properties.
     ///
