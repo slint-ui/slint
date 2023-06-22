@@ -3,7 +3,7 @@
 
 //! This module contains the GraphicsWindow that used to be within corelib.
 
-// cspell:ignore borderless corelib nesw webgl winit winsys xlib
+// cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
 
 use core::cell::Cell;
 #[cfg(target_arch = "wasm32")]
@@ -373,7 +373,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
             // when we create a surface that's bigger than the screen due to constraints (#532).
-            if winit_window.fullscreen().is_none() {
+            if winit_window.fullscreen().is_none() && !winit_window.is_maximized() {
                 winit_window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
             }
         }
@@ -394,7 +394,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
             // when we create a surface that's bigger than the screen due to constraints (#532).
-            if winit_window.fullscreen().is_some() {
+            if winit_window.fullscreen().is_some() || winit_window.is_maximized() {
                 return;
             }
 
