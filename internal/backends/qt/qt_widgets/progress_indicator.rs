@@ -46,6 +46,7 @@ impl Item for NativeProgressIndicator {
             option.minimum = 0;
             option.progress = progress;
             option.textVisible = false;
+            option.state |= QStyle::State_Horizontal;
 
             int chunkWidth = qApp->style()->pixelMetric(QStyle::PM_ProgressBarChunkWidth, &option, nullptr);
             auto size = QSize(chunkWidth * 10, option.fontMetrics.height() + 10);
@@ -100,7 +101,7 @@ impl Item for NativeProgressIndicator {
         FocusEventResult::FocusIgnored
     }
 
-    fn_render! { this dpr size painter widget _initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
         let indeterminate = this.indeterminate() as bool;
         let progress = if indeterminate { -1 } else { (this.progress().max(0.0).min(1.0) * 100.) as i32 };
 
@@ -109,10 +110,12 @@ impl Item for NativeProgressIndicator {
             widget as "QWidget*",
             size as "QSize",
             progress as "int",
-            dpr as "float"
+            dpr as "float",
+            initial_state as "int"
         ] {
             QPainter *painter_ = painter->get();
             QStyleOptionProgressBar option;
+            option.state |= QStyle::State(initial_state) | QStyle::State_Horizontal;
             option.rect = QRect(QPoint(), size / dpr);
             option.maximum = progress < 0 ? 0 : 100;
             option.minimum = 0;
