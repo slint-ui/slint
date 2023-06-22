@@ -10,7 +10,6 @@
 use copypasta::ClipboardProvider;
 use corelib::items::PointerEventButton;
 use corelib::lengths::LogicalPoint;
-use corelib::SharedString;
 use i_slint_core as corelib;
 
 use corelib::api::EventLoopError;
@@ -247,9 +246,9 @@ impl std::fmt::Debug for CustomEvent {
 mod key_codes {
     macro_rules! winit_key_to_char_fn {
         ($($char:literal # $name:ident # $($_qt:ident)|* # $($winit:ident)|* # $($_xkb:ident)|*;)*) => {
-            pub fn winit_key_to_char(virtual_keycode: winit::event::VirtualKeyCode) -> Option<char> {
+            pub fn winit_key_to_char(virtual_keycode: winit::keyboard::KeyCode) -> Option<char> {
                 let char = match(virtual_keycode) {
-                    $($(winit::event::VirtualKeyCode::$winit => $char,)*)*
+                    $($(winit::keyboard::KeyCode::$winit => $char,)*)*
                     _ => return None,
                 };
                 Some(char)
@@ -273,33 +272,33 @@ fn process_window_event(
         WindowEvent::CloseRequested => {
             window.window().dispatch_event(corelib::platform::WindowEvent::CloseRequested);
         }
-        WindowEvent::ReceivedCharacter(ch) => {
-            // On Windows, X11 and Wayland sequences like Ctrl+C will send a ReceivedCharacter after the pressed keyboard input event,
-            // with a control character. We choose not to forward those but try to use the current key code instead.
-            //
-            // We do not want to change the text to the value of the key press when that was a
-            // control key itself: We already sent that event when handling the KeyboardInput.
-            let text: SharedString = if ch.is_control() {
-                if let Some(ch) = window
-                    .currently_pressed_key_code()
-                    .take()
-                    .and_then(winit_key_code_to_string)
-                    .filter(|ch| !ch.is_control())
-                {
-                    ch
-                } else {
-                    return Ok(());
-                }
-            } else {
-                ch
-            }
-            .into();
-
-            window
-                .window()
-                .dispatch_event(corelib::platform::WindowEvent::KeyPressed { text: text.clone() });
-            window.window().dispatch_event(corelib::platform::WindowEvent::KeyReleased { text });
-        }
+        // WindowEvent::ReceivedCharacter(ch) => {
+        //     // On Windows, X11 and Wayland sequences like Ctrl+C will send a ReceivedCharacter after the pressed keyboard input event,
+        //     // with a control character. We choose not to forward those but try to use the current key code instead.
+        //     //
+        //     // We do not want to change the text to the value of the key press when that was a
+        //     // control key itself: We already sent that event when handling the KeyboardInput.
+        //     let text: SharedString = if ch.is_control() {
+        //         if let Some(ch) = window
+        //             .currently_pressed_key_code()
+        //             .take()
+        //             .and_then(winit_key_code_to_string)
+        //             .filter(|ch| !ch.is_control())
+        //         {
+        //             ch
+        //         } else {
+        //             return Ok(());
+        //         }
+        //     } else {
+        //         ch
+        //     }
+        //     .into();
+        //
+        //     window
+        //         .window()
+        //         .dispatch_event(corelib::platform::WindowEvent::KeyPressed { text: text.clone() });
+        //     window.window().dispatch_event(corelib::platform::WindowEvent::KeyReleased { text });
+        // }
         WindowEvent::Focused(have_focus) => {
             let have_focus = have_focus || window.input_method_focused();
             // We don't render popups as separate windows yet, so treat
@@ -310,26 +309,26 @@ fn process_window_event(
                 );
             }
         }
-        WindowEvent::KeyboardInput { ref input, .. } => {
+        WindowEvent::KeyboardInput { ref event, .. } => {
             // For now: Match Qt's behavior of mapping command to control and control to meta (LWin/RWin).
-            let key_code = input.virtual_keycode.map(|key_code| match key_code {
+            let key_code = match event.physical_key {
                 #[cfg(target_os = "macos")]
-                winit::event::VirtualKeyCode::LControl => winit::event::VirtualKeyCode::LWin,
+                winit::keyboard::KeyCode::ControlLeft => winit::keyboard::KeyCode::WinLeft,
                 #[cfg(target_os = "macos")]
-                winit::event::VirtualKeyCode::RControl => winit::event::VirtualKeyCode::RWin,
+                winit::keyboard::KeyCode::ControlRight => winit::keyboard::KeyCode::WinRight,
                 #[cfg(target_os = "macos")]
-                winit::event::VirtualKeyCode::LWin => winit::event::VirtualKeyCode::LControl,
+                winit::keyboard::KeyCode::WinLeft => winit::keyboard::KeyCode::ControlLeft,
                 #[cfg(target_os = "macos")]
-                winit::event::VirtualKeyCode::RWin => winit::event::VirtualKeyCode::RControl,
+                winit::keyboard::KeyCode::WinRight => winit::keyboard::KeyCode::ControlRight,
                 code => code,
-            });
-            window.currently_pressed_key_code().set(match input.state {
-                winit::event::ElementState::Pressed => key_code,
+            };
+            window.currently_pressed_key_code().set(match event.state {
+                winit::event::ElementState::Pressed => Some(key_code),
                 _ => None,
             });
-            if let Some(text) = key_code.and_then(key_codes::winit_key_to_char).map(|ch| ch.into())
-            {
-                window.window().dispatch_event(match input.state {
+            if let Some(text) = &event.text {
+                let text = text.as_str().into();
+                window.window().dispatch_event(match event.state {
                     winit::event::ElementState::Pressed => {
                         corelib::platform::WindowEvent::KeyPressed { text }
                     }
@@ -389,6 +388,8 @@ fn process_window_event(
                 winit::event::MouseButton::Right => PointerEventButton::Right,
                 winit::event::MouseButton::Middle => PointerEventButton::Middle,
                 winit::event::MouseButton::Other(_) => PointerEventButton::Other,
+                winit::event::MouseButton::Back => PointerEventButton::Other,
+                winit::event::MouseButton::Forward => PointerEventButton::Other,
             };
             let ev = match state {
                 winit::event::ElementState::Pressed => {
@@ -697,68 +698,6 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
             },
         )
     }
-}
-
-// This function is called when we receive a control character via WindowEvent::ReceivedCharacter and
-// instead want to use the last virtual key code. That happens when for example pressing Ctrl+some_key
-// on Windows/X11/Wayland. This function may be missing mappings, it's trying to cover what we may be
-// getting when we're getting control character sequences.
-fn winit_key_code_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Option<char> {
-    use winit::event::VirtualKeyCode;
-    Some(match virtual_keycode {
-        VirtualKeyCode::Key1 => '1',
-        VirtualKeyCode::Key2 => '2',
-        VirtualKeyCode::Key3 => '3',
-        VirtualKeyCode::Key4 => '4',
-        VirtualKeyCode::Key5 => '5',
-        VirtualKeyCode::Key6 => '6',
-        VirtualKeyCode::Key7 => '7',
-        VirtualKeyCode::Key8 => '8',
-        VirtualKeyCode::Key9 => '9',
-        VirtualKeyCode::Key0 => '0',
-        VirtualKeyCode::A => 'a',
-        VirtualKeyCode::B => 'b',
-        VirtualKeyCode::C => 'c',
-        VirtualKeyCode::D => 'd',
-        VirtualKeyCode::E => 'e',
-        VirtualKeyCode::F => 'f',
-        VirtualKeyCode::G => 'g',
-        VirtualKeyCode::H => 'h',
-        VirtualKeyCode::I => 'i',
-        VirtualKeyCode::J => 'j',
-        VirtualKeyCode::K => 'k',
-        VirtualKeyCode::L => 'l',
-        VirtualKeyCode::M => 'm',
-        VirtualKeyCode::N => 'n',
-        VirtualKeyCode::O => 'o',
-        VirtualKeyCode::P => 'p',
-        VirtualKeyCode::Q => 'q',
-        VirtualKeyCode::R => 'r',
-        VirtualKeyCode::S => 's',
-        VirtualKeyCode::T => 't',
-        VirtualKeyCode::U => 'u',
-        VirtualKeyCode::V => 'v',
-        VirtualKeyCode::W => 'w',
-        VirtualKeyCode::X => 'x',
-        VirtualKeyCode::Y => 'y',
-        VirtualKeyCode::Z => 'z',
-        VirtualKeyCode::Space => ' ',
-        VirtualKeyCode::Caret => '^',
-        VirtualKeyCode::Apostrophe => '\'',
-        VirtualKeyCode::Asterisk => '*',
-        VirtualKeyCode::Backslash => '\\',
-        VirtualKeyCode::Colon => ':',
-        VirtualKeyCode::Comma => ',',
-        VirtualKeyCode::Equals => '=',
-        VirtualKeyCode::Grave => '`',
-        VirtualKeyCode::Minus => '-',
-        VirtualKeyCode::Period => '.',
-        VirtualKeyCode::Plus => '+',
-        VirtualKeyCode::Semicolon => ';',
-        VirtualKeyCode::Slash => '/',
-        VirtualKeyCode::Tab => '\t',
-        _ => return None,
-    })
 }
 
 fn create_clipboard<T>(_event_loop: &winit::event_loop::EventLoopWindowTarget<T>) -> ClipboardPair {

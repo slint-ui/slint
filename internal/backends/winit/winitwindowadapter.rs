@@ -115,7 +115,7 @@ pub struct WinitWindowAdapter {
     window: OnceCell<corelib::api::Window>,
     #[cfg(target_arch = "wasm32")]
     self_weak: Weak<Self>,
-    currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
+    currently_pressed_key_code: std::cell::Cell<Option<winit::keyboard::KeyCode>>,
     pending_redraw: Cell<bool>,
     dark_color_scheme: OnceCell<Pin<Box<Property<bool>>>>,
     constraints: Cell<corelib::window::LayoutConstraints>,
@@ -242,7 +242,7 @@ impl WinitWindowAdapter {
         self.pending_redraw.take()
     }
 
-    pub fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>> {
+    pub fn currently_pressed_key_code(&self) -> &Cell<Option<winit::keyboard::KeyCode>> {
         &self.currently_pressed_key_code
     }
 
@@ -583,7 +583,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             MouseCursor::Default => winit::window::CursorIcon::Default,
             MouseCursor::None => winit::window::CursorIcon::Default,
             MouseCursor::Help => winit::window::CursorIcon::Help,
-            MouseCursor::Pointer => winit::window::CursorIcon::Hand,
+            MouseCursor::Pointer => winit::window::CursorIcon::Pointer,
             MouseCursor::Progress => winit::window::CursorIcon::Progress,
             MouseCursor::Wait => winit::window::CursorIcon::Wait,
             MouseCursor::Crosshair => winit::window::CursorIcon::Crosshair,

@@ -25,32 +25,32 @@
 macro_rules! for_each_special_keys {
     ($macro:ident) => {
         $macro![
-'\u{0008}'  # Backspace   # Qt_Key_Key_Backspace    # Back         # BackSpace  ;
+'\u{0008}'  # Backspace   # Qt_Key_Key_Backspace    # Backspace    # BackSpace  ;
 '\u{0009}'  # Tab         # Qt_Key_Key_Tab          # Tab          # Tab        ;
-'\u{000a}'  # Return      # Qt_Key_Key_Enter|Qt_Key_Key_Return # NumpadEnter|Return # Return;
+'\u{000a}'  # Return      # Qt_Key_Key_Enter|Qt_Key_Key_Return # NumpadEnter|Enter # Return;
 '\u{001b}'  # Escape      # Qt_Key_Key_Escape       # Escape       # Escape     ;
 '\u{0019}'  # Backtab     # Qt_Key_Key_Backtab      #              # BackTab    ;
 '\u{007f}'  # Delete      # Qt_Key_Key_Delete       # Delete       # Delete     ;
 
 // The modifier key codes comes from https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode.
-'\u{0010}'  # Shift       # Qt_Key_Key_Shift        # LShift       # Shift_L    ;
-'\u{0011}'  # Control     # Qt_Key_Key_Control      # LControl     # Control_L  ;
-'\u{0012}'  # Alt         # Qt_Key_Key_Alt          # LAlt         # Alt_L      ;
-'\u{0013}'  # AltGr       # Qt_Key_Key_AltGr        # RAlt         # Mode_switch;
+'\u{0010}'  # Shift       # Qt_Key_Key_Shift        # ShiftLeft    # Shift_L    ;
+'\u{0011}'  # Control     # Qt_Key_Key_Control      # ControlLeft  # Control_L  ;
+'\u{0012}'  # Alt         # Qt_Key_Key_Alt          # AltLeft      # Alt_L      ;
+'\u{0013}'  # AltGr       # Qt_Key_Key_AltGr        # AltRight     # Mode_switch;
 '\u{0014}'  # CapsLock    # Qt_Key_Key_CapsLock     #              # Caps_Lock  ;
 
-'\u{0015}'  # ShiftR      #                         # RShift       # Shift_R    ;
-'\u{0016}'  # ControlR    #                         # RControl     # Control_R  ;
+'\u{0015}'  # ShiftR      #                         # ShiftRight   # Shift_R    ;
+'\u{0016}'  # ControlR    #                         # ControlRight # Control_R  ;
 
 // Use custom codes instead of DOM_VK_META for meta, because the Mozilla defined code is a regular character (E0; LATIN SMALL LETTER A WITH GRAVE)
 // which makes those keys appear as text.
-'\u{0017}'  # Meta        # Qt_Key_Key_Meta         # LWin         # Meta_L     ;
-'\u{0018}'  # MetaR       #                         # RWin         # Meta_R     ;
+'\u{0017}'  # Meta        # Qt_Key_Key_Meta         # SuperLeft    # Meta_L     ;
+'\u{0018}'  # MetaR       #                         # SuperRight   # Meta_R     ;
 
-'\u{F700}'	# UpArrow     # Qt_Key_Key_Up           # Up           # Up         ;
-'\u{F701}'	# DownArrow   # Qt_Key_Key_Down         # Down         # Down       ;
-'\u{F702}'	# LeftArrow   # Qt_Key_Key_Left         # Left         # Left       ;
-'\u{F703}'	# RightArrow  # Qt_Key_Key_Right        # Right        # Right      ;
+'\u{F700}'	# UpArrow     # Qt_Key_Key_Up           # ArrowUp           # Up         ;
+'\u{F701}'	# DownArrow   # Qt_Key_Key_Down         # ArrowDown         # Down       ;
+'\u{F702}'	# LeftArrow   # Qt_Key_Key_Left         # ArrowLeft         # Left       ;
+'\u{F703}'	# RightArrow  # Qt_Key_Key_Right        # ArrowRight        # Right      ;
 '\u{F704}'	# F1          # Qt_Key_Key_F1           # F1           # F1         ;
 '\u{F705}'	# F2          # Qt_Key_Key_F2           # F2           # F2         ;
 '\u{F706}'	# F3          # Qt_Key_Key_F3           # F3           # F3         ;
@@ -75,17 +75,17 @@ macro_rules! for_each_special_keys {
 '\u{F719}'	# F22         # Qt_Key_Key_F22          # F22          # F22        ;
 '\u{F71A}'	# F23         # Qt_Key_Key_F23          # F23          # F23        ;
 '\u{F71B}'	# F24         # Qt_Key_Key_F24          # F24          # F24        ;
-//'\u{F71C}'# F25         # Qt_Key_Key_F25          #              # F25        ;
-//'\u{F71D}'# F26         # Qt_Key_Key_F26          #              # F26        ;
-//'\u{F71E}'# F27         # Qt_Key_Key_F27          #              # F27        ;
-//'\u{F71F}'# F28         # Qt_Key_Key_F28          #              # F28        ;
-//'\u{F720}'# F29         # Qt_Key_Key_F29          #              # F29        ;
-//'\u{F721}'# F30         # Qt_Key_Key_F30          #              # F30        ;
-//'\u{F722}'# F31         # Qt_Key_Key_F31          #              # F31        ;
-//'\u{F723}'# F32         # Qt_Key_Key_F32          #              # F32        ;
-//'\u{F724}'# F33         # Qt_Key_Key_F33          #              # F33        ;
-//'\u{F725}'# F34         # Qt_Key_Key_F34          #              # F34        ;
-//'\u{F726}'# F35         # Qt_Key_Key_F35          #              # F35        ;
+//'\u{F71C}'# F25         # Qt_Key_Key_F25          # F25          # F25        ;
+//'\u{F71D}'# F26         # Qt_Key_Key_F26          # F26          # F26        ;
+//'\u{F71E}'# F27         # Qt_Key_Key_F27          # F27          # F27        ;
+//'\u{F71F}'# F28         # Qt_Key_Key_F28          # F28          # F28        ;
+//'\u{F720}'# F29         # Qt_Key_Key_F29          # F29          # F29        ;
+//'\u{F721}'# F30         # Qt_Key_Key_F30          # F30          # F30        ;
+//'\u{F722}'# F31         # Qt_Key_Key_F31          # F31          # F31        ;
+//'\u{F723}'# F32         # Qt_Key_Key_F32          # F32          # F32        ;
+//'\u{F724}'# F33         # Qt_Key_Key_F33          # F33          # F33        ;
+//'\u{F725}'# F34         # Qt_Key_Key_F34          # F34          # F34        ;
+//'\u{F726}'# F35         # Qt_Key_Key_F35          # F35          # F35        ;
 '\u{F727}'	# Insert      # Qt_Key_Key_Insert       # Insert       # Insert     ;
 //'\u{F728}'	# Delete     ;  // already as a control code
 '\u{F729}'	# Home        # Qt_Key_Key_Home         # Home         # Home       ;
@@ -94,13 +94,13 @@ macro_rules! for_each_special_keys {
 '\u{F72C}'	# PageUp      # Qt_Key_Key_PageUp       # PageUp       # Page_Up    ;
 '\u{F72D}'	# PageDown    # Qt_Key_Key_PageDown     # PageDown     # Page_Down  ;
 //'\u{F72E}'	# PrintScreen #                         # Snapshot     ;
-'\u{F72F}'	# ScrollLock  # Qt_Key_Key_ScrollLock   # Scroll       # Scroll_Lock;
+'\u{F72F}'	# ScrollLock  # Qt_Key_Key_ScrollLock   # ScrollLock   # Scroll_Lock;
 '\u{F730}'	# Pause       # Qt_Key_Key_Pause        # Pause        # Pause      ;
-'\u{F731}'	# SysReq      # Qt_Key_Key_SysReq       # Sysrq        # Sys_Req    ;
+'\u{F731}'	# SysReq      # Qt_Key_Key_SysReq       # PrintScreen  # Sys_Req    ;
 //'\u{F732}'	# Break       #                         #              ;
 //'\u{F733}'	# Reset       #                         #              ;
-'\u{F734}'	# Stop        # Qt_Key_Key_Stop         # Stop         # XF86_Stop       ;
-'\u{F735}'	# Menu        # Qt_Key_Key_Menu         #              # Menu       ;
+'\u{F734}'	# Stop        # Qt_Key_Key_Stop         #              # XF86_Stop       ;
+'\u{F735}'	# Menu        # Qt_Key_Key_Menu         # ContextMenu  # Menu       ;
 //'\u{F736}'	# User        #                         #              ;
 //'\u{F737}'	# System      #                         #              ;
 //'\u{F738}'	# Print       # Qt_Key_Key_Print        #              ;
