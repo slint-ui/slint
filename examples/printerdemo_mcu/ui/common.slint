@@ -71,7 +71,11 @@ export component Page inherits Rectangle {
         width: 14px;
         height: 24px;
         TouchArea {
-            clicked => { root.back() }
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.up) {
+                    root.back()
+                }
+            }
             width: 400%;
             height: 200%;
             x: (parent.width - self.width) / 2;
@@ -88,7 +92,11 @@ export component Page inherits Rectangle {
         // Allow clicking on the title as well to get back easier when just
         // using fingers on a small screen.
         if (root.has-back-button) : TouchArea {
-            clicked => { root.back() }
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.up) {
+                    root.back()
+                }
+            }
         }
     }
 }
@@ -110,8 +118,10 @@ component SquareButton inherits Rectangle {
         y: -4px;
         width: parent.width + 8px;
         height: parent.height + 8px;
-        clicked => {
-            root.clicked();
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.up) {
+                root.clicked()
+            }
         }
     }
     Image {
@@ -200,7 +210,11 @@ export component ComboBox inherits Rectangle {
     TouchArea {
         width: 100%;
         height: 100%;
-        clicked => { popup.show(); }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.up) {
+                popup.show()
+            }
+        }
     }
 
     popup := PopupWindow {
@@ -261,8 +275,10 @@ export component CheckBox inherits Rectangle {
     }
 
     TouchArea {
-        clicked => {
-            root.checked = !root.checked;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.up) {
+                root.checked = !root.checked;
+            }
         }
     }
 }
@@ -304,5 +320,11 @@ export component PushButton inherits Rectangle {
         }
     }
 
-    touch-area := TouchArea { clicked => { root.clicked() } }
+    touch-area := TouchArea {
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.up) {
+                root.clicked()
+            }
+        }
+    }
 }
