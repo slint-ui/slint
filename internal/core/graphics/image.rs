@@ -619,8 +619,14 @@ impl Image {
     /// The texture must be bindable against the `GL_TEXTURE_2D` target, have `GL_RGBA` as format
     /// for the pixel data.
     ///
-    /// Safety: This method is marked as unsafe as passing invalid texture ids may result in
-    /// undefined behavior in OpenGL drivers.
+    /// # Safety
+    ///
+    /// This function is unsafe because invalid texture ids may lead to undefind behavior in OpenGL
+    /// drivers. A valid texture id is one that was created by the same OpenGL context that is
+    /// current during any of the invocations of the callback set on [`Window::set_rendering_notifier()`](crate::api::Window::set_rendering_notifier).
+    /// OpenGL contexts between instances of [`slint::Window`](crate::api::Window) are not sharing resources. Consequently
+    /// [`slint::Image`](Self) objects created from borrowed OpenGL textures cannot be shared between
+    /// different windows.
     #[allow(unsafe_code)]
     #[cfg(not(target_arch = "wasm32"))]
     pub unsafe fn from_borrowed_gl_2d_rgba_texture(
