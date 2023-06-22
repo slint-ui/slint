@@ -1316,71 +1316,96 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         physical_clip: euclid::Rect<f32, PhysicalPx>,
         offset: euclid::Vector2D<f32, PhysicalPx>,
         color: Color,
+        selection: Option<SelectionInfo>,
     ) where
         Font: crate::textlayout::TextShaper<Length = PhysicalLength>,
         Font: GlyphRenderer,
     {
         paragraph
-            .layout_lines::<()>(|glyphs, line_x, line_y, _| {
-                let baseline_y = line_y + paragraph.layout.font.ascent();
-                while let Some(positioned_glyph) = glyphs.next() {
-                    let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);
-
-                    let src_rect = PhysicalRect::new(
-                        PhysicalPoint::from_lengths(
-                            line_x + positioned_glyph.x + glyph.x,
-                            baseline_y - glyph.y - glyph.height,
-                        ),
-                        glyph.size(),
-                    )
-                    .cast();
-
-                    if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
-                        let geometry = clipped_src.translate(offset).round();
-                        let origin = (geometry.origin - offset.round()).cast::<usize>();
-                        let actual_x = origin.x - src_rect.origin.x as usize;
-                        let actual_y = origin.y - src_rect.origin.y as usize;
-                        let stride = glyph.width.get() as u16;
-                        let geometry = geometry.cast();
-
-                        match &glyph.alpha_map {
-                            fonts::GlyphAlphaMap::Static(data) => {
-                                self.processor.process_texture(
-                                    geometry,
-                                    SceneTexture {
-                                        data: &data[actual_x + actual_y * stride as usize..],
-                                        stride,
-                                        source_size: geometry.size,
-                                        format: PixelFormat::AlphaMap,
-                                        color,
-                                        // color already is mixed with global alpha
-                                        alpha: color.alpha(),
-                                    },
-                                );
-                            }
-                            fonts::GlyphAlphaMap::Shared(data) => {
-                                self.processor.process_shared_image_buffer(
-                                    geometry,
-                                    SharedBufferCommand {
-                                        buffer: SharedBufferData::AlphaMap {
-                                            data: data.clone(),
-                                            width: stride,
-                                        },
-                                        source_rect: PhysicalRect::new(
-                                            PhysicalPoint::new(actual_x as _, actual_y as _),
-                                            geometry.size,
-                                        ),
-                                        colorize: color,
-                                        // color already is mixed with global alpha
-                                        alpha: color.alpha(),
-                                    },
-                                );
-                            }
-                        };
+            .layout_lines::<()>(
+                |glyphs, line_x, line_y, _, sel| {
+                    let baseline_y = line_y + paragraph.layout.font.ascent();
+                    if let (Some(sel), Some(selection)) = (sel, &selection) {
+                        let geometry = euclid::rect(
+                            sel.start.get(),
+                            line_y.get(),
+                            (sel.end - sel.start).get(),
+                            paragraph.layout.font.height().get(),
+                        );
+                        if let Some(clipped_src) = geometry.intersection(&physical_clip.cast()) {
+                            self.processor.process_rectangle(
+                                clipped_src.translate(offset.cast()),
+                                selection.selection_background.into(),
+                            );
+                        }
                     }
-                }
-                core::ops::ControlFlow::Continue(())
-            })
+                    while let Some(positioned_glyph) = glyphs.next() {
+                        let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);
+
+                        let src_rect = PhysicalRect::new(
+                            PhysicalPoint::from_lengths(
+                                line_x + positioned_glyph.x + glyph.x,
+                                baseline_y - glyph.y - glyph.height,
+                            ),
+                            glyph.size(),
+                        )
+                        .cast();
+
+                        let color = match &selection {
+                            Some(s) if s.selection.contains(&positioned_glyph.text_byte_offset) => {
+                                s.selection_color
+                            }
+                            _ => color,
+                        };
+
+                        if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
+                            let geometry = clipped_src.translate(offset).round();
+                            let origin = (geometry.origin - offset.round()).cast::<usize>();
+                            let actual_x = origin.x - src_rect.origin.x as usize;
+                            let actual_y = origin.y - src_rect.origin.y as usize;
+                            let stride = glyph.width.get() as u16;
+                            let geometry = geometry.cast();
+
+                            match &glyph.alpha_map {
+                                fonts::GlyphAlphaMap::Static(data) => {
+                                    self.processor.process_texture(
+                                        geometry,
+                                        SceneTexture {
+                                            data: &data[actual_x + actual_y * stride as usize..],
+                                            stride,
+                                            source_size: geometry.size,
+                                            format: PixelFormat::AlphaMap,
+                                            color,
+                                            // color already is mixed with global alpha
+                                            alpha: color.alpha(),
+                                        },
+                                    );
+                                }
+                                fonts::GlyphAlphaMap::Shared(data) => {
+                                    self.processor.process_shared_image_buffer(
+                                        geometry,
+                                        SharedBufferCommand {
+                                            buffer: SharedBufferData::AlphaMap {
+                                                data: data.clone(),
+                                                width: stride,
+                                            },
+                                            source_rect: PhysicalRect::new(
+                                                PhysicalPoint::new(actual_x as _, actual_y as _),
+                                                geometry.size,
+                                            ),
+                                            colorize: color,
+                                            // color already is mixed with global alpha
+                                            alpha: color.alpha(),
+                                        },
+                                    );
+                                }
+                            };
+                        }
+                    }
+                    core::ops::ControlFlow::Continue(())
+                },
+                selection.as_ref().map(|s| s.selection.clone()),
+            )
             .ok();
     }
 
@@ -1397,6 +1422,12 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             color
         }
     }
+}
+
+struct SelectionInfo {
+    selection_color: Color,
+    selection_background: Color,
+    selection: core::ops::Range<usize>,
 }
 
 #[derive(Clone, Copy)]
@@ -1740,7 +1771,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: false,
                 };
 
-                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
@@ -1758,7 +1789,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: false,
                 };
 
-                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
             }
         }
     }
@@ -1794,6 +1825,13 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
         let text_visual_representation = text_input.visual_representation(None);
 
+        let selection =
+            (!text_visual_representation.selection_range.is_empty()).then_some(SelectionInfo {
+                selection_background: self.alpha_color(text_input.selection_background_color()),
+                selection_color: self.alpha_color(text_input.selection_foreground_color()),
+                selection: text_visual_representation.selection_range.clone(),
+            });
+
         let cursor_pos_and_height = match font {
             fonts::Font::PixelFont(pf) => {
                 let paragraph = TextParagraphLayout {
@@ -1808,7 +1846,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: text_input.single_line(),
                 };
 
-                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
 
                 text_visual_representation.cursor_position.map(|cursor_offset| {
                     (paragraph.cursor_pos_for_byte_offset(cursor_offset), pf.height())
@@ -1828,7 +1866,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     single_line: text_input.single_line(),
                 };
 
-                self.draw_text_paragraph(&paragraph, physical_clip, offset, color);
+                self.draw_text_paragraph(&paragraph, physical_clip, offset, color, selection);
 
                 text_visual_representation.cursor_position.map(|cursor_offset| {
                     (paragraph.cursor_pos_for_byte_offset(cursor_offset), vf.height())
