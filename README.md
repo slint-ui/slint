@@ -177,28 +177,10 @@ We have a few tools to help with the development of .slint files:
 Please check our [Editors README](./editors/README.md) for tips on how to
 configure your favorite editor to work well with Slint.
 
-## Made with Slint
+## #MadeWithSlint
 
-List of some open source projects using Slint: (Contact us or open a pull
-request to add yours)
-
-- **[Cargo UI](https://github.com/slint-ui/cargo-ui)**: A graphical frontend for
-  Cargo.
-- **[ImageSieve](https://github.com/Futsch1/image-sieve)** : GUI based tool to
-  sort and categorize images.
-- **[Moiré](https://codeberg.org/moire/moire)** : Musical live performance
-  application with a DAW-like timeline interface.
-- **[Chiptrack](https://github.com/jturcotte/chiptrack)**: A cross-platform
-  sequencer that internally uses a Game Boy emulator to synthesize the sound. ([online demo](https://jturcotte.github.io/chiptrack))
-- **[Project Trains Launcher](https://github.com/Project-Trains/launcher)**:
-  Cross-platform game launcher made for Project Trains simulator.
-- **[Mastermind](https://github.com/ElevenJune/mastermind_Rust)**: Mastermind
-  game coded in Rust.
-- **[Tetris](https://github.com/GaspardCulis/slint-tetris)**: Tetris
-  game coded in Rust. ([online demo](https://gaspardculis.github.io/slint-tetris/))
-- **[coop_widgets](https://codeberg.org/flovansl/co_sl)**: Custom widget
-  library for Slint.
-  ([online demo](https://flovansl.codeberg.page/coop_sl/snapshots/examples/widgets/))
+Visit <https://madewithslint.com> to view some of the projects using Slint: (Contact us or open a pull
+request on <https://github.com/slint-ui/madewithslint> to add yours).
 
 ## License
 
