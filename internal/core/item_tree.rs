@@ -96,14 +96,12 @@ impl ItemRc {
     }
 
     /// Returns a `VRcMapped` of this item, to conveniently access specialized item API.
-    pub fn downcast<'a, T: HasStaticVTable<ItemVTable>>(
-        &'a self,
+    pub fn downcast<T: HasStaticVTable<ItemVTable>>(
+        &self,
     ) -> Option<VRcMapped<ComponentVTable, T>> {
         #![allow(unsafe_code)]
         let item = self.borrow();
-        if ItemRef::downcast_pin::<T>(item).is_none() {
-            return None;
-        }
+        ItemRef::downcast_pin::<T>(item)?;
 
         Some(vtable::VRc::map_dyn(self.component.clone(), |comp_ref_pin| {
             let result = comp_ref_pin.as_ref().get_item_ref(self.index);
@@ -194,7 +192,7 @@ impl ItemRc {
             result += geometry.origin.to_vector();
             current = parent.clone();
         }
-        return result;
+        result
     }
 
     /// Return the index of the item within the component
@@ -607,7 +605,7 @@ impl<'a> ComponentItemTree<'a> {
             match self.item_tree[parent_index] {
                 ItemTreeNode::Item { children_index, children_count, .. } => (index
                     < (children_count as usize + children_index as usize - 1))
-                    .then(|| index + 1),
+                    .then_some(index + 1),
                 ItemTreeNode::DynamicTree { .. } => {
                     unreachable!("Parent in same item tree is a repeater.")
                 }
@@ -622,7 +620,7 @@ impl<'a> ComponentItemTree<'a> {
         if let Some(parent_index) = self.parent(index) {
             match self.item_tree[parent_index] {
                 ItemTreeNode::Item { children_index, .. } => {
-                    (index > children_index as usize).then(|| index - 1)
+                    (index > children_index as usize).then_some(index - 1)
                 }
                 ItemTreeNode::DynamicTree { .. } => {
                     unreachable!("Parent in same item tree is a repeater.")
@@ -638,7 +636,7 @@ impl<'a> ComponentItemTree<'a> {
     pub fn first_child(&self, index: usize) -> Option<usize> {
         match self.item_tree.get(index)? {
             ItemTreeNode::Item { children_index, children_count, .. } => {
-                (*children_count != 0).then(|| *children_index as _)
+                (*children_count != 0).then_some(*children_index as _)
             }
             ItemTreeNode::DynamicTree { .. } => None,
         }
@@ -648,8 +646,13 @@ impl<'a> ComponentItemTree<'a> {
     /// points to an `DynamicTree`.
     pub fn last_child(&self, index: usize) -> Option<usize> {
         match self.item_tree.get(index)? {
-            ItemTreeNode::Item { children_index, children_count, .. } => (*children_count != 0)
-                .then(|| *children_index as usize + *children_count as usize - 1),
+            ItemTreeNode::Item { children_index, children_count, .. } => {
+                if *children_count != 0 {
+                    Some(*children_index as usize + *children_count as usize - 1)
+                } else {
+                    None
+                }
+            }
             ItemTreeNode::DynamicTree { .. } => None,
         }
     }

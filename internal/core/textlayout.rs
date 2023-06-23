@@ -164,7 +164,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
                 }
             };
 
-            let mut elide_glyph = elide_glyph.as_ref().clone();
+            let mut elide_glyph = elide_glyph.as_ref();
 
             let selection = selection
                 .as_ref()
@@ -262,7 +262,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
                     return core::ops::ControlFlow::Continue(());
                 }
 
-                while let Some(positioned_glyph) = glyphs.next() {
+                for positioned_glyph in glyphs {
                     if positioned_glyph.text_byte_offset == byte_offset {
                         return core::ops::ControlFlow::Break((
                             line_x + positioned_glyph.x,

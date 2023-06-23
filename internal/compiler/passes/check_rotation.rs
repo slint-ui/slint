@@ -13,7 +13,7 @@ pub fn check_rotation(doc: &crate::object_tree::Document, diag: &mut BuildDiagno
             let e = elem.borrow();
             if crate::typeregister::RESERVED_ROTATION_PROPERTIES
                 .iter()
-                .any(|(property_name, _)| is_property_set(&*e, *&property_name))
+                .any(|(property_name, _)| is_property_set(&e, property_name))
             {
                 if matches!(e.native_class(), Some(native) if native.class_name != "ClippedImage") {
                     let span = e
@@ -26,7 +26,7 @@ pub fn check_rotation(doc: &crate::object_tree::Document, diag: &mut BuildDiagno
                         "rotation properties can only be applied to the Image element".into(),
                         span,
                     );
-                } else if has_any_children(&*e) {
+                } else if has_any_children(&e) {
                     diag.push_error_with_span(
                         "Elements with rotation properties cannot have children elements".into(),
                         e.to_source_location(),

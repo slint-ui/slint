@@ -67,7 +67,7 @@ pub fn lower_absolute_coordinates(component: &Rc<Component>) {
                                 }
                                 .into(),
                                 rhs: Expression::PropertyReference(NamedReference::new(
-                                    &elem, &coord,
+                                    &elem, coord,
                                 ))
                                 .into(),
                                 op: '+',

@@ -340,6 +340,7 @@ impl WindowAdapter for WinitWindowAdapter {
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {
+    #[allow(clippy::unnecessary_cast)] // Coord is used!
     fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
         let winit_window = self.winit_window();
 

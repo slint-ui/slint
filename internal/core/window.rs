@@ -145,10 +145,10 @@ pub trait WindowAdapterInternal {
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
-    fn unregister_component<'a>(
+    fn unregister_component(
         &self,
         _component: ComponentRef,
-        _items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
+        _items: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
     ) {
     }
 
@@ -344,8 +344,8 @@ impl WindowInner {
             mouse_input_state: Default::default(),
             modifiers: Default::default(),
             pinned_fields: Box::pin(WindowPinnedFields {
-                redraw_tracker: redraw_tracker,
-                window_properties_tracker: window_properties_tracker,
+                redraw_tracker,
+                window_properties_tracker,
                 scale_factor: Property::new_named(1., "i_slint_core::Window::scale_factor"),
                 active: Property::new_named(false, "i_slint_core::Window::active"),
                 text_input_focused: Property::new_named(
@@ -459,10 +459,11 @@ impl WindowInner {
             self.mouse_input_state.take(),
         ));
 
-        if embedded_popup_component.is_some() && close_popup_after_click {
-            if matches!(event, MouseEvent::Released { .. }) {
-                self.close_popup();
-            }
+        if embedded_popup_component.is_some()
+            && close_popup_after_click
+            && matches!(event, MouseEvent::Released { .. })
+        {
+            self.close_popup();
         }
     }
 
@@ -497,15 +498,13 @@ impl WindowInner {
             if !focus_item.is_visible() {
                 // Reset the focus... not great, but better than keeping it.
                 self.take_focus_item();
-            } else {
-                if focus_item.borrow().as_ref().key_event(
-                    &event,
-                    &self.window_adapter(),
-                    &focus_item,
-                ) == crate::input::KeyEventResult::EventAccepted
-                {
-                    return;
-                }
+            } else if focus_item.borrow().as_ref().key_event(
+                &event,
+                &self.window_adapter(),
+                &focus_item,
+            ) == crate::input::KeyEventResult::EventAccepted
+            {
+                return;
             }
             item = focus_item.parent_item();
         }

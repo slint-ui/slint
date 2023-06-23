@@ -54,7 +54,7 @@ fn ensure_pure(
         }
         Expression::FunctionReference(nr, node) => {
             match nr.element().borrow().lookup_property(nr.name()).declared_pure {
-                Some(true) => return,
+                Some(true) => (),
                 Some(false) => {
                     if let Some(diag) = diag.as_deref_mut() {
                         diag.push_diagnostic(

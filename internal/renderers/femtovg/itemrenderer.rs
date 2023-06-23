@@ -466,7 +466,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                         .fill_text(
                             pos.x,
                             pos.y,
-                            &to_draw[..min_select.saturating_sub(start)].trim_end(),
+                            to_draw[..min_select.saturating_sub(start)].trim_end(),
                             &paint,
                         )
                         .unwrap();
@@ -474,7 +474,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                         .fill_text(
                             pos.x + selection_start_x.get(),
                             pos.y,
-                            &to_draw[min_select.saturating_sub(start)
+                            to_draw[min_select.saturating_sub(start)
                                 ..(max_select - start).min(to_draw.len())]
                                 .trim_end(),
                             &selected_paint,
@@ -484,7 +484,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                         .fill_text(
                             pos.x + after_selection_x.get(),
                             pos.y,
-                            &to_draw[(max_select - start).min(to_draw.len())..].trim_end(),
+                            to_draw[(max_select - start).min(to_draw.len())..].trim_end(),
                             &paint,
                         )
                         .unwrap();
@@ -503,7 +503,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                             .glyphs
                             .iter()
                             .find_map(|glyph| {
-                                if glyph.byte_index == (cursor_pos as usize - start) {
+                                if glyph.byte_index == (cursor_pos - start) {
                                     Some(glyph.x)
                                 } else {
                                     None
@@ -749,7 +749,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     canvas.set_render_target(self.current_render_target());
                 }
 
-                ItemGraphicsCacheEntry::Texture(shadow_image).into()
+                ItemGraphicsCacheEntry::Texture(shadow_image)
             },
         );
 

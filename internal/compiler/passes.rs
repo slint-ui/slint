@@ -243,7 +243,7 @@ pub async fn run_passes(
                 compiler_config.scale_factor,
                 font_pixel_sizes,
                 characters_seen,
-                std::iter::once(&*doc).chain(type_loader.all_documents()),
+                std::iter::once(doc).chain(type_loader.all_documents()),
                 diag,
             );
         }
@@ -251,7 +251,7 @@ pub async fn run_passes(
             // Create font registration calls for custom fonts, unless we're embedding pre-rendered glyphs
             collect_custom_fonts::collect_custom_fonts(
                 root_component,
-                std::iter::once(&*doc).chain(type_loader.all_documents()),
+                std::iter::once(doc).chain(type_loader.all_documents()),
                 compiler_config.embed_resources == crate::EmbedResourcesKind::EmbedAllResources,
             );
         }

@@ -139,7 +139,7 @@ impl Texture {
             }
         };
 
-        return Some(Self::adopt(canvas, image_id));
+        Some(Self::adopt(canvas, image_id))
     }
 }
 

@@ -235,6 +235,7 @@ macro_rules! declare_value_struct_conversion {
         impl TryFrom<Value> for $name {
             type Error = ();
             fn try_from(v: Value) -> Result<$name, Self::Error> {
+                #[allow(clippy::field_reassign_with_default)]
                 match v {
                     Value::Struct(x) => {
                         type Ty = $name;
@@ -1038,7 +1039,7 @@ impl ComponentInstance {
     ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "highlight")]
-    pub fn on_element_selected(&self, callback: Box<dyn Fn(&str, u32, u32, u32, u32) -> ()>) {
+    pub fn on_element_selected(&self, callback: Box<dyn Fn(&str, u32, u32, u32, u32)>) {
         crate::highlight::on_element_selected(&self.inner, callback);
     }
 }

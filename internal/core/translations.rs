@@ -12,22 +12,22 @@ mod formatter {
         type Output<'a>: Display
         where
             Self: 'a;
-        fn from_index<'a>(&'a self, index: usize) -> Option<Self::Output<'a>>;
-        fn from_name<'a>(&'a self, _name: &str) -> Option<Self::Output<'a>> {
+        fn from_index(&self, index: usize) -> Option<Self::Output<'_>>;
+        fn from_name(&self, _name: &str) -> Option<Self::Output<'_>> {
             None
         }
     }
 
     impl<T: Display> FormatArgs for [T] {
         type Output<'a> = &'a T where T: 'a;
-        fn from_index<'a>(&'a self, index: usize) -> Option<&'a T> {
+        fn from_index(&self, index: usize) -> Option<&T> {
             self.get(index)
         }
     }
 
     impl<const N: usize, T: Display> FormatArgs for [T; N] {
         type Output<'a> = &'a T where T: 'a;
-        fn from_index<'a>(&'a self, index: usize) -> Option<&'a T> {
+        fn from_index(&self, index: usize) -> Option<&T> {
             self.get(index)
         }
     }
@@ -156,7 +156,7 @@ impl<'a, T: FormatArgs + ?Sized> FormatArgs for WithPlural<'a, T> {
     where
         Self: 'b;
 
-    fn from_index<'b>(&'b self, index: usize) -> Option<Self::Output<'b>> {
+    fn from_index(&self, index: usize) -> Option<Self::Output<'_>> {
         self.0.from_index(index).map(DisplayOrInt::Display)
     }
 

@@ -426,15 +426,14 @@ impl KeyEvent {
             }
         }
 
-        match TextCursorDirection::try_from(keycode) {
-            Ok(direction) => return Some(TextShortcut::Move(direction)),
-            _ => (),
-        };
-
-        match keycode {
-            key_codes::Backspace => Some(TextShortcut::DeleteBackward),
-            key_codes::Delete => Some(TextShortcut::DeleteForward),
-            _ => None,
+        if let Ok(direction) = TextCursorDirection::try_from(keycode) {
+            Some(TextShortcut::Move(direction))
+        } else {
+            match keycode {
+                key_codes::Backspace => Some(TextShortcut::DeleteBackward),
+                key_codes::Delete => Some(TextShortcut::DeleteForward),
+                _ => None,
+            }
         }
     }
 }
@@ -843,22 +842,20 @@ fn send_mouse_event_to_item(
         item.as_ref().input_event(event, window_adapter, &item_rc)
     };
     match r {
-        InputEventResult::EventAccepted => {
-            return VisitChildrenResult::abort(item_rc.index(), 0);
-        }
+        InputEventResult::EventAccepted => VisitChildrenResult::abort(item_rc.index(), 0),
         InputEventResult::EventIgnored => {
             let _pop = result.item_stack.pop();
             debug_assert_eq!(
                 _pop.map(|x| (x.0.upgrade().unwrap().index(), x.1)).unwrap(),
                 (item_rc.index(), filter_result)
             );
-            return VisitChildrenResult::CONTINUE;
+            VisitChildrenResult::CONTINUE
         }
         InputEventResult::GrabMouse => {
             result.item_stack.last_mut().unwrap().1 =
                 InputEventFilterResult::ForwardAndInterceptGrab;
             result.grabbed = true;
-            return VisitChildrenResult::abort(item_rc.index(), 0);
+            VisitChildrenResult::abort(item_rc.index(), 0)
         }
     }
 }

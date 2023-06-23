@@ -137,7 +137,7 @@ pub fn parse_number_literal(s: String) -> Result<Expression, String> {
         format!(
             "Invalid unit '{}'. Valid units are: {}",
             s.get(end..).unwrap_or(&s),
-            Unit::iter().filter(|x| x.to_string().len() > 0).join(", ")
+            Unit::iter().filter(|x| !x.to_string().is_empty()).join(", ")
         )
     })?;
     Ok(Expression::NumberLiteral(val, unit))

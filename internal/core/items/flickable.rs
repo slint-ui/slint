@@ -159,7 +159,7 @@ pub struct FlickableDataBox(core::ptr::NonNull<FlickableData>);
 
 impl Default for FlickableDataBox {
     fn default() -> Self {
-        FlickableDataBox(Box::leak(Box::new(FlickableData::default())).into())
+        FlickableDataBox(Box::leak(Box::<FlickableData>::default()).into())
     }
 }
 impl Drop for FlickableDataBox {

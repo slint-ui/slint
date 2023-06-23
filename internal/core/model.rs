@@ -467,7 +467,7 @@ impl Model for usize {
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        (row < self.row_count()).then(|| row as i32)
+        (row < self.row_count()).then_some(row as i32)
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
@@ -491,7 +491,7 @@ impl Model for bool {
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        (row < self.row_count()).then(|| ())
+        (row < self.row_count()).then_some(())
     }
 
     fn as_any(&self) -> &dyn core::any::Any {

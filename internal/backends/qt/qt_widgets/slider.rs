@@ -115,6 +115,7 @@ impl Item for NativeSlider {
         InputEventFilterResult::ForwardEvent
     }
 
+    #[allow(clippy::unnecessary_cast)] // MouseEvent uses Coord
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,

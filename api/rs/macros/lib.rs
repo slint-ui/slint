@@ -208,7 +208,7 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                 let f = s.chars().next().unwrap();
                 let kind = if f == '"' {
                     SyntaxKind::StringLiteral
-                } else if f.is_digit(10) {
+                } else if f.is_ascii_digit() {
                     if let Some(last) = vec.last_mut() {
                         if (last.kind == SyntaxKind::ColorLiteral && last.text.len() == 1)
                             || (last.kind == SyntaxKind::Identifier

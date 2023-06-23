@@ -14,8 +14,7 @@ impl TestCase {
         self.relative_path
             .with_extension("")
             .to_string_lossy()
-            .replace(std::path::MAIN_SEPARATOR, "_")
-            .replace('-', "_")
+            .replace([std::path::MAIN_SEPARATOR, '-'], "_")
     }
 }
 

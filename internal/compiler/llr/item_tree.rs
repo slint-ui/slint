@@ -356,7 +356,7 @@ impl PublicComponent {
             }
             visitor(&sc.layout_info_h, ctx);
             visitor(&sc.layout_info_v, ctx);
-            for (_, e) in &sc.accessible_prop {
+            for e in sc.accessible_prop.values() {
                 visitor(e, ctx);
             }
         });

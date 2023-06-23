@@ -367,10 +367,7 @@ impl FontCache {
         // `text_position`, by returning the count.
         struct TextAnalysisHack(u32);
         impl dwrote::TextAnalysisSourceMethods for TextAnalysisHack {
-            fn get_locale_name<'a>(
-                &'a self,
-                text_position: u32,
-            ) -> (std::borrow::Cow<'a, str>, u32) {
+            fn get_locale_name(&self, text_position: u32) -> (std::borrow::Cow<'_, str>, u32) {
                 ("".into(), self.0 - text_position)
             }
 

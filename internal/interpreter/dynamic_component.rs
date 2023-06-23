@@ -60,7 +60,7 @@ impl<'id> ComponentBox<'id> {
     pub fn window_adapter(&self) -> Result<&Rc<dyn WindowAdapter>, PlatformError> {
         InstanceRef::get_or_init_window_adapter_ref(
             &self.component_type,
-            &self.instance.as_pin_ref().get_ref(),
+            self.instance.as_pin_ref().get_ref(),
         )
     }
 }
@@ -1739,7 +1739,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     }
 
     pub fn as_ref(&self) -> &Instance<'id> {
-        &*self.instance
+        &self.instance
     }
 
     /// Borrow this component as a `Pin<ComponentRef>`
@@ -1767,7 +1767,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         let comp = root.unerase(guard);
         Self::get_or_init_window_adapter_ref(
             &comp.component_type,
-            &comp.instance.as_pin_ref().get_ref(),
+            comp.instance.as_pin_ref().get_ref(),
         )
         .unwrap()
         .clone()

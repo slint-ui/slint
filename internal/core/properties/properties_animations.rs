@@ -62,8 +62,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                     // wrap around
                     current_iteration += time_progress / duration;
                     time_progress %= duration;
-                    self.start_time =
-                        new_tick - core::time::Duration::from_millis(time_progress as u64);
+                    self.start_time = new_tick - core::time::Duration::from_millis(time_progress);
                 }
 
                 if (self.details.iteration_count < 0.)

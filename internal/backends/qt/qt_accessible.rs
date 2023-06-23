@@ -4,6 +4,7 @@
 // cspell:ignore descendents qobject qwidget
 
 use crate::accessible_generated::*;
+use crate::qt_window::QtWindow;
 
 use i_slint_core::accessibility::AccessibleStringProperty;
 use i_slint_core::item_tree::{ItemRc, ItemWeak};
@@ -656,7 +657,7 @@ cpp! {{
         ~Slint_accessible_window()
         {
             rust!(Slint_accessible_window_dtor [m_rustWindow: *mut c_void as "void*"] {
-                alloc::rc::Weak::from_raw(m_rustWindow as _); // Consume the Weak we hold in our void*!
+                alloc::rc::Weak::from_raw(m_rustWindow as *const QtWindow); // Consume the Weak<QtWindow> we hold in our void*!
             });
         }
 

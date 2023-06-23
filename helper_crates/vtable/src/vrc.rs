@@ -213,7 +213,7 @@ impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
     ///
     /// This is safe because we don't allow mutable reference to the inner
     pub fn as_pin_ref(&self) -> Pin<&X> {
-        unsafe { Pin::new_unchecked(&*self) }
+        unsafe { Pin::new_unchecked(self) }
     }
 
     /// Gets a VRef pointing to this instance
@@ -393,7 +393,7 @@ impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> VRcMapped<VTab
     ///
     /// This is safe because the map function returns a pinned reference.
     pub fn as_pin_ref(&self) -> Pin<&MappedType> {
-        unsafe { Pin::new_unchecked(&*self) }
+        unsafe { Pin::new_unchecked(self) }
     }
 
     /// This function allows safely holding a reference to a field inside the `VRcMapped`. In order to accomplish

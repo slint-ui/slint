@@ -171,7 +171,7 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
         if let Some(proxy) = platform.new_event_loop_proxy() {
             EVENTLOOP_PROXY.set(proxy).map_err(|_| SetPlatformError::AlreadySet)?
         }
-        instance.set(platform.into()).map_err(|_| SetPlatformError::AlreadySet).unwrap();
+        instance.set(platform).map_err(|_| SetPlatformError::AlreadySet).unwrap();
         Ok(())
     })
 }

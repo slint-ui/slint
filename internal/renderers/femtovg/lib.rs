@@ -147,7 +147,7 @@ impl FemtoVGRenderer {
     pub fn show(&self) -> Result<(), PlatformError> {
         self.opengl_context.ensure_current()?;
         *self.rendering_metrics_collector.borrow_mut() =
-            RenderingMetricsCollector::new(&format!("FemtoVG renderer"));
+            RenderingMetricsCollector::new("FemtoVG renderer");
 
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
             self.with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))?;
@@ -234,7 +234,7 @@ impl FemtoVGRenderer {
                 // Draws the window background as gradient
                 match window_background_brush {
                     Some(Brush::SolidColor(..)) | None => {}
-                    Some(brush @ _) => {
+                    Some(brush) => {
                         item_renderer.draw_rect(
                             i_slint_core::lengths::logical_size_from_api(
                                 size.to_logical(window_inner.scale_factor()),

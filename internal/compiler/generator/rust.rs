@@ -721,7 +721,7 @@ fn generate_sub_component(
         root,
         component,
         quote!(_self.root.get().unwrap().upgrade().unwrap()),
-        parent_ctx.clone(),
+        parent_ctx,
     );
     let mut extra_components = component
         .popup_windows
@@ -1298,7 +1298,7 @@ fn generate_item_tree(
     let sub_comp = generate_sub_component(
         &sub_tree.root,
         root,
-        parent_ctx.clone(),
+        parent_ctx,
         extra_fields,
         index_property,
         true,
@@ -1581,7 +1581,7 @@ fn generate_repeated_component(
     let component = generate_item_tree(
         &repeated.sub_tree,
         root,
-        Some(parent_ctx.clone()),
+        Some(parent_ctx),
         quote!(),
         repeated.index_prop,
     );
@@ -1921,7 +1921,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::NumberLiteral(n) => quote!(#n),
         Expression::BoolLiteral(b) => quote!(#b),
         Expression::Cast { from, to } => {
-            let f = compile_expression(&*from, ctx);
+            let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
                 (from, Type::String) if from.as_unit_product().is_some() => {
                     quote!(slint::private_unstable_api::re_exports::SharedString::from(
@@ -2071,7 +2071,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let mut ctx2 = ctx;
             let mut repeater_index = None;
             for _ in 0..=*level {
-                let x = ctx2.parent.clone().unwrap();
+                let x = ctx2.parent.unwrap();
                 ctx2 = x.ctx;
                 repeater_index = x.repeater_index;
                 path = quote!(#path.parent.upgrade().unwrap());
@@ -2125,8 +2125,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
                 _ => (None, None),
             };
-            let lhs = compile_expression(&*lhs, ctx);
-            let rhs = compile_expression(&*rhs, ctx);
+            let lhs = compile_expression(lhs, ctx);
+            let rhs = compile_expression(rhs, ctx);
 
             let op = match op {
                 '=' => quote!(==),
@@ -2144,7 +2144,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote!( ((#lhs #conv1 ) #op (#rhs #conv2)) )
         }
         Expression::UnaryOp { sub, op } => {
-            let sub = compile_expression(&*sub, ctx);
+            let sub = compile_expression(sub, ctx);
             if *op == '+' {
                 // there is no unary '+' in rust
                 return sub;
@@ -2172,8 +2172,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         },
         Expression::Condition { condition, true_expr, false_expr } => {
-            let condition_code = compile_expression(&*condition, ctx);
-            let true_code = compile_expression(&*true_expr, ctx);
+            let condition_code = compile_expression(condition, ctx);
+            let true_code = compile_expression(true_expr, ctx);
             let false_code = compile_expression(false_expr, ctx);
             quote!(
                 if #condition_code {

@@ -197,6 +197,7 @@ mod grid_internal {
         }
     }
 
+    #[allow(clippy::unnecessary_cast)] // Coord
     fn adjust_items<A: Adjust>(data: &mut [LayoutData], size_without_spacing: Coord) -> Option<()> {
         loop {
             let size_cannot_grow: Coord = data

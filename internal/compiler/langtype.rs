@@ -708,12 +708,12 @@ impl<'a> PropertyLookupResult<'a> {
 
     /// Can this property be used in an assignment
     pub fn is_valid_for_assignment(&self) -> bool {
-        match (self.property_visibility, self.is_local_to_component) {
-            (PropertyVisibility::Private, false) => false,
-            (PropertyVisibility::Input, true) => false,
-            (PropertyVisibility::Output, false) => false,
-            _ => true,
-        }
+        !matches!(
+            (self.property_visibility, self.is_local_to_component),
+            (PropertyVisibility::Private, false)
+                | (PropertyVisibility::Input, true)
+                | (PropertyVisibility::Output, false)
+        )
     }
 }
 
@@ -812,7 +812,7 @@ pub fn unit_product_length_conversion(
     units[Unit::Px as usize] = 0;
     units[Unit::Phx as usize] = 0;
     units[Unit::Rem as usize] = 0;
-    units.into_iter().all(|x| x == 0).then(|| result)
+    units.into_iter().all(|x| x == 0).then_some(result)
 }
 
 #[test]

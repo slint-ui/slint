@@ -479,8 +479,8 @@ impl Item for TextInput {
                 {
                     return KeyEventResult::EventIgnored;
                 }
-                match event.shortcut() {
-                    Some(shortcut) => match shortcut {
+                if let Some(shortcut) = event.shortcut() {
+                    match shortcut {
                         StandardShortcut::SelectAll => {
                             self.select_all(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
@@ -501,8 +501,7 @@ impl Item for TextInput {
                             return KeyEventResult::EventIgnored;
                         }
                         _ => (),
-                    },
-                    None => (),
+                    }
                 }
                 if self.read_only() || event.modifiers.control {
                     return KeyEventResult::EventIgnored;
@@ -666,7 +665,7 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
     // Use std::floor_char_boundary once stabilized.
     text.char_indices()
         .find_map(|(offset, _)| if offset >= byte_offset_candidate { Some(offset) } else { None })
-        .unwrap_or_else(|| text.len())
+        .unwrap_or(text.len())
 }
 
 /// This struct holds the fields needed for rendering a TextInput item after applying any
@@ -704,7 +703,7 @@ impl TextInputVisualRepresentation {
 
         let text = &mut self.text;
         let fixup_range = |r: &mut core::ops::Range<usize>| {
-            if !core::ops::Range::is_empty(&r) {
+            if !core::ops::Range::is_empty(r) {
                 r.start = text[..r.start].chars().count() * password_character.len_utf8();
                 r.end = text[..r.end].chars().count() * password_character.len_utf8();
             }
@@ -895,7 +894,7 @@ impl TextInput {
                 self.cursor_rect_for_byte_offset(cursor_position, window_adapter).to_box2d().max;
             let cursor_point_absolute = self_rc.map_to_window(cursor_point_relative);
             w.input_method_request(InputMethodRequest::SetPosition {
-                position: crate::api::LogicalPosition::from_euclid(cursor_point_absolute.into()),
+                position: crate::api::LogicalPosition::from_euclid(cursor_point_absolute),
             });
         }
     }
