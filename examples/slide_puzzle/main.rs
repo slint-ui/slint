@@ -27,7 +27,7 @@ fn shuffle() -> Vec<i8> {
         inversions % 2 != blank_row % 2
     }
 
-    let mut vec = ((-1)..15).into_iter().collect::<Vec<i8>>();
+    let mut vec = ((-1)..15).collect::<Vec<i8>>();
     use rand::seq::SliceRandom;
     let mut rng = rand::thread_rng();
     vec.shuffle(&mut rng);

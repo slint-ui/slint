@@ -107,7 +107,7 @@ fn add_element_properties(
         let declared_at = value
             .type_node()
             .as_ref()
-            .and_then(|node| map_node_and_url(node))
+            .and_then(map_node_and_url)
             .map(|(uri, range)| DeclarationInformation { uri, start_position: range.start });
         Some(PropertyInformation {
             name: name.clone(),
@@ -213,7 +213,7 @@ fn find_expression_range(
                     left_extend(ancestor.first_token()?).text_range().start(),
                     right_extend(ancestor.last_token()?).text_range().end(),
                 ))
-                .or_else(|| property_definition_range.clone());
+                .or(property_definition_range);
                 break;
             }
             if ancestor.kind() == SyntaxKind::Element {
@@ -560,7 +560,7 @@ fn create_workspace_edit_for_set_binding_on_known_property(
 ) -> Option<lsp_types::WorkspaceEdit> {
     let block_range = find_block_range(element);
 
-    find_insert_range_for_property(&block_range, properties, property_name).and_then(
+    find_insert_range_for_property(&block_range, properties, property_name).map(
         |(range, insert_type)| {
             let indent = find_element_indent(element).unwrap_or_default();
             let edit = lsp_types::TextEdit {
@@ -582,10 +582,10 @@ fn create_workspace_edit_for_set_binding_on_known_property(
                 ),
                 edits,
             }];
-            Some(lsp_types::WorkspaceEdit {
+            lsp_types::WorkspaceEdit {
                 document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
                 ..Default::default()
-            })
+            }
         },
     )
 }
@@ -824,7 +824,7 @@ mod tests {
         url: &lsp_types::Url,
     ) -> Option<(ElementRc, Vec<PropertyInformation>)> {
         let element =
-            server_loop::element_at_position(dc, &url, &lsp_types::Position { line, character })?;
+            server_loop::element_at_position(dc, url, &lsp_types::Position { line, character })?;
         Some((element.clone(), get_properties(&element)))
     }
 

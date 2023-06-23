@@ -55,7 +55,7 @@ fn syntax_tests() -> std::io::Result<()> {
         .try_fold(
             || true,
             |mut success, path| {
-                success &= process_file(&path)?;
+                success &= process_file(path)?;
                 Ok::<bool, std::io::Error>(success)
             },
         )
@@ -67,7 +67,7 @@ fn syntax_tests() -> std::io::Result<()> {
 }
 
 fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
-    let source = std::fs::read_to_string(&path)?;
+    let source = std::fs::read_to_string(path)?;
     std::panic::catch_unwind(|| process_file_source(path, source, false)).unwrap_or_else(|err| {
         println!("Panic while processing {}: {:?}", path.display(), err);
         Ok(false)
@@ -206,7 +206,7 @@ fn process_file_source(
 
     for p in &compile_diagnostics.all_loaded_files {
         let source = if p.is_absolute() {
-            std::fs::read_to_string(&p)?
+            std::fs::read_to_string(p)?
         } else {
             // probably std-widgets.slint
             String::new()

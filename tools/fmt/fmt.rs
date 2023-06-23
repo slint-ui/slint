@@ -631,7 +631,7 @@ fn format_codeblock(
     }
     state.indentation_level += 1;
     state.new_line();
-    while let Some(n) = sub.next() {
+    for n in sub {
         if n.kind() == SyntaxKind::RBrace {
             state.indentation_level -= 1;
             state.whitespace_to_add = None;

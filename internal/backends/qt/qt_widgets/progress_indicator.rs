@@ -33,7 +33,7 @@ impl Item for NativeProgressIndicator {
         orientation: Orientation,
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
-        let indeterminate = self.indeterminate() as bool;
+        let indeterminate = self.indeterminate();
         let progress =
             if indeterminate { 0 } else { (self.progress().max(0.0).min(1.0) * 100.) as i32 };
 
@@ -102,7 +102,7 @@ impl Item for NativeProgressIndicator {
     }
 
     fn_render! { this dpr size painter widget initial_state =>
-        let indeterminate = this.indeterminate() as bool;
+        let indeterminate = this.indeterminate();
         let progress = if indeterminate { -1 } else { (this.progress().max(0.0).min(1.0) * 100.) as i32 };
 
         cpp!(unsafe [

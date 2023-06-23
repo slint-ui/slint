@@ -8,7 +8,7 @@ fn do_test(snippet: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> 
     let mut compiler = slint_interpreter::ComponentCompiler::default();
     let component = spin_on::spin_on(compiler.build_from_source(snippet.into(), path.into()));
 
-    slint_interpreter::print_diagnostics(&compiler.diagnostics());
+    slint_interpreter::print_diagnostics(compiler.diagnostics());
 
     for d in compiler.diagnostics() {
         if d.level() == slint_interpreter::DiagnosticLevel::Error {

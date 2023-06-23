@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let file = std::fs::read_to_string(&path)?;
+        let file = std::fs::read_to_string(path)?;
         let file = file.replace('\r', ""); // Remove \r, because Windows.
 
         const BEGIN_MARKER: &str = "\n```slint";

@@ -169,10 +169,11 @@ impl OpenGLContext {
             .get_proc_address(&std::ffi::CString::new("glCreateShader").unwrap())
             .is_null()
         {
-            return Err(format!(
+            return Err(
                 "Failed to initialize OpenGL driver: Could not locate glCreateShader symbol"
-            )
-            .into());
+                    .to_string()
+                    .into(),
+            );
         }
 
         Ok((window, Self { context, surface }))

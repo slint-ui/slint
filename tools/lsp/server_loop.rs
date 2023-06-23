@@ -485,7 +485,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         let uri = params.text_document.uri;
         if let Some((tk, _off)) = token_descr(&mut document_cache, &uri, &params.position) {
             if find_element_id_for_highlight(&tk, &tk.parent()).is_some() {
-                return Ok(map_token(&tk).map(|r| PrepareRenameResponse::Range(r)));
+                return Ok(map_token(&tk).map(PrepareRenameResponse::Range));
             }
         };
         Ok(None)
@@ -502,7 +502,7 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
     let e = || "InvalidParameter";
 
     let url = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
-        Url::parse(&s)?
+        Url::parse(s)?
     } else {
         return Err(e().into());
     };
@@ -1080,7 +1080,7 @@ fn get_document_symbols(
         Type::Enumeration(enumeration) => enumeration.node.as_ref().and_then(|node| {
             Some(DocumentSymbol {
                 range: map_node(node.parent().as_ref()?)?,
-                selection_range: map_node(&node)?,
+                selection_range: map_node(node)?,
                 name: enumeration.name.clone(),
                 kind: lsp_types::SymbolKind::ENUM,
                 ..ds.clone()
@@ -1309,9 +1309,8 @@ mod tests {
             .into(),
         );
 
-        let result =
-            get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() })
-                .expect("Color Vec was returned");
+        let result = get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url })
+            .expect("Color Vec was returned");
         assert!(result.is_empty());
     }
 
@@ -1326,9 +1325,8 @@ mod tests {
             .into(),
         );
 
-        let result =
-            get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() })
-                .expect("Color Vec was returned");
+        let result = get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url })
+            .expect("Color Vec was returned");
 
         assert_eq!(result.len(), 1);
 
@@ -1353,7 +1351,7 @@ mod tests {
         line: u32,
         character: u32,
     ) -> Option<String> {
-        let result = element_at_position(dc, &url, &Position { line, character })?;
+        let result = element_at_position(dc, url, &Position { line, character })?;
         let element = result.borrow();
         Some(element.id.clone())
     }
@@ -1364,7 +1362,7 @@ mod tests {
         line: u32,
         character: u32,
     ) -> Option<String> {
-        let result = element_at_position(dc, &url, &Position { line, character })?;
+        let result = element_at_position(dc, url, &Position { line, character })?;
         let element = result.borrow();
         Some(format!("{}", &element.base_type))
     }

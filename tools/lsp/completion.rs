@@ -552,7 +552,7 @@ fn add_components_to_import(
         for it in current_doc.children_with_tokens() {
             match it.kind() {
                 SyntaxKind::Comment => {
-                    if offset == None {
+                    if offset.is_none() {
                         offset = Some(it.text_range().start());
                     }
                 }
@@ -564,14 +564,14 @@ fn add_components_to_import(
                     }
                 }
                 _ => {
-                    if offset == None {
+                    if offset.is_none() {
                         offset = Some(it.text_range().start());
                     }
                     break;
                 }
             }
         }
-        map_position(&token.source_file, offset.unwrap_or_default().into())
+        map_position(&token.source_file, offset.unwrap_or_default())
     } else {
         Position::new(map_position(&token.source_file, last.into()).line + 1, 0)
     };
@@ -621,7 +621,7 @@ fn add_components_to_import(
                 filter_text: Some(exported_name.name.clone()),
                 kind: Some(CompletionItemKind::CLASS),
                 detail: Some(format!("(import from \"{}\")", file)),
-                additional_text_edits: Some(vec![the_import.into()]),
+                additional_text_edits: Some(vec![the_import]),
                 ..Default::default()
             });
         }
@@ -685,9 +685,9 @@ mod tests {
             res.iter().find(|ci| ci.label == "self").unwrap();
             res.iter().find(|ci| ci.label == "root").unwrap();
 
-            assert!(res.iter().find(|ci| ci.label == "text").is_none());
-            assert!(res.iter().find(|ci| ci.label == "red").is_none());
-            assert!(res.iter().find(|ci| ci.label == "nope").is_none());
+            assert!(!res.iter().any(|ci| ci.label == "text"));
+            assert!(!res.iter().any(|ci| ci.label == "red"));
+            assert!(!res.iter().any(|ci| ci.label == "nope"));
         }
     }
 
@@ -721,6 +721,6 @@ mod tests {
         res.iter().find(|ci| ci.label == "alpha").unwrap();
         res.iter().find(|ci| ci.label == "beta-gamma").unwrap();
         res.iter().find(|ci| ci.label == "red").unwrap();
-        assert!(res.iter().find(|ci| ci.label == "width").is_none());
+        assert!(!res.iter().any(|ci| ci.label == "width"));
     }
 }

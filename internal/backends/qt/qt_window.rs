@@ -1111,7 +1111,7 @@ fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::
         QImage img(buffer_ptr, width, height, bytes_per_line, format);
         return QPixmap::fromImage(img);
     } };
-    return Some(pixmap);
+    Some(pixmap)
 }
 
 pub(crate) fn image_to_pixmap(
@@ -1720,10 +1720,10 @@ impl WindowAdapterInternal for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn unregister_component<'a>(
+    fn unregister_component(
         &self,
         _component: ComponentRef,
-        _: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
+        _: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
     ) {
         self.tree_structure_changed.replace(true);
     }
