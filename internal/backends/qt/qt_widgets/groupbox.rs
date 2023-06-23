@@ -48,7 +48,7 @@ cpp! {{
 }}
 
 fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
-    return cpp!(unsafe [title as "QString"] -> qttypes::QSize as "QSize" {
+    cpp!(unsafe [title as "QString"] -> qttypes::QSize as "QSize" {
         ensure_initialized();
 
         QStyleOptionGroupBox option = create_group_box_option(title);
@@ -58,7 +58,7 @@ fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
         int baseHeight = metrics.height();
 
         return qApp->style()->sizeFromContents(QStyle::CT_GroupBox, &option, QSize(baseWidth, baseHeight), nullptr);
-    });
+    })
 }
 
 impl Item for NativeGroupBox {

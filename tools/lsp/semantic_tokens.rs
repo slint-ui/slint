@@ -150,7 +150,7 @@ pub fn get_semantic_tokens(
             | SyntaxKind::AndAnd => Some((self::OPERATOR, 0)),
             SyntaxKind::LAngle | SyntaxKind::RAngle => (token.parent().kind()
                 == SyntaxKind::PropertyDeclaration)
-                .then(|| (self::OPERATOR, 0)),
+                .then_some((self::OPERATOR, 0)),
             SyntaxKind::Plus
             | SyntaxKind::Minus
             | SyntaxKind::Star

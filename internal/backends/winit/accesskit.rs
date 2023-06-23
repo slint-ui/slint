@@ -60,8 +60,8 @@ impl AccessKitAdapter {
             send_wrapper::SendWrapper::new(window_adapter_weak.clone());
         Self {
             inner: accesskit_winit::Adapter::with_action_handler(
-                &winit_window,
-                move || Self::build_initial_tree(wrapped_window_adapter_weak.clone()),
+                winit_window,
+                move || Self::build_initial_tree(wrapped_window_adapter_weak),
                 Box::new(ActionForwarder::new(&window_adapter_weak)),
             ),
             window_adapter_weak: window_adapter_weak.clone(),
@@ -217,10 +217,7 @@ impl AccessKitAdapter {
                     })?
                 });
 
-                let update =
-                    TreeUpdate { nodes: nodes.collect(), tree: None, focus: self.focus_node() };
-
-                update
+                TreeUpdate { nodes: nodes.collect(), tree: None, focus: self.focus_node() }
             })
         })
     }
@@ -280,8 +277,7 @@ impl AccessKitAdapter {
             )
         });
 
-        let update = TreeUpdate { nodes, tree: Some(Tree::new(root_id)), focus: self.focus_node() };
-        update
+        TreeUpdate { nodes, tree: Some(Tree::new(root_id)), focus: self.focus_node() }
     }
 
     fn build_initial_tree(
@@ -297,7 +293,7 @@ impl AccessKitAdapter {
 
         let update_from_main_thread = Arc::new((Mutex::new(None), Condvar::new()));
 
-        if let Err(_) = i_slint_core::api::invoke_from_event_loop({
+        if i_slint_core::api::invoke_from_event_loop({
             let update_from_main_thread = update_from_main_thread.clone();
             move || {
                 let (lock, wait_condition) = &*update_from_main_thread;
@@ -307,7 +303,9 @@ impl AccessKitAdapter {
 
                 wait_condition.notify_one();
             }
-        }) {
+        })
+        .is_err()
+        {
             return Default::default();
         }
 
@@ -317,7 +315,7 @@ impl AccessKitAdapter {
             update = wait_condition.wait(update).unwrap();
         }
 
-        return update.take().unwrap();
+        update.take().unwrap()
     }
 
     fn build_node_without_children(&self, item: &ItemRc, scale_factor: ScaleFactor) -> NodeBuilder {

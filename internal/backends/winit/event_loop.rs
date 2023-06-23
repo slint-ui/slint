@@ -87,7 +87,7 @@ pub(crate) trait EventLoopInterface {
 
 impl EventLoopInterface for NotRunningEventLoop {
     fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<SlintUserEvent> {
-        &*self.instance
+        &self.instance
     }
 
     fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<SlintUserEvent> {
@@ -322,7 +322,7 @@ fn process_window_event(
                 winit::event::VirtualKeyCode::LWin => winit::event::VirtualKeyCode::LControl,
                 #[cfg(target_os = "macos")]
                 winit::event::VirtualKeyCode::RWin => winit::event::VirtualKeyCode::RControl,
-                code @ _ => code,
+                code => code,
             });
             window.currently_pressed_key_code().set(match input.state {
                 winit::event::ElementState::Pressed => key_code,

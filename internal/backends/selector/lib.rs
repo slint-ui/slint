@@ -38,7 +38,7 @@ cfg_if::cfg_if! {
             let backend_config = std::env::var("SLINT_BACKEND").unwrap_or_default();
 
             let backend_config = backend_config.to_lowercase();
-            let (event_loop, _renderer) = backend_config.split_once('-').unwrap_or_else(|| match backend_config.as_str() {
+            let (event_loop, _renderer) = backend_config.split_once('-').unwrap_or(match backend_config.as_str() {
                 "qt" => ("qt", ""),
                 "gl" | "winit" => ("winit", ""),
                 "femtovg" => ("winit", "femtovg"),
@@ -51,7 +51,7 @@ cfg_if::cfg_if! {
                 #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
                 "qt" => return Ok(Box::new(i_slint_backend_qt::Backend::new())),
                 #[cfg(feature = "i-slint-backend-winit")]
-                "winit" => return Ok(Box::new(i_slint_backend_winit::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then(|| _renderer)))),
+                "winit" => return Ok(Box::new(i_slint_backend_winit::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then_some(_renderer)))),
                 _ => {},
             }
 

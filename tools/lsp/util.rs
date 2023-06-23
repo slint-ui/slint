@@ -75,10 +75,10 @@ pub fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> O
     }
 
     let parent = node.parent()?;
-    if parent.kind() == SyntaxKind::Component {
-        if parent.child_text(SyntaxKind::Identifier).map_or(false, |x| x == "global") {
-            return Some(ElementType::Global);
-        }
+    if parent.kind() == SyntaxKind::Component
+        && parent.child_text(SyntaxKind::Identifier).map_or(false, |x| x == "global")
+    {
+        return Some(ElementType::Global);
     }
     let parent = lookup_current_element_type(parent, tr).unwrap_or_default();
     let qualname = object_tree::QualifiedTypeName::from_node(
@@ -126,7 +126,7 @@ pub fn with_property_lookup_ctx<R>(
         .and_then(|component_name| tr.lookup_element(&component_name).ok())?;
     if let ElementType::Component(c) = component {
         let mut it = c.root_element.clone();
-        let offset = element.text_range().start().into();
+        let offset = element.text_range().start();
         loop {
             scope.push(it.clone());
             if let Some(c) = it.clone().borrow().children.iter().find(|c| {
@@ -143,7 +143,7 @@ pub fn with_property_lookup_ctx<R>(
         .PropertyDeclaration()
         .find_map(|p| {
             (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
-                .then(|| p)
+                .then_some(p)
         })
         .and_then(|p| p.Type())
         .map(|n| object_tree::type_from_node(n, &mut Default::default(), tr))
@@ -157,7 +157,7 @@ pub fn with_property_lookup_ctx<R>(
 
     if let Some(cb) = element
         .CallbackConnection()
-        .find(|p| i_slint_compiler::parser::identifier_text(&p).map_or(false, |x| x == prop_name))
+        .find(|p| i_slint_compiler::parser::identifier_text(p).map_or(false, |x| x == prop_name))
     {
         lookup_context.arguments = cb
             .DeclaredIdentifier()

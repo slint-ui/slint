@@ -119,7 +119,7 @@ impl NativeStyleMetrics {
             return qApp->palette().color(QPalette::Window).rgba();
         });
         let window_background = Color::from_argb_encoded(window_background);
-        self.window_background.set(window_background.into());
+        self.window_background.set(window_background);
         let default_text_color = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::WindowText).rgba();
         });

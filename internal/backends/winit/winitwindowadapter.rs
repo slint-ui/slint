@@ -161,7 +161,7 @@ impl WinitWindowAdapter {
             #[cfg(enable_accesskit)]
             accesskit_adapter: crate::accesskit::AccessKitAdapter::new(
                 self_weak.clone(),
-                &*winit_window,
+                &winit_window,
             ),
         });
 
@@ -484,7 +484,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
         let winit_window = self.winit_window();
 
-        let runtime_window = WindowInner::from_pub(&self.window());
+        let runtime_window = WindowInner::from_pub(self.window());
 
         let scale_factor = runtime_window.scale_factor() as f64;
 
@@ -522,13 +522,14 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             }
         }
 
-        if winit_window.fullscreen().is_none() {
-            if preferred_size.width > 0 as Coord && preferred_size.height > 0 as Coord {
-                // use the Slint's window Scale factor to take in account the override
-                let size = preferred_size.to_physical::<u32>(scale_factor);
-                winit_window.set_inner_size(size);
-                self.size.set(physical_size_to_slint(&size));
-            }
+        if winit_window.fullscreen().is_none()
+            && preferred_size.width > 0 as Coord
+            && preferred_size.height > 0 as Coord
+        {
+            // use the Slint's window Scale factor to take in account the override
+            let size = preferred_size.to_physical::<u32>(scale_factor);
+            winit_window.set_inner_size(size);
+            self.size.set(physical_size_to_slint(&size));
         };
 
         self.renderer().show()?;
@@ -676,10 +677,10 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     #[cfg(enable_accesskit)]
-    fn unregister_component<'a>(
+    fn unregister_component(
         &self,
         _component: ComponentRef,
-        _: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
+        _: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
     ) {
         self.accesskit_adapter.unregister_component(_component);
     }

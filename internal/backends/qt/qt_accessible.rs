@@ -23,7 +23,7 @@ use std::pin::Pin;
 const NAME: u32 = QAccessible_Text_Name;
 const DESCRIPTION: u32 = QAccessible_Text_Description;
 const VALUE: u32 = QAccessible_Text_Value;
-const CHECKED: u32 = QAccessible_Text_UserText as u32;
+const CHECKED: u32 = QAccessible_Text_UserText;
 const VALUE_MINIMUM: u32 = CHECKED + 1;
 const VALUE_MAXIMUM: u32 = VALUE_MINIMUM + 1;
 const VALUE_STEP: u32 = VALUE_MAXIMUM + 1;

@@ -178,8 +178,8 @@ impl i_slint_core::platform::Platform for Backend {
                 ensure_initialized(true);
                 qApp->exec();
             } }
-            return Ok(());
-        };
+            Ok(())
+        }
         #[cfg(no_qt)]
         Err("Qt platform requested but Slint is compiled without Qt support".into())
     }

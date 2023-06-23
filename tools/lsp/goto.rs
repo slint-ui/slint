@@ -38,7 +38,7 @@ pub fn goto_definition(
                     let doc = document_cache.documents.get_document(node.source_file.path())?;
                     match doc.local_registry.lookup_element(&qual.to_string()) {
                         Ok(ElementType::Component(c)) => {
-                            goto_node(&*c.root_element.borrow().node.as_ref()?)
+                            goto_node(c.root_element.borrow().node.as_ref()?)
                         }
                         _ => None,
                     }
@@ -108,9 +108,7 @@ pub fn goto_definition(
             let doc = document_cache.documents.get_document(node.source_file.path())?;
             let imp_name = i_slint_compiler::typeloader::ImportedName::from_node(n);
             return match doc.local_registry.lookup_element(&imp_name.internal_name) {
-                Ok(ElementType::Component(c)) => {
-                    goto_node(&*c.root_element.borrow().node.as_ref()?)
-                }
+                Ok(ElementType::Component(c)) => goto_node(c.root_element.borrow().node.as_ref()?),
                 _ => None,
             };
         } else if let Some(n) = syntax_nodes::ImportSpecifier::new(node.clone()) {
@@ -123,7 +121,7 @@ pub fn goto_definition(
             let import_file = dunce::canonicalize(&import_file).unwrap_or(import_file);
             let doc = document_cache.documents.get_document(&import_file)?;
             let doc_node = doc.node.clone()?;
-            return goto_node(&*doc_node);
+            return goto_node(&doc_node);
         } else if syntax_nodes::BindingExpression::new(node.clone()).is_some() {
             // don't fallback to the Binding
             return None;
@@ -135,7 +133,7 @@ pub fn goto_definition(
             let element = syntax_nodes::Element::new(n.parent()?)?;
             if let Some(p) = element.PropertyDeclaration().find_map(|p| {
                 (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
-                    .then(|| p)
+                    .then_some(p)
             }) {
                 return goto_node(&p);
             }
@@ -152,7 +150,7 @@ pub fn goto_definition(
             let element = syntax_nodes::Element::new(n.parent()?)?;
             if let Some(p) = element.PropertyDeclaration().find_map(|p| {
                 (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
-                    .then(|| p)
+                    .then_some(p)
             }) {
                 return goto_node(&p);
             }
@@ -169,7 +167,7 @@ pub fn goto_definition(
             let element = syntax_nodes::Element::new(n.parent()?)?;
             if let Some(p) = element.CallbackDeclaration().find_map(|p| {
                 (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
-                    .then(|| p)
+                    .then_some(p)
             }) {
                 return goto_node(&p);
             }
