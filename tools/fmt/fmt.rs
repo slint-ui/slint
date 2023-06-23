@@ -542,48 +542,33 @@ fn format_conditional_expression(
         }
         while let Some(n) = sub.next() {
             state.skip_all_whitespace = true;
-            match n.kind() {
-                // "else"
-                SyntaxKind::Identifier => {
-                    state.insert_whitespace(" ");
-                    fold(n, writer, state)?;
-                    let x = whitespace_to_one_of(
-                        &mut sub,
-                        &[SyntaxKind::Identifier, SyntaxKind::Expression],
-                        writer,
-                        state,
-                        " ",
-                    )?;
-                    let ok = match x {
-                        SyntaxMatch::NotFound => false,
-                        // "if"
-                        SyntaxMatch::Found(SyntaxKind::Identifier) => {
-                            whitespace_to(&mut sub, SyntaxKind::LParent, writer, state, " ")?
-                                && whitespace_to(
-                                    &mut sub,
-                                    SyntaxKind::Expression,
-                                    writer,
-                                    state,
-                                    "",
-                                )?
-                                && whitespace_to(&mut sub, SyntaxKind::RParent, writer, state, "")?
-                                && whitespace_to(
-                                    &mut sub,
-                                    SyntaxKind::CodeBlock,
-                                    writer,
-                                    state,
-                                    " ",
-                                )?
-                        }
-                        SyntaxMatch::Found(_) => true,
-                    };
-                    if !ok {
-                        finish_node(sub, writer, state)?;
-                        return Ok(());
+            // else
+            if n.kind() == SyntaxKind::Identifier {
+                state.insert_whitespace(" ");
+                fold(n, writer, state)?;
+                let x = whitespace_to_one_of(
+                    &mut sub,
+                    &[SyntaxKind::Identifier, SyntaxKind::Expression],
+                    writer,
+                    state,
+                    " ",
+                )?;
+                let ok = match x {
+                    SyntaxMatch::NotFound => false,
+                    // "if"
+                    SyntaxMatch::Found(SyntaxKind::Identifier) => {
+                        whitespace_to(&mut sub, SyntaxKind::LParent, writer, state, " ")?
+                            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
+                            && whitespace_to(&mut sub, SyntaxKind::RParent, writer, state, "")?
+                            && whitespace_to(&mut sub, SyntaxKind::CodeBlock, writer, state, " ")?
                     }
-                    continue;
+                    SyntaxMatch::Found(_) => true,
+                };
+                if !ok {
+                    finish_node(sub, writer, state)?;
+                    return Ok(());
                 }
-                _ => {}
+                continue;
             }
             fold(n, writer, state)?;
         }
@@ -651,14 +636,11 @@ fn format_at_gradient(
     let mut seen_expression = false;
     for n in node.children_with_tokens() {
         state.skip_all_whitespace = true;
-        match n.kind() {
-            SyntaxKind::Expression => {
-                if seen_expression {
-                    state.insert_whitespace(" ");
-                }
-                seen_expression = true;
+        if n.kind() == SyntaxKind::Expression {
+            if seen_expression {
+                state.insert_whitespace(" ");
             }
-            _ => {}
+            seen_expression = true;
         }
         fold(n, writer, state)?;
     }
@@ -694,11 +676,8 @@ fn format_repeated_element(
         " ",
     )?;
 
-    match el {
-        SyntaxMatch::Found(SyntaxKind::RepeatedIndex) => {
-            whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
-        }
-        _ => {}
+    if let SyntaxMatch::Found(SyntaxKind::RepeatedIndex) = el {
+        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
     }
 
     whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;

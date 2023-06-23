@@ -29,24 +29,22 @@ impl FontDatabase {
         query: fontdb::Query<'_>,
         family: Option<&'_ str>,
     ) -> Option<fontdb::ID> {
-        let mut query = query.clone();
+        let mut query = query;
         if let Some(specified_family) = family {
             let single_family = [fontdb::Family::Name(specified_family)];
             query.families = &single_family;
             self.db.query(&query)
+        } else if self.default_font_family_ids.is_empty() {
+            query.families = &[fontdb::Family::SansSerif];
+            self.db.query(&query)
         } else {
-            if self.default_font_family_ids.is_empty() {
-                query.families = &[fontdb::Family::SansSerif];
-                self.db.query(&query)
-            } else {
-                let family_storage = self
-                    .default_font_family_names
-                    .iter()
-                    .map(|name| fontdb::Family::Name(name))
-                    .collect::<Vec<_>>();
-                query.families = &family_storage;
-                self.db.query(&query)
-            }
+            let family_storage = self
+                .default_font_family_names
+                .iter()
+                .map(|name| fontdb::Family::Name(name))
+                .collect::<Vec<_>>();
+            query.families = &family_storage;
+            self.db.query(&query)
         }
     }
 }

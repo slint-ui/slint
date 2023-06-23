@@ -144,7 +144,6 @@ fn display_forecast(window_weak: Weak<MainWindow>, forecast: Vec<(ForecastDay, S
                     absolute_min: min_temp.round() as i32,
                     unit: SharedString::from("°"),
                     icon: get_icon(&window, &forecast_day.day.condition),
-                    ..Default::default()
                 };
 
                 forecast_model.push(model);

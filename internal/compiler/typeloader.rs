@@ -170,9 +170,9 @@ impl TypeLoader {
                         match &import.import_kind {
                             ImportKind::ImportList(imported_types) => {
                                 let mut imported_types =
-                                    ImportedName::extract_imported_names(&imported_types).peekable();
+                                    ImportedName::extract_imported_names(imported_types).peekable();
                                 if imported_types.peek().is_some() {
-                                    Self::register_imported_types(doc, &import, imported_types, registry_to_populate, &mut state.diag);
+                                    Self::register_imported_types(doc, &import, imported_types, registry_to_populate, state.diag);
                                 } else {
                                     state.diag.push_error("Import names are missing. Please specify which types you would like to import".into(), &import.import_uri_token.parent());
                                 }
@@ -190,7 +190,7 @@ impl TypeLoader {
                                             compo_or_type.clone(),
                                         )
                                     }),
-                                    &mut state.diag,
+                                    state.diag,
                                 );
                                 Some((exports, export_module_syntax_node.clone()))
                             }
@@ -397,7 +397,7 @@ impl TypeLoader {
             x.wake();
         }
 
-        ok.then(|| path_canon)
+        ok.then_some(path_canon)
     }
 
     /// Load a file, and its dependency not run the passes.
@@ -432,8 +432,7 @@ impl TypeLoader {
         import_stack: &HashSet<PathBuf>,
     ) {
         let dependency_doc: syntax_nodes::Document =
-            crate::parser::parse(source_code, Some(source_path), &mut state.borrow_mut().diag)
-                .into();
+            crate::parser::parse(source_code, Some(source_path), state.borrow_mut().diag).into();
 
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&state.borrow().tl.global_type_registry)));
@@ -471,10 +470,10 @@ impl TypeLoader {
             dependency_doc,
             foreign_imports,
             reexports,
-            &mut state.diag,
+            state.diag,
             &dependency_registry,
         );
-        crate::passes::run_import_passes(&doc, &state.tl, &mut state.diag);
+        crate::passes::run_import_passes(&doc, state.tl, state.diag);
         state.tl.all_documents.docs.insert(path.to_owned(), doc);
     }
 
@@ -542,9 +541,8 @@ impl TypeLoader {
             )
             .find_map(|include_dir| {
                 let candidate = include_dir.join(file_to_import);
-                crate::fileaccess::load_file(&candidate).map(|virtual_file| {
-                    (virtual_file.canon_path.into(), virtual_file.builtin_contents)
-                })
+                crate::fileaccess::load_file(&candidate)
+                    .map(|virtual_file| (virtual_file.canon_path, virtual_file.builtin_contents))
             })
     }
 
@@ -600,7 +598,7 @@ impl TypeLoader {
     }
 
     /// Return an iterator over all the loaded file path
-    pub fn all_files<'b>(&'b self) -> impl Iterator<Item = &PathBuf> + 'b {
+    pub fn all_files(&self) -> impl Iterator<Item = &PathBuf> {
         self.all_documents.docs.keys()
     }
 

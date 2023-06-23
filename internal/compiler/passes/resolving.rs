@@ -1042,7 +1042,7 @@ impl Expression {
             .unwrap_or('_');
 
         let exp = match op {
-            '!' => exp.maybe_convert_to(Type::Bool, &node, &mut ctx.diag),
+            '!' => exp.maybe_convert_to(Type::Bool, &node, ctx.diag),
             '+' | '-' => {
                 let ty = exp.ty();
                 if ty.default_unit().is_none()

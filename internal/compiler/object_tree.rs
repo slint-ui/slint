@@ -905,7 +905,7 @@ impl Element {
                     _ => (),
                 }
             }
-            let visibility = visibility.unwrap_or_else(|| {
+            let visibility = visibility.unwrap_or({
                 if is_legacy_syntax {
                     PropertyVisibility::InOut
                 } else {
@@ -1096,7 +1096,7 @@ impl Element {
                     "pure" => pure = Some(true),
                     "public" => {
                         visibility = PropertyVisibility::Public;
-                        pure = pure.or_else(|| Some(false));
+                        pure = pure.or(Some(false));
                     }
                     _ => (),
                 }
@@ -1958,7 +1958,7 @@ pub fn visit_element_expressions(
         vis: &mut impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
     ) {
         for (name, expr) in &elem.borrow().bindings {
-            vis(&mut *expr.borrow_mut(), Some(name.as_str()), &|| {
+            vis(&mut expr.borrow_mut(), Some(name.as_str()), &|| {
                 elem.borrow().lookup_property(name).property_type
             });
 

@@ -204,8 +204,8 @@ impl LayoutConstraints {
     }
 
     // Iterate over the constraint with a reference to a property, and the corresponding member in the i_slint_core::layout::LayoutInfo struct
-    pub fn for_each_restrictions<'a>(
-        &'a self,
+    pub fn for_each_restrictions(
+        &self,
         orientation: Orientation,
     ) -> impl Iterator<Item = (&NamedReference, &'static str)> {
         let (min, max, preferred, stretch) = match orientation {

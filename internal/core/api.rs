@@ -101,7 +101,7 @@ impl WindowPosition {
     /// Turn the `WindowPosition` into a `PhysicalPosition`.
     pub fn to_physical(&self, scale_factor: f32) -> PhysicalPosition {
         match self {
-            WindowPosition::Physical(pos) => pos.clone(),
+            WindowPosition::Physical(pos) => *pos,
             WindowPosition::Logical(pos) => pos.to_physical(scale_factor),
         }
     }
@@ -196,7 +196,7 @@ impl WindowSize {
     /// Turn the `WindowSize` into a `PhysicalSize`.
     pub fn to_physical(&self, scale_factor: f32) -> PhysicalSize {
         match self {
-            WindowSize::Physical(size) => size.clone(),
+            WindowSize::Physical(size) => *size,
             WindowSize::Logical(size) => size.to_physical(scale_factor),
         }
     }
@@ -205,7 +205,7 @@ impl WindowSize {
     pub fn to_logical(&self, scale_factor: f32) -> LogicalSize {
         match self {
             WindowSize::Physical(size) => size.to_logical(scale_factor),
-            WindowSize::Logical(size) => size.clone(),
+            WindowSize::Logical(size) => *size,
         }
     }
 }
@@ -471,14 +471,14 @@ impl Window {
 
             crate::platform::WindowEvent::KeyPressed { text } => {
                 self.0.process_key_input(KeyInputEvent {
-                    text: SharedString::from(text),
+                    text,
                     event_type: KeyEventType::KeyPressed,
                     ..Default::default()
                 })
             }
             crate::platform::WindowEvent::KeyReleased { text } => {
                 self.0.process_key_input(KeyInputEvent {
-                    text: SharedString::from(text),
+                    text,
                     event_type: KeyEventType::KeyReleased,
                     ..Default::default()
                 })

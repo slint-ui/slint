@@ -166,7 +166,7 @@ where
             .wrapped_model
             .iter()
             .enumerate()
-            .filter_map(|(i, e)| (self.filter_function)(&e).then(|| i))
+            .filter_map(|(i, e)| (self.filter_function)(&e).then_some(i))
             .collect();
     }
 }
@@ -212,7 +212,7 @@ where
             .enumerate()
             .skip(index)
             .take(count)
-            .filter_map(|(i, e)| (self.filter_function)(&e).then(|| i))
+            .filter_map(|(i, e)| (self.filter_function)(&e).then_some(i))
             .collect();
 
         if !insertion.is_empty() {
@@ -478,7 +478,7 @@ where
         let mut mapping = self.mapping.borrow_mut();
 
         mapping.clear();
-        mapping.extend((0..self.wrapped_model.row_count()).into_iter());
+        mapping.extend(0..self.wrapped_model.row_count());
         mapping.sort_by(|lhs, rhs| {
             self.sort_helper.borrow_mut().cmp(
                 &self.wrapped_model.row_data(*lhs).unwrap(),

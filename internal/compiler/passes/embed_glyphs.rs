@@ -111,7 +111,7 @@ fn embed_glyphs_with_fontdb<'a>(
     for doc in all_docs {
         for (font_path, import_token) in doc.custom_fonts.iter() {
             let face_count = fontdb.faces().count();
-            if let Err(e) = fontdb.load_font_file(&font_path) {
+            if let Err(e) = fontdb.load_font_file(font_path) {
                 diag.push_error(format!("Error loading font: {}", e), import_token);
             } else {
                 custom_fonts.extend(fontdb.faces().skip(face_count).map(|info| info.id))
@@ -139,9 +139,13 @@ fn embed_glyphs_with_fontdb<'a>(
             Some(id) => vec![id],
             None => {
                 if let Some(source_location) = source_location {
-                    diag.push_error_with_span(format!("could not find font that provides specified family, falling back to Sans-Serif"), source_location);
+                    diag.push_error_with_span("could not find font that provides specified family, falling back to Sans-Serif".to_string(), source_location);
                 } else {
-                    diag.push_error(format!("internal error: fontdb could not determine a default font for sans-serif"), &generic_diag_location);
+                    diag.push_error(
+                        "internal error: fontdb could not determine a default font for sans-serif"
+                            .to_string(),
+                        &generic_diag_location,
+                    );
                 };
                 return;
             }
@@ -158,7 +162,6 @@ fn embed_glyphs_with_fontdb<'a>(
                 fontdb::Source::File(path_buf) => path_buf,
                 fontdb::Source::SharedFile(path_buf, _) => path_buf,
             }
-            .clone()
         })
         .collect::<Vec<std::path::PathBuf>>();
 
@@ -395,7 +398,7 @@ fn embed_font(
         descent: metrics.descent,
         glyphs,
         weight: face_info.weight.0,
-        italic: if face_info.style == fontdb::Style::Normal { false } else { true },
+        italic: face_info.style != fontdb::Style::Normal,
     }
 }
 

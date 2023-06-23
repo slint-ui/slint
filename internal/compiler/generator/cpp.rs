@@ -909,14 +909,7 @@ fn generate_item_tree(
         item_tree_class_name
     ));
 
-    generate_sub_component(
-        target_struct,
-        &sub_tree.root,
-        root,
-        parent_ctx.clone(),
-        field_access,
-        file,
-    );
+    generate_sub_component(target_struct, &sub_tree.root, root, parent_ctx, field_access, file);
 
     let root_access = if parent_ctx.is_some() { "parent->root" } else { "self" };
 
@@ -1243,7 +1236,7 @@ fn generate_item_tree(
     // Repeaters run their user_init() code from Repeater::ensure_updated() after update() initialized model_data/index.
     // So always call user_init(), unless this component is a repeated.
     if parent_ctx.map_or(true, |parent_ctx| parent_ctx.repeater_index.is_none()) {
-        create_code.push(format!("self->user_init();"));
+        create_code.push("self->user_init();".to_string());
     }
 
     create_code
@@ -1354,12 +1347,8 @@ fn generate_sub_component(
         init.push("self->parent = parent;".into());
     }
 
-    let ctx = EvaluationContext::new_sub_component(
-        root,
-        component,
-        "self->root".into(),
-        parent_ctx.clone(),
-    );
+    let ctx =
+        EvaluationContext::new_sub_component(root, component, "self->root".into(), parent_ctx);
 
     component.popup_windows.iter().for_each(|c| {
         let component_id = ident(&c.root.name);
@@ -1763,7 +1752,7 @@ fn generate_repeated_component(
         &mut repeater_struct,
         &repeated.sub_tree,
         root,
-        Some(parent_ctx.clone()),
+        Some(parent_ctx),
         repeater_id.clone(),
         Access::Public,
         file,
@@ -2194,7 +2183,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             let property_name = ident(prop_name);
             let flick = sub_component.items[item_index]
                 .is_flickable_viewport
-                .then(|| "viewport.")
+                .then_some("viewport.")
                 .unwrap_or_default();
             format!("{}->{}{}.{}{}", path, compo_path, item_name, flick, property_name)
         }
@@ -2370,7 +2359,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         },
         Expression::Cast { from, to } => {
-            let f = compile_expression(&*from, ctx);
+            let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
                 (from, Type::String) if from.as_unit_product().is_some() => {
                     format!("slint::SharedString::from_number({})", f)
@@ -2483,7 +2472,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let mut ctx2 = ctx;
             let mut repeater_index = None;
             for _ in 0..=*level {
-                let x = ctx2.parent.clone().unwrap();
+                let x = ctx2.parent.unwrap();
                 ctx2 = x.ctx;
                 repeater_index = x.repeater_index;
                 write!(path, "->parent").unwrap();
@@ -2517,8 +2506,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let mut buffer = [0; 3];
             format!(
                 "({lhs} {op} {rhs})",
-                lhs = compile_expression(&*lhs, ctx),
-                rhs = compile_expression(&*rhs, ctx),
+                lhs = compile_expression(lhs, ctx),
+                rhs = compile_expression(rhs, ctx),
                 op = match op {
                     '=' => "==",
                     '!' => "!=",
@@ -2532,7 +2521,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         }
         Expression::UnaryOp { sub, op } => {
-            format!("({op} {sub})", sub = compile_expression(&*sub, ctx), op = op,)
+            format!("({op} {sub})", sub = compile_expression(sub, ctx), op = op,)
         }
         Expression::ImageReference { resource_ref, .. }  => {
             match resource_ref {

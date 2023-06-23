@@ -363,7 +363,7 @@ impl ImageInner {
                     Ok(b) => Some(b),
                     Err(err) => {
                         eprintln!("Error rendering SVG: {}", err);
-                        return None;
+                        None
                     }
                 }
             }
@@ -678,10 +678,9 @@ impl Image {
     /// ```
     pub fn path(&self) -> Option<&std::path::Path> {
         match &self.0 {
-            ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
-                ImageCacheKey::Path(path) => Some(std::path::Path::new(path.as_str())),
-                _ => None,
-            },
+            ImageInner::EmbeddedImage { cache_key: ImageCacheKey::Path(path), .. } => {
+                Some(std::path::Path::new(path.as_str()))
+            }
             _ => None,
         }
     }

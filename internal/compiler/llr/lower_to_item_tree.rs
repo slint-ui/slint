@@ -502,8 +502,8 @@ fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> Repeat
             root: Rc::try_unwrap(sc.sub_component).unwrap(),
             parent_context: Some(e.enclosing_component.upgrade().unwrap().id.clone()),
         },
-        index_prop: (!repeated.is_conditional_element).then(|| 1),
-        data_prop: (!repeated.is_conditional_element).then(|| 0),
+        index_prop: (!repeated.is_conditional_element).then_some(1),
+        data_prop: (!repeated.is_conditional_element).then_some(0),
         index_in_tree: *e.item_index.get().unwrap(),
         listview,
     }

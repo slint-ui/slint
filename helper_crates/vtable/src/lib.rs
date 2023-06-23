@@ -358,7 +358,7 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     /// Can create mutable reference to ptr, so no other code can create mutable reference of ptr
     /// during the life time 'a.
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
-        Self { inner: Inner { vtable: vtable.cast(), ptr: ptr }, phantom: PhantomData }
+        Self { inner: Inner { vtable: vtable.cast(), ptr }, phantom: PhantomData }
     }
 
     /// Borrow this to obtain a VRef.

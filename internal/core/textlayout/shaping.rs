@@ -109,9 +109,7 @@ impl<'a> Iterator for ShapeBoundaries<'a> {
 
     #[cfg(feature = "unicode-script")]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.next_boundary_start.is_none() {
-            return None;
-        }
+        self.next_boundary_start?;
 
         let (next_offset, script) = loop {
             match self.chars.next() {

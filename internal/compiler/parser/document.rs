@@ -65,14 +65,12 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
                 }
                 let r = if is_export {
                     parse_export(&mut *p, Some(checkpoint))
+                } else if p.nth(0).as_str() == "struct" {
+                    parse_struct_declaration(&mut *p, Some(checkpoint))
+                } else if p.nth(0).as_str() == "enum" {
+                    parse_enum_declaration(&mut *p, Some(checkpoint))
                 } else {
-                    if p.nth(0).as_str() == "struct" {
-                        parse_struct_declaration(&mut *p, Some(checkpoint))
-                    } else if p.nth(0).as_str() == "enum" {
-                        parse_enum_declaration(&mut *p, Some(checkpoint))
-                    } else {
-                        false
-                    }
+                    false
                 };
                 if !r {
                     break;
@@ -133,19 +131,17 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             drop(p.start_node(SyntaxKind::Element));
             return false;
         }
+    } else if p.peek().as_str() == "inherits" {
+        p.consume();
+    } else if p.peek().kind() == SyntaxKind::LBrace {
+        let mut p = p.start_node(SyntaxKind::Element);
+        p.consume();
+        parse_element_content(&mut *p);
+        return p.expect(SyntaxKind::RBrace);
     } else {
-        if p.peek().as_str() == "inherits" {
-            p.consume();
-        } else if p.peek().kind() == SyntaxKind::LBrace {
-            let mut p = p.start_node(SyntaxKind::Element);
-            p.consume();
-            parse_element_content(&mut *p);
-            return p.expect(SyntaxKind::RBrace);
-        } else {
-            p.error("Expected '{' or keyword 'inherits'");
-            drop(p.start_node(SyntaxKind::Element));
-            return false;
-        }
+        p.error("Expected '{' or keyword 'inherits'");
+        drop(p.start_node(SyntaxKind::Element));
+        return false;
     }
 
     if is_global && p.peek().kind() == SyntaxKind::LBrace {

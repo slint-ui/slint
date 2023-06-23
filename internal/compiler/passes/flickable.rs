@@ -144,10 +144,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
 /// Return true if this type is a layout that has constraints
 fn is_layout(base_type: &ElementType) -> bool {
     if let ElementType::Builtin(be) = base_type {
-        match be.name.as_str() {
-            "GridLayout" | "HorizontalLayout" | "VerticalLayout" => true,
-            _ => false,
-        }
+        matches!(be.name.as_str(), "GridLayout" | "HorizontalLayout" | "VerticalLayout")
     } else {
         false
     }

@@ -347,7 +347,6 @@ fn process_window_event(
                 text: string.into(),
                 preedit_selection_start: preedit_selection.0,
                 preedit_selection_end: preedit_selection.1,
-                ..Default::default()
             };
             runtime_window.process_key_input(event);
         }

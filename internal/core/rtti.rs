@@ -6,6 +6,8 @@
  property so that the viewer can handle them
 */
 
+#![allow(clippy::result_unit_err)] // We have nothing better to report
+
 pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::AllowPin>;
 use crate::items::PropertyAnimation;
 use alloc::rc::Rc;

@@ -189,7 +189,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(&*from, local_context);
+            let v = eval_expression(from, local_context);
             match (v, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.round()),
                 (Value::Number(n), Type::String) => {
@@ -223,13 +223,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             _ => panic!("call of something not a callback: {function:?}"),
         }
         Expression::SelfAssignment { lhs, rhs, op, .. } => {
-            let rhs = eval_expression(&**rhs, local_context);
+            let rhs = eval_expression(rhs, local_context);
             eval_assignment(lhs, *op, rhs, local_context);
             Value::Void
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
-            let lhs = eval_expression(&**lhs, local_context);
-            let rhs = eval_expression(&**rhs, local_context);
+            let lhs = eval_expression(lhs, local_context);
+            let rhs = eval_expression(rhs, local_context);
 
             match (op, lhs, rhs) {
                 ('+', Value::String(mut a), Value::String(b)) => { a.push_str(b.as_str()); Value::String(a) },
@@ -262,7 +262,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::UnaryOp { sub, op } => {
-            let sub = eval_expression(&**sub, local_context);
+            let sub = eval_expression(sub, local_context);
             match (sub, op) {
                 (Value::Number(a), '+') => Value::Number(a),
                 (Value::Number(a), '-') => Value::Number(-a),
@@ -310,11 +310,11 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }))
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            match eval_expression(&**condition, local_context).try_into()
+            match eval_expression(condition, local_context).try_into()
                 as Result<bool, _>
             {
-                Ok(true) => eval_expression(&**true_expr, local_context),
-                Ok(false) => eval_expression(&**false_expr, local_context),
+                Ok(true) => eval_expression(true_expr, local_context),
+                Ok(false) => eval_expression(false_expr, local_context),
                 _ => local_context.return_value.clone().expect("conditional expression did not evaluate to boolean"),
             }
         }
@@ -914,7 +914,7 @@ fn call_builtin_function(
             struct StringModelWrapper(ModelRc<Value>);
             impl corelib::translations::FormatArgs for StringModelWrapper {
                 type Output<'a> = SharedString;
-                fn from_index<'a>(&'a self, index: usize) -> Option<SharedString> {
+                fn from_index(&self, index: usize) -> Option<SharedString> {
                     self.0.row_data(index).map(|x| x.try_into().unwrap())
                 }
             }
@@ -1234,7 +1234,7 @@ pub(crate) fn invoke_callback(
                         // If the callback was not set, the return value will be Value::Void, but we need
                         // to make sure that the value is actually of the right type as returned by the
                         // callback, otherwise we will get panics later
-                        default_value_for_type(&*rt)
+                        default_value_for_type(rt)
                     } else {
                         res
                     });
@@ -1277,11 +1277,11 @@ pub(crate) fn call_function(
 
 fn root_component_instance<'a, 'old_id, 'new_id>(
     component: InstanceRef<'a, 'old_id>,
-    guard: generativity::Guard<'new_id>,
+    _guard: generativity::Guard<'new_id>,
 ) -> InstanceRef<'a, 'new_id> {
     if let Some(parent_offset) = component.component_type.parent_component_offset {
         let parent_component =
-            if let Some(parent) = parent_offset.apply(&*component.instance.get_ref()).get() {
+            if let Some(parent) = parent_offset.apply(component.instance.get_ref()).get() {
                 *parent
             } else {
                 panic!("invalid parent ptr");
@@ -1291,7 +1291,7 @@ fn root_component_instance<'a, 'old_id, 'new_id>(
         let static_guard = unsafe { generativity::Guard::new(generativity::Id::<'static>::new()) };
         root_component_instance(
             unsafe { InstanceRef::from_pin_ref(parent_component, static_guard) },
-            guard,
+            _guard,
         )
     } else {
         // Safety: new_id is an unique id
@@ -1306,7 +1306,7 @@ fn root_component_instance<'a, 'old_id, 'new_id>(
 pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
     element: &'a ElementRc,
     component: InstanceRef<'a, 'old_id>,
-    guard: generativity::Guard<'new_id>,
+    _guard: generativity::Guard<'new_id>,
 ) -> InstanceRef<'a, 'new_id> {
     let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
     if Rc::ptr_eq(enclosing, &component.component_type.original) {
@@ -1328,15 +1328,15 @@ pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
         let parent_instance = unsafe {
             core::mem::transmute::<InstanceRef, InstanceRef<'a, 'static>>(parent_instance)
         };
-        enclosing_component_for_element(element, parent_instance, guard)
+        enclosing_component_for_element(element, parent_instance, _guard)
     }
 }
 
 /// Return the component instance which hold the given element.
 /// The difference with enclosing_component_for_element is that it takes the GlobalComponent into account.
-pub(crate) fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
+pub(crate) fn enclosing_component_instance_for_element<'a, 'new_id>(
     element: &'a ElementRc,
-    component_instance: ComponentInstance<'a, 'old_id>,
+    component_instance: ComponentInstance<'a, '_>,
     guard: generativity::Guard<'new_id>,
 ) -> ComponentInstance<'a, 'new_id> {
     let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
@@ -1352,7 +1352,7 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
                     &root
                         .component_type
                         .extra_data_offset
-                        .apply(&*root.instance.get_ref())
+                        .apply(root.instance.get_ref())
                         .globals
                         .get()
                         .unwrap()[enclosing.root_element.borrow().id.as_str()],

@@ -201,7 +201,7 @@ pub(crate) fn property_binding_and_analysis<'a>(
             }
             _ => unreachable!(),
         }
-        return PropertyInfoResult { property_decl, ..Default::default() };
+        PropertyInfoResult { property_decl, ..Default::default() }
     }
 
     match prop {

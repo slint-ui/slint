@@ -191,7 +191,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
     fn visit_children<T: ItemTreeBuilder>(
         state: &T::SubComponentState,
         children: &[ElementRc],
-        component: &Rc<Component>,
+        _component: &Rc<Component>,
         parent_item: &ElementRc,
         parent_index: u32,
         relative_parent_index: u32,
@@ -290,7 +290,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                 visit_children(
                     state,
                     &e.borrow().children,
-                    component,
+                    _component,
                     e,
                     index,
                     relative_index,

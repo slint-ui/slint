@@ -159,7 +159,7 @@ fn analyze_element(
             diag,
         );
     }
-    for (_, nr) in &elem.borrow().accessibility_props.0 {
+    for nr in elem.borrow().accessibility_props.0.values() {
         process_property(&PropertyPath::from(nr.clone()), context, reverse_aliases, diag);
     }
 
@@ -360,7 +360,9 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&PropertyPath)) {
         Expression::SolveLayout(l, o) | Expression::ComputeLayoutInfo(l, o) => {
             // we should only visit the layout geometry for the orientation
             if matches!(expr, Expression::SolveLayout(..)) {
-                l.rect().size_reference(*o).map(|nr| vis(&nr.clone().into()));
+                if let Some(nr) = l.rect().size_reference(*o) {
+                    vis(&nr.clone().into());
+                }
             }
             match l {
                 crate::layout::Layout::GridLayout(l) => {

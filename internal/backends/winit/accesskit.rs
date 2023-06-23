@@ -118,17 +118,14 @@ impl AccessKitAdapter {
 
     fn handle_request(&self, request: ActionRequest) {
         let Some(window_adapter) = self.window_adapter_weak.upgrade() else { return };
-        match request.action {
-            Action::Focus => {
-                if let Some(item) = self.item_rc_for_node_id(request.target) {
-                    WindowInner::from_pub(window_adapter.window()).set_focus_item(&item);
-                }
+        if request.action == Action::Focus {
+            if let Some(item) = self.item_rc_for_node_id(request.target) {
+                WindowInner::from_pub(window_adapter.window()).set_focus_item(&item);
             }
-            _ => {}
         }
     }
 
-    pub fn register_component<'a>(&self) {
+    pub fn register_component(&self) {
         let win = self.window_adapter_weak.clone();
         i_slint_core::timers::Timer::single_shot(Default::default(), move || {
             if let Some(window_adapter) = win.upgrade() {
@@ -138,7 +135,7 @@ impl AccessKitAdapter {
         });
     }
 
-    pub fn unregister_component<'a>(&self, component: ComponentRef) {
+    pub fn unregister_component(&self, component: ComponentRef) {
         let component_ptr = ComponentRef::as_ptr(component);
         if let Some(component_id) = self.component_ids.borrow_mut().remove(&component_ptr) {
             self.components_by_id.borrow_mut().remove(&component_id);

@@ -408,7 +408,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
                 // Check if this is a constructor functions
                 if let ReturnType::Type(_, ret) = &f.output {
-                    if match_generic_type(&**ret, "VBox", &vtable_name) {
+                    if match_generic_type(ret, "VBox", &vtable_name) {
                         // Change VBox<VTable> to Self
                         sig.output = parse_str("-> Self").unwrap();
                         wrap_trait_call = Some(quote! {
@@ -561,7 +561,9 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     ReturnType::Default => quote!(),
                     // If the return type contains a implicit lifetime, it is safe to erase it while returning it
                     // because a sound implementation of the trait wouldn't allow unsound things here
-                    ReturnType::Type(_, r) => quote!(core::mem::transmute::<#r, #r>),
+                    ReturnType::Type(_, r) => {
+                        quote!(#[allow(clippy::useless_transmute)] core::mem::transmute::<#r, #r>)
+                    }
                 };
                 vtable_ctor.push(quote!(#ident: {
                     #sig_extern {

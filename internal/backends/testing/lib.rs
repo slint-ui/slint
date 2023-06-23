@@ -164,7 +164,7 @@ impl RendererSealed for TestingWindow {
 /// Must be called before any call that would otherwise initialize the rendering backend.
 /// Calling it when the rendering backend is already initialized will have no effects
 pub fn init() {
-    i_slint_core::platform::set_platform(Box::new(TestingBackend::default()))
+    i_slint_core::platform::set_platform(Box::<TestingBackend>::default())
         .expect("platform already initialized");
 }
 
@@ -242,11 +242,11 @@ pub fn access_testing_window<R>(
     window: &i_slint_core::api::Window,
     callback: impl FnOnce(&TestingWindow) -> R,
 ) -> R {
-    i_slint_core::window::WindowInner::from_pub(&window)
+    i_slint_core::window::WindowInner::from_pub(window)
         .window_adapter()
         .internal(i_slint_core::InternalToken)
         .and_then(|wa| wa.as_any().downcast_ref::<TestingWindow>())
-        .map(|adapter| callback(adapter))
+        .map(callback)
         .expect("access_testing_window called without testing backend/adapter")
 }
 

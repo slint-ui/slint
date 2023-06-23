@@ -392,9 +392,9 @@ impl RendererSealed for SoftwareRenderer {
                     single_line: false,
                 };
 
-                return visual_representation.map_byte_offset_from_byte_offset_in_visual_text(
+                visual_representation.map_byte_offset_from_byte_offset_in_visual_text(
                     paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
-                );
+                )
             }
             #[cfg(feature = "software-renderer-systemfonts")]
             fonts::Font::VectorFont(vf) => {
@@ -412,11 +412,11 @@ impl RendererSealed for SoftwareRenderer {
                     single_line: false,
                 };
 
-                return visual_representation.map_byte_offset_from_byte_offset_in_visual_text(
+                visual_representation.map_byte_offset_from_byte_offset_in_visual_text(
                     paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
-                );
+                )
             }
-        };
+        }
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -471,7 +471,7 @@ impl RendererSealed for SoftwareRenderer {
             }
         };
 
-        return (PhysicalRect::new(
+        (PhysicalRect::new(
             PhysicalPoint::from_lengths(cursor_position.0, cursor_position.1),
             PhysicalSize::from_lengths(
                 (text_input.text_cursor_width().cast() * scale_factor).cast(),
@@ -480,7 +480,7 @@ impl RendererSealed for SoftwareRenderer {
         )
         .cast()
             / scale_factor)
-            .cast();
+            .cast()
     }
 
     fn free_graphics_resources(
@@ -1315,9 +1315,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         };
     }
 
-    fn draw_text_paragraph<'b, Font: AbstractFont>(
+    fn draw_text_paragraph<Font: AbstractFont>(
         &mut self,
-        paragraph: &TextParagraphLayout<'b, Font>,
+        paragraph: &TextParagraphLayout<'_, Font>,
         physical_clip: euclid::Rect<f32, PhysicalPx>,
         offset: euclid::Vector2D<f32, PhysicalPx>,
         color: Color,
@@ -1344,7 +1344,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             );
                         }
                     }
-                    while let Some(positioned_glyph) = glyphs.next() {
+                    for positioned_glyph in glyphs {
                         let glyph = paragraph.layout.font.render_glyph(positioned_glyph.glyph_id);
 
                         let src_rect = PhysicalRect::new(
@@ -1443,6 +1443,7 @@ struct RenderState {
 }
 
 impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'a, T> {
+    #[allow(clippy::unnecessary_cast)] // Coord!
     fn draw_rectangle(
         &mut self,
         rect: Pin<&crate::items::Rectangle>,
@@ -1569,6 +1570,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         }
     }
 
+    #[allow(clippy::unnecessary_cast)] // Coord
     fn draw_border_rectangle(
         &mut self,
         rect: Pin<&crate::items::BorderRectangle>,
@@ -1603,9 +1605,9 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                 let b = border_color;
                 let b_alpha_16 = b.alpha as u16;
                 border_color = PremultipliedRgbaColor {
-                    red: ((color.red as u16 * (255 - b_alpha_16)) / 255) as u8 + b.red as u8,
-                    green: ((color.green as u16 * (255 - b_alpha_16)) / 255) as u8 + b.green as u8,
-                    blue: ((color.blue as u16 * (255 - b_alpha_16)) / 255) as u8 + b.blue as u8,
+                    red: ((color.red as u16 * (255 - b_alpha_16)) / 255) as u8 + b.red,
+                    green: ((color.green as u16 * (255 - b_alpha_16)) / 255) as u8 + b.green,
+                    blue: ((color.blue as u16 * (255 - b_alpha_16)) / 255) as u8 + b.blue,
                     alpha: (color.alpha as u16 + b_alpha_16
                         - (color.alpha as u16 * b_alpha_16) / 255) as u8,
                 }

@@ -44,6 +44,7 @@ impl ParsedSVG {
     }
 
     /// Renders the SVG with the specified size.
+    #[allow(clippy::unnecessary_cast)] // Coord
     pub fn render(
         &self,
         size: euclid::Size2D<u32, PhysicalPx>,
@@ -81,7 +82,7 @@ fn with_svg_options<T>(callback: impl FnOnce(&usvg::Options) -> T) -> T {
 fn fixup_text(mut tree: usvg::Tree) -> usvg::Tree {
     if tree.has_text_nodes() {
         i_slint_common::sharedfontdb::FONT_DB.with(|db| {
-            tree.convert_text(&*db.borrow());
+            tree.convert_text(&db.borrow());
         })
     }
     tree

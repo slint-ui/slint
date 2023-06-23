@@ -287,7 +287,6 @@ cpp! {{
                         text: preedit_string.to_string().into(),
                         preedit_selection_start: replacement_start as usize,
                         preedit_selection_end: replacement_start as usize + replacement_length as usize,
-                        ..Default::default()
                     };
                     runtime_window.process_key_input(event);
 

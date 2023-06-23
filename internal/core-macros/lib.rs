@@ -62,7 +62,7 @@ pub fn slint_element(input: TokenStream) -> TokenStream {
         .map(|f| (f.ident.as_ref().unwrap(), &f.ty))
         .unzip();
     let plain_field_names_normalized =
-        plain_field_names.iter().map(|f| normalize_identifier(*f)).collect::<Vec<_>>();
+        plain_field_names.iter().map(|f| normalize_identifier(f)).collect::<Vec<_>>();
 
     let mut callback_field_names = Vec::new();
     let mut callback_field_names_normalized = Vec::new();

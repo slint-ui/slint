@@ -26,7 +26,7 @@ pub fn move_declarations(component: &Rc<Component>) {
 }
 
 fn do_move_declarations(component: &Rc<Component>) {
-    let mut decl = Declarations::take_from_element(&mut *component.root_element.borrow_mut());
+    let mut decl = Declarations::take_from_element(&mut component.root_element.borrow_mut());
     component.popup_windows.borrow().iter().for_each(|f| do_move_declarations(&f.component));
 
     let mut new_root_bindings = HashMap::new();
@@ -91,9 +91,9 @@ fn do_move_declarations(component: &Rc<Component>) {
     }
 
     let move_properties = &mut |elem: &ElementRc| {
-        let elem_decl = Declarations::take_from_element(&mut *elem.borrow_mut());
+        let elem_decl = Declarations::take_from_element(&mut elem.borrow_mut());
         decl.property_declarations.extend(
-            elem_decl.property_declarations.into_iter().map(|(p, d)| (map_name(elem, &*p), d)),
+            elem_decl.property_declarations.into_iter().map(|(p, d)| (map_name(elem, &p), d)),
         );
     };
 

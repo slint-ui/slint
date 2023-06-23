@@ -755,41 +755,41 @@ impl Expression {
             Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
             Expression::MemberFunction { base, member, .. } => {
-                visitor(&**base);
-                visitor(&**member);
+                visitor(base);
+                visitor(member);
             }
             Expression::BuiltinMacroReference { .. } => {}
             Expression::ElementReference(_) => {}
-            Expression::StructFieldAccess { base, .. } => visitor(&**base),
+            Expression::StructFieldAccess { base, .. } => visitor(base),
             Expression::ArrayIndex { array, index } => {
-                visitor(&**array);
-                visitor(&**index);
+                visitor(array);
+                visitor(index);
             }
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
-            Expression::Cast { from, .. } => visitor(&**from),
+            Expression::Cast { from, .. } => visitor(from),
             Expression::CodeBlock(sub) => {
                 sub.iter().for_each(visitor);
             }
             Expression::FunctionCall { function, arguments, source_location: _ } => {
-                visitor(&**function);
+                visitor(function);
                 arguments.iter().for_each(visitor);
             }
             Expression::SelfAssignment { lhs, rhs, .. } => {
-                visitor(&**lhs);
-                visitor(&**rhs);
+                visitor(lhs);
+                visitor(rhs);
             }
             Expression::ImageReference { .. } => {}
             Expression::Condition { condition, true_expr, false_expr } => {
-                visitor(&**condition);
-                visitor(&**true_expr);
-                visitor(&**false_expr);
+                visitor(condition);
+                visitor(true_expr);
+                visitor(false_expr);
             }
             Expression::BinaryExpression { lhs, rhs, .. } => {
-                visitor(&**lhs);
-                visitor(&**rhs);
+                visitor(lhs);
+                visitor(rhs);
             }
-            Expression::UnaryOp { sub, .. } => visitor(&**sub),
+            Expression::UnaryOp { sub, .. } => visitor(sub),
             Expression::Array { values, .. } => {
                 for x in values {
                     visitor(x);
@@ -811,7 +811,7 @@ impl Expression {
                 }
                 Path::Commands(commands) => visitor(commands),
             },
-            Expression::StoreLocalVariable { value, .. } => visitor(&**value),
+            Expression::StoreLocalVariable { value, .. } => visitor(value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
             Expression::LinearGradient { angle, stops } => {
@@ -852,41 +852,41 @@ impl Expression {
             Expression::FunctionParameterReference { .. } => {}
             Expression::BuiltinFunctionReference { .. } => {}
             Expression::MemberFunction { base, member, .. } => {
-                visitor(&mut **base);
-                visitor(&mut **member);
+                visitor(base);
+                visitor(member);
             }
             Expression::BuiltinMacroReference { .. } => {}
             Expression::ElementReference(_) => {}
-            Expression::StructFieldAccess { base, .. } => visitor(&mut **base),
+            Expression::StructFieldAccess { base, .. } => visitor(base),
             Expression::ArrayIndex { array, index } => {
-                visitor(&mut **array);
-                visitor(&mut **index);
+                visitor(array);
+                visitor(index);
             }
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
-            Expression::Cast { from, .. } => visitor(&mut **from),
+            Expression::Cast { from, .. } => visitor(from),
             Expression::CodeBlock(sub) => {
                 sub.iter_mut().for_each(visitor);
             }
             Expression::FunctionCall { function, arguments, source_location: _ } => {
-                visitor(&mut **function);
+                visitor(function);
                 arguments.iter_mut().for_each(visitor);
             }
             Expression::SelfAssignment { lhs, rhs, .. } => {
-                visitor(&mut **lhs);
-                visitor(&mut **rhs);
+                visitor(lhs);
+                visitor(rhs);
             }
             Expression::ImageReference { .. } => {}
             Expression::Condition { condition, true_expr, false_expr } => {
-                visitor(&mut **condition);
-                visitor(&mut **true_expr);
-                visitor(&mut **false_expr);
+                visitor(condition);
+                visitor(true_expr);
+                visitor(false_expr);
             }
             Expression::BinaryExpression { lhs, rhs, .. } => {
-                visitor(&mut **lhs);
-                visitor(&mut **rhs);
+                visitor(lhs);
+                visitor(rhs);
             }
-            Expression::UnaryOp { sub, .. } => visitor(&mut **sub),
+            Expression::UnaryOp { sub, .. } => visitor(sub),
             Expression::Array { values, .. } => {
                 for x in values {
                     visitor(x);
@@ -911,11 +911,11 @@ impl Expression {
                 }
                 Path::Commands(commands) => visitor(commands),
             },
-            Expression::StoreLocalVariable { value, .. } => visitor(&mut **value),
+            Expression::StoreLocalVariable { value, .. } => visitor(value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
             Expression::LinearGradient { angle, stops } => {
-                visitor(&mut *angle);
+                visitor(angle);
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);

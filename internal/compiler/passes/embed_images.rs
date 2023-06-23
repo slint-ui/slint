@@ -189,7 +189,7 @@ pub fn generate_texture(image: image::RgbaImage, original_size: Size) -> Texture
     enum ColorState {
         Unset,
         Different,
-        RGB([u8; 3]),
+        Rgb([u8; 3]),
     }
     let mut color = ColorState::Unset;
     'outer: for y in top..=bottom {
@@ -201,14 +201,14 @@ pub fn generate_texture(image: image::RgbaImage, original_size: Size) -> Texture
             }
             match color {
                 ColorState::Unset => {
-                    color = ColorState::RGB(p.0[0..3].try_into().unwrap());
+                    color = ColorState::Rgb(p.0[0..3].try_into().unwrap());
                 }
                 ColorState::Different => {
                     if !is_opaque {
                         break 'outer;
                     }
                 }
-                ColorState::RGB([a, b, c]) => {
+                ColorState::Rgb([a, b, c]) => {
                     let abs_diff = |t, u| {
                         if t < u {
                             u - t
@@ -224,7 +224,7 @@ pub fn generate_texture(image: image::RgbaImage, original_size: Size) -> Texture
         }
     }
 
-    let format = if let ColorState::RGB(c) = color {
+    let format = if let ColorState::Rgb(c) = color {
         PixelFormat::AlphaMap(c)
     } else if is_opaque {
         PixelFormat::Rgb

@@ -127,7 +127,6 @@ fn collect_unconditional_read_count(expr: &Expression, result: &DedupPropState) 
         }
         Expression::SelfAssignment { .. } => {
             result.counts.borrow_mut().has_set = true;
-            return;
         }
         _ => expr.visit(|sub| collect_unconditional_read_count(sub, result)),
     }
@@ -149,7 +148,6 @@ fn process_conditional_expressions(expr: &mut Expression, state: &DedupPropState
         }
         Expression::SelfAssignment { .. } => {
             state.counts.borrow_mut().has_set = true;
-            return;
         }
         _ => expr.visit_mut(|sub| process_conditional_expressions(sub, state)),
     }

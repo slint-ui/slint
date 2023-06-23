@@ -131,7 +131,7 @@ pub trait LookupObject {
     /// Perform a lookup of a given identifier.
     /// One does not have to re-implement unless we can make it faster
     fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
-        self.for_each_entry(ctx, &mut |prop, expr| (prop == name).then(|| expr))
+        self.for_each_entry(ctx, &mut |prop, expr| (prop == name).then_some(expr))
     }
 }
 
@@ -318,10 +318,8 @@ impl InScopeLookup {
                         return Some(r);
                     }
                 }
-            } else {
-                if let Some(r) = visit_scope(elem) {
-                    return Some(r);
-                }
+            } else if let Some(r) = visit_scope(elem) {
+                return Some(r);
             }
         }
         None
@@ -360,7 +358,7 @@ impl LookupObject for InScopeLookup {
         }
         Self::visit_scope(
             ctx,
-            |str, r| (str == name).then(|| r),
+            |str, r| (str == name).then_some(r),
             |elem| elem.lookup(ctx, name),
             |elem| {
                 elem.borrow().property_declarations.get(name).map(|prop| {

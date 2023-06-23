@@ -11,10 +11,10 @@
 #![allow(unsafe_code)]
 #![warn(missing_docs)]
 
+/// A singled linked list whose nodes are pinned
 mod single_linked_list_pin {
     #![allow(unsafe_code)]
     use alloc::boxed::Box;
-    ///! A singled linked list whose nodes are pinned
     use core::pin::Pin;
 
     type NodePtr<T> = Option<Pin<Box<SingleLinkedListPinNode<T>>>>;
@@ -48,7 +48,7 @@ mod single_linked_list_pin {
         }
 
         #[allow(unused)]
-        pub fn iter<'a>(&'a self) -> impl Iterator<Item = Pin<&T>> + 'a {
+        pub fn iter(&self) -> impl Iterator<Item = Pin<&T>> {
             struct I<'a, T>(&'a NodePtr<T>);
 
             impl<'a, T> Iterator for I<'a, T> {

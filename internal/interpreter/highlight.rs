@@ -33,7 +33,7 @@ const DESIGN_MODE_PROP: &str = "$designMode";
 fn next_item(item: &ItemRc) -> ItemRc {
     // We have a sibling, so find the "deepest first_child"
     if let Some(s) = item.next_sibling() {
-        return next_item_down(&s);
+        next_item_down(&s)
     } else if let Some(p) = item.parent_item() {
         // Walk further up the tree once out of siblings...
         p
@@ -46,9 +46,9 @@ fn next_item(item: &ItemRc) -> ItemRc {
 
 fn next_item_down(item: &ItemRc) -> ItemRc {
     if let Some(child) = item.first_child() {
-        return next_item_down(&child);
+        next_item_down(&child)
     } else {
-        return item.clone();
+        item.clone()
     }
 }
 
@@ -114,7 +114,7 @@ fn item_contains(item: &ItemRc, position: &LogicalPoint) -> bool {
 
 pub fn on_element_selected(
     component_instance: &DynamicComponentVRc,
-    callback: Box<dyn Fn(&str, u32, u32, u32, u32) -> ()>,
+    callback: Box<dyn Fn(&str, u32, u32, u32, u32)>,
 ) {
     generativity::make_guard!(guard);
     let c = component_instance.unerase(guard);
@@ -178,7 +178,7 @@ pub fn on_element_selected(
             };
 
             callback(&f, sl, sc, el, ec);
-            return Value::Void;
+            Value::Void
         }),
     );
 }
@@ -315,10 +315,7 @@ fn find_element_at_offset(component: &Rc<Component>, path: PathBuf, offset: u32)
 fn repeater_path(elem: &ElementRc) -> Option<Vec<String>> {
     let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
     if let Some(parent) = enclosing.parent_element.upgrade() {
-        if parent.borrow().repeated.is_none() {
-            // This is not a repeater, it might be a popup menu which is not supported ATM
-            return None;
-        }
+        parent.borrow().repeated.as_ref()?;
         let mut r = repeater_path(&parent)?;
         r.push(parent.borrow().id.clone());
         Some(r)
@@ -551,12 +548,14 @@ fn add_current_item_callback(doc: &Document) {
             Expression::FunctionCall {
                 function: Box::new(Expression::CallbackReference(callback_prop, None)),
                 arguments: vec![
-                    Expression::PropertyReference(
-                        NamedReference::new(&element.clone(), "pressed-x").into(),
-                    ),
-                    Expression::PropertyReference(
-                        NamedReference::new(&element.clone(), "pressed-y").into(),
-                    ),
+                    Expression::PropertyReference(NamedReference::new(
+                        &element.clone(),
+                        "pressed-x",
+                    )),
+                    Expression::PropertyReference(NamedReference::new(
+                        &element.clone(),
+                        "pressed-y",
+                    )),
                 ],
                 source_location: None,
             }

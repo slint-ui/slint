@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
+#![allow(clippy::identity_op)] // We use x + 0 a lot here for symetry
+
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer
 
@@ -87,6 +89,7 @@ pub(super) fn draw_texture_line(
 }
 
 /// draw one line of the rounded rectangle in the line buffer
+#[allow(clippy::unnecessary_cast)] // Coord
 pub(super) fn draw_rounded_rectangle_line(
     span: &PhysicalRect,
     line: PhysicalLength,
@@ -335,10 +338,8 @@ pub(super) fn draw_gradient_line(
             if fill_col1 {
                 TargetPixel::blend_slice(&mut buffer[..l], g.color1);
             }
-        } else {
-            if fill_col2 {
-                TargetPixel::blend_slice(&mut buffer[..l], g.color2);
-            }
+        } else if fill_col2 {
+            TargetPixel::blend_slice(&mut buffer[..l], g.color2);
         }
         buffer = &mut buffer[l..];
         x = 0;
@@ -350,10 +351,8 @@ pub(super) fn draw_gradient_line(
             if fill_col2 {
                 TargetPixel::blend_slice(&mut buffer[l..], g.color2);
             }
-        } else {
-            if fill_col1 {
-                TargetPixel::blend_slice(&mut buffer[l..], g.color1);
-            }
+        } else if fill_col1 {
+            TargetPixel::blend_slice(&mut buffer[l..], g.color1);
         }
         buffer = &mut buffer[..l];
     }
