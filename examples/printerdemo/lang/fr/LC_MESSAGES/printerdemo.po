@@ -1,13 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
-
 #
 # Olivier Goffart <ogoffart@bepointbe.be>, 2023.
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-06-22 03:04+0000\n"
+"POT-Creation-Date: 2023-06-23 03:16+0000\n"
 "PO-Revision-Date: 2023-06-09 07:56+0200\n"
 "Last-Translator: Olivier Goffart <ogoffart@bepointbe.be>\n"
 "Language-Team: German <kde-i18n-de@kde.org>\n"
@@ -17,301 +16,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Lokalize 23.04.1\n"
-
-#: ui/usb_page.slint:12
-msgctxt "UsbPage"
-msgid "USB"
-msgstr "USB"
-
-#: ui/usb_page.slint:44
-msgctxt "UsbPage"
-msgid "Select File:"
-msgstr "Sélectionnez un fichier:"
-
-#: ui/usb_page.slint:67
-msgctxt "UsbPage"
-msgid "Copies"
-msgstr "Nombre de copies"
-
-#: ui/usb_page.slint:74 ui/usb_page.slint:77
-msgctxt "UsbPage"
-msgid "Color"
-msgstr "Couleur"
-
-#: ui/usb_page.slint:76 ui/usb_page.slint:77
-msgctxt "UsbPage"
-msgid "Grayscale"
-msgstr "Niveau de gris"
-
-#: ui/usb_page.slint:91
-msgctxt "UsbPage"
-msgid "Start printing"
-msgstr "Démarrer l'impression"
-
-#: ui/copy_page.slint:10 ui/copy_page.slint:97
-msgctxt "CopyPage"
-msgid "Copy"
-msgstr "Copier"
-
-#: ui/copy_page.slint:18
-msgctxt "CopyPage"
-msgid "Choose Settings"
-msgstr "Configuration"
-
-#: ui/copy_page.slint:25
-msgctxt "CopyPage"
-msgid "Copies"
-msgstr "Nombre de copies"
-
-#: ui/copy_page.slint:33
-msgctxt "CopyPage"
-msgid "Size"
-msgstr "Taille"
-
-#: ui/copy_page.slint:35 ui/copy_page.slint:36
-msgctxt "CopyPage"
-msgid "DIN A4"
-msgstr "DIN A4"
-
-#: ui/copy_page.slint:36
-msgctxt "CopyPage"
-msgid "DIN A3"
-msgstr "DIN A3"
-
-#: ui/copy_page.slint:36
-msgctxt "CopyPage"
-msgid "Letter"
-msgstr "Lettre"
-
-#: ui/copy_page.slint:40
-msgctxt "CopyPage"
-msgid "Layout"
-msgstr "Format "
-
-#: ui/copy_page.slint:42 ui/copy_page.slint:43
-msgctxt "CopyPage"
-msgid "Portrait"
-msgstr "Portrait"
-
-#: ui/copy_page.slint:43
-msgctxt "CopyPage"
-msgid "Landscape"
-msgstr "Paysage"
-
-#: ui/copy_page.slint:48
-msgctxt "CopyPage"
-msgid "Paper Tray"
-msgstr "Bac à papier"
-
-#: ui/copy_page.slint:50 ui/copy_page.slint:51
-msgctxt "CopyPage"
-msgid "Special Tray"
-msgstr "Bac spécial"
-
-#: ui/copy_page.slint:51
-msgctxt "CopyPage"
-msgid "Normal Tray"
-msgstr "Bac normal"
-
-#: ui/copy_page.slint:55
-msgctxt "CopyPage"
-msgid "Quality"
-msgstr "Qualité"
-
-#: ui/copy_page.slint:57 ui/copy_page.slint:58
-msgctxt "CopyPage"
-msgid "Best"
-msgstr "Haute"
-
-#: ui/copy_page.slint:58
-msgctxt "CopyPage"
-msgid "Medium"
-msgstr "Moyenne"
-
-#: ui/copy_page.slint:58
-msgctxt "CopyPage"
-msgid "Draft"
-msgstr "Brouillon"
-
-#: ui/copy_page.slint:63
-msgctxt "CopyPage"
-msgid "Paper Type"
-msgstr "Type de papier"
-
-#: ui/copy_page.slint:65 ui/copy_page.slint:66
-msgctxt "CopyPage"
-msgid "Standard"
-msgstr "Standard"
-
-#: ui/copy_page.slint:66
-msgctxt "CopyPage"
-msgid "Non-standard"
-msgstr "Non standard"
-
-#: ui/copy_page.slint:70 ui/copy_page.slint:73
-msgctxt "CopyPage"
-msgid "Color"
-msgstr "Couleur"
-
-#: ui/copy_page.slint:72 ui/copy_page.slint:73
-msgctxt "CopyPage"
-msgid "Grayscale"
-msgstr "Niveau de gris"
-
-#: ui/copy_page.slint:78
-msgctxt "CopyPage"
-msgid "Paper Handling"
-msgstr "Gestion des pages"
-
-#: ui/copy_page.slint:81
-msgctxt "CopyPage"
-msgid "Sort Pages"
-msgstr "Trier"
-
-#: ui/copy_page.slint:95
-msgctxt "CopyPage"
-msgid "Start copying"
-msgstr "Démarrer la copie"
-
-#: ui/printerdemo.slint:35
-msgctxt "MainWindow"
-msgid "Slint printer demo"
-msgstr "Imprimante de démonstration de Slint"
-
-#: ui/settings_page.slint:7
-msgctxt "SettingsPage"
-msgid "Settings"
-msgstr "Configuration"
-
-#: ui/settings_page.slint:16
-msgctxt "SettingsPage"
-msgid "General"
-msgstr "Général"
-
-#: ui/settings_page.slint:23
-msgctxt "SettingsPage"
-msgid "TURBO mode"
-msgstr "Mode TURBO"
-
-#: ui/settings_page.slint:28
-msgctxt "SettingsPage"
-msgid "Power Management"
-msgstr "Gestion de l'énergie"
-
-#: ui/settings_page.slint:31
-msgctxt "SettingsPage"
-msgid "Eco Mode"
-msgstr "Mode Éco"
-
-#: ui/settings_page.slint:38
-msgctxt "SettingsPage"
-msgid "Defaults"
-msgstr "Paramètres par défaut"
-
-#: ui/settings_page.slint:45
-msgctxt "SettingsPage"
-msgid "Layout"
-msgstr "Format "
-
-#: ui/settings_page.slint:47 ui/settings_page.slint:48
-msgctxt "SettingsPage"
-msgid "Portrait"
-msgstr "Portrait"
-
-#: ui/settings_page.slint:48
-msgctxt "SettingsPage"
-msgid "Landscape"
-msgstr "Paysage"
-
-#: ui/settings_page.slint:53
-msgctxt "SettingsPage"
-msgid "Paper Tray"
-msgstr "Bac à papier"
-
-#: ui/settings_page.slint:55 ui/settings_page.slint:56
-msgctxt "SettingsPage"
-msgid "Special Tray"
-msgstr "Bac spécial"
-
-#: ui/settings_page.slint:56
-msgctxt "SettingsPage"
-msgid "Normal Tray"
-msgstr "Bac normal"
-
-#: ui/settings_page.slint:60
-msgctxt "SettingsPage"
-msgid "Quality"
-msgstr "Qualité"
-
-#: ui/settings_page.slint:62 ui/settings_page.slint:63
-msgctxt "SettingsPage"
-msgid "Best"
-msgstr "Haute"
-
-#: ui/settings_page.slint:63
-msgctxt "SettingsPage"
-msgid "Medium"
-msgstr "Moyenne"
-
-#: ui/settings_page.slint:63
-msgctxt "SettingsPage"
-msgid "Draft"
-msgstr "Brouillon"
-
-#: ui/settings_page.slint:68
-msgctxt "SettingsPage"
-msgid "Paper Type"
-msgstr "Type de papier"
-
-#: ui/settings_page.slint:70 ui/settings_page.slint:71
-msgctxt "SettingsPage"
-msgid "Standard"
-msgstr "Standard"
-
-#: ui/settings_page.slint:71
-msgctxt "SettingsPage"
-msgid "Non-standard"
-msgstr "Non standard"
-
-#: ui/settings_page.slint:75
-msgctxt "SettingsPage"
-msgid "Color Mode"
-msgstr "Couleurs"
-
-#: ui/settings_page.slint:77 ui/settings_page.slint:78
-msgctxt "SettingsPage"
-msgid "Grayscale"
-msgstr "Niveau de gris"
-
-#: ui/settings_page.slint:78
-msgctxt "SettingsPage"
-msgid "RGB"
-msgstr "RGB"
-
-#: ui/settings_page.slint:78
-msgctxt "SettingsPage"
-msgid "YCMB"
-msgstr "YCMB"
-
-#: ui/settings_page.slint:83
-msgctxt "SettingsPage"
-msgid "Paper Handling"
-msgstr "Gestion des pages"
-
-#: ui/settings_page.slint:86
-msgctxt "SettingsPage"
-msgid "Sort Pages"
-msgstr "Trier"
-
-#: ui/print_page.slint:10
-msgctxt "PrintPage"
-msgid "Print"
-msgstr "Impression"
-
-#: ui/print_page.slint:18
-msgctxt "PrintPage"
-msgid "Printing-Queue"
-msgstr "File d'attente d'impression"
 
 #: ui/scan_page.slint:9 ui/scan_page.slint:84
 msgctxt "ScanPage"
@@ -508,7 +212,302 @@ msgctxt "HomePage"
 msgid "USB"
 msgstr "USB"
 
+#: ui/copy_page.slint:10 ui/copy_page.slint:97
+msgctxt "CopyPage"
+msgid "Copy"
+msgstr "Copier"
+
+#: ui/copy_page.slint:18
+msgctxt "CopyPage"
+msgid "Choose Settings"
+msgstr "Configuration"
+
+#: ui/copy_page.slint:25
+msgctxt "CopyPage"
+msgid "Copies"
+msgstr "Nombre de copies"
+
+#: ui/copy_page.slint:33
+msgctxt "CopyPage"
+msgid "Size"
+msgstr "Taille"
+
+#: ui/copy_page.slint:35 ui/copy_page.slint:36
+msgctxt "CopyPage"
+msgid "DIN A4"
+msgstr "DIN A4"
+
+#: ui/copy_page.slint:36
+msgctxt "CopyPage"
+msgid "DIN A3"
+msgstr "DIN A3"
+
+#: ui/copy_page.slint:36
+msgctxt "CopyPage"
+msgid "Letter"
+msgstr "Lettre"
+
+#: ui/copy_page.slint:40
+msgctxt "CopyPage"
+msgid "Layout"
+msgstr "Format "
+
+#: ui/copy_page.slint:42 ui/copy_page.slint:43
+msgctxt "CopyPage"
+msgid "Portrait"
+msgstr "Portrait"
+
+#: ui/copy_page.slint:43
+msgctxt "CopyPage"
+msgid "Landscape"
+msgstr "Paysage"
+
+#: ui/copy_page.slint:48
+msgctxt "CopyPage"
+msgid "Paper Tray"
+msgstr "Bac à papier"
+
+#: ui/copy_page.slint:50 ui/copy_page.slint:51
+msgctxt "CopyPage"
+msgid "Special Tray"
+msgstr "Bac spécial"
+
+#: ui/copy_page.slint:51
+msgctxt "CopyPage"
+msgid "Normal Tray"
+msgstr "Bac normal"
+
+#: ui/copy_page.slint:55
+msgctxt "CopyPage"
+msgid "Quality"
+msgstr "Qualité"
+
+#: ui/copy_page.slint:57 ui/copy_page.slint:58
+msgctxt "CopyPage"
+msgid "Best"
+msgstr "Haute"
+
+#: ui/copy_page.slint:58
+msgctxt "CopyPage"
+msgid "Medium"
+msgstr "Moyenne"
+
+#: ui/copy_page.slint:58
+msgctxt "CopyPage"
+msgid "Draft"
+msgstr "Brouillon"
+
+#: ui/copy_page.slint:63
+msgctxt "CopyPage"
+msgid "Paper Type"
+msgstr "Type de papier"
+
+#: ui/copy_page.slint:65 ui/copy_page.slint:66
+msgctxt "CopyPage"
+msgid "Standard"
+msgstr "Standard"
+
+#: ui/copy_page.slint:66
+msgctxt "CopyPage"
+msgid "Non-standard"
+msgstr "Non standard"
+
+#: ui/copy_page.slint:70 ui/copy_page.slint:73
+msgctxt "CopyPage"
+msgid "Color"
+msgstr "Couleur"
+
+#: ui/copy_page.slint:72 ui/copy_page.slint:73
+msgctxt "CopyPage"
+msgid "Grayscale"
+msgstr "Niveau de gris"
+
+#: ui/copy_page.slint:78
+msgctxt "CopyPage"
+msgid "Paper Handling"
+msgstr "Gestion des pages"
+
+#: ui/copy_page.slint:81
+msgctxt "CopyPage"
+msgid "Sort Pages"
+msgstr "Trier"
+
+#: ui/copy_page.slint:95
+msgctxt "CopyPage"
+msgid "Start copying"
+msgstr "Démarrer la copie"
+
 #: ui/ink_page.slint:12
 msgctxt "InkPage"
 msgid "Ink Level"
 msgstr "Niveau d'encre"
+
+#: ui/printerdemo.slint:35
+msgctxt "MainWindow"
+msgid "Slint printer demo"
+msgstr "Imprimante de démonstration de Slint"
+
+#: ui/print_page.slint:10
+msgctxt "PrintPage"
+msgid "Print"
+msgstr "Impression"
+
+#: ui/print_page.slint:18
+msgctxt "PrintPage"
+msgid "Printing-Queue"
+msgstr "File d'attente d'impression"
+
+#: ui/settings_page.slint:7
+msgctxt "SettingsPage"
+msgid "Settings"
+msgstr "Configuration"
+
+#: ui/settings_page.slint:16
+msgctxt "SettingsPage"
+msgid "General"
+msgstr "Général"
+
+#: ui/settings_page.slint:23
+msgctxt "SettingsPage"
+msgid "TURBO mode"
+msgstr "Mode TURBO"
+
+#: ui/settings_page.slint:28
+msgctxt "SettingsPage"
+msgid "Power Management"
+msgstr "Gestion de l'énergie"
+
+#: ui/settings_page.slint:31
+msgctxt "SettingsPage"
+msgid "Eco Mode"
+msgstr "Mode Éco"
+
+#: ui/settings_page.slint:38
+msgctxt "SettingsPage"
+msgid "Defaults"
+msgstr "Paramètres par défaut"
+
+#: ui/settings_page.slint:45
+msgctxt "SettingsPage"
+msgid "Layout"
+msgstr "Format "
+
+#: ui/settings_page.slint:47 ui/settings_page.slint:48
+msgctxt "SettingsPage"
+msgid "Portrait"
+msgstr "Portrait"
+
+#: ui/settings_page.slint:48
+msgctxt "SettingsPage"
+msgid "Landscape"
+msgstr "Paysage"
+
+#: ui/settings_page.slint:53
+msgctxt "SettingsPage"
+msgid "Paper Tray"
+msgstr "Bac à papier"
+
+#: ui/settings_page.slint:55 ui/settings_page.slint:56
+msgctxt "SettingsPage"
+msgid "Special Tray"
+msgstr "Bac spécial"
+
+#: ui/settings_page.slint:56
+msgctxt "SettingsPage"
+msgid "Normal Tray"
+msgstr "Bac normal"
+
+#: ui/settings_page.slint:60
+msgctxt "SettingsPage"
+msgid "Quality"
+msgstr "Qualité"
+
+#: ui/settings_page.slint:62 ui/settings_page.slint:63
+msgctxt "SettingsPage"
+msgid "Best"
+msgstr "Haute"
+
+#: ui/settings_page.slint:63
+msgctxt "SettingsPage"
+msgid "Medium"
+msgstr "Moyenne"
+
+#: ui/settings_page.slint:63
+msgctxt "SettingsPage"
+msgid "Draft"
+msgstr "Brouillon"
+
+#: ui/settings_page.slint:68
+msgctxt "SettingsPage"
+msgid "Paper Type"
+msgstr "Type de papier"
+
+#: ui/settings_page.slint:70 ui/settings_page.slint:71
+msgctxt "SettingsPage"
+msgid "Standard"
+msgstr "Standard"
+
+#: ui/settings_page.slint:71
+msgctxt "SettingsPage"
+msgid "Non-standard"
+msgstr "Non standard"
+
+#: ui/settings_page.slint:75
+msgctxt "SettingsPage"
+msgid "Color Mode"
+msgstr "Couleurs"
+
+#: ui/settings_page.slint:77 ui/settings_page.slint:78
+msgctxt "SettingsPage"
+msgid "Grayscale"
+msgstr "Niveau de gris"
+
+#: ui/settings_page.slint:78
+msgctxt "SettingsPage"
+msgid "RGB"
+msgstr "RGB"
+
+#: ui/settings_page.slint:78
+msgctxt "SettingsPage"
+msgid "YCMB"
+msgstr "YCMB"
+
+#: ui/settings_page.slint:83
+msgctxt "SettingsPage"
+msgid "Paper Handling"
+msgstr "Gestion des pages"
+
+#: ui/settings_page.slint:86
+msgctxt "SettingsPage"
+msgid "Sort Pages"
+msgstr "Trier"
+
+#: ui/usb_page.slint:12
+msgctxt "UsbPage"
+msgid "USB"
+msgstr "USB"
+
+#: ui/usb_page.slint:44
+msgctxt "UsbPage"
+msgid "Select File:"
+msgstr "Sélectionnez un fichier:"
+
+#: ui/usb_page.slint:67
+msgctxt "UsbPage"
+msgid "Copies"
+msgstr "Nombre de copies"
+
+#: ui/usb_page.slint:74 ui/usb_page.slint:77
+msgctxt "UsbPage"
+msgid "Color"
+msgstr "Couleur"
+
+#: ui/usb_page.slint:76 ui/usb_page.slint:77
+msgctxt "UsbPage"
+msgid "Grayscale"
+msgstr "Niveau de gris"
+
+#: ui/usb_page.slint:91
+msgctxt "UsbPage"
+msgid "Start printing"
+msgstr "Démarrer l'impression"
