@@ -33,8 +33,8 @@ body {
     height: 100%;
     justify-content: center;
     align-items: center;
-    background: var(--slint-blue);
-    color: var(--slint-white);
+    background: var(--color_blue);
+    color: var(--color_white);
 }
 
 .loader {
@@ -43,7 +43,7 @@ body {
     height: 100%;
     justify-content: center;
     align-items: center;
-    background: var(--slint-blue);
+    background: var(--color_blue);
 }
 
 .loader-image {
