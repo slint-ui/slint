@@ -75,6 +75,13 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
 
         let mut surface = self.surface.borrow_mut();
 
+        // It is possible that we get the render event before the resize event, yet, the window.size() is already the new size.
+        // To prevent drawing the window with the wrong size, always send a resize event.
+        // It should be ignored in most case if the window did not change size
+        window.dispatch_event(i_slint_core::platform::WindowEvent::Resized {
+            size: size.to_logical(window.scale_factor()),
+        });
+
         surface
             .resize(width, height)
             .map_err(|e| format!("Error resizing softbuffer surface: {e}"))?;

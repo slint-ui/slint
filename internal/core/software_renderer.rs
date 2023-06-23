@@ -231,6 +231,11 @@ impl SoftwareRenderer {
         } else {
             (euclid::size2(pixel_stride as _, (buffer.len() / pixel_stride) as _), Brush::default())
         };
+        assert!(
+            pixel_stride >= size.width as usize
+                && buffer.len() >= size.height as usize * pixel_stride + size.width as usize - pixel_stride,
+            "buffer of size {} with stride {pixel_stride} is too small to handle a window of size {size:?}", buffer.len()
+        );
         let buffer_renderer = SceneBuilder::new(
             size,
             factor,
