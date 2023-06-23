@@ -72,7 +72,6 @@ mod ffi {
 pub type NativeWidgets =
     (qt_widgets::NativeButton,
     (qt_widgets::NativeCheckBox,
-    (qt_widgets::NativeSwitch,
     (qt_widgets::NativeSlider,
     (qt_widgets::NativeProgressIndicator,
     (qt_widgets::NativeSpinBox,
@@ -85,7 +84,7 @@ pub type NativeWidgets =
     (qt_widgets::NativeComboBoxPopup,
     (qt_widgets::NativeTabWidget,
     (qt_widgets::NativeTab,
-            ())))))))))))))));
+            ()))))))))))))));
 
 #[cfg(not(no_qt))]
 #[rustfmt::skip]

@@ -540,7 +540,6 @@ fn gen_backend_qt(
         "NativeCheckBox",
         "NativeSlider",
         "NativeProgressIndicator",
-        "NativeSwitch",
         "NativeGroupBox",
         "NativeLineEdit",
         "NativeScrollView",
