@@ -68,7 +68,8 @@ impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy> Iterator
             fragment.byte_range = first_glyph_cluster.byte_range.clone();
         }
 
-        let mut last_glyph_cluster = first_glyph_cluster.clone();
+        let start = first_glyph_cluster.glyph_range.start;
+        let mut last_glyph_cluster = first_glyph_cluster;
 
         while last_glyph_cluster.byte_range.end < next_break_offset {
             let next_glyph_cluster = match self.glyph_clusters.next() {
@@ -100,10 +101,7 @@ impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy> Iterator
             last_glyph_cluster = next_glyph_cluster.clone();
         }
 
-        fragment.glyph_range = Range {
-            start: first_glyph_cluster.glyph_range.start,
-            end: last_glyph_cluster.glyph_range.end,
-        };
+        fragment.glyph_range = Range { start, end: last_glyph_cluster.glyph_range.end };
 
         // Make sure that adjacent fragments are adjanced in their byte range:
         // this assertion should hold: fragment.byte_range.end + fragment.trailing_whitespace_bytes == next_fragment.byte_range.start

@@ -138,11 +138,12 @@ pub fn on_element_selected(
 
             let start_item = find_start_item(&state, &c, &position);
 
-            let mut i = start_item.clone();
+            let stop_at_item = start_item.clone();
+            let mut i = start_item;
             let (f, sl, sc, el, ec) = loop {
                 i = next_item(&i);
 
-                if i == start_item {
+                if i == stop_at_item {
                     // Break out: We went round once.
                     break (String::new(), 0, 0, 0, 0);
                 }

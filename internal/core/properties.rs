@@ -253,7 +253,9 @@ struct BindingVTable {
 
 /// A binding trait object can be used to dynamically produces values for a property.
 ///
-/// Safety: IS_TWO_WAY_BINDNG cannot be true if Self is not a TwoWayBinding
+/// # Safety
+///
+/// IS_TWO_WAY_BINDNG cannot be true if Self is not a TwoWayBinding
 unsafe trait BindingCallable {
     /// This function is called by the property to evaluate the binding and produce a new value. The
     /// previous property value is provided in the value parameter.
