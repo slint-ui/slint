@@ -1037,6 +1037,9 @@ impl ComponentInstance {
 
     /// Register callback to handle current item information
     ///
+    /// The callback will be called with the file name, the start line and column
+    /// followed by the end line and column.
+    ///
     /// WARNING: this is not part of the public API
     #[cfg(feature = "highlight")]
     pub fn on_element_selected(&self, callback: Box<dyn Fn(&str, u32, u32, u32, u32)>) {

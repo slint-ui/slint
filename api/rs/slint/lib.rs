@@ -255,6 +255,7 @@ See the [documentation of the `Global` trait](Global) for an example.
 #![deny(unsafe_code)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::needless_doctest_main)] // We document how to write a main function
 
 extern crate alloc;
 

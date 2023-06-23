@@ -289,8 +289,7 @@ impl AccessKitAdapter {
         }
 
         let update_from_main_thread = Arc::new((Mutex::new(None), Condvar::new()));
-
-        if i_slint_core::api::invoke_from_event_loop({
+        let update_result = i_slint_core::api::invoke_from_event_loop({
             let update_from_main_thread = update_from_main_thread.clone();
             move || {
                 let (lock, wait_condition) = &*update_from_main_thread;
@@ -300,9 +299,9 @@ impl AccessKitAdapter {
 
                 wait_condition.notify_one();
             }
-        })
-        .is_err()
-        {
+        });
+
+        if update_result.is_err() {
             return Default::default();
         }
 
