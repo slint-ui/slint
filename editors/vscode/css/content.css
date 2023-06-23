@@ -1,26 +1,34 @@
 :root {
     /* Slint colors */
-    --slint-blue: #0025ff;
-    --slint-black: #000000;
-    --slint-dark-grey: #191c20;
-    --slint-grey: #2c2f36;
-    --slint-white: #ffffff;
-    --slint-green: #dbff00;
+    --color_baby_blue: #667cff;
+    --color_blue: #2379f4;
+    --color_dark: #151d21;
+    --color_dark_20: #d0d2d3;
+    --color_dark_40: #a1a5a6;
+    --color_dark_80: #444a4d;
+    --color_dark_gray: #73777a;
+    --color_dark_blue: #250ce8;
+    --color_deep_indigo: #1f284d;
+    --color_focus_blue: #3573d8;
+    --color_gray: #e8e9e9;
+    --color_ice_blue: #0db1ff;
+    --color_light_blue: #f2f4ff;
+    --color_light_gray_2: #b8bbbc;
+    --color_light_purple: #99a8ff;
+    --color_medium_gray: #939393;
+    --color_purple: #6b0dff;
+
+    --color_white: #ffffff;
 
     /* style properties */
-    --error-bg: #ff0000;
-    --error-fg: var(--slint-black);
+    --highlight-bg: var(--color_focus_blue);
+    --highlight-fg: var(--color_white);
 
-    --highlight-bg: var(--slint-blue);
-    --highlight-fg: var(--slint-white);
+    --highlight2-bg: var(--vscode-input-foreground);
+    --highlight2-fg: var(--vscode-input-background);
 
-    --highlight2-bg: var(--slint-green);
-    --highlight2-fg: var(--slint-black);
-
-    --undefined-bg: #c0c0c0;
-    --undefined-fg: var(--slint-black);
-
-    --default-font: 12px Helvetica, Arial, sans-serif;
+    --undefined-bg: var(--vscode-background);
+    --undefined-fg: var(--vscode-disabledForeground);
 }
 
 .properties-editor {
@@ -61,7 +69,6 @@
     color: var(--highlight2-fg);
     font-weight: bold;
     padding: 0 5px;
-
 }
 
 .properties-editor .properties-table .undefined {
@@ -76,5 +83,5 @@
 }
 
 .properties-editor .properties-table input.value-changed {
-    color: var(--error-bg);
+    color: var(--vscode-inputValidation-infoBorder);
 }
