@@ -99,7 +99,7 @@
 
 .outline .outline-element {
     margin: 0;
-    padding: 0;
+    padding: 2px;
     width: 100%;
     display: block;
 }
@@ -142,6 +142,10 @@
 
 .properties-editor .value-column {
     width: 100%;
+}
+
+.properties-editor .value-column-content {
+    display: flex;
 }
 
 .properties-editor .properties-table {
