@@ -60,6 +60,10 @@
     width: 100%;
 }
 
+.properties-editor .value-column-content {
+    display: flex;
+}
+
 .properties-editor .properties-table {
     width: 100%;
 }

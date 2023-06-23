@@ -236,15 +236,20 @@ export class PropertiesView {
             value_field.className = "value-column";
             value_field.classList.add(type_class_for_typename(p.type_name));
             value_field.setAttribute("title", p.type_name);
+            const value_span = document.createElement("span");
+            value_span.className = "value-column-content";
+            value_field.appendChild(value_span);
+
             const extra_field = document.createElement("td");
             extra_field.className = "extra-column";
             extra_field.setAttribute("title", p.type_name);
             const add_or_delete_button = document.createElement("button");
             add_or_delete_button.style.display = "hidden";
             extra_field.appendChild(add_or_delete_button);
+
             const input = document.createElement("input");
             input.type = "text";
-            value_field.appendChild(input);
+            value_span.appendChild(input);
 
             const code_text = p.defined_at?.expression_value ?? "";
             const changed_class = "value-changed";
