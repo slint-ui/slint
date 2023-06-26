@@ -266,7 +266,7 @@ export component Example inherits Window {
     ProgressIndicator {
         width: parent.width;
         height: parent.height;
-        progress: 50;
+        progress: 50%;
     }
 }
 ```
