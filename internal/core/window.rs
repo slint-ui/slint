@@ -83,10 +83,6 @@ pub trait WindowAdapter {
     /// This is called from [`Window::set_size()`]
     ///
     /// The default implementation does nothing
-    ///
-    /// This function should sent the size to the Windowing system. If the window size actually changes, you
-    /// should dispatch a [`WindowEvent::Resized`](crate::platform::WindowEvent::Resized) using
-    /// [`Window::dispatch_event()`] to propagate the new size to the slint view
     fn set_size(&self, _size: WindowSize) {}
 
     /// Return the size of the Window on the screen
