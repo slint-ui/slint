@@ -881,6 +881,12 @@ impl WindowInner {
         })
     }
 
+    /// Update the WindowItem size according to the size we get from the WindowAdapter
+    pub fn update_window_item_geometry(&self) {
+        let size = self.window_adapter().size().to_logical(self.scale_factor()).to_euclid();
+        self.set_window_item_geometry(size);
+    }
+
     /// Sets the size of the window item. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
     pub(crate) fn set_window_item_geometry(&self, size: LogicalSize) {

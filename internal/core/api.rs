@@ -486,9 +486,6 @@ impl Window {
             crate::platform::WindowEvent::ScaleFactorChanged { scale_factor } => {
                 self.0.set_scale_factor(scale_factor);
             }
-            crate::platform::WindowEvent::Resized { size } => {
-                self.0.set_window_item_geometry(size.to_euclid());
-            }
         }
     }
 

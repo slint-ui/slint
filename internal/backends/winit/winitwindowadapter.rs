@@ -275,10 +275,7 @@ impl WinitWindowAdapter {
         // which might panic when trying to create a zero-sized surface.
         if size.width > 0 && size.height > 0 {
             let physical_size = physical_size_to_slint(&size);
-            let scale_factor = WindowInner::from_pub(self.window()).scale_factor();
-            self.window().dispatch_event(WindowEvent::Resized {
-                size: physical_size.to_logical(scale_factor),
-            });
+            self.request_redraw();
             self.renderer().resize_event(physical_size)
         } else {
             Ok(())
@@ -340,8 +337,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         let mut width = window_item.width().get() as f32;
         let mut height = window_item.height().get() as f32;
 
-        let mut must_resize = false;
-
         winit_window.set_window_icon(icon_to_winit(window_item.icon()));
         winit_window.set_title(&window_item.title());
         winit_window
@@ -353,8 +348,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         });
 
         if width <= 0. || height <= 0. {
-            must_resize = true;
-
             let winit_size =
                 winit_window.inner_size().to_logical(self.window().scale_factor() as f64);
 
@@ -376,12 +369,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             if winit_window.fullscreen().is_none() {
                 winit_window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
             }
-        }
-
-        if must_resize {
-            self.window().dispatch_event(WindowEvent::Resized {
-                size: i_slint_core::api::LogicalSize::new(width, height),
-            });
         }
     }
 

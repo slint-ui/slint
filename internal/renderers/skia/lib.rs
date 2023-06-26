@@ -114,6 +114,7 @@ impl SkiaRenderer {
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         let size = window.size();
         let window_inner = WindowInner::from_pub(window);
+        window_inner.update_window_item_geometry();
 
         self.surface.render(size, |skia_canvas, gr_context| {
             window_inner.draw_contents(|components| {

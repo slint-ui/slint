@@ -180,6 +180,7 @@ impl FemtoVGRenderer {
         let height = size.height;
 
         let window_inner = WindowInner::from_pub(window);
+        window_inner.update_window_item_geometry();
         let scale = window_inner.scale_factor().ceil();
 
         window_inner

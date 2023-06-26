@@ -218,6 +218,7 @@ impl SoftwareRenderer {
             .and_then(|w| w.upgrade())
             .expect("render() called on a destroyed Window");
         let window_inner = WindowInner::from_pub(window.window());
+        window_inner.update_window_item_geometry();
         let factor = ScaleFactor::new(window_inner.scale_factor());
         let (size, background) = if let Some(window_item) =
             window_inner.window_item().as_ref().map(|item| item.as_pin_ref())
@@ -322,6 +323,7 @@ impl SoftwareRenderer {
             .and_then(|w| w.upgrade())
             .expect("render() called on a destroyed Window");
         let window_inner = WindowInner::from_pub(window.window());
+        window_inner.update_window_item_geometry();
         let component_rc = window_inner.component();
         let component = crate::component::ComponentRc::borrow_pin(&component_rc);
         if let Some(window_item) = crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(
@@ -2063,9 +2065,8 @@ impl WindowAdapter for MinimalSoftwareWindow {
         self.size.get()
     }
     fn set_size(&self, size: crate::api::WindowSize) {
-        self.size.set(size.to_physical(1.));
-        self.window
-            .dispatch_event(crate::platform::WindowEvent::Resized { size: size.to_logical(1.) })
+        self.size.set(size.to_physical(self.window.scale_factor()));
+        self.request_redraw();
     }
 
     fn request_redraw(&self) {

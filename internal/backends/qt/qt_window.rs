@@ -1427,6 +1427,7 @@ impl QtWindow {
 
     fn paint_event(&self, painter: QPainterPtr) {
         let runtime_window = WindowInner::from_pub(&self.window);
+        runtime_window.update_window_item_geometry();
         runtime_window.draw_contents(|components| {
             i_slint_core::animations::update_animations();
             let mut renderer = QtItemRenderer {
@@ -1476,10 +1477,8 @@ impl QtWindow {
         timer_event();
     }
 
-    fn resize_event(&self, size: qttypes::QSize) {
-        self.window().dispatch_event(WindowEvent::Resized {
-            size: i_slint_core::api::LogicalSize::new(size.width as _, size.height as _),
-        });
+    fn resize_event(&self, _size: qttypes::QSize) {
+        self.request_redraw();
     }
 
     fn mouse_event(&self, event: MouseEvent) {
