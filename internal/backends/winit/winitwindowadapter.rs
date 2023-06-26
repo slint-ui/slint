@@ -26,6 +26,7 @@ use corelib::items::MouseCursor;
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
+use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
 use corelib::lengths::{LogicalLength, LogicalSize};
 use corelib::platform::{PlatformError, WindowEvent};
@@ -119,6 +120,7 @@ pub struct WinitWindowAdapter {
 
     winit_window: Rc<winit::window::Window>,
     renderer: Box<dyn WinitCompatibleRenderer>,
+    pub(crate) size: Cell<PhysicalSize>,
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
@@ -150,6 +152,7 @@ impl WinitWindowAdapter {
             constraints: Default::default(),
             shown: Default::default(),
             winit_window: winit_window.clone(),
+            size: Default::default(),
             renderer: Box::new(renderer),
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
@@ -275,6 +278,7 @@ impl WinitWindowAdapter {
         // which might panic when trying to create a zero-sized surface.
         if size.width > 0 && size.height > 0 {
             let physical_size = physical_size_to_slint(&size);
+            self.size.set(physical_size);
             self.request_redraw();
             self.renderer().resize_event(physical_size)
         } else {
@@ -317,7 +321,7 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn size(&self) -> corelib::api::PhysicalSize {
-        physical_size_to_slint(&self.winit_window().inner_size())
+        self.size.get()
     }
 
     fn request_redraw(&self) {
@@ -507,7 +511,9 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         if winit_window.fullscreen().is_none() {
             if preferred_size.width > 0 as Coord && preferred_size.height > 0 as Coord {
                 // use the Slint's window Scale factor to take in account the override
-                winit_window.set_inner_size(preferred_size.to_physical::<f32>(scale_factor));
+                let size = preferred_size.to_physical::<u32>(scale_factor);
+                winit_window.set_inner_size(size);
+                self.size.set(physical_size_to_slint(&size));
             }
         };
 
