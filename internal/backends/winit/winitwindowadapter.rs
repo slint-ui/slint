@@ -26,6 +26,7 @@ use corelib::items::MouseCursor;
 #[cfg(enable_accesskit)]
 use corelib::items::{ItemRc, ItemRef};
 
+use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
 use corelib::lengths::{LogicalLength, LogicalSize};
 use corelib::platform::{PlatformError, WindowEvent};
@@ -119,6 +120,9 @@ pub struct WinitWindowAdapter {
 
     winit_window: Rc<winit::window::Window>,
     renderer: Box<dyn WinitCompatibleRenderer>,
+    // We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
+    // And we wan see the newer value before the Resized event was received, leading to inconsistencies
+    size: Cell<PhysicalSize>,
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
@@ -150,6 +154,7 @@ impl WinitWindowAdapter {
             constraints: Default::default(),
             shown: Default::default(),
             winit_window: winit_window.clone(),
+            size: Default::default(),
             renderer: Box::new(renderer),
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
@@ -275,6 +280,7 @@ impl WinitWindowAdapter {
         // which might panic when trying to create a zero-sized surface.
         if size.width > 0 && size.height > 0 {
             let physical_size = physical_size_to_slint(&size);
+            self.size.set(physical_size);
             let scale_factor = WindowInner::from_pub(self.window()).scale_factor();
             self.window().dispatch_event(WindowEvent::Resized {
                 size: physical_size.to_logical(scale_factor),
@@ -320,7 +326,7 @@ impl WindowAdapter for WinitWindowAdapter {
     }
 
     fn size(&self) -> corelib::api::PhysicalSize {
-        physical_size_to_slint(&self.winit_window().inner_size())
+        self.size.get()
     }
 
     fn request_redraw(&self) {
@@ -366,8 +372,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             }
         }
 
-        let existing_size: winit::dpi::LogicalSize<f32> =
-            winit_window.inner_size().to_logical(self.window().scale_factor().into());
+        let existing_size = self.size().to_logical(self.window().scale_factor());
 
         if (existing_size.width - width).abs() > 1. || (existing_size.height - height).abs() > 1. {
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
@@ -520,7 +525,9 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         if winit_window.fullscreen().is_none() {
             if preferred_size.width > 0 as Coord && preferred_size.height > 0 as Coord {
                 // use the Slint's window Scale factor to take in account the override
-                winit_window.set_inner_size(preferred_size.to_physical::<f32>(scale_factor));
+                let size = preferred_size.to_physical::<u32>(scale_factor);
+                winit_window.set_inner_size(size);
+                self.size.set(physical_size_to_slint(&size));
             }
         };
 
