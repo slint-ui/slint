@@ -152,7 +152,7 @@ log = { version = "0.4.17", optional = true }
 
 [dev-dependencies]
 slint-build = { path = "../build" }
-i-slint-backend-testing = { version = "=1.1.0", path = "../../../internal/backends/testing" }
+i-slint-backend-testing = { path = "../../../internal/backends/testing" }
 serde_json = "1.0.96"
 serde = { version = "1.0.163", features = ["derive"] }
 
