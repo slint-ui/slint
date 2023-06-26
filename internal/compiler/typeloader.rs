@@ -521,22 +521,7 @@ impl TypeLoader {
         file_to_import: &str,
     ) -> Option<(PathBuf, Option<&'static [u8]>)> {
         // The directory of the current file is the first in the list of include directories.
-        let maybe_current_directory = match referencing_file {
-            Some(path) if path.extension().map_or(false, |e| e == "rs") => {
-                // For .rs file, this is a rust macro, and rust macro locates the file relative to the CARGO_MANIFEST_PATH which is the directory that has a Cargo.toml file.
-                let mut candidate = path;
-                loop {
-                    candidate =
-                        if let Some(c) = candidate.parent() { c } else { break path.parent() };
-                    if candidate.join("Cargo.toml").exists() {
-                        break Some(candidate);
-                    }
-                }
-            }
-            Some(path) => path.parent(),
-            None => None,
-        }
-        .map(|p| p.to_path_buf());
+        let maybe_current_directory = referencing_file.and_then(base_directory);
 
         maybe_current_directory
             .clone()
@@ -623,6 +608,31 @@ impl TypeLoader {
     pub fn all_documents(&self) -> impl Iterator<Item = &object_tree::Document> + '_ {
         self.all_documents.docs.values()
     }
+}
+
+/// return the base directory from which imports are loaded
+///
+/// For a .slint file, this is the parent directory.
+/// For a .rs file, this is relative to the CARGO_MANIFEST_DIR
+///
+/// Note: this function is only called for .rs path as part of the LSP or viewer.
+/// Because from a proc_macro, we don't actually know the path of the current file, and this
+/// is why we must be relative to CARGO_MANIFEST_DIR.
+pub fn base_directory(referencing_file: &Path) -> Option<PathBuf> {
+    if referencing_file.extension().map_or(false, |e| e == "rs") {
+        // For .rs file, this is a rust macro, and rust macro locates the file relative to the CARGO_MANIFEST_DIR which is the directory that has a Cargo.toml file.
+        let mut candidate = referencing_file;
+        loop {
+            candidate =
+                if let Some(c) = candidate.parent() { c } else { break referencing_file.parent() };
+            if candidate.join("Cargo.toml").exists() {
+                break Some(candidate);
+            }
+        }
+    } else {
+        referencing_file.parent()
+    }
+    .map(|p| p.to_path_buf())
 }
 
 #[test]

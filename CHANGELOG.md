@@ -3,6 +3,19 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### General
+
+### Slint Language
+
+### Rust
+
+### C++
+
+### LSP
+
+ - Correctly use the CARGO_MANIFEST_DIR as the base for import and image in `slint!` macro
+
+
 ## [1.1.0] - 2023-06-26
 
 ### General
