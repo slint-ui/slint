@@ -1,6 +1,6 @@
 {
     "name": "memory",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "main": "main.js",
     "dependencies": {
         "slint-ui": "../../api/node"

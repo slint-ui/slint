@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-backend-winit"
-version = "1.1.0"
+version = "1.1.1"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial"
@@ -31,9 +31,9 @@ rtti = ["i-slint-core/rtti"]
 default = []
 
 [dependencies]
-i-slint-core = { version = "=1.1.0", path = "../../../internal/core" }
-i-slint-core-macros = { version = "=1.1.0", path = "../../../internal/core-macros" }
-i-slint-common = { version = "=1.1.0", path = "../../../internal/common" }
+i-slint-core = { version = "=1.1.1", path = "../../../internal/core" }
+i-slint-core-macros = { version = "=1.1.1", path = "../../../internal/core-macros" }
+i-slint-common = { version = "=1.1.1", path = "../../../internal/common" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
@@ -53,10 +53,10 @@ scopeguard =  { version = "1.1.0", default-features = false }
 send_wrapper = { workspace = true }
 
 # For the FemtoVG renderer
-i-slint-renderer-femtovg = { version = "=1.1.0", path = "../../renderers/femtovg", optional = true }
+i-slint-renderer-femtovg = { version = "=1.1.1", path = "../../renderers/femtovg", optional = true }
 
 # For the Skia renderer
-i-slint-renderer-skia = { version = "=1.1.0", path = "../../renderers/skia", optional = true }
+i-slint-renderer-skia = { version = "=1.1.1", path = "../../renderers/skia", optional = true }
 
 # For the software renderer
 softbuffer = { version = "0.3.0", optional = true }

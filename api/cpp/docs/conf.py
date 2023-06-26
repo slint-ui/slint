@@ -26,7 +26,7 @@ copyright = "SixtyFPS GmbH"
 author = "Slint Developers <info@slint.dev>"
 
 # The full version, including alpha/beta/rc tags
-version = "1.1.0"
+version = "1.1.1"
 
 cpp_index_common_prefix = ["slint::", "slint::interpreter::"]
 
