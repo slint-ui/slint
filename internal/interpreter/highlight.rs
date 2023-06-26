@@ -316,7 +316,9 @@ fn find_element_at_offset(component: &Rc<Component>, path: PathBuf, offset: u32)
 fn repeater_path(elem: &ElementRc) -> Option<Vec<String>> {
     let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
     if let Some(parent) = enclosing.parent_element.upgrade() {
+        // This is not a repeater, it might be a popup menu which is not supported ATM
         parent.borrow().repeated.as_ref()?;
+
         let mut r = repeater_path(&parent)?;
         r.push(parent.borrow().id.clone());
         Some(r)

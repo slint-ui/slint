@@ -7,7 +7,7 @@ Files: */slint-logo-*.svg */slint-logo-*.png */Slint_icon_*.svg */Slint_icon_*.p
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: CC-BY-ND-4.0
 
-Files: .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock .clippy.toml
+Files: .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
