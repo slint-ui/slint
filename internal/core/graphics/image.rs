@@ -619,6 +619,9 @@ impl Image {
     /// The texture must be bindable against the `GL_TEXTURE_2D` target, have `GL_RGBA` as format
     /// for the pixel data.
     ///
+    /// When Slint renders the texture, it assumes that the origin of the texture is at the top-left.
+    /// This is different from the default OpenGL coordinate system.
+    ///
     /// # Safety
     ///
     /// This function is unsafe because invalid texture ids may lead to undefind behavior in OpenGL
