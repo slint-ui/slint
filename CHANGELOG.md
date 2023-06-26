@@ -3,31 +3,33 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [1.1.0] - 2023-06-26
+
 ### General
 
  - Fixed missing items compilation error in the generated code related to public functions (#2655).
- - Added support for Window transparency on supported platform
- - Fixed TabWidget not filling the parent in non-native style
- - Skia: Add support for rendering with Vulkan
- - Wasm: copy and paste support
- - Fixed TouchArea::has-hover not being reset in some cases involving multiple TouchArea or Flickable
- - Fixed ListView panic when model reset in some cases (#2780)
- - Fix read-only TextInput reporting input method access (#2812)
+ - Added support for Window transparency on supported platforms.
+ - Fixed TabWidget not filling the parent in non-native style.
+ - Skia: Add support for rendering with Vulkan.
+ - Wasm: Added copy and paste support.
+ - Fixed TouchArea::has-hover not being reset in some cases involving multiple `TouchArea` or `Flickable` elements.
+ - Fixed ListView panic when model reset in some cases. (#2780)
+ - Fixed read-only `TextInput` reporting input method access. (#2812)
  - Fixed `LineEdit`'s placeholder text not being rendered with the same font attributes as regular `LineEdit` text.
- - Fixed SVG with text (#2646)
+ - Fixed rendering of SVGs with text. (#2646)
  - Software renderer: Show the cursor in TextInput
 
 ### Slint Language
 
  - Added support for declaring enumerations.
- - Support negative numbers in `cubic-bezier(...)` function.
+ - Added support negative numbers in `cubic-bezier(...)` function.
  - Added `ProgressIndicator` widget.
  - Added `Switch` widget.
  - Added boolean `font-italic` property to `Text` and `TextInput`.
- - Added `select-all()`, `cut()`, `copy()`, and `paste() to `TextInput`, `LineEdit`, and `TextEdit`.
+ - Added `select-all()`, `cut()`, `copy()`, and `paste()` to `TextInput`, `LineEdit`, and `TextEdit`.
  - Added functions on color: `transparentize`, `mix`, and `with-alpha`.
  - Added a `close()` function and a `close-on-click` boolean property to `PopupWindow`.
- - Added basic translation infrastructure with `@tr("...")`
+ - Added basic translation infrastructure with `@tr("...")`.
  - Added `absolute-position` property to every element, for computing window-absolute positions.
  - Added `primary` boolean property to `Button` to configure its visual appearance.
  - Added `current-row` to `StandardTableView`.
@@ -37,8 +39,8 @@ All notable changes to this project are documented in this file.
  - Added `slint::Image::load_from_svg_data(buffer: &[u8])` to load SVGs from memory.
  - Added `slint::platform::WindowEvent::ScaleFactorChanged` to allow backends to report the current window scale factor.
  - Added `slint::Image::from_borrowed_gl_2d_rgba_texture` to create images from borrowed OpenGL textures.
- - In the Slint language, struct can be annotated with `@rust-attr(...)` that is forwarded as a Rust attribute (`#[...]`) for the generated struct
- - Added a `serde` feature to enable serialization of some Slint structure
+ - In the Slint language, struct can be annotated with `@rust-attr(...)` that is forwarded as a Rust attribute (`#[...]`) for the generated struct.
+ - Added a `serde` feature to enable serialization of some Slint data structures.
  - Added convenience `From` conversions for `ModelRc` from slices and arrays.
  - `slint-viewer` gained the ability to preview .rs files with a `slint!` macro.
  - Added a `spawn_local` function to run async code in the Slint event loop.
@@ -46,17 +48,17 @@ All notable changes to this project are documented in this file.
 ### C++
 
  - Added `slint::Image::create_from_borrowed_gl_2d_rgba_texture` to create images from borrowed OpenGL textures.
- - Added `[[nodiscard]]` in a few places
- - Experimental: the `slint::platform::WindowAdapter` no longer take a template parameter and change the way it is constructed
+ - Added `[[nodiscard]]` in a function signatures.
+ - Experimental: the `slint::platform::WindowAdapter` no longer takes a template parameter and has a different constructor signature.
 
 ### LSP
 
- - Fix auto-completion of local properties or arguments in callbacks or functions
- - Fixed panic when the editor tries to open non-local urls
+ - Fixed auto-completion of local properties or arguments in callbacks or functions.
+ - Fixed panic when the editor tries to open non-local urls.
 
 ### VSCode extension
 
- - Make a visible error message when the `slint-lsp` panics
+ - Make a visible error message when the `slint-lsp` panics.
 
 ## [1.0.2] - 2023-04-26
 
@@ -861,3 +863,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [1.0.0]: https://github.com/slint-ui/slint/releases/tag/v1.0.0
 [1.0.1]: https://github.com/slint-ui/slint/releases/tag/v1.0.1
 [1.0.2]: https://github.com/slint-ui/slint/releases/tag/v1.0.2
+[1.1.0]: https://github.com/slint-ui/slint/releases/tag/v1.1.0
