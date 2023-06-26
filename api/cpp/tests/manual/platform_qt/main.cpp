@@ -110,15 +110,7 @@ public:
 
     void request_redraw() const override { const_cast<MyWindow *>(this)->requestUpdate(); }
 
-    void resizeEvent(QResizeEvent *ev) override
-    {
-        auto logicalSize = ev->size();
-        float scale_factor = devicePixelRatio();
-        m_renderer->resize(slint::PhysicalSize({ uint32_t(logicalSize.width() * scale_factor),
-                                                 uint32_t(logicalSize.height() * scale_factor) }));
-        WindowAdapter::dispatch_resize_event(
-                slint::LogicalSize({ float(logicalSize.width()), float(logicalSize.height()) }));
-    }
+    void resizeEvent(QResizeEvent *) override { request_redraw(); }
 
     void mousePressEvent(QMouseEvent *event) override
     {
