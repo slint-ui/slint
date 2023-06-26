@@ -5,7 +5,6 @@
 # Translators:
 # Olivier Goffart <olivier.goffart@slint-ui.com>, 2023
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
@@ -18,53 +17,46 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n % "
-"1000000 == 0 ? 1 : 2;\n"
+"Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : n != 0 && n %"
+" 1000000 == 0 ? 1 : 2;\n"
+"X-Generator: Lokalize 22.12.3\n"
 
 #: gallery.slint:14 gallery.slint:19
-#, fuzzy
 msgctxt "App"
 msgid "Slint Widgets Gallery"
 msgstr "Gallerie de widgets "
 
 #: gallery.slint:20
-#, fuzzy
 msgctxt "Menu"
 msgid "Controls"
 msgstr "Contrôles"
 
 #: gallery.slint:20
-#, fuzzy
 msgctxt "Menu"
 msgid "ListView"
 msgstr "ListView"
 
 #: gallery.slint:20
-#, fuzzy
 msgctxt "Menu"
 msgid "TableView"
 msgstr "TableView"
 
 #: gallery.slint:20
-#, fuzzy
 msgctxt "Menu"
 msgid "TextEdit"
 msgstr "TextEdit"
 
 #: gallery.slint:20
-#, fuzzy
 msgctxt "Menu"
 msgid "About"
 msgstr "À Propos"
 
 #: ui/pages/list_view_page.slint:9
-#, fuzzy
 msgctxt "ListViewPage"
 msgid "ListView"
 msgstr "ListView"
 
 #: ui/pages/list_view_page.slint:10
-#, fuzzy
 msgctxt "ListViewPage"
 msgid ""
 "ListViews can be used to display a list of elements. The StandardListBox is "
@@ -76,7 +68,6 @@ msgstr ""
 "des items visuels"
 
 #: ui/pages/list_view_page.slint:25
-#, fuzzy
 msgctxt "ListViewPage"
 msgid "Item {}"
 msgstr "Élement {}"
@@ -85,7 +76,6 @@ msgstr "Élement {}"
 #: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
 #: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
 #: ui/pages/list_view_page.slint:43
-#, fuzzy
 msgctxt "ListViewPage"
 msgid "Lorem"
 msgstr "Lorem"
@@ -94,7 +84,6 @@ msgstr "Lorem"
 #: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
 #: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
 #: ui/pages/list_view_page.slint:43
-#, fuzzy
 msgctxt "ListViewPage"
 msgid "ipsum"
 msgstr "ipsum"
@@ -103,7 +92,6 @@ msgstr "ipsum"
 #: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
 #: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
 #: ui/pages/list_view_page.slint:43
-#, fuzzy
 msgctxt "ListViewPage"
 msgid "dolor"
 msgstr "dolor"
@@ -112,7 +100,6 @@ msgstr "dolor"
 #: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
 #: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
 #: ui/pages/list_view_page.slint:43
-#, fuzzy
 msgctxt "ListViewPage"
 msgid "sit"
 msgstr "sit"
@@ -121,7 +108,6 @@ msgstr "sit"
 #: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
 #: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
 #: ui/pages/list_view_page.slint:43
-#, fuzzy
 msgctxt "ListViewPage"
 msgid "amet"
 msgstr "amet"
@@ -130,25 +116,21 @@ msgstr "amet"
 #: ui/pages/list_view_page.slint:39 ui/pages/list_view_page.slint:40
 #: ui/pages/list_view_page.slint:41 ui/pages/list_view_page.slint:42
 #: ui/pages/list_view_page.slint:43
-#, fuzzy
 msgctxt "ListViewPage"
 msgid "consetetur"
 msgstr "consetetur"
 
 #: ui/pages/page.slint:25
-#, fuzzy
 msgctxt "Page"
 msgid "Widgets enabled"
 msgstr "Widgets activés"
 
 #: ui/pages/table_view_page.slint:22
-#, fuzzy
 msgctxt "TableViewPage"
 msgid "TableView"
 msgstr "TableView"
 
 #: ui/pages/table_view_page.slint:23
-#, fuzzy
 msgctxt "TableViewPage"
 msgid ""
 "StandardTableView can be used to display a list of text elements in columns "
@@ -158,43 +140,36 @@ msgstr ""
 "colonnes"
 
 #: ui/pages/table_view_page.slint:29
-#, fuzzy
 msgctxt "TableViewPage"
 msgid "StandardTableView"
 msgstr "StandardTableView"
 
 #: ui/pages/table_view_page.slint:42
-#, fuzzy
 msgctxt "TableViewPage"
 msgid "Header 1"
 msgstr "En-tête 1"
 
 #: ui/pages/table_view_page.slint:43
-#, fuzzy
 msgctxt "TableViewPage"
 msgid "Header 2"
 msgstr "En-tête 2"
 
 #: ui/pages/table_view_page.slint:44
-#, fuzzy
 msgctxt "TableViewPage"
 msgid "Header 3"
 msgstr "En-tête 3"
 
 #: ui/pages/table_view_page.slint:45
-#, fuzzy
 msgctxt "TableViewPage"
 msgid "Header 4"
 msgstr "En-tête 4"
 
 #: ui/pages/text_edit_page.slint:9
-#, fuzzy
 msgctxt "TextEditPage"
 msgid "TextEdit"
 msgstr "TextEdit"
 
 #: ui/pages/text_edit_page.slint:10
-#, fuzzy
 msgctxt "TextEditPage"
 msgid ""
 "Similar to LineEdit, but can be used to enter several lines of text. The "
@@ -202,14 +177,12 @@ msgid ""
 msgstr "Silimaire à LineEdit mais utilisé pour entrer plusieurs ligne de texte"
 
 #: ui/pages/text_edit_page.slint:15
-#, fuzzy
 msgctxt "TextEditPage"
 msgid "Word-Wrap"
 msgstr "Retour à la ligne"
 
 #. min-width: 200px;
 #: ui/pages/text_edit_page.slint:18
-#, fuzzy
 msgctxt "TextEditPage"
 msgid ""
 "This is our TextEdit widget, which allows for editing text that spans over "
@@ -231,19 +204,16 @@ msgstr ""
 "Vous pouver entrer du texte ici et voir ce qui se passe"
 
 #: ui/pages/text_edit_page.slint:25
-#, fuzzy
 msgctxt "TextEditPage"
 msgid "No-Wrap"
 msgstr "Pas de retour à la ligne"
 
 #: ui/pages/controls_page.slint:10
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Controls"
 msgstr "Contrôles"
 
 #: ui/pages/controls_page.slint:11
-#, fuzzy
 msgctxt "ControlsPage"
 msgid ""
 "This page gives an overview of the default widget set provided by Slint. The "
@@ -256,157 +226,131 @@ msgstr ""
 "(dark/light). Les widgets peuvent être importés debuis \"std-widgets.slint\"."
 
 #: ui/pages/controls_page.slint:15
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Buttons"
 msgstr "Boutons"
 
 #: ui/pages/controls_page.slint:22
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Regular Button"
 msgstr "Buton normal"
 
 #: ui/pages/controls_page.slint:27
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Primary Button with Icon"
 msgstr "Boutton avec une icone"
 
 #: ui/pages/controls_page.slint:35
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "ON"
 msgstr "ON"
 
 #: ui/pages/controls_page.slint:35
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "OFF"
 msgstr "OFF"
 
 #: ui/pages/controls_page.slint:42
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "CheckBox - SpinBox - ComboBox - Switch"
 msgstr "CheckBox - SpinBox - ComboBox - Switch"
 
 #: ui/pages/controls_page.slint:50
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "(checked)"
 msgstr "(coché)"
 
 #: ui/pages/controls_page.slint:50
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "(unchecked)"
 msgstr "(non-coché)"
 
 #: ui/pages/controls_page.slint:56
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Select Something"
 msgstr "Selectionne quelque chose"
 
 #: ui/pages/controls_page.slint:56
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "From this"
 msgstr "dans cette"
 
 #: ui/pages/controls_page.slint:56
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Combobox"
 msgstr "Combobox"
 
 #: ui/pages/controls_page.slint:61
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Flight Mode"
 msgstr "Mode Avion"
 
 #: ui/pages/controls_page.slint:69
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "LineEdit - SpinBox"
 msgstr "LineEdit"
 
 #: ui/pages/controls_page.slint:77
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Enter some text"
 msgstr "Entrez du texte"
 
 #: ui/pages/controls_page.slint:90
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Slider"
 msgstr "Slider"
 
 #: ui/pages/controls_page.slint:103
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "ProgressIndicator"
 msgstr "ProgressIndicator"
 
 #: ui/pages/controls_page.slint:116
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "indeterminate"
 msgstr "Indéterminé"
 
 #: ui/pages/controls_page.slint:123
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "TabWidget"
 msgstr "TabWidget"
 
 #: ui/pages/controls_page.slint:127
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Tab 1"
 msgstr "1ᵉʳ Onglet"
 
 #: ui/pages/controls_page.slint:133
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Content of tab 1"
 msgstr "Contennu du 1ᵉʳ onglet"
 
 #: ui/pages/controls_page.slint:139
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Click me"
 msgstr "Clickez moi"
 
 #: ui/pages/controls_page.slint:148
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Tab 2"
 msgstr "2ᵉ Onglet"
 
 #: ui/pages/controls_page.slint:154
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Content of tab 2"
 msgstr "Contenu du 2ᵉ onglet"
 
 #: ui/pages/controls_page.slint:160
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Check me"
 msgstr "Cochez moi"
 
 #: ui/pages/controls_page.slint:169
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Tab 3"
 msgstr "3ᵉ Onglet"
 
 #: ui/pages/controls_page.slint:173
-#, fuzzy
 msgctxt "ControlsPage"
 msgid "Content of tab 3"
 msgstr "Contenu du 3ᵉ conglet"
