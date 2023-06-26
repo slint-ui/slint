@@ -484,10 +484,11 @@ fn complete_path_in_string(base: &Path, text: &str, offset: u32) -> Option<Vec<C
     }
     let mut text = text.strip_prefix('\"')?;
     text = &text[..(offset - 1) as usize];
+    let base = i_slint_compiler::typeloader::base_directory(base)?;
     let path = if let Some(last_slash) = text.rfind('/') {
-        base.parent()?.join(Path::new(&text[..last_slash]))
+        base.join(Path::new(&text[..last_slash]))
     } else {
-        base.parent()?.to_owned()
+        base
     };
     let dir = std::fs::read_dir(path).ok()?;
     Some(
