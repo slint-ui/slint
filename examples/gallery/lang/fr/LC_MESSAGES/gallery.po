@@ -233,12 +233,12 @@ msgstr "Boutons"
 #: ui/pages/controls_page.slint:22
 msgctxt "ControlsPage"
 msgid "Regular Button"
-msgstr "Buton normal"
+msgstr "Bouton normal"
 
 #: ui/pages/controls_page.slint:27
 msgctxt "ControlsPage"
 msgid "Primary Button with Icon"
-msgstr "Boutton avec une icone"
+msgstr "Bouton avec une icone"
 
 #: ui/pages/controls_page.slint:35
 msgctxt "ControlsPage"
