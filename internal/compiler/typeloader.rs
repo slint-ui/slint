@@ -521,8 +521,23 @@ impl TypeLoader {
         file_to_import: &str,
     ) -> Option<(PathBuf, Option<&'static [u8]>)> {
         // The directory of the current file is the first in the list of include directories.
-        let maybe_current_directory =
-            referencing_file.and_then(|path| path.parent()).map(|p| p.to_path_buf());
+        let maybe_current_directory = match referencing_file {
+            Some(path) if path.extension().map_or(false, |e| e == "rs") => {
+                // For .rs file, this is a rust macro, and rust macro locates the file relative to the CARGO_MANIFEST_PATH which is the directory that has a Cargo.toml file.
+                let mut candidate = path;
+                loop {
+                    candidate =
+                        if let Some(c) = candidate.parent() { c } else { break path.parent() };
+                    if candidate.join("Cargo.toml").exists() {
+                        break Some(candidate);
+                    }
+                }
+            }
+            Some(path) => path.parent(),
+            None => None,
+        }
+        .map(|p| p.to_path_buf());
+
         maybe_current_directory
             .clone()
             .into_iter()
@@ -625,6 +640,45 @@ fn test_dependency_loading() {
 
     let mut main_test_path = test_source_path;
     main_test_path.push("dependency_test_main.slint");
+
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse_file(main_test_path, &mut test_diags).unwrap();
+
+    let doc_node: syntax_nodes::Document = doc_node.into();
+
+    let global_registry = TypeRegister::builtin();
+
+    let registry = Rc::new(RefCell::new(TypeRegister::new(&global_registry)));
+
+    let mut build_diagnostics = BuildDiagnostics::default();
+
+    let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
+
+    spin_on::spin_on(loader.load_dependencies_recursively(
+        &doc_node,
+        &mut build_diagnostics,
+        &registry,
+    ));
+
+    assert!(!test_diags.has_error());
+    assert!(!build_diagnostics.has_error());
+}
+
+#[test]
+fn test_dependency_loading_from_rust() {
+    let test_source_path: PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
+
+    let mut incdir = test_source_path.clone();
+    incdir.push("incpath");
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.include_paths = vec![incdir];
+    compiler_config.style = Some("fluent".into());
+
+    let mut main_test_path = test_source_path;
+    main_test_path.push("some_rust_file.rs");
 
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
     let doc_node = crate::parser::parse_file(main_test_path, &mut test_diags).unwrap();
