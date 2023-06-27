@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 
 ### General
 
+ - Fixed compiler panics when some complex expressions are used for the model expression in `for` (#2977)
+
 ### Slint Language
 
 ### Rust

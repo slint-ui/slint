@@ -47,6 +47,7 @@ pub enum Type {
     Percent,
     Image,
     Bool,
+    /// Fake type that can represent anything that can be converted into a model.
     Model,
     PathData, // Either a vector of path elements or a two vectors of events and coordinates
     Easing,
@@ -217,7 +218,6 @@ impl Type {
                 | Self::Percent
                 | Self::Image
                 | Self::Bool
-                | Self::Model
                 | Self::Easing
                 | Self::Enumeration(_)
                 | Self::ElementReference
