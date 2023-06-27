@@ -82,6 +82,9 @@ export TestCase := Rectangle {
             root.value = x.a;
         }
     }
+
+    // issue #2977
+    for v in value + value : Text { text: v; }
 }
 
 

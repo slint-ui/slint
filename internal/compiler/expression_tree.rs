@@ -631,24 +631,13 @@ impl Expression {
             Expression::BuiltinMacroReference { .. } => Type::Invalid, // We don't know the type
             Expression::ElementReference(_) => Type::ElementReference,
             Expression::RepeaterIndexReference { .. } => Type::Int32,
-            Expression::RepeaterModelReference { element } => {
-                if let Expression::Cast { from, .. } = element
-                    .upgrade()
-                    .unwrap()
-                    .borrow()
-                    .repeated
-                    .as_ref()
-                    .map_or(&Expression::Invalid, |e| &e.model)
-                {
-                    match from.ty() {
-                        Type::Float32 | Type::Int32 => Type::Int32,
-                        Type::Array(elem) => *elem,
-                        _ => Type::Invalid,
-                    }
-                } else {
-                    Type::Invalid
-                }
-            }
+            Expression::RepeaterModelReference { element } => element
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .repeated
+                .as_ref()
+                .map_or(Type::Invalid, |e| model_inner_type(&e.model)),
             Expression::FunctionParameterReference { ty, .. } => ty.clone(),
             Expression::StructFieldAccess { base, name } => match base.ty() {
                 Type::Struct { fields, .. } => {
@@ -1315,6 +1304,18 @@ impl Expression {
                 false
             }
         }
+    }
+}
+
+fn model_inner_type(model: &Expression) -> Type {
+    match model {
+        Expression::Cast { from, to: Type::Model } => model_inner_type(&from),
+        Expression::CodeBlock(cb) => cb.last().map_or(Type::Invalid, model_inner_type),
+        _ => match model.ty() {
+            Type::Float32 | Type::Int32 => Type::Int32,
+            Type::Array(elem) => *elem,
+            _ => Type::Invalid,
+        },
     }
 }
 
