@@ -1,4 +1,4 @@
-# Slint Royalty-free Desktop and Web Applications License, version 1.0
+# Slint Royalty-free Desktop and Web Applications License, version 1.0.1
 
 ## Preamble
 
@@ -27,8 +27,6 @@ You may distribute the Software as part of an Application, modified or unmodifie
 (b) Display the [Slint attribution badge](https://github.com/slint-ui/slint/tree/master/logo/madewithslint) on a public webpage, preferably where the binaries of your Application can be downloaded from, in such a way that it can be easily found by any visitor to that page.
 
 (c) You may not remove or alter any license notices (including copyright notices, disclaimers of warranty, or limitations of liability) contained within the source code form of the Software.
-
-(d) You allow SixtyFPS to show your Application on <https://madewithslint.com> and in advertising materials of SixtyFPS as a reference and to display your logo and trademark for this purpose.
 
 ### 4. Warranty and Liability
 
