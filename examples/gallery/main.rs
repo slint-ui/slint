@@ -70,5 +70,25 @@ pub fn main() {
         }
     });
 
-    app.run().unwrap();
+    let app2 = std::cell::RefCell::new(Some(app.clone_strong()));
+
+    app.window().on_close_requested(move || {
+        drop(app2.borrow_mut().take());
+        slint::CloseRequestResponse::HideWindow
+    });
+
+    app.show().unwrap();
+
+    drop(app);
+
+    let app3 = App::new().unwrap();
+    let app4 = std::cell::RefCell::new(Some(app3.clone_strong()));
+    app3.window().on_close_requested(move || {
+        drop(app4.borrow_mut().take());
+        slint::CloseRequestResponse::HideWindow
+    });
+    app3.show().unwrap();
+    drop(app3);
+
+    slint::run_event_loop().unwrap();
 }

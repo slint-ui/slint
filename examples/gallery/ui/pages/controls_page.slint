@@ -9,7 +9,7 @@ import { Page } from "page.slint";
 export component ControlsPage inherits Page {
     title: @tr("Controls");
     description: @tr("This page gives an overview of the default widget set provided by Slint. The widgets are available in different styles native, fluent-(dark/light) and material-(dark/light). The widgets can be imported from \"std-widgets.slint\".");
-
+/*
     GroupBox {
         vertical-stretch: 0;
         title: @tr("Buttons");
@@ -98,7 +98,7 @@ export component ControlsPage inherits Page {
             enabled: GallerySettings.widgets-enabled;
         }
     }
-
+*/
     GroupBox {
         title: @tr("ProgressIndicator");
         vertical-stretch: 0;
@@ -108,7 +108,7 @@ export component ControlsPage inherits Page {
 
             i-progress-indicator := ProgressIndicator {
                 min-width: 160px;
-                progress: (i-slider.value - i-slider.minimum) / (i-slider.maximum - i-slider.minimum);
+                progress: 80%;
                 indeterminate: true;
             }
 
@@ -118,7 +118,7 @@ export component ControlsPage inherits Page {
             }
         }
     }
-
+/*
     GroupBox {
         title: @tr("TabWidget");
 
@@ -175,5 +175,5 @@ export component ControlsPage inherits Page {
                 }
             }
         }
-    }
+    }*/
 }
