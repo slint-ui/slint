@@ -26,7 +26,7 @@ export component Example {
 }
 ```
 
-Annotate custom the properties with a qualifier that specifies how the
+Annotate extra properties with a qualifier that specifies how the
 property can be read and written:
 
 -   **`private`** (the default): The property can only be accessed from within the component.
