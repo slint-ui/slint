@@ -87,7 +87,7 @@ impl<'a> SkiaRenderer<'a> {
                     skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
                     Some(&*pos),
                     skia_safe::TileMode::Clamp,
-                    None,
+                    skia_safe::gradient_shader::Flags::INTERPOLATE_COLORS_IN_PREMUL,
                     &skia_safe::Matrix::scale((width.get(), height.get())),
                 )
             }
@@ -101,7 +101,7 @@ impl<'a> SkiaRenderer<'a> {
                     skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
                     Some(&*pos),
                     skia_safe::TileMode::Clamp,
-                    None,
+                    skia_safe::gradient_shader::Flags::INTERPOLATE_COLORS_IN_PREMUL,
                     skia_safe::Matrix::scale((circle_scale.get(), circle_scale.get()))
                         .post_translate((width.get() / 2., height.get() / 2.))
                         as &skia_safe::Matrix,
