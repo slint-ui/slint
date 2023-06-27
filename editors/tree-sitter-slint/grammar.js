@@ -355,7 +355,7 @@ module.exports = grammar({
         type: ($) =>
             choice($._type_identifier, $.type_list, $.type_anon_struct),
 
-        for_range: ($) => choice($._int_number, $.value_list, $.var_identifier),
+        for_range: ($) => $._expression,
 
         _assignment_setup: ($) =>
             seq(
