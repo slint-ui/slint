@@ -624,7 +624,7 @@ fn call_builtin_function(
                     ItemRef::downcast_pin::<corelib::items::TextInput>(item_ref)
                 {
                     match &*name {
-                        "select_all" => textinput.select_all(&window_adapter, &item_rc),
+                        "select-all" => textinput.select_all(&window_adapter, &item_rc),
                         "cut" => textinput.cut(&window_adapter, &item_rc),
                         "copy" => textinput.copy(&window_adapter, &item_rc),
                         "paste" => textinput.paste(&window_adapter, &item_rc),

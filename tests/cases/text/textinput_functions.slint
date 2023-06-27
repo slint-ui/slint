@@ -6,21 +6,24 @@ export component TestCase {
     height: 100phx;
 
     ti := TextInput {}
-    
+
     in-out property<string> test_text <=> ti.text;
 
-    public function do_select() {
+    callback do_select();
+    do_select => {
         ti.select_all();
     }
 
-    public function do_copy() {
+    callback do_copy();
+    do_copy => {
         ti.copy();
     }
 
-    public function do_cut() {
+    callback do_cut();
+    do_cut => {
         ti.cut();
     }
-    
+
     out property<bool> has_selection: ti.cursor_position_byte_offset != ti.anchor_position_byte_offset;
 }
 
@@ -60,7 +63,7 @@ assert_eq(instance.get_test_text(), "");
 */
 
 /*
-```nodejs
+```js
 var instance = new slint.TestCase({});
 instance.test_text = "Hello World";
 assert(!instance.has_selection);
