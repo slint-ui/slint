@@ -59,7 +59,9 @@ TestCase := Rectangle {
           (post_identifier)))
       (for_loop
         (var_identifier)
-        (for_range)
+        (for_range
+          (value
+            (int_value)))
         (component
           (user_type_identifier)
           (block
