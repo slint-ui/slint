@@ -135,7 +135,7 @@ fn main() -> Result<()> {
                         }
                         Some(obj.into())
                     }
-                    slint_interpreter::Value::EnumerationValue(class, value) => {
+                    slint_interpreter::Value::EnumerationValue(_class, value) => {
                         Some(value.as_str().into())
                     }
                     _ => None,
