@@ -496,6 +496,10 @@ public:
     /// a window frame (if present).
     void set_size(const slint::PhysicalSize &size) { inner.set_physical_size(size); }
 
+    /// This function returns the scale factor that allows converting between logical and
+    /// physical pixels.
+    float scale_factor() const { return inner.scale_factor(); }
+
     /// Dispatch a key press event to the scene.
     ///
     /// Use this when you're implementing your own backend and want to forward user input events.
