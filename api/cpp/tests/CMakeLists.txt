@@ -35,13 +35,13 @@ slint_test(datastructures)
 
 if(SLINT_FEATURE_INTERPRETER)
     slint_test(interpreter)
+    slint_test(window)
 endif()
 
 slint_test(properties)
 slint_test(eventloop)
 target_link_libraries(test_eventloop PRIVATE Threads::Threads)
 slint_test(models)
-slint_test(window)
 
 add_subdirectory(multiple-includes)
 
