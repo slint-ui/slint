@@ -1509,8 +1509,9 @@ cbindgen_private::NativeStyleMetrics::~NativeStyleMetrics()
 #endif // !defined(DOXYGEN)
 
 namespace private_api {
+// Was used in Slint <= 1.1.0 to have an error message in case of mismatch
 template<int Major, int Minor, int Patch>
-struct VersionCheckHelper
+struct [[deprecated]] VersionCheckHelper
 {
 };
 }

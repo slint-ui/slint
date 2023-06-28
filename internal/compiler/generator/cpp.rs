@@ -78,6 +78,7 @@ mod cpp_ast {
     #[derive(Default, Debug)]
     pub struct File {
         pub includes: Vec<String>,
+        pub after_includes: String,
         pub declarations: Vec<Declaration>,
         pub definitions: Vec<Declaration>,
     }
@@ -87,6 +88,7 @@ mod cpp_ast {
             for i in &self.includes {
                 writeln!(f, "#include {}", i)?;
             }
+            write!(f, "{}", self.after_includes)?;
             for d in &self.declarations {
                 write!(f, "\n{}", d)?;
             }
@@ -655,16 +657,14 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
 
     generate_public_component(&mut file, &llr);
 
-    file.definitions.push(Declaration::Var(Var{
-        ty: format!(
-            "[[maybe_unused]] constexpr slint::private_api::VersionCheckHelper<{}, {}, {}>",
-            env!("CARGO_PKG_VERSION_MAJOR"),
-            env!("CARGO_PKG_VERSION_MINOR"),
-            env!("CARGO_PKG_VERSION_PATCH")),
-        name: "THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME".into(),
-        init: Some("slint::private_api::VersionCheckHelper<SLINT_VERSION_MAJOR, SLINT_VERSION_MINOR, SLINT_VERSION_PATCH>()".into()),
-        ..Default::default()
-    }));
+    file.after_includes = format!(
+        "static_assert({x} == SLINT_VERSION_MAJOR && {y} == SLINT_VERSION_MINOR && {z} == SLINT_VERSION_PATCH, \
+        \"This file was generated with Slint compiler version {x}.{y}.{z}, but the Slint library used is \" \
+        SLINT_VERSION_STRING \". The version numbers must match exactly.\");",
+        x = env!("CARGO_PKG_VERSION_MAJOR"),
+        y = env!("CARGO_PKG_VERSION_MINOR"),
+        z = env!("CARGO_PKG_VERSION_PATCH")
+    );
 
     file
 }
