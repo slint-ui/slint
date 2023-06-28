@@ -175,7 +175,7 @@ private:
 
         const GLchar *const fragment_shader =
                 R"(#version 100
-            precision mediump float;
+            precision highp float;
             varying vec2 frag_position;
             uniform vec3 selected_light_color;
             uniform float iTime;
