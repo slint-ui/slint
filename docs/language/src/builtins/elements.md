@@ -603,7 +603,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 -   **`font-family`** (_in_ _string_): The name of the font family selected for rendering the text.
 -   **`font-size`** (_in_ _length_): The font size of the text.
 -   **`font-weight`** (_in_ _int_): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
--   **`font-italic`** (_in_ _bool_): Whether or not the font face should be drawn italicized or not. (default value: false)   
+-   **`font-italic`** (_in_ _bool_): Whether or not the font face should be drawn italicized or not. (default value: false)
 -   **`has-focus`** (_out_ _bool_): `TextInput` sets this to `true` when it's focused. Only then it receives [`KeyEvent`](structs.md#keyevent)s.
 -   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
 -   **`input-type`** (_in_ _enum [`InputType`](enums.md#inputtype)_): Use this to configure `TextInput` for editing special input, such as password fields. (default value: `text`)
@@ -621,6 +621,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 -   **`focus()`** Call this function to focus the text input and make it receive future keyboard events.
 -   **`select-all()`** Selects all text.
+-   **`clear-selection()`** Clears the selection.
 -   **`copy()`** Copies the selected text to the clipboard.
 -   **`cut()`** Copies the selected text to the clipboard and removes it from the editable area.
 -   **`paste()`** Pastes the text content of the clipboard at the cursor position.
