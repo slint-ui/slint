@@ -36,12 +36,15 @@ pub struct NativeSlider {
 }
 
 cpp! {{
-void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, int active_controls, int minimum, int maximum, int value) {
+void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, int active_controls, float minimum, float maximum, float float_value) {
     option.subControls = QStyle::SC_SliderGroove | QStyle::SC_SliderHandle;
     option.activeSubControls = { active_controls };
     option.orientation = Qt::Horizontal;
-    option.maximum = maximum;
-    option.minimum = minimum;
+    // Slint slider supports floating point ranges, while Qt uses integer. To support (0..1) ranges
+    // of values, scale up a little, before truncating to integer values.
+    option.maximum = maximum * 1024;
+    option.minimum = minimum * 1024;
+    int value = float_value * 1024;
     option.sliderPosition = value;
     option.sliderValue = value;
     if (enabled) {
@@ -72,18 +75,18 @@ impl Item for NativeSlider {
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         let enabled = self.enabled();
-        let value = self.value() as i32;
-        let min = self.minimum() as i32;
-        let max = self.maximum() as i32;
+        let value = self.value() as f32;
+        let min = self.minimum() as f32;
+        let max = self.maximum() as f32;
         let data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
 
         let size = cpp!(unsafe [
             enabled as "bool",
-            value as "int",
-            min as "int",
-            max as "int",
+            value as "float",
+            min as "float",
+            max as "float",
             active_controls as "int",
             pressed as "bool"
         ] -> qttypes::QSize as "QSize" {
@@ -222,9 +225,9 @@ impl Item for NativeSlider {
 
     fn_render! { this dpr size painter widget initial_state =>
         let enabled = this.enabled();
-        let value = this.value() as i32;
-        let min = this.minimum() as i32;
-        let max = this.maximum() as i32;
+        let value = this.value() as f32;
+        let min = this.minimum() as f32;
+        let max = this.maximum() as f32;
         let data = this.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
@@ -233,9 +236,9 @@ impl Item for NativeSlider {
             painter as "QPainterPtr*",
             widget as "QWidget*",
             enabled as "bool",
-            value as "int",
-            min as "int",
-            max as "int",
+            value as "float",
+            min as "float",
+            max as "float",
             size as "QSize",
             active_controls as "int",
             pressed as "bool",
