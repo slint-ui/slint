@@ -435,20 +435,23 @@ fn gen_corelib(
         .with_src(crate_dir.join("graphics/image.rs"))
         .with_include("slint_string.h")
         .with_after_include(format!(
-            r"
+            r#"
 /// This macro expands to the to the numeric value of the major version of Slint you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 1.
-#define SLINT_VERSION_MAJOR {}
+#define SLINT_VERSION_MAJOR {x}
 /// This macro expands to the to the numeric value of the minor version of Slint you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 5.
-#define SLINT_VERSION_MINOR {}
+#define SLINT_VERSION_MINOR {y}
 /// This macro expands to the to the numeric value of the patch version of Slint you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 2.
-#define SLINT_VERSION_PATCH {}
-",
-            env!("CARGO_PKG_VERSION_MAJOR"),
-            env!("CARGO_PKG_VERSION_MINOR"),
-            env!("CARGO_PKG_VERSION_PATCH"),
+#define SLINT_VERSION_PATCH {z}
+/// This macro expands to the string representation of the version of Slint you're developing against.
+/// For example if you're using version 1.5.2, this macro will expand to "1.5.2".
+#define SLINT_VERSION_STRING "{x}.{y}.{z}"
+"#,
+            x = env!("CARGO_PKG_VERSION_MAJOR"),
+            y = env!("CARGO_PKG_VERSION_MINOR"),
+            z = env!("CARGO_PKG_VERSION_PATCH"),
         ))
         .generate()
         .context("Unable to generate bindings for slint_generated_public.h")?
