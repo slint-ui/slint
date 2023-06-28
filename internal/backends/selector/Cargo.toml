@@ -25,7 +25,7 @@ renderer-winit-skia-opengl = ["i-slint-backend-winit/renderer-winit-skia-opengl"
 renderer-winit-skia-vulkan = ["i-slint-backend-winit/renderer-winit-skia-vulkan"]
 renderer-winit-software = ["i-slint-backend-winit/renderer-winit-software"]
 
-rtti = ["i-slint-backend-winit?/rtti", "i-slint-backend-qt?/rtti"]
+rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
 
 [dependencies]

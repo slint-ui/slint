@@ -27,7 +27,6 @@ renderer-winit-skia-opengl = ["renderer-winit-skia", "i-slint-renderer-skia/open
 renderer-winit-skia-vulkan = ["renderer-winit-skia", "i-slint-renderer-skia/vulkan"]
 renderer-winit-software = ["softbuffer", "imgref", "rgb", "i-slint-core/software-renderer-systemfonts"]
 accessibility = ["accesskit", "accesskit_winit"]
-rtti = ["i-slint-core/rtti"]
 default = []
 
 [dependencies]
