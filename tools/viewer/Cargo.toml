@@ -43,6 +43,7 @@ backend-gl-x11 = ["backend-winit-x11", "renderer-winit-femtovg"]
 default = ["backend-qt", "backend-winit", "renderer-winit-femtovg"]
 
 [dependencies]
+i-slint-compiler = { version = "=1.1.1", path = "../../internal/compiler" }
 i-slint-core = { version = "=1.1.1", path="../../internal/core" }
 slint-interpreter = { version = "=1.1.1", path = "../../internal/interpreter", default-features = false, features = ["display-diagnostics", "compat-1-0"] }
 i-slint-backend-selector = { version = "=1.1.1", path="../../internal/backends/selector" }

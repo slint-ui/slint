@@ -5277,6 +5277,7 @@ dependencies = [
  "codemap-diagnostic",
  "env_logger",
  "i-slint-backend-selector",
+ "i-slint-compiler",
  "i-slint-core",
  "image",
  "notify",

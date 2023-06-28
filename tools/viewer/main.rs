@@ -5,7 +5,10 @@
 
 use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::SharedVector;
-use slint_interpreter::{ComponentHandle, ComponentInstance, SharedString, Value};
+use slint_interpreter::{
+    ComponentDefinition, ComponentHandle, ComponentInstance, SharedString, Value,
+};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -100,7 +103,7 @@ fn main() -> Result<()> {
     init_dialog(&component);
 
     if let Some(data_path) = args.load_data {
-        load_data(&component, &data_path)?;
+        load_data(&c, &component, &data_path)?;
     }
     install_callbacks(&component, &args.on);
 
@@ -131,6 +134,9 @@ fn main() -> Result<()> {
                             obj.insert(k.into(), to_json(v.clone())?);
                         }
                         Some(obj.into())
+                    }
+                    slint_interpreter::Value::EnumerationValue(class, value) => {
+                        Some(value.as_str().into())
                     }
                     _ => None,
                 }
@@ -262,7 +268,7 @@ async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
                 current.replace(handle);
             }
             if let Some(data_path) = args.load_data {
-                let _ = load_data(current.as_ref().unwrap(), &data_path);
+                let _ = load_data(&c, current.as_ref().unwrap(), &data_path);
             }
             eprintln!("Successful reload of {}", args.path.display());
         });
@@ -271,40 +277,83 @@ async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
     PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
 }
 
-fn load_data(instance: &ComponentInstance, data_path: &std::path::Path) -> Result<()> {
+fn load_data(
+    c: &ComponentDefinition,
+    instance: &ComponentInstance,
+    data_path: &std::path::Path,
+) -> Result<()> {
     let json: serde_json::Value = if data_path == std::path::Path::new("-") {
         serde_json::from_reader(std::io::stdin())?
     } else {
         serde_json::from_reader(std::fs::File::open(data_path)?)?
     };
 
+    let types = c.properties_and_callbacks().collect::<HashMap<_, _>>();
     let obj = json.as_object().ok_or("The data is not a JSON object")?;
     for (name, v) in obj {
-        fn from_json(v: &serde_json::Value) -> slint_interpreter::Value {
+        fn from_json(
+            t: &i_slint_compiler::langtype::Type,
+            v: &serde_json::Value,
+        ) -> slint_interpreter::Value {
             match v {
                 serde_json::Value::Null => slint_interpreter::Value::Void,
                 serde_json::Value::Bool(b) => (*b).into(),
                 serde_json::Value::Number(n) => {
                     slint_interpreter::Value::Number(n.as_f64().unwrap_or(f64::NAN))
                 }
-                serde_json::Value::String(s) => SharedString::from(s.as_str()).into(),
-                serde_json::Value::Array(array) => slint_interpreter::Value::Model(ModelRc::new(
-                    i_slint_core::model::SharedVectorModel::from(
-                        array.iter().map(from_json).collect::<SharedVector<Value>>(),
+                serde_json::Value::String(s) => match t {
+                    i_slint_compiler::langtype::Type::Enumeration(e) => {
+                        if e.values.contains(s) {
+                            slint_interpreter::Value::EnumerationValue(
+                                e.name.to_string(),
+                                s.to_string(),
+                            )
+                        } else {
+                            eprintln!("Warning: Unexpected value for enum '{}': {}", e.name, s);
+                            slint_interpreter::Value::Void
+                        }
+                    }
+                    i_slint_compiler::langtype::Type::String => {
+                        SharedString::from(s.as_str()).into()
+                    }
+                    _ => slint_interpreter::Value::Void,
+                },
+                serde_json::Value::Array(array) => match t {
+                    i_slint_compiler::langtype::Type::Array(it) => slint_interpreter::Value::Model(
+                        ModelRc::new(i_slint_core::model::SharedVectorModel::from(
+                            array.iter().map(|v| from_json(it, v)).collect::<SharedVector<Value>>(),
+                        )),
                     ),
-                )),
-                serde_json::Value::Object(obj) => obj
-                    .iter()
-                    .map(|(k, v)| (k.clone(), from_json(v)))
-                    .collect::<slint_interpreter::Struct>()
-                    .into(),
+                    _ => slint_interpreter::Value::Void,
+                },
+                serde_json::Value::Object(obj) => match t {
+                    i_slint_compiler::langtype::Type::Struct { fields, .. } => obj
+                        .iter()
+                        .filter_map(|(k, v)| match fields.get(k) {
+                            Some(t) => Some((k.clone(), from_json(t, v))),
+                            None => {
+                                eprintln!("Warning: ignoring unknown property: {}", k);
+                                None
+                            }
+                        })
+                        .collect::<slint_interpreter::Struct>()
+                        .into(),
+                    _ => slint_interpreter::Value::Void,
+                },
             }
         }
 
-        match instance.set_property(name, from_json(v)) {
-            Ok(()) => (),
-            Err(e) => eprintln!("Warning: cannot set property '{}' from data file: {:?}", name, e),
-        };
+        match types.get(name) {
+            Some(t) => {
+                match instance.set_property(name, from_json(&t, v)) {
+                    Ok(()) => (),
+                    Err(e) => {
+                        eprintln!("Warning: cannot set property '{}' from data file: {:?}", name, e)
+                    }
+                };
+            }
+            None => eprintln!("Warning: ignoring unknown property: {}", name),
+        }
     }
     Ok(())
 }
