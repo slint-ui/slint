@@ -571,11 +571,11 @@ impl Item for TextInput {
                 if !self.read_only() {
                     if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
                         window_adapter.input_method_request(InputMethodRequest::Disable {});
+                        self.preedit_text.set(Default::default());
+                        self.preedit_selection_start.set(0);
+                        self.preedit_selection_end.set(0);
                     }
                 }
-                self.preedit_text.set(Default::default());
-                self.preedit_selection_start.set(0);
-                self.preedit_selection_end.set(0);
             }
         }
         FocusEventResult::FocusAccepted
