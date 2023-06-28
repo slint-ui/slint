@@ -179,6 +179,7 @@ a widget able to handle several lines of text.
 
 -   **`focus()`** Call this function to focus the LineEdit and make it receive future keyboard events.
 -   **`select-all()`** Selects all text.
+-   **`clear-selection()`** Clears the selection.
 -   **`copy()`** Copies the selected text to the clipboard.
 -   **`cut()`** Copies the selected text to the clipboard and removes it from the editable area.
 -   **`paste()`** Pastes the text content of the clipboard at the cursor position.
@@ -576,6 +577,7 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 
 -   **`focus()`** Call this function to focus the TextEdit and make it receive future keyboard events.
 -   **`select-all()`** Selects all text.
+-   **`clear-selection()`** Clears the selection.
 -   **`copy()`** Copies the selected text to the clipboard.
 -   **`cut()`** Copies the selected text to the clipboard and removes it from the editable area.
 -   **`paste()`** Pastes the text content of the clipboard at the cursor position.

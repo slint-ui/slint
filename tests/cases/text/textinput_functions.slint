@@ -24,6 +24,16 @@ export component TestCase {
         ti.cut();
     }
 
+    callback do_paste();
+    do_paste => {
+        ti.paste();
+    }
+
+    callback do_deselect();
+    do_deselect => {
+        ti.clear-selection();
+    }
+
     out property<bool> has_selection: ti.cursor_position_byte_offset != ti.anchor_position_byte_offset;
 }
 
@@ -41,6 +51,14 @@ assert_eq!(instance.get_test_text(), "Hello World");
 instance.invoke_do_cut();
 assert!(!instance.get_has_selection());
 assert_eq!(instance.get_test_text(), "");
+
+instance.invoke_do_paste();
+assert_eq!(instance.get_test_text(), "Hello World");
+instance.invoke_do_select();
+assert!(instance.get_has_selection());
+instance.invoke_do_deselect();
+assert!(!instance.get_has_selection());
+
 ```
 */
 
@@ -59,6 +77,14 @@ assert_eq(instance.get_test_text(), "Hello World");
 instance.invoke_do_cut();
 assert(!instance.get_has_selection());
 assert_eq(instance.get_test_text(), "");
+
+instance.invoke_do_paste();
+assert_eq(instance.get_test_text(), "Hello World");
+instance.invoke_do_select();
+assert(instance.get_has_selection());
+instance.invoke_do_deselect();
+assert(!instance.get_has_selection());
+
 ```
 */
 
@@ -76,5 +102,13 @@ assert.equal(instance.test_text, "Hello World");
 instance.do_cut();
 assert(!instance.has_selection);
 assert.equal(instance.test_text, "");
+
+instance.do_paste();
+assert.equal(instance.test_text, "Hello World");
+instance.do_select();
+assert(instance.has_selection);
+instance.do_deselect();
+assert(!instance.has_selection);
+
 ```
 */
