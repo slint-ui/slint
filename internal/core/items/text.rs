@@ -537,12 +537,6 @@ impl Item for TextInput {
                 KeyEventResult::EventAccepted
             }
             KeyEventType::CommitComposition => {
-                // Winit says that it will always send an event to empty the pre-edit area, but with
-                // korean IME on Windows for example that's not the case. Qt also doesn't make that guarantee,
-                // so clear it by hand here.
-                self.preedit_text.set(Default::default());
-                self.preedit_selection_start.set(0);
-                self.preedit_selection_end.set(0);
                 self.insert(&event.text, window_adapter, self_rc);
                 KeyEventResult::EventAccepted
             }
@@ -577,6 +571,9 @@ impl Item for TextInput {
                 if !self.read_only() {
                     if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
                         window_adapter.input_method_request(InputMethodRequest::Disable {});
+                        self.preedit_text.set(Default::default());
+                        self.preedit_selection_start.set(0);
+                        self.preedit_selection_end.set(0);
                     }
                 }
             }
@@ -970,6 +967,10 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) {
+        self.preedit_text.set(Default::default());
+        self.preedit_selection_start.set(0);
+        self.preedit_selection_end.set(0);
+
         self.delete_selection(window_adapter, self_rc);
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
