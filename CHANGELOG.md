@@ -13,6 +13,8 @@ All notable changes to this project are documented in this file.
 
 ### C++
 
+ - Added `slint::Window::scale_factor()` as getter to read the system device pixel ratio.
+
 ### LSP
 
  - Correctly use the CARGO_MANIFEST_DIR as the base for import and image in `slint!` macro
