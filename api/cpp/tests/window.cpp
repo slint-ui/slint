@@ -28,3 +28,19 @@ TEST_CASE("Basic Window Visibility")
     instance->hide();
     REQUIRE(instance->window().is_visible() == false);
 }
+
+TEST_CASE("Window Scale Factory Existence")
+{
+    using namespace slint::interpreter;
+    using namespace slint;
+
+    ComponentCompiler compiler;
+    auto comp_def = compiler.build_from_source(R"(
+        export App := Window {
+        }
+    )",
+                                               "");
+    REQUIRE(comp_def.has_value());
+    auto instance = comp_def->create();
+    REQUIRE(instance->window().scale_factor() > 0);
+}
