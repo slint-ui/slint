@@ -345,7 +345,7 @@ fn load_data(
 
         match types.get(name) {
             Some(t) => {
-                match instance.set_property(name, from_json(&t, v)) {
+                match instance.set_property(name, from_json(t, v)) {
                     Ok(()) => (),
                     Err(e) => {
                         eprintln!("Warning: cannot set property '{}' from data file: {:?}", name, e)

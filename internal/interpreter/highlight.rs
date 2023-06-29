@@ -155,7 +155,7 @@ pub fn on_element_selected(
                 state.borrow_mut().current_item = Some(i.downgrade());
 
                 let component = i.component();
-                let component_ref = VRc::borrow(&component);
+                let component_ref = VRc::borrow(component);
                 let Some(component_box) = component_ref.downcast::<ErasedComponentBox>() else {
                     continue; // Skip components of unexpected type!
                 };
