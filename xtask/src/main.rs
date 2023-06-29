@@ -7,7 +7,6 @@ use std::error::Error;
 use std::path::PathBuf;
 
 mod cppdocs;
-mod enumdocs;
 mod license_headers_check;
 mod nodepackage;
 mod reuse_compliance_check;
@@ -24,8 +23,6 @@ pub enum TaskCommand {
     NodePackage,
     #[command(name = "check_reuse_compliance")]
     ReuseComplianceCheck(reuse_compliance_check::ReuseComplianceCheck),
-    #[command(name = "enumdocs")]
-    EnumDocs,
     #[command(name = "slintdocs")]
     SlintDocs(SlintDocsCommand),
 }
@@ -98,7 +95,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         TaskCommand::SlintDocs(cmd) => slintdocs::generate(cmd.show_warnings)?,
         TaskCommand::NodePackage => nodepackage::generate()?,
         TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
-        TaskCommand::EnumDocs => enumdocs::generate()?,
     };
 
     Ok(())
