@@ -206,17 +206,15 @@ fn translate_gettext(string: &str, ctx: &str, domain: &str, n: i32, plural: &str
         } else {
             gettextrs::dgettext(domain, string)
         }
+    } else if !ctx.is_empty() {
+        demangle_context(gettextrs::dngettext(
+            domain,
+            &mangle_context(ctx, string),
+            &mangle_context(ctx, plural),
+            n as u32,
+        ))
     } else {
-        if !ctx.is_empty() {
-            demangle_context(gettextrs::dngettext(
-                domain,
-                &mangle_context(ctx, string),
-                &mangle_context(ctx, plural),
-                n as u32,
-            ))
-        } else {
-            gettextrs::dngettext(domain, string, plural, n as u32)
-        }
+        gettextrs::dngettext(domain, string, plural, n as u32)
     }
 }
 
