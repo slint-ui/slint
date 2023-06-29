@@ -1309,7 +1309,7 @@ impl Expression {
 
 fn model_inner_type(model: &Expression) -> Type {
     match model {
-        Expression::Cast { from, to: Type::Model } => model_inner_type(&from),
+        Expression::Cast { from, to: Type::Model } => model_inner_type(from),
         Expression::CodeBlock(cb) => cb.last().map_or(Type::Invalid, model_inner_type),
         _ => match model.ty() {
             Type::Float32 | Type::Int32 => Type::Int32,

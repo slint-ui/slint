@@ -259,7 +259,7 @@ impl<'a> TextShaper for &rustybuzz::Face<'a> {
     ) {
         let mut buffer = rustybuzz::UnicodeBuffer::new();
         buffer.push_str(text);
-        let glyph_buffer = rustybuzz::shape(&self, &[], buffer);
+        let glyph_buffer = rustybuzz::shape(self, &[], buffer);
 
         let output_glyph_generator =
             glyph_buffer.glyph_infos().iter().zip(glyph_buffer.glyph_positions().iter()).map(

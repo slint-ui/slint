@@ -237,14 +237,14 @@ impl AccessKitAdapter {
         builder.set_children(children.clone());
 
         let component = item.component();
-        let component_ptr = ComponentRef::as_ptr(ComponentRc::borrow(&component));
+        let component_ptr = ComponentRef::as_ptr(ComponentRc::borrow(component));
         if !self.component_ids.borrow().contains_key(&component_ptr) {
             let component_id = self.next_component_id.get();
             self.next_component_id.set(component_id + 1);
             self.component_ids.borrow_mut().insert(component_ptr, component_id);
             self.components_by_id
                 .borrow_mut()
-                .insert(component_id, ComponentRc::downgrade(&component));
+                .insert(component_id, ComponentRc::downgrade(component));
         }
 
         let id = self.encode_item_node_id(&item).unwrap();

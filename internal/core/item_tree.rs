@@ -216,7 +216,7 @@ impl ItemRc {
         let mut current_child_index = child_access(&item_tree, self.index())?;
         loop {
             if let Some(item) = step_into_node(
-                &self.component(),
+                self.component(),
                 &comp_ref_pin,
                 current_child_index,
                 &item_tree,
@@ -260,7 +260,7 @@ impl ItemRc {
             let current_component_subtree_index = comp_ref_pin.as_ref().subtree_index();
             if let Some(parent_item) = parent_item.upgrade() {
                 let parent = parent_item.component();
-                let parent_ref_pin = vtable::VRc::borrow_pin(&parent);
+                let parent_ref_pin = vtable::VRc::borrow_pin(parent);
                 let parent_item_index = parent_item.index();
                 let parent_item_tree = crate::item_tree::ComponentItemTree::new(&parent_ref_pin);
 
@@ -1025,17 +1025,17 @@ mod tests {
 
         let fc = item.first_child().unwrap();
         assert_eq!(fc.index(), 1);
-        assert!(VRc::ptr_eq(&fc.component(), &item.component()));
+        assert!(VRc::ptr_eq(fc.component(), item.component()));
 
         let fcn = fc.next_sibling().unwrap();
         assert_eq!(fcn.index(), 2);
 
         let lc = item.last_child().unwrap();
         assert_eq!(lc.index(), 3);
-        assert!(VRc::ptr_eq(&lc.component(), &item.component()));
+        assert!(VRc::ptr_eq(lc.component(), item.component()));
 
         let lcp = lc.previous_sibling().unwrap();
-        assert!(VRc::ptr_eq(&lcp.component(), &item.component()));
+        assert!(VRc::ptr_eq(lcp.component(), item.component()));
         assert_eq!(lcp.index(), 2);
 
         // Examine first child:
@@ -1217,18 +1217,18 @@ mod tests {
         assert!(item.next_sibling().is_none());
 
         let fc = item.first_child().unwrap();
-        assert!(VRc::ptr_eq(&fc.component(), &item.component()));
+        assert!(VRc::ptr_eq(fc.component(), item.component()));
         assert_eq!(fc.index(), 1);
 
         let lc = item.last_child().unwrap();
-        assert!(VRc::ptr_eq(&lc.component(), &item.component()));
+        assert!(VRc::ptr_eq(lc.component(), item.component()));
         assert_eq!(lc.index(), 3);
 
         let fcn = fc.next_sibling().unwrap();
         let lcp = lc.previous_sibling().unwrap();
 
         assert_eq!(fcn, lcp);
-        assert!(!VRc::ptr_eq(&fcn.component(), &item.component()));
+        assert!(!VRc::ptr_eq(fcn.component(), item.component()));
 
         let last = fcn.next_sibling().unwrap();
         assert_eq!(last, lc);
@@ -1369,18 +1369,18 @@ mod tests {
         assert!(item.next_sibling().is_none());
 
         let fc = item.first_child().unwrap();
-        assert!(VRc::ptr_eq(&fc.component(), &item.component()));
+        assert!(VRc::ptr_eq(fc.component(), item.component()));
         assert_eq!(fc.index(), 1);
 
         let lc = item.last_child().unwrap();
-        assert!(VRc::ptr_eq(&lc.component(), &item.component()));
+        assert!(VRc::ptr_eq(lc.component(), item.component()));
         assert_eq!(lc.index(), 3);
 
         let fcn = fc.next_sibling().unwrap();
         let lcp = lc.previous_sibling().unwrap();
 
         assert_eq!(fcn, lcp);
-        assert!(!VRc::ptr_eq(&fcn.component(), &item.component()));
+        assert!(!VRc::ptr_eq(fcn.component(), item.component()));
 
         let last = fcn.next_sibling().unwrap();
         assert_eq!(last, lc);
@@ -1393,12 +1393,12 @@ mod tests {
         assert_eq!(nested_root, fcn.last_child().unwrap());
         assert!(nested_root.next_sibling().is_none());
         assert!(nested_root.previous_sibling().is_none());
-        assert!(!VRc::ptr_eq(&nested_root.component(), &item.component()));
-        assert!(!VRc::ptr_eq(&nested_root.component(), &fcn.component()));
+        assert!(!VRc::ptr_eq(nested_root.component(), item.component()));
+        assert!(!VRc::ptr_eq(nested_root.component(), fcn.component()));
 
         let nested_child = nested_root.first_child().unwrap();
         assert_eq!(nested_child, nested_root.last_child().unwrap());
-        assert!(VRc::ptr_eq(&nested_root.component(), &nested_child.component()));
+        assert!(VRc::ptr_eq(nested_root.component(), nested_child.component()));
     }
 
     #[test]
@@ -1546,22 +1546,22 @@ mod tests {
 
         let sub1 = item.first_child().unwrap();
         assert_eq!(sub1.index(), 0);
-        assert!(!VRc::ptr_eq(&sub1.component(), &item.component()));
+        assert!(!VRc::ptr_eq(sub1.component(), item.component()));
 
         // assert!(sub1.previous_sibling().is_none());
 
         let sub2 = sub1.next_sibling().unwrap();
         assert_eq!(sub2.index(), 0);
-        assert!(!VRc::ptr_eq(&sub1.component(), &sub2.component()));
-        assert!(!VRc::ptr_eq(&item.component(), &sub2.component()));
+        assert!(!VRc::ptr_eq(sub1.component(), sub2.component()));
+        assert!(!VRc::ptr_eq(item.component(), sub2.component()));
 
         assert!(sub2.previous_sibling() == Some(sub1.clone()));
 
         let sub3 = sub2.next_sibling().unwrap();
         assert_eq!(sub3.index(), 0);
-        assert!(!VRc::ptr_eq(&sub1.component(), &sub2.component()));
-        assert!(!VRc::ptr_eq(&sub2.component(), &sub3.component()));
-        assert!(!VRc::ptr_eq(&item.component(), &sub3.component()));
+        assert!(!VRc::ptr_eq(sub1.component(), sub2.component()));
+        assert!(!VRc::ptr_eq(sub2.component(), sub3.component()));
+        assert!(!VRc::ptr_eq(item.component(), sub3.component()));
 
         assert_eq!(sub3.previous_sibling().unwrap(), sub2.clone());
     }
