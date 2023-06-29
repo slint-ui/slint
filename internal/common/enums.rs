@@ -3,10 +3,7 @@
 
 //! This module contains all enums exposed in the .slint language.
 
-// NOTE: when changing the documentation of enums, you need to update
-// the markdown file with `cargo xtask enumdocs`
-
-// cSpell: ignore combobox enumdocs evenodd grabbable horizontalbox horizontallayout nesw spinbox standardbutton standardtableview verticalbox verticallayout
+// cSpell: ignore combobox evenodd grabbable horizontalbox horizontallayout nesw spinbox standardbutton standardtableview verticalbox verticallayout
 
 /// Call a macro with every enum exposed in the .slint language
 ///
