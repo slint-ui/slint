@@ -133,6 +133,7 @@ pub struct WinitWindowAdapter {
 
 impl WinitWindowAdapter {
     /// Creates a new reference-counted instance.
+    #[allow(clippy::new_ret_no_self)]
     pub(crate) fn new<R: WinitCompatibleRenderer + 'static>(
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
