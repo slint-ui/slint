@@ -144,6 +144,12 @@ impl Backend {
     }
 }
 
+impl Default for Backend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl i_slint_core::platform::Platform for Backend {
     fn create_window_adapter(
         &self,
