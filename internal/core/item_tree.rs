@@ -13,7 +13,7 @@ use core::pin::Pin;
 use vtable::*;
 
 fn find_sibling_outside_repeater(
-    component: crate::component::ComponentRc,
+    component: &crate::component::ComponentRc,
     comp_ref_pin: Pin<VRef<ComponentVTable>>,
     index: usize,
     sibling_step: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
@@ -28,7 +28,7 @@ fn find_sibling_outside_repeater(
         current_sibling = sibling_step(&item_tree, current_sibling)?;
 
         if let Some(node) = step_into_node(
-            &component,
+            component,
             &comp_ref_pin,
             current_sibling,
             &item_tree,
@@ -200,8 +200,8 @@ impl ItemRc {
         self.index
     }
     /// Returns a reference to the component holding this item
-    pub fn component(&self) -> vtable::VRc<ComponentVTable> {
-        self.component.clone()
+    pub fn component(&self) -> &vtable::VRc<ComponentVTable> {
+        &self.component
     }
 
     fn find_child(
@@ -288,7 +288,7 @@ impl ItemRc {
 
                 // We need to leave the repeater:
                 find_sibling_outside_repeater(
-                    parent.clone(),
+                    parent,
                     parent_ref_pin,
                     parent_item_index,
                     sibling_step,
@@ -334,7 +334,7 @@ impl ItemRc {
         step_in: &dyn Fn(ItemRc) -> ItemRc,
         step_out: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
     ) -> Self {
-        let mut component = self.component();
+        let mut component = self.component().clone();
         let mut comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
         let mut item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
 
@@ -364,13 +364,13 @@ impl ItemRc {
 
                 // Step out of the repeater
                 let root_component = root.component();
-                let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
+                let root_comp_ref = vtable::VRc::borrow_pin(root_component);
                 let mut parent_node = Default::default();
                 root_comp_ref.as_ref().parent_node(&mut parent_node);
 
                 while let Some(parent) = parent_node.upgrade() {
                     // .. not at the root of the item tree:
-                    component = parent.component();
+                    component = parent.component().clone();
                     comp_ref_pin = vtable::VRc::borrow_pin(&component);
                     item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
 
@@ -378,7 +378,7 @@ impl ItemRc {
 
                     if let Some(next) = step_out(&item_tree, index) {
                         if let Some(item) = step_into_node(
-                            &parent.component(),
+                            parent.component(),
                             &comp_ref_pin,
                             next,
                             &item_tree,
@@ -394,14 +394,14 @@ impl ItemRc {
                         }
                     }
 
-                    root = ItemRc::new(component, 0);
+                    root = ItemRc::new(component.clone(), 0);
                     if let Some(item) = subtree_step(root.clone()) {
                         return step_in(item);
                     }
 
                     // Go up one more level:
                     let root_component = root.component();
-                    let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
+                    let root_comp_ref = vtable::VRc::borrow_pin(root_component);
                     parent_node = Default::default();
                     root_comp_ref.as_ref().parent_node(&mut parent_node);
                 }

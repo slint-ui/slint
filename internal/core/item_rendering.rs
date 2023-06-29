@@ -83,7 +83,7 @@ impl<T: Clone> ItemCache<T> {
     /// Otherwise call the `update_fn` to compute that value, and track property access
     /// so it is automatically invalided when property becomes dirty.
     pub fn get_or_update_cache_entry(&self, item_rc: &ItemRc, update_fn: impl FnOnce() -> T) -> T {
-        let component = &(*item_rc.component()) as *const _;
+        let component = &(**item_rc.component()) as *const _;
         let mut borrowed = self.map.borrow_mut();
         match borrowed.entry(component).or_default().entry(item_rc.index()) {
             std::collections::hash_map::Entry::Occupied(mut entry) => {
@@ -124,7 +124,7 @@ impl<T: Clone> ItemCache<T> {
         item_rc: &ItemRc,
         callback: impl FnOnce(&T) -> Option<U>,
     ) -> Option<U> {
-        let component = &(*item_rc.component()) as *const _;
+        let component = &(**item_rc.component()) as *const _;
         self.map
             .borrow()
             .get(&component)
@@ -148,7 +148,7 @@ impl<T: Clone> ItemCache<T> {
 
     /// free the cache for a given item
     pub fn release(&self, item_rc: &ItemRc) {
-        let component = &(*item_rc.component()) as *const _;
+        let component = &(**item_rc.component()) as *const _;
         if let Some(sub) = self.map.borrow_mut().get_mut(&component) {
             sub.remove(&item_rc.index());
         }
