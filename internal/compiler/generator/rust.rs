@@ -184,120 +184,7 @@ pub fn generate(doc: &Document) -> TokenStream {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
     });
 
-    #[cfg(feature = "software-renderer")]
-    let link_section =
-        std::env::var("SLINT_ASSET_SECTION").ok().map(|section| quote!(#[link_section = #section]));
-
-    let resource_symbols = doc.root_component
-        .embedded_file_resources
-        .borrow()
-        .iter()
-        .map(|(path, er)| {
-            let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", er.id);
-            match &er.kind {
-                crate::embedded_resources::EmbeddedResourcesKind::RawData => {
-                    let data = embedded_file_tokens(path);
-                    quote!(static #symbol: &'static [u8] = #data;)
-                }
-                #[cfg(feature = "software-renderer")]
-                crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
-                    data, format, rect,
-                    total_size: crate::embedded_resources::Size{width, height},
-                    original_size: crate::embedded_resources::Size{width: unscaled_width, height: unscaled_height},
-                }) => {
-                    let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
-                    let color = if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format {
-                        quote!(slint::private_unstable_api::re_exports::Color::from_rgb_u8(#r, #g, #b))
-                    } else {
-                        quote!(slint::private_unstable_api::re_exports::Color::from_argb_encoded(0))
-                    };
-                    let symbol_data = format_ident!("SLINT_EMBEDDED_RESOURCE_{}_DATA", er.id);
-                    let data_size = data.len();
-                    quote!(
-                        #link_section
-                        static #symbol_data : [u8; #data_size]= [#(#data),*];
-                        #link_section
-                        static #symbol: slint::private_unstable_api::re_exports::StaticTextures = slint::private_unstable_api::re_exports::StaticTextures{
-                            size: slint::private_unstable_api::re_exports::IntSize::new(#width as _, #height as _),
-                            original_size: slint::private_unstable_api::re_exports::IntSize::new(#unscaled_width as _, #unscaled_height as _),
-                            data: Slice::from_slice(&#symbol_data),
-                            textures: Slice::from_slice(&[
-                                slint::private_unstable_api::re_exports::StaticTexture {
-                                    rect: slint::private_unstable_api::re_exports::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
-                                    format: #format,
-                                    color: #color,
-                                    index: 0,
-                                }
-                            ])
-                        };
-                    )
-                },
-                #[cfg(feature = "software-renderer")]
-                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, glyphs, weight, italic }) => {
-
-                    let character_map_size = character_map.len();
-
-                     let character_map = character_map.iter().map(|crate::embedded_resources::CharacterMapEntry{code_point, glyph_index}| quote!(slint::private_unstable_api::re_exports::CharacterMapEntry { code_point: #code_point, glyph_index: #glyph_index }));
-
-                    let glyphs_size = glyphs.len();
-
-                    let glyphs = glyphs.iter().map(|crate::embedded_resources::BitmapGlyphs{pixel_size, glyph_data}| {
-                        let glyph_data_size = glyph_data.len();
-                        let glyph_data = glyph_data.iter().map(|crate::embedded_resources::BitmapGlyph{x, y, width, height, x_advance, data}|{
-                            let data_size = data.len();
-                            quote!(
-                                slint::private_unstable_api::re_exports::BitmapGlyph {
-                                    x: #x,
-                                    y: #y,
-                                    width: #width,
-                                    height: #height,
-                                    x_advance: #x_advance,
-                                    data: Slice::from_slice({
-                                        #link_section
-                                        static DATA : [u8; #data_size] = [#(#data),*];
-                                        &DATA
-                                    }),
-                                }
-                            )
-                        });
-
-                        quote!(
-                            slint::private_unstable_api::re_exports::BitmapGlyphs {
-                                pixel_size: #pixel_size,
-                                glyph_data: Slice::from_slice({
-                                    #link_section
-                                    static GDATA : [slint::private_unstable_api::re_exports::BitmapGlyph; #glyph_data_size] = [#(#glyph_data),*];
-                                    &GDATA
-                                }),
-                            }
-                        )
-                    });
-
-
-                    quote!(
-                        #link_section
-                        static #symbol: slint::private_unstable_api::re_exports::BitmapFont = slint::private_unstable_api::re_exports::BitmapFont {
-                            family_name: Slice::from_slice(#family_name.as_bytes()),
-                            character_map: Slice::from_slice({
-                                #link_section
-                                static CM : [slint::private_unstable_api::re_exports::CharacterMapEntry; #character_map_size] = [#(#character_map),*];
-                                &CM
-                            }),
-                            units_per_em: #units_per_em,
-                            ascent: #ascent,
-                            descent: #descent,
-                            glyphs: Slice::from_slice({
-                                #link_section
-                                static GLYPHS : [slint::private_unstable_api::re_exports::BitmapGlyphs; #glyphs_size] = [#(#glyphs),*];
-                                &GLYPHS
-                            }),
-                            weight: #weight,
-                            italic: #italic,
-                        };
-                    )
-                },
-            }
-        }).collect::<Vec<_>>();
+    let resource_symbols = generate_resources(doc);
 
     quote! {
         #[allow(non_snake_case)]
@@ -2639,4 +2526,121 @@ fn embedded_file_tokens(path: &str) -> TokenStream {
         }
         None => quote!(::core::include_bytes!(#path)),
     }
+}
+
+fn generate_resources(doc: &Document) -> Vec<TokenStream> {
+    #[cfg(feature = "software-renderer")]
+    let link_section =
+        std::env::var("SLINT_ASSET_SECTION").ok().map(|section| quote!(#[link_section = #section]));
+
+    doc.root_component
+        .embedded_file_resources
+        .borrow()
+        .iter()
+        .map(|(path, er)| {
+            let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", er.id);
+            match &er.kind {
+                crate::embedded_resources::EmbeddedResourcesKind::RawData => {
+                    let data = embedded_file_tokens(path);
+                    quote!(static #symbol: &'static [u8] = #data;)
+                }
+                #[cfg(feature = "software-renderer")]
+                crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
+                    data, format, rect,
+                    total_size: crate::embedded_resources::Size{width, height},
+                    original_size: crate::embedded_resources::Size{width: unscaled_width, height: unscaled_height},
+                }) => {
+                    let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
+                    let color = if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format {
+                        quote!(slint::private_unstable_api::re_exports::Color::from_rgb_u8(#r, #g, #b))
+                    } else {
+                        quote!(slint::private_unstable_api::re_exports::Color::from_argb_encoded(0))
+                    };
+                    let symbol_data = format_ident!("SLINT_EMBEDDED_RESOURCE_{}_DATA", er.id);
+                    let data_size = data.len();
+                    quote!(
+                        #link_section
+                        static #symbol_data : [u8; #data_size]= [#(#data),*];
+                        #link_section
+                        static #symbol: slint::private_unstable_api::re_exports::StaticTextures = slint::private_unstable_api::re_exports::StaticTextures{
+                            size: slint::private_unstable_api::re_exports::IntSize::new(#width as _, #height as _),
+                            original_size: slint::private_unstable_api::re_exports::IntSize::new(#unscaled_width as _, #unscaled_height as _),
+                            data: Slice::from_slice(&#symbol_data),
+                            textures: Slice::from_slice(&[
+                                slint::private_unstable_api::re_exports::StaticTexture {
+                                    rect: slint::private_unstable_api::re_exports::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
+                                    format: #format,
+                                    color: #color,
+                                    index: 0,
+                                }
+                            ])
+                        };
+                    )
+                },
+                #[cfg(feature = "software-renderer")]
+                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, glyphs, weight, italic }) => {
+
+                    let character_map_size = character_map.len();
+
+                    let character_map = character_map.iter().map(|crate::embedded_resources::CharacterMapEntry{code_point, glyph_index}| quote!(slint::private_unstable_api::re_exports::CharacterMapEntry { code_point: #code_point, glyph_index: #glyph_index }));
+
+                    let glyphs_size = glyphs.len();
+
+                    let glyphs = glyphs.iter().map(|crate::embedded_resources::BitmapGlyphs{pixel_size, glyph_data}| {
+                        let glyph_data_size = glyph_data.len();
+                        let glyph_data = glyph_data.iter().map(|crate::embedded_resources::BitmapGlyph{x, y, width, height, x_advance, data}|{
+                            let data_size = data.len();
+                            quote!(
+                                slint::private_unstable_api::re_exports::BitmapGlyph {
+                                    x: #x,
+                                    y: #y,
+                                    width: #width,
+                                    height: #height,
+                                    x_advance: #x_advance,
+                                    data: Slice::from_slice({
+                                        #link_section
+                                        static DATA : [u8; #data_size] = [#(#data),*];
+                                        &DATA
+                                    }),
+                                }
+                            )
+                        });
+
+                        quote!(
+                            slint::private_unstable_api::re_exports::BitmapGlyphs {
+                                pixel_size: #pixel_size,
+                                glyph_data: Slice::from_slice({
+                                    #link_section
+                                    static GDATA : [slint::private_unstable_api::re_exports::BitmapGlyph; #glyph_data_size] = [#(#glyph_data),*];
+                                    &GDATA
+                                }),
+                            }
+                        )
+                    });
+
+                    quote!(
+                        #link_section
+                        static #symbol: slint::private_unstable_api::re_exports::BitmapFont = slint::private_unstable_api::re_exports::BitmapFont {
+                            family_name: Slice::from_slice(#family_name.as_bytes()),
+                            character_map: Slice::from_slice({
+                                #link_section
+                                static CM : [slint::private_unstable_api::re_exports::CharacterMapEntry; #character_map_size] = [#(#character_map),*];
+                                &CM
+                            }),
+                            units_per_em: #units_per_em,
+                            ascent: #ascent,
+                            descent: #descent,
+                            glyphs: Slice::from_slice({
+                                #link_section
+                                static GLYPHS : [slint::private_unstable_api::re_exports::BitmapGlyphs; #glyphs_size] = [#(#glyphs),*];
+                                &GLYPHS
+                            }),
+                            weight: #weight,
+                            italic: #italic,
+                        };
+                    )
+                },
+            }
+        })
+        .collect()
 }
