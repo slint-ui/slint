@@ -141,6 +141,12 @@ pub struct Backend {
     window_factory_fn: fn() -> Result<Rc<dyn WindowAdapter>, PlatformError>,
 }
 
+impl Default for Backend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Backend {
     #[doc = concat!("Creates a new winit backend with the default renderer that's compiled in. See the [backend documentation](https://slint.dev/releases/", env!("CARGO_PKG_VERSION"), "/docs/rust/slint/index.html#backends) for")]
     /// details on how to select the default renderer.
