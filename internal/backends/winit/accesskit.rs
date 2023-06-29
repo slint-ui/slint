@@ -171,7 +171,7 @@ impl AccessKitAdapter {
 
     fn encode_item_node_id(&self, item: &ItemRc) -> Option<NodeId> {
         let component = item.component();
-        let component_ptr = ComponentRef::as_ptr(ComponentRc::borrow(&component));
+        let component_ptr = ComponentRef::as_ptr(ComponentRc::borrow(component));
         let component_id = *(self.component_ids.borrow().get(&component_ptr)?);
         let index = item.index();
         Some(NodeId(
