@@ -17,7 +17,7 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 use crate::item_tree::{ItemTreeNode, ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
+use crate::lengths::{LogicalLength, LogicalSize};
 use crate::properties::{Property, PropertyTracker};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -166,14 +166,6 @@ impl Item for ComponentContainer {
         self.embedding_item_tree_index.set(child_item_tree_index).ok().unwrap();
 
         self.component_tracker.set(Box::pin(PropertyTracker::default())).ok().unwrap();
-    }
-
-    fn geometry(self: Pin<&Self>) -> LogicalRect {
-        // Our geometry is fine since our width/height are bound to the component!
-        LogicalRect::new(
-            LogicalPoint::from_lengths(self.x(), self.y()),
-            LogicalSize::from_lengths(self.width(), self.height()),
-        )
     }
 
     fn layout_info(
