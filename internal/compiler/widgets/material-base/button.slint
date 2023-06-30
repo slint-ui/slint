@@ -6,9 +6,12 @@ import { Typography, Palette, Elevation } from "styling.slint";
 
 // Default button widget with Material Design Filled Button look and feel.
 export component Button {
+    private property <brush> text-color: root.primary ? Palette.on-primary : Palette.on-secondary-container;
+    private property <float> text-opacity: 1.0;
+
     callback clicked;
 
-    in property<string> text <=> i-text.text;
+    in property<string> text;
     in property<bool> enabled <=> i-state-layer.enabled;
     in property<bool> checkable;
     in property<image> icon;
@@ -18,7 +21,8 @@ export component Button {
     in-out property<bool> checked;
 
     min-height: max(40px, i-layout.min-height);
-    accessible-label <=> i-text.text;
+    min-width: max(40px, i-layout.min-width);
+    accessible-label: text;
     accessible-role: button;
     forward-focus: i-state-layer;
 
@@ -56,11 +60,13 @@ export component Button {
         if (root.icon.width > 0 && root.icon.height > 0): Image {
             source <=> root.icon;
             width: 24px;
-            opacity: i-text.opacity;
+            opacity: root.text-opacity;
         }
 
-        i-text := Text {
-            color: root.primary ? Palette.on-primary : Palette.on-secondary-container;
+        if (root.text != "") : Text {
+            text: root.text;
+            color: root.text-color;
+            opacity: root.text-opacity;
             vertical-alignment: center;
             horizontal-alignment: center;
             font-weight: Typography.label-large.font-weight;
@@ -73,11 +79,11 @@ export component Button {
         disabled when !root.enabled : {
             i-background.background: Palette.on-surface;
             i-background.opacity: 0.12;
-            i-text.opacity: 0.38;
-            i-text.color: Palette.on-surface;
+            root.text-opacity: 0.38;
+            root.text-color: Palette.on-surface;
         }
         checked when root.checked: {
-            i-text.color: Palette.on-primary;
+            root.text-color: Palette.on-primary;
         }
     ]
 }
