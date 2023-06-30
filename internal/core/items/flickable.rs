@@ -13,7 +13,7 @@ use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::{Empty, PropertyAnimation};
+use crate::items::PropertyAnimation;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
@@ -45,7 +45,12 @@ pub struct Flickable {
     pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub viewport: Empty,
+
+    pub viewport_x: Property<LogicalLength>,
+    pub viewport_y: Property<LogicalLength>,
+    pub viewport_width: Property<LogicalLength>,
+    pub viewport_height: Property<LogicalLength>,
+
     pub interactive: Property<bool>,
     data: FlickableDataBox,
 
@@ -209,12 +214,8 @@ impl FlickableData {
                 inner.pressed_pos = position;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = LogicalPoint::from_lengths(
-                    (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.x)
-                        .apply_pin(flick)
-                        .get(),
-                    (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.y)
-                        .apply_pin(flick)
-                        .get(),
+                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
+                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
                 );
                 if inner.capture_events {
                     InputEventFilterResult::Intercept
@@ -242,18 +243,10 @@ impl FlickableData {
                         let diff = position - inner.pressed_pos;
                         let w = flick.width();
                         let h = flick.height();
-                        let vw = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.width)
-                            .apply_pin(flick)
-                            .get();
-                        let vh = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.height)
-                            .apply_pin(flick)
-                            .get();
-                        let x = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.x)
-                            .apply_pin(flick)
-                            .get();
-                        let y = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.y)
-                            .apply_pin(flick)
-                            .get();
+                        let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
+                        let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
+                        let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get();
+                        let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get();
                         let zero = LogicalLength::zero();
                         ((vw > w || x != zero) && abs(diff.x_length()) > DISTANCE_THRESHOLD)
                             || ((vh > h || y != zero) && abs(diff.y_length()) > DISTANCE_THRESHOLD)
@@ -300,19 +293,13 @@ impl FlickableData {
             MouseEvent::Moved { position } => {
                 if inner.pressed_time.is_some() {
                     let new_pos = inner.pressed_viewport_pos + (position - inner.pressed_pos);
-                    let x = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.x)
-                        .apply_pin(flick);
-                    let y = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.y)
-                        .apply_pin(flick);
+                    let x = (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick);
+                    let y = (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick);
                     let should_capture = || {
                         let w = flick.width();
                         let h = flick.height();
-                        let vw = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.width)
-                            .apply_pin(flick)
-                            .get();
-                        let vh = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.height)
-                            .apply_pin(flick)
-                            .get();
+                        let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
+                        let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
                         let zero = LogicalLength::zero();
                         ((vw > w || x.get() != zero)
                             && abs(x.get() - new_pos.x_length()) > DISTANCE_THRESHOLD)
@@ -336,12 +323,8 @@ impl FlickableData {
             }
             MouseEvent::Wheel { delta_x, delta_y, .. } => {
                 let old_pos = LogicalPoint::from_lengths(
-                    (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.x)
-                        .apply_pin(flick)
-                        .get(),
-                    (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.y)
-                        .apply_pin(flick)
-                        .get(),
+                    (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).get(),
+                    (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).get(),
                 );
                 let delta = if window_adapter.window().0.modifiers.get().shift()
                     && !cfg!(target_os = "macos")
@@ -352,12 +335,8 @@ impl FlickableData {
                     LogicalVector::new(delta_x as _, delta_y as _)
                 };
                 let new_pos = ensure_in_bound(flick, old_pos + delta);
-                (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.x)
-                    .apply_pin(flick)
-                    .set(new_pos.x_length());
-                (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.y)
-                    .apply_pin(flick)
-                    .set(new_pos.y_length());
+                (Flickable::FIELD_OFFSETS.viewport_x).apply_pin(flick).set(new_pos.x_length());
+                (Flickable::FIELD_OFFSETS.viewport_y).apply_pin(flick).set(new_pos.y_length());
                 InputEventResult::EventAccepted
             }
         }
@@ -384,10 +363,10 @@ impl FlickableData {
                     easing: EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
                     ..PropertyAnimation::default()
                 };
-                (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.x)
+                (Flickable::FIELD_OFFSETS.viewport_x)
                     .apply_pin(flick)
                     .set_animated_value(final_pos.x_length(), anim.clone());
-                (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.y)
+                (Flickable::FIELD_OFFSETS.viewport_y)
                     .apply_pin(flick)
                     .set_animated_value(final_pos.y_length(), anim);
             }
@@ -405,10 +384,8 @@ fn abs(l: LogicalLength) -> LogicalLength {
 fn ensure_in_bound(flick: Pin<&Flickable>, p: LogicalPoint) -> LogicalPoint {
     let w = flick.width();
     let h = flick.height();
-    let vw =
-        (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.width).apply_pin(flick).get();
-    let vh =
-        (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.height).apply_pin(flick).get();
+    let vw = (Flickable::FIELD_OFFSETS.viewport_width).apply_pin(flick).get();
+    let vh = (Flickable::FIELD_OFFSETS.viewport_height).apply_pin(flick).get();
 
     let min = LogicalPoint::from_lengths(w - vw, h - vh);
     let max = LogicalPoint::default();

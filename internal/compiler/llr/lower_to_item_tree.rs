@@ -220,9 +220,8 @@ fn lower_sub_component(
         }
     };
 
-    let s: Option<ElementRc> = None;
     let mut repeater_offset = 0;
-    crate::object_tree::recurse_elem(&component.root_element, &s, &mut |element, parent| {
+    crate::object_tree::recurse_elem(&component.root_element, &(), &mut |element, &()| {
         let elem = element.borrow();
         for (p, x) in &elem.property_declarations {
             if x.is_alias.is_some() {
@@ -260,7 +259,7 @@ fn lower_sub_component(
                 LoweredElement::Repeated { repeated_index: repeated.len() },
             );
             repeated.push(element.clone());
-            return None;
+            return;
         }
         match &elem.base_type {
             ElementType::Component(comp) => {
@@ -286,16 +285,10 @@ fn lower_sub_component(
                 mapping
                     .element_mapping
                     .insert(element.clone().into(), LoweredElement::NativeItem { item_index });
-                let is_flickable_viewport = elem.is_flickable_viewport;
                 sub_component.items.push(Item {
                     ty: n.clone(),
-                    name: if is_flickable_viewport {
-                        parent.as_ref().unwrap().borrow().id.clone()
-                    } else {
-                        elem.id.clone()
-                    },
+                    name: elem.id.clone(),
                     index_in_tree: *elem.item_index.get().unwrap(),
-                    is_flickable_viewport,
                 })
             }
             _ => unreachable!(),
@@ -306,7 +299,6 @@ fn lower_sub_component(
                 crate::generator::to_pascal_case(key.strip_prefix("accessible-").unwrap());
             accessible_prop.push((*elem.item_index.get().unwrap(), enum_value, nr.clone()));
         }
-        Some(element.clone())
     });
     let ctx = ExpressionContext { mapping: &mapping, state, parent: parent_context, component };
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {

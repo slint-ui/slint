@@ -147,10 +147,6 @@ pub struct Item {
     pub name: String,
     /// Index in the item tree array
     pub index_in_tree: usize,
-    /// When this is true, this item does not need to be created because it is
-    /// already in the flickable.
-    /// The Item::name is the same as the flickable, and ty is Rectangle
-    pub is_flickable_viewport: bool,
 }
 
 impl std::fmt::Debug for Item {
@@ -159,7 +155,6 @@ impl std::fmt::Debug for Item {
             .field("ty", &self.ty.class_name)
             .field("name", &self.name)
             .field("index_in_tree", &self.index_in_tree)
-            .field("is_flickable_viewport", &self.is_flickable_viewport)
             .finish()
     }
 }

@@ -21,7 +21,7 @@ use i_slint_core::item_tree::{
     ItemRc, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
     VisitChildrenResult,
 };
-use i_slint_core::items::{AccessibleRole, Flickable, ItemRef, ItemVTable, PropertyAnimation};
+use i_slint_core::items::{AccessibleRole, ItemRef, ItemVTable, PropertyAnimation};
 use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
 use i_slint_core::lengths::LogicalLength;
 use i_slint_core::model::RepeatedComponent;
@@ -862,17 +862,8 @@ pub(crate) fn generate_component<'id>(
                 panic!("Native type not registered: {}", item.base_type.as_native().class_name)
             });
 
-            let offset = if item.is_flickable_viewport {
-                let parent = &self.items_types
-                    [&object_tree::find_parent_element(rc_item).unwrap().borrow().id];
-                assert_eq!(
-                    parent.elem.borrow().base_type.as_native().class_name.as_str(),
-                    "Flickable"
-                );
-                parent.offset + Flickable::FIELD_OFFSETS.viewport.get_byte_offset()
-            } else {
-                self.type_builder.add_field(rt.type_info)
-            };
+            let offset = self.type_builder.add_field(rt.type_info);
+
             self.tree_array.push(ItemTreeNode::Item {
                 is_accessible: !item.accessibility_props.0.is_empty(),
                 children_index: child_offset,
