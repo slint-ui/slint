@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-06-28 03:13+0000\n"
+"POT-Creation-Date: 2023-06-30 03:08+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: German (https://app.transifex.com/slint/teams/170022/de/)\n"
@@ -49,6 +49,43 @@ msgstr ""
 #: gallery.slint:20
 msgctxt "Menu"
 msgid "About"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:22
+msgctxt "TableViewPage"
+msgid "TableView"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:23
+msgctxt "TableViewPage"
+msgid ""
+"StandardTableView can be used to display a list of text elements in columns "
+"and rows. It can be imported from \"std-widgets.slint\""
+msgstr ""
+
+#: ui/pages/table_view_page.slint:29
+msgctxt "TableViewPage"
+msgid "StandardTableView"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:42
+msgctxt "TableViewPage"
+msgid "Header 1"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:43
+msgctxt "TableViewPage"
+msgid "Header 2"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:44
+msgctxt "TableViewPage"
+msgid "Header 3"
+msgstr ""
+
+#: ui/pages/table_view_page.slint:45
+msgctxt "TableViewPage"
+msgid "Header 4"
 msgstr ""
 
 #: ui/pages/list_view_page.slint:9
@@ -117,49 +154,6 @@ msgctxt "ListViewPage"
 msgid "consetetur"
 msgstr ""
 
-#: ui/pages/page.slint:25
-#, fuzzy
-msgctxt "Page"
-msgid "Widgets enabled"
-msgstr "Slint Widgets Galerie"
-
-#: ui/pages/table_view_page.slint:22
-msgctxt "TableViewPage"
-msgid "TableView"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:23
-msgctxt "TableViewPage"
-msgid ""
-"StandardTableView can be used to display a list of text elements in columns "
-"and rows. It can be imported from \"std-widgets.slint\""
-msgstr ""
-
-#: ui/pages/table_view_page.slint:29
-msgctxt "TableViewPage"
-msgid "StandardTableView"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:42
-msgctxt "TableViewPage"
-msgid "Header 1"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:43
-msgctxt "TableViewPage"
-msgid "Header 2"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:44
-msgctxt "TableViewPage"
-msgid "Header 3"
-msgstr ""
-
-#: ui/pages/table_view_page.slint:45
-msgctxt "TableViewPage"
-msgid "Header 4"
-msgstr ""
-
 #: ui/pages/text_edit_page.slint:9
 msgctxt "TextEditPage"
 msgid "TextEdit"
@@ -195,6 +189,12 @@ msgstr ""
 msgctxt "TextEditPage"
 msgid "No-Wrap"
 msgstr ""
+
+#: ui/pages/page.slint:25
+#, fuzzy
+msgctxt "Page"
+msgid "Widgets enabled"
+msgstr "Slint Widgets Galerie"
 
 #: ui/pages/controls_page.slint:10
 msgctxt "ControlsPage"
