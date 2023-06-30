@@ -97,13 +97,13 @@ impl SkiaRenderer {
 
     /// Notifiers the renderer that the underlying window will be hidden soon.
     pub fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError> {
-        self.surface.with_active_surface(|| {
-            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            self.surface.with_active_surface(|| {
                 self.surface.with_graphics_api(|api| {
                     callback.notify(RenderingState::RenderingTeardown, &api)
                 })
-            }
-        })?;
+            })?;
+        }
         Ok(())
     }
 
