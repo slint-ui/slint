@@ -299,16 +299,10 @@ fn lower_sub_component(
                 mapping
                     .element_mapping
                     .insert(element.clone().into(), LoweredElement::NativeItem { item_index });
-                let is_flickable_viewport = elem.is_flickable_viewport;
                 sub_component.items.push(Item {
                     ty: n.clone(),
-                    name: if is_flickable_viewport {
-                        parent.as_ref().unwrap().borrow().id.clone()
-                    } else {
-                        elem.id.clone()
-                    },
+                    name: elem.id.clone(),
                     index_in_tree: *elem.item_index.get().unwrap(),
-                    is_flickable_viewport,
                 })
             }
             _ => unreachable!(),

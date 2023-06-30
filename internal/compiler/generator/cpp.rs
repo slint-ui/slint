@@ -1096,11 +1096,6 @@ fn generate_item_tree(
             }
 
             let item = &sub_component.items[node.item_index as usize];
-
-            if item.is_flickable_viewport {
-                compo_offset += "offsetof(slint::cbindgen_private::Flickable, viewport) + ";
-            }
-
             let children_count = node.children.len() as u32;
             let children_index = children_offset as u32;
             let item_array_index = item_array.len() as u32;
@@ -1657,9 +1652,6 @@ fn generate_sub_component(
     }
 
     for item in &component.items {
-        if item.is_flickable_viewport {
-            continue;
-        }
         target_struct.members.push((
             field_access,
             Declaration::Var(Var {
@@ -2373,11 +2365,8 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             format!("{}->{}{}", path, compo_path, item_name)
         } else {
             let property_name = ident(prop_name);
-            let flick = sub_component.items[item_index as usize]
-                .is_flickable_viewport
-                .then_some("viewport.")
-                .unwrap_or_default();
-            format!("{}->{}{}.{}{}", path, compo_path, item_name, flick, property_name)
+
+            format!("{path}->{compo_path}{item_name}.{property_name}")
         }
     }
 
