@@ -30,13 +30,6 @@ impl Item for NativeProgressIndicator {
         )
     }
 
-    fn geometry(self: Pin<&Self>) -> LogicalRect {
-        LogicalRect::new(
-            LogicalPoint::from_lengths(self.x(), self.y()),
-            LogicalSize::from_lengths(self.width(), self.height()),
-        )
-    }
-
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
