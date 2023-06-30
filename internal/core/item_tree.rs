@@ -136,7 +136,7 @@ impl ItemRc {
     pub fn is_visible(&self) -> bool {
         let item = self.borrow();
         let is_clipping = crate::item_rendering::is_clipping_item(item);
-        let geometry = item.as_ref().geometry();
+        let geometry = self.geometry();
 
         if is_clipping && (geometry.width() <= 0.01 as _ || geometry.height() <= 0.01 as _) {
             return false;
@@ -179,7 +179,8 @@ impl ItemRc {
     }
 
     pub fn geometry(&self) -> LogicalRect {
-        self.borrow().as_ref().geometry()
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        comp_ref_pin.as_ref().item_geometry(self.index)
     }
 
     /// Returns an absolute position of `p` in the parent item coordinate system
