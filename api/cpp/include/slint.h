@@ -85,6 +85,14 @@ inline ItemRef get_item_ref(ComponentRef component,
     return ItemRef { item.vtable, reinterpret_cast<char *>(component.instance) + item.offset };
 }
 
+/// Convert a slint `{height: length, width: length, x: length, y: length}` to a Rect
+inline cbindgen_private::Rect convert_anonymous_rect(std::tuple<float, float, float, float> tuple)
+{
+    // alphabetical order
+    auto [h, w, x, y] = tuple;
+    return cbindgen_private::Rect { .x = x, .y = y, .width = w, .height = h };
+}
+
 inline void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout)
 {
 #ifdef __cpp_sized_deallocation

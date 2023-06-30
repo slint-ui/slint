@@ -10,13 +10,11 @@
 //! This pass must be called before the materialize_fake_properties as it going to be generate
 //! binding reference to fake properties
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference};
 use crate::langtype::{ElementType, NativeClass};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
+use std::rc::Rc;
 
 pub fn is_flickable_element(element: &ElementRc) -> bool {
     matches!(&element.borrow().base_type, ElementType::Builtin(n) if n.name == "Flickable")
@@ -44,14 +42,14 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
 
 fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>) {
     let children = std::mem::take(&mut flickable.borrow_mut().children);
-    let viewport = Rc::new(RefCell::new(Element {
+    let viewport = Element::make_rc(Element {
         id: format!("{}-viewport", flickable.borrow().id),
         base_type: ElementType::Native(native_empty.clone()),
         children,
         enclosing_component: flickable.borrow().enclosing_component.clone(),
         is_flickable_viewport: true,
         ..Element::default()
-    }));
+    });
     let element_type = flickable.borrow().base_type.clone();
     for (prop, _) in &element_type.as_builtin().properties {
         if let Some(vp_prop) = prop.strip_prefix("viewport-") {
