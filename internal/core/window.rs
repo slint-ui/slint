@@ -831,7 +831,7 @@ impl WindowInner {
                 // Refresh the area that was previously covered by the popup.
                 let popup_region = crate::properties::evaluate_no_tracking(|| {
                     let popup_component = ComponentRc::borrow_pin(&current_popup.component);
-                    popup_component.as_ref().get_item_ref(0).as_ref().geometry()
+                    popup_component.as_ref().item_geometry(0)
                 })
                 .translate(offset.to_vector());
 
