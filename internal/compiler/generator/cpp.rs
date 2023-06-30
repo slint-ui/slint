@@ -1746,6 +1746,7 @@ fn generate_sub_component(
                     "}} else if (index >= {} && index < {}) {{",
                     sub.index_of_first_child_in_tree,
                     sub.index_of_first_child_in_tree + sub_items_count - 1
+                        + sub.ty.repeater_count()
                 ));
                 code.push(format!(
                     "    return self->{}.{name}(index - {}{forward_args});",

@@ -840,7 +840,7 @@ fn generate_sub_component(
         ));
         if sub_items_count > 1 {
             let range_begin = local_index_of_first_child as usize;
-            let range_end = range_begin + sub_items_count - 2;
+            let range_end = range_begin + sub_items_count - 2 + sub.ty.repeater_count();
             accessible_role_branch.push(quote!(
                 #range_begin..=#range_end => #sub_compo_field.apply_pin(_self).accessible_role(index - #range_begin + 1),
             ));
