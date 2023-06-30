@@ -13,7 +13,7 @@ use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{Image, IntRect, Point, Size};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
-    self, Clip, FillRule, ImageFit, ImageRendering, Item, ItemRc, Layer, Opacity, RenderingResult,
+    self, Clip, FillRule, ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult,
 };
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
@@ -837,9 +837,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let border_width = clip_item.border_width();
 
         if radius.get() > 0. {
-            if let Some(layer_image) =
-                self.render_layer(item_rc, &|| clip_item.as_ref().geometry().size)
-            {
+            if let Some(layer_image) = self.render_layer(item_rc, &|| item_rc.geometry().size) {
                 let layer_image_paint = layer_image.as_paint();
 
                 let layer_path = clip_path_for_rect_alike_item(

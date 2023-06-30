@@ -17,9 +17,7 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{
-    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
-};
+use crate::lengths::{LogicalLength, LogicalSize, LogicalVector, PointLengths};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -54,13 +52,6 @@ pub struct Path {
 
 impl Item for Path {
     fn init(self: Pin<&Self>) {}
-
-    fn geometry(self: Pin<&Self>) -> LogicalRect {
-        LogicalRect::new(
-            LogicalPoint::from_lengths(self.x(), self.y()),
-            LogicalSize::from_lengths(self.width(), self.height()),
-        )
-    }
 
     fn layout_info(
         self: Pin<&Self>,

@@ -15,7 +15,7 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 use crate::item_rendering::ItemRenderer;
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
+use crate::lengths::{LogicalLength, LogicalSize};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -43,13 +43,6 @@ pub struct ImageItem {
 
 impl Item for ImageItem {
     fn init(self: Pin<&Self>) {}
-
-    fn geometry(self: Pin<&Self>) -> LogicalRect {
-        LogicalRect::new(
-            LogicalPoint::from_lengths(self.x(), self.y()),
-            LogicalSize::from_lengths(self.width(), self.height()),
-        )
-    }
 
     fn layout_info(
         self: Pin<&Self>,
@@ -145,13 +138,6 @@ pub struct ClippedImage {
 
 impl Item for ClippedImage {
     fn init(self: Pin<&Self>) {}
-
-    fn geometry(self: Pin<&Self>) -> LogicalRect {
-        LogicalRect::new(
-            LogicalPoint::from_lengths(self.x(), self.y()),
-            LogicalSize::from_lengths(self.width(), self.height()),
-        )
-    }
 
     fn layout_info(
         self: Pin<&Self>,

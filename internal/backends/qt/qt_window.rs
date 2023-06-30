@@ -14,7 +14,7 @@ use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Image, Point, Sh
 use i_slint_core::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
-    self, FillRule, ImageRendering, Item, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
+    self, FillRule, ImageRendering, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
     PointerEventButton, RenderingResult, TextOverflow, TextWrap, WindowItem,
 };
 use i_slint_core::layout::Orientation;
@@ -861,7 +861,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         _size: LogicalSize,
     ) {
         let pixmap : qttypes::QPixmap = self.cache.get_or_update_cache_entry( item_rc, || {
-                let shadow_rect = check_geometry!(box_shadow.geometry().size);
+                let shadow_rect = check_geometry!(item_rc.geometry().size);
 
                 let source_size = qttypes::QSize {
                     width: shadow_rect.width.ceil() as _,
@@ -1868,7 +1868,8 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         if pos.y < 0. {
             return 0;
         }
-        let rect: qttypes::QRectF = check_geometry!(text_input.geometry().size);
+        let size = LogicalSize::new(text_input.width().get(), text_input.height().get());
+        let rect: qttypes::QRectF = check_geometry!(size);
         let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
         let font: QFont = get_font(font_request);
 
@@ -1927,7 +1928,8 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         font_request: FontRequest,
         _scale_factor: ScaleFactor,
     ) -> LogicalRect {
-        let rect: qttypes::QRectF = check_geometry!(text_input.geometry().size);
+        let size = LogicalSize::new(text_input.width().get(), text_input.height().get());
+        let rect: qttypes::QRectF = check_geometry!(size);
         let font: QFont = get_font(font_request);
         let text = text_input.text();
         let mut string = qttypes::QString::from(text.as_str());

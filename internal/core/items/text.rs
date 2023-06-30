@@ -60,13 +60,6 @@ pub struct Text {
 impl Item for Text {
     fn init(self: Pin<&Self>) {}
 
-    fn geometry(self: Pin<&Self>) -> LogicalRect {
-        LogicalRect::new(
-            LogicalPoint::from_lengths(self.x(), self.y()),
-            LogicalSize::from_lengths(self.width(), self.height()),
-        )
-    }
-
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
@@ -255,14 +248,6 @@ pub struct TextInput {
 
 impl Item for TextInput {
     fn init(self: Pin<&Self>) {}
-
-    // FIXME: width / height.  or maybe it doesn't matter?  (
-    fn geometry(self: Pin<&Self>) -> LogicalRect {
-        LogicalRect::new(
-            LogicalPoint::from_lengths(self.x(), self.y()),
-            LogicalSize::from_lengths(self.width(), self.height()),
-        )
-    }
 
     fn layout_info(
         self: Pin<&Self>,
