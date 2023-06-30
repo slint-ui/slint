@@ -18,6 +18,7 @@ use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
 use itertools::Either;
+use once_cell::unsync::OnceCell;
 use std::cell::{Cell, RefCell};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -551,6 +552,25 @@ impl Clone for PropertyAnimation {
 #[derive(Default, Clone)]
 pub struct AccessibilityProps(pub BTreeMap<String, NamedReference>);
 
+#[derive(Clone)]
+pub struct GeometryProps {
+    pub x: NamedReference,
+    pub y: NamedReference,
+    pub width: NamedReference,
+    pub height: NamedReference,
+}
+
+impl GeometryProps {
+    pub fn new(element: &ElementRc) -> Self {
+        Self {
+            x: NamedReference::new(element, "x"),
+            y: NamedReference::new(element, "y"),
+            width: NamedReference::new(element, "width"),
+            height: NamedReference::new(element, "height"),
+        }
+    }
+}
+
 pub type BindingsMap = BTreeMap<String, RefCell<BindingExpression>>;
 
 /// An Element is an instantiation of a Component
@@ -592,6 +612,10 @@ pub struct Element {
 
     pub accessibility_props: AccessibilityProps,
 
+    /// Reference to the property.
+    /// This is always initialized from the element constructor, but is Option because it references itself
+    pub geometry_props: Option<GeometryProps>,
+
     /// true if this Element is the fake Flickable viewport
     pub is_flickable_viewport: bool,
 
@@ -601,9 +625,9 @@ pub struct Element {
 
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.
-    pub item_index: once_cell::unsync::OnceCell<usize>,
+    pub item_index: OnceCell<usize>,
     /// the index of the first children in the tree, set with item_index
-    pub item_index_of_first_children: once_cell::unsync::OnceCell<usize>,
+    pub item_index_of_first_children: OnceCell<usize>,
 
     /// True when this element is in a component was declared with the `:=` symbol instead of the `component` keyword
     pub is_legacy_syntax: bool,
@@ -775,6 +799,13 @@ pub struct RepeatedElementInfo {
 pub type ElementRc = Rc<RefCell<Element>>;
 
 impl Element {
+    pub fn make_rc(self) -> ElementRc {
+        let r = ElementRc::new(RefCell::new(self));
+        let g = GeometryProps::new(&r);
+        r.borrow_mut().geometry_props = Some(g);
+        r
+    }
+
     pub fn from_node(
         node: syntax_nodes::Element,
         id: String,
@@ -1215,7 +1246,7 @@ impl Element {
         }
 
         let mut children_placeholder = None;
-        let r = ElementRc::new(RefCell::new(r));
+        let r = r.make_rc();
 
         for se in node.children() {
             if se.kind() == SyntaxKind::SubElement {
@@ -2073,6 +2104,15 @@ pub fn visit_all_named_references_in_element(
     let mut accessibility_props = std::mem::take(&mut elem.borrow_mut().accessibility_props);
     accessibility_props.0.iter_mut().for_each(|(_, x)| vis(x));
     elem.borrow_mut().accessibility_props = accessibility_props;
+
+    let geometry_props = elem.borrow_mut().geometry_props.take();
+    if let Some(mut geometry_props) = geometry_props {
+        vis(&mut geometry_props.x);
+        vis(&mut geometry_props.y);
+        vis(&mut geometry_props.width);
+        vis(&mut geometry_props.height);
+        elem.borrow_mut().geometry_props = Some(geometry_props);
+    }
 
     // visit two way bindings
     for expr in elem.borrow().bindings.values() {

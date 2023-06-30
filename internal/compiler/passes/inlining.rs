@@ -247,6 +247,7 @@ fn duplicate_element_with_mapping(
         layout_info_prop: elem.layout_info_prop.clone(),
         default_fill_parent: elem.default_fill_parent,
         accessibility_props: elem.accessibility_props.clone(),
+        geometry_props: elem.geometry_props.clone(),
         named_references: Default::default(),
         item_index: Default::default(), // Not determined yet
         item_index_of_first_children: Default::default(),

@@ -23,7 +23,7 @@ use i_slint_core::item_tree::{
 };
 use i_slint_core::items::{AccessibleRole, ItemRef, ItemVTable, PropertyAnimation};
 use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
-use i_slint_core::lengths::LogicalLength;
+use i_slint_core::lengths::{LogicalLength, LogicalRect};
 use i_slint_core::model::RepeatedComponent;
 use i_slint_core::model::Repeater;
 use i_slint_core::platform::PlatformError;
@@ -196,6 +196,10 @@ impl Component for ErasedComponentBox {
 
     fn subtree_index(self: Pin<&Self>) -> usize {
         self.borrow().as_ref().subtree_index()
+    }
+
+    fn item_geometry(self: Pin<&Self>, item_index: usize) -> i_slint_core::lengths::LogicalRect {
+        self.borrow().as_ref().item_geometry(item_index)
     }
 
     fn accessible_role(self: Pin<&Self>, index: usize) -> AccessibleRole {
@@ -1084,6 +1088,7 @@ pub(crate) fn generate_component<'id>(
         get_subtree_component,
         parent_node,
         subtree_index,
+        item_geometry,
         accessible_role,
         accessible_string_property,
         drop_in_place,
@@ -1649,6 +1654,26 @@ unsafe extern "C" fn parent_node(component: ComponentRefPin, result: &mut ItemWe
                 parent_instance.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
             *result = ItemRc::new(parent_rc, parent_index).downgrade();
         };
+    }
+}
+
+extern "C" fn item_geometry(component: ComponentRefPin, item_index: usize) -> LogicalRect {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+
+    let e = instance_ref.component_type.original_elements[item_index].borrow();
+    let g = e.geometry_props.as_ref().unwrap();
+
+    let load_f32 = |nr: &NamedReference| -> f32 {
+        crate::eval::load_property(instance_ref, &nr.element(), nr.name())
+            .unwrap()
+            .try_into()
+            .unwrap()
+    };
+
+    LogicalRect {
+        origin: (load_f32(&g.x), load_f32(&g.y)).into(),
+        size: (load_f32(&g.width), load_f32(&g.height)).into(),
     }
 }
 

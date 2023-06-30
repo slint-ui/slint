@@ -46,6 +46,7 @@ pub fn ensure_window(
         layout_info_prop: Default::default(),
         default_fill_parent: Default::default(),
         accessibility_props: Default::default(),
+        geometry_props: Default::default(),
         is_flickable_viewport: false,
         item_index: Default::default(),
         item_index_of_first_children: Default::default(),
@@ -53,7 +54,7 @@ pub fn ensure_window(
         inline_depth: 0,
         is_legacy_syntax: false,
     };
-    let new_root = Rc::new(RefCell::new(new_root));
+    let new_root = new_root.make_rc();
     win_elem_mut.children.push(new_root.clone());
     drop(win_elem_mut);
 

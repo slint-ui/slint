@@ -3,15 +3,14 @@
 
 use by_address::ByAddress;
 
+use super::lower_expression::ExpressionContext;
 use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{ElementType, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, ElementRc, PropertyVisibility};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
-
-use super::lower_expression::ExpressionContext;
 
 pub fn lower_to_item_tree(component: &Rc<Component>) -> PublicComponent {
     let mut state = LoweringState::default();
@@ -191,6 +190,7 @@ fn lower_sub_component(
         two_way_bindings: Default::default(),
         const_properties: Default::default(),
         init_code: Default::default(),
+        geometries: Default::default(),
         // just initialize to dummy expression right now and it will be set later
         layout_info_h: super::Expression::BoolLiteral(false).into(),
         layout_info_v: super::Expression::BoolLiteral(false).into(),
@@ -436,7 +436,38 @@ fn lower_sub_component(
         })
         .collect();
 
+    crate::object_tree::recurse_elem(&component.root_element, &(), &mut |element, _| {
+        let elem = element.borrow();
+        if elem.repeated.is_some() {
+            return;
+        };
+        let Some(geom) = &elem.geometry_props else { return };
+        let item_index = *elem.item_index.get().unwrap();
+        if item_index >= sub_component.geometries.len() {
+            sub_component.geometries.resize(item_index + 1, Default::default());
+        }
+        sub_component.geometries[item_index] = Some(lower_geometry(geom, &ctx).into());
+    });
+
     LoweredSubComponent { sub_component: Rc::new(sub_component), mapping }
+}
+
+fn lower_geometry(
+    geom: &crate::object_tree::GeometryProps,
+    ctx: &ExpressionContext<'_>,
+) -> super::Expression {
+    let mut fields = BTreeMap::default();
+    let mut values = HashMap::with_capacity(4);
+    for (f, v) in [("x", &geom.x), ("y", &geom.y), ("width", &geom.width), ("height", &geom.height)]
+    {
+        fields.insert(f.into(), Type::LogicalLength);
+        values
+            .insert(f.into(), super::Expression::PropertyReference(ctx.map_property_reference(v)));
+    }
+    super::Expression::Struct {
+        ty: Type::Struct { fields, name: None, node: None, rust_attributes: None },
+        values,
+    }
 }
 
 fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {

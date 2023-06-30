@@ -231,6 +231,9 @@ pub struct SubComponent {
     /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,
 
+    /// For each node, an expression that returns a `{x: length, y: length, width: length, height: length}`
+    pub geometries: Vec<Option<MutExpression>>,
+
     pub layout_info_h: MutExpression,
     pub layout_info_v: MutExpression,
 
@@ -353,6 +356,11 @@ impl PublicComponent {
             visitor(&sc.layout_info_v, ctx);
             for e in sc.accessible_prop.values() {
                 visitor(e, ctx);
+            }
+            for i in &sc.geometries {
+                if let Some(e) = i {
+                    visitor(e, ctx);
+                }
             }
         });
         for g in &self.globals {

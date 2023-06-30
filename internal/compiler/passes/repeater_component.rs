@@ -43,6 +43,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 layout_info_prop: elem.layout_info_prop.take(),
                 default_fill_parent: elem.default_fill_parent,
                 accessibility_props: std::mem::take(&mut elem.accessibility_props),
+                geometry_props: elem.geometry_props.clone(),
                 is_flickable_viewport: elem.is_flickable_viewport,
                 has_popup_child: elem.has_popup_child,
                 item_index: Default::default(), // Not determined yet

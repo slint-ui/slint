@@ -11,6 +11,7 @@ use crate::item_tree::{
 };
 use crate::items::{AccessibleRole, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
+use crate::lengths::LogicalRect;
 use crate::slice::Slice;
 use crate::window::WindowAdapter;
 use crate::SharedString;
@@ -88,6 +89,10 @@ pub struct ComponentVTable {
     /// Returns the layout info for this component
     pub layout_info:
         extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, Orientation) -> LayoutInfo,
+
+    /// Returns the item's geometry (relative to its parent item)
+    pub item_geometry:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, item_index: usize) -> LogicalRect,
 
     /// Returns the accessible role for a given item
     pub accessible_role:
