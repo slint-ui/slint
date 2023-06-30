@@ -188,16 +188,10 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
         return;
     }
 
-    let li_v = super::lower_layout::create_new_prop(
-        elem,
-        "layoutinfo-v",
-        crate::layout::layout_info_type(),
-    );
-    let li_h = super::lower_layout::create_new_prop(
-        elem,
-        "layoutinfo-h",
-        crate::layout::layout_info_type(),
-    );
+    let li_v =
+        crate::layout::create_new_prop(elem, "layoutinfo-v", crate::layout::layout_info_type());
+    let li_h =
+        crate::layout::create_new_prop(elem, "layoutinfo-h", crate::layout::layout_info_type());
     elem.borrow_mut().layout_info_prop = Some((li_h.clone(), li_v.clone()));
     let mut expr_h = implicit_layout_info_call(elem, Orientation::Horizontal);
     let mut expr_v = implicit_layout_info_call(elem, Orientation::Vertical);

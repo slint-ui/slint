@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 // Test that the default geometry is taken from the right parent, even when some
-//
+//of visible or opacity or so are set
 
-export TestCase := Window {
-    property <bool> condition: true;
+export component TestCase  {
+    in property <bool> condition: true;
     Rectangle {
         width: 10px;
         height: 20px;
@@ -39,9 +39,10 @@ export TestCase := Window {
             drop-shadow-blur: 8px;
             background: orange;
         }
+
     }
 
-    property <bool> test:
+    out property <bool> test:
         invisible.width == 10px && invisible.height == 20px &&
         opaque.width == 10px && opaque.height == 20px &&
         clipped.width == 10px && clipped.height == 20px &&
