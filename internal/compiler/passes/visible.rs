@@ -99,5 +99,5 @@ fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -
         .collect(),
         ..Default::default()
     };
-    Rc::new(RefCell::new(element))
+    Element::make_rc(element)
 }
