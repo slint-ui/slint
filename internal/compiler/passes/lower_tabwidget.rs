@@ -128,7 +128,7 @@ fn process_tabwidget(
             "num-tabs".to_owned(),
             RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
         );
-        tabs.push(Rc::new(RefCell::new(tab)));
+        tabs.push(Element::make_rc(tab));
     }
 
     let tabbar = Element {
@@ -138,7 +138,7 @@ fn process_tabwidget(
         children: tabs,
         ..Default::default()
     };
-    let tabbar = Rc::new(RefCell::new(tabbar));
+    let tabbar = Element::make_rc(tabbar);
     set_tabbar_geometry_prop(elem, &tabbar, "x");
     set_tabbar_geometry_prop(elem, &tabbar, "y");
     set_tabbar_geometry_prop(elem, &tabbar, "width");
