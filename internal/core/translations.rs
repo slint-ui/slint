@@ -12,7 +12,9 @@ mod formatter {
         type Output<'a>: Display
         where
             Self: 'a;
+        #[allow(clippy::wrong_self_convention)]
         fn from_index(&self, index: usize) -> Option<Self::Output<'_>>;
+        #[allow(clippy::wrong_self_convention)]
         fn from_name(&self, _name: &str) -> Option<Self::Output<'_>> {
             None
         }
