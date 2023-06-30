@@ -44,7 +44,7 @@ impl LogicalPosition {
         PhysicalPosition::from_logical(*self, scale_factor)
     }
 
-    pub(crate) fn to_euclid(&self) -> crate::lengths::LogicalPoint {
+    pub(crate) fn to_euclid(self) -> crate::lengths::LogicalPoint {
         [self.x as _, self.y as _].into()
     }
     pub(crate) fn from_euclid(p: crate::lengths::LogicalPoint) -> Self {
@@ -139,7 +139,7 @@ impl LogicalSize {
         PhysicalSize::from_logical(*self, scale_factor)
     }
 
-    pub(crate) fn to_euclid(&self) -> crate::lengths::LogicalSize {
+    pub(crate) fn to_euclid(self) -> crate::lengths::LogicalSize {
         [self.width as _, self.height as _].into()
     }
 }
