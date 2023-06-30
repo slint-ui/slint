@@ -371,6 +371,10 @@ impl OpenGLSurface {
 impl Drop for OpenGLSurface {
     fn drop(&mut self) {
         // Make sure that the context is current before Skia calls glDelete***
-        self.ensure_context_current().expect("Skia OpenGL Renderer: Failed to make OpenGL context current before deleting graphics resources");
+        // In the event that this fails for some reason (lost GL context), convey that to Skia so that it doesn't try to call
+        // glDelete***
+        if self.ensure_context_current().is_err() {
+            self.gr_context.borrow_mut().abandon();
+        }
     }
 }
