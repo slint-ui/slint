@@ -22,10 +22,17 @@ pub struct NativeLineEdit {
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
     pub input_type: Property<InputType>,
+    widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+    animation_tracker: Property<i32>,
 }
 
 impl Item for NativeLineEdit {
     fn init(self: Pin<&Self>) {
+        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
+            return make_unique_animated_widget<QLineEdit>(animation_tracker_property_ptr);
+        }});
+
         let paddings = Rc::pin(Property::default());
 
         paddings.as_ref().set_binding(move || {
@@ -142,6 +149,7 @@ impl Item for NativeLineEdit {
             initial_state as "int"
         ] {
             QStyleOptionFrame option;
+            option.initFrom(widget);
             option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);
             option.lineWidth = 1;

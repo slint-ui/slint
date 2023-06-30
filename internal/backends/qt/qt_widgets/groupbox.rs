@@ -20,6 +20,8 @@ pub struct NativeGroupBox {
     pub native_padding_right: Property<LogicalLength>,
     pub native_padding_top: Property<LogicalLength>,
     pub native_padding_bottom: Property<LogicalLength>,
+    widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+    animation_tracker: Property<i32>,
 }
 
 #[repr(C)]
@@ -63,6 +65,11 @@ fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
 
 impl Item for NativeGroupBox {
     fn init(self: Pin<&Self>) {
+        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
+            return make_unique_animated_widget<QGroupBox>(animation_tracker_property_ptr);
+        }});
+
         let shared_data = Rc::pin(GroupBoxData::default());
 
         Property::link_two_way(
@@ -216,6 +223,7 @@ impl Item for NativeGroupBox {
             initial_state as "int"
         ] {
             QStyleOptionGroupBox option;
+            option.initFrom(widget);
             option.state |= QStyle::State(initial_state);
             if (enabled) {
                 option.state |= QStyle::State_Enabled;

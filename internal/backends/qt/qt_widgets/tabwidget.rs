@@ -32,10 +32,18 @@ pub struct NativeTabWidget {
     pub tabbar_y: Property<LogicalLength>,
     pub tabbar_height: Property<LogicalLength>,
     pub tabbar_width: Property<LogicalLength>,
+
+    widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+    animation_tracker: Property<i32>,
 }
 
 impl Item for NativeTabWidget {
     fn init(self: Pin<&Self>) {
+        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
+            return make_unique_animated_widget<QTabWidget>(animation_tracker_property_ptr);
+        }});
+
         #[derive(Default, Clone)]
         #[repr(C)]
         struct TabWidgetMetrics {
@@ -202,20 +210,21 @@ impl Item for NativeTabWidget {
                 },
             ),
         };
+        let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
-        let size = cpp!(unsafe [content_size as "QSizeF", tabbar_size as "QSizeF"] -> qttypes::QSize as "QSize" {
+        let size = cpp!(unsafe [content_size as "QSizeF", tabbar_size as "QSizeF", widget as "QWidget*"] -> qttypes::QSize as "QSize" {
             ensure_initialized();
 
             QStyleOptionTabWidgetFrame option;
             auto style = qApp->style();
-            option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, nullptr);
+            option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, widget);
             option.shape = QTabBar::RoundedNorth;
             option.tabBarSize = tabbar_size.toSize();
             option.rightCornerWidgetSize = QSize(0, 0);
             option.leftCornerWidgetSize = QSize(0, 0);
             auto sz = QSize(qMax(content_size.width(), tabbar_size.width()),
                 content_size.height() + tabbar_size.height());
-            return style->sizeFromContents(QStyle::CT_TabWidget, &option, sz, nullptr);
+            return style->sizeFromContents(QStyle::CT_TabWidget, &option, sz, widget);
         });
         LayoutInfo {
             min: match orientation {
@@ -281,6 +290,7 @@ impl Item for NativeTabWidget {
             initial_state as "int"
         ] {
             QStyleOptionTabWidgetFrame option;
+            option.initFrom(widget);
             option.state |= QStyle::State(initial_state);
             auto style = qApp->style();
             option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, widget);
@@ -341,11 +351,18 @@ pub struct NativeTab {
     pub current_focused: Property<i32>,
     pub tab_index: Property<i32>,
     pub num_tabs: Property<i32>,
+    widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+    animation_tracker: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for NativeTab {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>) {
+        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
+            return make_unique_animated_widget<QWidget>(animation_tracker_property_ptr);
+        }});
+    }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -364,11 +381,13 @@ impl Item for NativeTab {
             crate::qt_window::image_to_pixmap((&self.icon()).into(), None).unwrap_or_default();
         let tab_index: i32 = self.tab_index();
         let num_tabs: i32 = self.num_tabs();
+        let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
         let size = cpp!(unsafe [
             text as "QString",
             icon as "QPixmap",
             tab_index as "int",
-            num_tabs as "int"
+            num_tabs as "int",
+            widget as "QWidget*"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionTab option;
@@ -381,11 +400,11 @@ impl Item for NativeTab {
                 : tab_index == num_tabs - 1 ? QStyleOptionTab::End
                 : QStyleOptionTab::Middle;
             auto style = qApp->style();
-            int hframe = style->pixelMetric(QStyle::PM_TabBarTabHSpace, &option, nullptr);
-            int vframe = style->pixelMetric(QStyle::PM_TabBarTabVSpace, &option, nullptr);
+            int hframe = style->pixelMetric(QStyle::PM_TabBarTabHSpace, &option, widget);
+            int vframe = style->pixelMetric(QStyle::PM_TabBarTabVSpace, &option, widget);
             int padding = icon.isNull() ? 0 : 4;
             int textWidth = option.fontMetrics.size(Qt::TextShowMnemonic, text).width();
-            auto iconSize = icon.isNull() ? 0 : style->pixelMetric(QStyle::PM_TabBarIconSize, nullptr, nullptr);
+            auto iconSize = icon.isNull() ? 0 : style->pixelMetric(QStyle::PM_TabBarIconSize, nullptr, widget);
             QSize csz = QSize(textWidth + iconSize + hframe + padding, qMax(option.fontMetrics.height(), iconSize) + vframe);
             return style->sizeFromContents(QStyle::CT_TabBarTab, &option, csz, nullptr);
         });
@@ -498,6 +517,7 @@ impl Item for NativeTab {
         ] {
             ensure_initialized();
             QStyleOptionTab option;
+            option.initFrom(widget);
             option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);;
             option.text = text;
