@@ -432,11 +432,7 @@ impl WindowInner {
 
                 if let MouseEvent::Pressed { position, .. } = &event {
                     // close the popup if one press outside the popup
-                    let geom = ComponentRc::borrow_pin(popup_component)
-                        .as_ref()
-                        .get_item_ref(0)
-                        .as_ref()
-                        .geometry();
+                    let geom = ComponentRc::borrow_pin(popup_component).as_ref().item_geometry(0);
                     if !geom.contains(*position) {
                         self.close_popup();
                         return None;

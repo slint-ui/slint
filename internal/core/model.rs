@@ -7,7 +7,7 @@
 
 use crate::component::ComponentVTable;
 use crate::item_tree::TraversalOrder;
-use crate::items::{ItemRef, SortOrder};
+use crate::items::SortOrder;
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::{Coord, Property, SharedString, SharedVector};
@@ -950,14 +950,14 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         } else {
             let total_height = Cell::new(LogicalLength::zero());
             let count = Cell::new(0);
-            let get_height_visitor = |item: Pin<ItemRef>| {
+            let get_height_visitor = |x: &ComponentRc<C>| {
+                let height = x.as_pin_ref().item_geometry(0).height_length();
                 count.set(count.get() + 1);
-                let height = item.as_ref().geometry().height_length();
                 total_height.set(total_height.get() + height);
             };
             for c in self.data().inner.borrow().components.iter() {
                 if let Some(x) = c.1.as_ref() {
-                    get_height_visitor(x.as_pin_ref().get_item_ref(0));
+                    get_height_visitor(x);
                 }
             }
 
@@ -973,7 +973,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 self.ensure_updated_impl(&init, &model, 1);
                 if let Some(c) = self.data().inner.borrow().components.get(0) {
                     if let Some(x) = c.1.as_ref() {
-                        get_height_visitor(x.as_pin_ref().get_item_ref(0));
+                        get_height_visitor(x);
                     }
                 } else {
                     panic!("Could not determine size of items");
@@ -1012,14 +1012,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     c.1.as_ref().unwrap().update(new_offset, model.row_data(new_offset).unwrap());
                     c.0 = RepeatedComponentState::Clean;
                 }
-                let h =
-                    c.1.as_ref()
-                        .unwrap()
-                        .as_pin_ref()
-                        .get_item_ref(0)
-                        .as_ref()
-                        .geometry()
-                        .height_length();
+                let h = c.1.as_ref().unwrap().as_pin_ref().item_geometry(0).height_length();
                 if it_y + h >= -vp_y || new_offset + 1 >= row_count {
                     break;
                 }
@@ -1043,9 +1036,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     .as_ref()
                     .unwrap()
                     .as_pin_ref()
-                    .get_item_ref(0)
-                    .as_ref()
-                    .geometry()
+                    .item_geometry(0)
                     .height_length();
             }
             // If there is still a gap, fill it with new component before
@@ -1054,8 +1045,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 new_offset -= 1;
                 let new_component = init();
                 new_component.update(new_offset, model.row_data(new_offset).unwrap());
-                new_offset_y -=
-                    new_component.as_pin_ref().get_item_ref(0).as_ref().geometry().height_length();
+                new_offset_y -= new_component.as_pin_ref().item_geometry(0).height_length();
                 new_components.push(new_component);
             }
             if !new_components.is_empty() {
