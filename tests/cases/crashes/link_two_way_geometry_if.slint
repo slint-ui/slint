@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+
+export component TestCase {
+    tl_layout := HorizontalLayout {
+        if true: Rectangle {
+            l := Rectangle {
+                preferred-width: 320px;
+                preferred-height: 240px;
+                background: red;
+            }
+            Rectangle {
+                background: blue;
+                width <=> l.width;
+            }
+        }
+    }
+
+    out property<bool> test: tl_layout.preferred-width == 320px;
+}

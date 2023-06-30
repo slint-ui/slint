@@ -987,7 +987,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         #[cfg(slint_debug_property)]
         let debug_name = format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
 
-        let value = prop2.get_untracked();
+        let value = prop2.get_internal();
 
         let prop1_handle_val = prop1.handle.handle.get();
         if prop1_handle_val & 0b10 == 0b10 {
