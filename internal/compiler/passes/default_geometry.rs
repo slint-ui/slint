@@ -119,7 +119,10 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                     }
                 }
 
-                if !elem.borrow().child_of_layout && !elem.borrow().is_legacy_syntax {
+                if !elem.borrow().child_of_layout
+                    && !elem.borrow().is_legacy_syntax
+                    && builtin_type.name != "Window"
+                {
                     if !w100 {
                         maybe_center_in_parent(elem, parent, "x", "width");
                     }
