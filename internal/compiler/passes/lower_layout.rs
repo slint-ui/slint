@@ -736,27 +736,6 @@ fn eval_const_expr(
     }
 }
 
-/// Create a new property based on the name. (it might get a different name if that property exist)
-pub fn create_new_prop(elem: &ElementRc, tentative_name: &str, ty: Type) -> NamedReference {
-    let mut e = elem.borrow_mut();
-    if !e.lookup_property(tentative_name).is_valid() {
-        e.property_declarations.insert(tentative_name.into(), ty.into());
-        drop(e);
-        NamedReference::new(elem, tentative_name)
-    } else {
-        let mut counter = 0;
-        loop {
-            counter += 1;
-            let name = format!("{}{}", tentative_name, counter);
-            if !e.lookup_property(&name).is_valid() {
-                e.property_declarations.insert(name.clone(), ty.into());
-                drop(e);
-                return NamedReference::new(elem, &name);
-            }
-        }
-    }
-}
-
 /// Checks that there is grid-layout specific properties left
 fn check_no_layout_properties(item: &ElementRc, diag: &mut BuildDiagnostics) {
     for (prop, expr) in item.borrow().bindings.iter() {

@@ -2436,7 +2436,29 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
 
     new_root.borrow_mut().child_of_layout =
         std::mem::replace(&mut old_root.borrow_mut().child_of_layout, false);
-    new_root.borrow_mut().layout_info_prop = old_root.borrow().layout_info_prop.clone();
+    let layout_info_prop = old_root.borrow().layout_info_prop.clone().or_else(|| {
+        // generate the layout_info_prop that forward to the implicit layout for that item
+        let li_v = crate::layout::create_new_prop(
+            &new_root,
+            "layoutinfo-v",
+            crate::layout::layout_info_type(),
+        );
+        let li_h = crate::layout::create_new_prop(
+            &new_root,
+            "layoutinfo-h",
+            crate::layout::layout_info_type(),
+        );
+        let expr_h = crate::layout::implicit_layout_info_call(&old_root, Orientation::Horizontal);
+        let expr_v = crate::layout::implicit_layout_info_call(&old_root, Orientation::Vertical);
+        let expr_v =
+            BindingExpression::new_with_span(expr_v, old_root.borrow().to_source_location());
+        li_v.element().borrow_mut().bindings.insert(li_v.name().into(), expr_v.into());
+        let expr_h =
+            BindingExpression::new_with_span(expr_h, old_root.borrow().to_source_location());
+        li_h.element().borrow_mut().bindings.insert(li_h.name().into(), expr_h.into());
+        Some((li_h.clone(), li_v.clone()))
+    });
+    new_root.borrow_mut().layout_info_prop = dbg!(layout_info_prop);
 
     // Replace the repeated component's element with our shadow element. That requires a bit of reference counting
     // surgery and relies on nobody having a strong reference left to the component, which we take out of the Rc.

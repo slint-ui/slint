@@ -1,7 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-TestCase := Window {
+
+component TextTextGeomWithOpacityOrClip {
+    in property<bool> cond: true;
+    reference := Text  { text: "Hello"; }
+    t1 := VerticalLayout {
+        if cond: Text {
+            text: "Hello";
+            opacity: 0.5;
+        }
+    }
+    t2 := VerticalLayout {
+        if cond: Text {
+            text: "Hello";
+            visible: cond;
+        }
+    }
+
+    out property <bool> test: reference.preferred-width > 0 && reference.preferred-height > 0 &&
+        reference.preferred-width == t1.preferred-width && reference.preferred-height == t1.preferred-height &&
+        reference.preferred-width == t2.preferred-width && reference.preferred-height == t2.preferred-height;
+}
+
+export component TestCase inherits Window {
     width: 400px;
     height: 640px;
     VerticalLayout {
@@ -14,7 +36,10 @@ TestCase := Window {
         }
     }
 
-    property <bool> test: text.height > 0 && text.width == root.width;
+    in property <bool> cond <=> in_if.cond;
+    in_if := TextTextGeomWithOpacityOrClip { }
+
+    out property <bool> test: text.height > 0 && text.width == root.width && in_if.test;
 }
 
 /*
