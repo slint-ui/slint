@@ -120,6 +120,8 @@ pub struct NativeButton {
     pub enabled: Property<bool>,
     pub standard_button_kind: Property<StandardButtonKind>,
     pub is_standard_button: Property<bool>,
+    widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+    animation_tracker: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -170,10 +172,11 @@ impl NativeButton {
                     .unwrap_or_default();
             }
         };
-        cpp!(unsafe [style_icon as "QStyle::StandardPixmap"] -> qttypes::QPixmap as "QPixmap" {
+        let widget_ptr: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
+        cpp!(unsafe [style_icon as "QStyle::StandardPixmap", widget_ptr as "QWidget*"] -> qttypes::QPixmap as "QPixmap" {
             ensure_initialized();
             auto style = qApp->style();
-            if (!style->styleHint(QStyle::SH_DialogButtonBox_ButtonsHaveIcons, nullptr, nullptr))
+            if (!style->styleHint(QStyle::SH_DialogButtonBox_ButtonsHaveIcons, nullptr, widget_ptr))
                 return QPixmap();
             return style->standardPixmap(style_icon);
         })
@@ -190,7 +193,12 @@ impl NativeButton {
 }
 
 impl Item for NativeButton {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>) {
+        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
+            return make_unique_animated_widget<QPushButton>(animation_tracker_property_ptr);
+        }})
+    }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -207,9 +215,11 @@ impl Item for NativeButton {
         let standard_button_kind = self.actual_standard_button_kind();
         let mut text: qttypes::QString = self.actual_text(standard_button_kind);
         let icon: qttypes::QPixmap = self.actual_icon(standard_button_kind);
+        let widget_ptr: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
         let size = cpp!(unsafe [
             mut text as "QString",
-            icon as "QPixmap"
+            icon as "QPixmap",
+            widget_ptr as "QWidget*"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionButton option;
@@ -218,13 +228,13 @@ impl Item for NativeButton {
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
             option.icon = icon;
-            auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, nullptr);
+            auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, widget_ptr);
             option.iconSize = QSize(iconSize, iconSize);
             if (!icon.isNull()) {
                 option.rect.setHeight(qMax(option.rect.height(), iconSize));
                 option.rect.setWidth(option.rect.width() + 4 + iconSize);
             }
-            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
+            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), widget_ptr);
         });
         LayoutInfo {
             min: match orientation {
@@ -356,6 +366,7 @@ impl Item for NativeButton {
             initial_state as "int"
         ] {
             QStyleOptionButton option;
+            option.initFrom(widget);
             option.state |= QStyle::State(initial_state);
             option.text = std::move(text);
             option.icon = icon;

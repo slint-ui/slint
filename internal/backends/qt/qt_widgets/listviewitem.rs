@@ -20,10 +20,17 @@ pub struct NativeStandardListViewItem {
     pub has_hover: Property<bool>,
     /// Specify that this item is in fact used in a ComboBox
     pub combobox: Property<bool>,
+    widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+    animation_tracker: Property<i32>,
 }
 
 impl Item for NativeStandardListViewItem {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>) {
+        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
+            return make_unique_animated_widget<QWidget>(animation_tracker_property_ptr);
+        }})
+    }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -135,7 +142,7 @@ impl Item for NativeStandardListViewItem {
             if (combobox && qApp->style()->styleHint(QStyle::SH_ComboBox_Popup, &cb_opt, widget)) {
                 widget->setProperty("_q_isComboBoxPopupItem", true);
                 QStyleOptionMenuItem option;
-                option.styleObject = widget;
+                option.initFrom(widget);
                 option.state |= QStyle::State(initial_state);
                 option.rect = QRect(QPoint(), size / dpr);
                 option.menuRect = QRect(QPoint(), size / dpr);
@@ -155,6 +162,7 @@ impl Item for NativeStandardListViewItem {
                 widget->setProperty("_q_isComboBoxPopupItem", {});
             } else {
                 QStyleOptionViewItem option;
+                option.initFrom(widget);
                 option.state |= QStyle::State(initial_state);
                 option.rect = QRect(QPoint(), size / dpr);
                 option.state = QStyle::State_Enabled;

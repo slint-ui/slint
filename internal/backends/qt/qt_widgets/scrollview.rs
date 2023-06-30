@@ -27,10 +27,19 @@ pub struct NativeScrollView {
     pub enabled: Property<bool>,
     pub has_focus: Property<bool>,
     data: Property<NativeSliderData>,
+    widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+    animation_tracker: Property<i32>,
+    // TODO: allocate two widgets for each scrollbar and a tracker for each as well,
+    // for animated scrollbars...
 }
 
 impl Item for NativeScrollView {
     fn init(self: Pin<&Self>) {
+        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
+            return make_unique_animated_widget<QWidget>(animation_tracker_property_ptr);
+        }});
+
         let paddings = Rc::pin(Property::default());
 
         paddings.as_ref().set_binding(move || {
@@ -301,6 +310,7 @@ impl Item for NativeScrollView {
         ] -> bool as "bool" {
             ensure_initialized();
             QStyleOptionFrame frameOption;
+            frameOption.initFrom(widget);
             frameOption.state |= QStyle::State(initial_state);
             frameOption.frameShape = QFrame::StyledPanel;
 

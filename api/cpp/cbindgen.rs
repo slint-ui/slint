@@ -573,6 +573,22 @@ fn gen_backend_qt(
         .with_config(config)
         .with_crate(crate_dir)
         .with_include("slint_internal.h")
+        .with_after_include(
+            r"
+            namespace slint::cbindgen_private {
+                // HACK ALERT: This struct declaration is duplicated in internal/backend/qt/qt_widgets.rs - keep in sync.
+                struct SlintTypeErasedWidget
+                {
+                    virtual ~SlintTypeErasedWidget() = 0;
+                    SlintTypeErasedWidget(const SlintTypeErasedWidget&) = delete;
+                    SlintTypeErasedWidget& operator=(const SlintTypeErasedWidget&) = delete;
+
+                    virtual void *qwidget() const = 0;
+                };
+                using SlintTypeErasedWidgetPtr = std::unique_ptr<SlintTypeErasedWidget>;
+            }
+            ",
+        )
         .with_trailer(gen_item_declarations(&items))
         .generate()
         .context("Unable to generate bindings for slint_qt_internal.h")?

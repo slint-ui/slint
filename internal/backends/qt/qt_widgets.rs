@@ -20,7 +20,7 @@ it needs to be kept in sync with different place.
 use crate::qt_window::QPainterPtr;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
-use cpp::cpp;
+use cpp::{cpp, cpp_class};
 use i_slint_core::graphics::Color;
 use i_slint_core::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
@@ -36,6 +36,7 @@ use i_slint_core::{
     declare_item_vtable, Callback, ItemVTable_static, Property, SharedString, SharedVector,
 };
 use i_slint_core_macros::*;
+use std::ptr::NonNull;
 use std::rc::Rc;
 
 type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
@@ -56,6 +57,7 @@ macro_rules! get_size {
 macro_rules! fn_render {
     ($this:ident $dpr:ident $size:ident $painter:ident $widget:ident $initial_state:ident => $($tt:tt)*) => {
         fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, item_rc: &ItemRc, size: LogicalSize) -> RenderingResult {
+            self.animation_tracker();
             let $dpr: f32 = backend.scale_factor();
 
             let active: bool = backend.window().active();
@@ -68,6 +70,8 @@ macro_rules! fn_render {
                 return (int)state;
             });
 
+            let $widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
+
             if let Some(painter) = backend.as_any().and_then(|any| <dyn std::any::Any>::downcast_mut::<QPainterPtr>(any)) {
                 let width = size.width * $dpr;
                 let height = size.height * $dpr;
@@ -77,9 +81,6 @@ macro_rules! fn_render {
                 let $size = qttypes::QSize { width: width as _, height: height as _ };
                 let $this = self;
                 painter.save();
-                let $widget = cpp!(unsafe [painter as "QPainterPtr*"] -> * const () as "QWidget*" {
-                    return (*painter)->device()->devType() == QInternal::Widget ? static_cast<QWidget *>((*painter)->device()) : nullptr;
-                });
                 let $painter = painter;
                 $($tt)*
                 $painter.restore();
@@ -101,7 +102,6 @@ macro_rules! fn_render {
                             painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
                             return painter;
                         });
-                        let $widget: * const () = core::ptr::null();
                         let $painter = &mut painter;
                         let $this = self;
                         $($tt)*
@@ -174,7 +174,57 @@ cpp! {{
         // (because the QGuiApplication destructor access some Q_GLOBAL_STATIC which are already gone)
         new QApplication(argc, argv2);
     }
+
+    // HACK ALERT: This struct declaration is duplicated in api/cpp/bindgen.rs - keep in sync.
+    struct SlintTypeErasedWidget
+    {
+        virtual ~SlintTypeErasedWidget() = 0;
+        SlintTypeErasedWidget() = default;
+        SlintTypeErasedWidget(const SlintTypeErasedWidget&) = delete;
+        SlintTypeErasedWidget& operator=(const SlintTypeErasedWidget&) = delete;
+
+        virtual void *qwidget() = 0;
+    };
+
+    SlintTypeErasedWidget::~SlintTypeErasedWidget() = default;
+
+    template <typename Base>
+    struct SlintAnimatedWidget: public Base, public SlintTypeErasedWidget {
+        void *animation_update_property_ptr;
+        bool event(QEvent *event) override {
+            if (event->type() == QEvent::StyleAnimationUpdate) {
+                rust!(Slint_AnimatedWidget_update [animation_update_property_ptr: Pin<&Property<i32>> as "void*"] {
+                    animation_update_property_ptr.set(animation_update_property_ptr.get() + 1);
+                });
+                event->accept();
+                return true;
+            }
+            return Base::event(event);
+        }
+        // This seemingly useless cast is needed to adjust the this pointer correctly to point to Base.
+        void *qwidget() override { return static_cast<QWidget*>(this); }
+    };
+
+    template <typename Base>
+    std::unique_ptr<SlintTypeErasedWidget> make_unique_animated_widget(void *animation_update_property_ptr)
+    {
+        ensure_initialized();
+        auto ptr = new SlintAnimatedWidget<Base>();
+        ptr->animation_update_property_ptr = animation_update_property_ptr;
+        return std::unique_ptr<SlintTypeErasedWidget>(ptr);
+    }
 }}
+
+cpp_class!(pub unsafe struct SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>");
+
+impl SlintTypeErasedWidgetPtr {
+    fn qwidget_ptr(this: &std::cell::Cell<Self>) -> NonNull<()> {
+        let widget_ptr: *mut SlintTypeErasedWidgetPtr = this.as_ptr();
+        cpp!(unsafe [widget_ptr as "std::unique_ptr<SlintTypeErasedWidget>*"] -> NonNull<()> as "void*" {
+            return (*widget_ptr)->qwidget();
+        })
+    }
+}
 
 mod button;
 pub use button::*;

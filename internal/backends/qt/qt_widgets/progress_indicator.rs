@@ -15,11 +15,20 @@ pub struct NativeProgressIndicator {
     pub height: Property<LogicalLength>,
     pub indeterminate: Property<bool>,
     pub progress: Property<f32>,
+    widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+    animation_tracker: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
 impl Item for NativeProgressIndicator {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>) {
+        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        self.widget_ptr.set(
+            cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
+                return make_unique_animated_widget<QProgressBar>(animation_tracker_property_ptr);
+            }},
+        )
+    }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -36,9 +45,11 @@ impl Item for NativeProgressIndicator {
         let indeterminate = self.indeterminate();
         let progress =
             if indeterminate { 0 } else { (self.progress().max(0.0).min(1.0) * 100.) as i32 };
+        let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let size = cpp!(unsafe [
-            progress as "int"
+            progress as "int",
+            widget as "QWidget*"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionProgressBar option;
@@ -48,9 +59,9 @@ impl Item for NativeProgressIndicator {
             option.textVisible = false;
             option.state |= QStyle::State_Horizontal;
 
-            int chunkWidth = qApp->style()->pixelMetric(QStyle::PM_ProgressBarChunkWidth, &option, nullptr);
+            int chunkWidth = qApp->style()->pixelMetric(QStyle::PM_ProgressBarChunkWidth, &option, widget);
             auto size = QSize(chunkWidth * 10, option.fontMetrics.height() + 10);
-            return qApp->style()->sizeFromContents(QStyle::CT_ProgressBar, &option, size, nullptr);
+            return qApp->style()->sizeFromContents(QStyle::CT_ProgressBar, &option, size, widget);
         });
 
         match orientation {
@@ -115,12 +126,12 @@ impl Item for NativeProgressIndicator {
         ] {
             QPainter *painter_ = painter->get();
             QStyleOptionProgressBar option;
+            option.initFrom(widget);
             option.state |= QStyle::State(initial_state) | QStyle::State_Horizontal;
             option.rect = QRect(QPoint(), size / dpr);
             option.maximum = progress < 0 ? 0 : 100;
             option.minimum = 0;
             option.progress = progress;
-            option.styleObject = widget;
 
             qApp->style()->drawControl(QStyle::CE_ProgressBar, &option, painter_, widget);
         });

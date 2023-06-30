@@ -17,10 +17,17 @@ pub struct NativeTableHeaderSection {
     pub index: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
     pub has_hover: Property<bool>,
+    widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+    animation_tracker: Property<i32>,
 }
 
 impl Item for NativeTableHeaderSection {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>) {
+        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
+            return make_unique_animated_widget<QWidget>(animation_tracker_property_ptr);
+        }});
+    }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -37,10 +44,12 @@ impl Item for NativeTableHeaderSection {
         let index: i32 = self.index();
         let item = self.item();
         let text: qttypes::QString = item.title.as_str().into();
+        let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let s = cpp!(unsafe [
             index as "int",
-            text as "QString"
+            text as "QString",
+            widget as "QWidget*"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
 
@@ -51,7 +60,7 @@ impl Item for NativeTableHeaderSection {
             option.text = text;
 
             option.textAlignment = Qt::AlignCenter | Qt::AlignVCenter;
-            return qApp->style()->sizeFromContents(QStyle::CT_HeaderSection, &option, QSize{}, nullptr);
+            return qApp->style()->sizeFromContents(QStyle::CT_HeaderSection, &option, QSize{}, widget);
         });
         let min = match orientation {
             Orientation::Horizontal => s.width,
@@ -133,6 +142,7 @@ impl Item for NativeTableHeaderSection {
             #endif
 
             QStyleOptionHeader option;
+            option.initFrom(widget);
             option.state |= QStyle::State(initial_state);
             option.state |= QStyle::State_Horizontal;
             option.rect = QRect(QPoint(), size / dpr);

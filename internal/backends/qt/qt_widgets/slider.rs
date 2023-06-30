@@ -33,6 +33,8 @@ pub struct NativeSlider {
     pub cached_rendering_data: CachedRenderingData,
     data: Property<NativeSliderData>,
     pub changed: Callback<FloatArg>,
+    widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+    animation_tracker: Property<i32>,
 }
 
 cpp! {{
@@ -60,7 +62,12 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, 
 }}
 
 impl Item for NativeSlider {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>) {
+        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
+            return make_unique_animated_widget<QSlider>(animation_tracker_property_ptr);
+        }})
+    }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -81,6 +88,7 @@ impl Item for NativeSlider {
         let data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
+        let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let size = cpp!(unsafe [
             enabled as "bool",
@@ -88,14 +96,15 @@ impl Item for NativeSlider {
             min as "float",
             max as "float",
             active_controls as "int",
-            pressed as "bool"
+            pressed as "bool",
+            widget as "QWidget*"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionSlider option;
             initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);
             auto style = qApp->style();
-            auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, nullptr);
-            return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr);
+            auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, widget);
+            return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), widget);
         });
         match orientation {
             Orientation::Horizontal => {
@@ -137,6 +146,7 @@ impl Item for NativeSlider {
             .position()
             .map(|p| qttypes::QPoint { x: p.x as _, y: p.y as _ })
             .unwrap_or_default();
+        let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let new_control = cpp!(unsafe [
             pos as "QPoint",
@@ -146,14 +156,15 @@ impl Item for NativeSlider {
             min as "float",
             max as "float",
             active_controls as "int",
-            pressed as "bool"
+            pressed as "bool",
+            widget as "QWidget*"
         ] -> u32 as "int" {
             ensure_initialized();
             QStyleOptionSlider option;
             initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);
             auto style = qApp->style();
             option.rect = { QPoint{}, size };
-            return style->hitTestComplexControl(QStyle::CC_Slider, &option, pos, nullptr);
+            return style->hitTestComplexControl(QStyle::CC_Slider, &option, pos, widget);
         });
         let result = match event {
             _ if !enabled => {
@@ -246,6 +257,7 @@ impl Item for NativeSlider {
             initial_state as "int"
         ] {
             QStyleOptionSlider option;
+            option.initFrom(widget);
             option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);
             initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);

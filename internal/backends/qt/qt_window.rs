@@ -1370,7 +1370,7 @@ impl QtItemRenderer<'_> {
     }
 }
 
-cpp_class!(unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
+cpp_class!(pub(crate) unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
 
 pub struct QtWindow {
     widget_ptr: QWidgetPtr,

@@ -27,6 +27,8 @@ pub struct NativeSpinBox {
     pub maximum: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
     data: Property<NativeSpinBoxData>,
+    widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
+    animation_tracker: Property<i32>,
 }
 
 cpp! {{
@@ -54,7 +56,12 @@ option.frame = true;
 }}
 
 impl Item for NativeSpinBox {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>) {
+        let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
+        self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>" {
+            return make_unique_animated_widget<QSpinBox>(animation_tracker_property_ptr);
+        }})
+    }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -73,12 +80,14 @@ impl Item for NativeSpinBox {
         let active_controls = data.active_controls;
         let pressed = data.pressed;
         let enabled = self.enabled();
+        let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let size = cpp!(unsafe [
             //value as "int",
             active_controls as "int",
             pressed as "bool",
-            enabled as "bool"
+            enabled as "bool",
+            widget as "QWidget*"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             auto style = qApp->style();
@@ -93,8 +102,8 @@ impl Item for NativeSpinBox {
             frame.midLineWidth = 0;
             auto content = option.fontMetrics.boundingRect("0000");
             const QSize margins(2 * 2, 2 * 1); // QLineEditPrivate::verticalMargin and QLineEditPrivate::horizontalMargin
-            auto line_edit_size = style->sizeFromContents(QStyle::CT_LineEdit, &frame, content.size() + margins, nullptr);
-            return style->sizeFromContents(QStyle::CT_SpinBox, &option, line_edit_size, nullptr);
+            auto line_edit_size = style->sizeFromContents(QStyle::CT_LineEdit, &frame, content.size() + margins, widget);
+            return style->sizeFromContents(QStyle::CT_SpinBox, &option, line_edit_size, widget);
         });
         match orientation {
             Orientation::Horizontal => {
@@ -128,6 +137,7 @@ impl Item for NativeSpinBox {
         let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
+        let widget: NonNull<()> = SlintTypeErasedWidgetPtr::qwidget_ptr(&self.widget_ptr);
 
         let pos = event
             .position()
@@ -139,7 +149,8 @@ impl Item for NativeSpinBox {
             size as "QSize",
             enabled as "bool",
             active_controls as "int",
-            pressed as "bool"
+            pressed as "bool",
+            widget as "QWidget*"
         ] -> u32 as "int" {
             ensure_initialized();
             auto style = qApp->style();
@@ -148,7 +159,7 @@ impl Item for NativeSpinBox {
             option.rect = { QPoint{}, size };
             initQSpinBoxOptions(option, pressed, enabled, active_controls);
 
-            return style->hitTestComplexControl(QStyle::CC_SpinBox, &option, pos, nullptr);
+            return style->hitTestComplexControl(QStyle::CC_SpinBox, &option, pos, widget);
         });
         let changed = new_control != active_controls
             || match event {
@@ -263,6 +274,7 @@ impl Item for NativeSpinBox {
         ] {
             auto style = qApp->style();
             QStyleOptionSpinBox option;
+            option.initFrom(widget);
             option.state |= QStyle::State(initial_state);
             if (enabled && has_focus) {
                 option.state |= QStyle::State_HasFocus;
