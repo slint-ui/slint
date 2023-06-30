@@ -639,9 +639,6 @@ fn generate_sub_component(
     ));
 
     for item in &component.items {
-        if item.is_flickable_viewport {
-            continue;
-        }
         item_names.push(ident(&item.name));
         item_types.push(ident(&item.ty.class_name));
         #[cfg(slint_debug_property)]
@@ -1338,9 +1335,6 @@ fn generate_item_tree(
             ));
         } else {
             let item = &component.items[node.item_index as usize];
-            let flick =
-                item.is_flickable_viewport.then(|| quote!(+ sp::Flickable::FIELD_OFFSETS.viewport));
-
             let field = access_component_field_offset(
                 &self::inner_component_id(component),
                 &ident(&item.name),
@@ -1359,7 +1353,7 @@ fn generate_item_tree(
                     item_array_index: #item_array_len,
                 }
             ));
-            item_array.push(quote!(VOffset::new(#path #field #flick)));
+            item_array.push(quote!(VOffset::new(#path #field)));
         }
     });
 
@@ -1666,10 +1660,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         } else {
             let property_name = ident(prop_name);
             let item_ty = ident(&sub_component.items[item_index as usize].ty.class_name);
-            let flick = sub_component.items[item_index as usize]
-                .is_flickable_viewport
-                .then(|| quote!(+ sp::Flickable::FIELD_OFFSETS.viewport));
-            quote!((#compo_path #item_field #flick + #item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
+            quote!((#compo_path #item_field + #item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
         }
     }
     match reference {
