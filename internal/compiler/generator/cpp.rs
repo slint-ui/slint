@@ -1305,6 +1305,22 @@ fn generate_item_tree(
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
+            name: "item_geometry".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ComponentRef component, uint32_t index) -> slint::cbindgen_private::LogicalRect"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![format!(
+                "return reinterpret_cast<const {}*>(component.instance)->item_geometry(index);",
+                item_tree_class_name
+            ), ]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
             name: "accessible_role".into(),
             signature:
                 "([[maybe_unused]] slint::private_api::ComponentRef component, uint32_t index) -> slint::cbindgen_private::AccessibleRole"
@@ -1364,7 +1380,7 @@ fn generate_item_tree(
         init: Some(format!(
             "{{ visit_children, get_item_ref, get_subtree_range, get_subtree_component, \
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
-                accessible_role, accessible_string_property, window_adapter, \
+                item_geometry, accessible_role, accessible_string_property, window_adapter, \
                 slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
             item_tree_class_name
         )),
@@ -1804,10 +1820,10 @@ fn generate_sub_component(
         }),
     ));
 
-    let mut accessible_function = |name: &str,
-                                   signature: &str,
-                                   forward_args: &str,
-                                   code: Vec<String>| {
+    let mut dispatch_item_function = |name: &str,
+                                      signature: &str,
+                                      forward_args: &str,
+                                      code: Vec<String>| {
         let mut code = ["[[maybe_unused]] auto self = this;".into()]
             .into_iter()
             .chain(code.into_iter())
@@ -1844,6 +1860,29 @@ fn generate_sub_component(
         ));
     };
 
+    let mut item_geometry_cases = vec!["switch (index) {".to_string()];
+    item_geometry_cases.extend(
+        component
+            .geometries
+            .iter()
+            .enumerate()
+            .filter_map(|(i, x)| x.as_ref().map(|x| (i, x)))
+            .map(|(index, expr)| {
+                format!(
+                    "    case {index}: return slint::private_api::convert_anonymous_rect({});",
+                    compile_expression(&expr.borrow(), &ctx)
+                )
+            }),
+    );
+    item_geometry_cases.push("}".into());
+
+    dispatch_item_function(
+        "item_geometry",
+        "(uint32_t index) const -> slint::cbindgen_private::Rect",
+        "",
+        item_geometry_cases,
+    );
+
     let mut accessible_role_cases = vec!["switch (index) {".into()];
     let mut accessible_string_cases = vec!["switch ((index << 8) | uintptr_t(what)) {".into()];
     for ((index, what), expr) in &component.accessible_prop {
@@ -1857,13 +1896,13 @@ fn generate_sub_component(
     accessible_role_cases.push("}".into());
     accessible_string_cases.push("}".into());
 
-    accessible_function(
+    dispatch_item_function(
         "accessible_role",
         "(uint32_t index) const -> slint::cbindgen_private::AccessibleRole",
         "",
         accessible_role_cases,
     );
-    accessible_function(
+    dispatch_item_function(
         "accessible_string_property",
         "(uint32_t index, slint::cbindgen_private::AccessibleStringProperty what) const -> slint::SharedString",
         ", what",

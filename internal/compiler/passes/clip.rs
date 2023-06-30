@@ -54,13 +54,13 @@ pub fn handle_clip(
 
 fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
     let mut parent = parent_elem.borrow_mut();
-    let clip = Rc::new(RefCell::new(Element {
+    let clip = Element::make_rc(Element {
         id: format!("{}-clip", parent.id),
         base_type: crate::langtype::ElementType::Native(native_clip.clone()),
         children: std::mem::take(&mut parent.children),
         enclosing_component: parent.enclosing_component.clone(),
         ..Element::default()
-    }));
+    });
 
     parent.children.push(clip.clone());
     drop(parent); // NamedReference::new will borrow() the parent, so we can't hold a mutable ref

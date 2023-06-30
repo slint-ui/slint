@@ -126,6 +126,10 @@ pub fn set_callback_handler<
     })
 }
 
+/// This matches the type of a `{height: length, width: length, x: length, y: length}` slint anonymous struct
+/// (fields are always in alphabetical order)
+pub type AnonymousLogicalRect = (Coord, Coord, Coord, Coord);
+
 pub fn debug(s: SharedString) {
     #[cfg(feature = "log")]
     log::debug!("{s}");
@@ -196,7 +200,9 @@ pub mod re_exports {
     };
     pub use i_slint_core::items::*;
     pub use i_slint_core::layout::*;
-    pub use i_slint_core::lengths::{logical_position_to_api, LogicalLength, LogicalPoint};
+    pub use i_slint_core::lengths::{
+        logical_position_to_api, LogicalLength, LogicalPoint, LogicalRect,
+    };
     pub use i_slint_core::model::*;
     pub use i_slint_core::properties::{set_state_binding, Property, PropertyTracker, StateInfo};
     pub use i_slint_core::slice::Slice;
