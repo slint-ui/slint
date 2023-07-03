@@ -92,28 +92,28 @@ endfunction()
 
 # Features that are mapped to features in the Rust crate. These and their
 # defaults need to be kept in sync with the Rust bit.
-define_cargo_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON)
-
-define_cargo_feature(backend-winit "Enable support for the winit crate to interaction with all windowing systems." ON)
-define_cargo_feature(backend-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just X11 support on Unix." OFF)
-define_cargo_feature(backend-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just wayland support." OFF)
-
-define_cargo_feature(renderer-winit-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON)
-define_cargo_feature(renderer-winit-skia "Enable support for the Skia based rendering engine." OFF)
-define_cargo_feature(renderer-winit-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." OFF)
-define_cargo_feature(renderer-winit-skia-vulkan "Enable support for the Skia based rendering engine with its Vulkan backend." OFF)
-define_cargo_feature(renderer-winit-software "Enable support for the software renderer with the winit backend" OFF)
-
-define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
+#define_cargo_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON)
+#
+#define_cargo_feature(backend-winit "Enable support for the winit crate to interaction with all windowing systems." ON)
+#define_cargo_feature(backend-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just X11 support on Unix." OFF)
+#define_cargo_feature(backend-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just wayland support." OFF)
+#
+#define_cargo_feature(renderer-winit-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON)
+#define_cargo_feature(renderer-winit-skia "Enable support for the Skia based rendering engine." OFF)
+#define_cargo_feature(renderer-winit-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." OFF)
+#define_cargo_feature(renderer-winit-skia-vulkan "Enable support for the Skia based rendering engine with its Vulkan backend." OFF)
+#define_cargo_feature(renderer-winit-software "Enable support for the software renderer with the winit backend" OFF)
+#
+#define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
 define_cargo_feature(experimental "Enable experimental features (no compatibility guarantees)" OFF)
-define_cargo_feature(gettext "Enable support of translations using gettext" OFF)
-define_cargo_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON)
+#define_cargo_feature(gettext "Enable support of translations using gettext" OFF)
+#define_cargo_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON)
 
 # Compat options
-option(SLINT_FEATURE_BACKEND_GL_ALL "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT and SLINT_FEATURE_RENDERER_WINIT_FEMTOVG." OFF)
-option(SLINT_FEATURE_BACKEND_GL_X11 "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT_X11 and SLINT_FEATURE_RENDERER_WINIT_FEMTOVG." OFF)
-option(SLINT_FEATURE_BACKEND_GL_WAYLAND "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT_WAYLAND and SLINT_FEATURE_RENDERER_WINIT_FEMTOVG." OFF)
+#option(SLINT_FEATURE_BACKEND_GL_ALL "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT and SLINT_FEATURE_RENDERER_WINIT_FEMTOVG." OFF)
+#option(SLINT_FEATURE_BACKEND_GL_X11 "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT_X11 and SLINT_FEATURE_RENDERER_WINIT_FEMTOVG." OFF)
+#option(SLINT_FEATURE_BACKEND_GL_WAYLAND "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT_WAYLAND and SLINT_FEATURE_RENDERER_WINIT_FEMTOVG." OFF)
 
 if(SLINT_FEATURE_BACKEND_GL_ALL)
     set(SLINT_FEATURE_BACKEND_WINIT ON)
@@ -263,118 +263,110 @@ if(SLINT_FEATURE_COMPILER)
     include(${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake)
 endif()
 
-export(TARGETS Slint slint-cpp
-    NAMESPACE Slint:: FILE "${CMAKE_BINARY_DIR}/lib/cmake/Slint/SlintTargets.cmake")
-install(EXPORT SlintTargets NAMESPACE Slint:: DESTINATION lib/cmake/Slint)
-install(TARGETS Slint slint-cpp
-    EXPORT SlintTargets LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/slint)
-
-include(CMakePackageConfigHelpers)
-include(GNUInstallDirs)
-
-install(FILES $<TARGET_FILE:slint-cpp-shared> TYPE LIB)
-
-if(WIN32)
-    install(FILES $<TARGET_LINKER_FILE:slint-cpp-shared> TYPE LIB)
-endif()
-
-if(SLINT_FEATURE_COMPILER)
-    install(PROGRAMS $<TARGET_FILE:slint-compiler> TYPE BIN)
-endif()
-
-# Corrosion sets the `IMPORTED` locations late to allow us to set OUTPUT_DIRECTORY
-# target properties. This function must be deferred until after Corrosion set the
-# locations. Since we are writing to a config file Generator expressions are not
-# an option.
-function(_slint_write_configure_file)
-    foreach(prop
-        IMPORTED_LOCATION IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION_RELEASE
-        IMPORTED_LOCATION_RELWITHDEBINFO IMPORTED_LOCATION_MINSIZEREL
-        IMPORTED_IMPLIB IMPORTED_IMPLIB_DEBUG IMPORTED_IMPLIB_RELEASE
-        IMPORTED_IMPLIB_RELWITHDEBINFO IMPORTED_IMPLIB_MINSIZEREL)
-        get_target_property(value slint-cpp-shared ${prop})
-
-        if(value)
-            get_filename_component(value ${value} NAME)
-            list(APPEND SLINT_LIB_PROPERTIES ${prop} "\${_IMPORT_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${value}")
-        endif()
-    endforeach()
-
-    get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
-    configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
-endfunction()
-
-cmake_language(DEFER CALL _slint_write_configure_file)
-
-write_basic_package_version_file(
-    ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake
-    VERSION 1.1.1
-    COMPATIBILITY SameMinorVersion
-)
-
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake"
-    DESTINATION lib/cmake/Slint
-)
-
-if(SLINT_FEATURE_COMPILER)
-    install(FILES
-        "${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake"
-        DESTINATION lib/cmake/Slint
-    )
-endif()
-
-option(SLINT_PACKAGE_BUNDLE_QT "Internal setting to install Qt binary in the packages" OFF)
-
-if(SLINT_PACKAGE_BUNDLE_QT)
-    if(WIN32)
-        find_package(Qt6 6.0 COMPONENTS Core Gui Widgets Svg)
-        install(
-            FILES
-            $<TARGET_FILE:Qt6::Core>
-            $<TARGET_FILE:Qt6::Gui>
-            $<TARGET_FILE:Qt6::Widgets>
-            $<TARGET_FILE:Qt6::Svg>
-            TYPE LIB)
-
-        install(
-            FILES ${Qt6_DIR}/../../../plugins/platforms/qwindows.dll
-            DESTINATION plugins/platforms)
-        install(
-            FILES ${Qt6_DIR}/../../../plugins/styles/qwindowsvistastyle.dll
-            DESTINATION plugins/styles)
-        install(
-            FILES ${Qt6_DIR}/../../../plugins/imageformats/qsvg.dll
-            DESTINATION plugins/imageformats)
-
-        install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../licenses/ DESTINATION LICENSES)
-
-        set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
-        include(InstallRequiredSystemLibraries)
-        install(FILES ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} TYPE LIB)
-    endif()
-endif(SLINT_PACKAGE_BUNDLE_QT)
-
-set(CPACK_PACKAGE_NAME "Slint-cpp")
-set(CPACK_PACKAGE_VENDOR "Slint")
-set(CPACK_VERBATIM_VARIABLES true)
-set(CPACK_PACKAGE_VERSION_MAJOR 1)
-set(CPACK_PACKAGE_VERSION_MINOR 1)
-set(CPACK_PACKAGE_VERSION_PATCH 1)
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://slint.dev")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/../../LICENSE.md")
-set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_LIST_DIR}/README.md")
-set(CPACK_STRIP_FILES ON)
-set(CPACK_NSIS_DEFINES "ManifestDPIAware true")
-
-if(NOT WIN32)
-    set(CPACK_GENERATOR "TGZ")
-    set(CPACK_SYSTEM_NAME "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
-endif(NOT WIN32)
-
-include(CPack)
-
-if(SLINT_BUILD_TESTING)
-    add_subdirectory(tests)
-endif()
+# export(TARGETS Slint slint-cpp
+#     NAMESPACE Slint:: FILE "${CMAKE_BINARY_DIR}/lib/cmake/Slint/SlintTargets.cmake")
+# install(EXPORT SlintTargets NAMESPACE Slint:: DESTINATION lib/cmake/Slint)
+# install(TARGETS Slint slint-cpp
+#     EXPORT SlintTargets LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/slint)
+#
+# include(CMakePackageConfigHelpers)
+# include(GNUInstallDirs)
+#
+# install(FILES $<TARGET_FILE:slint-cpp-shared> TYPE LIB)
+#
+# if(WIN32)
+#     install(FILES $<TARGET_LINKER_FILE:slint-cpp-shared> TYPE LIB)
+# endif()
+#
+# if(SLINT_FEATURE_COMPILER)
+#     install(PROGRAMS $<TARGET_FILE:slint-compiler> TYPE BIN)
+# endif()
+#
+# foreach(prop
+#     IMPORTED_LOCATION IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION_RELEASE
+#     IMPORTED_LOCATION_RELWITHDEBINFO IMPORTED_LOCATION_MINSIZEREL
+#     IMPORTED_IMPLIB IMPORTED_IMPLIB_DEBUG IMPORTED_IMPLIB_RELEASE
+#     IMPORTED_IMPLIB_RELWITHDEBINFO IMPORTED_IMPLIB_MINSIZEREL)
+#     get_target_property(value slint-cpp-shared ${prop})
+#
+#     if(value)
+#         get_filename_component(value ${value} NAME)
+#         list(APPEND SLINT_LIB_PROPERTIES ${prop} "\${_IMPORT_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${value}")
+#     endif()
+# endforeach()
+#
+# get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
+# configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
+#
+# write_basic_package_version_file(
+#     ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake
+#     VERSION 0.3.1
+#     COMPATIBILITY SameMinorVersion
+# )
+#
+# install(FILES
+#     "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake"
+#     "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake"
+#     DESTINATION lib/cmake/Slint
+#    VERSION 1.1.1
+#
+# if(SLINT_FEATURE_COMPILER)
+#     install(FILES
+#         "${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake"
+#         DESTINATION lib/cmake/Slint
+#     )
+# endif()
+#
+# option(SLINT_PACKAGE_BUNDLE_QT "Internal setting to install Qt binary in the packages" OFF)
+#
+# if(SLINT_PACKAGE_BUNDLE_QT)
+#     if(WIN32)
+#         find_package(Qt6 6.0 COMPONENTS Core Gui Widgets Svg)
+#         install(
+#             FILES
+#             $<TARGET_FILE:Qt6::Core>
+#             $<TARGET_FILE:Qt6::Gui>
+#             $<TARGET_FILE:Qt6::Widgets>
+#             $<TARGET_FILE:Qt6::Svg>
+#             TYPE LIB)
+#
+#         install(
+#             FILES ${Qt6_DIR}/../../../plugins/platforms/qwindows.dll
+#             DESTINATION plugins/platforms)
+#         install(
+#             FILES ${Qt6_DIR}/../../../plugins/styles/qwindowsvistastyle.dll
+#             DESTINATION plugins/styles)
+#         install(
+#             FILES ${Qt6_DIR}/../../../plugins/imageformats/qsvg.dll
+#             DESTINATION plugins/imageformats)
+#
+#         install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../licenses/ DESTINATION LICENSES)
+#
+#         set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+#         include(InstallRequiredSystemLibraries)
+#         install(FILES ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} TYPE LIB)
+#     endif()
+# endif(SLINT_PACKAGE_BUNDLE_QT)
+#
+# set(CPACK_PACKAGE_NAME "Slint-cpp")
+# set(CPACK_PACKAGE_VENDOR "Slint")
+# set(CPACK_VERBATIM_VARIABLES true)
+# set(CPACK_PACKAGE_VERSION_MAJOR 0)
+# set(CPACK_PACKAGE_VERSION_MINOR 3)
+# set(CPACK_PACKAGE_VERSION_PATCH 1)
+# set(CPACK_PACKAGE_HOMEPAGE_URL "https://slint-ui.com")
+# set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/../../LICENSE.md")
+# set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_LIST_DIR}/README.md")
+# set(CPACK_STRIP_FILES ON)
+# set(CPACK_NSIS_DEFINES "ManifestDPIAware true")
+#set(CPACK_PACKAGE_VERSION_MAJOR 1)
+#set(CPACK_PACKAGE_VERSION_MINOR 1)
+#set(CPACK_PACKAGE_VERSION_PATCH 1)
+#set(CPACK_PACKAGE_HOMEPAGE_URL "https://slint.dev")
+# endif(NOT WIN32)
+#
+# include(CPack)
+#
+#if(SLINT_BUILD_TESTING)
+#    add_subdirectory(tests)
+#endif()

@@ -110,44 +110,49 @@ struct Image
 {
 public:
     Image() : data(Data::ImageInner_None()) { }
+    /*
+        /// Load an image from an image file
+        [[nodiscard]] static Image load_from_path(const SharedString &file_path)
+        {
+            Image img;
+            cbindgen_private::types::slint_image_load_from_path(&file_path, &img.data);
+            return img;
+        }
 
-    /// Load an image from an image file
-    [[nodiscard]] static Image load_from_path(const SharedString &file_path)
-    {
-        Image img;
-        cbindgen_private::types::slint_image_load_from_path(&file_path, &img.data);
-        return img;
-    }
+        /// Constructs a new Image from an existing OpenGL texture. The texture remains borrowed by
+        /// Slint for the duration of being used for rendering, such as when assigned as source
+       property
+        /// to an `Image` element. It's the application's responsibility to delete the texture when
+       it
+        /// is not used anymore.
+        ///
+        /// The texture must be bindable against the `GL_TEXTURE_2D` target, have `GL_RGBA` as
+       format
+        /// for the pixel data.
+        ///
+        /// When Slint renders the texture, it assumes that the origin of the texture is at the
+        /// top-left. This is different from the default OpenGL coordinate system.
+        ///
+        /// Safety:
+        ///
+        /// This function is unsafe because invalid texture ids may lead to undefind behavior in
+       OpenGL
+        /// drivers. A valid texture id is one that was created by the same OpenGL context that is
+        /// current during any of the invocations of the callback set on
+        /// [`Window::set_rendering_notifier()`]. OpenGL contexts between instances of
+       [`slint::Window`]
+        /// are not sharing resources. Consequently
+        /// [`slint::Image`] objects created from borrowed OpenGL textures cannot be shared between
+        /// different windows.
+        [[nodiscard]] static Image create_from_borrowed_gl_2d_rgba_texture(uint32_t texture_id,
+                                                                           Size<uint32_t> size)
+        {
+            return Image(Data::ImageInner_BorrowedOpenGLTexture(
+                    cbindgen_private::types::BorrowedOpenGLTexture { texture_id, size })
 
-    /// Constructs a new Image from an existing OpenGL texture. The texture remains borrowed by
-    /// Slint for the duration of being used for rendering, such as when assigned as source property
-    /// to an `Image` element. It's the application's responsibility to delete the texture when it
-    /// is not used anymore.
-    ///
-    /// The texture must be bindable against the `GL_TEXTURE_2D` target, have `GL_RGBA` as format
-    /// for the pixel data.
-    ///
-    /// When Slint renders the texture, it assumes that the origin of the texture is at the
-    /// top-left. This is different from the default OpenGL coordinate system.
-    ///
-    /// Safety:
-    ///
-    /// This function is unsafe because invalid texture ids may lead to undefind behavior in OpenGL
-    /// drivers. A valid texture id is one that was created by the same OpenGL context that is
-    /// current during any of the invocations of the callback set on
-    /// [`Window::set_rendering_notifier()`]. OpenGL contexts between instances of [`slint::Window`]
-    /// are not sharing resources. Consequently
-    /// [`slint::Image`] objects created from borrowed OpenGL textures cannot be shared between
-    /// different windows.
-    [[nodiscard]] static Image create_from_borrowed_gl_2d_rgba_texture(uint32_t texture_id,
-                                                                       Size<uint32_t> size)
-    {
-        return Image(Data::ImageInner_BorrowedOpenGLTexture(
-                cbindgen_private::types::BorrowedOpenGLTexture { texture_id, size })
-
-        );
-    }
-
+            );
+        }
+    */
     /// Construct an image from a SharedPixelBuffer of RGB pixels.
     Image(SharedPixelBuffer<Rgb8Pixel> buffer)
         : data(Data::ImageInner_EmbeddedImage(
@@ -174,16 +179,16 @@ public:
 
     /// Returns the size of the Image in pixels.
     Size<uint32_t> size() const { return cbindgen_private::types::slint_image_size(&data); }
-
-    /// Returns the path of the image on disk, if it was constructed via Image::load_from_path().
-    std::optional<slint::SharedString> path() const
-    {
-        if (auto *str = cbindgen_private::types::slint_image_path(&data)) {
-            return *str;
-        } else {
-            return {};
-        }
-    }
+    /*
+        /// Returns the path of the image on disk, if it was constructed via
+       Image::load_from_path(). std::optional<slint::SharedString> path() const
+        {
+            if (auto *str = cbindgen_private::types::slint_image_path(&data)) {
+                return *str;
+            } else {
+                return {};
+            }
+        }*/
 
     /// Returns true if \a a refers to the same image as \a b; false otherwise.
     friend bool operator==(const Image &a, const Image &b)
@@ -203,20 +208,21 @@ private:
 };
 
 namespace private_api {
+/*
 inline Image load_image_from_embedded_data(std::span<const uint8_t> data,
-                                           std::string_view extension)
+                                       std::string_view extension)
 {
-    cbindgen_private::types::Image img(cbindgen_private::types::Image::ImageInner_None());
-    cbindgen_private::types::slint_image_load_from_embedded_data(
-            slint::cbindgen_private::Slice<uint8_t> { const_cast<uint8_t *>(data.data()),
-                                                      data.size() },
-            slint::cbindgen_private::Slice<uint8_t> {
-                    const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(extension.data())),
-                    extension.size() },
-            &img);
-    return Image(img);
+cbindgen_private::types::Image img(cbindgen_private::types::Image::ImageInner_None());
+cbindgen_private::types::slint_image_load_from_embedded_data(
+        slint::cbindgen_private::Slice<uint8_t> { const_cast<uint8_t *>(data.data()),
+                                                  data.size() },
+        slint::cbindgen_private::Slice<uint8_t> {
+                const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(extension.data())),
+                extension.size() },
+        &img);
+return Image(img);
 }
-
+*/
 inline Image image_from_embedded_textures(const cbindgen_private::types::StaticTextures *textures)
 {
     cbindgen_private::types::Image img(cbindgen_private::types::Image::ImageInner_None());

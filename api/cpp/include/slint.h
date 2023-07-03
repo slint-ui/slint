@@ -11,12 +11,12 @@
 #include <vector>
 #include <memory>
 #include <algorithm>
-#include <iostream> // FIXME: remove: iostream always bring it lots of code so we should not have it in this header
+//#include <iostream> // FIXME: remove: iostream always bring it lots of code so we should not have it in this header
 #include <chrono>
 #include <optional>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
+//#include <thread>
+//#include <mutex>
+//#include <condition_variable>
 #include <span>
 #include <functional>
 #include <concepts>
@@ -82,7 +82,7 @@ using cbindgen_private::TableColumn;
 inline void assert_main_thread()
 {
 #ifndef NDEBUG
-    static auto main_thread_id = std::this_thread::get_id();
+/*    static auto main_thread_id = std::this_thread::get_id();
     if (main_thread_id != std::this_thread::get_id()) {
         std::cerr << "A function that should be only called from the main thread was called from a "
                      "thread."
@@ -92,6 +92,7 @@ inline void assert_main_thread()
                   << std::endl;
         std::abort();
     }
+    */
 #endif
 }
 
@@ -232,6 +233,7 @@ public:
         private_api::assert_main_thread();
         cbindgen_private::slint_windowrc_dispatch_key_event(&inner, &event);
     }
+    /*
 
     /// Registers a font by the specified path. The path must refer to an existing
     /// TrueType font.
@@ -260,6 +262,7 @@ public:
             return {};
         }
     }
+    */
 
     /// \private
     const cbindgen_private::WindowAdapterRcOpaque &handle() const { return inner; }
@@ -708,7 +711,7 @@ public:
     /// If the model can update the data, it should also call `row_changed`
     virtual void set_row_data(size_t, const ModelData &)
     {
-        std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
+        //std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
     };
 
     /// \private
@@ -1581,6 +1584,7 @@ void invoke_from_event_loop(Functor f)
             [](void *data) { delete reinterpret_cast<Functor *>(data); });
 }
 
+/*
 /// Blocking version of invoke_from_event_loop()
 ///
 /// Just like invoke_from_event_loop(), this will run the specified functor from the thread running
@@ -1653,5 +1657,6 @@ void blocking_invoke_from_event_loop(Functor f)
     cv.wait(lock, [&] { return ok; });
 }
 #endif
+*/
 
 } // namespace slint

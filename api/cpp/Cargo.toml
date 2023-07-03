@@ -18,26 +18,25 @@ links = "slint_cpp"
 
 [lib]
 path = "lib.rs"
-crate-type = ["lib", "cdylib"]
+crate-type = ["staticlib"]
 
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-interpreter = ["slint-interpreter"]
-testing = ["i-slint-backend-testing"] # Enable some function used by the integration tests
-
-backend-qt = ["i-slint-backend-selector/i-slint-backend-qt"]
-backend-winit = ["i-slint-backend-selector/backend-winit"]
-backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11"]
-backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland"]
-renderer-winit-femtovg = ["i-slint-backend-selector/renderer-winit-femtovg"]
-renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia"]
-renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl"]
-renderer-winit-skia-vulkan = ["i-slint-backend-selector/renderer-winit-skia-vulkan"]
-renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
-gettext = ["i-slint-core/gettext-rs"]
-accessibility = ["i-slint-backend-selector/accessibility"]
-
+#interpreter = ["slint-interpreter"]
+#testing = ["i-slint-backend-testing"] # Enable some function used by the integration tests
+#
+#backend-qt = ["i-slint-backend-selector/i-slint-backend-qt"]
+#backend-winit = ["i-slint-backend-selector/backend-winit"]
+#backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11"]
+#backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland"]
+#renderer-winit-femtovg = ["i-slint-backend-selector/renderer-winit-femtovg"]
+#renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia"]
+#renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl"]
+#renderer-winit-skia-vulkan = ["i-slint-backend-selector/renderer-winit-skia-vulkan"]
+#renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
+#gettext = ["i-slint-core/gettext-rs"]
+#accessibility = ["i-slint-backend-selector/accessibility"]
 experimental = ["i-slint-renderer-skia", "raw-window-handle", "experimental-platform"]
 experimental-platform = []
 

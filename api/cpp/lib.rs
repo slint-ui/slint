@@ -86,7 +86,7 @@ pub unsafe extern "C" fn slint_post_event(
 pub unsafe extern "C" fn slint_quit_event_loop() {
     i_slint_core::api::quit_event_loop().unwrap();
 }
-
+/*
 #[cfg(feature = "std")]
 #[no_mangle]
 pub unsafe extern "C" fn slint_register_font_from_path(
