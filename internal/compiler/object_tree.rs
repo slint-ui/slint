@@ -2458,7 +2458,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
         li_h.element().borrow_mut().bindings.insert(li_h.name().into(), expr_h.into());
         Some((li_h.clone(), li_v.clone()))
     });
-    new_root.borrow_mut().layout_info_prop = dbg!(layout_info_prop);
+    new_root.borrow_mut().layout_info_prop = layout_info_prop;
 
     // Replace the repeated component's element with our shadow element. That requires a bit of reference counting
     // surgery and relies on nobody having a strong reference left to the component, which we take out of the Rc.
