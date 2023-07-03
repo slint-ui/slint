@@ -3,10 +3,14 @@
 
 cmake_minimum_required(VERSION 3.21)
 
-project(Slint LANGUAGES CXX)
+include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+project(Slint LANGUAGES CXX C ASM)
+
+pico_sdk_init()
+
+#set(CMAKE_CXX_STANDARD 20)
+#set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FeatureSummary)
 

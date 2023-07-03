@@ -120,12 +120,17 @@ pub unsafe extern "C" fn slint_register_font_from_data(
             Err(err) => err.to_string().into(),
         },
     )
-}
+}*/
 
 #[cfg(feature = "testing")]
 #[no_mangle]
 pub unsafe extern "C" fn slint_testing_init_backend() {
     i_slint_backend_testing::init();
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn slint_backend_init() {
+    mcu_board_support::init();
 }
 
 #[cfg(not(feature = "std"))]

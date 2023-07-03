@@ -777,6 +777,7 @@ pub(crate) mod ffi {
     ) -> LayoutInfo {
         super::box_layout_info_ortho(cells, padding)
     }
+    #[cfg(feature = "std")]
 
     /// Calls [`reorder_dialog_button_layout`].
     ///

@@ -11,12 +11,13 @@
 #include <vector>
 #include <memory>
 #include <algorithm>
-//#include <iostream> // FIXME: remove: iostream always bring it lots of code so we should not have it in this header
+// #include <iostream> // FIXME: remove: iostream always bring it lots of code so we should not have
+// it in this header
 #include <chrono>
 #include <optional>
-//#include <thread>
-//#include <mutex>
-//#include <condition_variable>
+// #include <thread>
+// #include <mutex>
+// #include <condition_variable>
 #include <span>
 #include <functional>
 #include <concepts>
@@ -709,9 +710,8 @@ public:
     /// The default implementation will print a warning to stderr.
     ///
     /// If the model can update the data, it should also call `row_changed`
-    virtual void set_row_data(size_t, const ModelData &)
-    {
-        //std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
+    virtual void set_row_data(size_t, const ModelData &) {
+        // std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
     };
 
     /// \private
