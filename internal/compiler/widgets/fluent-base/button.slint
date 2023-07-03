@@ -5,9 +5,11 @@ import { Typography, Palette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
 export component Button {
+    private property <brush> text-color: primary || checked ? Palette.text-on-accent-primary : Palette.text-primary;
+
     callback clicked;
 
-    in property <string> text <=> i-text.text;
+    in property <string> text;
     in property <image> icon;
     in property <bool> primary;
     in property <bool> enabled <=> i-touch-area.enabled;
@@ -21,7 +23,7 @@ export component Button {
     horizontal-stretch: 0;
     vertical-stretch: 0;
 
-    accessible-label <=> i-text.text;
+    accessible-label: text;
     accessible-role: button;
 
     i-background := Rectangle {
@@ -48,12 +50,13 @@ export component Button {
                 width: 20px;
             }
 
-            i-text := Text {
-                color: root.primary || root.checked ? Palette.text-on-accent-primary : Palette.text-primary;
+            if (root.text != ""): Text {
                 font-size: Typography.body.font-size;
                 font-weight: Typography.body.font-weight;
                 horizontal-alignment: center;
                 vertical-alignment: center;
+                text: root.text;
+                color: root.text-color;
 
                 animate color { duration: 150ms; }
             }
@@ -95,12 +98,12 @@ export component Button {
         disabled when !root.enabled : {
             i-background.background: root.primary || root.checked ? Palette.accent-disabled : Palette.control-disabled;
             i-border.border-color: root.primary || root.checked ? transparent : Palette.control-stroke;
-            i-text.color: root.primary || root.checked ? Palette.text-on-accent-disabled : Palette.text-disabled;
+            root.text-color: root.primary || root.checked ? Palette.text-on-accent-disabled : Palette.text-disabled;
         }
         pressed when root.pressed : {
             i-background.background: root.primary || root.checked ? Palette.accent-tertiary : Palette.control-tertiary;
             i-border.border-color: Palette.control-stroke;
-            i-text.color: root.primary || root.checked ? Palette.text-on-accent-secondary : Palette.text-secondary;
+            root.text-color: root.primary || root.checked ? Palette.text-on-accent-secondary : Palette.text-secondary;
         }
         hover when i-touch-area.has-hover : {
             i-background.background: root.primary || root.checked ? Palette.accent-secondary : Palette.control-secondary;
@@ -108,7 +111,7 @@ export component Button {
         checked when root.checked : {
             i-background.background: Palette.accent-default;
             i-border.border-color: Palette.accent-control-border;
-            i-text.color: Palette.text-on-accent-primary;
+            root.text-color: Palette.text-on-accent-primary;
         }
     ]
 }

@@ -31,6 +31,12 @@ export component ControlsPage inherits Page {
             }
 
             Button {
+                icon: @image-url("../../thumbsup.png");
+                enabled: GallerySettings.widgets-enabled;
+                primary: true;
+            }
+
+            Button {
                 checkable: true;
                 text: self.checked ? @tr("ON") : @tr("OFF");
                 enabled: GallerySettings.widgets-enabled;
