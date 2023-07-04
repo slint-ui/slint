@@ -551,6 +551,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "604178f6c5c21f02dc555784810edfb88d34ac2c73b2eae109655649ee73ce3d"
 
 [[package]]
+name = "basic-toml"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c0de75129aa8d0cceaf750b89013f0e08804d6ec61416da787b35ad0d7cddf1"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.64.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1756,7 +1765,7 @@ checksum = "750082c65094fbcc4baf9ba31583ce9a8bb7f52cadfb96f6164b1bc7f922f32b"
 dependencies = [
  "az",
  "byteorder",
- "embedded-graphics-core",
+ "embedded-graphics-core 0.3.3",
  "float-cmp 0.8.0",
  "micromath",
 ]
@@ -1766,6 +1775,16 @@ name = "embedded-graphics-core"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8b1239db5f3eeb7e33e35bd10bd014e7b2537b17e071f726a09351431337cfa"
+dependencies = [
+ "az",
+ "byteorder",
+]
+
+[[package]]
+name = "embedded-graphics-core"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba9ecd261f991856250d2207f6d8376946cd9f412a2165d3b75bc87a0bc7a044"
 dependencies = [
  "az",
  "byteorder",
@@ -1893,9 +1912,9 @@ dependencies = [
 
 [[package]]
 name = "esp-alloc"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b46ad395d4b5ebec5a36483b3d8d84fecb8a80ad38c143392249990a83d8f23"
+checksum = "83792eb7261a375bb838679fea2b45654b8f4a48da6bef10a96da5054aa81c7d"
 dependencies = [
  "critical-section",
  "linked_list_allocator",
@@ -1903,19 +1922,21 @@ dependencies = [
 
 [[package]]
 name = "esp-backtrace"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e628c86c7f56b0511f7ce1d6b1fe9abe070d89556f227e297ed0c8122b9aaef6"
+checksum = "b151ef7db21143b1a3b7a378c16d97ae13d0a5e3cb9682ed1f11bba821cce42d"
 dependencies = [
  "esp-println",
 ]
 
 [[package]]
 name = "esp-hal-common"
-version = "0.7.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5df3ec9a2e4df155e5a99f50b76a3a6733e69941d453085d3258846e1bd0a64e"
+checksum = "d077ffedaa2632004cf73e713438a18706d6d04d2fb0632ffe5a5f02bb9c17e0"
 dependencies = [
+ "basic-toml",
+ "bitflags 2.3.3",
  "cfg-if",
  "critical-section",
  "embedded-dma",
@@ -1928,6 +1949,7 @@ dependencies = [
  "lock_api",
  "nb 1.1.0",
  "paste",
+ "serde",
  "strum 0.24.1",
  "usb-device",
  "void",
@@ -1937,9 +1959,9 @@ dependencies = [
 
 [[package]]
 name = "esp-hal-procmacros"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "214510c5399a574ee6a521be48851d06aaa188b40c4b6b8f2a2c3b8d22afd12e"
+checksum = "14e4123798117de04121fcbd7991f0e2c3cfccf9a31017c94f611013be401080"
 dependencies = [
  "darling",
  "proc-macro-crate",
@@ -1951,9 +1973,9 @@ dependencies = [
 
 [[package]]
 name = "esp-println"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c33a9d1eb60882ec910021bda7b67ce789dd0d6325b886e6739ef9d8f495ae22"
+checksum = "af6a511d37dba5fb8f01bf5485bc619a1a1959e1aaf666a7597df8fe615a0816"
 dependencies = [
  "critical-section",
 ]
@@ -1972,9 +1994,9 @@ dependencies = [
 
 [[package]]
 name = "esp32s2"
-version = "0.12.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6ac1524e64f5277353b3094916e80a7ca7465af3bfff7bd32c0006109b8cb60"
+checksum = "377ef0edbe8e36de5707fc60ad5497c294289ebce42b8ed9635d44ceb4bb82dc"
 dependencies = [
  "critical-section",
  "vcell",
@@ -1983,9 +2005,9 @@ dependencies = [
 
 [[package]]
 name = "esp32s2-hal"
-version = "0.7.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ea99cc40bd78f19f0540f3cc8e9c7969ebda0f7fb92a83177a8ccd79828cb0f"
+checksum = "d43dfc49fcd74385d1aba336d7ef0bdb639ff06ea7ab63b3702354fedf03e80d"
 dependencies = [
  "embedded-hal",
  "esp-hal-common",
@@ -1994,9 +2016,9 @@ dependencies = [
 
 [[package]]
 name = "esp32s3"
-version = "0.15.0"
+version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63fb7229181d846564e20f70d6c7e69beba4f5ad5e61cd9d62ea924bd94f4170"
+checksum = "0e4e6c4f0944fdf3f9a5c6a99a36ee31a05dac0fa02c1cb618c8c5ee0a3b44ed"
 dependencies = [
  "critical-section",
  "vcell",
@@ -2005,9 +2027,9 @@ dependencies = [
 
 [[package]]
 name = "esp32s3-hal"
-version = "0.7.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b30abd0a23f7dabc3e5f0314d1316ddc84ca40621c77f1d64b481be7c2dac6f9"
+checksum = "552c3669d592a96479b2a526268e7b29421888defd08029c7bdc3c0c77cdee7c"
 dependencies = [
  "bare-metal 1.0.0",
  "embedded-hal",
@@ -3480,6 +3502,7 @@ dependencies = [
  "embedded-display-controller",
  "embedded-dma",
  "embedded-graphics",
+ "embedded-graphics-core 0.4.0",
  "embedded-hal",
  "embedded-time",
  "esp-alloc",
@@ -3634,12 +3657,12 @@ dependencies = [
 
 [[package]]
 name = "mipidsi"
-version = "0.6.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "187aa4e418283ff1186bc471cb3a20bab339ee8f25882bdb7465ae44bd971c95"
+checksum = "46968d0e30e7753c3503248bc48b408f9cce2bfbaa522a33e13c9aafadc4ce43"
 dependencies = [
  "display-interface",
- "embedded-graphics-core",
+ "embedded-graphics-core 0.4.0",
  "embedded-hal",
  "heapless",
  "nb 1.1.0",
@@ -5485,7 +5508,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "86e89eaa897f8688aa897a7a8a62847e00e3f49f804d918bdebd14d4a1beb5ab"
 dependencies = [
  "display-interface",
- "embedded-graphics-core",
+ "embedded-graphics-core 0.3.3",
  "embedded-hal",
  "heapless",
  "nb 1.1.0",
