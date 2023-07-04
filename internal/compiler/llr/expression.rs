@@ -161,7 +161,7 @@ pub enum Expression {
         repeater_index: Option<Box<Expression>>,
     },
     /// Will call the sub_expression, with the cell variable set to the
-    /// array the array of BoxLayoutCellData form the elements
+    /// array of BoxLayoutCellData from the elements
     BoxLayoutFunction {
         /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the sell
         cells_variable: String,
