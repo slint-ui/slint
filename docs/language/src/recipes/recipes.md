@@ -834,7 +834,8 @@ export component Example inherits Window {
 
 Use recipe implements a responsive SideBar that collapses when the parent
 width is smaller than the given break-point. When clicking the Button, the
-SideBar expands again.
+SideBar expands again. Use the blue Splitter to resize the container and
+test the responsive behavior.
 
 ```slint,no-auto-preview
 import { Button, StyleMetrics } from "std-widgets.slint";
@@ -886,15 +887,14 @@ export component SideBar inherits Rectangle {
                 in {
                     animate width { duration: 200ms; }
                 }
-
                 out {
                     animate width { duration: 200ms; }
                 }
-            in {
-                    animate width { duration: 200ms; }
+                in {
+                        animate width { duration: 200ms; }
                 }
-            out {
-                    animate width { duration: 200ms; }
+                out {
+                        animate width { duration: 200ms; }
                 }
             }
         ]
@@ -907,11 +907,26 @@ export component SideBar inherits Rectangle {
     ]
 }
 
+component Splitter inherits TouchArea {
+    width: 4px;
+    mouse-cursor: ew-resize;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: blue;
+    }
+}
+
 export component SideBarTest inherits Window {
     preferred-width: 700px;
     min-height: 400px;
+    background: gray;
 
     GridLayout {
+        x: 0;
+        width: splitter.x;
+
         Rectangle {
             height: 100%;
             col: 1;
@@ -930,6 +945,15 @@ export component SideBarTest inherits Window {
             col: 0;
             reference-width: parent.width;
             expand-button-text: "E";
+        }
+    }
+
+    splitter := Splitter {
+        x: root.width - self.width;
+        height: 100%;
+
+        moved => {
+            self.x = min(root.width - self.width, max(400px, self.x + self.mouse-x - self.pressed-x));
         }
     }
 }
