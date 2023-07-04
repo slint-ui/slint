@@ -113,6 +113,12 @@ pub trait ItemTreeBuilder {
         parent_index: u32,
         component_state: &Self::SubComponentState,
     );
+    fn push_component_placeholder_item(
+        &mut self,
+        item: &crate::object_tree::ElementRc,
+        parent_index: u32,
+        component_state: &Self::SubComponentState,
+    );
     fn push_native_item(
         &mut self,
         item: &ElementRc,
@@ -317,7 +323,9 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         parent_index: u32,
         builder: &mut T,
     ) {
-        if item.borrow().repeated.is_some() {
+        if item.borrow().is_component_placeholder {
+            builder.push_component_placeholder_item(item, parent_index, component_state);
+        } else if item.borrow().repeated.is_some() {
             builder.push_repeated_item(item, *repeater_count, parent_index, component_state);
             *repeater_count += 1;
         } else {
@@ -355,6 +363,9 @@ pub fn handle_property_bindings_init(
         handle_property: &mut impl FnMut(&ElementRc, &str, &BindingExpression),
         processed: &mut HashSet<NamedReference>,
     ) {
+        if elem.borrow().is_component_placeholder {
+            return; // This element does not really exist!
+        }
         let nr = NamedReference::new(elem, prop_name);
         if processed.contains(&nr) {
             return;
@@ -403,7 +414,7 @@ pub fn handle_property_bindings_init(
 /// `set_constant` on it.
 pub fn for_each_const_properties(component: &Rc<Component>, mut f: impl FnMut(&ElementRc, &str)) {
     crate::object_tree::recurse_elem(&component.root_element, &(), &mut |elem: &ElementRc, ()| {
-        if elem.borrow().repeated.is_some() {
+        if elem.borrow().repeated.is_some() || elem.borrow().is_component_placeholder {
             return;
         }
         let mut e = elem.clone();
