@@ -135,10 +135,14 @@ pub type ComponentWeak = vtable::VWeak<ComponentVTable, Dyn>;
 /// Call init() on the ItemVTable for each item of the component.
 pub fn register_component<Base>(
     base: core::pin::Pin<&Base>,
+    component_weak: &ComponentWeak,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window_adapter: Option<Rc<dyn WindowAdapter>>,
 ) {
-    item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init());
+    item_array
+        .iter()
+        .enumerate()
+        .for_each(|(index, item)| item.apply_pin(base).as_ref().init(&component_weak, index));
     if let Some(adapter) = window_adapter.as_ref().and_then(|a| a.internal(crate::InternalToken)) {
         adapter.register_component();
     }
@@ -172,12 +176,14 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_register_component(
         component: ComponentRefPin,
+        component_weak: &ComponentWeak,
         item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
         window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
     ) {
         let window_adapter = &*(window_handle as *const Rc<dyn WindowAdapter>);
         super::register_component(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
+            component_weak,
             item_array.as_slice(),
             Some(window_adapter.clone()),
         )

@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-use i_slint_core::input::{FocusEventResult, KeyEventType};
+use i_slint_core::{
+    component::ComponentWeak,
+    input::{FocusEventResult, KeyEventType},
+};
 
 use super::*;
 
@@ -54,7 +57,7 @@ option.frame = true;
 }}
 
 impl Item for NativeSpinBox {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _component: &ComponentWeak, _index: usize) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(

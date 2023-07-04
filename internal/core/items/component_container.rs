@@ -7,13 +7,14 @@ This module contains the builtin `ComponentContainer` and related items
 When adding an item or a property, it needs to be kept in sync with different place.
 Lookup the [`crate::items`] module documentation.
 */
-use super::{Item, ItemConsts, ItemRc, RenderingResult};
+use super::{ComponentWeak, Item, ItemConsts, ItemRc, RenderingResult};
 use crate::component_factory::ComponentFactory;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
+use crate::item_tree::ItemTreeNode;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::properties::Property;
@@ -22,6 +23,7 @@ use crate::rtti::*;
 use crate::window::WindowAdapter;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
+use core::cell::OnceCell;
 use core::pin::Pin;
 use i_slint_core_macros::*;
 
@@ -37,10 +39,25 @@ pub struct ComponentContainer {
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
+
+    my_component: OnceCell<ComponentWeak>,
+    embedding_item_tree_index: OnceCell<usize>,
 }
 
 impl Item for ComponentContainer {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, my_component: &ComponentWeak, my_item_index: usize) {
+        self.my_component.set(my_component.clone()).or(Err(())).unwrap();
+
+        let rc = vtable::VWeak::upgrade(my_component).unwrap();
+
+        // Find my embedding item_tree_index:
+        let pin_rc = vtable::VRc::borrow_pin(&rc);
+        let item_tree = pin_rc.as_ref().get_item_tree();
+        let my_node = item_tree.iter().find(|n| matches!(n, ItemTreeNode::Item { item_array_index, .. } if (*item_array_index as usize) == my_item_index)).unwrap();
+        let ItemTreeNode::Item { children_index: child_item_tree_index, .. } = my_node else { panic!("ComponentContainer had no child."); };
+
+        self.embedding_item_tree_index.set(*child_item_tree_index as usize).ok().unwrap();
+    }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(

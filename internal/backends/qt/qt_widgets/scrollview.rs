@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-use i_slint_core::input::FocusEventResult;
+use i_slint_core::{component::ComponentWeak, input::FocusEventResult};
 
 use super::*;
 
@@ -30,7 +30,7 @@ pub struct NativeScrollView {
 }
 
 impl Item for NativeScrollView {
-    fn init(self: Pin<&Self>) {
+    fn init(self: Pin<&Self>, _component: &ComponentWeak, _index: usize) {
         let paddings = Rc::pin(Property::default());
 
         paddings.as_ref().set_binding(move || {

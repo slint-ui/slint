@@ -1234,7 +1234,15 @@ pub fn instantiate(
     let instance = component_type.dynamic_type.clone().create_instance();
 
     let component_box = ComponentBox { instance, component_type: component_type.clone() };
-    let instance_ref = component_box.borrow_instance();
+
+    let self_rc = vtable::VRc::new(ErasedComponentBox::from(component_box));
+    let self_weak = vtable::VRc::downgrade(&self_rc);
+
+    generativity::make_guard!(guard);
+    let comp = self_rc.unerase(guard);
+    let instance_ref = comp.borrow_instance();
+    instance_ref.self_weak().set(self_weak.clone()).ok();
+    let component_type = comp.description();
 
     if !component_type.original.is_global() {
         let maybe_window_adapter =
@@ -1249,21 +1257,16 @@ pub fn instantiate(
                 })
             };
 
+        let component_weak =
+            vtable::VWeak::into_dyn(instance_ref.self_weak().get().unwrap().clone());
+
         i_slint_core::component::register_component(
             instance_ref.instance,
+            &component_weak,
             instance_ref.component_type.item_array.as_slice(),
             maybe_window_adapter,
         );
     }
-
-    let self_rc = vtable::VRc::new(ErasedComponentBox::from(component_box));
-    let self_weak = vtable::VRc::downgrade(&self_rc);
-
-    generativity::make_guard!(guard);
-    let comp = self_rc.unerase(guard);
-    let instance_ref = comp.borrow_instance();
-    instance_ref.self_weak().set(self_weak.clone()).ok();
-    let component_type = comp.description();
 
     if let Some(parent) = parent_ctx {
         component_type

@@ -3,7 +3,7 @@
 
 // cSpell: ignore hframe qreal tabbar vframe
 
-use i_slint_core::input::FocusEventResult;
+use i_slint_core::{component::ComponentWeak, input::FocusEventResult};
 
 use super::*;
 
@@ -35,7 +35,7 @@ pub struct NativeTabWidget {
 }
 
 impl Item for NativeTabWidget {
-    fn init(self: Pin<&Self>) {
+    fn init(self: Pin<&Self>, _component: &ComponentWeak, _index: usize) {
         #[derive(Default, Clone)]
         #[repr(C)]
         struct TabWidgetMetrics {
@@ -345,7 +345,7 @@ pub struct NativeTab {
 }
 
 impl Item for NativeTab {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _component: &ComponentWeak, _index: usize) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(

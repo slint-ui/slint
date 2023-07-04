@@ -12,6 +12,7 @@ use super::{
     PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow,
     TextVerticalAlignment, TextWrap, VoidArg,
 };
+use crate::component::ComponentWeak;
 use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
     key_codes, FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -58,7 +59,7 @@ pub struct Text {
 }
 
 impl Item for Text {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _component: &ComponentWeak, _index: usize) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -254,7 +255,7 @@ pub struct TextInput {
 }
 
 impl Item for TextInput {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _component: &ComponentWeak, _index: usize) {}
 
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> LogicalRect {

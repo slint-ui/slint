@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-use i_slint_core::{input::FocusEventResult, items::PointerEventButton};
+use i_slint_core::{component::ComponentWeak, input::FocusEventResult, items::PointerEventButton};
 
 use super::*;
 
@@ -60,7 +60,7 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, 
 }}
 
 impl Item for NativeSlider {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _component: &ComponentWeak, _index: usize) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
