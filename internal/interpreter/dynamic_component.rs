@@ -198,10 +198,10 @@ impl Component for ErasedComponentBox {
 
     fn embed_component(
         self: core::pin::Pin<&Self>,
-        _parent_component: &ComponentWeak,
-        _item_tree_index: usize,
+        parent_component: &ComponentWeak,
+        item_tree_index: usize,
     ) -> bool {
-        false
+        self.borrow().as_ref().embed_component(parent_component, item_tree_index)
     }
 
     fn subtree_index(self: Pin<&Self>) -> usize {
@@ -384,6 +384,7 @@ pub enum WindowOptions {
     #[default]
     CreateNewWindow,
     UseExistingWindow(Rc<dyn WindowAdapter>),
+    EmbedIntoExistingWindow(Rc<dyn WindowAdapter>),
     #[cfg(target_arch = "wasm32")]
     CreateWithCanvasId(String),
 }
@@ -1316,13 +1317,17 @@ pub fn instantiate(
         .unwrap_or_else(|| self_weak.clone());
     component_type.root_offset.apply(instance_ref.as_ref()).set(root).ok().unwrap();
 
-    if let Some(WindowOptions::UseExistingWindow(window_adapter)) = window_options {
-        component_type
-            .window_adapter_offset
-            .apply(instance_ref.as_ref())
-            .set(window_adapter.clone())
-            .ok()
-            .unwrap();
+    match &window_options {
+        Some(WindowOptions::UseExistingWindow(existing_adapter))
+        | Some(WindowOptions::EmbedIntoExistingWindow(existing_adapter)) => {
+            component_type
+                .window_adapter_offset
+                .apply(instance_ref.as_ref())
+                .set(existing_adapter.clone())
+                .ok()
+                .unwrap();
+        }
+        _ => {}
     }
 
     // Some properties are generated as Value, but for which the default constructed Value must be initialized
