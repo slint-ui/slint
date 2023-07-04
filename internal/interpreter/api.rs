@@ -628,6 +628,22 @@ impl ComponentDefinition {
 
     /// Instantiate the component using an existing window.
     #[doc(hidden)]
+    pub fn embed_into_existing_window(
+        &self,
+        window: &Window,
+    ) -> Result<ComponentInstance, PlatformError> {
+        generativity::make_guard!(guard);
+        Ok(ComponentInstance {
+            inner: self.inner.unerase(guard).clone().create(
+                WindowOptions::EmbedIntoExistingWindow(
+                    WindowInner::from_pub(window).window_adapter(),
+                ),
+            )?,
+        })
+    }
+
+    /// Instantiate the component using an existing window.
+    #[doc(hidden)]
     pub fn create_with_existing_window(
         &self,
         window: &Window,
