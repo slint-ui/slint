@@ -10,7 +10,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-06-30 03:08+0000\n"
+"POT-Creation-Date: 2023-07-04 03:15+0000\n"
 "PO-Revision-Date: 2023-06-06 13:52+0000\n"
 "Last-Translator: Olivier Goffart <olivier.goffart@slint-ui.com>, 2023\n"
 "Language-Team: German (https://app.transifex.com/slint/teams/170022/de/)\n"
@@ -230,118 +230,118 @@ msgctxt "ControlsPage"
 msgid "Primary Button with Icon"
 msgstr ""
 
-#: ui/pages/controls_page.slint:35
+#: ui/pages/controls_page.slint:41
 msgctxt "ControlsPage"
 msgid "ON"
 msgstr ""
 
-#: ui/pages/controls_page.slint:35
+#: ui/pages/controls_page.slint:41
 msgctxt "ControlsPage"
 msgid "OFF"
 msgstr ""
 
-#: ui/pages/controls_page.slint:42
+#: ui/pages/controls_page.slint:48
 msgctxt "ControlsPage"
 msgid "CheckBox - SpinBox - ComboBox - Switch"
 msgstr ""
 
-#: ui/pages/controls_page.slint:50
+#: ui/pages/controls_page.slint:56
 msgctxt "ControlsPage"
 msgid "(checked)"
 msgstr ""
 
-#: ui/pages/controls_page.slint:50
+#: ui/pages/controls_page.slint:56
 msgctxt "ControlsPage"
 msgid "(unchecked)"
 msgstr ""
 
-#: ui/pages/controls_page.slint:56
+#: ui/pages/controls_page.slint:62
 msgctxt "ControlsPage"
 msgid "Select Something"
 msgstr ""
 
-#: ui/pages/controls_page.slint:56
+#: ui/pages/controls_page.slint:62
 msgctxt "ControlsPage"
 msgid "From this"
 msgstr ""
 
-#: ui/pages/controls_page.slint:56
+#: ui/pages/controls_page.slint:62
 msgctxt "ControlsPage"
 msgid "Combobox"
 msgstr ""
 
-#: ui/pages/controls_page.slint:61
+#: ui/pages/controls_page.slint:67
 #, fuzzy
 msgctxt "ControlsPage"
 msgid "Flight Mode"
 msgstr "Flugmodus"
 
-#: ui/pages/controls_page.slint:69
+#: ui/pages/controls_page.slint:75
 msgctxt "ControlsPage"
 msgid "LineEdit - SpinBox"
 msgstr ""
 
-#: ui/pages/controls_page.slint:77
+#: ui/pages/controls_page.slint:83
 msgctxt "ControlsPage"
 msgid "Enter some text"
 msgstr ""
 
-#: ui/pages/controls_page.slint:90
+#: ui/pages/controls_page.slint:96
 msgctxt "ControlsPage"
 msgid "Slider"
 msgstr ""
 
-#: ui/pages/controls_page.slint:103
+#: ui/pages/controls_page.slint:109
 msgctxt "ControlsPage"
 msgid "ProgressIndicator"
 msgstr ""
 
-#: ui/pages/controls_page.slint:116
+#: ui/pages/controls_page.slint:122
 msgctxt "ControlsPage"
 msgid "indeterminate"
 msgstr ""
 
-#: ui/pages/controls_page.slint:123
+#: ui/pages/controls_page.slint:129
 msgctxt "ControlsPage"
 msgid "TabWidget"
 msgstr ""
 
-#: ui/pages/controls_page.slint:127
+#: ui/pages/controls_page.slint:133
 msgctxt "ControlsPage"
 msgid "Tab 1"
 msgstr ""
 
-#: ui/pages/controls_page.slint:133
+#: ui/pages/controls_page.slint:139
 msgctxt "ControlsPage"
 msgid "Content of tab 1"
 msgstr ""
 
-#: ui/pages/controls_page.slint:139
+#: ui/pages/controls_page.slint:145
 msgctxt "ControlsPage"
 msgid "Click me"
 msgstr ""
 
-#: ui/pages/controls_page.slint:148
+#: ui/pages/controls_page.slint:154
 msgctxt "ControlsPage"
 msgid "Tab 2"
 msgstr ""
 
-#: ui/pages/controls_page.slint:154
+#: ui/pages/controls_page.slint:160
 msgctxt "ControlsPage"
 msgid "Content of tab 2"
 msgstr ""
 
-#: ui/pages/controls_page.slint:160
+#: ui/pages/controls_page.slint:166
 msgctxt "ControlsPage"
 msgid "Check me"
 msgstr ""
 
-#: ui/pages/controls_page.slint:169
+#: ui/pages/controls_page.slint:175
 msgctxt "ControlsPage"
 msgid "Tab 3"
 msgstr ""
 
-#: ui/pages/controls_page.slint:173
+#: ui/pages/controls_page.slint:179
 msgctxt "ControlsPage"
 msgid "Content of tab 3"
 msgstr ""
