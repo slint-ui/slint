@@ -10,6 +10,7 @@ use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
 use i_slint_compiler::langtype::{ElementType, Type};
+use i_slint_compiler::llr::ComponentContainerIndex;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::*;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
@@ -859,6 +860,20 @@ pub(crate) fn generate_component<'id>(
                 }
                 .into(),
             );
+        }
+
+        fn push_component_placeholder_item(
+            &mut self,
+            item: &i_slint_compiler::object_tree::ElementRc,
+            parent_index: u32,
+            _component_state: &Self::SubComponentState,
+        ) {
+            let component_index = ComponentContainerIndex::from(parent_index as usize);
+            self.tree_array.push(ItemTreeNode::DynamicTree {
+                index: component_index.as_repeater_index(),
+                parent_index,
+            });
+            self.original_elements.push(item.clone());
         }
 
         fn push_native_item(
