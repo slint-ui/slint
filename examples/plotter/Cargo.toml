@@ -15,7 +15,7 @@ name = "plotter"
 
 [dependencies]
 slint = { path = "../../api/rs/slint" }
-plotters = { version = "0.3.4", default-features = false, features = ["bitmap_backend", "surface_series", "fontconfig-dlopen"] }
+plotters = { version = "0.3.5", default-features = false, features = ["bitmap_backend", "surface_series", "fontconfig-dlopen", "ttf"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
