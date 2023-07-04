@@ -753,6 +753,46 @@ fn generate_sub_component(
         repeated_element_components.push(rep_inner_component_id);
     }
 
+    for container in component.component_containers.iter() {
+        let items_index = container.component_container_items_index;
+        let repeater_index = container.component_container_item_tree_index.as_repeater_index();
+
+        let embed_item = access_member(
+            &llr::PropertyReference::InNativeItem {
+                sub_component_path: vec![],
+                item_index: items_index,
+                prop_name: String::new(),
+            },
+            &ctx,
+        );
+
+        let window_adapter_tokens = access_window_adapter_field(&ctx);
+        let ensure_updated = {
+            quote! {
+                #embed_item.ensure_updated(#window_adapter_tokens.window());
+            }
+        };
+
+        repeated_visit_branch.push(quote!(
+            #repeater_index => {
+                #ensure_updated
+                #embed_item.visit_children_item(-1, order, visitor)
+            }
+        ));
+        repeated_subtree_ranges.push(quote!(
+            #repeater_index => {
+                #ensure_updated
+               #embed_item.subtree_range()
+            }
+        ));
+        repeated_subtree_components.push(quote!(
+            #repeater_index => {
+                #ensure_updated
+                *result = #embed_item.subtree_component()
+            }
+        ));
+    }
+
     let mut accessible_role_branch = vec![];
     let mut accessible_string_property_branch = vec![];
     for ((index, what), expr) in &component.accessible_prop {
@@ -969,11 +1009,6 @@ fn generate_sub_component(
             fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: usize) -> sp::IndexRange {
                 #![allow(unused)]
                 let _self = self;
-                // FIXME: Remove this again once the rust compiler supports ComponentContainer!
-                if dyn_index >= (usize::MAX / 2) { // FIXME: Remove this magic again!
-                    // todo!("ComponentContainer support is still missing in the rust output");
-                    return slint::private_unstable_api::re_exports::IndexRange::from((0..0));
-                }
                 match dyn_index {
                     #(#repeated_subtree_ranges)*
                     _ => panic!("invalid dyn_index {}", dyn_index),
