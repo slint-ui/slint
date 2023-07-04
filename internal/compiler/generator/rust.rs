@@ -969,6 +969,11 @@ fn generate_sub_component(
             fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: usize) -> sp::IndexRange {
                 #![allow(unused)]
                 let _self = self;
+                // FIXME: Remove this again once the rust compiler supports ComponentContainer!
+                if dyn_index >= (usize::MAX / 2) { // FIXME: Remove this magic again!
+                    // todo!("ComponentContainer support is still missing in the rust output");
+                    return slint::private_unstable_api::re_exports::IndexRange::from((0..0));
+                }
                 match dyn_index {
                     #(#repeated_subtree_ranges)*
                     _ => panic!("invalid dyn_index {}", dyn_index),
