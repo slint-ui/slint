@@ -10,12 +10,12 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 
 use crate::{
-    api::ComponentHandle,
+    api::{ComponentHandle, Window},
     component::{ComponentRc, ComponentVTable},
 };
 
 #[derive(Clone)]
-struct ComponentFactoryInner(Rc<dyn Fn() -> Option<ComponentRc> + 'static>);
+struct ComponentFactoryInner(Rc<dyn Fn(&Window) -> Option<ComponentRc> + 'static>);
 
 impl PartialEq for ComponentFactoryInner {
     fn eq(&self, other: &Self) -> bool {
@@ -44,20 +44,22 @@ pub struct ComponentFactory(Option<ComponentFactoryInner>);
 
 impl ComponentFactory {
     /// Create a new `ComponentFactory`
-    pub fn new<T: ComponentHandle + 'static>(factory: impl Fn() -> Option<T> + 'static) -> Self
+    pub fn new<T: ComponentHandle + 'static>(
+        factory: impl Fn(&Window) -> Option<T> + 'static,
+    ) -> Self
     where
         T::Inner: vtable::HasStaticVTable<ComponentVTable> + 'static,
     {
-        let factory = Box::new(factory) as Box<dyn Fn() -> Option<T> + 'static>;
+        let factory = Box::new(factory) as Box<dyn Fn(&Window) -> Option<T> + 'static>;
 
-        Self(Some(ComponentFactoryInner(Rc::new(move || -> Option<ComponentRc> {
-            let product = (factory)();
+        Self(Some(ComponentFactoryInner(Rc::new(move |window| -> Option<ComponentRc> {
+            let product = (factory)(window);
             product.map(|p| vtable::VRc::into_dyn(p.as_weak().inner().upgrade().unwrap()))
         }))))
     }
 
     /// Build a `Component`
-    pub(crate) fn _build(&self) -> Option<ComponentRc> {
-        self.0.as_ref().and_then(|b| (b.0)()).into()
+    pub(crate) fn build(&self, window: &Window) -> Option<ComponentRc> {
+        self.0.as_ref().and_then(|b| (b.0)(window)).into()
     }
 }
