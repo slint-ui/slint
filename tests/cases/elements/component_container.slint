@@ -23,7 +23,7 @@ export component TestCase inherits Rectangle {
 ```
 
 ```rust
-let factory = slint::ComponentFactory::new(|| {
+let factory = slint::ComponentFactory::new(|window| {
      let mut compiler = slint_interpreter::ComponentCompiler::new();
      let e = spin_on::spin_on(compiler.build_from_source(
         r#"import { Button } from "std-widgets.slint";
@@ -37,7 +37,7 @@ export component E1 inherits Rectangle {
 }"#.into(),
         std::path::PathBuf::from("embedded.slint"),
      )).unwrap();
-     e.create().ok()
+     e.embed_into_existing_window(window).ok()
 });
 
 let instance = TestCase::new().unwrap();
@@ -50,6 +50,25 @@ instance.set_c1(factory.clone());
 instance.set_c2(factory);
 
 assert!(instance.get_outside_focus()); // embedding does not move the focus
+
+// focus the two embedded buttons:
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(!instance.get_outside_focus());
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(!instance.get_outside_focus());
+
+// Go back to outside button
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert!(instance.get_outside_focus());
+
+// Focus backwards over the embedded buttons
+slint_testing::send_keyboard_string_sequence(&instance, "\u{0019}");
+assert!(!instance.get_outside_focus());
+slint_testing::send_keyboard_string_sequence(&instance, "\u{0019}");
+assert!(!instance.get_outside_focus());
+
+slint_testing::send_keyboard_string_sequence(&instance, "\u{0019}");
+assert!(instance.get_outside_focus());
 ```
 
 ```js
