@@ -255,7 +255,7 @@ struct BindingVTable {
 ///
 /// # Safety
 ///
-/// IS_TWO_WAY_BINDNG cannot be true if Self is not a TwoWayBinding
+/// IS_TWO_WAY_BINDING cannot be true if Self is not a TwoWayBinding
 unsafe trait BindingCallable {
     /// This function is called by the property to evaluate the binding and produce a new value. The
     /// previous property value is provided in the value parameter.
@@ -282,7 +282,7 @@ unsafe trait BindingCallable {
     }
 
     /// Set to true if and only if Self is a TwoWayBinding<T>
-    const IS_TWO_WAY_BINDNG: bool = false;
+    const IS_TWO_WAY_BINDING: bool = false;
 }
 
 unsafe impl<F: Fn(*mut ()) -> BindingResult> BindingCallable for F {
@@ -433,7 +433,7 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
         dep_nodes: Default::default(),
         vtable: <B as HasBindingVTable>::VT,
         dirty: Cell::new(true), // starts dirty so it evaluates the property when used
-        is_two_way_binding: B::IS_TWO_WAY_BINDNG,
+        is_two_way_binding: B::IS_TWO_WAY_BINDING,
         pinned: PhantomPinned,
         #[cfg(slint_debug_property)]
         debug_name: Default::default(),
@@ -981,7 +981,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 true
             }
 
-            const IS_TWO_WAY_BINDNG: bool = true;
+            const IS_TWO_WAY_BINDING: bool = true;
         }
 
         #[cfg(slint_debug_property)]
@@ -1326,13 +1326,13 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     /// Sets the specified callback handler function, which will be called if any
     /// properties that this tracker depends on becomes dirty.
     ///
-    /// The `handmer` `PropertyDirtyHandler` is a trait which is implemented for
+    /// The `handler` `PropertyDirtyHandler` is a trait which is implemented for
     /// any `Fn()` closure
     ///
-    /// Note that the handler will be invoked immediatly when a property is modified or
+    /// Note that the handler will be invoked immediately when a property is modified or
     /// marked as dirty. In particular, the involved property are still in a locked
     /// state and should not be accessed while the handler is run. This function can be
-    /// usefull to mark some work to be done later.
+    /// useful to mark some work to be done later.
     pub fn new_with_dirty_handler(handler: DirtyHandler) -> Self {
         /// Safety: _self must be a pointer to a `BindingHolder<DirtyHandler>`
         unsafe fn mark_dirty<B: PropertyDirtyHandler>(
