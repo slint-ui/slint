@@ -834,7 +834,8 @@ export component Example inherits Window {
 
 Use recipe implements a responsive SideBar that collapses when the parent
 width is smaller than the given break-point. When clicking the Button, the
-SideBar expands again.
+SideBar expands again. Use the blue Splitter to resize the container and
+test the responsive behavior.
 
 ```slint,no-auto-preview
 import { Button, StyleMetrics } from "std-widgets.slint";
