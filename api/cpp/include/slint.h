@@ -728,14 +728,12 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
 
 namespace private_api {
 
-template<typename Component, typename ItemArray>
-static void register_component(const std::optional<slint::Window> &maybe_window, Component *c,
-                               ItemArray items)
+inline static void register_component(const vtable::VRc<ComponentVTable> *c,
+                                      const std::optional<slint::Window> &maybe_window)
 {
     const cbindgen_private::WindowAdapterRcOpaque *window_ptr =
             maybe_window.has_value() ? &maybe_window->window_handle().handle() : nullptr;
-    cbindgen_private::slint_register_component(
-            vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, window_ptr);
+    cbindgen_private::slint_register_component(c, window_ptr);
 }
 
 inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutData &data,
