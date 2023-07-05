@@ -34,7 +34,7 @@ pub struct NativeScrollView {
 }
 
 impl Item for NativeScrollView {
-    fn init(self: Pin<&Self>) {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
         let animation_tracker_property_ptr = Self::FIELD_OFFSETS.animation_tracker.apply_pin(self);
         self.widget_ptr.set(cpp! { unsafe [animation_tracker_property_ptr as "void*"] -> SlintTypeErasedWidgetPtr as "std::unique_ptr<SlintTypeErasedWidget>"  {
             return make_unique_animated_widget<QWidget>(animation_tracker_property_ptr);

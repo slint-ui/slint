@@ -54,7 +54,7 @@ pub struct Flickable {
 }
 
 impl Item for Flickable {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -237,7 +237,7 @@ impl FlickableData {
                         if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD {
                             return false;
                         }
-                        // Check if the mouse was moved more than the DISTANCE_THRESHEOLD in a
+                        // Check if the mouse was moved more than the DISTANCE_THRESHOLD in a
                         // direction in which the flickable can flick
                         let diff = position - inner.pressed_pos;
                         let w = flick.width();
