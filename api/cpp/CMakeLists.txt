@@ -137,6 +137,7 @@ set_property(
     TARGET slint-cpp
     PROPERTY CORROSION_FEATURES
     ${features}
+    std
 )
 set_property(
     TARGET slint-cpp

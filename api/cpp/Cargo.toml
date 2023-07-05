@@ -38,19 +38,21 @@ renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 
-experimental = ["i-slint-renderer-skia", "raw-window-handle"]
+experimental = ["i-slint-renderer-skia", "raw-window-handle", "std"]
 
-default = ["backend-winit", "renderer-winit-femtovg", "backend-qt", "experimental"]
+std = ["image", "i-slint-core/default", "i-slint-backend-selector"]
+
+default = ["std", "backend-winit", "renderer-winit-femtovg", "backend-qt", "experimental"]
 
 [dependencies]
-i-slint-backend-selector = { version = "=1.1.1", path="../../internal/backends/selector" }
+i-slint-backend-selector = { version = "=1.1.1", path="../../internal/backends/selector", optional = true }
 i-slint-backend-testing = { version = "=1.1.1", path="../../internal/backends/testing", optional = true }
 i-slint-renderer-skia = { version = "=1.1.1", path="../../internal/renderers/skia", optional = true, features = ["x11", "wayland"] }
-i-slint-core = { version = "=1.1.1", path="../../internal/core", features = ["ffi"] }
+i-slint-core = { version = "=1.1.1", path="../../internal/core", default-features = false, features = ["ffi"] }
 slint-interpreter = { version = "=1.1.1", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-1-0"], optional = true }
 raw-window-handle = { version = "0.5", optional = true }
 # Enable image-rs' default features to make all image formats to C++ users
-image = { version = "0.24.0" }
+image = { version = "0.24.0", optional = true }
 
 [build-dependencies]
 anyhow = "1.0"
