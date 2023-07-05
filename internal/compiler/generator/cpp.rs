@@ -1238,7 +1238,7 @@ fn generate_item_tree(
 
     create_code.extend([
         format!(
-            "if (auto &window = {}->m_window) window->window_handle().register_component(self, self->item_array());",
+            "if (auto &window = {}->m_window) window->window_handle().register_component(self_rc.into_dyn());",
             root_access
         ),
         format!("self->init({}, self->self_weak, 0, 1 {});", root_access, init_parent_parameters),
