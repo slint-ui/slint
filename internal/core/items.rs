@@ -109,7 +109,7 @@ pub struct ItemVTable {
     /// This function is called by the run-time after the memory for the item
     /// has been allocated and initialized. It will be called before any user specified
     /// bindings are set.
-    pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>),
+    pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, my_item: &ItemRc),
 
     /// Returns the geometry of this item (relative to its parent item)
     pub geometry: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> LogicalRect,
@@ -185,7 +185,7 @@ pub struct Empty {
 }
 
 impl Item for Empty {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -273,7 +273,7 @@ pub struct Rectangle {
 }
 
 impl Item for Rectangle {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -365,7 +365,7 @@ pub struct BorderRectangle {
 }
 
 impl Item for BorderRectangle {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -472,7 +472,7 @@ pub struct TouchArea {
 }
 
 impl Item for TouchArea {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -651,7 +651,7 @@ pub struct FocusScope {
 }
 
 impl Item for FocusScope {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -772,7 +772,7 @@ pub struct Clip {
 }
 
 impl Item for Clip {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -869,7 +869,7 @@ pub struct Opacity {
 }
 
 impl Item for Opacity {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -985,7 +985,7 @@ pub struct Layer {
 }
 
 impl Item for Layer {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -1075,7 +1075,7 @@ pub struct Rotate {
 }
 
 impl Item for Rotate {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -1200,7 +1200,7 @@ pub struct WindowItem {
 }
 
 impl Item for WindowItem {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -1321,7 +1321,7 @@ pub struct BoxShadow {
 }
 
 impl Item for BoxShadow {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(

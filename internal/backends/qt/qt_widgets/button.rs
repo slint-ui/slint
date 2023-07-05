@@ -190,7 +190,7 @@ impl NativeButton {
 }
 
 impl Item for NativeButton {
-    fn init(self: Pin<&Self>) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(

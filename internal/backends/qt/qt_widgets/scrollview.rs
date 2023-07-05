@@ -30,7 +30,7 @@ pub struct NativeScrollView {
 }
 
 impl Item for NativeScrollView {
-    fn init(self: Pin<&Self>) {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
         let paddings = Rc::pin(Property::default());
 
         paddings.as_ref().set_binding(move || {
