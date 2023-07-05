@@ -81,14 +81,3 @@ pub fn with_platform<R>(
 ) -> Result<R, PlatformError> {
     i_slint_core::with_platform(create_backend, f)
 }
-
-#[doc(hidden)]
-#[cold]
-#[cfg(not(target_arch = "wasm32"))]
-pub fn use_modules() {
-    i_slint_core::use_modules();
-    #[cfg(feature = "i-slint-backend-qt")]
-    i_slint_backend_qt::use_modules();
-    #[cfg(feature = "i-slint-backend-winit")]
-    i_slint_backend_winit::use_modules();
-}

@@ -90,15 +90,5 @@ pub use api::*;
 #[doc(inline)]
 pub use i_slint_core::{Brush, Color, SharedString, SharedVector};
 
-/// One need to use at least one function in each module in order to get them
-/// exported in the final binary.
-/// This only use functions from modules which are not otherwise used.
-#[doc(hidden)]
-#[cold]
-#[cfg(feature = "ffi")]
-pub fn use_modules() -> usize {
-    crate::api::ffi::slint_interpreter_value_new as usize
-}
-
 #[cfg(test)]
 mod tests;

@@ -102,32 +102,3 @@ pub fn with_platform<R>(
         }
     })
 }
-
-/// One need to use at least one function in each module in order to get them
-/// exported in the final binary.
-/// This only use functions from modules which are not otherwise used.
-#[doc(hidden)]
-#[cold]
-#[cfg(not(target_arch = "wasm32"))]
-pub fn use_modules() -> usize {
-    #[cfg(feature = "ffi")]
-    {
-        tests::slint_mock_elapsed_time as usize
-            + callbacks::ffi::slint_callback_init as usize
-            + sharedvector::ffi::slint_shared_vector_empty as usize
-            + layout::ffi::slint_solve_grid_layout as usize
-            + item_tree::ffi::slint_visit_item_tree as usize
-            + graphics::ffi::slint_new_path_elements as usize
-            + properties::ffi::slint_property_init as usize
-            + string::ffi::slint_shared_string_bytes as usize
-            + window::ffi::slint_windowrc_drop as usize
-            + component::ffi::slint_register_component as usize
-            + timers::ffi::slint_timer_start as usize
-            + graphics::color::ffi::slint_color_brighter as usize
-            + graphics::image::ffi::slint_image_size as usize
-    }
-    #[cfg(not(feature = "ffi"))]
-    {
-        0
-    }
-}

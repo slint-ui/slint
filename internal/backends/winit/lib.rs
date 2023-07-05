@@ -117,11 +117,6 @@ fn try_create_window_with_fallback_renderer() -> Option<Rc<dyn WindowAdapter>> {
 }
 
 #[doc(hidden)]
-#[cold]
-#[cfg(not(target_arch = "wasm32"))]
-pub fn use_modules() {}
-
-#[doc(hidden)]
 pub type NativeWidgets = ();
 #[doc(hidden)]
 pub type NativeGlobals = ();
