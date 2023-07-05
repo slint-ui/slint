@@ -146,11 +146,9 @@ public:
         cbindgen_private::slint_windowrc_set_focus_item(&inner, &item_rc);
     }
 
-    template<typename Component, typename ItemArray>
-    void register_component(Component *c, ItemArray items) const
+    void register_component(const ComponentRc &component_rc) const
     {
-        cbindgen_private::slint_register_component(
-                vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
+        cbindgen_private::slint_register_component(&component_rc, &inner);
     }
 
     template<typename Component>

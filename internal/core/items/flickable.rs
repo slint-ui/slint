@@ -9,7 +9,7 @@ use super::{
     Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
 };
 use crate::animations::{EasingCurve, Instant};
-use crate::component::ComponentWeak;
+use crate::component::ComponentRc;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, MouseEvent,
 };
@@ -55,7 +55,7 @@ pub struct Flickable {
 }
 
 impl Item for Flickable {
-    fn init(self: Pin<&Self>, _component: &ComponentWeak, _index: usize) {}
+    fn init(self: Pin<&Self>, _my_component: &ComponentRc, _my_item_tree_index: usize) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
@@ -238,7 +238,7 @@ impl FlickableData {
                         if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD {
                             return false;
                         }
-                        // Check if the mouse was moved more than the DISTANCE_THRESHEOLD in a
+                        // Check if the mouse was moved more than the DISTANCE_THRESHOLD in a
                         // direction in which the flickable can flick
                         let diff = position - inner.pressed_pos;
                         let w = flick.width();

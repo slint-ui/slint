@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
 use i_slint_core::{
-    component::ComponentWeak,
+    component::ComponentRc,
     input::{FocusEventResult, KeyEventType},
 };
 
@@ -57,7 +57,7 @@ option.frame = true;
 }}
 
 impl Item for NativeSpinBox {
-    fn init(self: Pin<&Self>, _component: &ComponentWeak, _index: usize) {}
+    fn init(self: Pin<&Self>, _my_component: &ComponentRc, _my_item_tree_index: usize) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(

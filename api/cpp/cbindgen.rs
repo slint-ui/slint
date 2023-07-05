@@ -519,6 +519,10 @@ namespace slint {
         using LogicalRect = Rect;
         using LogicalPoint = Point2D<float>;
         using LogicalLength = float;
+
+        struct ComponentVTable;
+        using ComponentRc = vtable::VRc<ComponentVTable, vtable::Dyn>;
+        using ComponentWeak = vtable::VWeak<ComponentVTable, vtable::Dyn>;
     }
 }",
         )

@@ -7,7 +7,8 @@ This module contains the builtin `ComponentContainer` and related items
 When adding an item or a property, it needs to be kept in sync with different place.
 Lookup the [`crate::items`] module documentation.
 */
-use super::{ComponentWeak, Item, ItemConsts, ItemRc, RenderingResult};
+use super::{Item, ItemConsts, ItemRc, RenderingResult};
+use crate::component::{ComponentRc, ComponentWeak};
 use crate::component_factory::ComponentFactory;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -23,9 +24,9 @@ use crate::rtti::*;
 use crate::window::WindowAdapter;
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
-use core::cell::OnceCell;
 use core::pin::Pin;
 use i_slint_core_macros::*;
+use once_cell::unsync::OnceCell;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
@@ -45,18 +46,21 @@ pub struct ComponentContainer {
 }
 
 impl Item for ComponentContainer {
-    fn init(self: Pin<&Self>, my_component: &ComponentWeak, my_item_index: usize) {
-        self.my_component.set(my_component.clone()).or(Err(())).unwrap();
+    fn init(self: Pin<&Self>, my_component: &ComponentRc, my_item_tree_index: usize) {
+        self.my_component.set(vtable::VRc::downgrade(my_component)).ok().unwrap();
 
-        let rc = vtable::VWeak::upgrade(my_component).unwrap();
+        let rc = my_component;
 
         // Find my embedding item_tree_index:
-        let pin_rc = vtable::VRc::borrow_pin(&rc);
+        let pin_rc = vtable::VRc::borrow_pin(rc);
         let item_tree = pin_rc.as_ref().get_item_tree();
-        let my_node = item_tree.iter().find(|n| matches!(n, ItemTreeNode::Item { item_array_index, .. } if (*item_array_index as usize) == my_item_index)).unwrap();
-        let ItemTreeNode::Item { children_index: child_item_tree_index, .. } = my_node else { panic!("ComponentContainer had no child."); };
+        let ItemTreeNode::Item { children_index: child_item_tree_index, .. } =
+            item_tree[my_item_tree_index]
+        else {
+            panic!("Internal compiler error: ComponentContainer had no child.");
+        };
 
-        self.embedding_item_tree_index.set(*child_item_tree_index as usize).ok().unwrap();
+        self.embedding_item_tree_index.set(child_item_tree_index as usize).ok().unwrap();
     }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {

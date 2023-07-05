@@ -1257,15 +1257,8 @@ pub fn instantiate(
                 })
             };
 
-        let component_weak =
-            vtable::VWeak::into_dyn(instance_ref.self_weak().get().unwrap().clone());
-
-        i_slint_core::component::register_component(
-            instance_ref.instance,
-            &component_weak,
-            instance_ref.component_type.item_array.as_slice(),
-            maybe_window_adapter,
-        );
+        let component_rc = vtable::VRc::into_dyn(self_rc.clone());
+        i_slint_core::component::register_component(&component_rc, maybe_window_adapter);
     }
 
     if let Some(parent) = parent_ctx {

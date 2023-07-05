@@ -93,7 +93,7 @@ mod standard_button {
 }
 
 use i_slint_core::{
-    component::ComponentWeak,
+    component::ComponentRc,
     input::{FocusEventResult, KeyEventType},
     items::StandardButtonKind,
 };
@@ -191,7 +191,7 @@ impl NativeButton {
 }
 
 impl Item for NativeButton {
-    fn init(self: Pin<&Self>, _component: &ComponentWeak, _index: usize) {}
+    fn init(self: Pin<&Self>, _my_component: &ComponentRc, _my_item_tree_index: usize) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
