@@ -285,7 +285,10 @@ impl AccessKitAdapter {
                 .take()
                 .upgrade()
                 .map(|adapter| adapter.accesskit_adapter.build_new_tree())
-                .unwrap_or_default();
+                .unwrap_or(TreeUpdate {
+                    tree: Some(Tree::new(NodeId(std::num::NonZeroU128::new(1).unwrap()))),
+                    ..Default::default()
+                });
         }
 
         let update_from_main_thread = Arc::new((Mutex::new(None), Condvar::new()));
