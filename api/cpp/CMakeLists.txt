@@ -27,6 +27,8 @@ endif()
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
     CRATES slint-cpp ${slint_compiler_crate})
 
+corrosion_set_cargo_flags(slint-cpp "-Zbuild-std=core,alloc")
+
 # When doing "make install" package builds, set install_name to rpath, so that the installed
 # binaries don't have a load-command pointing back to their build directory.
 # Don't do this when Slint is used via FetchContent. While we could set CMAKE_BUILD_RPATH to
