@@ -22,21 +22,6 @@ mod qt_window;
 mod accessible_generated;
 mod key_generated;
 
-#[doc(hidden)]
-#[cold]
-#[cfg(not(target_arch = "wasm32"))]
-pub fn use_modules() -> usize {
-    #[cfg(no_qt)]
-    {
-        ffi::slint_qt_get_widget as usize
-    }
-    #[cfg(not(no_qt))]
-    {
-        qt_window::ffi::slint_qt_get_widget as usize
-            + (&qt_widgets::NativeButtonVTable) as *const _ as usize
-    }
-}
-
 #[cfg(no_qt)]
 mod ffi {
     #[no_mangle]

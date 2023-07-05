@@ -10,14 +10,10 @@ use std::rc::Rc;
 #[cfg(feature = "experimental")]
 pub mod platform;
 
-#[doc(hidden)]
-#[cold]
-pub fn use_modules() -> usize {
-    #[cfg(feature = "slint-interpreter")]
-    slint_interpreter::use_modules();
-    i_slint_backend_selector::use_modules();
-    i_slint_core::use_modules()
-}
+/// One need to make sure something from the crate is exported,
+/// otherwise its symbols are not going to be in the final binary
+#[cfg(feature = "slint-interpreter")]
+pub use slint_interpreter;
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
