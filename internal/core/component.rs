@@ -9,7 +9,7 @@ use crate::accessibility::AccessibleStringProperty;
 use crate::item_tree::{
     ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder, VisitChildrenResult,
 };
-use crate::items::{AccessibleRole, ItemVTable};
+use crate::items::{AccessibleRole, ItemRc, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::slice::Slice;
 use crate::window::WindowAdapter;
@@ -141,7 +141,8 @@ pub fn register_component(
     let item_tree = c.as_ref().get_item_tree();
     item_tree.iter().enumerate().for_each(|(tree_index, node)| {
         if let ItemTreeNode::Item { .. } = &node {
-            c.as_ref().get_item_ref(tree_index).as_ref().init(component_rc, tree_index);
+            let item = ItemRc::new(component_rc.clone(), tree_index);
+            c.as_ref().get_item_ref(tree_index).as_ref().init(&item);
         }
     });
     if let Some(adapter) = window_adapter.as_ref().and_then(|a| a.internal(crate::InternalToken)) {

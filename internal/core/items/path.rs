@@ -9,7 +9,6 @@ Lookup the [`crate::items`] module documentation.
 */
 
 use super::{FillRule, Item, ItemConsts, ItemRc, ItemRendererRef, RenderingResult};
-use crate::component::ComponentRc;
 use crate::graphics::{Brush, PathData, PathDataIterator};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -54,7 +53,7 @@ pub struct Path {
 }
 
 impl Item for Path {
-    fn init(self: Pin<&Self>, _my_component: &ComponentRc, _my_item_tree_index: usize) {}
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(

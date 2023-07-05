@@ -8,7 +8,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{Item, ItemConsts, ItemRc, RenderingResult};
-use crate::component::{ComponentRc, ComponentWeak};
+use crate::component::ComponentWeak;
 use crate::component_factory::ComponentFactory;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -46,16 +46,16 @@ pub struct ComponentContainer {
 }
 
 impl Item for ComponentContainer {
-    fn init(self: Pin<&Self>, my_component: &ComponentRc, my_item_tree_index: usize) {
-        self.my_component.set(vtable::VRc::downgrade(my_component)).ok().unwrap();
+    fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        let rc = self_rc.component();
 
-        let rc = my_component;
+        self.my_component.set(vtable::VRc::downgrade(rc)).ok().unwrap();
 
         // Find my embedding item_tree_index:
         let pin_rc = vtable::VRc::borrow_pin(rc);
         let item_tree = pin_rc.as_ref().get_item_tree();
         let ItemTreeNode::Item { children_index: child_item_tree_index, .. } =
-            item_tree[my_item_tree_index]
+            item_tree[self_rc.index()]
         else {
             panic!("Internal compiler error: ComponentContainer had no child.");
         };

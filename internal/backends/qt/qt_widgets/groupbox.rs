@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
-use i_slint_core::{component::ComponentRc, input::FocusEventResult};
+use i_slint_core::input::FocusEventResult;
 
 use super::*;
 
@@ -62,7 +62,7 @@ fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
 }
 
 impl Item for NativeGroupBox {
-    fn init(self: Pin<&Self>, _my_component: &ComponentRc, _my_item_tree_index: usize) {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
         let shared_data = Rc::pin(GroupBoxData::default());
 
         Property::link_two_way(
