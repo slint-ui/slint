@@ -55,6 +55,18 @@ export component TestCase  {
             } else {
                 pointer-event-test += "???";
             }
+            if (e.modifiers.control) {
+                pointer-event-test += "(ctrl)";
+            }
+            if (e.modifiers.shift) {
+                pointer-event-test += "(shift)";
+            }
+            if (e.modifiers.meta) {
+                pointer-event-test += "(meta)";
+            }
+            if (e.modifiers.alt) {
+                pointer-event-test += "(alt)";
+            }
         }
     }
 }
@@ -94,7 +106,7 @@ assert_eq(instance.get_pointer_event_test(), "downleftclickupleft");
 
 
 ```rust
-use slint::{platform::WindowEvent, platform::PointerEventButton, LogicalPosition};
+use slint::{platform::WindowEvent, platform::PointerEventButton, platform::Key, LogicalPosition};
 
 
 let instance = TestCase::new().unwrap();
@@ -133,6 +145,14 @@ assert_eq!(instance.get_pointer_event_test().as_str(), "upleft"); // no "clicked
 assert_eq!(instance.get_touch1(), 1);
 assert_eq!(instance.get_touch2(), 1);
 assert_eq!(instance.get_touch3(), 1);
+
+instance.set_pointer_event_test("".into());
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), true);
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(101.0, 104.0), button: PointerEventButton::Left });
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), false);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(101.0, 104.0), button: PointerEventButton::Left });
+assert_eq!(instance.get_pointer_event_test().as_str(), "downleft(ctrl)clickupleft(shift)");
 
 ```
 

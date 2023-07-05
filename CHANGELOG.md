@@ -11,6 +11,7 @@ All notable changes to this project are documented in this file.
 ### Slint Language
 
 - Added `clear-selection()` to `TextInput`, `LineEdit`, and `TextEdit`.
+- The `PointerEvent` struct now has the `modifiers: KeyboardModifiers`
 
 ### Rust
 
