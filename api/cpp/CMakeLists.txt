@@ -49,10 +49,7 @@ set_property(
 )
 
 if(SLINT_FEATURE_COMPILER)
-    set_property(
-        TARGET slint-compiler
-        PROPERTY CORROSION_USE_HOST_BUILD 1
-    )
+    corrosion_set_hostbuild(slint-compiler)
 endif()
 
 add_library(Slint INTERFACE)
