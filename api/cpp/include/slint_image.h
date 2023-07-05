@@ -140,7 +140,7 @@ public:
     /// [`slint::Image`] objects created from borrowed OpenGL textures cannot be shared between
     /// different windows.
     [[nodiscard]] static Image create_from_borrowed_gl_2d_rgba_texture(uint32_t texture_id,
-                                                                       Size<unsigned int> size)
+                                                                       Size<uint32_t> size)
     {
         return Image(Data::ImageInner_BorrowedOpenGLTexture(
                 cbindgen_private::types::BorrowedOpenGLTexture { texture_id, size })
@@ -173,7 +173,7 @@ public:
     }
 
     /// Returns the size of the Image in pixels.
-    Size<unsigned int> size() const { return cbindgen_private::types::slint_image_size(&data); }
+    Size<uint32_t> size() const { return cbindgen_private::types::slint_image_size(&data); }
 
     /// Returns the path of the image on disk, if it was constructed via Image::load_from_path().
     std::optional<slint::SharedString> path() const
