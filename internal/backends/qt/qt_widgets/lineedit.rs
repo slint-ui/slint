@@ -25,7 +25,7 @@ pub struct NativeLineEdit {
 }
 
 impl Item for NativeLineEdit {
-    fn init(self: Pin<&Self>) {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {
         let paddings = Rc::pin(Property::default());
 
         paddings.as_ref().set_binding(move || {

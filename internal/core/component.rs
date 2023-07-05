@@ -9,7 +9,7 @@ use crate::accessibility::AccessibleStringProperty;
 use crate::item_tree::{
     ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder, VisitChildrenResult,
 };
-use crate::items::{AccessibleRole, ItemVTable};
+use crate::items::{AccessibleRole, ItemRc, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::slice::Slice;
 use crate::window::WindowAdapter;
@@ -88,7 +88,7 @@ pub struct ComponentVTable {
     /// at `parent_item_tree_index`.
     pub embed_component: extern "C" fn(
         core::pin::Pin<VRef<ComponentVTable>>,
-        parent_component: &ComponentWeak,
+        parent_component: &VWeak<ComponentVTable>,
         parent_item_tree_index: usize,
     ) -> bool,
 
@@ -133,12 +133,18 @@ pub type ComponentRc = vtable::VRc<ComponentVTable, Dyn>;
 pub type ComponentWeak = vtable::VWeak<ComponentVTable, Dyn>;
 
 /// Call init() on the ItemVTable for each item of the component.
-pub fn register_component<Base>(
-    base: core::pin::Pin<&Base>,
-    item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
+pub fn register_component(
+    component_rc: &ComponentRc,
     window_adapter: Option<Rc<dyn WindowAdapter>>,
 ) {
-    item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init());
+    let c = vtable::VRc::borrow_pin(component_rc);
+    let item_tree = c.as_ref().get_item_tree();
+    item_tree.iter().enumerate().for_each(|(tree_index, node)| {
+        if let ItemTreeNode::Item { .. } = &node {
+            let item = ItemRc::new(component_rc.clone(), tree_index);
+            c.as_ref().get_item_ref(tree_index).as_ref().init(&item);
+        }
+    });
     if let Some(adapter) = window_adapter.as_ref().and_then(|a| a.internal(crate::InternalToken)) {
         adapter.register_component();
     }
@@ -171,16 +177,11 @@ pub(crate) mod ffi {
     /// Call init() on the ItemVTable of each item in the item array.
     #[no_mangle]
     pub unsafe extern "C" fn slint_register_component(
-        component: ComponentRefPin,
-        item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
+        component_rc: &ComponentRc,
         window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
     ) {
         let window_adapter = &*(window_handle as *const Rc<dyn WindowAdapter>);
-        super::register_component(
-            core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
-            item_array.as_slice(),
-            Some(window_adapter.clone()),
-        )
+        super::register_component(component_rc, Some(window_adapter.clone()))
     }
 
     /// Free the backend graphics resources allocated in the item array.

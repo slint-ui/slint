@@ -1352,8 +1352,8 @@ fn generate_item_tree(
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = VRc::new(_self);
-                let _self = self_rc.as_pin_ref();
-                sp::register_component(_self, Self::item_array(), (*#root_token).maybe_window_adapter());
+                let self_dyn_rc = vtable::VRc::into_dyn(self_rc.clone());
+                sp::register_component(&self_dyn_rc, (*#root_token).maybe_window_adapter());
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
                 #new_end
             }
