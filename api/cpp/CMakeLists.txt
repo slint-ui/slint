@@ -240,9 +240,15 @@ set(generated_headers
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_qt_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_backend_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_generated_public.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_generated_public.h
 )
+
+if(SLINT_FEATURE_INTERPRETER)
+    list(APPEND generated_headers
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_generated_public.h
+    )
+endif()
+
 
 foreach(header IN LISTS generated_headers)
     set_property(TARGET Slint APPEND PROPERTY PUBLIC_HEADER ${header})
