@@ -775,21 +775,23 @@ pub(crate) mod ffi {
         a: u8,
     }
 
+    #[cfg(feature = "image-decoders")]
     #[no_mangle]
     pub unsafe extern "C" fn slint_image_load_from_path(path: &SharedString, image: *mut Image) {
-        std::ptr::write(
+        core::ptr::write(
             image,
             Image::load_from_path(std::path::Path::new(path.as_str())).unwrap_or(Image::default()),
         )
     }
 
+    #[cfg(feature = "std")]
     #[no_mangle]
     pub unsafe extern "C" fn slint_image_load_from_embedded_data(
         data: Slice<'static, u8>,
         format: Slice<'static, u8>,
         image: *mut Image,
     ) {
-        std::ptr::write(image, super::load_image_from_embedded_data(data, format));
+        core::ptr::write(image, super::load_image_from_embedded_data(data, format));
     }
 
     #[no_mangle]

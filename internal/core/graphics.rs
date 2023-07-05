@@ -194,5 +194,6 @@ pub(crate) mod ffi {
         y: f32,
     }
 
+    #[cfg(feature = "std")]
     pub use super::path::ffi::*;
 }

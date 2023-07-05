@@ -14,7 +14,7 @@ path = "main.rs"
 name = "test-driver-cpp"
 
 [dependencies]
-slint-cpp = { path = "../../../api/cpp", default-features = false, features = ["testing"] }
+slint-cpp = { path = "../../../api/cpp", default-features = false, features = ["testing", "std"] }
 
 [dev-dependencies]
 i-slint-compiler = { path = "../../../internal/compiler", features = ["cpp", "display-diagnostics"] }

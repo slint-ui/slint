@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
 
+use alloc::boxed::Box;
+use alloc::rc::Rc;
 use core::ffi::c_void;
 use i_slint_core::api::{PhysicalSize, Window};
 use i_slint_core::graphics::{IntSize, Rgb8Pixel};
@@ -10,7 +12,6 @@ use i_slint_core::software_renderer::{RepaintBufferType, SoftwareRenderer};
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal};
 use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
-use std::rc::Rc;
 
 type WindowAdapterUserData = *mut c_void;
 

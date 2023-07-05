@@ -3,12 +3,27 @@
 
 /*! This crate just expose the function used by the C++ integration */
 
+#![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
+
+use alloc::rc::Rc;
 use core::ffi::c_void;
 use i_slint_core::window::{ffi::WindowAdapterRcOpaque, WindowAdapter};
-use std::rc::Rc;
 
 #[cfg(feature = "experimental")]
 pub mod platform;
+
+#[cfg(feature = "i-slint-backend-selector")]
+use i_slint_backend_selector::with_platform;
+
+#[cfg(not(feature = "i-slint-backend-selector"))]
+pub fn with_platform<R>(
+    f: impl FnOnce(
+        &dyn i_slint_core::platform::Platform,
+    ) -> Result<R, i_slint_core::platform::PlatformError>,
+) -> Result<R, i_slint_core::platform::PlatformError> {
+    i_slint_core::with_platform(|| Err(i_slint_core::platform::PlatformError::NoPlatform), f)
+}
 
 /// One need to make sure something from the crate is exported,
 /// otherwise its symbols are not going to be in the final binary
@@ -21,13 +36,13 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
         core::mem::size_of::<Rc<dyn WindowAdapter>>(),
         core::mem::size_of::<WindowAdapterRcOpaque>()
     );
-    let win = i_slint_backend_selector::with_platform(|b| b.create_window_adapter()).unwrap();
+    let win = with_platform(|b| b.create_window_adapter()).unwrap();
     core::ptr::write(out as *mut Rc<dyn WindowAdapter>, win);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_ensure_backend() {
-    i_slint_backend_selector::with_platform(|_b| {
+    with_platform(|_b| {
         // Nothing to do, just make sure a backend was created
         Ok(())
     })
@@ -36,7 +51,7 @@ pub unsafe extern "C" fn slint_ensure_backend() {
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_run_event_loop() {
-    i_slint_backend_selector::with_platform(|b| b.run_event_loop()).unwrap();
+    with_platform(|b| b.run_event_loop()).unwrap();
 }
 
 /// Will execute the given functor in the main thread
@@ -72,6 +87,7 @@ pub unsafe extern "C" fn slint_quit_event_loop() {
     i_slint_core::api::quit_event_loop().unwrap();
 }
 
+#[cfg(feature = "std")]
 #[no_mangle]
 pub unsafe extern "C" fn slint_register_font_from_path(
     win: *const WindowAdapterRcOpaque,
@@ -89,6 +105,7 @@ pub unsafe extern "C" fn slint_register_font_from_path(
     )
 }
 
+#[cfg(feature = "std")]
 #[no_mangle]
 pub unsafe extern "C" fn slint_register_font_from_data(
     win: *const WindowAdapterRcOpaque,
