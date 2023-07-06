@@ -59,9 +59,12 @@ impl<'id> ComponentBox<'id> {
         InstanceRef { instance: self.instance.as_pin_ref(), component_type: &self.component_type }
     }
 
-    pub fn window_adapter(&self) -> Result<&Rc<dyn WindowAdapter>, PlatformError> {
+    pub fn window_adapter_ref(&self) -> Result<&Rc<dyn WindowAdapter>, PlatformError> {
+        let root_weak = vtable::VWeak::into_dyn(self.borrow_instance().root_weak().clone());
         InstanceRef::get_or_init_window_adapter_ref(
             &self.component_type,
+            root_weak,
+            true,
             self.instance.as_pin_ref().get_ref(),
         )
     }
@@ -220,6 +223,14 @@ impl Component for ErasedComponentBox {
     ) {
         self.borrow().as_ref().accessible_string_property(index, what, result)
     }
+
+    fn window_adapter(
+        self: Pin<&Self>,
+        do_create: bool,
+        result: &mut Option<Rc<dyn WindowAdapter>>,
+    ) {
+        self.borrow().as_ref().window_adapter(do_create, result);
+    }
 }
 
 i_slint_core::ComponentVTable_static!(static COMPONENT_BOX_VT for ErasedComponentBox);
@@ -229,6 +240,7 @@ impl<'id> Drop for ErasedComponentBox {
         generativity::make_guard!(guard);
         let unerase = self.unerase(guard);
         let instance_ref = unerase.borrow_instance();
+        // Do not walk out of our component here:
         if let Some(window_adapter) = instance_ref.maybe_window_adapter() {
             i_slint_core::component::unregister_component(
                 instance_ref.instance,
@@ -1130,6 +1142,7 @@ pub(crate) fn generate_component<'id>(
         subtree_index,
         accessible_role,
         accessible_string_property,
+        window_adapter,
         drop_in_place,
         dealloc,
     };
@@ -1266,17 +1279,17 @@ pub fn instantiate(
     instance_ref.self_weak().set(self_weak.clone()).ok();
     let component_type = comp.description();
 
+    let root = root
+        .or_else(|| instance_ref.parent_instance().map(|parent| parent.root_weak().clone()))
+        .unwrap_or_else(|| self_weak.clone());
+    component_type.root_offset.apply(instance_ref.as_ref()).set(root).ok().unwrap();
+
     if !component_type.original.is_global() {
         let maybe_window_adapter =
             if let Some(WindowOptions::UseExistingWindow(adapter)) = window_options.as_ref() {
                 Some(adapter.clone())
             } else {
-                root.as_ref().and_then(|root| root.upgrade()).and_then(|root| {
-                    generativity::make_guard!(guard);
-                    let comp = root.unerase(guard);
-                    let instance = comp.borrow_instance();
-                    instance.maybe_window_adapter()
-                })
+                instance_ref.maybe_window_adapter()
             };
 
         let component_rc = vtable::VRc::into_dyn(self_rc.clone());
@@ -1317,11 +1330,6 @@ pub fn instantiate(
             extra_data.canvas_id.set(canvas_id.clone()).unwrap();
         }
     }
-
-    let root = root
-        .or_else(|| instance_ref.parent_instance().map(|parent| parent.root_weak().clone()))
-        .unwrap_or_else(|| self_weak.clone());
-    component_type.root_offset.apply(instance_ref.as_ref()).set(root).ok().unwrap();
 
     match &window_options {
         Some(WindowOptions::UseExistingWindow(existing_adapter))
@@ -1543,12 +1551,8 @@ impl ErasedComponentBox {
         self.0.borrow()
     }
 
-    pub fn window_adapter(&self) -> Result<&Rc<dyn WindowAdapter>, PlatformError> {
-        self.0.window_adapter()
-    }
-
-    pub fn maybe_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
-        self.0.borrow_instance().maybe_window_adapter()
+    pub fn window_adapter_ref(&self) -> Result<&Rc<dyn WindowAdapter>, PlatformError> {
+        self.0.window_adapter_ref()
     }
 
     pub fn run_setup_code(&self) {
@@ -1776,6 +1780,7 @@ extern "C" fn accessible_role(component: ComponentRefPin, item_index: usize) -> 
         None => AccessibleRole::default(),
     }
 }
+
 extern "C" fn accessible_string_property(
     component: ComponentRefPin,
     item_index: usize,
@@ -1799,6 +1804,20 @@ extern "C" fn accessible_string_property(
             Value::Number(x) => *result = x.to_string().into(),
             _ => unimplemented!("invalid type for accessible_string_property"),
         };
+    }
+}
+
+extern "C" fn window_adapter(
+    component: ComponentRefPin,
+    do_create: bool,
+    result: &mut Option<Rc<dyn WindowAdapter>>,
+) {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    if do_create {
+        *result = Some(instance_ref.window_adapter());
+    } else {
+        *result = instance_ref.maybe_window_adapter();
     }
 }
 
@@ -1860,45 +1879,75 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     }
 
     pub fn window_adapter(&self) -> Rc<dyn WindowAdapter> {
+        let root_weak = vtable::VWeak::into_dyn(self.root_weak().clone());
         let root = self.root_weak().upgrade().unwrap();
         generativity::make_guard!(guard);
         let comp = root.unerase(guard);
         Self::get_or_init_window_adapter_ref(
             &comp.component_type,
+            root_weak,
+            true,
             comp.instance.as_pin_ref().get_ref(),
         )
         .unwrap()
         .clone()
     }
 
-    // Call this only on root components!
     pub fn get_or_init_window_adapter_ref<'b, 'id2>(
         component_type: &'b ComponentDescription<'id2>,
+        root_weak: ComponentWeak,
+        do_create: bool,
         instance: &'b Instance<'id2>,
     ) -> Result<&'b Rc<dyn WindowAdapter>, PlatformError> {
+        // We are the actual root: Generate and store a window_adapter if necessary
         component_type.window_adapter_offset.apply(instance).get_or_try_init(|| {
-            let extra_data = component_type.extra_data_offset.apply(instance);
-            let window_adapter = i_slint_backend_selector::with_platform(|_b| {
-                #[cfg(not(target_arch = "wasm32"))]
-                return _b.create_window_adapter();
-                #[cfg(target_arch = "wasm32")]
-                i_slint_backend_winit::create_gl_window_with_canvas_id(
-                    extra_data.canvas_id.get().map_or("canvas", |s| s.as_str()),
-                )
-            })?;
-            let comp_rc = extra_data.self_weak.get().unwrap().upgrade().unwrap();
-            WindowInner::from_pub(window_adapter.window())
-                .set_component(&vtable::VRc::into_dyn(comp_rc));
-            Ok(window_adapter)
+            let mut parent_node = ItemWeak::default();
+            if let Some(rc) = vtable::VWeak::upgrade(&root_weak) {
+                vtable::VRc::borrow_pin(&rc).as_ref().parent_node(&mut parent_node);
+            }
+
+            if let Some(parent) = parent_node.upgrade() {
+                // We are embedded: Get window adapter from our parent
+                let mut result = None;
+                vtable::VRc::borrow_pin(parent.component())
+                    .as_ref()
+                    .window_adapter(do_create, &mut result);
+                result.ok_or(PlatformError::NoPlatform)
+            } else if do_create {
+                let window_adapter = // We are the root: Create a window adapter
+                    i_slint_backend_selector::with_platform(|_b| {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        return _b.create_window_adapter();
+                        #[cfg(target_arch = "wasm32")]
+                        i_slint_backend_winit::create_gl_window_with_canvas_id(
+                            extra_data.canvas_id.get().map_or("canvas", |s| s.as_str()),
+                        )
+                    })?;
+
+                let extra_data = component_type.extra_data_offset.apply(instance);
+                let comp_rc = extra_data.self_weak.get().unwrap().upgrade().unwrap();
+                WindowInner::from_pub(window_adapter.window())
+                    .set_component(&vtable::VRc::into_dyn(comp_rc));
+                Ok(window_adapter)
+            } else {
+                Err(PlatformError::NoPlatform)
+            }
         })
     }
 
     pub fn maybe_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        let root_weak = vtable::VWeak::into_dyn(self.root_weak().clone());
         let root = self.root_weak().upgrade()?;
         generativity::make_guard!(guard);
         let comp = root.unerase(guard);
-        let instance = comp.borrow_instance();
-        instance.component_type.window_adapter_offset.apply(instance.as_ref()).get().cloned()
+        Self::get_or_init_window_adapter_ref(
+            &comp.component_type,
+            root_weak,
+            false,
+            comp.instance.as_pin_ref().get_ref(),
+        )
+        .ok()
+        .cloned()
     }
 
     pub fn access_window<R>(
