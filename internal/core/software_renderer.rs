@@ -374,7 +374,9 @@ impl RendererSealed for SoftwareRenderer {
         let width = (text_input.width().cast() * scale_factor).cast();
         let height = (text_input.height().cast() * scale_factor).cast();
 
-        let pos = (pos.cast() * scale_factor).cast();
+        let pos = (pos.cast() * scale_factor)
+            .clamp(euclid::point2(0., 0.), euclid::point2(i16::MAX, i16::MAX).cast())
+            .cast();
 
         match font {
             fonts::Font::PixelFont(pf) => {
