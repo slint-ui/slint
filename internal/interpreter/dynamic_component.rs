@@ -32,7 +32,7 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::properties::InterpolatedPropertyValue;
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
-use i_slint_core::window::{WindowAdapter, WindowInner};
+use i_slint_core::window::{WindowAdapterRc, WindowInner};
 use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
 use once_cell::unsync::OnceCell;
 use std::collections::BTreeMap;
@@ -59,7 +59,7 @@ impl<'id> ComponentBox<'id> {
         InstanceRef { instance: self.instance.as_pin_ref(), component_type: &self.component_type }
     }
 
-    pub fn window_adapter_ref(&self) -> Result<&Rc<dyn WindowAdapter>, PlatformError> {
+    pub fn window_adapter_ref(&self) -> Result<&WindowAdapterRc, PlatformError> {
         let root_weak = vtable::VWeak::into_dyn(self.borrow_instance().root_weak().clone());
         InstanceRef::get_or_init_window_adapter_ref(
             &self.component_type,
@@ -224,11 +224,7 @@ impl Component for ErasedComponentBox {
         self.borrow().as_ref().accessible_string_property(index, what, result)
     }
 
-    fn window_adapter(
-        self: Pin<&Self>,
-        do_create: bool,
-        result: &mut Option<Rc<dyn WindowAdapter>>,
-    ) {
+    fn window_adapter(self: Pin<&Self>, do_create: bool, result: &mut Option<WindowAdapterRc>) {
         self.borrow().as_ref().window_adapter(do_create, result);
     }
 }
@@ -357,7 +353,7 @@ pub struct ComponentDescription<'id> {
     pub(crate) root_offset:
         FieldOffset<Instance<'id>, OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>>,
     /// Offset to the window reference
-    pub(crate) window_adapter_offset: FieldOffset<Instance<'id>, OnceCell<Rc<dyn WindowAdapter>>>,
+    pub(crate) window_adapter_offset: FieldOffset<Instance<'id>, OnceCell<WindowAdapterRc>>,
     /// Offset of a ComponentExtraData
     pub(crate) extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
     /// Keep the Rc alive
@@ -395,8 +391,7 @@ fn internal_properties_to_public<'a>(
 pub enum WindowOptions {
     #[default]
     CreateNewWindow,
-    UseExistingWindow(Rc<dyn WindowAdapter>),
-    EmbedIntoExistingWindow(Rc<dyn WindowAdapter>),
+    UseExistingWindow(WindowAdapterRc),
     #[cfg(target_arch = "wasm32")]
     CreateWithCanvasId(String),
 }
@@ -1094,8 +1089,7 @@ pub(crate) fn generate_component<'id>(
         .type_builder
         .add_field_type::<OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>>();
 
-    let window_adapter_offset =
-        builder.type_builder.add_field_type::<OnceCell<Rc<dyn WindowAdapter>>>();
+    let window_adapter_offset = builder.type_builder.add_field_type::<OnceCell<WindowAdapterRc>>();
 
     let extra_data_offset = builder.type_builder.add_field_type::<ComponentExtraData>();
 
@@ -1332,8 +1326,7 @@ pub fn instantiate(
     }
 
     match &window_options {
-        Some(WindowOptions::UseExistingWindow(existing_adapter))
-        | Some(WindowOptions::EmbedIntoExistingWindow(existing_adapter)) => {
+        Some(WindowOptions::UseExistingWindow(existing_adapter)) => {
             component_type
                 .window_adapter_offset
                 .apply(instance_ref.as_ref())
@@ -1551,7 +1544,7 @@ impl ErasedComponentBox {
         self.0.borrow()
     }
 
-    pub fn window_adapter_ref(&self) -> Result<&Rc<dyn WindowAdapter>, PlatformError> {
+    pub fn window_adapter_ref(&self) -> Result<&WindowAdapterRc, PlatformError> {
         self.0.window_adapter_ref()
     }
 
@@ -1643,7 +1636,7 @@ extern "C" fn get_subtree_range(component: ComponentRefPin, index: usize) -> Ind
             i_slint_core::items::ComponentContainer,
         >(container)
         .unwrap();
-        container.ensure_updated(instance_ref.window_adapter().window());
+        container.ensure_updated();
         container.subtree_range()
     } else {
         let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
@@ -1668,7 +1661,7 @@ extern "C" fn get_subtree_component(
             i_slint_core::items::ComponentContainer,
         >(container)
         .unwrap();
-        container.ensure_updated(instance_ref.window_adapter().window());
+        container.ensure_updated();
         *result = container.subtree_component();
     } else {
         let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
@@ -1810,7 +1803,7 @@ extern "C" fn accessible_string_property(
 extern "C" fn window_adapter(
     component: ComponentRefPin,
     do_create: bool,
-    result: &mut Option<Rc<dyn WindowAdapter>>,
+    result: &mut Option<WindowAdapterRc>,
 ) {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -1878,7 +1871,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         self.component_type.root_offset.apply(self.as_ref()).get().unwrap()
     }
 
-    pub fn window_adapter(&self) -> Rc<dyn WindowAdapter> {
+    pub fn window_adapter(&self) -> WindowAdapterRc {
         let root_weak = vtable::VWeak::into_dyn(self.root_weak().clone());
         let root = self.root_weak().upgrade().unwrap();
         generativity::make_guard!(guard);
@@ -1898,7 +1891,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         root_weak: ComponentWeak,
         do_create: bool,
         instance: &'b Instance<'id2>,
-    ) -> Result<&'b Rc<dyn WindowAdapter>, PlatformError> {
+    ) -> Result<&'b WindowAdapterRc, PlatformError> {
         // We are the actual root: Generate and store a window_adapter if necessary
         component_type.window_adapter_offset.apply(instance).get_or_try_init(|| {
             let mut parent_node = ItemWeak::default();
@@ -1914,6 +1907,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
                     .window_adapter(do_create, &mut result);
                 result.ok_or(PlatformError::NoPlatform)
             } else if do_create {
+                let extra_data = component_type.extra_data_offset.apply(instance);
                 let window_adapter = // We are the root: Create a window adapter
                     i_slint_backend_selector::with_platform(|_b| {
                         #[cfg(not(target_arch = "wasm32"))]
@@ -1924,7 +1918,6 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
                         )
                     })?;
 
-                let extra_data = component_type.extra_data_offset.apply(instance);
                 let comp_rc = extra_data.self_weak.get().unwrap().upgrade().unwrap();
                 WindowInner::from_pub(window_adapter.window())
                     .set_component(&vtable::VRc::into_dyn(comp_rc));
@@ -1935,7 +1928,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         })
     }
 
-    pub fn maybe_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+    pub fn maybe_window_adapter(&self) -> Option<WindowAdapterRc> {
         let root_weak = vtable::VWeak::into_dyn(self.root_weak().clone());
         let root = self.root_weak().upgrade()?;
         generativity::make_guard!(guard);
@@ -1991,7 +1984,7 @@ pub fn show_popup(
     pos: i_slint_core::graphics::Point,
     close_on_click: bool,
     parent_comp: ComponentRefPin,
-    parent_window_adapter: Rc<dyn WindowAdapter>,
+    parent_window_adapter: WindowAdapterRc,
     parent_item: &ItemRc,
 ) {
     generativity::make_guard!(guard);
