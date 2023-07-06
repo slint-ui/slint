@@ -1293,6 +1293,21 @@ fn generate_item_tree(
     ));
 
     target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "window_adapter".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] bool do_create, [[maybe_unused]] slint::cbindgen_private::Option<slint::private_api::WindowAdapterRc>* result) -> void"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![format!(
+                "/* TODO: implement this! */",
+            )]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
             ty: "static const slint::private_api::ComponentVTable".to_owned(),
@@ -1307,7 +1322,7 @@ fn generate_item_tree(
         init: Some(format!(
             "{{ visit_children, get_item_ref, get_subtree_range, get_subtree_component, \
                 get_item_tree, parent_node, embed_component, subtree_index, layout_info, \
-                accessible_role, accessible_string_property, \
+                accessible_role, accessible_string_property, window_adapter, \
                 slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
             item_tree_class_name
         )),
