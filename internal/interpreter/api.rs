@@ -1097,11 +1097,11 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn show(&self) -> Result<(), PlatformError> {
-        self.inner.window_adapter()?.window().show()
+        self.inner.window_adapter_ref()?.window().show()
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
-        self.inner.window_adapter()?.window().hide()
+        self.inner.window_adapter_ref()?.window().hide()
     }
 
     fn run(&self) -> Result<(), PlatformError> {
@@ -1111,7 +1111,7 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn window(&self) -> &Window {
-        self.inner.window_adapter().unwrap().window()
+        self.inner.window_adapter_ref().unwrap().window()
     }
 
     fn global<'a, T: Global<'a, Self>>(&'a self) -> T

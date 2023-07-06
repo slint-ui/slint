@@ -850,9 +850,12 @@ mod tests {
     use crate::items::AccessibleRole;
     use crate::layout::{LayoutInfo, Orientation};
     use crate::slice::Slice;
+    use crate::window::WindowAdapter;
     use crate::SharedString;
 
     use vtable::VRc;
+
+    use alloc::rc::Rc;
 
     struct TestComponent {
         parent_component: Option<ComponentRc>,
@@ -930,6 +933,14 @@ mod tests {
             _: AccessibleStringProperty,
             _: &mut SharedString,
         ) {
+        }
+
+        fn window_adapter(
+            self: Pin<&Self>,
+            _do_create: bool,
+            _result: &mut Option<Rc<dyn WindowAdapter>>,
+        ) {
+            unimplemented!("Not needed for this test")
         }
     }
 
