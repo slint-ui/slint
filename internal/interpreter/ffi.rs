@@ -585,7 +585,7 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_window(
     );
     core::ptr::write(
         out as *mut *const Rc<dyn WindowAdapter>,
-        inst.window_adapter().unwrap() as *const _,
+        inst.window_adapter_ref().unwrap() as *const _,
     )
 }
 
