@@ -23,7 +23,7 @@ export component TestCase inherits Rectangle {
 ```
 
 ```rust
-let factory = slint::ComponentFactory::new(|window| {
+let factory = slint::ComponentFactory::new(|| {
      let mut compiler = slint_interpreter::ComponentCompiler::new();
      let e = spin_on::spin_on(compiler.build_from_source(
         r#"import { Button } from "std-widgets.slint";
@@ -37,7 +37,7 @@ export component E1 inherits Rectangle {
 }"#.into(),
         std::path::PathBuf::from("embedded.slint"),
      )).unwrap();
-     e.embed_into_existing_window(window).ok()
+     e.create().ok()
 });
 
 let instance = TestCase::new().unwrap();
