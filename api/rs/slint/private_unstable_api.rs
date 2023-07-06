@@ -200,7 +200,9 @@ pub mod re_exports {
     pub use i_slint_core::model::*;
     pub use i_slint_core::properties::{set_state_binding, Property, PropertyTracker, StateInfo};
     pub use i_slint_core::slice::Slice;
-    pub use i_slint_core::window::{InputMethodRequest, WindowAdapter, WindowInner};
+    pub use i_slint_core::window::{
+        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,
+    };
     pub use i_slint_core::Color;
     pub use i_slint_core::ComponentVTable_static;
     pub use i_slint_core::Coord;

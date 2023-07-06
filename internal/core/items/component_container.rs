@@ -8,7 +8,6 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{Item, ItemConsts, ItemRc, RenderingResult};
-use crate::api::Window;
 use crate::component::{ComponentRc, ComponentWeak, IndexRange};
 use crate::component_factory::ComponentFactory;
 use crate::input::{
@@ -65,7 +64,7 @@ pub struct ComponentContainer {
 }
 
 impl ComponentContainer {
-    pub fn ensure_updated(self: Pin<&Self>, window: &Window) {
+    pub fn ensure_updated(self: Pin<&Self>) {
         let factory = self
             .component_tracker
             .get()
@@ -78,7 +77,7 @@ impl ComponentContainer {
             return;
         };
 
-        let product = factory.build(window).and_then(|rc| {
+        let product = factory.build().and_then(|rc| {
             vtable::VRc::borrow_pin(&rc)
                 .as_ref()
                 .embed_component(
@@ -180,9 +179,9 @@ impl Item for ComponentContainer {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        window_adapter: &Rc<dyn WindowAdapter>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
-        self.ensure_updated(window_adapter.window());
+        self.ensure_updated();
 
         // Query the component_factory property to force a re-layout when that changes
         if let Some(rc) = self.component.borrow().clone() {
