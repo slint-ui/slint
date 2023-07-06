@@ -172,7 +172,7 @@ impl ComponentContainerIndex {
 
     pub fn try_from_repeater_index(index: usize) -> Option<Self> {
         if index >= ComponentContainerIndex::MAGIC {
-            Some(ComponentContainerIndex(index - ComponentContainerIndex::MAGIC))
+            Some(ComponentContainerIndex(index))
         } else {
             None
         }
