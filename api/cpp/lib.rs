@@ -127,3 +127,27 @@ pub unsafe extern "C" fn slint_register_font_from_data(
 pub unsafe extern "C" fn slint_testing_init_backend() {
     i_slint_backend_testing::init();
 }
+
+#[cfg(not(feature = "std"))]
+mod allocator {
+    use core::alloc::Layout;
+    use core::ffi::c_void;
+    extern "C" {
+        pub fn free(p: *mut c_void);
+        // This function is part of C11 & C++17
+        pub fn aligned_alloc(alignment: usize, size: usize) -> *mut c_void;
+    }
+
+    struct CAlloc;
+    unsafe impl core::alloc::GlobalAlloc for CAlloc {
+        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+            aligned_alloc(layout.align(), layout.size()) as *mut u8
+        }
+        unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
+            free(ptr as *mut c_void);
+        }
+    }
+
+    #[global_allocator]
+    static ALLOCATOR: CAlloc = CAlloc;
+}
