@@ -111,6 +111,13 @@ pub struct ComponentVTable {
         result: &mut SharedString,
     ),
 
+    /// Returns a Window, creating a fresh one if `do_create` is true.
+    pub window_adapter: extern "C" fn(
+        core::pin::Pin<VRef<ComponentVTable>>,
+        do_create: bool,
+        result: &mut Option<Rc<dyn WindowAdapter>>,
+    ),
+
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe fn(VRefMut<ComponentVTable>) -> vtable::Layout,
     /// dealloc function (for VRc)
@@ -170,7 +177,7 @@ pub fn unregister_component<Base>(
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
-    use crate::window::WindowAdapter;
+    use crate::window::WindowAdapterRc;
 
     use super::*;
 
@@ -180,7 +187,7 @@ pub(crate) mod ffi {
         component_rc: &ComponentRc,
         window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
     ) {
-        let window_adapter = &*(window_handle as *const Rc<dyn WindowAdapter>);
+        let window_adapter = &*(window_handle as *const WindowAdapterRc);
         super::register_component(component_rc, Some(window_adapter.clone()))
     }
 
@@ -191,7 +198,7 @@ pub(crate) mod ffi {
         item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
         window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
     ) {
-        let window_adapter = &*(window_handle as *const Rc<dyn WindowAdapter>);
+        let window_adapter = &*(window_handle as *const WindowAdapterRc);
         super::unregister_component(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
             core::pin::Pin::into_inner(component),
