@@ -1367,6 +1367,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
 
                         if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
                             let geometry = clipped_src.translate(offset).round();
+                            if geometry.is_empty() {
+                                continue;
+                            }
                             let origin = (geometry.origin - offset.round()).cast::<usize>();
                             let actual_x = origin.x - src_rect.origin.x as usize;
                             let actual_y = origin.y - src_rect.origin.y as usize;
