@@ -650,12 +650,18 @@ extern "C" fn visit_children_item(
         order,
         v,
         |_, order, visitor, index| {
-            // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
-            // Safety: we do not mix the component with other component id in this function
-            let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
-            ensure_repeater_updated(instance_ref, rep_in_comp);
-            let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
-            repeater.visit(order, visitor)
+            if let Some(_) = ComponentContainerIndex::try_from_repeater_index(index) {
+                // Do nothing: Our parent already did all the work!
+                VisitChildrenResult::CONTINUE
+            } else {
+                // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
+                // Safety: we do not mix the component with other component id in this function
+                let rep_in_comp =
+                    unsafe { instance_ref.component_type.repeater[index].get_untagged() };
+                ensure_repeater_updated(instance_ref, rep_in_comp);
+                let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+                repeater.visit(order, visitor)
+            }
         },
     )
 }
@@ -1627,11 +1633,21 @@ unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> P
 extern "C" fn get_subtree_range(component: ComponentRefPin, index: usize) -> IndexRange {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
-    ensure_repeater_updated(instance_ref, rep_in_comp);
+    if let Some(container_index) = ComponentContainerIndex::try_from_repeater_index(index) {
+        let container = component.as_ref().get_item_ref(container_index.as_item_tree_index());
+        let container = i_slint_core::items::ItemRef::downcast_pin::<
+            i_slint_core::items::ComponentContainer,
+        >(container)
+        .unwrap();
+        container.ensure_updated(instance_ref.window_adapter().window());
+        container.subtree_range()
+    } else {
+        let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
+        ensure_repeater_updated(instance_ref, rep_in_comp);
 
-    let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
-    repeater.range().into()
+        let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
+        repeater.range().into()
+    }
 }
 
 extern "C" fn get_subtree_component(
@@ -1642,13 +1658,23 @@ extern "C" fn get_subtree_component(
 ) {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
-    ensure_repeater_updated(instance_ref, rep_in_comp);
+    if let Some(container_index) = ComponentContainerIndex::try_from_repeater_index(index) {
+        let container = component.as_ref().get_item_ref(container_index.as_item_tree_index());
+        let container = i_slint_core::items::ItemRef::downcast_pin::<
+            i_slint_core::items::ComponentContainer,
+        >(container)
+        .unwrap();
+        container.ensure_updated(instance_ref.window_adapter().window());
+        *result = container.subtree_component();
+    } else {
+        let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
+        ensure_repeater_updated(instance_ref, rep_in_comp);
 
-    let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
-    *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(
-        repeater.component_at(subtree_index).unwrap(),
-    ))
+        let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
+        *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(
+            repeater.component_at(subtree_index).unwrap(),
+        ))
+    }
 }
 
 extern "C" fn get_item_tree(component: ComponentRefPin) -> Slice<ItemTreeNode> {
