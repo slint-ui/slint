@@ -128,9 +128,11 @@ pub unsafe extern "C" fn slint_testing_init_backend() {
     i_slint_backend_testing::init();
 }
 
+use esp_backtrace as _;
+
 #[no_mangle]
 pub unsafe extern "C" fn slint_backend_init() {
-    mcu_board_support::init();
+    //    mcu_board_support::init();
 }
 
 #[cfg(not(feature = "std"))]
@@ -139,7 +141,7 @@ mod allocator {
     use core::ffi::c_void;
     extern "C" {
         pub fn free(p: *mut c_void);
-        // This function is part of C11 & C++17
+        // This is a C11/C++17 function
         pub fn aligned_alloc(alignment: usize, size: usize) -> *mut c_void;
     }
 
