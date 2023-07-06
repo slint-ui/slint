@@ -1,0 +1,118 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+
+// SLINT_SCALE_FACTOR=1.5
+
+export component TestCase inherits Window {
+    width: 64phx;
+    height: 64phx;
+    Rectangle {
+        x: 1.49999997px;
+        y: 1.5px;
+        width: 15.33px;
+        height: 15.33px;
+        clip: true;
+        background: pink;
+        Text {
+            text: "Hello\nWorld";
+            font-size: 9.5px;
+            color: black;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    Rectangle {
+        x: 17.333px;
+        y: 1.5px;
+        width: 15.33px;
+        height: 24.18px;
+        clip: true;
+        background: orange;
+        opacity: 0.9;
+        Text {
+            height: 133%;
+            width: 121%;
+            text: "Three\nLines\nText";
+            font-size: 9px;
+            color: blue;
+            font-weight: 600;
+            font-italic: true;
+            horizontal-alignment: right;
+        }
+    }
+
+    Rectangle {
+        x: 33.5px;
+        y: 1.1px;
+        width: 28.33px;
+        height: 25.9px;
+        clip: true;
+        background: lightblue;
+        property <percent> dd;
+        Text {
+            height: 100%; width: 100%;
+            text: "Word wrap and right Align";
+            wrap: word-wrap;
+            horizontal-alignment: right;
+            vertical-alignment: bottom;
+            font-size: 9.1px;
+            color: violet;
+        }
+    }
+
+    Text {
+        height: 99%; width: 99%;
+        y: 2.499997px;
+        x: -20.49997px;
+        text: "Some long text bottom-right-aligned";
+        wrap: word-wrap;
+        overflow: elide;
+        horizontal-alignment: right;
+        vertical-alignment: bottom;
+        font-size: 9px;
+        color: violet;
+    }
+
+
+    Text {
+        height: 99%; width: 99%;
+        y: 2.499997px;
+        x: -20.49997px;
+        text: "Some long text bottom-right-aligned";
+        wrap: word-wrap;
+        overflow: elide;
+        horizontal-alignment: right;
+        vertical-alignment: bottom;
+        font-size: 9px;
+        color: violet;
+    }
+
+    Rectangle {
+        background: #8234;
+        x: 38.788px;
+        y: 30.123px;
+        width: 30px;
+        height: 30px;
+        clip: true;
+        Text {
+            y: -2.5px;
+            x: -2.5px;
+            width: 110%;
+            height: 110%;
+            property <string> t: "tiny tiny text nobody can see\nhelloooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo\n this is soooo smallllllllllllllllllll and so tiny"
+                +" \nnobody can read this anyway.";
+            text: t+t+t+t;
+
+            wrap: word-wrap;
+            overflow: elide;
+            horizontal-alignment: left;
+            font-size: 4px;
+            letter-spacing: -1px;
+
+            color: green;
+        }
+    }
+
+
+}

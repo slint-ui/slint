@@ -230,7 +230,9 @@ pub fn screenshot_render_by_line(
                 euclid::point2(0., 0.),
                 euclid::point2(buffer.width() as f32, buffer.height() as f32),
             )),
-            Some(r) => renderer.mark_dirty_region(DirtyRegion::from_untyped(&r.to_box2d().cast())),
+            Some(r) => renderer.mark_dirty_region(
+                DirtyRegion::from_untyped(&r.to_box2d().cast()) / window.scale_factor(),
+            ),
         }
         renderer.render_by_line(TestingLineBuffer {
             stride: buffer.width() as usize,

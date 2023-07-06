@@ -73,6 +73,20 @@ fn main() -> std::io::Result<()> {
         writeln!(generated_file, "#[path=\"{0}.rs\"] mod r#{0};", module_name)?;
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
+        let needle = "SLINT_SCALE_FACTOR=";
+        let scale_factor = if let Some(p) = source.find(needle) {
+            let source = &source[p + needle.len()..];
+            let scale_factor: f32 = source
+                .find(char::is_whitespace)
+                .and_then(|end| source[..end].parse().ok())
+                .unwrap_or_else(|| {
+                    panic!("Cannot parse {needle} for {}", testcase.relative_path.display())
+                });
+            format!("slint::platform::WindowAdapter::window(&*window).dispatch_event(slint::platform::WindowEvent::ScaleFactorChanged {{ scale_factor: {scale_factor}f32 }});")
+        } else {
+            String::new()
+        };
+
         let mut output = std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
         )?;
@@ -86,6 +100,7 @@ fn main() -> std::io::Result<()> {
     use crate::testing;
 
     let window = testing::init_swr();
+    {scale_factor}
     window.set_size(slint::PhysicalSize::new(64, 64));
     let screenshot = {reference_path};
 
