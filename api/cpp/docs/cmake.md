@@ -80,6 +80,13 @@ Set the `SLINT_EMBED_RESOURCES` target property on your CMake target to one of t
 
 This target property is initialised from the global `DEFAULT_SLINT_EMBED_RESOURCES` cache variable. Set it to configure the default for all CMake targets.
 
+Example:
+
+```cmake
+set_target_properties(MyApp PROPERTIES SLINT_EMBED_RESOURCES "embed-for-software-renderer")
+```
+
+
 ### Features
 
 The Slint library supports a set of features, not all of them enabled by default.
