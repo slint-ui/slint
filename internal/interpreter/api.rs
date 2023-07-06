@@ -7,7 +7,7 @@ use i_slint_core::component_factory::ComponentFactory;
 use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::window::WindowInner;
-use i_slint_core::{Brush, PathData, SharedString, SharedVector};
+use i_slint_core::{Brush, PathData, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -623,22 +623,6 @@ impl ComponentDefinition {
                 .unerase(guard)
                 .clone()
                 .create(WindowOptions::CreateWithCanvasId(canvas_id.into()))?,
-        })
-    }
-
-    /// Instantiate the component using an existing window.
-    #[doc(hidden)]
-    pub fn embed_into_existing_window(
-        &self,
-        window: &Window,
-    ) -> Result<ComponentInstance, PlatformError> {
-        generativity::make_guard!(guard);
-        Ok(ComponentInstance {
-            inner: self.inner.unerase(guard).clone().create(
-                WindowOptions::EmbedIntoExistingWindow(
-                    WindowInner::from_pub(window).window_adapter(),
-                ),
-            )?,
         })
     }
 

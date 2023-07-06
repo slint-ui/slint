@@ -12,9 +12,8 @@ use crate::item_tree::{
 use crate::items::{AccessibleRole, ItemRc, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::slice::Slice;
-use crate::window::WindowAdapter;
+use crate::window::WindowAdapterRc;
 use crate::SharedString;
-use alloc::rc::Rc;
 use vtable::*;
 
 #[repr(C)]
@@ -115,7 +114,7 @@ pub struct ComponentVTable {
     pub window_adapter: extern "C" fn(
         core::pin::Pin<VRef<ComponentVTable>>,
         do_create: bool,
-        result: &mut Option<Rc<dyn WindowAdapter>>,
+        result: &mut Option<WindowAdapterRc>,
     ),
 
     /// in-place destructor (for VRc)
@@ -140,10 +139,7 @@ pub type ComponentRc = vtable::VRc<ComponentVTable, Dyn>;
 pub type ComponentWeak = vtable::VWeak<ComponentVTable, Dyn>;
 
 /// Call init() on the ItemVTable for each item of the component.
-pub fn register_component(
-    component_rc: &ComponentRc,
-    window_adapter: Option<Rc<dyn WindowAdapter>>,
-) {
+pub fn register_component(component_rc: &ComponentRc, window_adapter: Option<WindowAdapterRc>) {
     let c = vtable::VRc::borrow_pin(component_rc);
     let item_tree = c.as_ref().get_item_tree();
     item_tree.iter().enumerate().for_each(|(tree_index, node)| {
@@ -162,7 +158,7 @@ pub fn unregister_component<Base>(
     base: core::pin::Pin<&Base>,
     component: ComponentRef,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
-    window_adapter: &Rc<dyn WindowAdapter>,
+    window_adapter: &WindowAdapterRc,
 ) {
     window_adapter.renderer().free_graphics_resources(
         component,

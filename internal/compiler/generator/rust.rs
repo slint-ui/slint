@@ -226,7 +226,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
         None,
         quote!(
             globals: #global_container_id,
-            window_adapter_: sp::OnceCell<sp::Rc<dyn sp::WindowAdapter>>,
+            window_adapter_: sp::OnceCell<sp::WindowAdapterRc>,
         ),
         None,
     );
@@ -766,10 +766,9 @@ fn generate_sub_component(
             &ctx,
         );
 
-        let window_adapter_tokens = access_window_adapter_field(&ctx);
         let ensure_updated = {
             quote! {
-                #embed_item.ensure_updated(#window_adapter_tokens.window());
+                #embed_item.ensure_updated();
             }
         };
 
