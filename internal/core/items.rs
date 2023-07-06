@@ -23,7 +23,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use crate::graphics::{Brush, Color, Point};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, MouseEvent,
+    KeyEventResult, KeyEventType, KeyboardModifiers, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 pub use crate::item_tree::ItemRc;
@@ -549,10 +549,11 @@ impl Item for TouchArea {
                     Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(position.y_length());
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
                 }
-                Self::FIELD_OFFSETS
-                    .pointer_event
-                    .apply_pin(self)
-                    .call(&(PointerEvent { button, kind: PointerEventKind::Down },));
+                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                    button,
+                    kind: PointerEventKind::Down,
+                    modifiers: window_adapter.window().0.modifiers.get().into(),
+                },));
             }
             MouseEvent::Exit => {
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
@@ -560,6 +561,7 @@ impl Item for TouchArea {
                     Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                         button: PointerEventButton::Other,
                         kind: PointerEventKind::Cancel,
+                        modifiers: window_adapter.window().0.modifiers.get().into(),
                     },));
                 }
             }
@@ -568,10 +570,11 @@ impl Item for TouchArea {
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
                 }
-                Self::FIELD_OFFSETS
-                    .pointer_event
-                    .apply_pin(self)
-                    .call(&(PointerEvent { button, kind: PointerEventKind::Up },));
+                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                    button,
+                    kind: PointerEventKind::Up,
+                    modifiers: window_adapter.window().0.modifiers.get().into(),
+                },));
             }
             MouseEvent::Moved { .. } => {
                 return if self.grabbed.get() {
@@ -1442,6 +1445,7 @@ i_slint_common::for_each_enums!(declare_enums);
 pub struct PointerEvent {
     pub button: PointerEventButton,
     pub kind: PointerEventKind,
+    pub modifiers: KeyboardModifiers,
 }
 
 #[cfg(feature = "ffi")]

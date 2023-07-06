@@ -42,6 +42,7 @@ This structure is generated and passed to the `pointer-event` callback of the `T
     -   `up`: The button was released.
     -   `cancel`: Another element or window took hold of the grab. This applies to all pressed button and the `button` is not relevant.
 -   **`button`** (_enum PointerEventButton_): The button that was pressed or released. `left`, `right`, `middle`, or `none`.
+-   **`modifiers`** (_KeyboardModifiers_): The keyboard modifiers pressed during the event.
 
 ## `StandardListViewItem`
 

@@ -82,11 +82,19 @@ export component Text inherits Empty {
     //-default_size_binding:implicit_size
 }
 
+export struct KeyboardModifiers {
+    //-name:slint::private_api::KeyboardModifiers
+    alt: bool,
+    control: bool,
+    shift: bool,
+    meta: bool,
+}
 
 export struct PointerEvent {
     //-name:slint::private_api::PointerEvent
     button: PointerEventButton,
     kind: PointerEventKind,
+    modifiers: KeyboardModifiers,
 }
 
 export component TouchArea {
@@ -106,14 +114,6 @@ export component TouchArea {
     callback moved;
     callback pointer-event(PointerEvent);
     //-default_size_binding:expands_to_parent_geometry
-}
-
-export struct KeyboardModifiers {
-    //-name:slint::private_api::KeyboardModifiers
-    alt: bool,
-    control: bool,
-    shift: bool,
-    meta: bool,
 }
 
 export struct KeyEvent {
