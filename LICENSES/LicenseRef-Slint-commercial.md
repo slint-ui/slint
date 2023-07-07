@@ -49,10 +49,10 @@ The Licensed Software includes
     Licensed Software delivery as a convenience for development and testing
     only. You acknowledge:
 
-    1. that some Third-Party Libraries may require additional licensing of
+    (a) that some Third-Party Libraries may require additional licensing of
         copyright and/or patents from the owners of such, and
 
-    2. that distribution of any of the Licensed Software referencing any portion
+    (b) that distribution of any of the Licensed Software referencing any portion
         of a Third-Party Library may require appropriate licensing from such
         third parties. All such Third-Party Libraries, along with applicable
         copyright notices and licenses, will be listed and made available to
@@ -61,11 +61,11 @@ The Licensed Software includes
 3. As part of the license grant, a Slint Software License Certificate
     (**License Certificate**) will be issued containing details of
 
-    1. the license grant,
+    (a) the license grant,
 
-    2. the permitted scope of your use of the Licensed Software, and
+    (b) the permitted scope of your use of the Licensed Software, and
 
-    3. your contact details.
+    (c) your contact details.
 
 4. In case of any changes or deviations to the information noted in the License
     Certificate, you are obliged to notify us in writing, not later than 7 days
@@ -184,20 +184,20 @@ The Licensed Software includes
     Confidential Information shall remain the sole property of each respective
     Party. Information will not be considered as Confidential Information if
 
-    1. available to the public other than by a breach of this Agreement;
+    (a) available to the public other than by a breach of this Agreement;
 
-    2. rightfully received from a third Party not in breach of any obligation of
+    (b) rightfully received from a third Party not in breach of any obligation of
         confidentiality;
 
-    3. independently developed by a Party without access to Confidential
+    (c) independently developed by a Party without access to Confidential
         Information of the other Party;
 
-    4. known to the other Party at the time of disclosure;
+    (d) known to the other Party at the time of disclosure;
 
-    5. produced in compliance with applicable law or a court order, provided the
+    (e) produced in compliance with applicable law or a court order, provided the
         other Party is given notice and opportunity to intervene; or
 
-    6. it does not constitute a trade secret and more than five (5) years have
+    (f) it does not constitute a trade secret and more than five (5) years have
         elapsed from the date of disclosure. In addition to any other rights or
         remedies available, each Party shall be entitled to enforcement of such
         obligations by court injunction.
