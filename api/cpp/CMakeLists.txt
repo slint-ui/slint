@@ -109,7 +109,7 @@ endfunction()
 #
 #define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
-define_cargo_feature(experimental "Enable experimental features (no compatibility guarantees)" OFF)
+define_cargo_feature(experimental "Enable experimental features (no compatibility guarantees)" ON)
 #define_cargo_feature(gettext "Enable support of translations using gettext" OFF)
 #define_cargo_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON)
 
@@ -137,7 +137,6 @@ set_property(
     TARGET slint-cpp
     PROPERTY CORROSION_FEATURES
     ${features}
-    std
 )
 set_property(
     TARGET slint-cpp
