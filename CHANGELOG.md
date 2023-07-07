@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file.
 
  - Fixed compiler panics when some complex expressions are used for the model expression in `for` (#2977)
  - Native style: Fixed support for floating point ranges in Slider.
+ - Fixed panics in the software renderer related to text rendering.
 
 ### Slint Language
 
