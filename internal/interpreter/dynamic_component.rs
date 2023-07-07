@@ -657,9 +657,15 @@ extern "C" fn visit_children_item(
         order,
         v,
         |_, order, visitor, index| {
-            if let Some(_) = ComponentContainerIndex::try_from_repeater_index(index) {
-                // Do nothing: Our parent already did all the work!
-                VisitChildrenResult::CONTINUE
+            if let Some(container_index) = ComponentContainerIndex::try_from_repeater_index(index) {
+                let container =
+                    component.as_ref().get_item_ref(container_index.as_item_tree_index());
+                let container = i_slint_core::items::ItemRef::downcast_pin::<
+                    i_slint_core::items::ComponentContainer,
+                >(container)
+                .unwrap();
+                container.ensure_updated();
+                container.visit_children_item(-1, order, visitor)
             } else {
                 // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
                 // Safety: we do not mix the component with other component id in this function
@@ -1740,16 +1746,6 @@ unsafe extern "C" fn embed_component(
     if instance_ref.component_type.parent_component_offset.is_some() {
         // We are not the root of the compilation unit tree... Can not embed this!
         return false;
-    }
-
-    {
-        // sanity check parent:
-        let prc = parent_component.upgrade().unwrap();
-        let pref = vtable::VRc::borrow_pin(&prc);
-        let it = pref.as_ref().get_item_tree();
-        if !matches!(it.get(parent_item_tree_index), Some(ItemTreeNode::DynamicTree { .. })) {
-            panic!("Trying to embed into a non-dynamic index in the parents item tree")
-        }
     }
 
     let extra_data = instance_ref.component_type.extra_data_offset.apply(instance_ref.as_ref());

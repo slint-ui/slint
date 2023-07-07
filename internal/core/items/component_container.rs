@@ -78,6 +78,19 @@ impl ComponentContainer {
         };
 
         let product = factory.build().and_then(|rc| {
+            {
+                // sanity check parent:
+                let prc = self.my_component.get().unwrap().upgrade().unwrap();
+                let pref = vtable::VRc::borrow_pin(&prc);
+                let it = pref.as_ref().get_item_tree();
+                if !matches!(
+                    it.get(*self.embedding_item_tree_index.get().unwrap()),
+                    Some(ItemTreeNode::DynamicTree { .. })
+                ) {
+                    panic!("Trying to embed into a non-dynamic index in the parents item tree")
+                }
+            }
+
             vtable::VRc::borrow_pin(&rc)
                 .as_ref()
                 .embed_component(

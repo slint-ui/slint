@@ -227,6 +227,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
         quote!(
             globals: #global_container_id,
             window_adapter_: sp::OnceCell<sp::WindowAdapterRc>,
+            parent_container_: sp::OnceCell<(sp::ComponentWeak, usize)>,
         ),
         None,
     );
@@ -1311,13 +1312,16 @@ fn generate_item_tree(
         )
     };
 
-    let embedding_function = if parent_ctx.is_some() {
-        quote!(todo!("Components written in Rust can not get embedded yet."))
+    let embedding_function = if !parent_ctx.is_some() {
+        quote!(
+            self.parent_container_.set((_parent_component.clone(), _item_tree_index)).ok().unwrap();
+            true
+        )
     } else {
         quote!(false)
     };
 
-    let parent_item_expression = parent_ctx.and_then(|parent| {
+    let parent_item_expression = if let Some(parent) = parent_ctx {
         parent.repeater_index.map(|idx| {
             let sub_component_offset = parent.ctx.current_sub_component.unwrap().repeated[idx].index_in_tree;
 
@@ -1331,7 +1335,11 @@ fn generate_item_tree(
                     .downgrade();
             })
         })
-    });
+    } else {
+        Some(quote!(if let Some((comp, idx)) = self.parent_container_.get() {
+            *_result = sp::ItemRc::new(comp.upgrade().unwrap(), *idx).downgrade();
+        }))
+    };
     let mut item_tree_array = vec![];
     let mut item_array = vec![];
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
