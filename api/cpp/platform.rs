@@ -11,7 +11,6 @@ use i_slint_core::renderer::Renderer;
 use i_slint_core::software_renderer::{RepaintBufferType, SoftwareRenderer};
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal};
-use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
 type WindowAdapterUserData = *mut c_void;
 
@@ -214,146 +213,155 @@ pub unsafe extern "C" fn slint_software_renderer_handle(r: SoftwareRendererOpaqu
     core::mem::transmute(r)
 }
 
-type SkiaRendererOpaque = *const c_void;
-type SkiaRenderer = i_slint_renderer_skia::SkiaRenderer;
+#[cfg(all(feature = "i-slint-renderer-skia", feature = "raw-window-handle"))]
+pub mod skia {
+    use super::*;
+    use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
-struct CppRawHandle(RawWindowHandle, RawDisplayHandle);
+    struct CppRawHandle(RawWindowHandle, RawDisplayHandle);
 
-// the raw handle type are #[non_exhaustive], so they can't be initialize with the convenient syntax. Work that around.
-macro_rules! init_raw {
-    ($ty:ty { $($var:ident),* }) => {
-        {
-            let mut h = <$ty>::empty();
-            $(h.$var = $var;)*
-            h
-        }
-    };
-}
+    // the raw handle type are #[non_exhaustive], so they can't be initialize with the convenient syntax. Work that around.
+    macro_rules! init_raw {
+        ($ty:ty { $($var:ident),* }) => {
+            {
+                let mut h = <$ty>::empty();
+                $(h.$var = $var;)*
+                h
+            }
+        };
+    }
 
-type CppRawHandleOpaque = *const c_void;
+    type CppRawHandleOpaque = *const c_void;
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_new_raw_window_handle_win32(
-    hwnd: *mut c_void,
-    hinstance: *mut c_void,
-) -> CppRawHandleOpaque {
-    let handle = CppRawHandle(
-        RawWindowHandle::Win32(init_raw!(raw_window_handle::Win32WindowHandle { hwnd, hinstance })),
-        RawDisplayHandle::Windows(raw_window_handle::WindowsDisplayHandle::empty()),
-    );
-    Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_new_raw_window_handle_win32(
+        hwnd: *mut c_void,
+        hinstance: *mut c_void,
+    ) -> CppRawHandleOpaque {
+        let handle = CppRawHandle(
+            RawWindowHandle::Win32(init_raw!(raw_window_handle::Win32WindowHandle {
+                hwnd,
+                hinstance
+            })),
+            RawDisplayHandle::Windows(raw_window_handle::WindowsDisplayHandle::empty()),
+        );
+        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_new_raw_window_handle_x11(
-    window: u32,
-    visual_id: u32,
-    connection: *mut c_void,
-    screen: core::ffi::c_int,
-) -> CppRawHandleOpaque {
-    use raw_window_handle::{XcbDisplayHandle, XcbWindowHandle};
-    let handle = CppRawHandle(
-        RawWindowHandle::Xcb(init_raw!(XcbWindowHandle { window, visual_id })),
-        RawDisplayHandle::Xcb(init_raw!(XcbDisplayHandle { connection, screen })),
-    );
-    Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_new_raw_window_handle_x11(
+        window: u32,
+        visual_id: u32,
+        connection: *mut c_void,
+        screen: core::ffi::c_int,
+    ) -> CppRawHandleOpaque {
+        use raw_window_handle::{XcbDisplayHandle, XcbWindowHandle};
+        let handle = CppRawHandle(
+            RawWindowHandle::Xcb(init_raw!(XcbWindowHandle { window, visual_id })),
+            RawDisplayHandle::Xcb(init_raw!(XcbDisplayHandle { connection, screen })),
+        );
+        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_new_raw_window_handle_wayland(
-    surface: *mut c_void,
-    display: *mut c_void,
-) -> CppRawHandleOpaque {
-    use raw_window_handle::{WaylandDisplayHandle, WaylandWindowHandle};
-    let handle = CppRawHandle(
-        RawWindowHandle::Wayland(init_raw!(WaylandWindowHandle { surface })),
-        RawDisplayHandle::Wayland(init_raw!(WaylandDisplayHandle { display })),
-    );
-    Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_new_raw_window_handle_wayland(
+        surface: *mut c_void,
+        display: *mut c_void,
+    ) -> CppRawHandleOpaque {
+        use raw_window_handle::{WaylandDisplayHandle, WaylandWindowHandle};
+        let handle = CppRawHandle(
+            RawWindowHandle::Wayland(init_raw!(WaylandWindowHandle { surface })),
+            RawDisplayHandle::Wayland(init_raw!(WaylandDisplayHandle { display })),
+        );
+        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_new_raw_window_handle_appkit(
-    ns_view: *mut c_void,
-    ns_window: *mut c_void,
-) -> CppRawHandleOpaque {
-    use raw_window_handle::{AppKitDisplayHandle, AppKitWindowHandle};
-    let handle = CppRawHandle(
-        RawWindowHandle::AppKit(init_raw!(AppKitWindowHandle { ns_view, ns_window })),
-        RawDisplayHandle::AppKit(AppKitDisplayHandle::empty()),
-    );
-    Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_new_raw_window_handle_appkit(
+        ns_view: *mut c_void,
+        ns_window: *mut c_void,
+    ) -> CppRawHandleOpaque {
+        use raw_window_handle::{AppKitDisplayHandle, AppKitWindowHandle};
+        let handle = CppRawHandle(
+            RawWindowHandle::AppKit(init_raw!(AppKitWindowHandle { ns_view, ns_window })),
+            RawDisplayHandle::AppKit(AppKitDisplayHandle::empty()),
+        );
+        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_raw_window_handle_drop(handle: CppRawHandleOpaque) {
-    drop(Box::from_raw(handle as *mut CppRawHandle))
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_raw_window_handle_drop(handle: CppRawHandleOpaque) {
+        drop(Box::from_raw(handle as *mut CppRawHandle))
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_skia_renderer_new(
-    handle_opaque: CppRawHandleOpaque,
-    size: IntSize,
-) -> SkiaRendererOpaque {
-    let handle = &*(handle_opaque as *const CppRawHandle);
+    type SkiaRendererOpaque = *const c_void;
+    type SkiaRenderer = i_slint_renderer_skia::SkiaRenderer;
 
-    // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
-    let active_handle = unsafe { raw_window_handle::ActiveHandle::new_unchecked() };
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_skia_renderer_new(
+        handle_opaque: CppRawHandleOpaque,
+        size: IntSize,
+    ) -> SkiaRendererOpaque {
+        let handle = &*(handle_opaque as *const CppRawHandle);
 
-    // Safety: the C++ code should ensure that the handle is valid
-    let (window_handle, display_handle) = unsafe {
-        (
-            raw_window_handle::WindowHandle::borrow_raw(handle.0, active_handle),
-            raw_window_handle::DisplayHandle::borrow_raw(handle.1),
-        )
-    };
+        // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
+        let active_handle = unsafe { raw_window_handle::ActiveHandle::new_unchecked() };
 
-    let boxed_renderer: Box<SkiaRenderer> = Box::new(
-        SkiaRenderer::new(
-            window_handle,
-            display_handle,
-            PhysicalSize { width: size.width, height: size.height },
-        )
-        .unwrap(),
-    );
-    Box::into_raw(boxed_renderer) as SkiaRendererOpaque
-}
+        // Safety: the C++ code should ensure that the handle is valid
+        let (window_handle, display_handle) = unsafe {
+            (
+                raw_window_handle::WindowHandle::borrow_raw(handle.0, active_handle),
+                raw_window_handle::DisplayHandle::borrow_raw(handle.1),
+            )
+        };
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_skia_renderer_drop(r: SkiaRendererOpaque) {
-    drop(Box::from_raw(r as *mut SkiaRenderer))
-}
+        let boxed_renderer: Box<SkiaRenderer> = Box::new(
+            SkiaRenderer::new(
+                window_handle,
+                display_handle,
+                PhysicalSize { width: size.width, height: size.height },
+            )
+            .unwrap(),
+        );
+        Box::into_raw(boxed_renderer) as SkiaRendererOpaque
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_skia_renderer_show(r: SkiaRendererOpaque) {
-    let r = &*(r as *const SkiaRenderer);
-    r.show().unwrap()
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_skia_renderer_drop(r: SkiaRendererOpaque) {
+        drop(Box::from_raw(r as *mut SkiaRenderer))
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_skia_renderer_hide(r: SkiaRendererOpaque) {
-    let r = &*(r as *const SkiaRenderer);
-    r.hide().unwrap()
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_skia_renderer_show(r: SkiaRendererOpaque) {
+        let r = &*(r as *const SkiaRenderer);
+        r.show().unwrap()
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_skia_renderer_resize(r: SkiaRendererOpaque, size: IntSize) {
-    let r = &*(r as *const SkiaRenderer);
-    r.resize_event(PhysicalSize { width: size.width, height: size.height }).unwrap();
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_skia_renderer_hide(r: SkiaRendererOpaque) {
+        let r = &*(r as *const SkiaRenderer);
+        r.hide().unwrap()
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_skia_renderer_render(
-    r: SkiaRendererOpaque,
-    window: *const WindowAdapterRcOpaque,
-) {
-    let window_adapter = &*(window as *const Rc<dyn WindowAdapter>);
-    let r = &*(r as *const SkiaRenderer);
-    r.render(window_adapter.window()).unwrap();
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_skia_renderer_resize(r: SkiaRendererOpaque, size: IntSize) {
+        let r = &*(r as *const SkiaRenderer);
+        r.resize_event(PhysicalSize { width: size.width, height: size.height }).unwrap();
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_skia_renderer_handle(r: SkiaRendererOpaque) -> RendererPtr {
-    let r = (r as *const SkiaRenderer) as *const dyn Renderer;
-    core::mem::transmute(r)
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_skia_renderer_render(
+        r: SkiaRendererOpaque,
+        window: *const WindowAdapterRcOpaque,
+    ) {
+        let window_adapter = &*(window as *const Rc<dyn WindowAdapter>);
+        let r = &*(r as *const SkiaRenderer);
+        r.render(window_adapter.window()).unwrap();
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_skia_renderer_handle(r: SkiaRendererOpaque) -> RendererPtr {
+        let r = (r as *const SkiaRenderer) as *const dyn Renderer;
+        core::mem::transmute(r)
+    }
 }
