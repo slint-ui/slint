@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2023-07-04 03:15+0000\n"
+"POT-Creation-Date: 2023-07-07 03:13+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -44,41 +44,40 @@ msgctxt "Menu"
 msgid "About"
 msgstr ""
 
-#: ./ui/pages/table_view_page.slint:22
-msgctxt "TableViewPage"
-msgid "TableView"
+#: ./ui/pages/text_edit_page.slint:9
+msgctxt "TextEditPage"
+msgid "TextEdit"
 msgstr ""
 
-#: ./ui/pages/table_view_page.slint:23
-msgctxt "TableViewPage"
+#: ./ui/pages/text_edit_page.slint:10
+msgctxt "TextEditPage"
 msgid ""
-"StandardTableView can be used to display a list of text elements in columns "
-"and rows. It can be imported from \"std-widgets.slint\""
+"Similar to LineEdit, but can be used to enter several lines of text. The "
+"widget can be imported from \"std-widgets.slint\"."
 msgstr ""
 
-#: ./ui/pages/table_view_page.slint:29
-msgctxt "TableViewPage"
-msgid "StandardTableView"
+#: ./ui/pages/text_edit_page.slint:15
+msgctxt "TextEditPage"
+msgid "Word-Wrap"
 msgstr ""
 
-#: ./ui/pages/table_view_page.slint:42
-msgctxt "TableViewPage"
-msgid "Header 1"
+#. min-width: 200px;
+#: ./ui/pages/text_edit_page.slint:18
+msgctxt "TextEditPage"
+msgid ""
+"This is our TextEdit widget, which allows for editing text that spans over "
+"multiple paragraphs.\n"
+"For example this line starts in a new paragraph.\n"
+"\n"
+"When the amount of lines - due to wrapping and number of paragraphs - "
+"exceeds the available vertical height, a vertical scrollbar is shown that "
+"allows scrolling.\n"
+"You may want to enter a bit of text here then in order to make them visible."
 msgstr ""
 
-#: ./ui/pages/table_view_page.slint:43
-msgctxt "TableViewPage"
-msgid "Header 2"
-msgstr ""
-
-#: ./ui/pages/table_view_page.slint:44
-msgctxt "TableViewPage"
-msgid "Header 3"
-msgstr ""
-
-#: ./ui/pages/table_view_page.slint:45
-msgctxt "TableViewPage"
-msgid "Header 4"
+#: ./ui/pages/text_edit_page.slint:25
+msgctxt "TextEditPage"
+msgid "No-Wrap"
 msgstr ""
 
 #: ./ui/pages/list_view_page.slint:9
@@ -127,47 +126,6 @@ msgstr ""
 #: ./ui/pages/list_view_page.slint:37 ./ui/pages/list_view_page.slint:38 ./ui/pages/list_view_page.slint:39 ./ui/pages/list_view_page.slint:40 ./ui/pages/list_view_page.slint:41 ./ui/pages/list_view_page.slint:42 ./ui/pages/list_view_page.slint:43
 msgctxt "ListViewPage"
 msgid "consetetur"
-msgstr ""
-
-#: ./ui/pages/text_edit_page.slint:9
-msgctxt "TextEditPage"
-msgid "TextEdit"
-msgstr ""
-
-#: ./ui/pages/text_edit_page.slint:10
-msgctxt "TextEditPage"
-msgid ""
-"Similar to LineEdit, but can be used to enter several lines of text. The "
-"widget can be imported from \"std-widgets.slint\"."
-msgstr ""
-
-#: ./ui/pages/text_edit_page.slint:15
-msgctxt "TextEditPage"
-msgid "Word-Wrap"
-msgstr ""
-
-#. min-width: 200px;
-#: ./ui/pages/text_edit_page.slint:18
-msgctxt "TextEditPage"
-msgid ""
-"This is our TextEdit widget, which allows for editing text that spans over "
-"multiple paragraphs.\n"
-"For example this line starts in a new paragraph.\n"
-"\n"
-"When the amount of lines - due to wrapping and number of paragraphs - "
-"exceeds the available vertical height, a vertical scrollbar is shown that "
-"allows scrolling.\n"
-"You may want to enter a bit of text here then in order to make them visible."
-msgstr ""
-
-#: ./ui/pages/text_edit_page.slint:25
-msgctxt "TextEditPage"
-msgid "No-Wrap"
-msgstr ""
-
-#: ./ui/pages/page.slint:25
-msgctxt "Page"
-msgid "Widgets enabled"
 msgstr ""
 
 #: ./ui/pages/controls_page.slint:10
@@ -312,5 +270,47 @@ msgstr ""
 #: ./ui/pages/controls_page.slint:179
 msgctxt "ControlsPage"
 msgid "Content of tab 3"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:22
+msgctxt "TableViewPage"
+msgid "TableView"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:23
+msgctxt "TableViewPage"
+msgid ""
+"StandardTableView can be used to display a list of text elements in columns "
+"and rows. It can be imported from \"std-widgets.slint\""
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:29
+msgctxt "TableViewPage"
+msgid "StandardTableView"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:42
+msgctxt "TableViewPage"
+msgid "Header 1"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:43
+msgctxt "TableViewPage"
+msgid "Header 2"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:44
+msgctxt "TableViewPage"
+msgid "Header 3"
+msgstr ""
+
+#: ./ui/pages/table_view_page.slint:45
+msgctxt "TableViewPage"
+msgid "Header 4"
+msgstr ""
+
+#: ./ui/pages/page.slint:25
+msgctxt "Page"
+msgid "Widgets enabled"
 msgstr ""
 

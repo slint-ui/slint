@@ -4,7 +4,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2023-07-04 03:15+0000\n"
+"POT-Creation-Date: 2023-07-07 03:13+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -13,71 +13,6 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: \n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-
-#: ./ui/home_page.slint:51
-msgctxt "HomePage"
-msgid "Slint Printer Demo"
-msgstr ""
-
-#: ./ui/home_page.slint:57
-msgctxt "HomePage"
-msgid "Print"
-msgstr ""
-
-#: ./ui/home_page.slint:58
-msgctxt "HomePage"
-msgid "Scan"
-msgstr ""
-
-#: ./ui/home_page.slint:59
-msgctxt "HomePage"
-msgid "Copy"
-msgstr ""
-
-#: ./ui/home_page.slint:60
-msgctxt "HomePage"
-msgid "USB"
-msgstr ""
-
-#: ./ui/usb_page.slint:12
-msgctxt "UsbPage"
-msgid "USB"
-msgstr ""
-
-#: ./ui/usb_page.slint:44
-msgctxt "UsbPage"
-msgid "Select File:"
-msgstr ""
-
-#: ./ui/usb_page.slint:67
-msgctxt "UsbPage"
-msgid "Copies"
-msgstr ""
-
-#: ./ui/usb_page.slint:74 ./ui/usb_page.slint:77
-msgctxt "UsbPage"
-msgid "Color"
-msgstr ""
-
-#: ./ui/usb_page.slint:76 ./ui/usb_page.slint:77
-msgctxt "UsbPage"
-msgid "Grayscale"
-msgstr ""
-
-#: ./ui/usb_page.slint:91
-msgctxt "UsbPage"
-msgid "Start printing"
-msgstr ""
-
-#: ./ui/print_page.slint:10
-msgctxt "PrintPage"
-msgid "Print"
-msgstr ""
-
-#: ./ui/print_page.slint:18
-msgctxt "PrintPage"
-msgid "Printing-Queue"
-msgstr ""
 
 #: ./ui/scan_page.slint:9 ./ui/scan_page.slint:84
 msgctxt "ScanPage"
@@ -309,74 +244,74 @@ msgctxt "CopyPage"
 msgid "Start copying"
 msgstr ""
 
+#: ./ui/print_page.slint:10
+msgctxt "PrintPage"
+msgid "Print"
+msgstr ""
+
+#: ./ui/print_page.slint:18
+msgctxt "PrintPage"
+msgid "Printing-Queue"
+msgstr ""
+
+#: ./ui/home_page.slint:51
+msgctxt "HomePage"
+msgid "Slint Printer Demo"
+msgstr ""
+
+#: ./ui/home_page.slint:57
+msgctxt "HomePage"
+msgid "Print"
+msgstr ""
+
+#: ./ui/home_page.slint:58
+msgctxt "HomePage"
+msgid "Scan"
+msgstr ""
+
+#: ./ui/home_page.slint:59
+msgctxt "HomePage"
+msgid "Copy"
+msgstr ""
+
+#: ./ui/home_page.slint:60
+msgctxt "HomePage"
+msgid "USB"
+msgstr ""
+
 #: ./ui/printerdemo.slint:35
 msgctxt "MainWindow"
 msgid "Slint printer demo"
 msgstr ""
 
-#: ./ui/printer_queue.slint:34
-msgctxt "PrinterQueue"
-msgid "PRINTING"
+#: ./ui/usb_page.slint:12
+msgctxt "UsbPage"
+msgid "USB"
 msgstr ""
 
-#: ./ui/printer_queue.slint:36
-msgctxt "PrinterQueue"
-msgid "WAITING..."
+#: ./ui/usb_page.slint:44
+msgctxt "UsbPage"
+msgid "Select File:"
 msgstr ""
 
-#: ./ui/printer_queue.slint:38
-msgctxt "PrinterQueue"
-msgid "Unknown job status"
+#: ./ui/usb_page.slint:67
+msgctxt "UsbPage"
+msgid "Copies"
 msgstr ""
 
-#: ./ui/printer_queue.slint:64
-msgctxt "PrintDetails"
-msgid "Job Owner"
+#: ./ui/usb_page.slint:74 ./ui/usb_page.slint:77
+msgctxt "UsbPage"
+msgid "Color"
 msgstr ""
 
-#: ./ui/printer_queue.slint:81
-msgctxt "PrintDetails"
-msgid "Pages"
+#: ./ui/usb_page.slint:76 ./ui/usb_page.slint:77
+msgctxt "UsbPage"
+msgid "Grayscale"
 msgstr ""
 
-#: ./ui/printer_queue.slint:98
-msgctxt "PrintDetails"
-msgid "Size"
-msgstr ""
-
-#: ./ui/printer_queue.slint:115
-msgctxt "PrintDetails"
-msgid "Submitted"
-msgstr ""
-
-#: ./ui/printer_queue.slint:178
-msgctxt "NarrowPrintQueueElement"
-msgid "{}% - {}"
-msgstr ""
-
-#: ./ui/printer_queue.slint:212
-msgctxt "NarrowPrintQueueElement"
-msgid "More   "
-msgstr ""
-
-#: ./ui/printer_queue.slint:287
-msgctxt "WidePrintQueueElement"
-msgid "{}% - {}"
-msgstr ""
-
-#: ./ui/printer_queue.slint:326
-msgctxt "WidePrintQueueElement"
-msgid "Pause"
-msgstr ""
-
-#: ./ui/printer_queue.slint:332
-msgctxt "WidePrintQueueElement"
-msgid "Delete"
-msgstr ""
-
-#: ./ui/printer_queue.slint:378
-msgctxt "PrinterQueueView"
-msgid "Printing Queue"
+#: ./ui/usb_page.slint:91
+msgctxt "UsbPage"
+msgid "Start printing"
 msgstr ""
 
 #: ./ui/ink_page.slint:12
@@ -507,5 +442,70 @@ msgstr ""
 #: ./ui/settings_page.slint:86
 msgctxt "SettingsPage"
 msgid "Sort Pages"
+msgstr ""
+
+#: ./ui/printer_queue.slint:34
+msgctxt "PrinterQueue"
+msgid "PRINTING"
+msgstr ""
+
+#: ./ui/printer_queue.slint:36
+msgctxt "PrinterQueue"
+msgid "WAITING..."
+msgstr ""
+
+#: ./ui/printer_queue.slint:38
+msgctxt "PrinterQueue"
+msgid "Unknown job status"
+msgstr ""
+
+#: ./ui/printer_queue.slint:64
+msgctxt "PrintDetails"
+msgid "Job Owner"
+msgstr ""
+
+#: ./ui/printer_queue.slint:81
+msgctxt "PrintDetails"
+msgid "Pages"
+msgstr ""
+
+#: ./ui/printer_queue.slint:98
+msgctxt "PrintDetails"
+msgid "Size"
+msgstr ""
+
+#: ./ui/printer_queue.slint:115
+msgctxt "PrintDetails"
+msgid "Submitted"
+msgstr ""
+
+#: ./ui/printer_queue.slint:178
+msgctxt "NarrowPrintQueueElement"
+msgid "{}% - {}"
+msgstr ""
+
+#: ./ui/printer_queue.slint:212
+msgctxt "NarrowPrintQueueElement"
+msgid "More   "
+msgstr ""
+
+#: ./ui/printer_queue.slint:287
+msgctxt "WidePrintQueueElement"
+msgid "{}% - {}"
+msgstr ""
+
+#: ./ui/printer_queue.slint:326
+msgctxt "WidePrintQueueElement"
+msgid "Pause"
+msgstr ""
+
+#: ./ui/printer_queue.slint:332
+msgctxt "WidePrintQueueElement"
+msgid "Delete"
+msgstr ""
+
+#: ./ui/printer_queue.slint:378
+msgctxt "PrinterQueueView"
+msgid "Printing Queue"
 msgstr ""
 
