@@ -10,7 +10,7 @@ use alloc::rc::Rc;
 use core::ffi::c_void;
 use i_slint_core::window::{ffi::WindowAdapterRcOpaque, WindowAdapter};
 
-#[cfg(feature = "experimental")]
+#[cfg(feature = "experimental-platform")]
 pub mod platform;
 
 #[cfg(feature = "i-slint-backend-selector")]
