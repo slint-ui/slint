@@ -104,6 +104,8 @@ struct CppPlatform {
     user_data: PlatformUserData,
     drop: unsafe extern "C" fn(PlatformUserData),
     window_factory: unsafe extern "C" fn(PlatformUserData, *mut WindowAdapterRcOpaque),
+    #[cfg(not(feature = "std"))]
+    duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
 }
 
 impl Drop for CppPlatform {
@@ -123,6 +125,11 @@ impl Platform for CppPlatform {
             Ok(uninit.assume_init())
         }
     }
+
+    #[cfg(not(feature = "std"))]
+    fn duration_since_start(&self) -> core::time::Duration {
+        core::time::Duration::from_millis(unsafe { (self.duration_since_start)(self.user_data) })
+    }
 }
 
 #[no_mangle]
@@ -130,8 +137,15 @@ pub unsafe extern "C" fn slint_platform_register(
     user_data: PlatformUserData,
     drop: unsafe extern "C" fn(PlatformUserData),
     window_factory: unsafe extern "C" fn(PlatformUserData, *mut WindowAdapterRcOpaque),
+    #[allow(unused)] duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
 ) {
-    let p = CppPlatform { user_data, drop, window_factory };
+    let p = CppPlatform {
+        user_data,
+        drop,
+        window_factory,
+        #[cfg(not(feature = "std"))]
+        duration_since_start,
+    };
     i_slint_core::platform::set_platform(Box::new(p)).unwrap();
 }
 

@@ -172,6 +172,11 @@ public:
     /// Returns a new WindowAdapter
     virtual std::unique_ptr<WindowAdapter> create_window_adapter() const = 0;
 
+    /// Returns the amount of milliseconds since start of the application.
+    ///
+    /// This function should only be implemented  if the runtime is compiled with no_std
+    virtual uint64_t duration_since_start() const { return 0; }
+
     /// Register the platform to Slint. Must be called before Slint window are created. Can only
     /// be called once in an application.
     static void register_platform(std::unique_ptr<Platform> platform)
@@ -182,6 +187,9 @@ public:
                     auto w = reinterpret_cast<const Platform *>(p)->create_window_adapter();
                     *out = w->initialize();
                     (void)w.release();
+                },
+                [](void *p) -> uint64_t {
+                    return reinterpret_cast<const Platform *>(p)->duration_since_start();
                 });
     }
 };
