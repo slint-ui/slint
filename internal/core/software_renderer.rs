@@ -1376,7 +1376,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             if geometry.is_empty() {
                                 continue;
                             }
-                            let origin = (geometry.origin - offset.round()).cast::<usize>();
+                            let origin = (geometry.origin - offset.round()).round().cast::<usize>();
                             let actual_x = origin.x - src_rect.origin.x as usize;
                             let actual_y = origin.y - src_rect.origin.y as usize;
                             let stride = glyph.width.get() as u16;
