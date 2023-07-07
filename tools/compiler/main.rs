@@ -17,6 +17,7 @@ enum Embedding {
     /// Embed in a format optimized for the software renderer. This
     /// option falls back to `embed-files` if the software-renderer is not
     /// used
+    #[cfg(feature = "software-renderer")]
     EmbedForSoftwareRenderer,
 }
 
@@ -76,8 +77,6 @@ fn main() -> std::io::Result<()> {
             Embedding::EmbedFiles => EmbedResourcesKind::EmbedAllResources,
             #[cfg(feature = "software-renderer")]
             Embedding::EmbedForSoftwareRenderer => EmbedResourcesKind::EmbedTextures,
-            #[cfg(not(feature = "software-renderer"))]
-            Embedding::EmbedForSoftwareRenderer => EmbedResourcesKind::EmbedAllResources,
         };
     }
 
