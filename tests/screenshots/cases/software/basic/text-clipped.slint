@@ -114,5 +114,11 @@ export component TestCase inherits Window {
         }
     }
 
+    Text {
+        property <float> zero: 0;
+        text: "Zero";
+        x: zero * 5px / zero;
+    }
+
 
 }
