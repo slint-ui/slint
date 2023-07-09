@@ -46,6 +46,8 @@ component StandardListViewBase inherits ListView {
 // Like `ListView`, but with a default delegate, and a `model` property which is a model of type `StandardListViewItem`.
 export component StandardListView inherits StandardListViewBase {
     FocusScope {
+        x: 0;
+        width: 0;  // Do not react on clicks
         key-pressed(event) => {
             if (event.text == Key.UpArrow) {
                 root.set-current-item(root.current-item - 1);
