@@ -285,9 +285,16 @@ impl AccessKitAdapter {
                 .take()
                 .upgrade()
                 .map(|adapter| adapter.accesskit_adapter.build_new_tree())
-                .unwrap_or(TreeUpdate {
-                    tree: Some(Tree::new(NodeId(std::num::NonZeroU128::new(1).unwrap()))),
-                    ..Default::default()
+                .unwrap_or_else(|| {
+                    let dummy_node_id = NodeId(std::num::NonZeroU128::new(1).unwrap());
+                    TreeUpdate {
+                        nodes: vec![(
+                            dummy_node_id,
+                            NodeBuilder::new(Role::Window).build(&mut Default::default()),
+                        )],
+                        tree: Some(Tree::new(dummy_node_id)),
+                        ..Default::default()
+                    }
                 });
         }
 
