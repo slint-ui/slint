@@ -281,11 +281,23 @@ impl AccessKitAdapter {
         wrapped_window_adapter_weak: send_wrapper::SendWrapper<Weak<WinitWindowAdapter>>,
     ) -> TreeUpdate {
         if wrapped_window_adapter_weak.valid() {
-            return wrapped_window_adapter_weak
-                .take()
+            let window_adapter_weak = wrapped_window_adapter_weak.take();
+            return window_adapter_weak
                 .upgrade()
                 .map(|adapter| adapter.accesskit_adapter.build_new_tree())
                 .unwrap_or_else(|| {
+                    // We failed to upgrade the Weak window adapter despite being called in the mean thread. That means
+                    // we're trying to build the initial tree while the window adapter is still being constructed. Report
+                    // a dummy tree and schedule a rebuild later.
+
+                    let win = window_adapter_weak.clone();
+                    i_slint_core::timers::Timer::single_shot(Default::default(), move || {
+                        if let Some(window_adapter) = win.upgrade() {
+                            let self_ = &window_adapter.accesskit_adapter;
+                            self_.inner.update_if_active(|| self_.build_new_tree())
+                        };
+                    });
+
                     let dummy_node_id = NodeId(std::num::NonZeroU128::new(1).unwrap());
                     TreeUpdate {
                         nodes: vec![(
