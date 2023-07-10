@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 // cSpell: ignore datetime dotdot gettext
 
@@ -378,7 +378,7 @@ lazy_static! {
 }
 
 const TRIPLE_LICENSE: &str =
-    "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial";
+    "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial";
 const MIT_LICENSE: &str = "MIT";
 const MIT_OR_APACHE2_LICENSE: &str = "MIT OR Apache-2.0";
 
@@ -404,7 +404,7 @@ impl<'a> LicenseHeader<'a> {
 
 #[cfg(test)]
 const EXPECTED_SPDX_EXPRESSION: &str =
-    "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial";
+    "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial";
 
 const SPDX_LICENSE_ID: &str = const_format::concatcp!("SP", "DX-License-Identifier:"); // Do not confuse the reuse tool
 const SPDX_LICENSE_LINE: &str = const_format::concatcp!(SPDX_LICENSE_ID, " "); // Do not confuse the reuse tool

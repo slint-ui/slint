@@ -1,12 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
-# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 [package]
 name = "i-slint-backend-winit"
 version = "1.1.1"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
-license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.0 OR LicenseRef-Slint-commercial"
+license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
 description = "OpenGL rendering backend for Slint"
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint.dev"
