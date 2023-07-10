@@ -678,10 +678,9 @@ auto access_array_index(const M &model, size_t index)
 } // namespace private_api
 
 /// \rst
-/// A Model is providing Data for
-/// `for - in<../../slint/src/reference/repetitions.html>`_ repetitions or
-/// `ListView<../../slint/src/builtins/widgets.html#listview>`_ elements of the :code:`.slint`
-/// language \endrst
+/// A Model is providing Data for |Repetition|_ repetitions or |ListView|_ elements of the
+/// :code:`.slint` language
+/// \endrst
 template<typename ModelData>
 class Model
 {
