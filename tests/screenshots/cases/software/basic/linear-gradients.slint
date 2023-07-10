@@ -13,9 +13,8 @@ export TestCase := Window {
         Row {
             Rectangle {
                 background: @linear-gradient(90deg, red, blue);
-                Rectangle {
+                with_opacity := Rectangle {
                     background: @linear-gradient(0deg, limegreen 10%, transparent 50%);
-                    opacity: 0.5;
                 }
             }
             Rectangle { background: @linear-gradient(0deg, green, yellow 20%, cyan); }
@@ -30,6 +29,13 @@ export TestCase := Window {
             }
             Rectangle { background: @linear-gradient(128deg, red, white 0%, transparent); }
             Rectangle { background: @linear-gradient(242deg, white 10%, #239 35%, red 85%); }
+        }
+    }
+
+    init => {
+        // This is a test for the binding part of #3068
+        if (with_opacity.opacity == 1) {
+            with_opacity.opacity = 0.5;
         }
     }
 }

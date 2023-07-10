@@ -192,7 +192,7 @@ pub fn generate(doc: &Document) -> TokenStream {
          // These make code generation easier
         #[allow(clippy::style)]
         #[allow(clippy::complexity)]
-        #[allow(unused_braces)]
+        #[allow(unused_braces, unused_parens)]
         #[allow(clippy::erasing_op)]
         #[allow(clippy::approx_constant)] // We may get those from .slint inputs!
         #[allow(clippy::eq_op)] // The generated code will compare/subtract/etc. equal values
@@ -928,7 +928,6 @@ fn generate_sub_component(
             pub fn init(self_rc: sp::VRcMapped<sp::ComponentVTable, Self>,
                     root : &sp::VRc<sp::ComponentVTable, #root_component_id>,
                     tree_index: u32, tree_index_of_first_child: u32) {
-                #![allow(unused)]
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
                 _self.self_weak.set(VRcMapped::downgrade(&self_rc));
