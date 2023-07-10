@@ -115,9 +115,9 @@ myst_heading_anchors = 2
 
 rst_epilog = """
 .. |ListView| replace:: :code:`ListView`
-.. _ListView: ../slint/src/builtins/widgets.html#listview
+.. _ListView: ../../slint/src/builtins/widgets.html#listview
 .. |Repetition| replace:: :code:`for` - :code:`in`
-.. _Repetition: ../slint/src/reference/repetitions.html
+.. _Repetition: ../../slint/src/reference/repetitions.html
 """
 
 
