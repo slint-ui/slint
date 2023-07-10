@@ -1,4 +1,4 @@
-# Slint Royalty-free Desktop and Web Applications License, version 1.1
+# Slint Royalty-free Desktop and Web Applications License, version 1.0.1
 
 ## Preamble
 
