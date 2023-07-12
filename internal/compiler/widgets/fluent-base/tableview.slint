@@ -92,6 +92,7 @@ component TableViewCell inherits Rectangle {
 
 component TableViewRow inherits Rectangle {
     callback clicked <=> i-touch-area.clicked;
+    callback pointer-event <=> i-touch-area.pointer-event;
 
     in property<bool> selected;
     in property <bool> even;
@@ -140,6 +141,7 @@ export component StandardTableView {
 
     callback sort-ascending(int /* column-index */);
     callback sort-descending(int /* column-index */);
+    callback row-pointer-event(int /* row-index */, PointerEvent);
 
     in property <[[StandardListViewItem]]> rows;
     out property <int> current-sort-column: -1;
@@ -220,6 +222,10 @@ export component StandardTableView {
                                 color: mod(idx, 2) == 0 ? Palette.text-primary : Palette.text-secondary;
                             }
                         }
+                    }
+
+                    pointer-event(pe) => {
+                        root.row-pointer-event(idx, pe);
                     }
 
                     clicked => {
