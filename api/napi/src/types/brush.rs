@@ -142,7 +142,7 @@ impl JsBrush {
     }
 
     #[napi(getter)]
-    pub fn inner(&self) -> External<Brush> {
+    pub fn brush(&self) -> External<Brush> {
         External::new(self.inner.clone())
     }
 }

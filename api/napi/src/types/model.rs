@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use i_slint_core::model::{ModelRc, Model, VecModel};
+use i_slint_core::model::{Model, ModelRc, VecModel};
 use napi::bindgen_prelude::External;
 use slint_interpreter::Value;
 
@@ -29,7 +29,7 @@ impl JsModel {
     }
 
     #[napi(getter)]
-    pub fn inner(&self) -> External<ModelRc<Value>> {
+    pub fn model(&self) -> External<ModelRc<Value>> {
         External::new(self.inner.clone())
     }
 }

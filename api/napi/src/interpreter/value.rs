@@ -1,5 +1,5 @@
 use crate::{JsBrush, JsImageData, JsModel};
-use i_slint_core::{graphics::Image, Brush, model::ModelRc};
+use i_slint_core::{graphics::Image, model::ModelRc, Brush};
 use napi::{bindgen_prelude::*, Env, JsBoolean, JsExternal, JsNumber, JsString, JsUnknown, Result};
 use slint_interpreter::{ComponentInstance, Struct, Value, ValueType};
 
@@ -40,7 +40,7 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
     match value {
         Value::Void => env.get_null().map(|v| v.into_unknown()),
         Value::Number(number) => env.create_double(*number).map(|v| v.into_unknown()),
-        Value::String(string) => env.create_string(string).map(|v| v.into_unknown()),
+        Value::String(string) => { println!("string");env.create_string(string).map(|v| v.into_unknown())},
         Value::Bool(value) => env.get_boolean(*value).map(|v| v.into_unknown()),
         Value::Image(image) => {
             Ok(JsImageData::from(image.clone()).into_instance(*env)?.as_object(*env).into_unknown())
@@ -84,13 +84,12 @@ pub fn to_value(
             Value::Bool(js_bool.get_value()?)
         }
         ValueType::Image => {
-            let js_image: JsExternal = unknown.coerce_to_object()?.get("inner")?.unwrap();
+            let js_image: JsExternal = unknown.coerce_to_object()?.get("image")?.unwrap();
             Value::Image(env.get_value_external::<Image>(&js_image)?.clone())
         }
         ValueType::Model => {
-            let js_model: JsExternal = unknown.coerce_to_object()?.get("inner")?.unwrap();
+            let js_model: JsExternal = unknown.coerce_to_object()?.get("model")?.unwrap();
             Value::Model(env.get_value_external::<ModelRc<Value>>(&js_model)?.clone())
-            // todo!("Instantiate a Rust type that implements Model<Value>, stores JsUnknown as JsObject and treats it as if it implements the Model<T> interface")
         }
         ValueType::Struct => {
             let js_object = unknown.coerce_to_object()?;
@@ -115,11 +114,50 @@ pub fn to_value(
             Value::Struct(s_vec.iter().cloned().collect::<Struct>().into())
         }
         ValueType::Brush => {
-            let js_brush: JsExternal = unknown.coerce_to_object()?.get("inner")?.unwrap();
+            let js_brush: JsExternal = unknown.coerce_to_object()?.get("brush")?.unwrap();
             Value::Brush(env.get_value_external::<Brush>(&js_brush)?.clone())
         }
         _ => {
             todo!()
         }
     })
+}
+
+pub fn js_unknown_to_value(env: Env, unknown: JsUnknown) -> Result<Value> {
+    match unknown.get_type()? {
+        napi::ValueType::Boolean => Ok(Value::Bool(unknown.coerce_to_bool()?.get_value()?)),
+        napi::ValueType::Number => Ok(Value::Number(unknown.coerce_to_number()?.get_double()?)),
+        napi::ValueType::String => {
+            Ok(Value::String(unknown.coerce_to_string()?.into_utf8()?.as_str()?.into()))
+        }
+        napi::ValueType::Object => {
+            let js_object = unknown.coerce_to_object()?;
+            let image: Option<JsExternal> = js_object.get("image")?;
+
+            if let Some(image) = image {
+                Ok(Value::Image(env.get_value_external::<Image>(&image)?.clone()))
+            } else {
+                let brush: Option<JsExternal> = js_object.get("brush")?;
+
+                if let Some(brush) = brush {
+                    Ok(Value::Brush(env.get_value_external::<Brush>(&brush)?.clone()))
+                } else {
+                    let property_names = js_object.get_property_names()?;
+                    let mut slint_struct = slint_interpreter::Struct::default();
+
+                    for i in 0..property_names.get_array_length()? {
+                        let key = property_names.get_element::<JsString>(i)?;
+
+                        slint_struct.set_field(
+                            key.into_utf8()?.into_owned()?,
+                            js_unknown_to_value(env, js_object.get_property(key)?)?,
+                        );
+                    }
+
+                    Ok(Value::Struct(slint_struct))
+                }
+            }
+        }
+        _ => Ok(Value::Void),
+    }
 }

@@ -64,7 +64,7 @@ impl JsImageData {
     }
 
     #[napi(getter)]
-    pub fn inner(&self) -> External<Image> {
+    pub fn image(&self) -> External<Image> {
         External::new(self.inner.clone())
     }
 }

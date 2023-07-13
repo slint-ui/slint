@@ -234,3 +234,19 @@ test('get/set model properties', (t) => {
     t.deepEqual((model as Model).rowCount, 2);
   }
 })
+
+test('invoke callback', (t) => {
+  let compiler = new ComponentCompiler;
+  let definition = compiler.buildFromSource(`
+  export component App {
+    callback speak(string, string);
+  }
+  `, "");
+  let instance = definition?.create()!;
+  instance.setCallback("speak", (a: string, b: string) => {
+    console.log(a + b);
+  });
+
+  instance.invoke("speak", ["simon", "florian"]);
+
+})
