@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use napi::{Env, Error, JsUnknown, Result};
-use slint_interpreter::{ComponentHandle, ComponentInstance};
+use napi::{Env, Error, JsFunction, JsUnknown, Result};
+use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
 
 use super::JsComponentDefinition;
 
@@ -55,6 +55,45 @@ impl JsComponentInstance {
                 .map_err(|_| napi::Error::from_reason("Cannot get property."))?,
         )?;
         self.inner.set_property(&name, value).map_err(|e| Error::from_reason(format!("{e}")))?;
+        Ok(())
+    }
+
+    #[napi]
+    pub fn set_callback(&self, env: Env, name: String, callback: JsFunction) -> Result<()> {
+        self.inner
+            .set_callback(name.as_str(), move |values| {
+                println!("---");
+                let result = callback
+                    .call(
+                        None,
+                        values
+                            .iter()
+                            .map(|v| super::value::to_js_unknown(&env, v).unwrap())
+                            .collect::<Vec<JsUnknown>>()
+                            .as_ref(),
+                    )
+                    .unwrap();
+
+                super::js_unknown_to_value(env, result).unwrap()
+            })
+            .map_err(|_| napi::Error::from_reason("Cannot set callback."))?;
+
+        Ok(())
+    }
+
+    #[napi]
+    pub fn invoke(&self, env: Env, name: String, mut value: Vec<JsUnknown>) -> Result<()> {
+        self.inner
+            .invoke(
+                name.as_str(),
+                value
+                    .drain(0..(value.len()))
+                    .map(|unknown| super::value::js_unknown_to_value(env, unknown).unwrap())
+                    .collect::<Vec<Value>>()
+                    .as_ref(),
+            )
+            .map_err(|_| napi::Error::from_reason("Cannot invoke callback."))?;
+
         Ok(())
     }
 }
