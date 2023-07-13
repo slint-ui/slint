@@ -141,12 +141,13 @@ export component StandardTableView {
 
     callback sort-ascending(int /* column-index */);
     callback sort-descending(int /* column-index */);
-    callback row-pointer-event(int /* row-index */, PointerEvent);
+    callback row-pointer-event(int /* row-index */, PointerEvent /* event */);
 
     in property <[[StandardListViewItem]]> rows;
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
     in-out property <int> current-row: -1;
+
 
     min-width: 400px;
     min-height: 200px;
