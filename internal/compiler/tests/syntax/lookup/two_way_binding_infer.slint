@@ -23,4 +23,10 @@ export X := Rectangle {
     property <string> alias_to_background <=> auto_background;
 //                                        ^error{The property does not have the same type as the bound property}
 
+
+    property abc <=> self.opacity;
+    abc: "eee";
+//  ^error{Duplicated property binding}
+
+
 }
