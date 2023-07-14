@@ -707,7 +707,11 @@ pub fn process_mouse_input(
     let mut result = MouseInputState::default();
     let root = ItemRc::new(component, 0);
     let r = send_mouse_event_to_item(mouse_event, root, window_adapter, &mut result, false);
-    if mouse_input_state.delayed.is_some() && !r.has_aborted() {
+    if mouse_input_state.delayed.is_some()
+        && (!r.has_aborted()
+            || Option::zip(result.item_stack.last(), mouse_input_state.item_stack.last())
+                .map_or(true, |(a, b)| a.0 != b.0))
+    {
         // Keep the delayed event
         return mouse_input_state;
     }
