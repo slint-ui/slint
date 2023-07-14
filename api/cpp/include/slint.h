@@ -146,13 +146,6 @@ public:
         cbindgen_private::slint_windowrc_set_focus_item(&inner, &item_rc);
     }
 
-    template<typename Component, typename ItemArray>
-    void register_component(Component *c, ItemArray items) const
-    {
-        cbindgen_private::slint_register_component(
-                vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
-    }
-
     template<typename Component>
     void set_component(const Component &c) const
     {
@@ -269,7 +262,7 @@ public:
     }
 
     /// \private
-    const cbindgen_private::WindowAdapterRcOpaque &handle() { return inner; }
+    const cbindgen_private::WindowAdapterRcOpaque &handle() const { return inner; }
 
 private:
     friend class slint::experimental::platform::SkiaRenderer;
@@ -607,6 +600,16 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
 }
 
 namespace private_api {
+
+template<typename Component, typename ItemArray>
+static void register_component(const std::optional<slint::Window> &maybe_window, Component *c,
+                               ItemArray items)
+{
+    const cbindgen_private::WindowAdapterRcOpaque *window_ptr =
+            maybe_window.has_value() ? &maybe_window->window_handle().handle() : nullptr;
+    cbindgen_private::slint_register_component(
+            vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, window_ptr);
+}
 
 inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutData &data,
                                             cbindgen_private::Slice<int> repeater_indexes)
