@@ -12,6 +12,7 @@ export Xxx := Rectangle {
 //                        ^error{Duplicated argument name 'a'}
 
     function plop2() -> int {
+//  ^error{Cannot convert string to int}
         return 45;
         "xxx"
     }
@@ -19,8 +20,10 @@ export Xxx := Rectangle {
     function plop3() { return 45; "xxx" }
 
     function plop4(string: int) -> int {  return "45"; }
+//                                        ^error{Cannot convert string to int}
 
     function plop5() {  plop4("456") }
+//                            ^error{Cannot convert string to int}
 
 
     function background() {}
@@ -45,6 +48,8 @@ export Xxx := Rectangle {
 //              ^error{Cannot assign to par in Abc because it does not have a valid property type}
     Abc { par <=> aa.par; }
 //        ^error{Cannot assign to par in Abc because it does not have a valid property type}
+//        ^^error{Cannot bind to a function}
+//                   ^^^error{The function 'par' is private. Annotate it with 'public' to make it accessible from other components}
     fooo => {}
 //  ^error{'fooo' is not a callback in Rectangle}
 

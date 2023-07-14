@@ -155,7 +155,13 @@ impl Expression {
                 return Expression::Invalid;
             }
         };
-        e.maybe_convert_to(ctx.property_type.clone(), &node, ctx.diag)
+        if !matches!(ctx.property_type, Type::Callback { .. } | Type::Function { .. }) {
+            e.maybe_convert_to(ctx.property_type.clone(), &node, ctx.diag)
+        } else {
+            // Binding to a callback or function shouldn't happen
+            assert!(ctx.diag.has_error());
+            e
+        }
     }
 
     fn from_codeblock_node(node: syntax_nodes::CodeBlock, ctx: &mut LookupCtx) -> Expression {
