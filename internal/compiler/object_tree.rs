@@ -924,17 +924,16 @@ impl Element {
             );
 
             if let Some(csn) = prop_decl.BindingExpression() {
-                if r.bindings
-                    .insert(
-                        prop_name.to_string(),
-                        BindingExpression::new_uncompiled(csn.into()).into(),
-                    )
-                    .is_some()
-                {
-                    diag.push_error(
-                        "Duplicated property binding".into(),
-                        &prop_decl.DeclaredIdentifier(),
-                    );
+                match r.bindings.entry(prop_name.to_string()) {
+                    Entry::Vacant(e) => {
+                        e.insert(BindingExpression::new_uncompiled(csn.into()).into());
+                    }
+                    Entry::Occupied(_) => {
+                        diag.push_error(
+                            "Duplicated property binding".into(),
+                            &prop_decl.DeclaredIdentifier(),
+                        );
+                    }
                 }
             }
             if let Some(csn) = prop_decl.TwoWayBinding() {
@@ -1140,17 +1139,14 @@ impl Element {
                 );
                 continue;
             }
-            if r.bindings
-                .insert(
-                    resolved_name.into_owned(),
-                    BindingExpression::new_uncompiled(con_node.clone().into()).into(),
-                )
-                .is_some()
-            {
-                diag.push_error(
+            match r.bindings.entry(resolved_name.into_owned()) {
+                Entry::Vacant(e) => {
+                    e.insert(BindingExpression::new_uncompiled(con_node.clone().into()).into());
+                }
+                Entry::Occupied(_) => diag.push_error(
                     "Duplicated callback".into(),
                     &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                );
+                ),
             }
         }
 
@@ -1525,16 +1521,14 @@ impl Element {
                 );
             }
 
-            if self
-                .bindings
-                .insert(
-                    lookup_result.resolved_name.to_string(),
-                    BindingExpression::new_uncompiled(b).into(),
-                )
-                .is_some()
-            {
-                diag.push_error("Duplicated property binding".into(), &name_token);
-            }
+            match self.bindings.entry(lookup_result.resolved_name.to_string()) {
+                Entry::Occupied(_) => {
+                    diag.push_error("Duplicated property binding".into(), &name_token);
+                }
+                Entry::Vacant(entry) => {
+                    entry.insert(BindingExpression::new_uncompiled(b).into());
+                }
+            };
         }
     }
 

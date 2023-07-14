@@ -10,4 +10,12 @@ export Xxx := Rectangle {
     callback bar(int) -> int;
     bar <=> foo.hello;
 //  ^error{Unknown property bar in Rectangle}
+
+
+    // #3085
+    callback row-pointer-event <=> dontexist;
+//                                 ^error{Unknown unqualified identifier 'dontexist'}
+//  ^^error{Binding to callback 'row-pointer-event' must bind to another callback}
+    row-pointer-event => {}
+//  ^error{Duplicated callback}
 }
