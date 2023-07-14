@@ -1227,7 +1227,7 @@ fn generate_item_tree(
 
     create_code.extend([
         format!(
-            "if (auto &window = {}->m_window) window->window_handle().register_component(self, self->item_array());",
+            "slint::private_api::register_component({}->m_window, self, self->item_array());",
             root_access
         ),
         format!("self->init({}, self->self_weak, 0, 1 {});", root_access, init_parent_parameters),
