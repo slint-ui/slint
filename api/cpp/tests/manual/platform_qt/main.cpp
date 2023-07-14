@@ -45,7 +45,7 @@ static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *w
             native->nativeResourceForWindow(QByteArray("connection"), window));
     auto screen = quintptr(native->nativeResourceForWindow(QByteArray("screen"), window));
 
-    return slint_platform::NativeWindowHandle::from_x11(wid, wid, connection, screen);
+    return slint_platform::NativeWindowHandle::from_x11_xcb(wid, wid, connection, screen);
 #endif
 }
 
@@ -56,6 +56,7 @@ class MyWindow : public QWindow, public slint_platform::WindowAdapter
 public:
     MyWindow(QWindow *parentWindow = nullptr) : QWindow(parentWindow)
     {
+        resize(640, 480);
         m_renderer.emplace(window_handle_for_qt_window(this), physical_size());
     }
 

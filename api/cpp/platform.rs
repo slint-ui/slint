@@ -249,7 +249,7 @@ pub mod skia {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn slint_new_raw_window_handle_x11(
+    pub unsafe extern "C" fn slint_new_raw_window_handle_x11_xcb(
         window: u32,
         visual_id: u32,
         connection: *mut c_void,
@@ -259,6 +259,21 @@ pub mod skia {
         let handle = CppRawHandle(
             RawWindowHandle::Xcb(init_raw!(XcbWindowHandle { window, visual_id })),
             RawDisplayHandle::Xcb(init_raw!(XcbDisplayHandle { connection, screen })),
+        );
+        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_new_raw_window_handle_x11_xlib(
+        window: core::ffi::c_ulong,
+        visual_id: core::ffi::c_ulong,
+        display: *mut c_void,
+        screen: core::ffi::c_int,
+    ) -> CppRawHandleOpaque {
+        use raw_window_handle::{XlibDisplayHandle, XlibWindowHandle};
+        let handle = CppRawHandle(
+            RawWindowHandle::Xlib(init_raw!(XlibWindowHandle { window, visual_id })),
+            RawDisplayHandle::Xlib(init_raw!(XlibDisplayHandle { display, screen })),
         );
         Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
     }
