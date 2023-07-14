@@ -1,0 +1,142 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { Typography, Palette, Icons } from "styling.slint";
+import { MenuBorder, ListItem, FocusBorder } from "components.slint";
+
+export component ComboBox {
+    private property <brush> background: Palette.cup-surface;
+
+    callback selected(string /* current-value */);
+
+    in property <[string]> model;
+    in property <bool> enabled <=> i-focus-scope.enabled;
+    out property <bool> has-focus <=> i-focus-scope.has-focus;
+    in-out property <int> current-index: 0;
+    in-out property <string> current-value: root.model[root.current-index];
+
+    min-width: max(160px, i-layout.min-width);
+    min-height: max(22px, i-layout.min-height);
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    forward-focus: i-focus-scope;
+
+    i-focus-scope := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.UpArrow) {
+                root.move-selection-up();
+                return accept;
+            } else if (event.text == Key.DownArrow) {
+
+                root.move-selection-down();
+                return accept;
+            } else if (event.text == Key.Return) {
+                i-popup.show();
+            }
+            return reject;
+        }
+
+        i-touch-area := TouchArea {
+            clicked => {
+                root.focus();
+                i-popup.show();
+            }
+        }
+    }
+
+    FocusBorder {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: 8px;
+        has-focus: root.has-focus;
+    }
+
+    Rectangle {
+        drop-shadow-blur: 0.25px;
+        drop-shadow-color: #00000066;
+        drop-shadow-offset-y: 0.25px;
+        border-radius: 5px;
+        background: root.background;
+
+        Rectangle {
+            drop-shadow-blur: 1px;
+            drop-shadow-color: #00000026;
+            drop-shadow-offset-y: 1px;
+            border-radius: parent.border-radius;
+            background: root.background;
+            border-width: 1px;
+            border-color: Palette.cup-decent-border;
+            opacity: root.enabled ? 1 : 0.5;
+        }
+    }
+
+    i-layout := HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        spacing: 4px;
+
+        i-text := Text {
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            font-size: Typography.body.font-size;
+            font-weight: Typography.body.font-weight;
+            color: Palette.foreground;
+            text: root.current-value;
+        }
+
+        i-icon := Image {
+            colorize: Palette.foreground;
+            height: 13px;
+            source: Icons.dropdown;
+            y: (parent.height - self.height) / 2;
+
+            animate colorize { duration: 150ms; }
+        }
+    }
+
+
+    i-popup := PopupWindow {
+        x: 0;
+        y: parent.height + 6px;
+        min-width: root.width;
+
+        MenuBorder {
+            VerticalLayout {
+                padding: 5px;
+
+                for value[index] in root.model : ListItem {
+                    text: value;
+                    selected: index == root.current-index;
+
+                    clicked => {
+                        root.select(index);
+                    }
+                }
+            }
+        }
+    }
+
+    function select(index: int) {
+        root.current-index = index;
+        root.current-value = root.model[root.current-index];
+        root.selected(root.current-value);
+    }
+
+    function move-selection-up() {
+        root.select(Math.max(root.current-index - 1, 0));
+    }
+
+    function move-selection-down() {
+        root.select(Math.min(root.current-index + 1, root.model.length - 1));
+    }
+
+    states [
+        pressed when i-touch-area.pressed : {
+            root.background: Palette.cup-surface-secondary;
+        }
+    ]
+}

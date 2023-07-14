@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { ColorSchemeSelector } from "color-scheme.slint";
+
+export struct TextStyle {
+    font-size: relative-font-size,
+    font-weight: int,
+}
+
+export global Typography {
+    out property <int> light-font-weight: 300;
+    out property <int> regular-font-weight: 400;
+    out property <int> semibold-font-weight: 600;
+
+    out property <TextStyle> body: {
+        font-size: 13 * 0.0769rem,
+        font-weight: regular-font-weight
+    };
+
+    // needed?
+    out property <TextStyle> body-strong: {
+        font-size: 14 * 0.0769rem,
+        font-weight: semibold-font-weight
+    };
+}
+
+export global Palette {
+    in-out property<bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
+
+    // this are the final colors
+    out property <brush> background: dark-color-scheme ? #282828 : #ffffff;
+    out property <brush> cup-accent: dark-color-scheme ? #0055d1 : #007AFF;
+    out property <brush> cup-accent-secondary: dark-color-scheme ? #2076ee : #0063ea;
+    out property <brush> cup-accent-tertiary: dark-color-scheme ? #487aff : #66A1E3;
+    out property <brush> cup-accent-quaternary: dark-color-scheme ? #0055d14D : #007AFF4D;
+    out property <brush> cup-forground: dark-color-scheme ? #ffffff : #000000;
+    out property <brush> cup-forground-secondary: dark-color-scheme ? #ffffff40 : #00000040;
+    out property <brush> cup-surface: dark-color-scheme ? #616161 : #ffffff;
+    out property <brush> cup-surface-secondary: dark-color-scheme ? #7a7a7a : #f0f0f0;
+    out property <brush> cup-on-surface: #f0f0f0;
+    out property <brush> cup-decent-border: dark-color-scheme ? #ffffff14 : #00000014;
+    out property <brush> cup-dimmer: @linear-gradient(180deg, #FFFFFFFF 100%, #FFFFFF00 0%);
+
+    // FIXME: Remove after widgets are finished
+    out property <brush> background-alt: dark-color-scheme ? #2c2c2c :#00000005;
+    out property <brush> primary: dark-color-scheme ? #4a84ff : #007AFF;
+    out property <brush> on-primary: #ffffff;
+    out property <brush> focus: dark-color-scheme ? #487aff : #66A1E3;
+    out property <brush> primary-gradient: @linear-gradient(180deg, #FFFFFF 100%, #ffffff00 0%);
+    out property <brush> foreground: dark-color-scheme ? #e2e2e2 : #000000D9;
+    out property <brush> foreground-disabled: #00000040;
+    out property <brush> surface: dark-color-scheme ? #696969 : #ffffff;
+    out property <brush> surface-disabled: #ffffff80;
+    out property <brush> fake-shadow: @linear-gradient(180deg, #00000033 100%, #0000001A 50%, #00000033 0%);
+    out property <brush> fake-disabled-shadow: @linear-gradient(180deg, #00000026 100%, #00000014 50%, #00000026 0%);
+    out property <brush> fake-primary-shadow: @linear-gradient(180deg, #007AFF3D 100%, #007AFF1F 50%, #007AFF3D 0%);
+    out property <brush> fake-inner-shadow: dark-color-scheme ? #525252 : @linear-gradient(180deg, #0000000D 100%, #00000005 50%, #0000000D 100%);
+    out property <brush> fake-inner-shadow-strong: @linear-gradient(180deg, #0000001A 100%, #0000000A 100%);
+    out property <brush> popup-background: #F6F6F699;
+    out property <brush> popup-drop-shadow-1: #00000066;
+    out property <brush> popup-drop-shadow-2: #0000004D;
+    out property <brush> popup-drop-shadow-3: #ffffff40;
+    out property <brush> selection: #007AFF4D;
+    out property <brush> bar-background: dark-color-scheme ? #464646 : #0000000D;
+    out property <brush> border: dark-color-scheme ? #525252 :#0000000A;
+    out property <brush> title-bar-background: dark-color-scheme ? #282828 : #E5E5E5;
+    out property <brush> thumb-background: dark-color-scheme ? #cfcfcf : #FFFFFF;
+}
+
+export global Icons {
+    out property <image> arrow-down: @image-url("_arrow-down.svg");
+    out property <image> arrow-up: @image-url("_arrow-up.svg");
+    out property <image> check-mark: @image-url("_check-mark.svg");
+    out property <image> chevron-down: @image-url("_chevron-down.svg");
+    out property <image> chevron-up: @image-url("_chevron-up.svg");
+    out property <image> down: @image-url("_down.svg");
+    out property <image> dropdown: @image-url("_dropdown.svg");
+    out property <image> left: @image-url("_left.svg");
+    out property <image> right: @image-url("_right.svg");
+    out property <image> up: @image-url("_up.svg");
+}

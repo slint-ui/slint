@@ -96,6 +96,9 @@ function create_style_menu(editor: EditorWidget): Menu {
         { label: "Material", name: "material" },
         { label: "Material Light", name: "material-light" },
         { label: "Material Dark", name: "material-dark" },
+        { label: "Cupertino", name: "cupertino" },
+        { label: "Cupertino Light", name: "cupertino-light" },
+        { label: "Cupertino Dark", name: "cupertino-dark" },
     ]) {
         const command_name = "slint:set_style_" + style.name;
         commands.addCommand(command_name, {

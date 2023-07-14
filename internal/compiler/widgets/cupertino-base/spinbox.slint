@@ -1,0 +1,194 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { Palette, Typography, Icons } from "styling.slint";
+import { FocusBorder } from "components.slint";
+
+component SpinBoxButton {
+    callback clicked <=> i-touch-area.clicked;
+
+    in property <image> icon <=> i-icon.source;
+
+    min-width: 16px;
+    horizontal-stretch: 0;
+
+    Rectangle {
+        y: (parent.height - self.height) / 2;
+        width: 14px;
+        height: self.width;
+
+        i-shadow := Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: parent.width + 2 * self.border-width;
+            height: parent.height + 2 * self.border-width;
+            border-radius: 4px;
+            border-width: 1px;
+            border-color: Palette.fake-primary-shadow;
+        }
+
+        i-background := Rectangle {
+            background: Palette.primary;
+            border-radius: 3px;
+
+            i-icon := Image {
+                image-fit: contain;
+                source: Icons.check-mark;
+                colorize: Palette.on-primary;
+                width: 10px;
+
+                animate colorize { duration: 150ms; }
+            }
+        }
+
+        animate background, border-color { duration: 150ms; }
+    }
+
+    i-touch-area := TouchArea {}
+
+    states [
+        pressed when i-touch-area.pressed : {
+            // i-background.background: Palette.subtle;
+        }
+    ]
+}
+
+export component SpinBox {
+    in property <int> minimum;
+    in property <int> maximum: 100;
+    in property <bool> enabled <=> i-text-input.enabled;
+    out property <bool> has-focus <=> i-text-input.has-focus;
+    in-out property <int> value;
+
+    min-width: 128px;
+    min-height: max(22px, i-layout.min-height);
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+    accessible-role: spinbox;
+    accessible-value: root.value;
+    accessible-value-minimum: root.minimum;
+    accessible-value-maximum: root.maximum;
+    accessible-value-step: (root.maximum - root.minimum) / 100;
+
+    FocusBorder {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: 9px;
+        has-focus: root.has-focus;
+    }
+
+    i-shadow := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: parent.width + 2 * self.border-width;
+        height: parent.height + 2 * self.border-width;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: Palette.fake-shadow;
+    }
+
+    i-background := Rectangle {
+        border-radius: 5px;
+        background: Palette.surface;
+    }
+
+    i-layout := HorizontalLayout {
+        padding-left: 7px;
+        padding-right: 2px;
+        spacing: 3px;
+
+        Rectangle {
+            clip: true;
+
+            i-text-input := TextInput {
+                vertical-alignment: center;
+                horizontal-alignment: left;
+                color: Palette.foreground;
+                font-size: Typography.body.font-size;
+                font-weight: Typography.body.font-weight;
+                selection-background-color: Palette.cup-accent-quaternary;
+                selection-foreground-color: self.color;
+                horizontal-stretch: 1;
+                text: root.value;
+
+                accepted => {
+                    if (self.text == "") {
+                        root.update-value(root.minimum);
+                    }
+                }
+
+                edited => {
+                    if (self.text == "") {
+                        root.update-value(root.minimum);
+                        return;
+                    }
+
+                    if (self.text.is-float()) {
+                        root.update-value(root.value + 1);
+                        return;
+                    }
+
+                    self.text = root.value;
+                }
+            }
+
+            i-touch-area := TouchArea {
+                clicked => {
+                    i-text-input.focus();
+                }
+            }
+        }
+
+        SpinBoxButton {
+            visible: root.enabled;
+            icon: Icons.chevron-up;
+
+            clicked => {
+                root.increment();
+            }
+        }
+
+        SpinBoxButton {
+            visible: root.enabled;
+            icon: Icons.chevron-down;
+
+            clicked => {
+                root.decrement();
+            }
+        }
+    }
+
+    function update-value(value: int) {
+        if (value < root.minimum || value > root.maximum) {
+            return;
+        }
+
+        root.value = value;
+    }
+
+    function increment() {
+        root.update-value(root.value + 1);
+        root.update-text();
+    }
+
+    function decrement() {
+        root.update-value(root.value - 1);
+        root.update-text();
+    }
+
+    function update-text() {
+        i-text-input.text = root.value;
+    }
+
+    states [
+        disabled when !root.enabled : {
+            i-text-input.color: Palette.foreground-disabled;
+            i-background.background: Palette.surface-disabled;
+            i-shadow.border-color: Palette.fake-disabled-shadow;
+        }
+        focused when root.has-focus : {
+        }
+    ]
+}
