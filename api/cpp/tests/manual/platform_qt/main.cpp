@@ -38,14 +38,24 @@ static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *w
     auto wid = Qt::HANDLE(window->winId());
     return slint_platform::NativeWindowHandle::from_win32(wid, GetModuleHandle(nullptr));
 #else
+    // Try Wayland first, then XLib, then Xcb
     auto wid = window->winId();
     auto visual_id = 0; // FIXME
     QPlatformNativeInterface *native = qApp->platformNativeInterface();
-    auto *connection = reinterpret_cast<xcb_connection_t *>(
-            native->nativeResourceForWindow(QByteArray("connection"), window));
     auto screen = quintptr(native->nativeResourceForWindow(QByteArray("x11screen"), window));
-
-    return slint_platform::NativeWindowHandle::from_x11_xcb(wid, wid, connection, screen);
+    if (auto *wayland_display = reinterpret_cast<wl_display *>(
+                native->nativeResourceForIntegration(QByteArray("wl_display")))) {
+        auto *wayland_surface = reinterpret_cast<wl_surface *>(
+                native->nativeResourceForWindow(QByteArray("surface"), window));
+        return slint_platform::NativeWindowHandle::from_wayland(wayland_surface, wayland_display);
+    } else if (auto *x11_display = native->nativeResourceForWindow(QByteArray("display"), window)) {
+        return slint_platform::NativeWindowHandle::from_x11_xlib(wid, wid, x11_display, screen);
+    } else if (auto *xcb_connection = reinterpret_cast<xcb_connection_t *>(
+                       native->nativeResourceForWindow(QByteArray("connection"), window))) {
+        return slint_platform::NativeWindowHandle::from_x11_xcb(wid, wid, xcb_connection, screen);
+    } else {
+        throw "Unsupported windowing system (tried waylamd, xlib, and xcb)";
+    }
 #endif
 }
 
