@@ -255,13 +255,22 @@ public:
     }
 
 #    if !defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
-    static NativeWindowHandle from_x11(uint32_t /*xcb_window_t*/ window,
-                                       uint32_t /*xcb_visualid_t*/ visual_id,
-                                       xcb_connection_t *connection, int screen)
+    static NativeWindowHandle from_x11_xcb(uint32_t /*xcb_window_t*/ window,
+                                           uint32_t /*xcb_visualid_t*/ visual_id,
+                                           xcb_connection_t *connection, int screen)
     {
 
-        return { cbindgen_private::slint_new_raw_window_handle_x11(window, visual_id, connection,
-                                                                   screen) };
+        return { cbindgen_private::slint_new_raw_window_handle_x11_xcb(window, visual_id,
+                                                                       connection, screen) };
+    }
+
+    static NativeWindowHandle from_x11_xlib(uint32_t /*Window*/ window,
+                                            unsigned long /*VisualID*/ visual_id,
+                                            void /*Display*/ *display, int screen)
+    {
+
+        return { cbindgen_private::slint_new_raw_window_handle_x11_xlib(window, visual_id, display,
+                                                                        screen) };
     }
 
     static NativeWindowHandle from_wayland(wl_surface *surface, wl_display *display)
