@@ -1349,12 +1349,13 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
-        let id = parser::identifier_text(&node).unwrap_or_default();
+        let mut id = parser::identifier_text(&node).unwrap_or_default();
         if matches!(id.as_ref(), "parent" | "self" | "root") {
             diag.push_error(
                 format!("'{}' is a reserved id", id),
                 &node.child_token(SyntaxKind::Identifier).unwrap(),
-            )
+            );
+            id = String::new();
         }
         Element::from_node(
             node.Element(),

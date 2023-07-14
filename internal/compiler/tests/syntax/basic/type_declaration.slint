@@ -21,6 +21,7 @@ global MyType := {
 //  ^error{A global component cannot have sub elements}
     for x in mod : Text { }
 //  ^error{A global component cannot have sub elements}
+//           ^^error{Builtin function must be called}
     aaa <=> bbb;
 
     property <int> eee <=> aaa;

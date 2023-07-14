@@ -14,6 +14,7 @@ component Compo inherits Rectangle {
             priv2 = 78;
             output1 = input1;
             input1 = 75;
+//          ^error{Assignment on a input property}
             inout1 = 75;
         }
 
@@ -47,9 +48,11 @@ OldCompo := Rectangle {
     TouchArea {
         clicked => {
             pub1 = 32;
+//          ^error{Unknown unqualified identifier 'pub1'}
             priv2 = 78;
             output1 = input1;
             input1 = 75;
+//          ^error{Assignment on a input property}
             inout1 = 75;
         }
     }
