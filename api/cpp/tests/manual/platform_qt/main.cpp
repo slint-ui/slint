@@ -43,7 +43,7 @@ static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *w
     QPlatformNativeInterface *native = qApp->platformNativeInterface();
     auto *connection = reinterpret_cast<xcb_connection_t *>(
             native->nativeResourceForWindow(QByteArray("connection"), window));
-    auto screen = quintptr(native->nativeResourceForWindow(QByteArray("screen"), window));
+    auto screen = quintptr(native->nativeResourceForWindow(QByteArray("x11screen"), window));
 
     return slint_platform::NativeWindowHandle::from_x11_xcb(wid, wid, connection, screen);
 #endif
