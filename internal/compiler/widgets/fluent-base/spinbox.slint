@@ -33,6 +33,8 @@ component SpinBoxButton {
 }
 
 export component SpinBox {
+    callback edited(int);
+
     in property <int> minimum;
     in property <int> maximum: 100;
     in property <bool> enabled <=> i-text-input.enabled;
@@ -137,6 +139,7 @@ export component SpinBox {
         }
 
         root.value = value;
+        root.edited(value);
     }
 
     function increment() {
