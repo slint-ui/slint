@@ -322,7 +322,8 @@ SCENARIO("Component Definition Properties")
 
     ComponentCompiler compiler;
     auto comp_def = *compiler.build_from_source(
-            "export component Dummy { in property <string> test; callback dummy; }", "");
+            "export component Dummy { in property <string> test; callback dummy(int) -> string; }",
+            "");
     auto properties = comp_def.properties();
     REQUIRE(properties.size() == 1);
     REQUIRE(properties[0].property_name == "test");
@@ -331,6 +332,13 @@ SCENARIO("Component Definition Properties")
     auto callback_names = comp_def.callbacks();
     REQUIRE(callback_names.size() == 1);
     REQUIRE(callback_names[0] == "dummy");
+
+    auto callbacks = comp_def.callback_descriptors();
+    REQUIRE(callbacks.size() == 1);
+    REQUIRE(callbacks[0].name == "dummy");
+    REQUIRE(callbacks[0].return_type == ValueType::String);
+    REQUIRE(callbacks[0].parameter_types.size() == 1);
+    REQUIRE(callbacks[0].parameter_types[0] == ValueType::Number);
 }
 
 SCENARIO("Component Definition Properties / Two-way bindings")
@@ -535,9 +543,12 @@ SCENARIO("Global properties")
         REQUIRE(properties[0].property_name == "the-property");
         REQUIRE(properties[0].property_type == Value::Type::String);
 
-        auto callbacks = *component_definition.global_callbacks("The-Global");
+        auto callbacks = *component_definition.global_callback_descriptors("The-Global");
         REQUIRE(callbacks.size() == 1);
-        REQUIRE(callbacks[0] == "to_uppercase");
+        REQUIRE(callbacks[0].name == "to_uppercase");
+        REQUIRE(callbacks[0].parameter_types.size() == 1);
+        REQUIRE(callbacks[0].parameter_types[0] == ValueType::String);
+        REQUIRE(callbacks[0].return_type == ValueType::String);
     }
 
     auto instance = component_definition.create();

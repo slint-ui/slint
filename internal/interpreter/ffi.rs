@@ -876,6 +876,29 @@ pub struct PropertyDescriptor {
     property_type: ValueType,
 }
 
+/// CallbackDescriptor is a structure that's used to describe a callback declared in .slint
+/// code. It is returned from slint::interpreter::ComponentDefinition::callback_descriptors() and slint::interpreter::ComponentDefinition::global_callback_descriptors().
+#[derive(Clone)]
+#[repr(C)]
+pub struct CallbackDescriptor {
+    /// The name of the callback.
+    pub name: SharedString,
+    /// A vector describing the types of the callback parameters.
+    pub parameter_types: SharedVector<ValueType>,
+    /// The return type of the callback.
+    pub return_type: ValueType,
+}
+
+impl From<super::CallbackDescriptor> for CallbackDescriptor {
+    fn from(descriptor: super::CallbackDescriptor) -> Self {
+        Self {
+            name: descriptor.name,
+            parameter_types: descriptor.parameter_types,
+            return_type: descriptor.return_type,
+        }
+    }
+}
+
 #[repr(C)]
 // Note: This needs to stay the size of 1 pointer to allow for the null pointer definition
 // in the C++ wrapper to allow for the null state.
@@ -933,6 +956,20 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_callbacks(
     callbacks.extend((&*def).as_component_definition().callbacks().map(|name| name.into()))
 }
 
+/// Returns the list of callbacks of the component the component definition describes
+#[no_mangle]
+pub unsafe extern "C" fn slint_interpreter_component_definition_callback_descriptors(
+    def: &ComponentDefinitionOpaque,
+    callbacks: &mut SharedVector<CallbackDescriptor>,
+) {
+    callbacks.extend(
+        (&*def)
+            .as_component_definition()
+            .callback_descriptors()
+            .map(|descriptor| descriptor.into()),
+    )
+}
+
 /// Return the name of the component definition
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_definition_name(
@@ -986,6 +1023,25 @@ pub unsafe extern "C" fn slint_interpreter_component_definition_global_callbacks
         .global_callbacks(std::str::from_utf8(&global_name).unwrap())
     {
         names.extend(name_it.map(|name| name.into()));
+        true
+    } else {
+        false
+    }
+}
+
+/// Returns a vector of CallbackDescriptor instances of the callbacks of the specified publicly exported global
+/// singleton. Returns true if a global exists under the specified name; false otherwise.
+#[no_mangle]
+pub unsafe extern "C" fn slint_interpreter_component_definition_global_callback_descriptors(
+    def: &ComponentDefinitionOpaque,
+    global_name: Slice<u8>,
+    descriptors: &mut SharedVector<CallbackDescriptor>,
+) -> bool {
+    if let Some(callback_descriptor_it) = (&*def)
+        .as_component_definition()
+        .global_callback_descriptors(std::str::from_utf8(&global_name).unwrap())
+    {
+        descriptors.extend(callback_descriptor_it.map(|descriptor| descriptor.into()));
         true
     } else {
         false

@@ -851,6 +851,17 @@ public:
         return callbacks;
     }
 
+    /// Returns a vector of CallbackDescriptor instances that describe the list of public callbacks
+    /// that can be invoked using ComponentInstance::invoke and set using
+    /// ComponentInstance::set_callback.
+    slint::SharedVector<CallbackDescriptor> callback_descriptors() const
+    {
+        slint::SharedVector<CallbackDescriptor> callbacks;
+        cbindgen_private::slint_interpreter_component_definition_callback_descriptors(&inner,
+                                                                                      &callbacks);
+        return callbacks;
+    }
+
     /// Returns the name of this Component as written in the .slint file
     slint::SharedString name() const
     {
@@ -891,6 +902,20 @@ public:
         if (cbindgen_private::slint_interpreter_component_definition_global_callbacks(
                     &inner, slint::private_api::string_to_slice(global_name), &names)) {
             return names;
+        }
+        return {};
+    }
+
+    /// Returns a vector of CallbackDescriptor instances that describe the list of public callbacks
+    /// of the specified publicly exported global singletone. An empty optional is returned if there
+    /// exists no global singleton under the specified name.
+    std::optional<slint::SharedVector<CallbackDescriptor>>
+    global_callback_descriptors(std::string_view global_name) const
+    {
+        slint::SharedVector<CallbackDescriptor> callbacks;
+        if (cbindgen_private::slint_interpreter_component_definition_global_callback_descriptors(
+                    &inner, slint::private_api::string_to_slice(global_name), &callbacks)) {
+            return callbacks;
         }
         return {};
     }
