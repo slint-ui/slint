@@ -15,6 +15,13 @@ In any other case, please let us know.
 When opening a pull request, you will be asked to sign a
 [Contributor License Agreement (CLA)](https://cla-assistant.io/slint-ui/slint).
 
+## Internal documentation
+
+ - [Development guide](docs/development.md)
+ - [Building Slint from sources in this repository](docs/building.md)
+ - [Testing](docs/testing.md)
+ - [GitHub issues triage and labels](docs/triage.md)
+
 ## Coding Style
 
 For the Rust portion of the code base, we enforce the coding style via rustfmt.
