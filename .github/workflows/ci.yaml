@@ -265,7 +265,7 @@ jobs:
         buildDirectory: ${{ runner.workspace }}/examples/build
         buildWithCMakeArgs: '--config Release'
 
-  # test to compile the mcu backend with nightly and for the armv6 target (no_std)
+  # test to compile the mcu backend for the armv6 target (no_std)
   mcu:
     env:
       SLINT_EMBED_GLYPHS: 1
@@ -278,7 +278,6 @@ jobs:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
-        toolchain: nightly
         target: thumbv6m-none-eabi
     - name: Check
       run: cargo check --target=thumbv6m-none-eabi -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789
