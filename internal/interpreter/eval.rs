@@ -305,7 +305,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     todo!()
                 }
             }.unwrap_or_else(|_| {
-                eprintln!("Could not load image {:?}",resource_ref );
+                log::error!("Could not load image {:?}",resource_ref );
                 Default::default()
             }))
         }
@@ -1056,7 +1056,7 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
                     }
                 }
                 _ => {
-                    eprintln!("Attempting to write into an array that cannot be written");
+                    log::error!("Attempting to write into an array that cannot be written");
                 }
             }
         }

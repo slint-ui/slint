@@ -304,7 +304,7 @@ impl PathData {
                     ) {
                         Ok(()) => LyonPathIteratorVariant::FromPath(builder.build()),
                         Err(e) => {
-                            eprintln!("Error while parsing path commands '{commands}': {e:?}");
+                            log::error!("Error while parsing path commands '{commands}': {e:?}");
                             LyonPathIteratorVariant::FromPath(Default::default())
                         }
                     }

@@ -86,7 +86,7 @@ impl ImageCache {
                 return Some(ImageInner::Svg(vtable::VRc::new(
                     super::svg::load_from_path(path, cache_key).map_or_else(
                         |err| {
-                            eprintln!("Error loading SVG from {}: {}", &path, err);
+                            log::error!("Error loading SVG from {}: {}", &path, err);
                             None
                         },
                         Some,
@@ -96,7 +96,7 @@ impl ImageCache {
 
             image::open(std::path::Path::new(&path.as_str())).map_or_else(
                 |decode_err| {
-                    eprintln!("Error loading image from {}: {}", &path, decode_err);
+                    log::error!("Error loading image from {}: {}", &path, decode_err);
                     None
                 },
                 |image| {
@@ -121,7 +121,7 @@ impl ImageCache {
                 return Some(ImageInner::Svg(vtable::VRc::new(
                     super::svg::load_from_data(data.as_slice(), cache_key).map_or_else(
                         |svg_err| {
-                            eprintln!("Error loading SVG: {}", svg_err);
+                            log::error!("Error loading SVG: {}", svg_err);
                             None
                         },
                         Some,
@@ -144,7 +144,7 @@ impl ImageCache {
                     buffer: dynamic_image_to_shared_image_buffer(image),
                 }),
                 Err(decode_err) => {
-                    eprintln!("Error decoding embedded image: {}", decode_err);
+                    log::error!("Error decoding embedded image: {}", decode_err);
                     None
                 }
             }

@@ -34,3 +34,4 @@ i-slint-backend-winit = { version = "=1.1.1", path = "../winit", optional = true
 i-slint-backend-qt = { version = "=1.1.1", path = "../qt", optional = true }
 
 cfg-if = "1"
+log = { workspace = true }

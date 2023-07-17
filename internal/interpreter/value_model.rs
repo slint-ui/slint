@@ -74,7 +74,7 @@ impl Model for ValueModel {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         match &mut *self.value.borrow_mut() {
             Value::Model(model_ptr) => model_ptr.set_row_data(row, data),
-            _ => eprintln!("Trying to change the value of a read-only integer model."),
+            _ => log::error!("Trying to change the value of a read-only integer model."),
         }
     }
 

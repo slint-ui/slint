@@ -56,7 +56,7 @@ cfg_if::cfg_if! {
             }
 
             if !backend_config.is_empty() {
-                eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
+                log::error!("Could not load rendering backend {}, fallback to default", backend_config)
             }
             Ok(create_default_backend())
         }

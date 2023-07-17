@@ -166,9 +166,10 @@ impl Backend {
             }
             None => window_factory_fn::<DefaultRenderer>,
             Some(renderer_name) => {
-                eprintln!(
+                log::error!(
                     "slint winit: unrecognized renderer {}, falling back to {}",
-                    renderer_name, DEFAULT_RENDERER_NAME
+                    renderer_name,
+                    DEFAULT_RENDERER_NAME
                 );
                 window_factory_fn::<DefaultRenderer>
             }
