@@ -20,7 +20,8 @@ fn main() -> Result<(), anyhow::Error> {
 
     println!("cargo:GENERATED_INCLUDE_DIR={}", output_dir.display());
 
-    let dependencies = cbindgen::gen_all(&root_dir, &output_dir)?;
+    let include_interpreter = std::env::var("CARGO_FEATURE_SLINT_INTERPRETER").is_ok();
+    let dependencies = cbindgen::gen_all(&root_dir, &output_dir, include_interpreter)?;
     for path in dependencies {
         println!("cargo:rerun-if-changed={}", path.display());
     }

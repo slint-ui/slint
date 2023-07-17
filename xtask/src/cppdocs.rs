@@ -82,7 +82,8 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     let generated_headers_dir = docs_build_dir.join("generated_include");
-    cbindgen::gen_all(&root, &generated_headers_dir)?;
+    let include_interpreter = true;
+    cbindgen::gen_all(&root, &generated_headers_dir, include_interpreter)?;
 
     let pip_env = vec![(OsString::from("PIPENV_PIPFILE"), docs_source_dir.join("docs/Pipfile"))];
 

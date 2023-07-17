@@ -693,7 +693,11 @@ fn gen_interpreter(
 /// `include_dir` is the output directory
 /// Returns the list of all paths that contain dependencies to the generated output. If you call this
 /// function from build.rs, feed each entry to stdout prefixed with `cargo:rerun-if-changed=`.
-pub fn gen_all(root_dir: &Path, include_dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
+pub fn gen_all(
+    root_dir: &Path,
+    include_dir: &Path,
+    include_interpreter: bool,
+) -> anyhow::Result<Vec<PathBuf>> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
     std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
     let mut deps = Vec::new();
@@ -701,7 +705,7 @@ pub fn gen_all(root_dir: &Path, include_dir: &Path) -> anyhow::Result<Vec<PathBu
     gen_corelib(root_dir, include_dir, &mut deps)?;
     gen_backend_qt(root_dir, include_dir, &mut deps)?;
     gen_backend(root_dir, include_dir, &mut deps)?;
-    if std::env::var("CARGO_FEATURE_SLINT_INTERPRETER").is_ok() {
+    if include_interpreter {
         gen_interpreter(root_dir, include_dir, &mut deps)?;
     }
     Ok(deps)
