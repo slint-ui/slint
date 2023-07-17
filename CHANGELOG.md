@@ -3,6 +3,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### C++
+
+ - Added `SLINT_TARGET_CARGO_FLAGS` cmake variable
+
 ## [1.1.1] - 2023-07-10
 
 ### General
