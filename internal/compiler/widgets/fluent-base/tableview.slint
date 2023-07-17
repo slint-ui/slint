@@ -233,7 +233,10 @@ export component StandardTableView {
                     }
 
                     pointer-event(pe, pos) => {
-                        root.row-pointer-event(idx, pe, pos);
+                        root.row-pointer-event(idx, pe, {
+                            x: pos.x - root.absolute-position.x,
+                            y: pos.y - root.absolute-position.y,
+                        });
                     }
 
                     clicked => {

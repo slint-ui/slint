@@ -423,8 +423,8 @@ export component StandardTableView {
 
                         pointer-event(pe) => {
                             root.row-pointer-event(i, pe, {
-                                x: self.absolute-position.x + self.mouse-x,
-                                y: self.absolute-position.y + self.mouse-y,
+                                x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
+                                y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
                             });
                         }
                     }
