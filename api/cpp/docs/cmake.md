@@ -100,6 +100,12 @@ to discover and toggle features.
 This works when compiling Slint as a package, using `cmake --build` and
 `cmake --install`, or when including Slint using `FetchContent`.
 
+### Rust Flags
+
+Slint utilizes [Corrosion](https://github.com/corrosion-rs/corrosion) to build Slint, which is developed in Rust. You can utilize [Corrosion's global CMake variables](https://corrosion-rs.github.io/corrosion/usage.html#global-corrosion-options) to control certain aspects of the Rust build process.
+
+Furthermore, you can utilize the `SLINT_TARGET_CARGO_FLAGS` variable to specify additional flags for the Slint runtime during the build.
+
 ### Back-Ends
 
 Slint needs a back-end that acts as liaison between Slint and the OS. Several
