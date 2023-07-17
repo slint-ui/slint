@@ -3,9 +3,17 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Rust
+
+ - Added `slint_interpreter::ComponentDefinition::callback_descriptors()` and `slint_interpreter::ComponentDefinition::global_callback_descriptors()`
+   to retrieve information about the parameter and return types of callbacks.
+
+
 ### C++
 
  - Added `SLINT_TARGET_CARGO_FLAGS` cmake variable
+ - Added `slint::interpreter::ComponentDefinition::callback_descriptors()` and `slint::interpreter::ComponentDefinition::global_callback_descriptors()`
+   to retrieve information about the parameter and return types of callbacks.
 
 ## [1.1.1] - 2023-07-10
 

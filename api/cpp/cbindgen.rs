@@ -632,7 +632,7 @@ fn gen_interpreter(
         "ValueType",
         "PropertyDescriptor",
         "Diagnostic",
-        "PropertyDescriptor",
+        "CallbackDescriptor",
     ])
     .map(String::from)
     .collect();
@@ -678,6 +678,7 @@ fn gen_interpreter(
                 struct Value;
                 using slint::interpreter::ValueType;
                 using slint::interpreter::PropertyDescriptor;
+                using slint::interpreter::CallbackDescriptor;
                 using slint::interpreter::Diagnostic;
             }",
         )

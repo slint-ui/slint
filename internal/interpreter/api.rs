@@ -670,6 +670,26 @@ impl ComponentDefinition {
         })
     }
 
+    /// Returns an iterator over all all publicly declared callbacks. Each iterator item is a CallbackDescriptor that
+    /// provides detailed information such as the parameter types.
+    pub fn callback_descriptors(&self) -> impl Iterator<Item = CallbackDescriptor> + '_ {
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type)| {
+            if let LangType::Callback { return_type, args } = prop_type {
+                Some(CallbackDescriptor {
+                    name: prop_name.into(),
+                    parameter_types: args.iter().cloned().map(Into::into).collect(),
+                    return_type: return_type
+                        .map_or(ValueType::Void, |ty| ValueType::from(ty.as_ref().clone())),
+                })
+            } else {
+                None
+            }
+        })
+    }
+
     /// Returns the names of all exported global singletons
     ///
     /// **Note:** Only globals that are exported or re-exported from the main .slint file will
@@ -700,7 +720,7 @@ impl ComponentDefinition {
         })
     }
 
-    /// List of publicly declared callbacks in the exported global singleton specified by its name.
+    /// Returns an iterator over all the names of declared callbacks in the exported global singleton specified by its name.
     pub fn global_callbacks(&self, global_name: &str) -> Option<impl Iterator<Item = String> + '_> {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
@@ -716,6 +736,31 @@ impl ComponentDefinition {
         })
     }
 
+    /// Returns an iterator over all declared callbacks in the exported global singleton specified by its name.
+    /// Each iterator item is a CallbackDescriptor that provides detailed information such as the parameter types.
+    pub fn global_callback_descriptors(
+        &self,
+        global_name: &str,
+    ) -> Option<impl Iterator<Item = CallbackDescriptor> + '_> {
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).global_properties(global_name).map(|iter| {
+            iter.filter_map(|(prop_name, prop_type)| {
+                if let LangType::Callback { return_type, args } = prop_type {
+                    Some(CallbackDescriptor {
+                        name: prop_name.into(),
+                        parameter_types: args.iter().cloned().map(Into::into).collect(),
+                        return_type: return_type
+                            .map_or(ValueType::Void, |ty| ValueType::from(ty.as_ref().clone())),
+                    })
+                } else {
+                    None
+                }
+            })
+        })
+    }
+
     /// The name of this Component as written in the .slint file
     pub fn name(&self) -> &str {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
@@ -723,6 +768,19 @@ impl ComponentDefinition {
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
         self.inner.unerase(guard).id()
     }
+}
+
+/// CallbackDescriptor is a structure that's used to describe a callback declared in .slint
+/// code. It is returned from [`ComponentDefinition::callback_descriptors()`] and [`ComponentDefinition::global_callback_descriptors()`]
+#[non_exhaustive]
+#[derive(Debug, Clone)]
+pub struct CallbackDescriptor {
+    /// The name of the callback.
+    pub name: SharedString,
+    /// A vector describing the types of the callback parameters.
+    pub parameter_types: SharedVector<ValueType>,
+    /// The return type of the callback.
+    pub return_type: ValueType,
 }
 
 /// Print the diagnostics to stderr
