@@ -4,8 +4,8 @@ This document will outline the process of triaging GitHub issues and provide an 
 
 ## GitHub Labels
 
-Labels that starts with `a:` are area labels.
-Area labels help categorize issues based on their scope. Each issue should ideally have at least one area label.
+Labels that start with `a:` are area labels.
+Area labels help categorise issues based on their scope. Each issue should ideally have at least one area label.
 The description of the area label ends with a code that indicates the maintainer or backup maintainer of that area.
 For example, if a label description ends with `(mX,bY)`, it means person X is the maintainer, and person Y is the backup maintainer for that area.
 
@@ -14,14 +14,14 @@ Apart from area labels, there can be other labels used to provide additional con
 - **Bug**: Indicates that the issue is a bug or a software defect.
 - **Enhancement**: Indicates that the issue suggests an improvement or new feature.
 - **Good First Issue**: Indicates that the issue is suitable for newcomers to contribute to the project.
-   The issue should have a good description and ideally a comment to describe how to do it
-- **Needs More Info**: Indicates that the issue lacks sufficient information and requires additional details from the reporter.
-  The maintainer for the area must remove the tag when more info is provided, or close it if too long
+   The issue should have a good description and ideally a comment to describe how to implement it.
+- **Needs More Info**: Indicates that the issue lacks sufficient information to be able to act on it right now and requires additional details from the reporter.
+  The maintainer for the area must remove the tag when more info is provided, or close it if it is too old.
 
 ## GitHub Assignee
 
 Here are some guidelines for GitHub assignees:
-- Assign issues to individuals who are actively working on or responsible for a particular area.
+- Assign issues to individuals who are actively working on them or going to actively work on them in the near future.
 - Avoid assigning too many issues to a single person to prevent overload.
 - Assign an issue to yourself if you plan to work on it to inform others that the issue is being addressed.
 - Assign an issue to someone else if you expect a quick action or if someone else is better suited to handle it.
@@ -32,6 +32,7 @@ Here are some guidelines for GitHub assignees:
 A clear and concise issue description is crucial for effective communication.
 - Edit the title and description of the issue to ensure clarity and conciseness.
 - If modifications have been made to the original issue, indicate it by adding "Edited:" to the description.
+- Consider adding "acceptance criterial" so that it's easy to understand what needs to be accomplished in order to close the issue as done.
 
 ## Triage Process
 
@@ -47,7 +48,7 @@ Remember, effective communication and prompt action are essential for successful
 
 ## Filters
 
-Use these script to generate the filters
+Use the following scripts to generate the filters.
 
 Filter for all the issues not assigned to an area:
 
