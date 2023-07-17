@@ -35,7 +35,7 @@ Welcome to Slint C++'s documentation!
 
    genindex
 
-   markdown/debugging_techniques.md
+   debugging_techniques.md
 
 .. image:: https://github.com/slint-ui/slint/workflows/CI/badge.svg
    :target: https://github.com/slint-ui/slint/actions
