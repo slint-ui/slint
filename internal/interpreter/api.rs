@@ -641,7 +641,8 @@ impl ComponentDefinition {
         self.inner.unerase(guard).properties()
     }
 
-    /// List of publicly declared properties.
+    /// Returns an interator over all publicly declared properties. Each iterator item is a tuple of property name
+    /// and property type for each of them.
     pub fn properties(&self) -> impl Iterator<Item = (String, ValueType)> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
