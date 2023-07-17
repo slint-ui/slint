@@ -41,7 +41,7 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 experimental = ["i-slint-renderer-skia", "raw-window-handle", "experimental-platform"]
 experimental-platform = []
 
-std = ["image", "i-slint-core/default", "i-slint-backend-selector"]
+std = ["image", "i-slint-core/default", "i-slint-backend-selector", "env_logger"]
 
 default = ["std", "backend-winit", "renderer-winit-femtovg", "backend-qt", "experimental"]
 
@@ -54,6 +54,7 @@ slint-interpreter = { version = "=1.1.1", path="../../internal/interpreter", def
 raw-window-handle = { version = "0.5", optional = true }
 # Enable image-rs' default features to make all image formats to C++ users
 image = { version = "0.24.0", optional = true }
+env_logger = { workspace = true, optional = true }
 
 [build-dependencies]
 anyhow = "1.0"
