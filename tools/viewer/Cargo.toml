@@ -57,7 +57,7 @@ notify = { version = "6.0.0", default-features = false, features = ["macos_kqueu
 serde_json = "1"
 shlex = "1"
 spin_on = "0.1"
-env_logger = "0.10.0"
+env_logger = { workspace = true }
 
 # Enable image-rs' default features to make all image formats available for preview
 image = { version = "0.24.0" }
