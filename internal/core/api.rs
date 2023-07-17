@@ -622,6 +622,16 @@ mod weak_handle {
         thread: std::thread::ThreadId,
     }
 
+    impl<T: ComponentHandle> Default for Weak<T> {
+        fn default() -> Self {
+            Self {
+                inner: vtable::VWeak::default(),
+                #[cfg(feature = "std")]
+                thread: std::thread::current().id(),
+            }
+        }
+    }
+
     impl<T: ComponentHandle> Clone for Weak<T> {
         fn clone(&self) -> Self {
             Self {
