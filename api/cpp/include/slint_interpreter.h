@@ -832,7 +832,7 @@ public:
         return u.result;
     }
 
-    /// Returns a vector of that contains PropertyDescriptor instances that describe the list of
+    /// Returns a vector of PropertyDescriptor instances that describe the list of
     /// public properties that can be read and written using ComponentInstance::set_property and
     /// ComponentInstance::get_property.
     slint::SharedVector<PropertyDescriptor> properties() const
