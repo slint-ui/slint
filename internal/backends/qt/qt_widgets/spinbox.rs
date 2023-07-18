@@ -12,6 +12,8 @@ struct NativeSpinBoxData {
     pressed: bool,
 }
 
+type IntArg = (i32,);
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
@@ -26,6 +28,7 @@ pub struct NativeSpinBox {
     pub minimum: Property<i32>,
     pub maximum: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
+    pub edited: Callback<IntArg>,
     data: Property<NativeSpinBoxData>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
@@ -179,6 +182,7 @@ impl Item for NativeSpinBox {
                         let v = self.value();
                         if v < self.maximum() {
                             self.value.set(v + 1);
+                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(v + 1,));
                         }
                     }
                     if new_control
@@ -188,6 +192,7 @@ impl Item for NativeSpinBox {
                         let v = self.value();
                         if v > self.minimum() {
                             self.value.set(v - 1);
+                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(v - 1,));
                         }
                     }
                     true
@@ -220,12 +225,16 @@ impl Item for NativeSpinBox {
         if event.text.starts_with(i_slint_core::input::key_codes::UpArrow)
             && self.value() < self.maximum()
         {
-            self.value.set(self.value() + 1);
+            let new_val = self.value() + 1;
+            self.value.set(new_val);
+            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
             KeyEventResult::EventAccepted
         } else if event.text.starts_with(i_slint_core::input::key_codes::DownArrow)
             && self.value() > self.minimum()
         {
-            self.value.set(self.value() - 1);
+            let new_val = self.value() - 1;
+            self.value.set(new_val);
+            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&(new_val,));
             KeyEventResult::EventAccepted
         } else {
             KeyEventResult::EventIgnored

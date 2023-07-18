@@ -59,6 +59,8 @@ component SpinBoxButton inherits Rectangle {
 
 // Increment and decrement a value in the given range.
 export component SpinBox {
+    callback edited(int /* value */);
+
     in property <int> minimum;
     in property <int> maximum: 100;
     in property <bool> enabled <=> i-focus-scope.enabled;
@@ -80,9 +82,11 @@ export component SpinBox {
         key-pressed(event) => {
             if (root.enabled && event.text == Key.UpArrow && root.value < root.maximum) {
                 root.value += 1;
+                root.edited(value);
                 accept
             } else if (root.enabled && event.text == Key.DownArrow && root.value > root.minimum) {
                 root.value -= 1;
+                root.edited(value);
                 accept
             } else {
                 reject
@@ -131,9 +135,7 @@ export component SpinBox {
                 }
 
                 clicked => {
-                    if (root.value < root.maximum) {
-                        root.value += 1;
-                    }
+                    root.update-value(root.value + 1);
 
                     root.focus();
                 }
@@ -151,14 +153,21 @@ export component SpinBox {
                 }
 
                 clicked => {
-                    if (root.value > root.minimum) {
-                        root.value -= 1;
-                    }
+                    root.update-value(root.value - 1);
 
                     root.focus();
                 }
             }
         }
+    }
+
+    function update-value(value: int) {
+        if (value < root.minimum || value > root.maximum) {
+            return;
+        }
+
+        root.value = value;
+        root.edited(value);
     }
 
     states [
