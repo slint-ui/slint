@@ -110,6 +110,7 @@ fn gen_corelib(
     root_dir: &Path,
     include_dir: &Path,
     dependencies: &mut Vec<PathBuf>,
+    enabled_features: EnabledFeatures,
 ) -> anyhow::Result<()> {
     let mut config = default_config();
 
@@ -448,10 +449,13 @@ fn gen_corelib(
 /// This macro expands to the string representation of the version of Slint you're developing against.
 /// For example if you're using version 1.5.2, this macro will expand to "1.5.2".
 #define SLINT_VERSION_STRING "{x}.{y}.{z}"
+
+{features}
 "#,
             x = env!("CARGO_PKG_VERSION_MAJOR"),
             y = env!("CARGO_PKG_VERSION_MINOR"),
             z = env!("CARGO_PKG_VERSION_PATCH"),
+            features = enabled_features.defines()
         ))
         .generate()
         .context("Unable to generate bindings for slint_generated_public.h")?
@@ -688,6 +692,30 @@ fn gen_interpreter(
     Ok(())
 }
 
+#[derive(Clone, Copy)]
+pub struct EnabledFeatures {
+    pub interpreter: bool,
+    pub experimental: bool,
+    pub backend_qt: bool,
+}
+
+impl EnabledFeatures {
+    /// Generate the `#define`
+    fn defines(self) -> String {
+        let mut defines = String::new();
+        if self.interpreter {
+            defines += "#define SLINT_FEATURE_INTERPRETER\n";
+        }
+        if self.experimental {
+            defines += "#define SLINT_FEATURE_EXPERIMENTAL\n";
+        }
+        if self.backend_qt {
+            defines += "#define SLINT_FEATURE_BACKEND_QT\n";
+        }
+        defines
+    }
+}
+
 /// Generate the headers.
 /// `root_dir` is the root directory of the slint git repo
 /// `include_dir` is the output directory
@@ -696,16 +724,16 @@ fn gen_interpreter(
 pub fn gen_all(
     root_dir: &Path,
     include_dir: &Path,
-    include_interpreter: bool,
+    enabled_features: EnabledFeatures,
 ) -> anyhow::Result<Vec<PathBuf>> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
     std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
     let mut deps = Vec::new();
     enums(&include_dir.join("slint_enums_internal.h"))?;
-    gen_corelib(root_dir, include_dir, &mut deps)?;
+    gen_corelib(root_dir, include_dir, &mut deps, enabled_features)?;
     gen_backend_qt(root_dir, include_dir, &mut deps)?;
     gen_backend(root_dir, include_dir, &mut deps)?;
-    if include_interpreter {
+    if enabled_features.interpreter {
         gen_interpreter(root_dir, include_dir, &mut deps)?;
     }
     Ok(deps)
