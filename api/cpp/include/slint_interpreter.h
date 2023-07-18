@@ -5,7 +5,7 @@
 
 #include "slint.h"
 
-#ifndef SLINT_FEATURE_EXPERIMENTAL
+#ifndef SLINT_FEATURE_INTERPRETER
 #    warning "slint_interpreter.h API only available when SLINT_FEATURE_INTERPRETER is activated"
 #else
 
