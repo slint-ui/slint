@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
 
  - In case of error, still attempt to run more pass to report more diagnostics
  - Fixed compiler panic when an unresolved alias has a binding
+ - Added `edited` callback to `SpinBox`
 
 ### Rust API
 
