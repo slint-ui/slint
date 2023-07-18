@@ -38,8 +38,8 @@ renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 
-experimental = ["i-slint-renderer-skia", "raw-window-handle", "experimental-platform"]
-experimental-platform = []
+experimental = []
+experimental-skia = ["i-slint-renderer-skia", "raw-window-handle", "experimental"]
 
 std = ["image", "i-slint-core/default", "i-slint-backend-selector"]
 
