@@ -33,7 +33,7 @@ component SpinBoxButton {
 }
 
 export component SpinBox {
-    callback edited(int);
+    callback edited(int /* value */);
 
     in property <int> minimum;
     in property <int> maximum: 100;
