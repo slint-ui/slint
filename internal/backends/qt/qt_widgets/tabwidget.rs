@@ -11,8 +11,6 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeTabWidget {
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
@@ -332,10 +330,6 @@ fn slint_get_NativeTabWidgetVTable() -> NativeTabWidgetVTable for NativeTabWidge
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeTab {
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
-    pub width: Property<LogicalLength>,
-    pub height: Property<LogicalLength>,
     pub title: Property<SharedString>,
     pub icon: Property<i_slint_core::graphics::Image>,
     pub enabled: Property<bool>,
