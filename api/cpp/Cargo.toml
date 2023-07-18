@@ -23,13 +23,13 @@ crate-type = ["lib", "cdylib"]
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-interpreter = ["slint-interpreter"]
+interpreter = ["slint-interpreter", "std"]
 testing = ["i-slint-backend-testing"] # Enable some function used by the integration tests
 
-backend-qt = ["i-slint-backend-selector/i-slint-backend-qt"]
-backend-winit = ["i-slint-backend-selector/backend-winit"]
-backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11"]
-backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland"]
+backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
+backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
+backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
+backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 renderer-winit-femtovg = ["i-slint-backend-selector/renderer-winit-femtovg"]
 renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia"]
 renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl"]

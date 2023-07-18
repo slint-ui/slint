@@ -3,6 +3,7 @@
 
 #pragma once
 #include <string_view>
+#include <span>
 #include "slint_generated_public.h"
 #include "slint_size.h"
 #include "slint_image_internal.h"
@@ -111,6 +112,7 @@ struct Image
 public:
     Image() : data(Data::ImageInner_None()) { }
 
+#ifdef SLINT_FEATURE_STD
     /// Load an image from an image file
     [[nodiscard]] static Image load_from_path(const SharedString &file_path)
     {
@@ -118,6 +120,7 @@ public:
         cbindgen_private::types::slint_image_load_from_path(&file_path, &img.data);
         return img;
     }
+#endif
 
     /// Constructs a new Image from an existing OpenGL texture. The texture remains borrowed by
     /// Slint for the duration of being used for rendering, such as when assigned as source property

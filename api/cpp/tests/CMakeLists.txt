@@ -39,8 +39,10 @@ if(SLINT_FEATURE_INTERPRETER)
 endif()
 
 slint_test(properties)
-slint_test(eventloop)
-target_link_libraries(test_eventloop PRIVATE Threads::Threads)
+if(SLINT_FEATURE_STD)
+    slint_test(eventloop)
+    target_link_libraries(test_eventloop PRIVATE Threads::Threads)
+endif()
 slint_test(models)
 
 add_subdirectory(multiple-includes)

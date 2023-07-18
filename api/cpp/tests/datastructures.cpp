@@ -161,6 +161,7 @@ TEST_CASE("Image")
         REQUIRE(!img.path().has_value());
     }
 
+#ifdef SLINT_FEATURE_STD
     img = Image::load_from_path(SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
     {
         auto size = img.size();
@@ -172,6 +173,7 @@ TEST_CASE("Image")
         REQUIRE(actual_path.has_value());
         REQUIRE(*actual_path == SOURCE_DIR "/../../../logo/slint-logo-square-light-128x128.png");
     }
+#endif
 
     img = Image(SharedPixelBuffer<Rgba8Pixel> {});
     {
