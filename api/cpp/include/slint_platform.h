@@ -3,11 +3,12 @@
 
 #pragma once
 
+#include "slint.h"
+
 #ifndef SLINT_FEATURE_EXPERIMENTAL
 #    warning "slint_platform.h API only available when SLINT_FEATURE_EXPERIMENTAL is activated"
 #else
 
-#    include "slint.h"
 #    include <utility>
 
 struct xcb_connection_t;
