@@ -21,10 +21,6 @@
  */
 
 component Empty {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     //-is_internal
 }
 
@@ -43,6 +39,8 @@ component BorderRectangle inherits Rectangle {
 export { BorderRectangle as Rectangle }
 
 component ImageItem inherits Empty {
+    in property <length> width;
+    in property <length> height;
     in property <image> source;
     in property <ImageFit> image-fit;
     in property <ImageRendering> image-rendering;
@@ -74,6 +72,8 @@ export component Rotate inherits Empty {
 }
 
 export component Text inherits Empty {
+    in property <length> width;
+    in property <length> height;
     in property <string> text;
     in property <string> font-family;
     in property <length> font-size;
@@ -89,10 +89,6 @@ export component Text inherits Empty {
 }
 
 export component TouchArea {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <bool> enabled: true;
     out property <bool> pressed;
     out property <bool> has_hover;
@@ -108,10 +104,6 @@ export component TouchArea {
 }
 
 export component FocusScope {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <bool> enabled: true;
     out property <bool> has-focus;
     callback key_pressed(KeyEvent) -> EventResult;
@@ -168,8 +160,6 @@ export component TextInput {
     in property <TextVerticalAlignment> vertical-alignment;
     in property <TextWrap> wrap;
     in property <length> letter-spacing;
-    in property <length> x;
-    in property <length> y;
     in property <length> width;
     in property <length> height;
     in property <length> text-cursor-width; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
@@ -197,10 +187,6 @@ export component TextInput {
 }
 
 export component Clip {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <length> border-radius;
     in property <length> border-width;
     in property <bool> clip;
@@ -209,10 +195,6 @@ export component Clip {
 }
 
 export component Opacity {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <float> opacity: 1;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
@@ -310,10 +292,6 @@ component Close {
 }
 
 export component Path {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <brush> fill;
     in property <FillRule> fill-rule;
     in property <brush> stroke;
@@ -342,11 +320,6 @@ component Tab {
 
 // Note: not a native class, handled in the lower_tabs pass
 export component TabWidget {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
-
     in-out property <int> current-index;
 
     //-disallow_global_types_as_child_elements
@@ -384,10 +357,6 @@ export global TextInputInterface {
 }
 
 export component NativeButton {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <string> text;
     in property <image> icon;
     out property <bool> pressed;
@@ -403,10 +372,6 @@ export component NativeButton {
 }
 
 export component NativeCheckBox {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <bool> enabled: true;
     in property <string> text;
     in-out property <bool> checked;
@@ -416,10 +381,6 @@ export component NativeCheckBox {
 }
 
 export component NativeSpinBox {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <bool> enabled: true;
     out property <bool> has-focus;
     in-out property <int> value;
@@ -430,10 +391,6 @@ export component NativeSpinBox {
 }
 
 export component NativeSlider {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <bool> enabled: true;
     in-out property <float> value;
     in property <float> minimum;
@@ -444,20 +401,12 @@ export component NativeSlider {
 }
 
 export component NativeProgressIndicator {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <bool> indeterminate;
     in property <float> progress;
     //-is_internal
 }
 
 export component NativeGroupBox {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <bool> enabled: true;
     in property <string> title;
     out property <length> native-padding-left;
@@ -469,10 +418,6 @@ export component NativeGroupBox {
 }
 
 export component NativeLineEdit {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     out property <length> native-padding-left;
     out property <length> native-padding-right;
     out property <length> native-padding-top;
@@ -483,10 +428,6 @@ export component NativeLineEdit {
 }
 
 export component NativeScrollView {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <length> horizontal-max;
     in property <length> horizontal-page-size;
     in property <length> horizontal-value;
@@ -504,10 +445,6 @@ export component NativeScrollView {
 }
 
 export component NativeStandardListViewItem {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <int> index;
     in property <StandardListViewItem> item;
     in-out property <bool> is_selected;
@@ -517,10 +454,6 @@ export component NativeStandardListViewItem {
 }
 
 export component NativeTableHeaderSection {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in property <int> index;
     in property <TableColumn> item;
     in property <bool> has_hover;
@@ -528,26 +461,16 @@ export component NativeTableHeaderSection {
 }
 
 export component NativeComboBox {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     in-out property <string> current_value;
     in property <bool> enabled: true;
     //-is_internal
 }
 
 export component NativeComboBoxPopup {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
     //-is_internal
 }
 
 export component NativeTabWidget {
-    in property <length> x;
-    in property <length> y;
     in property <length> width;
     in property <length> height;
 
@@ -571,11 +494,6 @@ export component NativeTabWidget {
 }
 
 export component NativeTab {
-    in property <length> x;
-    in property <length> y;
-    in property <length> width;
-    in property <length> height;
-
     in property<string> title;
     in property<image> icon;
     in property<bool> enabled : true;

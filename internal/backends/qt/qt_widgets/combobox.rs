@@ -9,10 +9,6 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeComboBox {
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
-    pub width: Property<LogicalLength>,
-    pub height: Property<LogicalLength>,
     pub enabled: Property<bool>,
     pub pressed: Property<bool>,
     pub is_open: Property<bool>,
@@ -145,10 +141,6 @@ fn slint_get_NativeComboBoxVTable() -> NativeComboBoxVTable for NativeComboBox
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeComboBoxPopup {
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
-    pub width: Property<LogicalLength>,
-    pub height: Property<LogicalLength>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
     animation_tracker: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,

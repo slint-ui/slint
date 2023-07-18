@@ -31,8 +31,6 @@ use i_slint_core_macros::*;
 /// The implementation of the `Image` element
 pub struct ImageItem {
     pub source: Property<crate::graphics::Image>,
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
     pub image_fit: Property<ImageFit>,
@@ -122,8 +120,6 @@ impl ItemConsts for ImageItem {
 /// The implementation of the `ClippedImage` element
 pub struct ClippedImage {
     pub source: Property<crate::graphics::Image>,
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
     pub image_fit: Property<ImageFit>,

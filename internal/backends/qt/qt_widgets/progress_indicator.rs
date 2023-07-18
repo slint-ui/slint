@@ -9,10 +9,6 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeProgressIndicator {
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
-    pub width: Property<LogicalLength>,
-    pub height: Property<LogicalLength>,
     pub indeterminate: Property<bool>,
     pub progress: Property<f32>,
     widget_ptr: std::cell::Cell<SlintTypeErasedWidgetPtr>,
