@@ -109,15 +109,37 @@ export component SpinBox {
         padding-right: 12px;
         spacing: 16px;
 
-        i-text := Text {
-            text: root.value;
-            height: 100%;
-            color: Palette.on-surface;
-            vertical-alignment: center;
-            // FIXME after Roboto font can be loaded
-            //font-family: Typography.body-large.font;
-            font-size: Typography.body-large.font-size;
-            font-weight: Typography.body-large.font-weight;
+        Rectangle {
+            clip: true;
+
+            i-text-input := TextInput {
+                text: root.value;
+                height: 100%;
+                color: Palette.on-surface;
+                vertical-alignment: center;
+                // FIXME after Roboto font can be loaded
+                //font-family: Typography.body-large.font;
+                font-size: Typography.body-large.font-size;
+                font-weight: Typography.body-large.font-weight;
+
+                accepted => {
+                    if (!self.text.is-float()) {
+                        self.text = root.value;
+                    }
+                }
+
+                edited => {
+                    if (self.text.is-float()) {
+                        root.update-value(self.text.to-float());
+                    }
+                }
+            }
+
+            i-touch-area := TouchArea {
+                clicked => {
+                    i-text-input.focus();
+                }
+            }
         }
 
         VerticalLayout {
@@ -135,9 +157,7 @@ export component SpinBox {
                 }
 
                 clicked => {
-                    root.update-value(root.value + 1);
-
-                    root.focus();
+                    root.increment();
                 }
             }
 
@@ -153,33 +173,39 @@ export component SpinBox {
                 }
 
                 clicked => {
-                    root.update-value(root.value - 1);
-
-                    root.focus();
+                    root.decrement();
                 }
             }
         }
     }
 
     function update-value(value: int) {
-        if (value < root.minimum || value > root.maximum) {
-            return;
+        if (value >= root.minimum && value <= root.maximum) {
+            root.value = value;
+            root.edited(value);
         }
 
-        root.value = value;
-        root.edited(value);
+        i-text-input.text = root.value;
+    }
+
+    function increment() {
+        root.update-value(root.value + 1);
+    }
+
+    function decrement() {
+        root.update-value(root.value - 1);
     }
 
     states [
         disabled when !root.enabled : {
             i-background.border-color: Palette.on-surface;
             i-background.opacity: 0.38;
-            i-text.opacity: 0.38;
+            i-text-input.opacity: 0.38;
         }
         focused when root.has-focus : {
             i-background.border-width: 2px;
             i-background.border-color: Palette.primary;
-            i-text.color: Palette.primary;
+            i-text-input.color: Palette.primary;
         }
     ]
 }

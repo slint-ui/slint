@@ -79,23 +79,15 @@ export component SpinBox {
                     text: root.value;
 
                     accepted => {
-                        if (self.text == "") {
-                            root.update-value(root.minimum);
+                        if (!self.text.is-float()) {
+                            self.text = root.value;
                         }
                     }
 
                     edited => {
-                        if (self.text == "") {
-                            root.update-value(root.minimum);
-                            return;
-                        }
-
                         if (self.text.is-float()) {
-                            root.update-value(root.value + 1);
-                            return;
+                            root.update-value(self.text.to-float());
                         }
-
-                        self.text = root.value;
                     }
                 }
 
@@ -134,26 +126,20 @@ export component SpinBox {
     }
 
     function update-value(value: int) {
-        if (value < root.minimum || value > root.maximum) {
-            return;
+        if (value >= root.minimum && value <= root.maximum) {
+            root.value = value;
+            root.edited(value);
         }
 
-        root.value = value;
-        root.edited(value);
+        i-text-input.text = root.value;
     }
 
     function increment() {
         root.update-value(root.value + 1);
-        root.update-text();
     }
 
     function decrement() {
         root.update-value(root.value - 1);
-        root.update-text();
-    }
-
-    function update-text() {
-        i-text-input.text = root.value;
     }
 
     states [
