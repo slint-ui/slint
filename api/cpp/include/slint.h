@@ -8,29 +8,27 @@
 #    pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
-#include <vector>
-#include <memory>
-#include <algorithm>
-#include <iostream> // FIXME: remove: iostream always bring it lots of code so we should not have it in this header
-#include <chrono>
-#include <optional>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <span>
-#include <functional>
-#include <concepts>
-
-namespace slint::cbindgen_private {
-// Workaround https://github.com/eqrion/cbindgen/issues/43
-struct ComponentVTable;
-struct ItemVTable;
-}
 #include "slint_internal.h"
 #include "slint_size.h"
 #include "slint_point.h"
 #include "slint_backend_internal.h"
 #include "slint_qt_internal.h"
+
+#include <vector>
+#include <memory>
+#include <algorithm>
+#include <chrono>
+#include <optional>
+#include <span>
+#include <functional>
+#include <concepts>
+
+#ifdef SLINT_FEATURE_STD
+#    include <iostream>
+#    include <thread>
+#    include <mutex>
+#    include <condition_variable>
+#endif
 
 /// \rst
 /// The :code:`slint` namespace is the primary entry point into the Slint C++ API.
@@ -81,7 +79,8 @@ using cbindgen_private::TableColumn;
 /// use slint::invoke_from_event_loop
 inline void assert_main_thread()
 {
-#ifndef NDEBUG
+#ifdef SLINT_FEATURE_STD
+#    ifndef NDEBUG
     static auto main_thread_id = std::this_thread::get_id();
     if (main_thread_id != std::this_thread::get_id()) {
         std::cerr << "A function that should be only called from the main thread was called from a "
@@ -92,6 +91,7 @@ inline void assert_main_thread()
                   << std::endl;
         std::abort();
     }
+#    endif
 #endif
 }
 
@@ -708,7 +708,9 @@ public:
     /// If the model can update the data, it should also call `row_changed`
     virtual void set_row_data(size_t, const ModelData &)
     {
+#ifdef SLINT_FEATURE_STD
         std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
+#endif
     };
 
     /// \private
@@ -1581,6 +1583,8 @@ void invoke_from_event_loop(Functor f)
             [](void *data) { delete reinterpret_cast<Functor *>(data); });
 }
 
+#ifdef SLINT_FEATURE_STD
+
 /// Blocking version of invoke_from_event_loop()
 ///
 /// Just like invoke_from_event_loop(), this will run the specified functor from the thread running
@@ -1633,7 +1637,7 @@ auto blocking_invoke_from_event_loop(Functor f) -> std::invoke_result_t<Functor>
     return std::move(*result);
 }
 
-#if !defined(DOXYGEN) // Doxygen doesn't see this as an overload of the previous one
+#    if !defined(DOXYGEN) // Doxygen doesn't see this as an overload of the previous one
 // clang-format off
 template<std::invocable Functor>
     requires(std::is_void_v<std::invoke_result_t<Functor>>)
@@ -1652,6 +1656,7 @@ void blocking_invoke_from_event_loop(Functor f)
     std::unique_lock lock(mtx);
     cv.wait(lock, [&] { return ok; });
 }
+#    endif
 #endif
 
 } // namespace slint

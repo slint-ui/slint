@@ -293,7 +293,7 @@ jobs:
       with:
         crate: cross
     - name: Check
-      run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter
+      run: cross check --target=armv7-unknown-linux-gnueabihf -p slint-cpp --no-default-features --features=testing,interpreter,std
 
   uefi-demo:
     env:

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "printerdemo.h"
+#include <iostream>
 
 struct InkLevelModel : slint::Model<InkLevel>
 {

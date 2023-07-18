@@ -523,6 +523,8 @@ namespace slint {
         using LogicalRect = Rect;
         using LogicalPoint = Point2D<float>;
         using LogicalLength = float;
+        struct ComponentVTable;
+        struct ItemVTable;
     }
 }",
         )
@@ -697,6 +699,7 @@ pub struct EnabledFeatures {
     pub interpreter: bool,
     pub experimental: bool,
     pub backend_qt: bool,
+    pub std: bool,
 }
 
 impl EnabledFeatures {
@@ -711,6 +714,9 @@ impl EnabledFeatures {
         }
         if self.backend_qt {
             defines += "#define SLINT_FEATURE_BACKEND_QT\n";
+        }
+        if self.std {
+            defines += "#define SLINT_FEATURE_STD\n";
         }
         defines
     }

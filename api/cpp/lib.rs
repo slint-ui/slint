@@ -151,3 +151,9 @@ mod allocator {
     #[global_allocator]
     static ALLOCATOR: CAlloc = CAlloc;
 }
+
+#[cfg(not(feature = "std"))]
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}

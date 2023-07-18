@@ -6,6 +6,7 @@
 #include <atomic>
 #include <algorithm>
 #include <initializer_list>
+#include <memory>
 
 namespace slint {
 
