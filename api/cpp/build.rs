@@ -23,7 +23,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let enabled_features = EnabledFeatures {
         interpreter: std::env::var("CARGO_FEATURE_SLINT_INTERPRETER").is_ok(),
-        experimental: std::env::var("CARGO_FEATURE_SLINT_INTERPRETER").is_ok(),
+        experimental: std::env::var("CARGO_FEATURE_EXPERIMENTAL").is_ok(),
         backend_qt: std::env::var("CARGO_FEATURE_BACKEND_QT").is_ok(),
         std: std::env::var("CARGO_FEATURE_STD").is_ok(),
     };
