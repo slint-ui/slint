@@ -350,6 +350,10 @@ export component Example inherits Window {
 -   **`minimum`** (_in_ _int_): The minimum value (default: 0).
 -   **`maximum`** (_in_ _int_): The maximum value (default: 100).
 
+### Callbacks
+
+- **`edited(`_`int`_`)`**: Emitted when the value has changed because the user modified it
+
 ### Example
 
 ```slint
