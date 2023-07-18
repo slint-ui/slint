@@ -578,7 +578,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let (physical_offset, skpath): (crate::euclid::Vector2D<f32, PhysicalPx>, _) =
             match self.path_cache.get_or_update_cache_entry(item_rc, || {
                 let (logical_offset, path_events): (crate::euclid::Vector2D<f32, LogicalPx>, _) =
-                    path.fitted_path_events()?;
+                    path.fitted_path_events(item_rc)?;
 
                 let mut skpath = skia_safe::Path::new();
 

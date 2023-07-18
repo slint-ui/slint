@@ -9,10 +9,6 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeScrollView {
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
-    pub width: Property<LogicalLength>,
-    pub height: Property<LogicalLength>,
     pub horizontal_max: Property<LogicalLength>,
     pub horizontal_page_size: Property<LogicalLength>,
     pub horizontal_value: Property<LogicalLength>,
@@ -119,9 +115,9 @@ impl Item for NativeScrollView {
         self: Pin<&Self>,
         event: MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &i_slint_core::items::ItemRc,
+        self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
-        let size: qttypes::QSize = get_size!(self);
+        let size: qttypes::QSize = get_size!(self_rc);
         let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;

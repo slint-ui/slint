@@ -104,10 +104,6 @@ type ActualStandardButtonKind = Option<StandardButtonKind>;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeButton {
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
-    pub width: Property<LogicalLength>,
-    pub height: Property<LogicalLength>,
     pub text: Property<SharedString>,
     pub icon: Property<i_slint_core::graphics::Image>,
     pub pressed: Property<bool>,
@@ -252,7 +248,7 @@ impl Item for NativeButton {
         self: Pin<&Self>,
         event: MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &i_slint_core::items::ItemRc,
+        self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
             Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
@@ -277,12 +273,8 @@ impl Item for NativeButton {
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
         });
         if let MouseEvent::Released { position, .. } = event {
-            if LogicalRect::new(
-                LogicalPoint::default(),
-                LogicalSize::from_lengths(self.width(), self.height()),
-            )
-            .contains(position)
-                && was_pressed
+            let geo = self_rc.geometry();
+            if LogicalRect::new(LogicalPoint::default(), geo.size).contains(position) && was_pressed
             {
                 self.activate();
             }

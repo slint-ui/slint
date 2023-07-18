@@ -18,10 +18,6 @@ type IntArg = (i32,);
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeSpinBox {
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
-    pub width: Property<LogicalLength>,
-    pub height: Property<LogicalLength>,
     pub enabled: Property<bool>,
     pub has_focus: Property<bool>,
     pub value: Property<i32>,
@@ -128,7 +124,7 @@ impl Item for NativeSpinBox {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
-        let size: qttypes::QSize = get_size!(self);
+        let size: qttypes::QSize = get_size!(self_rc);
         let enabled = self.enabled();
         let mut data = self.data();
         let active_controls = data.active_controls;

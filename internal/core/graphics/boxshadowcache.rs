@@ -9,6 +9,7 @@ use std::{cell::RefCell, collections::BTreeMap};
 
 use super::euclid;
 use crate::items::ItemRc;
+use crate::lengths::RectLengths;
 use crate::{
     lengths::{PhysicalPx, ScaleFactor},
     Color,
@@ -57,6 +58,7 @@ impl BoxShadowOptions {
     /// coordinates to physical pixels used in the BoxShadowOptions. Returns None if for example the
     /// alpha on the box shadow would imply that no shadow is to be rendered.
     pub fn new(
+        item_rc: &ItemRc,
         box_shadow: std::pin::Pin<&crate::items::BoxShadow>,
         scale_factor: ScaleFactor,
     ) -> Option<Self> {
@@ -64,8 +66,9 @@ impl BoxShadowOptions {
         if color.alpha() == 0 {
             return None;
         }
-        let width = box_shadow.width() * scale_factor;
-        let height = box_shadow.height() * scale_factor;
+        let geometry = item_rc.geometry();
+        let width = geometry.width_length() * scale_factor;
+        let height = geometry.height_length() * scale_factor;
         if width.get() < 1. || height.get() < 1. {
             return None;
         }
@@ -99,7 +102,7 @@ impl<ImageType: Clone> BoxShadowCache<ImageType> {
         shadow_render_fn: impl FnOnce(&BoxShadowOptions) -> ImageType,
     ) -> Option<ImageType> {
         item_cache.get_or_update_cache_entry(item_rc, || {
-            let shadow_options = BoxShadowOptions::new(box_shadow, scale_factor)?;
+            let shadow_options = BoxShadowOptions::new(item_rc, box_shadow, scale_factor)?;
             self.0
                 .borrow_mut()
                 .entry(shadow_options.clone())

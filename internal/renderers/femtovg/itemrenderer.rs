@@ -533,12 +533,12 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         }
     }
 
-    fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc, _size: LogicalSize) {
+    fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, _size: LogicalSize) {
         if self.global_alpha_transparent() {
             return;
         }
 
-        let (offset, path_events) = match path.fitted_path_events() {
+        let (offset, path_events) = match path.fitted_path_events(item_rc) {
             Some(offset_and_events) => offset_and_events,
             None => return,
         };

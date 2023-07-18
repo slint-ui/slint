@@ -22,10 +22,6 @@ type FloatArg = (f32,);
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeSlider {
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
-    pub width: Property<LogicalLength>,
-    pub height: Property<LogicalLength>,
     pub enabled: Property<bool>,
     pub value: Property<f32>,
     pub minimum: Property<f32>,
@@ -125,9 +121,9 @@ impl Item for NativeSlider {
         self: Pin<&Self>,
         event: MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &i_slint_core::items::ItemRc,
+        self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
-        let size: qttypes::QSize = get_size!(self);
+        let size: qttypes::QSize = get_size!(self_rc);
         let enabled = self.enabled();
         let value = self.value();
         let min = self.minimum();

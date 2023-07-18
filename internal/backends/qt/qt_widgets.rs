@@ -45,8 +45,9 @@ type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
 /// and return Default::default in case the size is too small
 macro_rules! get_size {
     ($self:ident) => {{
-        let width = $self.width().get();
-        let height = $self.height().get();
+        let geo = $self.geometry();
+        let width = geo.width();
+        let height = geo.height();
         if width < 1. || height < 1. {
             return Default::default();
         };
@@ -89,8 +90,9 @@ macro_rules! fn_render {
                 backend.draw_cached_pixmap(
                     item_rc,
                     &|callback| {
-                        let width = self.width().get() * $dpr;
-                        let height = self.height().get() * $dpr;
+                        let geo = item_rc.geometry();
+                        let width = geo.width() * $dpr;
+                        let height = geo.height() * $dpr;
                         if width < 1. || height < 1. {
                             return Default::default();
                         };

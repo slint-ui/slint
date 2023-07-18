@@ -793,8 +793,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc, size: LogicalSize) {
-        let (offset, path_events) = match path.fitted_path_events() {
+    fn draw_path(&mut self, path: Pin<&items::Path>, item_rc: &ItemRc, size: LogicalSize) {
+        let (offset, path_events) = match path.fitted_path_events(item_rc) {
             Some(offset_and_events) => offset_and_events,
             None => return,
         };

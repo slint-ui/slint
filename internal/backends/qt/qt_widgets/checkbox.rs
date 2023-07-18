@@ -9,10 +9,6 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeCheckBox {
-    pub x: Property<LogicalLength>,
-    pub y: Property<LogicalLength>,
-    pub width: Property<LogicalLength>,
-    pub height: Property<LogicalLength>,
     pub enabled: Property<bool>,
     pub has_focus: Property<bool>,
     pub toggled: Callback<VoidArg>,
@@ -73,18 +69,14 @@ impl Item for NativeCheckBox {
         self: Pin<&Self>,
         event: MouseEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &i_slint_core::items::ItemRc,
+        self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
         if let MouseEvent::Released { position, .. } = event {
-            if LogicalRect::new(
-                LogicalPoint::default(),
-                LogicalSize::from_lengths(self.width(), self.height()),
-            )
-            .contains(position)
-            {
+            let geo = self_rc.geometry();
+            if LogicalRect::new(LogicalPoint::default(), geo.size).contains(position) {
                 Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
                 Self::FIELD_OFFSETS.toggled.apply_pin(self).call(&())
             }
