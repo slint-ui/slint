@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+component TestComponent {
+    in-out property <bool> check;
+}
+
+export component App inherits Window {
+    min-width: 800px;
+    min-height: 600px;
+    title: "Test";
+
+    Rectangle {
+        i-test := TestComponent {}
+
+        if (i-test.check) : Rectangle {  }
+    }
+}
