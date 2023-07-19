@@ -89,8 +89,11 @@ component TableViewCell inherits Rectangle {
 
 component TableViewRow inherits Rectangle {
     callback clicked <=> i-state-layer.clicked;
+    callback pointer-event <=> i-state-layer.pointer-event;
 
     in property<bool> selected;
+    out property<length> mouse-x <=> i-state-layer.mouse-x;
+    out property<length> mouse-y <=> i-state-layer.mouse-y;
 
     min-height: max(42px, i-layout.min-height);
 
@@ -120,6 +123,7 @@ export component StandardTableView {
 
     callback sort-ascending(int /* column-index */);
     callback sort-descending(int /* column-index */);
+    callback row-pointer-event(int /* row-index */, PointerEvent /* event */, Point /* absolute mouse position */);
 
     in property <[[StandardListViewItem]]> rows;
     out property <int> current-sort-column: -1;
@@ -196,6 +200,13 @@ export component StandardTableView {
 
                     clicked => {
                         root.set-current-row(idx);
+                    }
+
+                    pointer-event(pe) => {
+                        root.row-pointer-event(idx, pe, {
+                            x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
+                            y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
+                        });
                     }
                 }
             }

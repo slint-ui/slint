@@ -92,6 +92,7 @@ component TableViewCell inherits Rectangle {
 
 component TableViewRow inherits Rectangle {
     callback clicked <=> i-touch-area.clicked;
+    callback pointer-event(PointerEvent /* event */, Point /* absolute mouse position */);
 
     in property<bool> selected;
     in property <bool> even;
@@ -101,7 +102,14 @@ component TableViewRow inherits Rectangle {
     border-radius: 4px;
     background: root.even ? Palette.control-default : transparent;
 
-    i-touch-area := TouchArea {}
+    i-touch-area := TouchArea {
+        pointer-event(pe) => {
+            root.pointer-event(pe, {
+                x: self.absolute-position.x + self.mouse-x,
+                y: self.absolute-position.y + self.mouse-y,
+            });
+        }
+    }
 
     i-layout := HorizontalLayout {
        @children
@@ -140,11 +148,13 @@ export component StandardTableView {
 
     callback sort-ascending(int /* column-index */);
     callback sort-descending(int /* column-index */);
+    callback row-pointer-event(int /* row-index */, PointerEvent /* event */, Point /* absolute mouse position */);
 
     in property <[[StandardListViewItem]]> rows;
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
     in-out property <int> current-row: -1;
+
 
     min-width: 400px;
     min-height: 200px;
@@ -220,6 +230,13 @@ export component StandardTableView {
                                 color: mod(idx, 2) == 0 ? Palette.text-primary : Palette.text-secondary;
                             }
                         }
+                    }
+
+                    pointer-event(pe, pos) => {
+                        root.row-pointer-event(idx, pe, {
+                            x: pos.x - root.absolute-position.x,
+                            y: pos.y - root.absolute-position.y,
+                        });
                     }
 
                     clicked => {
