@@ -213,7 +213,7 @@ impl TypeRegister {
         self.types.insert(name, t);
     }
 
-    pub fn builtin() -> Rc<RefCell<Self>> {
+    fn builtin_internal() -> Self {
         let mut register = TypeRegister::default();
 
         register.insert_type(Type::Float32);
@@ -275,6 +275,22 @@ impl TypeRegister {
 
             _ => unreachable!(),
         };
+
+        register
+    }
+
+    #[doc(hidden)]
+    /// All builtins incl. experimental ones! Do not use in production code!
+    pub fn builtin_experimental() -> Rc<RefCell<Self>> {
+        let register = Self::builtin_internal();
+        Rc::new(RefCell::new(register))
+    }
+
+    pub fn builtin() -> Rc<RefCell<Self>> {
+        let mut register = Self::builtin_internal();
+
+        register.elements.remove("ComponentContainer");
+        register.types.remove("component-factory");
 
         Rc::new(RefCell::new(register))
     }
