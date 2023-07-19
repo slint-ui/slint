@@ -84,7 +84,7 @@ fn inject_shadow_element_in_repeated_element(
 
     crate::object_tree::inject_element_as_repeated_element(
         repeated_element,
-        ElementRc::new(RefCell::new(shadow_element)),
+        Element::make_rc(shadow_element),
     );
 }
 
@@ -174,7 +174,7 @@ pub fn lower_shadow_properties(
                     });
                 }
 
-                elem.borrow_mut().children.push(ElementRc::new(RefCell::new(shadow_elem)));
+                elem.borrow_mut().children.push(Element::make_rc(shadow_elem));
             }
             elem.borrow_mut().children.push(child);
         }
