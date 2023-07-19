@@ -552,7 +552,7 @@ impl Clone for PropertyAnimation {
 #[derive(Default, Clone)]
 pub struct AccessibilityProps(pub BTreeMap<String, NamedReference>);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GeometryProps {
     pub x: NamedReference,
     pub y: NamedReference,
@@ -718,6 +718,10 @@ pub fn pretty_print(
     for c in &e.children {
         indent!();
         pretty_print(f, &c.borrow(), indentation)?
+    }
+    for g in &e.geometry_props {
+        indent!();
+        writeln!(f, "geometry {:?} ", g)?;
     }
 
     /*if let Type::Component(base) = &e.base_type {
