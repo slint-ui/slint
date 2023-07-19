@@ -87,14 +87,14 @@ pub(crate) fn completion_at(
             // add keywords
             r.extend(
                 [
-                    ("property", "property <$1> $2;"),
-                    ("in property", "in property <$1> $2;"),
-                    ("in-out property", "in-out property <$1> $2;"),
-                    ("out property", "out property <$1> $2;"),
-                    ("private property", "private property <$1> $2;"),
-                    ("function", "function $1() {}"),
-                    ("public function", "public function $1() {}"),
-                    ("callback", "callback $1();"),
+                    ("property", "property <${1:int}> ${2:name};"),
+                    (
+                        "qualified property",
+                        "${1|in,in-out,out,private|} property <${2:int}> ${3:name};",
+                    ),
+                    ("function", "function ${1:name}($2) {\n    $0\n}"),
+                    ("public function", "public function ${1:name}($2) {\n    $0\n}"),
+                    ("callback", "callback ${1:name}($2);"),
                 ]
                 .iter()
                 .map(|(kw, ins_tex)| {
@@ -107,11 +107,10 @@ pub(crate) fn completion_at(
             if !is_global {
                 r.extend(
                     [
-                        ("animate", "animate $1 { $2 }"),
-                        ("states", "states [ $1 ]"),
-                        ("transitions", "transitions [ $1 ]"),
-                        ("for", "for $1 in $2: $3 {}"),
-                        ("if", "if ($1) : $2 {}"),
+                        ("animate", "animate ${1:prop} {\n     $0\n}"),
+                        ("states", "states [\n    $0\n]"),
+                        ("for", "for $1 in $2: ${3:Rectangle} {\n    $0\n}"),
+                        ("if", "if $1: ${2:Rectangle} {\n    $0\n}"),
                         ("@children", "@children"),
                     ]
                     .iter()
@@ -301,14 +300,17 @@ pub(crate) fn completion_at(
     } else if node.kind() == SyntaxKind::Document {
         let r: Vec<_> = [
             // the $1 is first in the quote so the filename can be completed before the import names
-            ("import", "import { $2 } from \"$1\";"),
-            ("component", "component $1 {}"),
-            ("struct", "struct $1 {}"),
-            ("global", "global $1 {}"),
-            ("export", "export { $1 }"),
-            ("export component", "export component $1 { }"),
-            ("export struct", "export struct $1 {}"),
-            ("export global", "export global $1 {}"),
+            ("import", "import { $1 } from \"${2:std-widgets.slint}\";"),
+            ("component", "component ${1:Component} ${2:inherits ${3:Rectangle} }{\n    $0\n}"),
+            ("struct", "struct ${1:Name} {\n    $0\n}"),
+            ("global", "global ${1:Name} {\n    $0\n}"),
+            ("export", "export { $0 }"),
+            (
+                "export component",
+                "export component ${1:AppWindow} ${2:inherits ${3:Window} }{\n    $0\n}",
+            ),
+            ("export struct", "export struct ${1:Name} {\n    $0\n}"),
+            ("export global", "export global ${1:Name} {\n    $0\n}"),
         ]
         .iter()
         .map(|(kw, ins_tex)| {
@@ -317,6 +319,16 @@ pub(crate) fn completion_at(
             with_insert_text(c, ins_tex, snippet_support)
         })
         .collect();
+        return Some(r);
+    } else if node.kind() == SyntaxKind::State {
+        let r: Vec<_> = [("when", "when $1: {\n    $0\n}")]
+            .iter()
+            .map(|(kw, ins_tex)| {
+                let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
+                c.kind = Some(CompletionItemKind::KEYWORD);
+                with_insert_text(c, ins_tex, snippet_support)
+            })
+            .collect();
         return Some(r);
     }
     None
