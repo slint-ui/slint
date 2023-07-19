@@ -1243,7 +1243,7 @@ fn generate_item_tree(
             quote!(
                 #[allow(unused)]
                 fn window_adapter(&self) -> Rc<dyn sp::WindowAdapter> {
-                    self.window_adapter_ref().unwrap().clone()
+                    Rc::clone(self.window_adapter_ref().unwrap())
                 }
 
                 fn window_adapter_ref(
