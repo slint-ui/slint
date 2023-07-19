@@ -30,6 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("cargo:rustc-env=TEST_FUNCTIONS={}", tests_file_path.to_string_lossy());
+    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
 
     Ok(())
 }

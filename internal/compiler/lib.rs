@@ -78,6 +78,9 @@ pub struct CompilerConfiguration {
     /// expose the accessible role and properties
     pub accessibility: bool,
 
+    /// Add support for component containers
+    pub enable_component_containers: bool,
+
     /// The domain used as one of the parameter to the translate function
     pub translation_domain: Option<String>,
 }
@@ -123,6 +126,11 @@ impl CompilerConfiguration {
             .filter(|f| *f > 0.)
             .unwrap_or(1.);
 
+        let enable_experimental_features =
+            std::env::var_os("SLINT_ENABLE_EXPERIMENTAL_FEATURES").is_some();
+
+        let enable_component_containers = enable_experimental_features;
+
         Self {
             embed_resources,
             include_paths: Default::default(),
@@ -131,6 +139,7 @@ impl CompilerConfiguration {
             inline_all_elements,
             scale_factor,
             accessibility: true,
+            enable_component_containers,
             translation_domain: None,
         }
     }
@@ -144,11 +153,16 @@ pub async fn compile_syntax_node(
     #[cfg(feature = "software-renderer")]
     if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures {
         // HACK: disable accessibility when compiling for the software renderer
-        // accessibility is not supported with backend that support sofware renderer anyway
+        // accessibility is not supported with backend that support software renderer anyway
         compiler_config.accessibility = false;
     }
 
-    let global_type_registry = typeregister::TypeRegister::builtin();
+    let global_type_registry = if compiler_config.enable_component_containers {
+        crate::typeregister::TypeRegister::builtin_experimental()
+    } else {
+        crate::typeregister::TypeRegister::builtin()
+    };
+
     let type_registry =
         Rc::new(RefCell::new(typeregister::TypeRegister::new(&global_type_registry)));
 
