@@ -143,17 +143,32 @@ mod allocator {
     use core::ffi::c_void;
     extern "C" {
         pub fn free(p: *mut c_void);
-        // This function is part of C11 & C++17
-        pub fn aligned_alloc(alignment: usize, size: usize) -> *mut c_void;
+        pub fn malloc(size: usize) -> *mut c_void;
     }
 
     struct CAlloc;
     unsafe impl core::alloc::GlobalAlloc for CAlloc {
         unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-            aligned_alloc(layout.align(), layout.size()) as *mut u8
+            let align = layout.align();
+            if align <= core::mem::size_of::<usize>() {
+                malloc(layout.size()) as *mut u8
+            } else {
+                // Ideally we'd use alligned_alloc, but that function caused heap corruption with esp-idf
+                let ptr = malloc(layout.size() + align) as *mut u8;
+                let shift = align - (ptr as usize % align);
+                let ptr = ptr.add(shift);
+                core::ptr::write(ptr.sub(1), shift as u8);
+                ptr
+            }
         }
-        unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
-            free(ptr as *mut c_void);
+        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+            let align = layout.align();
+            if align <= core::mem::size_of::<usize>() {
+                free(ptr as *mut c_void);
+            } else {
+                let shift = core::ptr::read(ptr.sub(1)) as usize;
+                free(ptr.sub(shift) as *mut c_void);
+            }
         }
     }
 
