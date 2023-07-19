@@ -57,6 +57,18 @@ fn can_optimize(elem: &ElementRc) -> bool {
         _ => return false,
     };
 
+    if let Some(g) = &e.geometry_props {
+        for p in [&g.x, &g.y] {
+            let e = p.element();
+            let e = e.borrow();
+            if e.property_analysis.borrow().get(p.name()).map(|v| v.is_set) == Some(true)
+                || e.bindings.get(p.name()).is_some()
+            {
+                return false;
+            }
+        }
+    }
+
     // Check that no Rectangle property other than height and width are set
     let analysis = e.property_analysis.borrow();
     !e.bindings.keys().chain(analysis.iter().filter(|(_, v)| v.is_set).map(|(k, _)| k)).any(|k| {
