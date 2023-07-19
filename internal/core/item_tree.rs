@@ -941,6 +941,10 @@ mod tests {
         ) {
             unimplemented!("Not needed for this test")
         }
+
+        fn item_geometry(self: Pin<&Self>, _: u32) -> LogicalRect {
+            unimplemented!("Not needed for this test")
+        }
     }
 
     crate::component::ComponentVTable_static!(static TEST_COMPONENT_VT for TestComponent);
