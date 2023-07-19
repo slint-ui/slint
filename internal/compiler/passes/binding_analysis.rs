@@ -172,6 +172,23 @@ fn analyze_element(
             }
         }
     }
+
+    if let Some(repeated) = &elem.borrow().repeated {
+        recurse_expression(&repeated.model, &mut |prop| {
+            process_property(prop, context, reverse_aliases, diag);
+        });
+        if let Some(lv) = &repeated.is_listview {
+            process_property(&lv.viewport_y.clone().into(), context, reverse_aliases, diag);
+            process_property(&lv.viewport_height.clone().into(), context, reverse_aliases, diag);
+            process_property(&lv.viewport_width.clone().into(), context, reverse_aliases, diag);
+            process_property(&lv.listview_height.clone().into(), context, reverse_aliases, diag);
+            process_property(&lv.listview_width.clone().into(), context, reverse_aliases, diag);
+        }
+    }
+    if let Some((h, v)) = &elem.borrow().layout_info_prop {
+        process_property(&h.clone().into(), context, reverse_aliases, diag);
+        process_property(&v.clone().into(), context, reverse_aliases, diag);
+    }
 }
 
 #[derive(Copy, Clone, dm::BitAnd, dm::BitOr, dm::BitAndAssign, dm::BitOrAssign)]
