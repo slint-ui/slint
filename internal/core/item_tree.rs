@@ -924,6 +924,10 @@ mod tests {
             _: &mut SharedString,
         ) {
         }
+
+        fn item_geometry(self: Pin<&Self>, _: usize) -> LogicalRect {
+            unimplemented!("Not needed for this test")
+        }
     }
 
     crate::component::ComponentVTable_static!(static TEST_COMPONENT_VT for TestComponent);
