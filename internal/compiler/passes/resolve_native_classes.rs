@@ -52,7 +52,9 @@ pub fn resolve_native_classes(component: &Component) {
 fn lookup_property_distance(mut class: Rc<NativeClass>, name: &str) -> (usize, Rc<NativeClass>) {
     let mut distance = 0;
     loop {
-        if class.properties.contains_key(name) {
+        if class.properties.contains_key(name)
+            || (class.parent.is_none() && ["x", "y", "width", "height"].contains(&name))
+        {
             return (distance, class);
         }
         distance += 1;
