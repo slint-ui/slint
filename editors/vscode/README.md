@@ -29,32 +29,26 @@ visible, it is not necessary to save the file.
 
 Issues should be reported in the [Slint issue tracker](https://github.com/slint-ui/slint/labels/vscode-extension).
 
-## Building from Source
+## Building from source and debugging
 
-1. Build the LSP
-
-```sh
-cargo build --bin slint-lsp
-```
-
-2. run npm install in the vscode directory
+The following step will build a local version of the vscode extension and the LSP
 
 ```sh
+cargo install wasm-pack
+cargo build -p slint-lsp
 cd editors/vscode
 npm install
+npm run build:wasm_lsp
+npm run build:wasm_preview
+npm run compile
 ```
 
-## How to debug the LSP
+Later, you only need to do the steps for the part you change like `cargo build -p slint-lsp` to rebuild the lsp binary
+or `npm run compile` to rebuild the typescript.
 
-From another VS Code instance: Load this directory in VS code and then start debugging (Run -> Start Debugging).
-That will "debug" the vs code extension and create a new VS code window. The LSP server binary will be started if previously built
-
-You can see the output in the output pane "Slint LSP" (that's the drop-down that usually shows "Tasks").
-
-Alternatively, you can start vscode with the following options:
+You can run vscode with that extension by running, in the `editors/vscode` directory:
 
 ```sh
-cd editors/vscode
 code --extensionDevelopmentPath=$PWD ../..
 ```
 
