@@ -29,6 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "cargo:rustc-env=SLINT_NODE_NATIVE_LIB={}",
         target_dir.join(nodejs_native_lib_name).display()
     );
+    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1",);
 
     let tests_file_path =
         std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");
@@ -38,6 +39,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for testcase in test_driver_lib::collect_test_cases("cases")? {
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let test_function_name = testcase.identifier();
+
+        if &test_function_name == "elements_component_container" {
+            // FIXME: Skip embedding test on NodeJS since ComponentFactory is not
+            // implemented there!
+            continue;
+        }
 
         write!(
             tests_file,

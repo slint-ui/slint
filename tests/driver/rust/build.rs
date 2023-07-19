@@ -54,6 +54,7 @@ fn main() -> std::io::Result<()> {
 
     //Make sure to use a consistent style
     println!("cargo:rustc-env=SLINT_STYLE=fluent");
+    println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
     Ok(())
 }
 
@@ -108,6 +109,7 @@ fn generate_source(
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse(source.to_owned(), Some(&testcase.absolute_path), &mut diag);
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
+    compiler_config.enable_component_containers = true;
     compiler_config.include_paths = include_paths;
     compiler_config.style = Some("fluent".to_string());
     let (root_component, diag) =

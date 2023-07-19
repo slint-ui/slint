@@ -30,7 +30,6 @@ display-diagnostics = ["codemap", "codemap-diagnostic"]
 # Enabled the support to render images and font in the binary
 software-renderer = ["image", "dep:resvg", "fontdue", "i-slint-common/shared-fontdb"]
 
-
 [dependencies]
 i-slint-common = { version = "=1.1.1", path = "../common" }
 

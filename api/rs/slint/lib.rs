@@ -177,7 +177,6 @@ The follow table summarizes the entire mapping:
 | `bool` | `bool` | |
 | `brush` | [`Brush`] | |
 | `color` | [`Color`] | |
-| `component-factory` | [`ComponentFactory`] | A factory for components that can be added at runtime. |
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with millisecond precision. |
 | enumeration | `enum` of the same name | The values are converted to CamelCase |
 | `float` | `f32` | |
