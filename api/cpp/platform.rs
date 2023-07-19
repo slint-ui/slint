@@ -106,6 +106,9 @@ struct CppPlatform {
     window_factory: unsafe extern "C" fn(PlatformUserData, *mut WindowAdapterRcOpaque),
     #[cfg(not(feature = "std"))]
     duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
+    run_event_loop: unsafe extern "C" fn(PlatformUserData),
+    quit_event_loop: unsafe extern "C" fn(PlatformUserData),
+    invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformEventOpaque),
 }
 
 impl Drop for CppPlatform {
@@ -130,7 +133,51 @@ impl Platform for CppPlatform {
     fn duration_since_start(&self) -> core::time::Duration {
         core::time::Duration::from_millis(unsafe { (self.duration_since_start)(self.user_data) })
     }
+
+    fn run_event_loop(&self) -> Result<(), PlatformError> {
+        unsafe { (self.run_event_loop)(self.user_data) };
+        Ok(())
+    }
+
+    fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
+        Some(Box::new(CppEventLoopProxy {
+            user_data: self.user_data,
+            quit_event_loop: self.quit_event_loop,
+            invoke_from_event_loop: self.invoke_from_event_loop,
+        }))
+    }
 }
+
+struct CppEventLoopProxy {
+    user_data: PlatformUserData,
+    quit_event_loop: unsafe extern "C" fn(PlatformUserData),
+    invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformEventOpaque),
+}
+
+impl i_slint_core::platform::EventLoopProxy for CppEventLoopProxy {
+    fn quit_event_loop(&self) -> Result<(), i_slint_core::api::EventLoopError> {
+        unsafe { (self.quit_event_loop)(self.user_data) };
+        Ok(())
+    }
+
+    fn invoke_from_event_loop(
+        &self,
+        event: Box<dyn FnOnce() + Send>,
+    ) -> Result<(), i_slint_core::api::EventLoopError> {
+        unsafe {
+            (self.invoke_from_event_loop)(
+                self.user_data,
+                core::mem::transmute::<*mut dyn FnOnce(), PlatformEventOpaque>(Box::into_raw(
+                    event,
+                )),
+            )
+        };
+        Ok(())
+    }
+}
+
+unsafe impl Send for CppEventLoopProxy {}
+unsafe impl Sync for CppEventLoopProxy {}
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_platform_register(
@@ -138,6 +185,9 @@ pub unsafe extern "C" fn slint_platform_register(
     drop: unsafe extern "C" fn(PlatformUserData),
     window_factory: unsafe extern "C" fn(PlatformUserData, *mut WindowAdapterRcOpaque),
     #[allow(unused)] duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
+    run_event_loop: unsafe extern "C" fn(PlatformUserData),
+    quit_event_loop: unsafe extern "C" fn(PlatformUserData),
+    invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformEventOpaque),
 ) {
     let p = CppPlatform {
         user_data,
@@ -145,6 +195,9 @@ pub unsafe extern "C" fn slint_platform_register(
         window_factory,
         #[cfg(not(feature = "std"))]
         duration_since_start,
+        run_event_loop,
+        quit_event_loop,
+        invoke_from_event_loop,
     };
     i_slint_core::platform::set_platform(Box::new(p)).unwrap();
 }
@@ -185,6 +238,20 @@ pub unsafe extern "C" fn slint_windowrc_dispatch_scale_factor_change_event(
 #[no_mangle]
 pub extern "C" fn slint_platform_update_timers_and_animations() {
     i_slint_core::platform::update_timers_and_animations()
+}
+
+#[repr(C)]
+pub struct PlatformEventOpaque(*const c_void, *const c_void);
+
+#[no_mangle]
+pub unsafe extern "C" fn slint_platform_event_drop(event: PlatformEventOpaque) {
+    drop(Box::from_raw(core::mem::transmute::<PlatformEventOpaque, *mut dyn FnOnce()>(event)));
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn slint_platform_event_invoke(event: PlatformEventOpaque) {
+    let f = Box::from_raw(core::mem::transmute::<PlatformEventOpaque, *mut dyn FnOnce()>(event));
+    f();
 }
 
 type SoftwareRendererOpaque = *const c_void;

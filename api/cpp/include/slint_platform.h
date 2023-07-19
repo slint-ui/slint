@@ -157,6 +157,46 @@ public:
     }
 };
 
+/// An event that is passed to the Platform::invoke_from_event_loop function and needs to be invoked
+/// in the event loop.
+class PlatformEvent
+{
+    cbindgen_private::PlatformEventOpaque inner { nullptr, nullptr };
+    friend class Platform;
+
+    explicit PlatformEvent(cbindgen_private::PlatformEventOpaque inner) : inner(inner) { }
+
+public:
+    ~PlatformEvent()
+    {
+        if (inner._0) {
+            cbindgen_private::slint_platform_event_drop(std::exchange(inner, { nullptr, nullptr }));
+        }
+    }
+    PlatformEvent(const PlatformEvent &) = delete;
+    PlatformEvent &operator=(const PlatformEvent &) = delete;
+    PlatformEvent(PlatformEvent &&other) : inner(other.inner)
+    {
+        other.inner = { nullptr, nullptr };
+    }
+    PlatformEvent &operator=(PlatformEvent &&other)
+    {
+        std::swap(other.inner, inner);
+        return *this;
+    }
+
+    /// Invoke the event.
+    ///
+    /// Can only be invoked once and should only be called from the event loop.
+    void invoke() &&
+    {
+        if (inner._0) {
+            cbindgen_private::slint_platform_event_invoke(
+                    std::exchange(inner, { nullptr, nullptr }));
+        }
+    };
+};
+
 /// The platform is acting like a factory to create a WindowAdapter
 ///
 /// Platform::register_platform() need to be called before any other Slint handle
@@ -178,8 +218,26 @@ public:
     /// This function should only be implemented  if the runtime is compiled with no_std
     virtual uint64_t duration_since_start() const { return 0; }
 
-    /// Register the platform to Slint. Must be called before Slint window are created. Can only
-    /// be called once in an application.
+    /// Spins an event loop and renders the visible windows.
+    virtual void run_event_loop() { }
+
+    /// Exits the event loop.
+    ///
+    /// This is what is called by slint::quit_event_loop() and can be called from a different thread
+    /// or re-enter from the event loop
+    virtual void quit_event_loop() { }
+
+    /// Invokes the event from the event loop.
+    ///
+    /// This function is called by slint::invoke_from_event_loop().
+    /// It can be called from any thread, but the passed function must only be called
+    /// from the event loop.
+    /// Reimplements this function and move the event to the event loop before calling
+    /// PlatformEvent::invoke()
+    virtual void invoke_from_event_loop(PlatformEvent) { }
+
+    /// Registers the platform with Slint. Must be called before Slint windows are created.
+    /// Can only be called once in an application.
     static void register_platform(std::unique_ptr<Platform> platform)
     {
         cbindgen_private::slint_platform_register(
@@ -191,6 +249,12 @@ public:
                 },
                 [](void *p) -> uint64_t {
                     return reinterpret_cast<const Platform *>(p)->duration_since_start();
+                },
+                [](void *p) { return reinterpret_cast<Platform *>(p)->run_event_loop(); },
+                [](void *p) { return reinterpret_cast<Platform *>(p)->quit_event_loop(); },
+                [](void *p, cbindgen_private::PlatformEventOpaque event) {
+                    return reinterpret_cast<Platform *>(p)->invoke_from_event_loop(
+                            PlatformEvent(event));
                 });
     }
 };
