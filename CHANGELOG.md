@@ -19,7 +19,8 @@ All notable changes to this project are documented in this file.
 
 ### Rust API
 
- - Implementede `Default` for `slint::Weak`
+ - Implemented `Default` for `slint::Weak`
+ - Added `ReverseModel` and `ModelExt::reverse`
 
 ### C++
 
