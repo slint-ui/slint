@@ -666,7 +666,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                 }
 
                 let glyphsets_var = format!("slint_embedded_resource_{}_glyphsets", er.id);
-                let glyphsets_size = character_map.len();
+                let glyphsets_size = glyphs.len();
                 file.declarations.push(Declaration::Var(Var {
                     ty: "inline const slint::cbindgen_private::BitmapGlyphs".into(),
                     name: glyphsets_var.clone(),
