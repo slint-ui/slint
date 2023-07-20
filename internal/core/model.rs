@@ -11,7 +11,7 @@ use crate::items::{ItemRef, SortOrder};
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::{Coord, Property, SharedString, SharedVector};
-pub use adapters::{FilterModel, MapModel, SortModel};
+pub use adapters::{FilterModel, MapModel, ReverseModel, SortModel};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
@@ -235,6 +235,15 @@ pub trait ModelExt: Model {
         F: FnMut(&Self::Data, &Self::Data) -> core::cmp::Ordering + 'static,
     {
         SortModel::new(self, sort_function)
+    }
+
+    /// Returns a new Model where the elements are reversed.
+    /// This is a shortcut for [`ReverseModel::new()`].
+    fn reverse(self) -> ReverseModel<Self>
+    where
+        Self: Sized + 'static,
+    {
+        ReverseModel::new(self)
     }
 }
 
