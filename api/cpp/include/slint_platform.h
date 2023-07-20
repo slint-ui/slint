@@ -295,6 +295,19 @@ public:
         cbindgen_private::slint_software_renderer_render_rgb8(
                 inner, &window.window_handle().inner, buffer.data(), buffer.size(), pixel_stride);
     }
+
+    /// Render the window scene into an RGB 565 encoded pixel buffer
+    ///
+    /// The buffer must be at least as large as the associated slint::Window
+    ///
+    /// The stride is the amount of pixels between two lines in the buffer.
+    /// It is must be at least as large as the width of the window.
+    void render_rgb565(const Window &window, std::span<uint16_t> buffer,
+                       std::size_t pixel_stride) const
+    {
+        cbindgen_private::slint_software_renderer_render_rgb565(
+                inner, &window.window_handle().inner, buffer.data(), buffer.size(), pixel_stride);
+    }
 };
 
 /// An opaque, low-level window handle that internalizes everything necessary to exchange messages

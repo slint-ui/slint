@@ -8,7 +8,7 @@ use i_slint_core::api::{PhysicalSize, Window};
 use i_slint_core::graphics::{IntSize, Rgb8Pixel};
 use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
-use i_slint_core::software_renderer::{RepaintBufferType, SoftwareRenderer};
+use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal};
 
@@ -289,6 +289,21 @@ pub unsafe extern "C" fn slint_software_renderer_render_rgb8(
     pixel_stride: usize,
 ) {
     let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
+    let renderer = &*(r as *const SoftwareRenderer);
+    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+    renderer.set_window(window_adapter.window());
+    renderer.render(buffer, pixel_stride);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn slint_software_renderer_render_rgb565(
+    r: SoftwareRendererOpaque,
+    window_adapter: *const WindowAdapterRcOpaque,
+    buffer: *mut u16,
+    buffer_len: usize,
+    pixel_stride: usize,
+) {
+    let buffer = core::slice::from_raw_parts_mut(buffer as *mut Rgb565Pixel, buffer_len);
     let renderer = &*(r as *const SoftwareRenderer);
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     renderer.set_window(window_adapter.window());
