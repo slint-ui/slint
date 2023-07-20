@@ -122,6 +122,15 @@ pub unsafe extern "C" fn slint_register_font_from_data(
     )
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn slint_register_bitmap_font(
+    win: *const WindowAdapterRcOpaque,
+    font_data: &'static i_slint_core::graphics::BitmapFont,
+) {
+    let window_adapter = &*(win as *const Rc<dyn WindowAdapter>);
+    window_adapter.renderer().register_bitmap_font(font_data);
+}
+
 #[cfg(feature = "testing")]
 #[no_mangle]
 pub unsafe extern "C" fn slint_testing_init_backend() {
