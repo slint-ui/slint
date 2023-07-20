@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-#include <optional>
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 
@@ -10,6 +9,8 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <chrono>
+#include <optional>
 
 namespace slint_platform = slint::experimental::platform;
 
@@ -19,6 +20,7 @@ struct TestPlatform : slint_platform::Platform
     std::deque<slint_platform::PlatformEvent> queue;
     bool quit = false;
     std::condition_variable cv;
+    std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
 
     /// Returns a new WindowAdapter
     virtual std::unique_ptr<slint_platform::WindowAdapter> create_window_adapter() const override
@@ -31,6 +33,7 @@ struct TestPlatform : slint_platform::Platform
     virtual void run_event_loop() override
     {
         while (true) {
+            slint_platform::update_timers_and_animations();
             std::optional<slint_platform::PlatformEvent> event;
             {
                 std::unique_lock lock(the_mutex);
@@ -39,7 +42,11 @@ struct TestPlatform : slint_platform::Platform
                         quit = false;
                         break;
                     }
-                    cv.wait(lock);
+                    if (auto duration = slint_platform::duration_until_next_timer_update()) {
+                        cv.wait_for(lock, *duration);
+                    } else {
+                        cv.wait(lock);
+                    }
                     continue;
                 } else {
                     event = std::move(queue.front());
@@ -77,9 +84,136 @@ struct TestPlatform : slint_platform::Platform
         queue.push_back(std::move(event));
         cv.notify_all();
     }
+
+    virtual std::chrono::milliseconds duration_since_start() const override
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - start);
+    }
 };
 
 bool init_platform = (TestPlatform::register_platform(std::make_unique<TestPlatform>()), true);
+
+TEST_CASE("C++ Singleshot Timers")
+{
+    using namespace slint;
+    int called = 0;
+    Timer testTimer(std::chrono::milliseconds(16), [&]() {
+        slint::quit_event_loop();
+        called += 10;
+    });
+    REQUIRE(called == 0);
+    slint::run_event_loop();
+    REQUIRE(called == 10);
+}
+
+TEST_CASE("C++ Repeated Timer")
+{
+    int timer_triggered = 0;
+    slint::Timer timer;
+
+    timer.start(slint::TimerMode::Repeated, std::chrono::milliseconds(30),
+                [&]() { timer_triggered++; });
+
+    REQUIRE(timer_triggered == 0);
+
+    bool timer_was_running = false;
+
+    slint::Timer::single_shot(std::chrono::milliseconds(500), [&]() {
+        timer_was_running = timer.running();
+        slint::quit_event_loop();
+    });
+
+    slint::run_event_loop();
+
+    REQUIRE(timer_triggered > 1);
+    REQUIRE(timer_was_running);
+}
+
+TEST_CASE("C++ Restart Singleshot Timer")
+{
+    int timer_triggered = 0;
+    slint::Timer timer;
+
+    timer.start(slint::TimerMode::SingleShot, std::chrono::milliseconds(30),
+                [&]() { timer_triggered++; });
+
+    REQUIRE(timer_triggered == 0);
+
+    bool timer_was_running = false;
+
+    slint::Timer::single_shot(std::chrono::milliseconds(500), [&]() {
+        timer_was_running = timer.running();
+        slint::quit_event_loop();
+    });
+
+    slint::run_event_loop();
+
+    REQUIRE(timer_triggered == 1);
+    REQUIRE(timer_was_running);
+    timer_triggered = 0;
+    timer.restart();
+    slint::Timer::single_shot(std::chrono::milliseconds(500), [&]() {
+        timer_was_running = timer.running();
+        slint::quit_event_loop();
+    });
+
+    slint::run_event_loop();
+
+    REQUIRE(timer_triggered == 1);
+    REQUIRE(timer_was_running);
+}
+
+TEST_CASE("C++ Restart Repeated Timer")
+{
+    int timer_triggered = 0;
+    slint::Timer timer;
+
+    timer.start(slint::TimerMode::Repeated, std::chrono::milliseconds(30),
+                [&]() { timer_triggered++; });
+
+    REQUIRE(timer_triggered == 0);
+
+    bool timer_was_running = false;
+
+    slint::Timer::single_shot(std::chrono::milliseconds(500), [&]() {
+        timer_was_running = timer.running();
+        slint::quit_event_loop();
+    });
+
+    slint::run_event_loop();
+
+    REQUIRE(timer_triggered > 1);
+    REQUIRE(timer_was_running);
+
+    timer_was_running = false;
+    timer_triggered = 0;
+    timer.stop();
+    slint::Timer::single_shot(std::chrono::milliseconds(500), [&]() {
+        timer_was_running = timer.running();
+        slint::quit_event_loop();
+    });
+
+    slint::run_event_loop();
+
+    REQUIRE(timer_triggered == 0);
+    REQUIRE(!timer_was_running);
+
+    timer_was_running = false;
+    timer_triggered = 0;
+
+    timer.restart();
+
+    slint::Timer::single_shot(std::chrono::milliseconds(500), [&]() {
+        timer_was_running = timer.running();
+        slint::quit_event_loop();
+    });
+
+    slint::run_event_loop();
+
+    REQUIRE(timer_triggered > 1);
+    REQUIRE(timer_was_running);
+}
 
 TEST_CASE("Quit from event")
 {

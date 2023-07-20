@@ -240,6 +240,13 @@ pub extern "C" fn slint_platform_update_timers_and_animations() {
     i_slint_core::platform::update_timers_and_animations()
 }
 
+/// Returns the duration in millisecond until the next timer or `u64::MAX` if there is no pending timers
+#[no_mangle]
+pub extern "C" fn slint_platform_duration_until_next_timer_update() -> u64 {
+    i_slint_core::platform::duration_until_next_timer_update()
+        .map_or(u64::MAX, |d| d.as_millis() as u64)
+}
+
 #[repr(C)]
 pub struct PlatformEventOpaque(*const c_void, *const c_void);
 
