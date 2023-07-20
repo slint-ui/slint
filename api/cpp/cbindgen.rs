@@ -232,7 +232,13 @@ fn gen_corelib(
     string_config.export.exclude = vec!["SharedString".into()];
     string_config.export.body.insert(
         "Slice".to_owned(),
-        "    const T &operator[](int i) const { return ptr[i]; }".to_owned(),
+        "    const T &operator[](int i) const { return ptr[i]; }
+        /// Note: this doesn't initialize Slice properly, but we need to keep the struct as compatible with C
+        constexpr Slice() = default;
+        /// Rust uses a NonNull, so even empty slices shouldn't use nullptr
+        constexpr Slice(const T *ptr, uintptr_t len) : ptr(ptr ? const_cast<T*>(ptr) : reinterpret_cast<T*>(sizeof(T))), len(len) {}
+        "
+            .to_owned(),
     );
     cbindgen::Builder::new()
         .with_config(string_config)
