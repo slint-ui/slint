@@ -17,10 +17,14 @@
         "Programming Languages"
     ],
     "activationEvents": [
+        "onCommand:slint.showPreview",
+        "onCommand:slint.showWelcome",
+        "onCommand:slint.reload",
         "onLanguage:slint",
         "onLanguage:rust",
         "onWebviewPanel:slint-preview",
-        "onView:slint.propertiesView"
+        "onView:slint.propertiesView",
+        "workspaceContains:{**/CMakeLists.txt,**/Cargo.toml,**/*.slint}"
     ],
     "main": "./out/extension.js",
     "browser": "./out/browser.js",
@@ -59,6 +63,11 @@
             {
                 "command": "slint.showPreview",
                 "title": "Show Preview",
+                "category": "Slint"
+            },
+            {
+                "command": "slint.showWelcome",
+                "title": "Show Welcome Page",
                 "category": "Slint"
             },
             {
@@ -108,6 +117,11 @@
                         "type": "string"
                     },
                     "description": "List of paths in which the `import` statement and `@image-url` are looked up"
+                },
+                "slint.showWelcomeOnActivation": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Open the Slint Welcome page when the Plugin gets activated (\"always\", \"never\")"
                 }
             }
         },
