@@ -155,6 +155,7 @@ fn gen_corelib(
         "PointerEvent",
         "Rect",
         "SortOrder",
+        "BitmapFont",
     ]
     .iter()
     .chain(items.iter())

@@ -261,6 +261,12 @@ public:
         }
     }
 
+    /// Registers a bitmap font for use with the software renderer.
+    inline void register_bitmap_font(const cbindgen_private::BitmapFont &font)
+    {
+        cbindgen_private::slint_register_bitmap_font(&inner, &font);
+    }
+
     /// \private
     const cbindgen_private::WindowAdapterRcOpaque &handle() const { return inner; }
 
@@ -715,12 +721,18 @@ public:
 
     /// \private
     /// Internal function called by the view to register itself
-    void attach_peer(private_api::ModelPeer p) { peers.push_back(std::move(p)); }
+    void attach_peer(private_api::ModelPeer p)
+    {
+        peers.push_back(std::move(p));
+    }
 
     /// \private
     /// Internal function called from within bindings to register with the currently
     /// evaluating dependency and get notified when this model's row count changes.
-    void track_row_count_changes() const { model_row_count_dirty_property.get(); }
+    void track_row_count_changes() const
+    {
+        model_row_count_dirty_property.get();
+    }
 
     /// \private
     /// Internal function called from within bindings to register with the currently
