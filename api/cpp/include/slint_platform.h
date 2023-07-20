@@ -216,7 +216,7 @@ public:
     /// Returns the amount of milliseconds since start of the application.
     ///
     /// This function should only be implemented  if the runtime is compiled with no_std
-    virtual uint64_t duration_since_start() const { return 0; }
+    virtual std::chrono::milliseconds duration_since_start() const { return {}; }
 
     /// Spins an event loop and renders the visible windows.
     virtual void run_event_loop() { }
@@ -248,7 +248,7 @@ public:
                     (void)w.release();
                 },
                 [](void *p) -> uint64_t {
-                    return reinterpret_cast<const Platform *>(p)->duration_since_start();
+                    return reinterpret_cast<const Platform *>(p)->duration_since_start().count();
                 },
                 [](void *p) { return reinterpret_cast<Platform *>(p)->run_event_loop(); },
                 [](void *p) { return reinterpret_cast<Platform *>(p)->quit_event_loop(); },
@@ -425,6 +425,19 @@ public:
 inline void update_timers_and_animations()
 {
     cbindgen_private::slint_platform_update_timers_and_animations();
+}
+
+/// Returns the duration until the next timer if there are  pending timers
+inline std::optional<std::chrono::milliseconds> duration_until_next_timer_update()
+{
+    uint64_t val = cbindgen_private::slint_platform_duration_until_next_timer_update();
+    if (val == std::numeric_limits<uint64_t>::max()) {
+        return std::nullopt;
+    } else if (val >= uint64_t(std::chrono::milliseconds::max().count())) {
+        return std::chrono::milliseconds::max();
+    } else {
+        return std::chrono::milliseconds(val);
+    }
 }
 
 }
