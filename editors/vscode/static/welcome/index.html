@@ -1,0 +1,605 @@
+<html>
+    <head>
+        <style>
+            :root {
+                --color_baby_blue: #667cff;
+                /* --color_blue: #0C67E8; */
+                --color_blue: #2379f4;
+                --color_dark: #151d21;
+                --color_dark_20: #d0d2d3;
+                --color_dark_40: #a1a5a6;
+                --color_dark_80: #444a4d;
+                --color_dark_gray: #73777a;
+                --color_dark_blue: #250ce8;
+                --color_deep_indigo: #1f284d;
+                --color_focus_blue: #3573d8;
+                --color_gray: #e8e9e9;
+                --color_ice_blue: #0db1ff;
+                --color_light_blue: #f2f4ff;
+                --color_light_gray_2: #b8bbbc;
+                --color_light_purple: #99a8ff;
+                --color_medium_gray: #939393;
+                --color_purple: #6b0dff;
+                --logo: url(<ASSETS_URL>/img/slint-logo.svg);
+                --logo-white: url(<ASSETS_URL>/img/slint-logo-dark.svg);
+                --max_wrap_width: 1506px;
+                --max_wrap_width_narrow: 1160px;
+                --max_wrap_width_medium_narrow: 800px;
+                --max_wrap_width_very_narrow: 760px;
+            }
+
+            /* /Global variables */
+
+            /* Color theme
+              Initialized variables are like undefined variables and will resolve to their fallback value.
+              white-spaced variables (the space is required) will serve as an empty value in chaining.
+            */
+
+            body.vscode-dark {
+                --light: ;
+                --dark: initial;
+            }
+
+            body.vscode-light {
+                --dark: ;
+                --light: initial;
+            }
+
+            /* /Color theme */
+
+            /* Main layout */
+
+            body {
+                background-color: var(--dark, var(--color_dark))
+                    var(--light, #fff);
+                background-image: var(
+                    --dark,
+                    url(<ASSETS_URL>/img/bg-dark.svg)
+                );
+                background-position: top center;
+                background-repeat: no-repeat;
+                background-size: contain;
+                color: var(--dark, #fff) var(--light, var(--color_dark));
+            }
+
+            /* /Main layout */
+
+            /* Header */
+
+            header.top {
+                height: 150px;
+            }
+
+            div.logo {
+                background: var(--dark, var(--logo-white) top left no-repeat)
+                    var(--light, var(--logo) top left no-repeat);
+                background-size: contain;
+                box-sizing: border-box;
+                display: block;
+                height: 41px;
+                left: 20px;
+                overflow: hidden;
+                position: absolute;
+                text-indent: 100%;
+                transition-duration: 0s;
+                top: 55px;
+                white-space: nowrap;
+                width: 122px;
+                z-index: 2;
+            }
+
+            /* /Header */
+
+            /* Text and links */
+
+            a {
+                color: var(--dark, var(--color_light_purple))
+                    var(--light, var(--color_blue));
+                text-decoration: none;
+            }
+
+            @media only screen and (min-width: 751px) {
+                a:hover {
+                    color: var(--color_purple);
+                }
+            }
+
+            a.btn {
+                border: 1px solid var(--color_blue);
+                /* border-color: var(--dark, #fff) var(--light, var(--color_blue)); */
+                border-radius: 4px;
+                box-sizing: border-box;
+                color: var(--dark, #fff) var(--light, var(--color_blue));
+                display: inline-block;
+                line-height: 1;
+                /* padding: 0.8em 1.2em; */
+                padding: 16px 24px;
+                text-align: center;
+            }
+
+            a.btn:hover {
+                outline: 1px solid var(--color_blue);
+            }
+
+            a.btn:active {
+                border: 1px solid var(--color_purple);
+                color: var(--color_purple);
+            }
+
+            a.btn:focus {
+                border: 1px solid var(--color_focus_blue);
+            }
+
+            /* /Text and links */
+
+            /* Images */
+
+            section img {
+                height: auto;
+                max-width: 100%;
+            }
+
+            div.col-wrap img {
+                height: auto;
+                max-width: 100%;
+            }
+
+            /* /Images */
+
+            /* Layout */
+
+            div {
+                box-sizing: border-box;
+            }
+
+            section {
+                margin: 0 auto;
+                padding: 15em 0;
+            }
+
+            section div.col-wrap {
+                display: flex;
+                justify-content: space-between;
+            }
+
+            section div.col-wrap div.col-2 {
+                width: 50%;
+            }
+
+            @media only screen and (max-width: 1170px) {
+                section {
+                    /* padding: 5em 0; */
+                    padding: 50px 0;
+                }
+            }
+
+            @media only screen and (max-width: 750px) {
+                section div.col-wrap {
+                    display: block;
+                }
+
+                section div.col-wrap div.col-2 {
+                    width: 100%;
+                }
+            }
+
+            /* /Layout */
+
+            /* Section: Documentation / four boxes */
+
+            section.four-doc-boxes {
+                max-width: var(--max_wrap_width_narrow);
+                padding: 0;
+            }
+
+            section.four-doc-boxes .col-1 {
+                padding-bottom: 35px;
+            }
+
+            section.four-doc-boxes .col-1 h2 {
+                margin-bottom: 20px;
+            }
+
+            section.four-doc-boxes .col-2:first-child {
+                background-color: #f2f4ff;
+                border-radius: 8px;
+                color: var(--color_dark);
+                padding: 22px;
+                width: 25%;
+            }
+
+            section.four-doc-boxes .col-2:last-child {
+                background-color: #e6eaff;
+                border-radius: 8px;
+                color: var(--color_dark);
+                padding: 22px;
+                width: 75%;
+            }
+
+            section.four-doc-boxes .col-2 .col-wrap {
+                padding: 0;
+            }
+
+            section.four-doc-boxes h3 {
+                margin-bottom: 10px;
+            }
+
+            section.four-doc-boxes h4 {
+                margin-bottom: 25px;
+                text-align: center;
+            }
+
+            section.four-doc-boxes h5 {
+                margin: 0 0 15px 0;
+                padding: 0;
+                text-align: center;
+                text-transform: uppercase;
+            }
+
+            section.four-doc-boxes div.price-box {
+                background-color: #fff;
+                border: 1px solid #99a8ff;
+                border-top-width: 15px;
+                border-radius: 8px;
+                padding: 20px 20px 30px 20px;
+                width: calc(33.33% - 9px);
+            }
+
+            section.four-doc-boxes div.price-box img {
+                width: 90px;
+            }
+            section.four-doc-boxes div.price-box a.btn {
+                width: 100%;
+            }
+
+            section.four-doc-boxes .col-2:last-child div.price-box a.btn {
+                border-color: #444a4d;
+                color: #444a4d;
+            }
+
+            section.four-doc-boxes .col-2:last-child div.price-box a.btn:hover {
+                outline-color: #444a4d;
+            }
+
+            section.four-doc-boxes
+                .col-2:last-child
+                div.price-box:nth-child(2) {
+                border-color: #667cff;
+            }
+
+            section.four-doc-boxes
+                .col-2:last-child
+                div.price-box:nth-child(2)
+                a.btn {
+                border-color: #667cff;
+                color: #667cff;
+            }
+
+            section.four-doc-boxes
+                .col-2:last-child
+                div.price-box:nth-child(2)
+                a.btn:hover {
+                outline-color: #667cff;
+            }
+
+            section.four-doc-boxes
+                .col-2:last-child
+                div.price-box:nth-child(3) {
+                border-color: #3351ff;
+            }
+
+            section.four-doc-boxes
+                .col-2:last-child
+                div.price-box:nth-child(3)
+                a.btn {
+                border-color: #3351ff;
+                color: #3351ff;
+            }
+
+            section.four-doc-boxes
+                .col-2:last-child
+                div.price-box:nth-child(3)
+                a.btn:hover {
+                outline-color: #3351ff;
+            }
+
+            section.four-doc-boxes .col-2:first-child div.price-box {
+                border-color: #6b0dff;
+            }
+
+            section.four-doc-boxes .col-2:first-child div.price-box a.btn {
+                border-color: #6b0dff;
+                color: #6b0dff;
+                width: 100%;
+            }
+
+            section.four-doc-boxes
+                .col-2:first-child
+                div.price-box
+                a.btn:hover {
+                outline-color: #6b0dff;
+            }
+
+            section.four-doc-boxes div.price-box ul {
+                margin-bottom: 20px;
+                min-height: 180px;
+                padding: 0 20px 0 40px;
+            }
+
+            section.four-doc-boxes div.price-box p.description {
+                line-height: 1.57;
+                margin-bottom: 20px;
+                min-height: 180px;
+                padding: 0 10px;
+            }
+
+            section.four-doc-boxes div.price-box ul li {
+                line-height: 1.57;
+                margin-bottom: 0;
+            }
+
+            section.four-doc-boxes div.price-box p {
+                text-align: center;
+            }
+
+            section.four-doc-boxes .col-2:first-child div.price-box {
+                width: 100%;
+            }
+
+            section.four-doc-boxes .col-2 h3,
+            section.four-doc-boxes .col-2 p.alert {
+                text-align: center;
+            }
+
+            section.four-doc-boxes .col-2 p.alert {
+                display: inline-block;
+                margin-left: 20px;
+            }
+
+            @media only screen and (max-width: 1180px) {
+                section.four-doc-boxes div.price-box ul {
+                    padding: 0 0 0 10px;
+                }
+
+                section.four-doc-boxes div.price-box p.description {
+                    padding: 0;
+                }
+
+                section.four-doc-boxes .col-2 p.alert {
+                    margin-left: 0;
+                }
+            }
+
+            @media only screen and (max-width: 1150px) {
+                section.four-doc-boxes div.price-box {
+                    padding: 15px 15px 20px 15px;
+                }
+            }
+
+            @media only screen and (max-width: 1030px) {
+                section.four-doc-boxes div.price-box ul,
+                section.four-doc-boxes div.price-box p.description,
+                section.four-doc-boxes div.price-box a.btn,
+            }
+
+            @media only screen and (max-width: 950px) {
+                section.four-doc-boxes div.col-wrap:last-child {
+                    flex-direction: column;
+                }
+
+                section.four-doc-boxes .col-2:first-child,
+                section.four-doc-boxes .col-2:last-child {
+                    width: 100%;
+                }
+
+                section.four-doc-boxes div.price-box {
+                    margin-bottom: 20px;
+                    width: 100%;
+                }
+
+                section.four-doc-boxes div.price-box ul,
+                section.four-doc-boxes div.price-box p.description {
+                    margin: 0 auto 20px auto;
+                    min-height: 0;
+                    width: 200px;
+                }
+
+                section.four-doc-boxes .col-2 h3,
+                section.four-doc-boxes .col-2 p.alert {
+                    text-align: left;
+                }
+            }
+
+            @media only screen and (max-width: 400px) {
+                section.four-doc-boxes div.price-box ul,
+                section.four-doc-boxes div.price-box p.description {
+                    width: 100%;
+                }
+            }
+
+            /* /Section: Documentation / four boxes */
+        </style>
+    </head>
+    <body>
+        <!-- ====== Header Start ====== -->
+        <header class="top">
+            <div class="header-wrap">
+                <div class="logo">Slint</div>
+            </div>
+            <!-- .header-wrap -->
+        </header>
+        <!-- ====== Header End ====== -->
+
+        <!-- taken from slint.dev/docs -->
+        <main>
+            <!--
+            Section blocks on this page:
+            - one-column
+            -->
+
+            <h1>Documentation</h1>
+
+            <p>
+                Whether you’re developing the UI or the backend, Slint's
+                documentation will guide you.
+            </p>
+            <section class="four-doc-boxes">
+                <div class="col-wrap">
+                    <div class="col-2">
+                        <div class="price-box">
+                            <h5>DSL</h5>
+                            <h4>Slint Language</h4>
+                            <p>
+                                <img src="<ASSETS_URL>/img/slint-favicon.svg" />
+                            </p>
+                            <p>
+                                <a
+                                    href="https://slint.dev/releases/<VERSION>/docs/slint/index.html"
+                                    class="btn doc"
+                                    >Language Documentation</a
+                                >
+                            </p>
+                        </div>
+                        <!-- .price-box -->
+                    </div>
+                    <!-- .col-2 -->
+                    <div class="col-2">
+                        <div class="col-wrap">
+                            <div class="price-box">
+                                <h5>APIs</h5>
+                                <h4>Using Rust</h4>
+                                <p>
+                                    <img src="<ASSETS_URL>/img/rust-logo.svg" />
+                                </p>
+                                <p>
+                                    <a
+                                        href="https://slint.dev/releases/<VERSION>/docs/rust/slint"
+                                        class="btn doc"
+                                        >API Documentation</a
+                                    >
+                                </p>
+                                <p>
+                                    <a
+                                        href="https://slint.dev/releases/<VERSION>/docs/tutorial/rust"
+                                        class="btn doc"
+                                        >Tutorial</a
+                                    >
+                                </p>
+                                <p>
+                                    <a
+                                        href="https://youtu.be/WBcv4V-whHk"
+                                        class="btn"
+                                        >Tutorial Video</a
+                                    >
+                                </p>
+                                <p>
+                                    <a
+                                        href="https://github.com/slint-ui/slint-rust-template"
+                                        class="btn"
+                                        >Project Template</a
+                                    >
+                                </p>
+                            </div>
+                            <!-- .price-box -->
+                            <div class="price-box">
+                                <h5>APIs</h5>
+                                <h4>Using C++</h4>
+                                <p>
+                                    <img src="<ASSETS_URL>/img/cpp_logo.svg" />
+                                </p>
+                                <p>
+                                    <a
+                                        href="https://slint.dev/releases/<VERSION>/docs/cpp"
+                                        class="btn doc"
+                                        >API Documentation</a
+                                    >
+                                </p>
+                                <p>
+                                    <a
+                                        href="https://slint.dev/releases/<VERSION>/docs/tutorial/cpp"
+                                        class="btn doc"
+                                        >Tutorial</a
+                                    >
+                                </p>
+                                <p>
+                                    <a
+                                        href="https://github.com/slint-ui/slint-cpp-template"
+                                        class="btn"
+                                        >Project Template</a
+                                    >
+                                </p>
+                            </div>
+                            <!-- .price-box -->
+                            <div class="price-box">
+                                <h5>APIs</h5>
+                                <h4>Using NodeJS (beta)</h4>
+                                <p>
+                                    <img
+                                        src="<ASSETS_URL>/img/nodejs_logo.svg"
+                                    />
+                                </p>
+                                <p>
+                                    <a
+                                        href="https://slint.dev/releases/<VERSION>/docs/node"
+                                        class="btn doc"
+                                        >API Documentation</a
+                                    >
+                                </p>
+                                <p>
+                                    <a
+                                        href="https://slint.dev/releases/<VERSION>/docs/tutorial/node"
+                                        class="btn doc"
+                                        >Tutorial</a
+                                    >
+                                </p>
+                                <p>
+                                    <a
+                                        href="https://github.com/slint-ui/slint-nodejs-template"
+                                        class="btn"
+                                        >Project Template</a
+                                    >
+                                </p>
+                            </div>
+                            <!-- .price-box -->
+                        </div>
+                        <!-- .col-wrap -->
+                    </div>
+                    <!-- .col-2 -->
+                </div>
+                <!-- .col-wrap -->
+            </section>
+
+            <p>
+                Show this page:
+                <select id="welcome_config">
+                    <option value="never">never</option>
+                    <option value="always">always</option>
+                </select>
+            </p>
+        </main>
+
+        <script>
+            const vscode = acquireVsCodeApi();
+            const welcome_config_select =
+                document.getElementById("welcome_config");
+
+            welcome_config_select.addEventListener("change", () => {
+                vscode.postMessage({
+                    command: "ChangeShowWelcomeConfig",
+                    value: welcome_config_select.value,
+                });
+            });
+
+            // Handle the message inside the webview
+            window.addEventListener("message", (event) => {
+                const message = event.data; // The JSON data our extension sent
+
+                switch (message.command) {
+                    case "ChangeShowWelcomeConfig":
+                        welcome_config_select.value = message.value;
+                        break;
+                }
+            });
+        </script>
+    </body>
+</html>
