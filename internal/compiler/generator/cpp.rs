@@ -567,7 +567,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                 }));
                 let texture_name = format!("slint_embedded_resource_{}_texture", er.id);
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline slint::cbindgen_private::types::StaticTexture".into(),
+                    ty: "inline const slint::cbindgen_private::types::StaticTexture".into(),
                     name: texture_name.clone(),
                     array_size: None,
                     init: Some(format!(
@@ -586,7 +586,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                         .textures = slint::cbindgen_private::Slice<slint::cbindgen_private::types::StaticTexture>{{ &{texture_name}, 1 }}
                     }}");
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline slint::cbindgen_private::types::StaticTextures".into(),
+                    ty: "inline const slint::cbindgen_private::types::StaticTextures".into(),
                     name: format!("slint_embedded_resource_{}", er.id),
                     array_size: None,
                     init: Some(init),
@@ -608,7 +608,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                 let family_name_var = format!("slint_embedded_resource_{}_family_name", er.id);
                 let family_name_size = family_name.len();
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline uint8_t".into(),
+                    ty: "inline const uint8_t".into(),
                     name: family_name_var.clone(),
                     array_size: Some(family_name_size),
                     init: Some(format!(
@@ -620,7 +620,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                 let charmap_var = format!("slint_embedded_resource_{}_charmap", er.id);
                 let charmap_size = character_map.len();
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline slint::cbindgen_private::CharacterMapEntry".into(),
+                    ty: "inline const slint::cbindgen_private::CharacterMapEntry".into(),
                     name: charmap_var.clone(),
                     array_size: Some(charmap_size),
                     init: Some(format!(
@@ -638,7 +638,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                 for (glyphset_index, glyphset) in glyphs.iter().enumerate() {
                     for (glyph_index, glyph) in glyphset.glyph_data.iter().enumerate() {
                         file.declarations.push(Declaration::Var(Var {
-                            ty: "inline uint8_t".into(),
+                            ty: "inline const uint8_t".into(),
                             name: format!(
                                 "slint_embedded_resource_{}_gs_{}_gd_{}",
                                 er.id, glyphset_index, glyph_index
@@ -652,7 +652,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                     }
 
                     file.declarations.push(Declaration::Var(Var{
-                        ty: "inline slint::cbindgen_private::BitmapGlyph".into(),
+                        ty: "inline const slint::cbindgen_private::BitmapGlyph".into(),
                         name: format!("slint_embedded_resource_{}_glyphset_{}", er.id, glyphset_index),
                         array_size: Some(glyphset.glyph_data.len()),
                         init: Some(format!("{{ {} }}", glyphset.glyph_data.iter().enumerate().map(|(glyph_index, glyph)| {
@@ -668,7 +668,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                 let glyphsets_var = format!("slint_embedded_resource_{}_glyphsets", er.id);
                 let glyphsets_size = character_map.len();
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline slint::cbindgen_private::BitmapGlyphs".into(),
+                    ty: "inline const slint::cbindgen_private::BitmapGlyphs".into(),
                     name: glyphsets_var.clone(),
                     array_size: Some(glyphsets_size),
                     init: Some(format!(
@@ -701,7 +701,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                 );
 
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline slint::cbindgen_private::BitmapFont".into(),
+                    ty: "inline const slint::cbindgen_private::BitmapFont".into(),
                     name: format!("slint_embedded_resource_{}", er.id),
                     array_size: None,
                     init: Some(init),
