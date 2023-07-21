@@ -30,6 +30,7 @@ i-slint-renderer-femtovg = { version = "=1.2.0", path = "../../renderers/femtovg
 
 [target.'cfg(target_os = "linux")'.dependencies]
 input = { version = "0.8.2" }
+xkbcommon = { version = "0.5.0" }
 libc = { version = "0.2" }
 calloop = { version = "0.10.5" }
 vulkano = { version = "0.33.0", optional = true, default-features = false }
