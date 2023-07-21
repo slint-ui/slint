@@ -1358,7 +1358,9 @@ struct ReverseModelInner : private_api::ModelChangeListener
 };
 }
 
-/// The ReverseModel acts as an adapter model for a given source model by reverse all rows.
+/// The ReverseModel acts as an adapter model for a given source model by reserving all rows.
+/// This means that the first row in the source model is the last row of this model, the second
+/// row is the second last, and so on.
 template<typename ModelData>
 class ReverseModel : public Model<ModelData>
 {
