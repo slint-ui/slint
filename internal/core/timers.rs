@@ -143,6 +143,23 @@ impl Timer {
             .map(|timer_id| CURRENT_TIMERS.with(|timers| timers.borrow().timers[timer_id].running))
             .unwrap_or(false)
     }
+
+    /// Change the duration of timer. If the timer was previously started by calling [`Self::start()`]
+    /// with a duration and callback, then the time when the callback will be next invoked
+    /// is re-calculated to be in the specified duration relative to when this function is called.
+    ///
+    /// Does nothing if the timer was never started.
+    ///
+    /// Arguments:
+    /// * `interval`: The duration from now until when the timer should fire. And the period of that timer
+    ///    for [`Repeated`](TimerMode::Repeated) timers.
+    pub fn set_interval(&self, interval: core::time::Duration) {
+        if let Some(id) = self.id.get() {
+            CURRENT_TIMERS.with(|timers| {
+                timers.borrow_mut().set_interval(id, interval);
+            });
+        }
+    }
 }
 
 impl Drop for Timer {
@@ -353,6 +370,21 @@ impl TimerList {
             t.removed = true;
         } else {
             self.timers.remove(timer_id);
+        }
+    }
+
+    fn set_interval(&mut self, timer_id: usize, duration: core::time::Duration) {
+        let timer = &self.timers[timer_id];
+        if matches!(timer.mode, TimerMode::SingleShot) {
+            return;
+        }
+
+        if timer.running {
+            self.deactivate_timer(timer_id);
+            self.timers[timer_id].duration = duration;
+            self.activate_timer(timer_id);
+        } else {
+            self.timers[timer_id].duration = duration;
         }
     }
 }
@@ -602,6 +634,63 @@ for _ in 0..20 {
 assert_eq!(state.borrow().timer_200_called, 7011);
 assert_eq!(state.borrow().timer_once_called, 2);
 assert_eq!(state.borrow().timer_500_called, 3004);
+
+// Test set interval
+let state_ = state.clone();
+state.borrow_mut().timer_200.start(TimerMode::Repeated, Duration::from_millis(200), move || {
+    state_.borrow_mut().timer_200_called += 1;
+});
+let state_ = state.clone();
+state.borrow_mut().timer_once.start(TimerMode::Repeated, Duration::from_millis(300), move || {
+    state_.borrow_mut().timer_once_called += 1;
+    state_.borrow().timer_once.stop();
+});
+let state_ = state.clone();
+state.borrow_mut().timer_500.start(TimerMode::Repeated, Duration::from_millis(500), move || {
+    state_.borrow_mut().timer_500_called += 1;
+});
+
+let state_ = state.clone();
+slint::platform::update_timers_and_animations();
+for _ in 0..5 {
+    i_slint_core::tests::slint_mock_elapsed_time(100);
+}
+slint::platform::update_timers_and_animations();
+assert_eq!(state.borrow().timer_200_called, 7013);
+assert_eq!(state.borrow().timer_once_called, 3);
+assert_eq!(state.borrow().timer_500_called, 3005);
+
+for _ in 0..20 {
+    state.borrow().timer_200.set_interval(Duration::from_millis(200 * 2));
+    state.borrow().timer_once.set_interval(Duration::from_millis(300 * 2));
+    state.borrow().timer_500.set_interval(Duration::from_millis(500 * 2));
+
+    assert_eq!(state.borrow().timer_200_called, 7013);
+    assert_eq!(state.borrow().timer_once_called, 3);
+    assert_eq!(state.borrow().timer_500_called, 3005);
+
+    i_slint_core::tests::slint_mock_elapsed_time(100);
+}
+
+slint::platform::update_timers_and_animations();
+for _ in 0..9 {
+    i_slint_core::tests::slint_mock_elapsed_time(100);
+}
+slint::platform::update_timers_and_animations();
+assert_eq!(state.borrow().timer_200_called, 7015);
+assert_eq!(state.borrow().timer_once_called, 3);
+assert_eq!(state.borrow().timer_500_called, 3006);
+
+state.borrow_mut().timer_once.restart();
+for _ in 0..4 {
+    i_slint_core::tests::slint_mock_elapsed_time(100);
+}
+assert_eq!(state.borrow().timer_once_called, 3);
+for _ in 0..4 {
+    i_slint_core::tests::slint_mock_elapsed_time(100);
+}
+assert_eq!(state.borrow().timer_once_called, 4);
+
 ```
  */
 #[cfg(doctest)]
