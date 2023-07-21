@@ -12,7 +12,7 @@ Some convention used in the generated code:
     this is usually a local variable to the init code that shouldn't rbe relied upon by the binding code.
 */
 
-use crate::expression_tree::{BuiltinFunction, EasingCurve, OperatorClass};
+use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::layout::Orientation;
 use crate::llr::{
@@ -2187,6 +2187,23 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 let mut #cells_variable = [#(#cells),*];
                 sp::reorder_dialog_button_layout(&mut #cells_variable, &#roles);
                 let #cells_variable = sp::Slice::from_slice(&#cells_variable);
+            }
+        }
+        Expression::MinMax { ty, op, lhs, rhs } => {
+            let t = rust_primitive_type(ty);
+            let wrap = |expr| match &t {
+                Some(t) => quote!((#expr as #t)),
+                None => expr,
+            };
+            let lhs = wrap(compile_expression(lhs, ctx));
+            let rhs = wrap(compile_expression(rhs, ctx));
+            match op {
+                MinMaxOp::Min => {
+                    quote!(#lhs.min(#rhs))
+                }
+                MinMaxOp::Max => {
+                    quote!(#lhs.max(#rhs))
+                }
             }
         }
     }

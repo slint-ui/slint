@@ -197,6 +197,12 @@ pub fn lower_expression(
         }
         tree_Expression::ComputeLayoutInfo(l, o) => compute_layout_info(l, *o, ctx),
         tree_Expression::SolveLayout(l, o) => solve_layout(l, *o, ctx),
+        tree_Expression::MinMax { ty, op, lhs, rhs } => llr_Expression::MinMax {
+            ty: ty.clone(),
+            op: *op,
+            lhs: Box::new(lower_expression(lhs, ctx)),
+            rhs: Box::new(lower_expression(rhs, ctx)),
+        },
     }
 }
 

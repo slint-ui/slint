@@ -309,7 +309,7 @@ mod cpp_ast {
     }
 }
 
-use crate::expression_tree::{BuiltinFunction, EasingCurve};
+use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp};
 use crate::langtype::{ElementType, Enumeration, EnumerationValue, NativeClass, Type};
 use crate::layout::Orientation;
 use crate::llr::{
@@ -2775,6 +2775,21 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     c = cells.join(", "),
                 )
 
+        }
+        Expression::MinMax { ty, op, lhs, rhs } => {
+            let ident = match op {
+                MinMaxOp::Min => "min",
+                MinMaxOp::Max => "max",
+            };
+            let lhs_code = compile_expression(lhs, ctx);
+            let rhs_code = compile_expression(rhs, ctx);
+            format!(
+                r#"std::{ident}<{ty}>({lhs_code}, {rhs_code})"#,
+                ty = ty.cpp_type().unwrap_or_default(),
+                ident = ident,
+                lhs_code = lhs_code,
+                rhs_code = rhs_code
+            )
         }
     }
 }

@@ -13,7 +13,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference};
 use crate::langtype::{ElementType, NativeClass};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
@@ -85,7 +85,7 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
 }
 
 fn fixup_geometry(flickable_elem: &ElementRc) {
-    let forward_minmax_of = |prop: &str, op: char| {
+    let forward_minmax_of = |prop: &str, op: MinMaxOp| {
         set_binding_if_not_explicit(flickable_elem, prop, || {
             flickable_elem
                 .borrow()
@@ -100,12 +100,12 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
     };
 
     if !flickable_elem.borrow().bindings.contains_key("height") {
-        forward_minmax_of("max-height", '<');
-        forward_minmax_of("preferred-height", '<');
+        forward_minmax_of("max-height", MinMaxOp::Min);
+        forward_minmax_of("preferred-height", MinMaxOp::Min);
     }
     if !flickable_elem.borrow().bindings.contains_key("width") {
-        forward_minmax_of("max-width", '<');
-        forward_minmax_of("preferred-width", '<');
+        forward_minmax_of("max-width", MinMaxOp::Min);
+        forward_minmax_of("preferred-width", MinMaxOp::Min);
     }
     set_binding_if_not_explicit(flickable_elem, "viewport-width", || {
         Some(
@@ -119,7 +119,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-width")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "width")),
-                    |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'),
+                    |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max),
                 ),
         )
     });
@@ -135,7 +135,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-height")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "height")),
-                    |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'),
+                    |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max),
                 ),
         )
     });

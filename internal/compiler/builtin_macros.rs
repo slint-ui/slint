@@ -6,7 +6,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, BuiltinMacroFunction, EasingCurve, Expression, Unit,
+    BuiltinFunction, BuiltinMacroFunction, EasingCurve, Expression, MinMaxOp, Unit,
 };
 use crate::langtype::{EnumerationValue, Type};
 use crate::parser::NodeOrToken;
@@ -22,8 +22,8 @@ pub fn lower_macro(
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     match mac {
-        BuiltinMacroFunction::Min => min_max_macro(n, '<', sub_expr.collect(), diag),
-        BuiltinMacroFunction::Max => min_max_macro(n, '>', sub_expr.collect(), diag),
+        BuiltinMacroFunction::Min => min_max_macro(n, MinMaxOp::Min, sub_expr.collect(), diag),
+        BuiltinMacroFunction::Max => min_max_macro(n, MinMaxOp::Max, sub_expr.collect(), diag),
         BuiltinMacroFunction::Mod => mod_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::CubicBezier => {
@@ -67,7 +67,7 @@ pub fn lower_macro(
 
 fn min_max_macro(
     node: Option<NodeOrToken>,
-    op: char,
+    op: MinMaxOp,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
@@ -345,24 +345,13 @@ fn to_debug_string(
 /// Generate an expression which is like `min(lhs, rhs)` if op is '<' or `max(lhs, rhs)` if op is '>'.
 /// counter is an unique id.
 /// The rhs and lhs of the expression must have the same numerical type
-pub fn min_max_expression(lhs: Expression, rhs: Expression, op: char) -> Expression {
-    let ty = lhs.ty();
-    let id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let n1 = format!("minmax_lhs{}", id);
-    let n2 = format!("minmax_rhs{}", id);
-    let a1 = Box::new(Expression::ReadLocalVariable { name: n1.clone(), ty: ty.clone() });
-    let a2 = Box::new(Expression::ReadLocalVariable { name: n2.clone(), ty });
-    Expression::CodeBlock(vec![
-        Expression::StoreLocalVariable { name: n1, value: Box::new(lhs) },
-        Expression::StoreLocalVariable { name: n2, value: Box::new(rhs) },
-        Expression::Condition {
-            condition: Box::new(Expression::BinaryExpression {
-                lhs: a1.clone(),
-                rhs: a2.clone(),
-                op,
-            }),
-            true_expr: a1,
-            false_expr: a2,
-        },
-    ])
+pub fn min_max_expression(lhs: Expression, rhs: Expression, op: MinMaxOp) -> Expression {
+    let lhs_ty = lhs.ty();
+    let rhs_ty = rhs.ty();
+    let ty = match (lhs_ty, rhs_ty) {
+        (a, b) if a == b => a,
+        (Type::Int32, Type::Float32) | (Type::Float32, Type::Int32) => Type::Float32,
+        _ => Type::Invalid,
+    };
+    Expression::MinMax { ty, op, lhs: Box::new(lhs), rhs: Box::new(rhs) }
 }
