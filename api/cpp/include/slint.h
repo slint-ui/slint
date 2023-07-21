@@ -1391,7 +1391,7 @@ public:
     /// external to the sort function has changed.
     void reset() { inner->reset(); }
 
-    /// Returns the source model of this filter model.
+    /// Returns the source model of this reserve model.
     std::shared_ptr<Model<ModelData>> source_model() const { return inner->source_model; }
 
 private:
