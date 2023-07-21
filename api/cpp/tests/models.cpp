@@ -405,7 +405,7 @@ SCENARIO("Reverse Model Insert")
     auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 4, 1, 2 });
 
     auto reverse_model = std::make_shared<slint::ReverseModel<int>>(
-            vec_model, [](auto lhs, auto rhs) { return lhs < rhs; });
+            vec_model);
 
     auto observer = std::make_shared<ModelObserver>();
     reverse_model->attach_peer(observer);
@@ -438,7 +438,7 @@ SCENARIO("Reverse Model Remove")
     auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 4, 1, 2 });
 
     auto reverse_model = std::make_shared<slint::ReverseModel<int>>(
-            vec_model, [](auto lhs, auto rhs) { return lhs < rhs; });
+            vec_model);
 
     auto observer = std::make_shared<ModelObserver>();
     reverse_model->attach_peer(observer);
@@ -470,7 +470,7 @@ SCENARIO("Reverse Model Change")
     auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 4, 1, 2 });
 
     auto reverse_model = std::make_shared<slint::ReverseModel<int>>(
-            vec_model, [](auto lhs, auto rhs) { return lhs < rhs; });
+            vec_model);
 
     auto observer = std::make_shared<ModelObserver>();
     reverse_model->attach_peer(observer);

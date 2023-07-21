@@ -1231,6 +1231,7 @@ struct SortModelInner : private_api::ModelChangeListener
             target_model.row_removed(removed_row, 1);
         }
     }
+
     void reset() override
     {
         sorted_rows_dirty = true;
@@ -1351,8 +1352,6 @@ struct ReverseModelInner : private_api::ModelChangeListener
         target_model.row_removed(row, count);
     }
 
-    void reset() override { target_model.reset(); }
-
     std::shared_ptr<slint::Model<ModelData>> source_model;
     slint::ReverseModel<ModelData> &target_model;
 };
@@ -1379,19 +1378,20 @@ public:
 
     std::optional<ModelData> row_data(size_t i) const override
     {
-        auto count = inner->source_data->row_count();
+        auto count = inner->source_model->row_count();
         return inner->source_model->row_data(count - i - 1);
     }
 
     void set_row_data(size_t i, const ModelData &value) override
     {
-        auto count = inner->source_data->row_count();
+        auto count = inner->source_model->row_count();
         inner->source_model->set_row_data(count - i - 1, value);
     }
 
-    /// Re-applies the model's sort function on each row of the source model. Use this if state
-    /// external to the sort function has changed.
-    void reset() { inner->reset(); }
+    void reset() override
+    {
+        source_model().reset();
+    }
 
     /// Returns the source model of this reserve model.
     std::shared_ptr<Model<ModelData>> source_model() const { return inner->source_model; }
