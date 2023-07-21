@@ -88,10 +88,10 @@ pub(crate) fn completion_at(
             r.extend(
                 [
                     ("property", "property <${1:int}> ${2:name};"),
-                    (
-                        "qualified property",
-                        "${1|in,in-out,out,private|} property <${2:int}> ${3:name};",
-                    ),
+                    ("in property", "in property <${1:int}> ${2:name};"),
+                    ("in-out property", "in-out property <${1:int}> ${2:name};"),
+                    ("out property", "out property <${1:int}> ${2:name};"),
+                    ("private property", "private property <${1:int}> ${2:name};"),
                     ("function", "function ${1:name}($2) {\n    $0\n}"),
                     ("public function", "public function ${1:name}($2) {\n    $0\n}"),
                     ("callback", "callback ${1:name}($2);"),
@@ -300,14 +300,14 @@ pub(crate) fn completion_at(
     } else if node.kind() == SyntaxKind::Document {
         let r: Vec<_> = [
             // the $1 is first in the quote so the filename can be completed before the import names
-            ("import", "import { $1 } from \"${2:std-widgets.slint}\";"),
-            ("component", "component ${1:Component} ${2:inherits ${3:Rectangle} }{\n    $0\n}"),
+            ("import", "import { ${2:Component} } from \"${1:std-widgets.slint}\";"),
+            ("component", "component ${1:Component} ${2:inherits ${3:Rectangle}} {\n    $0\n}"),
             ("struct", "struct ${1:Name} {\n    $0\n}"),
             ("global", "global ${1:Name} {\n    $0\n}"),
             ("export", "export { $0 }"),
             (
                 "export component",
-                "export component ${1:AppWindow} ${2:inherits ${3:Window} }{\n    $0\n}",
+                "export component ${1:AppWindow} ${2:inherits ${3:Window}} {\n    $0\n}",
             ),
             ("export struct", "export struct ${1:Name} {\n    $0\n}"),
             ("export global", "export global ${1:Name} {\n    $0\n}"),
@@ -734,5 +734,60 @@ mod tests {
         res.iter().find(|ci| ci.label == "beta-gamma").unwrap();
         res.iter().find(|ci| ci.label == "red").unwrap();
         assert!(!res.iter().any(|ci| ci.label == "width"));
+    }
+
+    #[test]
+    fn function_no_when_in_empty_state() {
+        let source = r#"
+            component Foo {
+                states [
+                    🔺
+                ]
+            }
+        "#;
+        assert!(get_completions(source).is_none());
+    }
+
+    #[test]
+    fn function_no_when_in_state() {
+        let source = r#"
+            component Foo {
+                property<bool> bar: false;
+                states [
+                    foo when root.bar: { }
+                    🔺
+                    baz when !root.bar: { }
+                ]
+            }
+        "#;
+        assert!(get_completions(source).is_none());
+    }
+
+    #[test]
+    fn function_when_after_state_name() {
+        let source = r#"
+            component Foo {
+                states [
+                    foo 🔺
+                ]
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "when").unwrap();
+    }
+
+    #[test]
+    fn function_when_after_state_name_between_more_states() {
+        let source = r#"
+            component Foo {
+                states [
+                    foo when root.bar: { }
+                    barbar 🔺
+                    baz when !root.bar: { }
+                ]
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "when").unwrap();
     }
 }
