@@ -429,6 +429,12 @@ impl Default for Unit {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum MinMaxOp {
+    Min,
+    Max,
+}
+
 /// The Expression is hold by properties, so it should not hold any strong references to node from the object_tree
 #[derive(Debug, Clone, Default)]
 pub enum Expression {
@@ -612,6 +618,13 @@ pub enum Expression {
     /// The orientation is the orientation of the cache, not the orientation of the layout
     ComputeLayoutInfo(crate::layout::Layout, crate::layout::Orientation),
     SolveLayout(crate::layout::Layout, crate::layout::Orientation),
+
+    MinMax {
+        ty: Type,
+        op: MinMaxOp,
+        lhs: Box<Expression>,
+        rhs: Box<Expression>,
+    },
 }
 
 impl Expression {
@@ -738,6 +751,7 @@ impl Expression {
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
             Expression::ComputeLayoutInfo(..) => crate::layout::layout_info_type(),
             Expression::SolveLayout(..) => Type::LayoutCache,
+            Expression::MinMax { ty, .. } => ty.clone(),
         }
     }
 
@@ -836,6 +850,10 @@ impl Expression {
             }
             Expression::ComputeLayoutInfo(..) => {}
             Expression::SolveLayout(..) => {}
+            Expression::MinMax { lhs, rhs, .. } => {
+                visitor(lhs);
+                visitor(rhs);
+            }
         }
     }
 
@@ -936,6 +954,10 @@ impl Expression {
             }
             Expression::ComputeLayoutInfo(..) => {}
             Expression::SolveLayout(..) => {}
+            Expression::MinMax { lhs, rhs, .. } => {
+                visitor(lhs);
+                visitor(rhs);
+            }
         }
     }
 
@@ -1010,6 +1032,7 @@ impl Expression {
             Expression::LayoutCacheAccess { .. } => false,
             Expression::ComputeLayoutInfo(..) => false,
             Expression::SolveLayout(..) => false,
+            Expression::MinMax { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
         }
     }
 
@@ -1623,5 +1646,15 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         }
         Expression::ComputeLayoutInfo(..) => write!(f, "layout_info(..)"),
         Expression::SolveLayout(..) => write!(f, "solve_layout(..)"),
+        Expression::MinMax { ty: _, op, lhs, rhs } => {
+            match op {
+                MinMaxOp::Min => write!(f, "min(")?,
+                MinMaxOp::Max => write!(f, "max(")?,
+            }
+            pretty_print(f, lhs)?;
+            write!(f, ", ")?;
+            pretty_print(f, rhs)?;
+            write!(f, ")")
+        }
     }
 }

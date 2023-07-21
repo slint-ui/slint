@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use super::PropertyReference;
-use crate::expression_tree::{BuiltinFunction, OperatorClass};
+use crate::expression_tree::{BuiltinFunction, MinMaxOp, OperatorClass};
 use crate::langtype::Type;
 use crate::layout::Orientation;
 use itertools::Either;
@@ -180,6 +180,13 @@ pub enum Expression {
         /// This is an Expression::Array
         unsorted_cells: Box<Expression>,
     },
+
+    MinMax {
+        ty: Type,
+        op: MinMaxOp,
+        lhs: Box<Expression>,
+        rhs: Box<Expression>,
+    },
 }
 
 impl Expression {
@@ -292,6 +299,7 @@ impl Expression {
             Self::ComputeDialogLayoutCells { .. } => {
                 Type::Array(super::lower_expression::grid_layout_cell_data_ty().into())
             }
+            Self::MinMax { ty, .. } => ty.clone(),
         }
     }
 }
@@ -373,6 +381,10 @@ macro_rules! visit_impl {
             Expression::ComputeDialogLayoutCells { roles, unsorted_cells, .. } => {
                 $visitor(roles);
                 $visitor(unsorted_cells);
+            }
+            Expression::MinMax { ty: _, op: _, lhs, rhs } => {
+                $visitor(lhs);
+                $visitor(rhs);
             }
         }
     };

@@ -9,7 +9,7 @@
 //! be further inlined as it may expends to native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, Expression, NamedReference, Unit};
+use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use std::cell::RefCell;
@@ -167,14 +167,14 @@ fn process_tabwidget(
     if let Some(expr) = children
         .iter()
         .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-width")))
-        .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'))
+        .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max))
     {
         elem.borrow_mut().bindings.insert("content-min-width".into(), RefCell::new(expr.into()));
     };
     if let Some(expr) = children
         .iter()
         .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-height")))
-        .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'))
+        .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, MinMaxOp::Max))
     {
         elem.borrow_mut().bindings.insert("content-min-height".into(), RefCell::new(expr.into()));
     };
