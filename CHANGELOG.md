@@ -17,6 +17,8 @@ All notable changes to this project are documented in this file.
  - Added `edited` callback to `SpinBox`
  - Added `row-pointer-event` callback to `StandardTableView`
  - Fixed enabled does not work properly on `fluent` `ComboBox`
+ - Added `current-item-changed` to `StandardListView`
+ - Added `current-row-changed` to `StandardTableView`
 
 ### Rust API
 
