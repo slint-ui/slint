@@ -35,6 +35,8 @@ export component ComboBox {
         }
 
         i-touch-area := TouchArea {
+            enabled <=> root.enabled;
+
             clicked => {
                 root.focus();
                 i-popup.show();
