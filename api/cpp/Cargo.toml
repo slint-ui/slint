@@ -18,7 +18,7 @@ links = "slint_cpp"
 
 [lib]
 path = "lib.rs"
-crate-type = ["lib", "cdylib"]
+crate-type = ["lib", "cdylib", "staticlib"]
 
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt

@@ -18,14 +18,25 @@ FetchContent_MakeAvailable(Corrosion)
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
 find_package(Rust 1.66 REQUIRED MODULE)
 
+option(BUILD_SHARED_LIBS "Build Slint as shared library" ON)
 option(SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time" ON)
 
 if(SLINT_FEATURE_COMPILER)
     set(slint_compiler_crate "slint-compiler")
 endif()
 
+if(BUILD_SHARED_LIBS)
+    set(rustc_lib_type "cdylib")
+    set(slint_cpp_impl "slint-cpp-shared")
+    set(cmake_lib_type "SHARED")
+else()
+    set(rustc_lib_type "staticlib")
+    set(slint_cpp_impl "slint-cpp-static")
+    set(cmake_lib_type "STATIC")
+endif()
+
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
-    CRATES slint-cpp ${slint_compiler_crate})
+    CRATES slint-cpp ${slint_compiler_crate} CRATE_TYPES bin ${rustc_lib_type})
 
 set(SLINT_TARGET_CARGO_FLAGS "" CACHE STRING
     "Flags to pass to cargo when building the Slint runtime library")
@@ -40,7 +51,7 @@ endif()
 # include the binary dir and thus our examples would have the correct rpath set, binaries
 # outside (i.e. applications using Slint via FetchContent) would not and the BUILD_RPATH
 # target property doesn't propagate :(
-if (APPLE AND SLINT_IS_TOPLEVEL_BUILD)
+if (APPLE AND SLINT_IS_TOPLEVEL_BUILD AND BUILD_SHARED_LIBS)
     # corrosion could provide the Cargo.toml package version as a CMake target property.
     corrosion_add_target_local_rustflags(slint-cpp -Clink-arg=-Wl,-install_name,@rpath/libslint_cpp.dylib,-current_version,${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR},-compatibility_version,${PROJECT_VERSION_MAJOR}.0)
     # Set this one to false again explicitely because Corrosion will starting setting this property to true by default.
@@ -285,10 +296,10 @@ install(TARGETS Slint slint-cpp
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
-install(FILES $<TARGET_FILE:slint-cpp-shared> TYPE LIB)
+install(FILES $<TARGET_FILE:${slint_cpp_impl}> TYPE LIB)
 
 if(WIN32)
-    install(FILES $<TARGET_LINKER_FILE:slint-cpp-shared> TYPE LIB)
+    install(FILES $<TARGET_LINKER_FILE:${slint_cpp_impl}> TYPE LIB)
 endif()
 
 if(SLINT_FEATURE_COMPILER)
@@ -305,7 +316,7 @@ function(_slint_write_configure_file)
         IMPORTED_LOCATION_RELWITHDEBINFO IMPORTED_LOCATION_MINSIZEREL
         IMPORTED_IMPLIB IMPORTED_IMPLIB_DEBUG IMPORTED_IMPLIB_RELEASE
         IMPORTED_IMPLIB_RELWITHDEBINFO IMPORTED_IMPLIB_MINSIZEREL)
-        get_target_property(value slint-cpp-shared ${prop})
+        get_target_property(value ${slint_cpp_impl} ${prop})
 
         if(value)
             get_filename_component(value ${value} NAME)
