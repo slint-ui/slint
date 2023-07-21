@@ -729,7 +729,10 @@ public:
     /// \private
     /// Internal function called from within bindings to register with the currently
     /// evaluating dependency and get notified when this model's row count changes.
-    void track_row_count_changes() const { model_row_count_dirty_property.get(); }
+    void track_row_count_changes() const
+    {
+        model_row_count_dirty_property.get();
+    }
 
     /// \private
     /// Internal function called from within bindings to register with the currently
