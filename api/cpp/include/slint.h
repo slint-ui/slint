@@ -721,7 +721,10 @@ public:
 
     /// \private
     /// Internal function called by the view to register itself
-    void attach_peer(private_api::ModelPeer p) { peers.push_back(std::move(p)); }
+    void attach_peer(private_api::ModelPeer p)
+    {
+        peers.push_back(std::move(p));
+    }
 
     /// \private
     /// Internal function called from within bindings to register with the currently
