@@ -341,13 +341,10 @@ impl Expression {
                 s
             } else {
                 ctx.type_loader
-                    .map(|loader| {
-                        loader
-                            .resolve_import_path(Some(&(*node).clone().into()), &s)
-                            .0
-                            .to_string_lossy()
-                            .to_string()
+                    .and_then(|loader| {
+                        loader.resolve_import_path(Some(&(*node).clone().into()), &s)
                     })
+                    .map(|i| i.0.to_string_lossy().to_string())
                     .unwrap_or(s)
             }
         };
