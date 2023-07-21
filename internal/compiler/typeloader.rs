@@ -197,16 +197,10 @@ impl TypeLoader {
                         }
                     }))
                 } else {
-                    import.file = state
-                        .borrow()
-                        .tl
-                        .resolve_import_path(
-                            Some(&import.import_uri_token.clone().into()),
-                            &import.file,
-                        )
-                        .0
-                        .to_string_lossy()
-                        .to_string();
+                    if let Some((path, _)) = state.borrow().tl.resolve_import_path(Some(&import.import_uri_token.clone().into()), &import.file) {
+                        import.file = path.to_string_lossy().to_string();
+                    };
+
                     foreign_imports.push(import);
                     None
                 }
@@ -266,34 +260,31 @@ impl TypeLoader {
         &self,
         import_token: Option<&NodeOrToken>,
         maybe_relative_path_or_url: &str,
-    ) -> (PathBuf, Option<&'static [u8]>) {
+    ) -> Option<(PathBuf, Option<&'static [u8]>)> {
         let referencing_file_or_url =
             import_token.and_then(|tok| tok.source_file().map(|s| s.path()));
 
-        self.find_file_in_include_path(referencing_file_or_url, maybe_relative_path_or_url)
-            .unwrap_or_else(|| {
-                (
-                    referencing_file_or_url
-                        .and_then(|base_path_or_url| {
-                            let base_path_or_url_str = base_path_or_url.to_string_lossy();
-                            if base_path_or_url_str.contains("://") {
-                                url::Url::parse(&base_path_or_url_str).ok().and_then(|base_url| {
-                                    base_url
-                                        .join(maybe_relative_path_or_url)
-                                        .ok()
-                                        .map(|url| url.to_string().into())
-                                })
-                            } else {
-                                base_path_or_url.parent().and_then(|base_dir| {
-                                    dunce::canonicalize(base_dir.join(maybe_relative_path_or_url))
-                                        .ok()
-                                })
-                            }
-                        })
-                        .unwrap_or_else(|| maybe_relative_path_or_url.into()),
-                    None,
-                )
-            })
+        self.find_file_in_include_path(referencing_file_or_url, maybe_relative_path_or_url).or_else(
+            || {
+                referencing_file_or_url
+                    .and_then(|base_path_or_url| {
+                        let base_path_or_url_str = base_path_or_url.to_string_lossy();
+                        if base_path_or_url_str.contains("://") {
+                            url::Url::parse(&base_path_or_url_str).ok().and_then(|base_url| {
+                                base_url
+                                    .join(maybe_relative_path_or_url)
+                                    .ok()
+                                    .map(|url| url.to_string().into())
+                            })
+                        } else {
+                            base_path_or_url.parent().and_then(|base_dir| {
+                                dunce::canonicalize(base_dir.join(maybe_relative_path_or_url)).ok()
+                            })
+                        }
+                    })
+                    .map(|p| (p, None))
+            },
+        )
     }
 
     async fn ensure_document_loaded<'a: 'b, 'b>(
@@ -302,16 +293,52 @@ impl TypeLoader {
         import_token: Option<NodeOrToken>,
         mut import_stack: HashSet<PathBuf>,
     ) -> Option<PathBuf> {
-        let (path_canon, builtin) =
-            { state.borrow().tl.resolve_import_path(import_token.as_ref(), file_to_import) };
+        let mut borrowed_state = state.borrow_mut();
+
+        let (path_canon, builtin) = match borrowed_state
+            .tl
+            .resolve_import_path(import_token.as_ref(), file_to_import)
+        {
+            Some(x) => x,
+            None => match dunce::canonicalize(file_to_import) {
+                Ok(path) => {
+                    if import_token.as_ref().and_then(|x| x.source_file()).is_some() {
+                        borrowed_state.diag.push_warning(
+                        format!(
+                            "Loading \"{file_to_import}\" relative to the work directory is deprecated. Files should be imported relative to their import location",
+                        ),
+                        &import_token,
+                    );
+                    }
+                    (path, None)
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    borrowed_state.diag.push_error(
+                            format!(
+                                "Cannot find requested import \"{file_to_import}\" in the include search path",
+                            ),
+                            &import_token,
+                        );
+                    return None;
+                }
+                Err(err) => {
+                    borrowed_state.diag.push_error(
+                        format!("Error reading requested import \"{file_to_import}\": {err}",),
+                        &import_token,
+                    );
+                    return None;
+                }
+            },
+        };
 
         if !import_stack.insert(path_canon.clone()) {
-            state.borrow_mut().diag.push_error(
+            borrowed_state.diag.push_error(
                 format!("Recursive import of \"{}\"", path_canon.display()),
                 &import_token,
             );
             return None;
         }
+        drop(borrowed_state);
 
         let is_loaded = core::future::poll_fn(|cx| {
             let mut state = state.borrow_mut();
@@ -366,16 +393,6 @@ impl TypeLoader {
                 )
                 .await;
                 true
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                state.borrow_mut().diag.push_error(
-                    format!(
-                        "Cannot find requested import \"{}\" in the include search path",
-                        file_to_import
-                    ),
-                    &import_token,
-                );
-                false
             }
             Err(err) => {
                 state.borrow_mut().diag.push_error(
@@ -521,7 +538,6 @@ impl TypeLoader {
     ) -> Option<(PathBuf, Option<&'static [u8]>)> {
         // The directory of the current file is the first in the list of include directories.
         let maybe_current_directory = referencing_file.and_then(base_directory);
-
         maybe_current_directory
             .clone()
             .into_iter()

@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+//include_path: ../../helper_components
+import { ExportedGlobal } from "export_globals.slint";
+import { G } from "exported_issue_2719.slint";
+export component TestCase  {
+    init => {
+        ExportedGlobal.foo = 999;
+    }
+    out property <int> g1: G.foo;
+    out property <int> g2: ExportedGlobal.foo;
+    out property <bool> test: G.foo == 999;
+}
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+
+*/
