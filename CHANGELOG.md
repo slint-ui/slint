@@ -26,6 +26,7 @@ All notable changes to this project are documented in this file.
 ### C++
 
  - Added `SLINT_TARGET_CARGO_FLAGS` cmake variable
+ - Added `ReverseModel`
 
 ## [1.1.1] - 2023-07-10
 

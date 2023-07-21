@@ -721,18 +721,12 @@ public:
 
     /// \private
     /// Internal function called by the view to register itself
-    void attach_peer(private_api::ModelPeer p)
-    {
-        peers.push_back(std::move(p));
-    }
+    void attach_peer(private_api::ModelPeer p) { peers.push_back(std::move(p)); }
 
     /// \private
     /// Internal function called from within bindings to register with the currently
     /// evaluating dependency and get notified when this model's row count changes.
-    void track_row_count_changes() const
-    {
-        model_row_count_dirty_property.get();
-    }
+    void track_row_count_changes() const { model_row_count_dirty_property.get(); }
 
     /// \private
     /// Internal function called from within bindings to register with the currently
@@ -1295,6 +1289,7 @@ public:
     {
         inner->source_model->set_row_data(inner->sorted_rows[i], value);
     }
+
     /// Re-applies the model's sort function on each row of the source model. Use this if state
     /// external to the sort function has changed.
     void reset() { inner->reset(); }
@@ -1312,6 +1307,89 @@ public:
 
 private:
     std::shared_ptr<private_api::SortModelInner<ModelData>> inner;
+};
+
+template<typename ModelData>
+class ReverseModel;
+
+namespace private_api {
+template<typename ModelData>
+struct ReverseModelInner : private_api::ModelChangeListener
+{
+    ReverseModelInner(std::shared_ptr<slint::Model<ModelData>> source_model,
+                      slint::ReverseModel<ModelData> &target_model)
+        : source_model(source_model), target_model(target_model)
+    {
+    }
+
+    void row_added(size_t first_inserted_row, size_t count) override
+    {
+        auto row_count = source_model->row_count();
+        auto old_row_count = row_count - count;
+        auto row = old_row_count - first_inserted_row;
+
+        target_model.row_added(row, count);
+    }
+
+    void row_changed(size_t changed_row) override
+    {
+        target_model.row_changed(source_model->row_count() - 1 - changed_row);
+    }
+
+    void row_removed(size_t first_removed_row, size_t count) override
+    {
+        auto row_count = source_model->row_count();
+        auto old_row_count = row_count + count;
+        auto row = old_row_count - first_removed_row - 1;
+
+        target_model.row_removed(row, count);
+    }
+
+    void reset() override { target_model.reset(); }
+
+    std::shared_ptr<slint::Model<ModelData>> source_model;
+    slint::ReverseModel<ModelData> &target_model;
+};
+}
+
+/// The ReverseModel acts as an adapter model for a given source model by reverse all rows.
+template<typename ModelData>
+class ReverseModel : public Model<ModelData>
+{
+    friend struct private_api::ReverseModelInner<ModelData>;
+
+public:
+    /// Constructs a new ReverseModel that provides a reversed view on the \a source_model.
+    ReverseModel(std::shared_ptr<Model<ModelData>> source_model)
+        : inner(std::make_shared<private_api::ReverseModelInner<ModelData>>(std::move(source_model),
+                                                                            *this))
+    {
+        inner->source_model->attach_peer(inner);
+    }
+
+    size_t row_count() const override { return inner->source_model->row_count(); }
+
+    std::optional<ModelData> row_data(size_t i) const override
+    {
+        auto count = inner->source_data->row_count();
+        return inner->source_model->row_data(count - i - 1);
+    }
+
+    void set_row_data(size_t i, const ModelData &value) override
+    {
+        auto count = inner->source_data->row_count();
+        inner->source_model->set_row_data(count - i - 1, value);
+    }
+
+    /// Re-applies the model's sort function on each row of the source model. Use this if state
+    /// external to the sort function has changed.
+    void reset() { inner->reset(); }
+
+    /// Returns the source model of this filter model.
+    std::shared_ptr<Model<ModelData>> source_model() const { return inner->source_model; }
+
+private:
+    std::shared_ptr<private_api::ReverseModelInner<ModelData>> inner;
 };
 
 namespace private_api {

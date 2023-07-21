@@ -399,3 +399,101 @@ SCENARIO("Sorted Model Change")
     REQUIRE(sorted_model->row_data(2) == 2);
     REQUIRE(sorted_model->row_data(3) == 3);
 }
+
+SCENARIO("Reverse Model Insert")
+{
+    auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 4, 1, 2 });
+
+    auto reverse_model = std::make_shared<slint::ReverseModel<int>>(
+            vec_model, [](auto lhs, auto rhs) { return lhs < rhs; });
+
+    auto observer = std::make_shared<ModelObserver>();
+    reverse_model->attach_peer(observer);
+
+    REQUIRE(reverse_model->row_count() == 4);
+    REQUIRE(reverse_model->row_data(0) == 2);
+    REQUIRE(reverse_model->row_data(1) == 1);
+    REQUIRE(reverse_model->row_data(2) == 3);
+    REQUIRE(reverse_model->row_data(3) == 3);
+
+    vec_model->insert(0, 10);
+
+    REQUIRE(observer->added_rows.size() == 1);
+    REQUIRE(observer->added_rows[0] == ModelObserver::Range { 4, 1 });
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.empty());
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
+    REQUIRE(reverse_model->row_count() == 5);
+    REQUIRE(reverse_model->row_data(0) == 2);
+    REQUIRE(reverse_model->row_data(1) == 1);
+    REQUIRE(reverse_model->row_data(2) == 4);
+    REQUIRE(reverse_model->row_data(3) == 3);
+    REQUIRE(reverse_model->row_data(4) == 10);
+}
+
+SCENARIO("Reverse Model Remove")
+{
+    auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 4, 1, 2 });
+
+    auto reverse_model = std::make_shared<slint::ReverseModel<int>>(
+            vec_model, [](auto lhs, auto rhs) { return lhs < rhs; });
+
+    auto observer = std::make_shared<ModelObserver>();
+    reverse_model->attach_peer(observer);
+
+    REQUIRE(reverse_model->row_count() == 4);
+    REQUIRE(reverse_model->row_data(0) == 2);
+    REQUIRE(reverse_model->row_data(1) == 1);
+    REQUIRE(reverse_model->row_data(2) == 4);
+    REQUIRE(reverse_model->row_data(3) == 3);
+
+    /// Remove the entry with the value 4
+    vec_model->erase(1);
+
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.size() == 1);
+    REQUIRE(observer->removed_rows[0] == ModelObserver::Range { 2, 1 });
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
+    REQUIRE(reverse_model->row_count() == 3);
+    REQUIRE(reverse_model->row_data(0) == 2);
+    REQUIRE(reverse_model->row_data(1) == 1);
+    REQUIRE(reverse_model->row_data(2) == 3);
+}
+
+SCENARIO("Reverse Model Change")
+{
+    auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 4, 1, 2 });
+
+    auto reverse_model = std::make_shared<slint::ReverseModel<int>>(
+            vec_model, [](auto lhs, auto rhs) { return lhs < rhs; });
+
+    auto observer = std::make_shared<ModelObserver>();
+    reverse_model->attach_peer(observer);
+
+    REQUIRE(reverse_model->row_count() == 4);
+    REQUIRE(reverse_model->row_data(0) == 2);
+    REQUIRE(reverse_model->row_data(1) == 1);
+    REQUIRE(reverse_model->row_data(2) == 4);
+    REQUIRE(reverse_model->row_data(3) == 3);
+
+    /// Change the entry with the value 4 to 10 -> maintain order
+    vec_model->set_row_data(1, 10);
+
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.size() == 1);
+    REQUIRE(observer->changed_rows[0] == 2);
+    REQUIRE(observer->removed_rows.empty());
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
+    REQUIRE(reverse_model->row_count() == 4);
+    REQUIRE(reverse_model->row_data(0) == 2);
+    REQUIRE(reverse_model->row_data(1) == 1);
+    REQUIRE(reverse_model->row_data(2) == 10);
+    REQUIRE(reverse_model->row_data(3) == 3);
+}
