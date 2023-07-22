@@ -22,8 +22,8 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
 use crate::graphics::{Brush, Color, Point};
 use crate::input::{
-    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, KeyboardModifiers, MouseEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEventResult,
+    KeyEventType, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 pub use crate::item_tree::ItemRc;
@@ -1445,14 +1445,38 @@ macro_rules! declare_enums {
 
 i_slint_common::for_each_enums!(declare_enums);
 
-/// Represents a Pointer event sent by the windowing system.
-#[derive(Debug, Clone, PartialEq, Default)]
-#[repr(C)]
-pub struct PointerEvent {
-    pub button: PointerEventButton,
-    pub kind: PointerEventKind,
-    pub modifiers: KeyboardModifiers,
+macro_rules! declare_builtin_structs {
+    ($(
+        $(#[$struct_attr:meta])*
+        struct $Name:ident {
+            @name = $inner_name:literal
+            export {
+                $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
+            }
+            private {
+                $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
+            }
+        }
+    )*) => {
+        $(
+            #[derive(Clone, Debug, Default, PartialEq)]
+            #[repr(C)]
+            $(#[$struct_attr])*
+            pub struct $Name {
+                $(
+                    $(#[$pub_attr])*
+                    pub $pub_field : $pub_type,
+                )*
+                $(
+                    $(#[$pri_attr])*
+                    pub $pri_field : $pri_type,
+                )*
+            }
+        )*
+    };
 }
+
+i_slint_common::for_each_builtin_structs!(declare_builtin_structs);
 
 #[cfg(feature = "ffi")]
 #[no_mangle]

@@ -4,7 +4,7 @@
 // cSpell: ignore imum
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::expression_tree::BuiltinFunction;
@@ -71,8 +71,77 @@ macro_rules! declare_enums {
 
 i_slint_common::for_each_enums!(declare_enums);
 
+macro_rules! map_type {
+    ($pub_type:ident, bool) => {
+        Type::Bool
+    };
+    ($pub_type:ident, i32) => {
+        Type::Int32
+    };
+    ($pub_type:ident, f32) => {
+        Type::Float32
+    };
+    ($pub_type:ident, SharedString) => {
+        Type::String
+    };
+    ($pub_type:ident, Coord) => {
+        Type::LogicalLength
+    };
+    ($pub_type:ident, KeyboardModifiers) => {
+        $pub_type.clone()
+    };
+    ($pub_type:ident, $dup_pub_type:ident) => {
+        BUILTIN_ENUMS.with(|e| Type::Enumeration(e.$pub_type.clone()))
+    };
+}
+
+macro_rules! declare_export_structs {
+    ($(
+        $(#[$attr:meta])*
+        struct $Name:ident {
+            @name = $inner_name:literal
+            export {
+                $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ident, )*
+            }
+            private {
+                $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
+            }
+        }
+    )*) => {
+        pub struct ExportStructs {
+            $(pub $Name: Type),*
+        }
+        impl ExportStructs {
+            fn new() -> Self {
+                $(let $Name = Type::Struct {
+                    fields: BTreeMap::from([
+                        $((stringify!($pub_field).replace('_', "-"), map_type!($pub_type, $pub_type))),*
+                    ]),
+                    name: Some(format!("{}", $inner_name)),
+                    node: None,
+                    rust_attributes: None,
+                };)*
+
+                Self {
+                    $($Name: $Name),*
+                }
+            }
+            fn fill_register(&self, register: &mut TypeRegister) {
+                $(
+                register.insert_type_with_name(
+                    self.$Name.clone(),
+                    stringify!($Name).to_string()
+                );)*
+            }
+        }
+    };
+}
+
+i_slint_common::for_each_builtin_structs!(declare_export_structs);
+
 thread_local! {
     pub static BUILTIN_ENUMS: BuiltinEnums = BuiltinEnums::new();
+    static EXPORT_STRUCTS: ExportStructs = ExportStructs::new();
 }
 
 const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
@@ -244,6 +313,7 @@ impl TypeRegister {
         register.supported_property_animation_types.insert(Type::Brush.to_string());
         register.supported_property_animation_types.insert(Type::Angle.to_string());
 
+        EXPORT_STRUCTS.with(|e| e.fill_register(&mut register));
         crate::load_builtins::load_builtins(&mut register);
 
         let mut context_restricted_types = HashMap::new();

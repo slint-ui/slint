@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 fn enums(path: &Path) -> anyhow::Result<()> {
     let mut enums_priv = std::fs::File::create(path.join("slint_enums_internal.h"))
-        .context("Error creating slint_internal_enums.h file")?;
+        .context("Error creating slint_enums_internal.h file")?;
     writeln!(enums_priv, "#pragma once")?;
     writeln!(enums_priv, "// This file is auto-generated from {}", file!())?;
     writeln!(enums_priv, "#include \"slint_enums.h\"")?;
@@ -77,6 +77,81 @@ namespace slint::platform::key_codes {{
     i_slint_common::for_each_special_keys!(print_key_codes);
     writeln!(enums_pub, "}}")?;
 
+    Ok(())
+}
+
+fn builtin_structs(path: &Path) -> anyhow::Result<()> {
+    let mut structs_pub = std::fs::File::create(path.join("slint_builtin_structs.h"))
+        .context("Error creating slint_builtin_structs.h file")?;
+    writeln!(structs_pub, "#pragma once")?;
+    writeln!(structs_pub, "// This file is auto-generated from {}", file!())?;
+    writeln!(structs_pub, "namespace slint {{")?;
+
+    let mut structs_priv = std::fs::File::create(path.join("slint_builtin_structs_internal.h"))
+        .context("Error creating slint_builtin_structs_internal.h file")?;
+    writeln!(structs_priv, "#pragma once")?;
+    writeln!(structs_priv, "// This file is auto-generated from {}", file!())?;
+    writeln!(structs_priv, "#include \"slint_builtin_structs.h\"")?;
+    writeln!(structs_priv, "#include \"slint_enums_internal.h\"")?;
+    writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
+    writeln!(structs_priv, "enum class KeyEventType;")?;
+    macro_rules! struct_file {
+        (StandardListViewItem) => {{
+            writeln!(structs_priv, "using slint::StandardListViewItem;")?;
+            &mut structs_pub
+        }};
+        ($_:ident) => {
+            &mut structs_priv
+        };
+    }
+    macro_rules! print_structs {
+        ($(
+            $(#[doc = $struct_doc:literal])*
+            $(#[non_exhaustive])?
+            $(#[derive(Copy, Eq)])?
+            struct $Name:ident {
+                @name = $inner_name:literal
+                export {
+                    $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ty, )*
+                }
+                private {
+                    $( $(#[doc = $pri_doc:literal])* $pri_field:ident : $pri_type:ty, )*
+                }
+            }
+        )*) => {
+            $(
+                let file = struct_file!($Name);
+                $(writeln!(file, "///{}", $struct_doc)?;)*
+                writeln!(file, "struct {} {{", stringify!($Name))?;
+                $(
+                    $(writeln!(file, "    ///{}", $pub_doc)?;)*
+                    let pub_type = match stringify!($pub_type) {
+                        "i32" => "int32_t",
+                        "f32" | "Coord" => "float",
+                        other => other,
+                    };
+                    writeln!(file, "    {} {};", pub_type, stringify!($pub_field))?;
+                )*
+                $(
+                    $(writeln!(file, "    ///{}", $pri_doc)?;)*
+                    let pri_type = match stringify!($pri_type) {
+                        "usize" => "uintptr_t",
+                        "crate::animations::Instant" => "uint64_t",
+                        other => other,
+                    };
+                    writeln!(file, "    {} {};", pri_type, stringify!($pri_field))?;
+                )*
+                writeln!(file, "    /// \\private")?;
+                writeln!(file, "    {}", format!("friend bool operator==(const {name}&, const {name}&) = default;", name = stringify!($Name)))?;
+                writeln!(file, "    /// \\private")?;
+                writeln!(file, "    {}", format!("friend bool operator!=(const {name}&, const {name}&) = default;", name = stringify!($Name)))?;
+                writeln!(file, "}};")?;
+            )*
+        };
+    }
+    i_slint_common::for_each_builtin_structs!(print_structs);
+    writeln!(structs_priv, "}}")?;
+    writeln!(structs_pub, "}}")?;
     Ok(())
 }
 
@@ -308,11 +383,6 @@ fn gen_corelib(
 
     let mut properties_config = config.clone();
     properties_config.export.exclude.clear();
-    properties_config.export.include.push("StateInfo".into());
-    properties_config
-        .export
-        .pre_body
-        .insert("StateInfo".to_owned(), "    using Instant = uint64_t;".into());
     properties_config.structure.derive_eq = true;
     properties_config.structure.derive_neq = true;
     private_exported_types.extend(properties_config.export.include.iter().cloned());
@@ -468,10 +538,6 @@ fn gen_corelib(
     public_config.export.exclude.push("Point".into());
     public_config.export.include = public_exported_types.into_iter().map(str::to_string).collect();
     public_config.export.body.insert(
-        "StandardListViewItem".to_owned(),
-        "/// \\private\nfriend bool operator==(const StandardListViewItem&, const StandardListViewItem&) = default;".into(),
-    );
-    public_config.export.body.insert(
         "Rgb8Pixel".to_owned(),
         "/// \\private\nfriend bool operator==(const Rgb8Pixel&, const Rgb8Pixel&) = default;"
             .into(),
@@ -538,16 +604,11 @@ fn gen_corelib(
     friend inline LayoutInfo operator+(const LayoutInfo &a, const LayoutInfo &b) { return a.merge(b); }
     friend bool operator==(const LayoutInfo&, const LayoutInfo&) = default;".into(),
     );
-    config.export.body.insert(
-        "TableColumn".to_owned(),
-        "friend bool operator==(const TableColumn&, const TableColumn&) = default;".into(),
-    );
     config
         .export
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
-    config.export.include.push("TableColumn".into());
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))
@@ -564,6 +625,7 @@ fn gen_corelib(
         .with_include("slint_generated_public.h")
         .with_include("slint_enums_internal.h")
         .with_include("slint_point.h")
+        .with_include("slint_builtin_structs_internal.h")
         .with_after_include(
             r"
 namespace slint {
@@ -798,6 +860,7 @@ pub fn gen_all(
     std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
     let mut deps = Vec::new();
     enums(include_dir)?;
+    builtin_structs(include_dir)?;
     gen_corelib(root_dir, include_dir, &mut deps, enabled_features)?;
     gen_backend_qt(root_dir, include_dir, &mut deps)?;
     gen_backend(root_dir, include_dir, &mut deps)?;

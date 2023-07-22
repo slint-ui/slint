@@ -10,6 +10,7 @@ struct PropertyAnimation;
 }
 
 #include "slint_properties_internal.h"
+#include "slint_builtin_structs_internal.h"
 
 namespace slint::private_api {
 
