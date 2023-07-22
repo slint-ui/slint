@@ -5,6 +5,7 @@
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(feature = "shared-fontdb"), no_std)]
 
+pub mod builtin_structs;
 pub mod enums;
 pub mod key_codes;
 

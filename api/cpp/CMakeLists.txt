@@ -250,6 +250,8 @@ set(generated_headers
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_builtin_structs_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_builtin_structs.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_string_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_brush_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_sharedvector_internal.h

@@ -18,6 +18,7 @@ use std::rc::Rc;
 pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 
 pub use i_slint_core::api::*;
+use i_slint_core::items::*;
 
 use crate::dynamic_component::{ErasedComponentBox, WindowOptions};
 
@@ -231,7 +232,7 @@ declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 
-/// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Object`
+/// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
     (struct $name:path { $($field:ident),* $(, ..$extra:expr)? }) => {
         impl From<$name> for Value {
@@ -259,16 +260,64 @@ macro_rules! declare_value_struct_conversion {
             }
         }
     };
+    ($(
+        $(#[$struct_attr:meta])*
+        struct $Name:ident {
+            @name = $inner_name:literal
+            export {
+                $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
+            }
+            private {
+                $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
+            }
+        }
+    )*) => {
+        $(
+            impl From<$Name> for Value {
+                fn from(item: $Name) -> Self {
+                    let mut struct_ = Struct::default();
+                    $(struct_.set_field(stringify!($pub_field).into(), item.$pub_field.into());)*
+                    $(handle_private!(SET $Name $pri_field, struct_, item);)*
+                    Value::Struct(struct_)
+                }
+            }
+            impl TryFrom<Value> for $Name {
+                type Error = ();
+                fn try_from(v: Value) -> Result<$Name, Self::Error> {
+                    #[allow(clippy::field_reassign_with_default)]
+                    match v {
+                        Value::Struct(x) => {
+                            type Ty = $Name;
+                            #[allow(unused)]
+                            let mut res: Ty = Ty::default();
+                            $(res.$pub_field = x.get_field(stringify!($pub_field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
+                            $(handle_private!(GET $Name $pri_field, x, res);)*
+                            Ok(res)
+                        }
+                        _ => Err(()),
+                    }
+                }
+            }
+        )*
+    };
 }
 
-declare_value_struct_conversion!(struct i_slint_core::model::StandardListViewItem { text , ..Default::default()});
-declare_value_struct_conversion!(struct i_slint_core::model::TableColumn { title, min_width, horizontal_stretch, sort_order, width, ..Default::default()  });
-declare_value_struct_conversion!(struct i_slint_core::properties::StateInfo { current_state, previous_state, change_time });
-declare_value_struct_conversion!(struct i_slint_core::input::KeyboardModifiers { control, alt, shift, meta });
-declare_value_struct_conversion!(struct i_slint_core::input::KeyEvent { text, modifiers, ..Default::default() });
+macro_rules! handle_private {
+    (SET StateInfo $field:ident, $struct_:ident, $item:ident) => {
+        $struct_.set_field(stringify!($field).into(), $item.$field.into())
+    };
+    (SET $_:ident $field:ident, $struct_:ident, $item:ident) => {{}};
+    (GET StateInfo $field:ident, $struct_:ident, $item:ident) => {
+        $item.$field =
+            $struct_.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_| ())?
+    };
+    (GET $_:ident $field:ident, $struct_:ident, $item:ident) => {{}};
+}
+
 declare_value_struct_conversion!(struct i_slint_core::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
 declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..Default::default()});
-declare_value_struct_conversion!(struct i_slint_core::items::PointerEvent { kind, button, modifiers });
+
+i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
 
 /// Implement From / TryFrom for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///

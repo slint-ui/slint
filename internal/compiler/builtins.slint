@@ -88,21 +88,6 @@ export component Text inherits Empty {
     //-default_size_binding:implicit_size
 }
 
-export struct KeyboardModifiers {
-    //-name:slint::private_api::KeyboardModifiers
-    alt: bool,
-    control: bool,
-    shift: bool,
-    meta: bool,
-}
-
-export struct PointerEvent {
-    //-name:slint::private_api::PointerEvent
-    button: PointerEventButton,
-    kind: PointerEventKind,
-    modifiers: KeyboardModifiers,
-}
-
 export component TouchArea {
     in property <length> x;
     in property <length> y;
@@ -120,12 +105,6 @@ export component TouchArea {
     callback moved;
     callback pointer-event(PointerEvent);
     //-default_size_binding:expands_to_parent_geometry
-}
-
-export struct KeyEvent {
-    //-name:slint::private_api::KeyEvent
-    text: string,
-    modifiers: KeyboardModifiers,
 }
 
 export component FocusScope {
@@ -400,27 +379,6 @@ component PropertyAnimation {
     in property <easing> easing;
     in property <float> iteration-count: 1.0;
     //-is_non_item_type
-}
-
-export struct StandardListViewItem {
-    //-name:slint::StandardListViewItem
-    text: string,
-}
-
-export struct TableColumn {
-    title: string,
-    min-width: length,
-    horizontal-stretch: float,
-    sort-order: SortOrder,
-    width: length,
-}
-
-export struct StateInfo {
-    //-name:slint::private_api::StateInfo
-    current_state: int,
-    previous_state: int,
-    //change_time: duration,
-    //-is_internal
 }
 
 export global TextInputInterface {

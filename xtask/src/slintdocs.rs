@@ -58,6 +58,7 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
 
 pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     generate_enum_docs()?;
+    generate_builtin_struct_docs()?;
 
     let root = super::root_dir();
 
@@ -155,21 +156,106 @@ pub fn generate_enum_docs() -> Result<(), Box<dyn std::error::Error>> {
         write!(file, "{v}")?;
     }
 
-    /// Convert a ascii pascal case string to kebab case
-    fn to_kebab_case(str: &str) -> String {
-        let mut result = Vec::with_capacity(str.len());
-        for x in str.as_bytes() {
-            if x.is_ascii_uppercase() {
-                if !result.is_empty() {
-                    result.push(b'-');
+    Ok(())
+}
+
+pub fn generate_builtin_struct_docs() -> Result<(), Box<dyn std::error::Error>> {
+    // `Point` should be in the documentation, but it's not inside of `for_each_builtin_structs`,
+    // so we manually create its entry first.
+    let mut structs: std::collections::BTreeMap<String, String> =
+        std::collections::BTreeMap::from([(
+            "Point".to_string(),
+            "## `Point`\n
+This structure represents a point with x and y coordinate\n
+### Fields\n
+- **`x`** (_length_)
+- **`y`** (_length_)\n\n"
+                .to_string(),
+        )]);
+    macro_rules! map_type {
+        (i32) => {
+            stringify!(int)
+        };
+        (f32) => {
+            stringify!(float)
+        };
+        (SharedString) => {
+            stringify!(string)
+        };
+        (Coord) => {
+            stringify!(length)
+        };
+        ($pub_type:ident) => {
+            stringify!($pub_type)
+        };
+    }
+    macro_rules! gen_structs {
+        ($(
+            $(#[doc = $struct_doc:literal])*
+            $(#[non_exhaustive])?
+            $(#[derive(Copy, Eq)])?
+            struct $Name:ident {
+                @name = $inner_name:literal
+                export {
+                    $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ident, )*
                 }
-                result.push(x.to_ascii_lowercase());
-            } else {
-                result.push(*x);
+                private {
+                    $( $(#[doc = $pri_doc:literal])* $pri_field:ident : $pri_type:ty, )*
+                }
             }
+        )*) => {
+            $(
+                let mut entry = format!("## `{}`\n\n", stringify!($Name));
+                $(entry += &format!("{}\n", $struct_doc);)*
+                entry += "\n### Fields\n\n";
+                $(
+                    entry += &format!("- **`{}`** (_{}_):", to_kebab_case(stringify!($pub_field)), map_type!($pub_type));
+                    $(
+                        entry += &format!("{}", $pub_doc);
+                    )*
+                    entry += "\n";
+                )*
+                entry += "\n";
+                structs.insert(stringify!($Name).to_string(), entry);
+            )*
         }
-        String::from_utf8(result).unwrap()
+    }
+
+    i_slint_common::for_each_builtin_structs!(gen_structs);
+
+    let root = super::root_dir();
+
+    let path = root.join("docs/language/src/builtins/structs.md");
+    let mut file = std::fs::File::create(&path).context(format!("error creating {path:?}"))?;
+
+    file.write_all(
+        br#"<!-- Generated with `cargo xtask slintdocs` from internal/common/builtin_structs.rs -->
+# Builtin Structures
+
+"#,
+    )?;
+
+    // `StateInfo` should not be in the documentation, so remove it before writing file
+    structs.remove("StateInfo");
+    for (_, v) in structs {
+        write!(file, "{v}")?;
     }
 
     Ok(())
+}
+
+/// Convert a ascii pascal case string to kebab case
+fn to_kebab_case(str: &str) -> String {
+    let mut result = Vec::with_capacity(str.len());
+    for x in str.as_bytes() {
+        if x.is_ascii_uppercase() {
+            if !result.is_empty() {
+                result.push(b'-');
+            }
+            result.push(x.to_ascii_lowercase());
+        } else {
+            result.push(*x);
+        }
+    }
+    String::from_utf8(result).unwrap()
 }

@@ -8,6 +8,7 @@
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{ItemRef, TextCursorDirection};
+pub use crate::items::{KeyEvent, KeyboardModifiers};
 use crate::lengths::{LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
@@ -235,25 +236,6 @@ impl InternalKeyboardModifierState {
     }
 }
 
-/// KeyboardModifier provides booleans to indicate possible modifier keys
-/// on a keyboard, such as Shift, Control, etc.
-///
-/// On macOS, the command key is mapped to the meta modifier.
-///
-/// On Windows, the windows key is mapped to the meta modifier.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
-#[repr(C)]
-pub struct KeyboardModifiers {
-    /// Indicates the alt key on a keyboard.
-    pub alt: bool,
-    /// Indicates the control key on a keyboard.
-    pub control: bool,
-    /// Indicates the command key on macos.
-    pub meta: bool,
-    /// Indicates the shift key on a keyboard.
-    pub shift: bool,
-}
-
 impl From<InternalKeyboardModifierState> for KeyboardModifiers {
     fn from(internal_state: InternalKeyboardModifierState) -> Self {
         Self {
@@ -285,28 +267,6 @@ pub enum KeyEventType {
 #[derive(Debug, Clone, PartialEq, Default)]
 #[repr(C)]
 pub struct KeyInputEvent {
-    /// The unicode representation of the key pressed.
-    pub text: SharedString,
-
-    // note: this field is not exported in the .slint in the KeyEvent builtin struct
-    /// Indicates whether the key was pressed or released
-    pub event_type: KeyEventType,
-
-    /// If the event type is KeyEventType::UpdateComposition, then this field specifies
-    /// the start of the selection as byte offsets within the preedit text.
-    pub preedit_selection_start: usize,
-    /// If the event type is KeyEventType::UpdateComposition, then this field specifies
-    /// the end of the selection as byte offsets within the preedit text.
-    pub preedit_selection_end: usize,
-}
-
-/// Represents a key event.
-#[derive(Debug, Clone, PartialEq, Default)]
-#[repr(C)]
-pub struct KeyEvent {
-    /// The keyboard modifiers active at the time of the key press event.
-    pub modifiers: KeyboardModifiers,
-
     /// The unicode representation of the key pressed.
     pub text: SharedString,
 

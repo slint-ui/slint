@@ -1143,21 +1143,8 @@ fn property_two_ways_recurse_from_binding() {
 }
 
 mod properties_animations;
+pub use crate::items::StateInfo;
 pub use properties_animations::*;
-
-/// Value of the state property
-///
-/// A state is just the current state, but also has information about the previous state and the moment it changed
-#[repr(C)]
-#[derive(Clone, Default, Debug, PartialEq)]
-pub struct StateInfo {
-    /// The current state value
-    pub current_state: i32,
-    /// The previous state
-    pub previous_state: i32,
-    /// The instant in which the state changed last
-    pub change_time: crate::animations::Instant,
-}
 
 struct StateInfoBinding<F> {
     dirty_time: Cell<Option<crate::animations::Instant>>,
