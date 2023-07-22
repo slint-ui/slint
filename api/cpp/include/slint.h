@@ -1352,6 +1352,8 @@ struct ReverseModelInner : private_api::ModelChangeListener
         target_model.row_removed(row, count);
     }
 
+    void reset() override { source_model.reset(); }
+
     std::shared_ptr<slint::Model<ModelData>> source_model;
     slint::ReverseModel<ModelData> &target_model;
 };
@@ -1387,8 +1389,6 @@ public:
         auto count = inner->source_model->row_count();
         inner->source_model->set_row_data(count - i - 1, value);
     }
-
-    void reset() override { source_model().reset(); }
 
     /// Returns the source model of this reserve model.
     std::shared_ptr<Model<ModelData>> source_model() const { return inner->source_model; }
