@@ -1388,10 +1388,7 @@ public:
         inner->source_model->set_row_data(count - i - 1, value);
     }
 
-    void reset() override
-    {
-        source_model().reset();
-    }
+    void reset() override { source_model().reset(); }
 
     /// Returns the source model of this reserve model.
     std::shared_ptr<Model<ModelData>> source_model() const { return inner->source_model; }
