@@ -125,7 +125,11 @@ export class WelcomePanel {
         );
         let result = Buffer.from(data).toString("utf-8");
 
-        result = result.replaceAll("<VERSION>", pkg.version);
+        let version = `releases/${pkg.version}`;
+        if (pkg.name.endsWith("-nightly")) {
+            version = `snapshots/master`;
+        }
+        result = result.replaceAll("<VERSION>", version);
         result = result.replaceAll(
             "<ASSETS_URL>",
             this.#webview.webview
