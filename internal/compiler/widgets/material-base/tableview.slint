@@ -124,6 +124,7 @@ export component StandardTableView {
     callback sort-ascending(int /* column-index */);
     callback sort-descending(int /* column-index */);
     callback row-pointer-event(int /* row-index */, PointerEvent /* event */, Point /* absolute mouse position */);
+    callback current-row-changed(int /* current-row */);
 
     in property <[[StandardListViewItem]]> rows;
     out property <int> current-sort-column: -1;
@@ -249,6 +250,7 @@ export component StandardTableView {
         }
 
         current-row = index;
+        current-row-changed(current-row);
 
         if(current-item-y < 0) {
             i-scroll-view.viewport-y += 0 - current-item-y;

@@ -12,6 +12,8 @@ component StandardListViewBase inherits ListView {
     private property <length> item-height: self.viewport-height / self.model.length;
     private property <length> current-item-y: self.viewport-y + current-item * item-height;
 
+    callback current-item-changed(int /* current-item */);
+
     in property<[StandardListViewItem]> model;
     in-out property<int> current-item: -1;
 
@@ -31,6 +33,7 @@ component StandardListViewBase inherits ListView {
         }
 
         current-item = index;
+        current-item-changed(current-item);
 
         if(current-item-y < 0) {
             self.viewport-y += 0 - current-item-y;

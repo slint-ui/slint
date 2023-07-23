@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { StandardListView } from "std-widgets.slint";
+
+TestCase := Rectangle {
+    callback set-current-item(int);
+
+    out property <int> count: list.model.length;
+    out property <int> callback-current-item: -1;
+
+    in-out property<[StandardListViewItem]> model: [
+        { text: "Item 1" },
+        { text: "Item 2" },
+        { text: "Item 3" },
+    ];
+    in-out property <int> current-item <=> list.current-item;
+
+    list := StandardListView {
+        model: root.model;
+
+        current-item-changed(index) => {
+            root.callback-current-item = index;
+        }
+    }
+
+
+    set-current-item(index) => {
+        list.set-current-item(index);
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_count(), 3);
+assert_eq!(instance.get_current_item(), -1);
+
+assert_eq!(instance.get_callback_current_item(), -1);
+instance.invoke_set_current_item(1);
+assert_eq!(instance.get_callback_current_item(), 1);
+assert_eq!(instance.get_current_item(), 1);
+```
+*/

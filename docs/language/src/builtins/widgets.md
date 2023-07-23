@@ -414,6 +414,10 @@ Same as [`ListView`](#listview), and in addition:
 
 -   **`set-current-item(_index: int_)`**: Sets the current item and brings it into view
 
+### Callbacks
+
+-   **`current-item-changed(`_`int`_`)`**: Emitted when the current item has changed because the user modified it
+
 ### Example
 
 ```slint
@@ -452,6 +456,7 @@ Same as [`ListView`](#listview), and in addition:
 -   **`sort-ascending(`_`int`_`)`**: Emitted if the model should be sorted by the given column in ascending order.
 -   **`sort-descending(`_`int`_`)`**: Emitted if the model should be sorted by the given column in descending order.
 -   **`row-pointer-event(`_`index: int`_`, `_`event: PointerEvent`_`, `_`pos: Point`_`)`**: Emitted on any mouse pointer event similar to `TouchArea`. Arguments are row index associated with the event, the `PointerEvent` itself and the mouse position within the tableview.
+-   **`current-row-changed(`_`int`_`)`**: Emitted when the current row has changed because the user modified it
 
 ### Functions
 

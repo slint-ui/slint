@@ -171,6 +171,8 @@ component StandardListViewBase inherits ListView {
     private property <length> item-height: self.viewport-height / self.model.length;
     private property <length> current-item-y: self.viewport-y + current-item * item-height;
 
+    callback current-item-changed(int /* current-item */);
+
     in property<[StandardListViewItem]> model;
     in-out property<int> current-item: -1;
 
@@ -193,6 +195,7 @@ component StandardListViewBase inherits ListView {
         }
 
         root.current-item = index;
+        root.current-item-changed(current-item);
 
         if(current-item-y < 0) {
             self.viewport-y += 0 - current-item-y;
@@ -354,6 +357,7 @@ export component StandardTableView {
     callback sort-ascending(int);
     callback sort-descending(int);
     callback row-pointer-event(int /* row-index */, PointerEvent /* event */, Point /* absolute mouse position */);
+    callback current-row-changed(int /* current-row */);
 
     out property <int> current-sort-column: -1;
     in-out property <[TableColumn]> columns;
@@ -369,6 +373,7 @@ export component StandardTableView {
         }
 
         current-row = index;
+        current-row-changed(current-row);
 
         if(current-item-y < 0) {
             fli.viewport-y += 0 - current-item-y;
