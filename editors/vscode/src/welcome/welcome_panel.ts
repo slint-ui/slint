@@ -11,8 +11,7 @@ export class WelcomePanel {
     #webview: vscode.WebviewPanel;
     #disposables: vscode.Disposable[] = [];
 
-    constructor(extensionPath: string, column: vscode.ViewColumn) {
-        const url = vscode.Uri.file(extensionPath);
+    constructor(extensionPath: vscode.Uri, column: vscode.ViewColumn) {
         this.#webview = vscode.window.createWebviewPanel(
             "slint.WelcomePage",
             "Slint Welcome Page",
@@ -20,10 +19,9 @@ export class WelcomePanel {
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
-                localResourceRoots: [vscode.Uri.joinPath(url, "static")],
             },
         );
-        this.getHtml(url).then(
+        this.getHtml(extensionPath).then(
             (contents) => (this.#webview.webview.html = contents),
         );
         this.#webview.webview.onDidReceiveMessage(async (message: any) => {
@@ -50,7 +48,7 @@ export class WelcomePanel {
         this.#webview.dispose();
     }
 
-    public static createOrShow(extensionPath: string) {
+    public static createOrShow(extensionPath: vscode.Uri) {
         const column = vscode.window.activeTextEditor?.viewColumn;
         if (WelcomePanel.#currentPanel) {
             WelcomePanel.#currentPanel.#webview.reveal(column);
@@ -63,7 +61,7 @@ export class WelcomePanel {
         WelcomePanel.updateShowConfig();
     }
 
-    public static maybeShow(extensionPath: string) {
+    public static maybeShow(extensionPath: vscode.Uri) {
         if (WelcomePanel.openPanelOnActivation()) {
             WelcomePanel.createOrShow(extensionPath);
         }
