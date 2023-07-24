@@ -8,6 +8,13 @@
 mod fullscreenwindowadapter;
 
 #[cfg(target_os = "linux")]
+use std::os::fd::AsFd;
+
+#[cfg(target_os = "linux")]
+type DeviceOpener<'a> = dyn Fn(&std::path::Path) -> Result<std::sync::Arc<dyn AsFd>, i_slint_core::platform::PlatformError>
+    + 'a;
+
+#[cfg(target_os = "linux")]
 mod display {
     pub trait Presenter {
         // Present updated front-buffer to the screen
@@ -28,7 +35,9 @@ mod renderer {
     #[cfg(feature = "renderer-femtovg")]
     pub mod femtovg;
 
-    pub fn try_skia_then_femtovg() -> Result<
+    pub fn try_skia_then_femtovg(
+        _device_opener: &crate::DeviceOpener,
+    ) -> Result<
         Box<dyn crate::fullscreenwindowadapter::Renderer>,
         i_slint_core::platform::PlatformError,
     > {
@@ -37,12 +46,12 @@ mod renderer {
 
         #[cfg(any(feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan"))]
         {
-            result = skia::SkiaRendererAdapter::new_try_vulkan_then_opengl();
+            result = skia::SkiaRendererAdapter::new_try_vulkan_then_opengl(_device_opener);
         }
 
         #[cfg(feature = "renderer-femtovg")]
         if result.is_err() {
-            result = femtovg::FemtoVGRendererAdapter::new();
+            result = femtovg::FemtoVGRendererAdapter::new(_device_opener);
         }
 
         result
@@ -51,6 +60,7 @@ mod renderer {
 
 #[cfg(target_os = "linux")]
 mod calloop_backend;
+
 #[cfg(target_os = "linux")]
 pub use calloop_backend::*;
 

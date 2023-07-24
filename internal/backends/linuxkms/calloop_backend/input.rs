@@ -3,10 +3,12 @@
 
 //! This module contains the code to receive input events from libinput
 
-use std::fs::{File, OpenOptions};
-use std::os::fd::AsRawFd;
-use std::os::{fd::OwnedFd, unix::prelude::OpenOptionsExt};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::os::fd::OwnedFd;
+use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::path::Path;
+use std::rc::Rc;
 
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::platform::{PlatformError, PointerEventButton, WindowEvent};
@@ -14,23 +16,37 @@ use input::LibinputInterface;
 
 use input::event::keyboard::KeyboardEventTrait;
 use input::event::touch::TouchEventPosition;
-use libc::{O_RDONLY, O_RDWR, O_WRONLY};
 use xkbcommon::*;
 
-struct Interface;
+struct SeatWrap {
+    seat: Rc<RefCell<libseat::Seat>>,
+    device_for_fd: HashMap<RawFd, i32>,
+}
 
-impl LibinputInterface for Interface {
+impl<'a> LibinputInterface for SeatWrap {
     fn open_restricted(&mut self, path: &Path, flags: i32) -> Result<OwnedFd, i32> {
-        OpenOptions::new()
-            .custom_flags(flags)
-            .read((flags & O_RDONLY != 0) | (flags & O_RDWR != 0))
-            .write((flags & O_WRONLY != 0) | (flags & O_RDWR != 0))
-            .open(path)
-            .map(|file| file.into())
-            .map_err(|err| err.raw_os_error().unwrap())
+        self.seat
+            .borrow_mut()
+            .open_device(&path)
+            .map(|(device, fd)| {
+                // Safety: Trust libinput to provide reasonable flags.
+                let flags = unsafe { nix::fcntl::OFlag::from_bits_unchecked(flags) };
+                nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_SETFL(flags))
+                    .map_err(|e| format!("Error applying libinput provided open fd flags: {e}"))
+                    .unwrap();
+
+                self.device_for_fd.insert(fd, device);
+                // Safety: API requires us to own it, but in close_restricted() we'll take it back.
+                unsafe { OwnedFd::from_raw_fd(fd) }
+            })
+            .map_err(|e| e.0.into())
     }
     fn close_restricted(&mut self, fd: OwnedFd) {
-        drop(File::from(fd));
+        // Transfer ownership back to libseat
+        let fd = fd.into_raw_fd();
+        if let Some(device_id) = self.device_for_fd.remove(&fd) {
+            let _ = self.seat.borrow_mut().close_device(device_id);
+        }
     }
 }
 
@@ -47,9 +63,14 @@ impl<'a> LibInputHandler<'a> {
     pub fn init<T>(
         window: &'a i_slint_core::api::Window,
         event_loop_handle: &calloop::LoopHandle<'a, T>,
+        seat: &'a Rc<RefCell<libseat::Seat>>,
     ) -> Result<(), PlatformError> {
-        let mut libinput = input::Libinput::new_with_udev(Interface);
-        libinput.udev_assign_seat("seat0").unwrap();
+        let seat_name = seat.borrow_mut().name().to_string();
+        let mut libinput = input::Libinput::new_with_udev(SeatWrap {
+            seat: seat.clone(),
+            device_for_fd: Default::default(),
+        });
+        libinput.udev_assign_seat(&seat_name).unwrap();
 
         let xkb_context = xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
         let keymap = xkb::Keymap::new_from_names(&xkb_context, "", "", "", "", None, 0)

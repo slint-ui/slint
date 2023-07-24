@@ -2,17 +2,18 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use std::cell::Cell;
-use std::fs::File;
 use std::os::fd::{AsFd, BorrowedFd};
 use std::sync::Arc;
 
+use crate::DeviceOpener;
 use drm::control::Device;
 use gbm::AsRaw;
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::platform::PlatformError;
 
+// Wrapped needed because gbm::Device<T> wants T to be sized.
 #[derive(Clone)]
-pub struct SharedFd(Arc<File>);
+pub struct SharedFd(Arc<dyn AsFd>);
 impl AsFd for SharedFd {
     fn as_fd(&self) -> BorrowedFd<'_> {
         self.0.as_fd()
@@ -117,12 +118,12 @@ impl raw_window_handle::HasDisplayHandle for EglDisplay {
     }
 }
 
-pub fn create_egl_display() -> Result<EglDisplay, PlatformError> {
+pub fn create_egl_display(device_opener: &DeviceOpener) -> Result<EglDisplay, PlatformError> {
     let mut last_err = None;
     if let Ok(drm_devices) = std::fs::read_dir("/dev/dri/") {
         for device in drm_devices {
             if let Ok(device) = device.map_err(|e| format!("Error opening DRM device: {e}")) {
-                match try_create_egl_display(&device.path()) {
+                match try_create_egl_display(device_opener, &device.path()) {
                     Ok(dsp) => return Ok(dsp),
                     Err(e) => last_err = Some(e),
                 }
@@ -132,14 +133,11 @@ pub fn create_egl_display() -> Result<EglDisplay, PlatformError> {
     Err(last_err.unwrap_or_else(|| "Could not create an egl display".into()))
 }
 
-pub fn try_create_egl_display(device: &std::path::Path) -> Result<EglDisplay, PlatformError> {
-    let drm_device = SharedFd(Arc::new(
-        std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(device)
-            .map_err(|err| format!("Error opening {:?}: {}", device, err))?,
-    ));
+pub fn try_create_egl_display(
+    device_opener: &DeviceOpener,
+    device: &std::path::Path,
+) -> Result<EglDisplay, PlatformError> {
+    let drm_device = SharedFd(device_opener(device)?);
 
     let resources = drm_device
         .resource_handles()

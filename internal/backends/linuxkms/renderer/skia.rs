@@ -12,8 +12,10 @@ pub struct SkiaRendererAdapter {
 
 impl SkiaRendererAdapter {
     #[cfg(feature = "renderer-skia-vulkan")]
-    pub fn new_vulkan() -> Result<Box<dyn crate::fullscreenwindowadapter::Renderer>, PlatformError>
-    {
+    pub fn new_vulkan(
+        _device_opener: &crate::DeviceOpener,
+    ) -> Result<Box<dyn crate::fullscreenwindowadapter::Renderer>, PlatformError> {
+        // TODO: figure out how to associate vulkan with an existing drm fd.
         let display = crate::display::vulkandisplay::create_vulkan_display()?;
 
         let skia_vk_surface = i_slint_renderer_skia::vulkan_surface::VulkanSurface::from_surface(
@@ -35,9 +37,10 @@ impl SkiaRendererAdapter {
     }
 
     #[cfg(feature = "renderer-skia-opengl")]
-    pub fn new_opengl() -> Result<Box<dyn crate::fullscreenwindowadapter::Renderer>, PlatformError>
-    {
-        let display = crate::display::egldisplay::create_egl_display()?;
+    pub fn new_opengl(
+        device_opener: &crate::DeviceOpener,
+    ) -> Result<Box<dyn crate::fullscreenwindowadapter::Renderer>, PlatformError> {
+        let display = crate::display::egldisplay::create_egl_display(device_opener)?;
 
         use i_slint_renderer_skia::Surface;
         use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
@@ -61,18 +64,19 @@ impl SkiaRendererAdapter {
     }
 
     pub fn new_try_vulkan_then_opengl(
+        device_opener: &crate::DeviceOpener,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::Renderer>, PlatformError> {
         #[allow(unused_assignments)]
         let mut result = Err(format!("No skia renderer available").into());
 
         #[cfg(feature = "renderer-skia-vulkan")]
         {
-            result = Self::new_vulkan();
+            result = Self::new_vulkan(device_opener);
         }
 
         #[cfg(feature = "renderer-skia-opengl")]
         if result.is_err() {
-            result = Self::new_opengl();
+            result = Self::new_opengl(device_opener);
         }
 
         result
