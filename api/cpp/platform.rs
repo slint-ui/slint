@@ -5,7 +5,7 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::ffi::c_void;
 use i_slint_core::api::{PhysicalSize, Window};
-use i_slint_core::graphics::{IntSize, Rgb8Pixel};
+use i_slint_core::graphics::{IntRect, IntSize, Rgb8Pixel};
 use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
@@ -287,12 +287,14 @@ pub unsafe extern "C" fn slint_software_renderer_render_rgb8(
     buffer: *mut Rgb8Pixel,
     buffer_len: usize,
     pixel_stride: usize,
-) {
+) -> IntRect {
     let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
     let renderer = &*(r as *const SoftwareRenderer);
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     renderer.set_window(window_adapter.window());
-    renderer.render(buffer, pixel_stride);
+    let r = renderer.render(buffer, pixel_stride);
+    let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
+    i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
 }
 
 #[no_mangle]
@@ -302,12 +304,14 @@ pub unsafe extern "C" fn slint_software_renderer_render_rgb565(
     buffer: *mut u16,
     buffer_len: usize,
     pixel_stride: usize,
-) {
+) -> IntRect {
     let buffer = core::slice::from_raw_parts_mut(buffer as *mut Rgb565Pixel, buffer_len);
     let renderer = &*(r as *const SoftwareRenderer);
     let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
     renderer.set_window(window_adapter.window());
-    renderer.render(buffer, pixel_stride);
+    let r = renderer.render(buffer, pixel_stride);
+    let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
+    i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
 }
 
 #[no_mangle]

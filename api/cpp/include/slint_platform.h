@@ -259,6 +259,25 @@ public:
     }
 };
 
+/// Represents a region on the screen, used for partial rendering.
+///
+/// The region may be composed of multiple sub-regions.
+struct PhysicalRegion
+{
+    /// Returns the size of the bounding box of this region.
+    PhysicalSize bounding_box_size() const
+    {
+        return PhysicalSize({ uint32_t(inner.width), uint32_t(inner.height) });
+    }
+    /// Returns the origin of the bounding box of this region.
+    PhysicalPosition bounding_box_origin() const { return PhysicalPosition({ inner.x, inner.y }); }
+
+private:
+    cbindgen_private::types::IntRect inner;
+    friend class SoftwareRenderer;
+    PhysicalRegion(cbindgen_private::types::IntRect inner) : inner(inner) { }
+};
+
 /// Slint's software renderer.
 ///
 /// To be used as a template parameter of the WindowAdapter.
@@ -289,11 +308,12 @@ public:
     ///
     /// The stride is the amount of pixels between two lines in the buffer.
     /// It is must be at least as large as the width of the window.
-    void render(const Window &window, std::span<slint::Rgb8Pixel> buffer,
-                std::size_t pixel_stride) const
+    PhysicalRegion render(const Window &window, std::span<slint::Rgb8Pixel> buffer,
+                          std::size_t pixel_stride) const
     {
-        cbindgen_private::slint_software_renderer_render_rgb8(
+        auto r = cbindgen_private::slint_software_renderer_render_rgb8(
                 inner, &window.window_handle().inner, buffer.data(), buffer.size(), pixel_stride);
+        return PhysicalRegion { r };
     }
 
     /// Render the window scene into an RGB 565 encoded pixel buffer
@@ -302,11 +322,12 @@ public:
     ///
     /// The stride is the amount of pixels between two lines in the buffer.
     /// It is must be at least as large as the width of the window.
-    void render_rgb565(const Window &window, std::span<uint16_t> buffer,
-                       std::size_t pixel_stride) const
+    PhysicalRegion render_rgb565(const Window &window, std::span<uint16_t> buffer,
+                                 std::size_t pixel_stride) const
     {
-        cbindgen_private::slint_software_renderer_render_rgb565(
+        auto r = cbindgen_private::slint_software_renderer_render_rgb565(
                 inner, &window.window_handle().inner, buffer.data(), buffer.size(), pixel_stride);
+        return PhysicalRegion { r };
     }
 };
 

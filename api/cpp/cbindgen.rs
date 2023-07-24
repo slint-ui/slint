@@ -532,6 +532,7 @@ namespace slint {
         using LogicalLength = float;
         struct ComponentVTable;
         struct ItemVTable;
+        using types::IntRect;
     }
 }",
         )
