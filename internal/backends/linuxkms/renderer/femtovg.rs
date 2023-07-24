@@ -153,8 +153,10 @@ unsafe impl i_slint_core::platform::OpenGLInterface for GlContextWrapper {
 }
 
 impl FemtoVGRendererAdapter {
-    pub fn new() -> Result<Box<dyn crate::fullscreenwindowadapter::Renderer>, PlatformError> {
-        let display = crate::display::egldisplay::create_egl_display()?;
+    pub fn new(
+        device_opener: &crate::DeviceOpener,
+    ) -> Result<Box<dyn crate::fullscreenwindowadapter::Renderer>, PlatformError> {
+        let display = crate::display::egldisplay::create_egl_display(device_opener)?;
 
         let size = display.size;
 

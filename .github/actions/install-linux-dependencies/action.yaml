@@ -23,7 +23,7 @@ runs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libudev-dev libinput-dev ${{ inputs.extra-packages }}
+        sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libudev-dev libinput-dev libseat-dev libsystemd-dev ${{ inputs.extra-packages }}
       shell: bash
     - name: Install C++ compiler
       if: ${{ (runner.os == 'Linux') && (inputs.force-gcc-10 == 'true') }}

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use std::cell::RefCell;
+use std::os::fd::{AsFd, BorrowedFd, RawFd};
 use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -62,20 +63,23 @@ impl i_slint_core::platform::EventLoopProxy for Proxy {
 }
 
 pub struct Backend {
+    seat: Rc<RefCell<libseat::Seat>>,
     window: RefCell<Option<Rc<FullscreenWindowAdapter>>>,
     user_event_receiver: RefCell<Option<calloop::channel::Channel<Box<dyn FnOnce() + Send>>>>,
     proxy: Proxy,
-    renderer_factory: fn() -> Result<
+    renderer_factory: for<'a> fn(
+        &'a crate::DeviceOpener,
+    ) -> Result<
         Box<dyn crate::fullscreenwindowadapter::Renderer>,
         i_slint_core::platform::PlatformError,
     >,
 }
 
 impl Backend {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, PlatformError> {
         Self::new_with_renderer_by_name(None)
     }
-    pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Self {
+    pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Result<Self, PlatformError> {
         let (user_event_sender, user_event_receiver) = calloop::channel::channel();
 
         let renderer_factory = match renderer_name {
@@ -95,12 +99,41 @@ impl Backend {
             }
         };
 
-        Backend {
+        let seat_active = Rc::new(RefCell::new(false));
+
+        //libseat::set_log_level(libseat::LogLevel::Debug);
+
+        let mut seat = {
+            let seat_active = seat_active.clone();
+            libseat::Seat::open(
+                move |_seat, event| match event {
+                    libseat::SeatEvent::Enable => {
+                        *seat_active.borrow_mut() = true;
+                    }
+                    libseat::SeatEvent::Disable => {
+                        unimplemented!("Seat deactivation is not implemented");
+                    }
+                },
+                None,
+            )
+            .map_err(|e| format!("Error opening session with libseat: {e}"))?
+        };
+
+        while !(*seat_active.borrow()) {
+            if seat.dispatch(5000).map_err(|e| format!("Error waiting for seat activation: {e}"))?
+                == 0
+            {
+                return Err(format!("Timeout while waiting to activate session").into());
+            }
+        }
+
+        Ok(Backend {
+            seat: Rc::new(RefCell::new(seat)),
             window: Default::default(),
             user_event_receiver: RefCell::new(Some(user_event_receiver)),
             proxy: Proxy::new(user_event_sender),
             renderer_factory,
-        }
+        })
     }
 }
 
@@ -111,7 +144,26 @@ impl i_slint_core::platform::Platform for Backend {
         std::rc::Rc<dyn i_slint_core::window::WindowAdapter>,
         i_slint_core::platform::PlatformError,
     > {
-        let renderer = (self.renderer_factory)()?;
+        let renderer = (self.renderer_factory)(&|device: &std::path::Path| {
+            let (_, fd) = self
+                .seat
+                .borrow_mut()
+                .open_device(&device)
+                .map_err(|e| format!("Error opening device: {e}"))?;
+
+            // For polling for drm::control::Event::PageFlip we need a blocking FD. Would be better to do this non-blocking
+            let flags = nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_GETFL)
+                .map_err(|e| format!("Error getting file descriptor flags: {e}"))?;
+            // Safetly: We only remove a bit, don't care about the others
+            let mut flags = unsafe { nix::fcntl::OFlag::from_bits_unchecked(flags) };
+            flags.remove(nix::fcntl::OFlag::O_NONBLOCK);
+            nix::fcntl::fcntl(fd, nix::fcntl::FcntlArg::F_SETFL(flags))
+                .map_err(|e| format!("Error making device fd non-blocking: {e}"))?;
+
+            // Safety: We take ownership of the now shared FD, ... although we should be using libseat's close_device....
+            use std::os::fd::FromRawFd;
+            Ok(Arc::new(unsafe { std::os::fd::OwnedFd::from_raw_fd(fd) }))
+        })?;
         let adapter = FullscreenWindowAdapter::new(renderer)?;
 
         *self.window.borrow_mut() = Some(adapter.clone());
@@ -136,7 +188,7 @@ impl i_slint_core::platform::Platform for Backend {
             target_os = "ios",
             target_arch = "wasm32"
         )))]
-        input::LibInputHandler::init(adapter.window(), &event_loop.handle())?;
+        input::LibInputHandler::init(adapter.window(), &event_loop.handle(), &self.seat)?;
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
             return Err(
@@ -186,3 +238,14 @@ impl i_slint_core::platform::Platform for Backend {
 
 #[derive(Default)]
 struct LoopData {}
+
+struct Device {
+    // in the future, use this from libseat: device_id: i32,
+    fd: RawFd,
+}
+
+impl AsFd for Device {
+    fn as_fd(&self) -> std::os::fd::BorrowedFd<'_> {
+        unsafe { BorrowedFd::borrow_raw(self.fd) }
+    }
+}

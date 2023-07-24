@@ -22,18 +22,18 @@ cfg_if::cfg_if! {
     if #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))] {
         use i_slint_backend_qt as default_backend;
 
-        fn create_default_backend() -> Box<dyn Platform + 'static> {
-            Box::new(default_backend::Backend)
+        fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
+            Ok(Box::new(default_backend::Backend))
         }
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
-        fn create_default_backend() -> Box<dyn Platform + 'static> {
-            Box::new(i_slint_backend_winit::Backend::new())
+        fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
+            Ok(Box::new(i_slint_backend_winit::Backend::new()))
         }
     } else if #[cfg(feature = "i-slint-backend-linuxkms")] {
         use i_slint_backend_linuxkms as default_backend;
-        fn create_default_backend() -> Box<dyn Platform + 'static> {
-            Box::new(i_slint_backend_linuxkms::Backend::new())
+        fn create_default_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
+            Ok(Box::new(i_slint_backend_linuxkms::Backend::new()?))
         }
     } else {
 
@@ -67,14 +67,14 @@ cfg_if::cfg_if! {
                 #[cfg(feature = "i-slint-backend-winit")]
                 "winit" => return Ok(Box::new(i_slint_backend_winit::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then_some(_renderer)))),
                 #[cfg(feature = "i-slint-backend-linuxkms")]
-                "linuxkms" => return Ok(Box::new(i_slint_backend_linuxkms::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then(|| _renderer)))),
+                "linuxkms" => return Ok(Box::new(i_slint_backend_linuxkms::Backend::new_with_renderer_by_name((!_renderer.is_empty()).then(|| _renderer))?)),
                 _ => {},
             }
 
             if !backend_config.is_empty() {
                 eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
             }
-            Ok(create_default_backend())
+            create_default_backend()
         }
         pub use default_backend::{
             native_widgets, Backend, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE,
