@@ -322,8 +322,8 @@ public:
     ///
     /// The stride is the amount of pixels between two lines in the buffer.
     /// It is must be at least as large as the width of the window.
-    PhysicalRegion render_rgb565(const Window &window, std::span<uint16_t> buffer,
-                                 std::size_t pixel_stride) const
+    PhysicalRegion render(const Window &window, std::span<uint16_t> buffer,
+                          std::size_t pixel_stride) const
     {
         auto r = cbindgen_private::slint_software_renderer_render_rgb565(
                 inner, &window.window_handle().inner, buffer.data(), buffer.size(), pixel_stride);
