@@ -41,6 +41,11 @@ pub fn parse_type_object(p: &mut impl Parser) {
         p.expect(SyntaxKind::Identifier);
         p.expect(SyntaxKind::Colon);
         parse_type(&mut *p);
+        if p.peek().kind() == SyntaxKind::Semicolon {
+            p.error("Expected ','. Use ',' instead of ';' to separate fields in a struct");
+            p.consume();
+            continue;
+        }
         if !p.test(SyntaxKind::Comma) {
             break;
         }
