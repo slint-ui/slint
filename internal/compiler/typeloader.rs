@@ -313,13 +313,30 @@ impl TypeLoader {
                     (path, None)
                 }
                 Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                    borrowed_state.diag.push_error(
-                            format!(
-                                "Cannot find requested import \"{file_to_import}\" in the include search path",
-                            ),
-                            &import_token,
-                        );
-                    return None;
+                    // We will load using the `open_import_fallback`
+                    // Simplify the path to remove the ".."
+                    let mut path = import_token
+                        .as_ref()
+                        .and_then(|tok| tok.source_file().map(|s| s.path()))
+                        .and_then(|p| p.parent())
+                        .map_or(PathBuf::new(), |p| p.into());
+                    for c in Path::new(file_to_import).components() {
+                        use std::path::Component::*;
+                        match c {
+                            RootDir => path = PathBuf::new(),
+                            CurDir => {}
+                            ParentDir
+                                if matches!(
+                                    path.components().last(),
+                                    Some(Normal(_) | RootDir)
+                                ) =>
+                            {
+                                path.pop();
+                            }
+                            Prefix(_) | ParentDir | Normal(_) => path.push(c),
+                        }
+                    }
+                    (path, None)
                 }
                 Err(err) => {
                     borrowed_state.diag.push_error(
@@ -393,6 +410,15 @@ impl TypeLoader {
                 )
                 .await;
                 true
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                state.borrow_mut().diag.push_error(
+                        format!(
+                            "Cannot find requested import \"{file_to_import}\" in the include search path",
+                        ),
+                        &import_token,
+                    );
+                return None;
             }
             Err(err) => {
                 state.borrow_mut().diag.push_error(
@@ -738,7 +764,7 @@ fn test_load_from_callback_ok() {
     compiler_config.open_import_fallback = Some(Rc::new(move |path| {
         let ok_ = ok_.clone();
         Box::pin(async move {
-            assert_eq!(path, "../FooBar.slint");
+            assert_eq!(path.replace('\\', "/"), "../FooBar.slint");
             assert!(!ok_.get());
             ok_.set(true);
             Some(Ok("export XX := Rectangle {} ".to_owned()))
@@ -749,7 +775,7 @@ fn test_load_from_callback_ok() {
     let doc_node = crate::parser::parse(
         r#"
 /* ... */
-import { XX } from "../FooBar.slint";
+import { XX } from "../Ab/.././FooBar.slint";
 X := XX {}
 "#
         .into(),
