@@ -301,14 +301,11 @@ pub(crate) fn completion_at(
         let r: Vec<_> = [
             // the $1 is first in the quote so the filename can be completed before the import names
             ("import", "import { ${2:Component} } from \"${1:std-widgets.slint}\";"),
-            ("component", "component ${1:Component} ${2:inherits ${3:Rectangle}} {\n    $0\n}"),
+            ("component", "component ${1:Component} {\n    $0\n}"),
             ("struct", "struct ${1:Name} {\n    $0\n}"),
             ("global", "global ${1:Name} {\n    $0\n}"),
             ("export", "export { $0 }"),
-            (
-                "export component",
-                "export component ${1:AppWindow} ${2:inherits ${3:Window}} {\n    $0\n}",
-            ),
+            ("export component", "export component ${1:ExportedComponent} {\n    $0\n}"),
             ("export struct", "export struct ${1:Name} {\n    $0\n}"),
             ("export global", "export global ${1:Name} {\n    $0\n}"),
         ]
