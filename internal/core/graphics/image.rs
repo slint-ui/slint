@@ -362,7 +362,7 @@ impl ImageInner {
                 match svg.render(_target_size_for_scalable_source.unwrap_or_default()) {
                     Ok(b) => Some(b),
                     Err(err) => {
-                        eprintln!("Error rendering SVG: {}", err);
+                        log::error!("Error rendering SVG: {}", err);
                         None
                     }
                 }

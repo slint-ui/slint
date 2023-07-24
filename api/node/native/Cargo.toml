@@ -33,6 +33,7 @@ once_cell = "1.5"
 rand = "0.8"
 scoped-tls-hkt = "0.1"
 spin_on = "0.1" #FIXME: remove and delegate to async JS instead
+env_logger = { workspace = true }
 
 # Enable image-rs' default features to make all image formats available for nodejs builds
 image = { version = "0.24.0" }

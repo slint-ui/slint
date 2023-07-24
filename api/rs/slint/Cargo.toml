@@ -148,7 +148,7 @@ once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }
 num-traits = { version = "0.2", default-features = false }
 
-log = { version = "0.4.17", optional = true }
+log = { workspace = true, optional = true }
 
 [dev-dependencies]
 slint-build = { path = "../build" }

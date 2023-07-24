@@ -91,7 +91,7 @@ fn init_fontdb() -> FontDatabase {
                         Some((family_ids, family_names))
                     }
                     Err(err) => {
-                        eprintln!(
+                        log::error!(
                             "Could not load the font set via `SLINT_DEFAULT_FONT`: {}: {}",
                             path.display(),
                             err,
@@ -139,7 +139,7 @@ fn init_fontdb() -> FontDatabase {
                         fontconfig_fallback_families = fallback_families;
                     }
                     Err(e) => {
-                        eprintln!("Error opening libfontconfig.so.1: {}", e);
+                        log::error!("Error opening libfontconfig.so.1: {}", e);
                     }
                 }
             }

@@ -1317,14 +1317,20 @@ fn generate_item_tree(
         init_parent_parameters = ", parent";
     }
 
-    let mut create_code = vec![
+    let mut create_code = Vec::new();
+
+    if parent_ctx.is_none() {
+        create_code.push("slint::cbindgen_private::slint_ensure_logger();".into());
+    }
+
+    create_code.extend([
         format!(
             "auto self_rc = vtable::VRc<slint::private_api::ComponentVTable, {0}>::make();",
             target_struct.name
         ),
         format!("auto self = const_cast<{0} *>(&*self_rc);", target_struct.name),
         "self->self_weak = vtable::VWeak(self_rc).into_dyn();".into(),
-    ];
+    ]);
 
     if parent_ctx.is_none() {
         create_code.push("slint::cbindgen_private::slint_ensure_backend();".into());

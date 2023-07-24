@@ -74,6 +74,7 @@ unicode-segmentation = "1.8.0"
 unicode-linebreak = { version = "0.1.2", optional = true }
 unicode-script = { version = "0.5.3", optional = true }
 integer-sqrt = { version = "0.1.5" }
+log = { workspace = true }
 
 image = { version = "0.24.0", optional = true, default-features = false, features = [ "png", "jpeg" ] }
 clru = { version = "0.6.0", optional = true }

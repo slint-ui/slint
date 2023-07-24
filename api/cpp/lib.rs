@@ -41,6 +41,12 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn slint_ensure_logger() {
+    #[cfg(feature = "std")]
+    env_logger::try_init().ok();
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn slint_ensure_backend() {
     with_platform(|_b| {
         // Nothing to do, just make sure a backend was created

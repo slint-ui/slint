@@ -677,6 +677,7 @@ fn singleshot_timer(mut cx: FunctionContext) -> JsResult<JsValue> {
 }
 
 register_module!(mut m, {
+    env_logger::try_init().ok();
     m.export_function("load", load)?;
     m.export_function("mock_elapsed_time", mock_elapsed_time)?;
     m.export_function("singleshot_timer", singleshot_timer)?;

@@ -81,7 +81,7 @@ impl RenderingMetricsCollector {
         let refresh_mode = match RefreshMode::try_from(&options) {
             Ok(mode) => mode,
             Err(_) => {
-                eprintln!("Missing refresh mode in SLINT_DEBUG_PERFORMANCE. Please specify either refresh_full_speed or refresh_lazy");
+                log::info!("Missing refresh mode in SLINT_DEBUG_PERFORMANCE. Please specify either refresh_full_speed or refresh_lazy");
                 return None;
             }
         };
@@ -90,7 +90,7 @@ impl RenderingMetricsCollector {
         let output_overlay = options.contains(&"overlay");
 
         if !output_console && !output_overlay {
-            eprintln!("Missing output mode in SLINT_DEBUG_PERFORMANCE. Please specify either console or overlay (or both)");
+            log::info!("Missing output mode in SLINT_DEBUG_PERFORMANCE. Please specify either console or overlay (or both)");
             return None;
         }
 
@@ -107,7 +107,7 @@ impl RenderingMetricsCollector {
         #[cfg(not(debug_assertions))]
         let build_config = "release";
 
-        eprintln!("Slint: Build config: {}; Backend: {}", build_config, winsys_info);
+        log::info!("Slint: Build config: {}; Backend: {}", build_config, winsys_info);
 
         let self_weak = Rc::downgrade(&collector);
         collector.update_timer.stop();
@@ -134,7 +134,7 @@ impl RenderingMetricsCollector {
                 }
 
                 if this.output_console {
-                    eprintln!(
+                    log::info!(
                         "average frames per second: {} {}",
                         this.collected_frame_data_since_second_ago.borrow().len(),
                         last_frame_details
