@@ -1594,7 +1594,11 @@ impl WindowAdapterInternal for QtWindow {
         }
 
         let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*"] {
+        let fullscreen = std::env::var("SLINT_FULLSCREEN").is_ok();
+        cpp! {unsafe [widget_ptr as "QWidget*", fullscreen as "bool"] {
+            if (fullscreen) {
+                widget_ptr->setWindowState(Qt::WindowFullScreen);
+            }
             widget_ptr->show();
         }};
         let qt_platform_name = cpp! {unsafe [] -> qttypes::QString as "QString" {
