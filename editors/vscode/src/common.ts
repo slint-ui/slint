@@ -8,7 +8,7 @@ import * as vscode from "vscode";
 import { PropertiesViewProvider } from "./properties_webview";
 import * as wasm_preview from "./wasm_preview";
 import * as lsp_commands from "../../../tools/slintpad/src/shared/lsp_commands";
-import * as welcome from "./welcome/welcomepanel";
+import * as welcome from "./welcome/welcome_panel";
 
 import {
     BaseLanguageClient,
@@ -104,7 +104,7 @@ export function languageClientOptions(
                     if (showPreview(args)) {
                         return;
                     }
-                } else if (command == "slint/toggleDesignMode") {
+                } else if (command === "slint/toggleDesignMode") {
                     if (toggleDesignMode(args)) {
                         return;
                     }
@@ -150,7 +150,7 @@ export function activate(
     );
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.showWelcome", function () {
-            welcome.WelcomePanel.createOrShow(context.extensionPath);
+            welcome.WelcomePanel.createOrShow(context.extensionUri);
         }),
     );
     context.subscriptions.push(
@@ -209,7 +209,7 @@ export function activate(
         }, 1);
     });
 
-    setTimeout(() => welcome.WelcomePanel.maybeShow(context.extensionPath), 1);
+    setTimeout(() => welcome.WelcomePanel.maybeShow(context.extensionUri), 1);
 
     return [statusBar, properties_provider];
 }

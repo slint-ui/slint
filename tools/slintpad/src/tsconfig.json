@@ -4,7 +4,7 @@
         "lib": ["dom", "es2021"],
         "types": ["json-schema", "vscode"]
     },
-    "include": ["./*.ts", "./shared/*.ts", "../package.json"],
+    "include": ["./*.ts", "./shared/*.ts", "../package.json", "./welcome/*.ts"],
     "references": [
         {
             "path": "worker"
