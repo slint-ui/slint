@@ -153,6 +153,10 @@ endif()
 
 if (NOT SLINT_FEATURE_STD)
     list(APPEND features i-slint-core/libm i-slint-core/unsafe-single-threaded)
+
+    if (ESP_PLATFORM)
+        list(APPEND features "esp-backtrace/${IDF_TARGET}")
+    endif()
 endif()
 
 if (SLINT_FEATURE_STD AND SLINT_FEATURE_EXPERIMENTAL)

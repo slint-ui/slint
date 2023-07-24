@@ -55,6 +55,8 @@ raw-window-handle = { version = "0.5", optional = true }
 # Enable image-rs' default features to make all image formats to C++ users
 image = { version = "0.24.0", optional = true }
 
+esp-backtrace = { version = "0.7.0", features = ["panic-handler", "print-uart"], optional = true }
+
 [build-dependencies]
 anyhow = "1.0"
 cbindgen = "0.24"
