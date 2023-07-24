@@ -123,7 +123,7 @@ export class WelcomePanel {
                 "index.html",
             ),
         );
-        let result = Buffer.from(data).toString("utf-8");
+        let result = new TextDecoder().decode(data);
 
         let version = `releases/${pkg.version}`;
         if (pkg.name.endsWith("-nightly")) {
