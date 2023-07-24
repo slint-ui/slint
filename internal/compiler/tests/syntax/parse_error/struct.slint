@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export struct TetronimoBrettData {
+    fliesen: [FlieseData];
+//                       ^error{Expected ','. Use ',' instead of ';' to separate fields in a struct}
+    zeilenzahl: { x: int; };
+//                      ^error{Expected ','. Use ',' instead of ';' to separate fields in a struct}
+//                         ^^error{Expected ','. Use ',' instead of ';' to separate fields in a struct}
+    y: int;
+//        ^error{Expected ','. Use ',' instead of ';' to separate fields in a struct}
+  };
+// ^error{Extra semicolon. Remove this semicolon}
+
