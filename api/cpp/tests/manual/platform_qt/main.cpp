@@ -155,7 +155,7 @@ struct MyPlatform : public slint_platform::Platform
 
     std::unique_ptr<QWindow> parentWindow;
 
-    std::unique_ptr<slint_platform::WindowAdapter> create_window_adapter() const override
+    std::unique_ptr<slint_platform::WindowAdapter> create_window_adapter() override
     {
         return std::make_unique<MyWindow>(parentWindow.get());
     }
