@@ -172,6 +172,7 @@ component StandardListViewBase inherits ListView {
     private property <length> current-item-y: self.viewport-y + current-item * item-height;
 
     callback current-item-changed(int /* current-item */);
+    callback item-pointer-event(int /* item-index */, PointerEvent /* event */, Point /* absolute mouse position */);
 
     in property<[StandardListViewItem]> model;
     in-out property<int> current-item: -1;
@@ -185,6 +186,13 @@ component StandardListViewBase inherits ListView {
         ta := TouchArea {
             clicked => {
                 set-current-item(i);
+            }
+
+            pointer-event(pe) => {
+                root.item-pointer-event(i, pe, {
+                    x: self.absolute-position.x + self.mouse-x - root.absolute-position.x,
+                    y: self.absolute-position.y + self.mouse-y - root.absolute-position.y,
+                });
             }
         }
     }

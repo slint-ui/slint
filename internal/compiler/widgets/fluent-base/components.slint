@@ -34,9 +34,12 @@ export component MenuBorder inherits Rectangle {
 
 export component ListItem {
     callback clicked <=> i-touch-area.clicked;
+    callback pointer-event <=> i-touch-area.pointer-event;
 
     in property <bool> selected;
     in property <string> text <=> i-text.text;
+    out property <length> mouse-x <=> i-touch-area.mouse-x;
+    out property <length> mouse-y <=> i-touch-area.mouse-y;
 
     min-width: i-layout.min-width;
     min-height: max(34px, i-layout.min-height);
