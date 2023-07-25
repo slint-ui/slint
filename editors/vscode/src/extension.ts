@@ -202,6 +202,9 @@ function startClient(context: vscode.ExtensionContext) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+    if (!!process.env.CODESPACES) {
+        vscode.workspace.getConfiguration("slint").update("preview.providedByEditor", true, vscode.ConfigurationTarget.Global);
+    }
     [statusBar, properties_provider] = common.activate(context, client, (ctx) =>
         startClient(ctx),
     );
