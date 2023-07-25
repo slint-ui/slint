@@ -345,6 +345,8 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
 
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
+        self.image_cache.clear_all();
+        self.path_cache.clear_all();
     }
 }
 

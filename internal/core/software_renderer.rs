@@ -527,6 +527,7 @@ impl RendererSealed for SoftwareRenderer {
 
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
+        self.partial_cache.borrow_mut().clear();
     }
 }
 
