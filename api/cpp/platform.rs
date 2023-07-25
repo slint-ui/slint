@@ -108,7 +108,7 @@ struct CppPlatform {
     duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
     run_event_loop: unsafe extern "C" fn(PlatformUserData),
     quit_event_loop: unsafe extern "C" fn(PlatformUserData),
-    invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformEventOpaque),
+    invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformTaskOpaque),
 }
 
 impl Drop for CppPlatform {
@@ -151,7 +151,7 @@ impl Platform for CppPlatform {
 struct CppEventLoopProxy {
     user_data: PlatformUserData,
     quit_event_loop: unsafe extern "C" fn(PlatformUserData),
-    invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformEventOpaque),
+    invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformTaskOpaque),
 }
 
 impl i_slint_core::platform::EventLoopProxy for CppEventLoopProxy {
@@ -167,9 +167,7 @@ impl i_slint_core::platform::EventLoopProxy for CppEventLoopProxy {
         unsafe {
             (self.invoke_from_event_loop)(
                 self.user_data,
-                core::mem::transmute::<*mut dyn FnOnce(), PlatformEventOpaque>(Box::into_raw(
-                    event,
-                )),
+                core::mem::transmute::<*mut dyn FnOnce(), PlatformTaskOpaque>(Box::into_raw(event)),
             )
         };
         Ok(())
@@ -187,7 +185,7 @@ pub unsafe extern "C" fn slint_platform_register(
     #[allow(unused)] duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
     run_event_loop: unsafe extern "C" fn(PlatformUserData),
     quit_event_loop: unsafe extern "C" fn(PlatformUserData),
-    invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformEventOpaque),
+    invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformTaskOpaque),
 ) {
     let p = CppPlatform {
         user_data,
@@ -248,16 +246,16 @@ pub extern "C" fn slint_platform_duration_until_next_timer_update() -> u64 {
 }
 
 #[repr(C)]
-pub struct PlatformEventOpaque(*const c_void, *const c_void);
+pub struct PlatformTaskOpaque(*const c_void, *const c_void);
 
 #[no_mangle]
-pub unsafe extern "C" fn slint_platform_event_drop(event: PlatformEventOpaque) {
-    drop(Box::from_raw(core::mem::transmute::<PlatformEventOpaque, *mut dyn FnOnce()>(event)));
+pub unsafe extern "C" fn slint_platform_task_drop(event: PlatformTaskOpaque) {
+    drop(Box::from_raw(core::mem::transmute::<PlatformTaskOpaque, *mut dyn FnOnce()>(event)));
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn slint_platform_event_invoke(event: PlatformEventOpaque) {
-    let f = Box::from_raw(core::mem::transmute::<PlatformEventOpaque, *mut dyn FnOnce()>(event));
+pub unsafe extern "C" fn slint_platform_task_run(event: PlatformTaskOpaque) {
+    let f = Box::from_raw(core::mem::transmute::<PlatformTaskOpaque, *mut dyn FnOnce()>(event));
     f();
 }
 

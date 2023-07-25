@@ -17,7 +17,7 @@ namespace slint_platform = slint::experimental::platform;
 struct TestPlatform : slint_platform::Platform
 {
     std::mutex the_mutex;
-    std::deque<slint_platform::PlatformEvent> queue;
+    std::deque<slint_platform::Platform::Task> queue;
     bool quit = false;
     std::condition_variable cv;
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
@@ -34,7 +34,7 @@ struct TestPlatform : slint_platform::Platform
     {
         while (true) {
             slint_platform::update_timers_and_animations();
-            std::optional<slint_platform::PlatformEvent> event;
+            std::optional<slint_platform::Platform::Task> event;
             {
                 std::unique_lock lock(the_mutex);
                 if (queue.empty()) {
@@ -54,16 +54,12 @@ struct TestPlatform : slint_platform::Platform
                 }
             }
             if (event) {
-                std::move(*event).invoke();
+                std::move(*event).run();
                 event.reset();
             }
         }
     }
 
-    /// Exits the event loop.
-    ///
-    /// This is what is called by slint::quit_event_loop() and can be called from a different thread
-    /// or re-enter from the event loop
     virtual void quit_event_loop() override
     {
         const std::unique_lock lock(the_mutex);
@@ -71,14 +67,7 @@ struct TestPlatform : slint_platform::Platform
         cv.notify_all();
     }
 
-    /// Invokes the event from the event loop.
-    ///
-    /// This function is called by slint::invoke_from_event_loop().
-    /// It can be called from any thread, but the passed function must only be called
-    /// from the event loop.
-    /// Reimplements this function and move the event to the event loop before calling
-    /// PlatformEvent::invoke()
-    virtual void invoke_from_event_loop(slint_platform::PlatformEvent event) override
+    virtual void run_in_event_loop(slint_platform::Platform::Task event) override
     {
         const std::unique_lock lock(the_mutex);
         queue.push_back(std::move(event));
