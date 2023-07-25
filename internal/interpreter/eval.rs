@@ -737,7 +737,12 @@ fn call_builtin_function(
                 panic!("Third argument not a number");
             }
 
-            let (Value::Brush(Brush::SolidColor(color_a)), Value::Brush(Brush::SolidColor(color_b)), Value::Number(factor)) = (arg0, arg1, arg2) else {
+            let (
+                Value::Brush(Brush::SolidColor(color_a)),
+                Value::Brush(Brush::SolidColor(color_b)),
+                Value::Number(factor),
+            ) = (arg0, arg1, arg2)
+            else {
                 unreachable!()
             };
 

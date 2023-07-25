@@ -71,7 +71,10 @@ impl WasmInputHelper {
             let win = window_adapter.clone();
             h.add_event_listener("paste", move |e: web_sys::ClipboardEvent| {
                 if let Some(window_adapter) = win.upgrade() {
-                    let Some(text) = e.clipboard_data().and_then(|data| data.get_data("text").ok()) else {return};
+                    let Some(text) = e.clipboard_data().and_then(|data| data.get_data("text").ok())
+                    else {
+                        return;
+                    };
                     e.prevent_default();
                     if let Some(focus_item) = WindowInner::from_pub(&window_adapter.window())
                         .focus_item
