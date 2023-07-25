@@ -4,7 +4,7 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -76,6 +76,7 @@ pub struct FemtoVGRenderer {
     graphics_cache: itemrenderer::ItemGraphicsCache,
     texture_cache: RefCell<images::TextureCache>,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
+    rendering_first_time: Cell<bool>,
     // Last field, so that it's dropped last and context exists and is current when destroying the FemtoVG canvas
     opengl_context: Box<dyn OpenGLContextWrapper>,
     #[cfg(target_arch = "wasm32")]
@@ -139,35 +140,11 @@ impl FemtoVGRenderer {
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
+            rendering_first_time: Cell::new(true),
             opengl_context,
             #[cfg(target_arch = "wasm32")]
             canvas_id: html_canvas.id(),
         })
-    }
-
-    /// Notifiers the renderer that the underlying window is becoming visible.
-    pub fn show(&self) -> Result<(), PlatformError> {
-        self.opengl_context.ensure_current()?;
-        *self.rendering_metrics_collector.borrow_mut() =
-            RenderingMetricsCollector::new("FemtoVG renderer");
-
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            self.with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))?;
-        }
-
-        Ok(())
-    }
-
-    /// Notifiers the renderer that the underlying window will be hidden soon.
-    pub fn hide(&self) -> Result<(), PlatformError> {
-        self.opengl_context.ensure_current()?;
-        self.rendering_metrics_collector.borrow_mut().take();
-
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            self.with_graphics_api(|api| callback.notify(RenderingState::RenderingTeardown, &api))?;
-        }
-
-        Ok(())
     }
 
     /// Render the scene using OpenGL. This function assumes that the context is current.
@@ -176,6 +153,17 @@ impl FemtoVGRenderer {
         window: &i_slint_core::api::Window,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.opengl_context.ensure_current()?;
+
+        if self.rendering_first_time.take() {
+            *self.rendering_metrics_collector.borrow_mut() =
+                RenderingMetricsCollector::new("FemtoVG renderer");
+
+            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                self.with_graphics_api(|api| {
+                    callback.notify(RenderingState::RenderingSetup, &api)
+                })?;
+            }
+        }
 
         let size = window.size();
         let width = size.width;
@@ -480,7 +468,16 @@ impl RendererSealed for FemtoVGRenderer {
 impl Drop for FemtoVGRenderer {
     fn drop(&mut self) {
         // Ensure the context is current before the renderer is destroyed
-        self.opengl_context.ensure_current().ok();
+        if self.opengl_context.ensure_current().is_ok() {
+            drop(self.rendering_metrics_collector.borrow_mut().take());
+
+            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                self.with_graphics_api(|api| {
+                    callback.notify(RenderingState::RenderingTeardown, &api)
+                })
+                .ok();
+            }
+        }
 
         // Clear these manually to drop any Rc<Canvas>.
         self.graphics_cache.clear_all();

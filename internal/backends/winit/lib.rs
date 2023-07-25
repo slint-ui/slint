@@ -34,9 +34,6 @@ mod renderer {
         where
             Self: Sized;
 
-        fn show(&self) -> Result<(), PlatformError>;
-        fn hide(&self) -> Result<(), PlatformError>;
-
         fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError>;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;

@@ -492,10 +492,6 @@ public:
     {
         cbindgen_private::slint_skia_renderer_resize(inner, size);
     }
-
-    void hide() const { cbindgen_private::slint_skia_renderer_hide(inner); }
-
-    void show() const { cbindgen_private::slint_skia_renderer_show(inner); }
 };
 
 /// Call this function at each iteration of the event loop to call the timer handler and advance
