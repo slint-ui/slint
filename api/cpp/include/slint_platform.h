@@ -189,8 +189,7 @@ public:
     virtual void quit_event_loop() { }
 
     /// An task that is passed to the Platform::run_in_event_loop function and needs to be
-    /// invoked
-    /// in the event loop.
+    /// run in the event loop and not in any other thread.
     class Task
     {
         cbindgen_private::PlatformTaskOpaque inner { nullptr, nullptr };
