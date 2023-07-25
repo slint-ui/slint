@@ -287,10 +287,8 @@ impl WinitWindowAdapter {
             self.window().dispatch_event(WindowEvent::Resized {
                 size: physical_size.to_logical(scale_factor),
             });
-            self.renderer().resize_event(physical_size)
-        } else {
-            Ok(())
         }
+        Ok(())
     }
 
     pub fn set_dark_color_scheme(&self, dark_mode: bool) {

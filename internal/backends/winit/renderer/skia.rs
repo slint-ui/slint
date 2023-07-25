@@ -69,8 +69,4 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
     }
-
-    fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
-        self.renderer.resize_event(size)
-    }
 }

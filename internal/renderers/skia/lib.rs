@@ -171,14 +171,6 @@ impl SkiaRenderer {
         })
     }
 
-    /// Call this when you receive a notification from the windowing system that the size of the window has changed.
-    pub fn resize_event(
-        &self,
-        size: PhysicalWindowSize,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
-        self.surface.resize_event(size)
-    }
-
     fn window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
         self.maybe_window_adapter
             .borrow()
@@ -347,6 +339,10 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
         self.image_cache.clear_all();
         self.path_cache.clear_all();
+    }
+
+    fn resize(&self, size: i_slint_core::api::PhysicalSize) -> Result<(), PlatformError> {
+        self.surface.resize_event(size)
     }
 }
 

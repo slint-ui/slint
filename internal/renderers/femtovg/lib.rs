@@ -264,11 +264,6 @@ impl FemtoVGRenderer {
         self.opengl_context.swap_buffers()
     }
 
-    /// Inform the renderer about the new size of the underlying window.
-    pub fn resize(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
-        self.opengl_context.resize(size)
-    }
-
     #[cfg(not(target_arch = "wasm32"))]
     fn with_graphics_api(
         &self,
@@ -479,6 +474,10 @@ impl RendererSealed for FemtoVGRenderer {
             self.graphics_cache.clear_all();
             self.texture_cache.borrow_mut().clear();
         }
+    }
+
+    fn resize(&self, size: i_slint_core::api::PhysicalSize) -> Result<(), PlatformError> {
+        self.opengl_context.resize(size)
     }
 }
 

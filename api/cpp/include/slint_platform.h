@@ -485,11 +485,6 @@ public:
     }
 
     void render() const { cbindgen_private::slint_skia_renderer_render(inner); }
-
-    void resize(PhysicalSize size) const
-    {
-        cbindgen_private::slint_skia_renderer_resize(inner, size);
-    }
 };
 
 /// Call this function at each iteration of the event loop to call the timer handler and advance

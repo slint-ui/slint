@@ -437,6 +437,7 @@ impl Window {
     ///
     /// Any position fields in the event must be in the logical pixel coordinate system relative to
     /// the top left corner of the window.
+    // TODO: Return a Result<(), PlatformError>
     pub fn dispatch_event(&self, event: crate::platform::WindowEvent) {
         match event {
             crate::platform::WindowEvent::PointerPressed { position, button } => {
@@ -488,6 +489,11 @@ impl Window {
             }
             crate::platform::WindowEvent::Resized { size } => {
                 self.0.set_window_item_geometry(size.to_euclid());
+                self.0
+                    .window_adapter()
+                    .renderer()
+                    .resize(size.to_physical(self.scale_factor()))
+                    .unwrap()
             }
         }
     }
