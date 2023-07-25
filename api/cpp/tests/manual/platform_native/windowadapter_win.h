@@ -71,16 +71,11 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter
         return slint::PhysicalSize({ uint32_t(r.right - r.left), uint32_t(r.bottom - r.top) });
     }
 
-    void show() const override
-    {
-        ShowWindow(hwnd, SW_SHOWNORMAL);
-        m_renderer->show();
-    }
+    void show() const override { ShowWindow(hwnd, SW_SHOWNORMAL); }
 
     void hide() const override
     {
         // TODO: destroy window
-        m_renderer->hide();
     }
 
     void request_redraw() const override { InvalidateRect(hwnd, nullptr, false); }
