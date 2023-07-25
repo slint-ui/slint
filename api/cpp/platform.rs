@@ -454,18 +454,6 @@ pub mod skia {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn slint_skia_renderer_show(r: SkiaRendererOpaque) {
-        let r = &*(r as *const SkiaRenderer);
-        r.show().unwrap()
-    }
-
-    #[no_mangle]
-    pub unsafe extern "C" fn slint_skia_renderer_hide(r: SkiaRendererOpaque) {
-        let r = &*(r as *const SkiaRenderer);
-        r.hide().unwrap()
-    }
-
-    #[no_mangle]
     pub unsafe extern "C" fn slint_skia_renderer_resize(r: SkiaRendererOpaque, size: IntSize) {
         let r = &*(r as *const SkiaRenderer);
         r.resize_event(PhysicalSize { width: size.width, height: size.height }).unwrap();

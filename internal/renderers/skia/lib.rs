@@ -4,7 +4,7 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use i_slint_core::api::{
@@ -58,6 +58,7 @@ pub struct SkiaRenderer {
     image_cache: ItemCache<Option<skia_safe::Image>>,
     path_cache: ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
+    rendering_first_time: Cell<bool>,
     surface: DefaultSurface,
 }
 
@@ -75,36 +76,9 @@ impl SkiaRenderer {
             image_cache: Default::default(),
             path_cache: Default::default(),
             rendering_metrics_collector: Default::default(),
+            rendering_first_time: Cell::new(true),
             surface,
         })
-    }
-
-    /// Notifiers the renderer that the underlying window is becoming visible.
-    pub fn show(&self) -> Result<(), PlatformError> {
-        *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(&format!(
-            "Skia renderer (skia backend {}; surface: {} bpp)",
-            self.surface.name(),
-            self.surface.bits_per_pixel()?
-        ));
-
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            self.surface
-                .with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))
-        }
-
-        Ok(())
-    }
-
-    /// Notifiers the renderer that the underlying window will be hidden soon.
-    pub fn hide(&self) -> Result<(), i_slint_core::platform::PlatformError> {
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            self.surface.with_active_surface(|| {
-                self.surface.with_graphics_api(|api| {
-                    callback.notify(RenderingState::RenderingTeardown, &api)
-                })
-            })?;
-        }
-        Ok(())
     }
 
     /// Render the scene in the previously associated window. The size parameter must match the size of the window.
@@ -112,6 +86,20 @@ impl SkiaRenderer {
         &self,
         window: &i_slint_core::api::Window,
     ) -> Result<(), i_slint_core::platform::PlatformError> {
+        if self.rendering_first_time.take() {
+            *self.rendering_metrics_collector.borrow_mut() =
+                RenderingMetricsCollector::new(&format!(
+                    "Skia renderer (skia backend {}; surface: {} bpp)",
+                    self.surface.name(),
+                    self.surface.bits_per_pixel()?
+                ));
+
+            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                self.surface
+                    .with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))
+            }
+        }
+
         let size = window.size();
         let window_inner = WindowInner::from_pub(window);
 
@@ -344,6 +332,20 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         self.image_cache.component_destroyed(component);
         self.path_cache.component_destroyed(component);
         Ok(())
+    }
+}
+
+impl Drop for SkiaRenderer {
+    fn drop(&mut self) {
+        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            self.surface
+                .with_active_surface(|| {
+                    self.surface.with_graphics_api(|api| {
+                        callback.notify(RenderingState::RenderingTeardown, &api)
+                    })
+                })
+                .ok();
+        }
     }
 }
 

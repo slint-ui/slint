@@ -62,14 +62,6 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         Ok((Self { renderer }, winit_window))
     }
 
-    fn show(&self) -> Result<(), PlatformError> {
-        self.renderer.show()
-    }
-
-    fn hide(&self) -> Result<(), PlatformError> {
-        self.renderer.hide()
-    }
-
     fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
         self.renderer.render(window)
     }

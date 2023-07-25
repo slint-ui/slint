@@ -118,7 +118,6 @@ pub struct WinitWindowAdapter {
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
     shown: Cell<bool>,
 
-    winit_window: Rc<winit::window::Window>,
     renderer: Box<dyn WinitCompatibleRenderer>,
     // We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
     // And we wan see the newer value before the Resized event was received, leading to inconsistencies
@@ -129,6 +128,8 @@ pub struct WinitWindowAdapter {
 
     #[cfg(enable_accesskit)]
     pub accesskit_adapter: crate::accesskit::AccessKitAdapter,
+
+    winit_window: Rc<winit::window::Window>, // Last field so that any previously provided window handles are still valid in the drop impl of the renderers, etc.
 }
 
 impl WinitWindowAdapter {
@@ -534,7 +535,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             self.size.set(physical_size_to_slint(&size));
         };
 
-        self.renderer().show()?;
         winit_window.set_visible(true);
 
         // Make sure the dark color scheme property is up-to-date, as it may have been queried earlier when
@@ -558,8 +558,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
     fn hide(&self) -> Result<(), PlatformError> {
         self.shown.set(false);
-
-        self.renderer().hide()?;
 
         self.winit_window().set_visible(false);
 
@@ -690,7 +688,6 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
 impl Drop for WinitWindowAdapter {
     fn drop(&mut self) {
-        self.renderer.hide().ok(); // ignore errors here, we're going away anyway
         crate::event_loop::unregister_window(self.winit_window().id());
     }
 }
