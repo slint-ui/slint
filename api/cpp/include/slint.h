@@ -8,11 +8,11 @@
 #    pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
-#include "slint_internal.h"
-#include "slint_size.h"
-#include "slint_point.h"
-#include "slint_backend_internal.h"
-#include "slint_qt_internal.h"
+#include "private/slint_internal.h"
+#include "private/slint_size.h"
+#include "private/slint_point.h"
+#include "private/slint_backend_internal.h"
+#include "private/slint_qt_internal.h"
 
 #include <vector>
 #include <memory>

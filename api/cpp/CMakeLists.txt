@@ -254,36 +254,34 @@ foreach(header IN LISTS api_headers)
 endforeach()
 
 set(generated_headers
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_enums.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_string_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_brush_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_sharedvector_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_properties_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_image_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_color_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_pathdata_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_qt_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_backend_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_generated_public.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_enums_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_enums.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_string_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_brush_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_sharedvector_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_properties_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_image_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_color_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_pathdata_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_qt_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_backend_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_generated_public.h
 )
 
 if(SLINT_FEATURE_INTERPRETER)
     list(APPEND generated_headers
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_internal.h
-        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_generated_public.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_interpreter_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_interpreter_generated_public.h
     )
 endif()
 
 
-foreach(header IN LISTS generated_headers)
-    set_property(TARGET Slint APPEND PROPERTY PUBLIC_HEADER ${header})
-endforeach()
-
 target_include_directories(Slint INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated_include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated_include/private>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/private>
     $<INSTALL_INTERFACE:include/slint>
 )
 
@@ -297,6 +295,8 @@ export(TARGETS Slint slint-cpp
 install(EXPORT SlintTargets NAMESPACE Slint:: DESTINATION lib/cmake/Slint)
 install(TARGETS Slint slint-cpp
     EXPORT SlintTargets LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/slint)
+install(DIRECTORY include/private DESTINATION include/slint FILES_MATCHING PATTERN "*.h")
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private DESTINATION include/slint FILES_MATCHING PATTERN "*.h")
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
