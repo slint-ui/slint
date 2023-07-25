@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use core::pin::Pin;
 
 use crate::component::ComponentRef;
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
+use crate::window::WindowAdapter;
 
 /// This trait represents a Renderer that can render a slint scene.
 ///
@@ -103,4 +105,6 @@ pub trait RendererSealed {
     }
 
     fn default_font_size(&self) -> LogicalLength;
+
+    fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>);
 }

@@ -45,8 +45,8 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
         Ok((Self { renderer }, winit_window))
     }
 
-    fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
-        self.renderer.render(window)
+    fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
+        self.renderer.render()
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {

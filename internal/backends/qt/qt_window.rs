@@ -2016,6 +2016,10 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         self.cache.component_destroyed(component);
         Ok(())
     }
+
+    fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {
+        // No-op because QtWindow is also the WindowAdapter
+    }
 }
 
 fn accessible_item(item: Option<ItemRc>) -> Option<ItemRc> {

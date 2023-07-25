@@ -371,6 +371,7 @@ impl WindowInner {
         self.component.replace(ComponentRc::downgrade(component));
         self.pinned_fields.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
         let window_adapter = self.window_adapter();
+        window_adapter.renderer().set_window_adapter(&window_adapter);
         {
             let component = ComponentRc::borrow_pin(component);
             let root_item = component.as_ref().get_item_ref(0);
