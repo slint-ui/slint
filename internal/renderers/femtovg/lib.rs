@@ -6,7 +6,7 @@
 
 use std::cell::{Cell, RefCell};
 use std::pin::Pin;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use i_slint_common::sharedfontdb;
 use i_slint_core::api::{
@@ -20,7 +20,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
-use i_slint_core::window::WindowInner;
+use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
 
 type PhysicalLength = euclid::Length<f32, PhysicalPx>;
@@ -71,6 +71,7 @@ unsafe impl OpenGLContextWrapper for WebGLNeedsNoCurrentContext {
 /// Use the FemtoVG renderer when implementing a custom Slint platform where you deliver events to
 /// Slint and want the scene to be rendered using OpenGL and the FemtoVG renderer.
 pub struct FemtoVGRenderer {
+    maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
     canvas: CanvasRc,
     graphics_cache: itemrenderer::ItemGraphicsCache,
@@ -135,6 +136,7 @@ impl FemtoVGRenderer {
         let canvas = Rc::new(RefCell::new(femtovg_canvas));
 
         Ok(Self {
+            maybe_window_adapter: Default::default(),
             rendering_notifier: Default::default(),
             canvas,
             graphics_cache: Default::default(),
@@ -148,10 +150,7 @@ impl FemtoVGRenderer {
     }
 
     /// Render the scene using OpenGL. This function assumes that the context is current.
-    pub fn render(
-        &self,
-        window: &i_slint_core::api::Window,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         self.opengl_context.ensure_current()?;
 
         if self.rendering_first_time.take() {
@@ -165,6 +164,8 @@ impl FemtoVGRenderer {
             }
         }
 
+        let window_adapter = self.window_adapter()?;
+        let window = window_adapter.window();
         let size = window.size();
         let width = size.width;
         let height = size.height;
@@ -296,6 +297,14 @@ impl FemtoVGRenderer {
         };
         callback(api);
         Ok(())
+    }
+
+    fn window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
+        self.maybe_window_adapter
+            .borrow()
+            .as_ref()
+            .and_then(|w| w.upgrade())
+            .ok_or_else(|| format!("Renderer must be associated with component before use").into())
     }
 }
 
@@ -462,6 +471,10 @@ impl RendererSealed for FemtoVGRenderer {
         self.opengl_context.ensure_current()?;
         self.graphics_cache.component_destroyed(component);
         Ok(())
+    }
+
+    fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
+        *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
     }
 }
 

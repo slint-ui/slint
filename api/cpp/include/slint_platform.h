@@ -351,11 +351,10 @@ public:
     ///
     /// The stride is the amount of pixels between two lines in the buffer.
     /// It is must be at least as large as the width of the window.
-    PhysicalRegion render(const Window &window, std::span<slint::Rgb8Pixel> buffer,
-                          std::size_t pixel_stride) const
+    PhysicalRegion render(std::span<slint::Rgb8Pixel> buffer, std::size_t pixel_stride) const
     {
-        auto r = cbindgen_private::slint_software_renderer_render_rgb8(
-                inner, &window.window_handle().inner, buffer.data(), buffer.size(), pixel_stride);
+        auto r = cbindgen_private::slint_software_renderer_render_rgb8(inner, buffer.data(),
+                                                                       buffer.size(), pixel_stride);
         return PhysicalRegion { r };
     }
 
@@ -365,12 +364,10 @@ public:
     ///
     /// The stride is the amount of pixels between two lines in the buffer.
     /// It is must be at least as large as the width of the window.
-    PhysicalRegion render(const Window &window, std::span<Rgb565Pixel> buffer,
-                          std::size_t pixel_stride) const
+    PhysicalRegion render(std::span<Rgb565Pixel> buffer, std::size_t pixel_stride) const
     {
         auto r = cbindgen_private::slint_software_renderer_render_rgb565(
-                inner, &window.window_handle().inner, reinterpret_cast<uint16_t *>(buffer.data()),
-                buffer.size(), pixel_stride);
+                inner, reinterpret_cast<uint16_t *>(buffer.data()), buffer.size(), pixel_stride);
         return PhysicalRegion { r };
     }
 };
@@ -483,10 +480,7 @@ public:
         inner = cbindgen_private::slint_skia_renderer_new(window_handle.inner, initial_size);
     }
 
-    void render(const Window &window) const
-    {
-        cbindgen_private::slint_skia_renderer_render(inner, &window.window_handle().inner);
-    }
+    void render() const { cbindgen_private::slint_skia_renderer_render(inner); }
 
     void resize(PhysicalSize size) const
     {

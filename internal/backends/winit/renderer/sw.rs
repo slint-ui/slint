@@ -63,8 +63,6 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
             )
         })?;
 
-        self.renderer.set_window(window);
-
         let mut surface = self.surface.borrow_mut();
 
         surface

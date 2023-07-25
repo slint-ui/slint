@@ -121,7 +121,7 @@ pub struct SoftwareRenderer {
     /// This is the area which was dirty on the previous frame.
     /// Only used if repaint_buffer_type == RepaintBufferType::SwappedBuffers
     prev_frame_dirty: Cell<DirtyRegion>,
-    window: RefCell<Option<Weak<dyn crate::window::WindowAdapter>>>,
+    maybe_window_adapter: RefCell<Option<Weak<dyn crate::window::WindowAdapter>>>,
 }
 
 impl SoftwareRenderer {
@@ -141,7 +141,7 @@ impl SoftwareRenderer {
         window: Weak<dyn crate::window::WindowAdapter>,
     ) -> Self {
         Self {
-            window: RefCell::new(Some(window.clone())),
+            maybe_window_adapter: RefCell::new(Some(window.clone())),
             repaint_buffer_type,
             partial_cache: Default::default(),
             force_dirty: Default::default(),
@@ -159,21 +159,13 @@ impl SoftwareRenderer {
     #[doc(hidden)]
     pub fn new_without_window(repaint_buffer_type: RepaintBufferType) -> Self {
         Self {
-            window: RefCell::new(None),
+            maybe_window_adapter: RefCell::new(None),
             repaint_buffer_type,
             partial_cache: Default::default(),
             force_dirty: Default::default(),
             force_screen_refresh: Default::default(),
             prev_frame_dirty: Default::default(),
         }
-    }
-
-    /// Sets the window to be use for future rendering operations. Call this before calling
-    /// rendering.
-    #[doc(hidden)]
-    pub fn set_window(&self, window: &crate::api::Window) {
-        *self.window.borrow_mut() =
-            Some(Rc::downgrade(&WindowInner::from_pub(window).window_adapter().clone()));
     }
 
     /// Internal function to apply a dirty region depending on the dirty_tracking_policy.
@@ -212,7 +204,7 @@ impl SoftwareRenderer {
     /// returns the dirty region for this frame (not including the extra_draw_region)
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
         let window = self
-            .window
+            .maybe_window_adapter
             .borrow()
             .as_ref()
             .and_then(|w| w.upgrade())
@@ -327,7 +319,7 @@ impl SoftwareRenderer {
     /// ```
     pub fn render_by_line(&self, line_buffer: impl LineBufferProvider) -> PhysicalRegion {
         let window = self
-            .window
+            .maybe_window_adapter
             .borrow()
             .as_ref()
             .and_then(|w| w.upgrade())
@@ -531,6 +523,10 @@ impl RendererSealed for SoftwareRenderer {
 
     fn default_font_size(&self) -> LogicalLength {
         self::fonts::DEFAULT_FONT_SIZE
+    }
+
+    fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
+        *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
     }
 }
 
@@ -2051,7 +2047,6 @@ impl MinimalSoftwareWindow {
     /// Return true if something was redrawn.
     pub fn draw_if_needed(&self, render_callback: impl FnOnce(&SoftwareRenderer)) -> bool {
         if self.needs_redraw.replace(false) {
-            self.renderer.set_window(&self.window);
             render_callback(&self.renderer);
             true
         } else {

@@ -281,15 +281,12 @@ pub unsafe extern "C" fn slint_software_renderer_drop(r: SoftwareRendererOpaque)
 #[no_mangle]
 pub unsafe extern "C" fn slint_software_renderer_render_rgb8(
     r: SoftwareRendererOpaque,
-    window_adapter: *const WindowAdapterRcOpaque,
     buffer: *mut Rgb8Pixel,
     buffer_len: usize,
     pixel_stride: usize,
 ) -> IntRect {
     let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
     let renderer = &*(r as *const SoftwareRenderer);
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    renderer.set_window(window_adapter.window());
     let r = renderer.render(buffer, pixel_stride);
     let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
     i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
@@ -298,15 +295,12 @@ pub unsafe extern "C" fn slint_software_renderer_render_rgb8(
 #[no_mangle]
 pub unsafe extern "C" fn slint_software_renderer_render_rgb565(
     r: SoftwareRendererOpaque,
-    window_adapter: *const WindowAdapterRcOpaque,
     buffer: *mut u16,
     buffer_len: usize,
     pixel_stride: usize,
 ) -> IntRect {
     let buffer = core::slice::from_raw_parts_mut(buffer as *mut Rgb565Pixel, buffer_len);
     let renderer = &*(r as *const SoftwareRenderer);
-    let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-    renderer.set_window(window_adapter.window());
     let r = renderer.render(buffer, pixel_stride);
     let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
     i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
@@ -458,13 +452,9 @@ pub mod skia {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn slint_skia_renderer_render(
-        r: SkiaRendererOpaque,
-        window: *const WindowAdapterRcOpaque,
-    ) {
-        let window_adapter = &*(window as *const Rc<dyn WindowAdapter>);
+    pub unsafe extern "C" fn slint_skia_renderer_render(r: SkiaRendererOpaque) {
         let r = &*(r as *const SkiaRenderer);
-        r.render(window_adapter.window()).unwrap();
+        r.render().unwrap();
     }
 
     #[no_mangle]

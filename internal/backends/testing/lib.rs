@@ -158,6 +158,10 @@ impl RendererSealed for TestingWindow {
     fn default_font_size(&self) -> LogicalLength {
         LogicalLength::new(10.)
     }
+
+    fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {
+        // No-op since TestingWindow is also the WindowAdapter
+    }
 }
 
 /// Initialize the testing backend.

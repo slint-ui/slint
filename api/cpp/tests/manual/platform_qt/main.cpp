@@ -83,7 +83,7 @@ public:
     {
         slint_platform::update_timers_and_animations();
 
-        m_renderer->render(window());
+        m_renderer->render();
 
         if (has_active_animations()) {
             requestUpdate();
