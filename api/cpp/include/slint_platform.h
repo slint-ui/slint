@@ -15,6 +15,16 @@ struct xcb_connection_t;
 struct wl_surface;
 struct wl_display;
 
+#    if defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
+#        ifdef __OBJC__
+@class NSView;
+@class NSWindow;
+#        else
+typedef struct objc_object NSView;
+typedef struct objc_object NSWindow;
+#        endif
+#    endif
+
 namespace slint {
 
 /// This namespace contains experimental API.
@@ -378,7 +388,7 @@ public:
 
 #    elif defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
 
-    static NativeWindowHandle from_appkit(void *nsview, void *nswindow)
+    static NativeWindowHandle from_appkit(NSView *nsview, NSWindow *nswindow)
     {
 
         return { cbindgen_private::slint_new_raw_window_handle_appkit(nsview, nswindow) };
