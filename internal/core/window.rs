@@ -1292,10 +1292,15 @@ fn test_empty_window() {
         crate::software_renderer::RepaintBufferType::NewBuffer,
     );
     msw.window().request_redraw();
-    msw.draw_if_needed(|renderer| {
+    let mut region = None;
+    let render_called = msw.draw_if_needed(|renderer| {
         let mut buffer =
             crate::graphics::SharedPixelBuffer::<crate::graphics::Rgb8Pixel>::new(100, 100);
         let stride = buffer.width() as usize;
-        renderer.render(buffer.make_mut_slice(), stride);
+        region = Some(renderer.render(buffer.make_mut_slice(), stride));
     });
+    assert!(render_called);
+    let region = region.unwrap();
+    assert_eq!(region.bounding_box_size(), PhysicalSize::default());
+    assert_eq!(region.bounding_box_origin(), PhysicalPosition::default());
 }
