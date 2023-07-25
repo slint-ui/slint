@@ -121,16 +121,6 @@ public:
         return *reinterpret_cast<Window *>(&self);
     }
 
-    /// Send a pointer event to this window
-    // Note: in rust, this is on the Window. FIXME: use a public event type
-    void dispatch_pointer_event(const cbindgen_private::MouseEvent &event)
-    {
-        private_api::assert_main_thread();
-        if (was_initialized) {
-            cbindgen_private::slint_windowrc_dispatch_pointer_event(&self, event);
-        }
-    }
-
     /// Set the logical size of this window after a resize event
     // Note: in rust, this is an event on the Window
     void dispatch_resize_event(slint::LogicalSize s)

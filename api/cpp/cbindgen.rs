@@ -9,26 +9,43 @@ use std::path::{Path, PathBuf};
 // cSpell: ignore compat constexpr corelib deps sharedvector pathdata
 
 fn enums(path: &Path) -> anyhow::Result<()> {
-    let mut enums =
-        std::fs::File::create(path).context("Error creating slint_internal_enums.h file")?;
-    writeln!(enums, "#pragma once")?;
-    writeln!(enums, "// This file is auto-generated from {}", file!())?;
-    writeln!(enums, "namespace slint::cbindgen_private {{")?;
+    let mut enums_priv = std::fs::File::create(path.join("slint_enums_internal.h"))
+        .context("Error creating slint_internal_enums.h file")?;
+    writeln!(enums_priv, "#pragma once")?;
+    writeln!(enums_priv, "// This file is auto-generated from {}", file!())?;
+    writeln!(enums_priv, "#include \"slint_enums.h\"")?;
+    writeln!(enums_priv, "namespace slint::cbindgen_private {{")?;
+    let mut enums_pub = std::fs::File::create(path.join("slint_enums.h"))
+        .context("Error creating slint_enums.h file")?;
+    writeln!(enums_pub, "#pragma once")?;
+    writeln!(enums_pub, "// This file is auto-generated from {}", file!())?;
+    writeln!(enums_pub, "namespace slint {{")?;
+    macro_rules! enum_file {
+        (PointerEventButton) => {{
+            writeln!(enums_priv, "using slint::PointerEventButton;")?;
+            &mut enums_pub
+        }};
+        ($_:ident) => {
+            &mut enums_priv
+        };
+    }
     macro_rules! print_enums {
          ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
              $(
-                $(writeln!(enums, "///{}", $enum_doc)?;)*
-                writeln!(enums, "enum class {} {{", stringify!($Name))?;
+                let file = enum_file!($Name);
+                $(writeln!(file, "///{}", $enum_doc)?;)*
+                writeln!(file, "enum class {} {{", stringify!($Name))?;
                 $(
-                    $(writeln!(enums, "    ///{}", $value_doc)?;)*
-                    writeln!(enums, "    {},", stringify!($Value).trim_start_matches("r#"))?;
+                    $(writeln!(file, "    ///{}", $value_doc)?;)*
+                    writeln!(file, "    {},", stringify!($Value).trim_start_matches("r#"))?;
                 )*
-                writeln!(enums, "}};")?;
+                writeln!(file, "}};")?;
              )*
          }
     }
     i_slint_common::for_each_enums!(print_enums);
-    writeln!(enums, "}}")?;
+    writeln!(enums_pub, "}}")?;
+    writeln!(enums_priv, "}}")?;
     Ok(())
 }
 
@@ -743,7 +760,7 @@ pub fn gen_all(
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
     std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
     let mut deps = Vec::new();
-    enums(&include_dir.join("slint_enums_internal.h"))?;
+    enums(include_dir)?;
     gen_corelib(root_dir, include_dir, &mut deps, enabled_features)?;
     gen_backend_qt(root_dir, include_dir, &mut deps)?;
     gen_backend(root_dir, include_dir, &mut deps)?;

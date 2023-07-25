@@ -233,6 +233,13 @@ public:
         cbindgen_private::slint_windowrc_dispatch_key_event(&inner, &event);
     }
 
+    /// Send a pointer event to this window
+    void dispatch_pointer_event(const cbindgen_private::MouseEvent &event)
+    {
+        private_api::assert_main_thread();
+        cbindgen_private::slint_windowrc_dispatch_pointer_event(&inner, event);
+    }
+
     /// Registers a font by the specified path. The path must refer to an existing
     /// TrueType font.
     /// \returns an empty optional on success, otherwise an error string
@@ -521,6 +528,83 @@ public:
         cbindgen_private::KeyInputEvent event { text, cbindgen_private::KeyEventType::KeyReleased,
                                                 0, 0 };
         inner.dispatch_key_event(event);
+    }
+
+    /// Dispatches a pointer or mouse press event to the scene.
+    ///
+    /// Use this function when you're implementing your own backend and want to forward user
+    /// pointer/mouse events.
+    ///
+    /// \a pos represents the logical position of the pointer relative to the window.
+    /// \a button is the button that was pressed.
+    void dispatch_pointer_press_event(LogicalPosition pos, PointerEventButton button)
+    {
+        using slint::cbindgen_private::MouseEvent;
+        MouseEvent event { .tag = MouseEvent::Tag::Pressed,
+                           .pressed = MouseEvent::Pressed_Body { .position = { pos.x, pos.y },
+                                                                 .button = button,
+                                                                 .click_count = 0 } };
+        inner.dispatch_pointer_event(event);
+    }
+    /// Dispatches a pointer or mouse release event to the scene.
+    ///
+    /// Use this function when you're implementing your own backend and want to forward user
+    /// pointer/mouse events.
+    ///
+    /// \a pos represents the logical position of the pointer relative to the window.
+    /// \a button is the button that was released.
+    void dispatch_pointer_release_event(LogicalPosition pos, PointerEventButton button)
+    {
+        using slint::cbindgen_private::MouseEvent;
+        MouseEvent event { .tag = MouseEvent::Tag::Released,
+                           .released = MouseEvent::Released_Body { .position = { pos.x, pos.y },
+                                                                   .button = button,
+                                                                   .click_count = 0 } };
+        inner.dispatch_pointer_event(event);
+    }
+    /// Dispatches a pointer exit event to the scene.
+    ///
+    /// Use this function when you're implementing your own backend and want to forward user
+    /// pointer/mouse events.
+    ///
+    /// This event is triggered when the pointer exits the window.
+    void dispatch_pointer_exit_event()
+    {
+        using slint::cbindgen_private::MouseEvent;
+        MouseEvent event { .tag = MouseEvent::Tag::Exit, .moved = {} };
+        inner.dispatch_pointer_event(event);
+    }
+
+    /// Dispatches a pointer move event to the scene.
+    ///
+    /// Use this function when you're implementing your own backend and want to forward user
+    /// pointer/mouse events.
+    ///
+    /// \a pos represents the logical position of the pointer relative to the window.
+    void dispatch_pointer_move_event(LogicalPosition pos)
+    {
+        using slint::cbindgen_private::MouseEvent;
+        MouseEvent event { .tag = MouseEvent::Tag::Moved,
+                           .moved = MouseEvent::Moved_Body { .position = { pos.x, pos.y } } };
+        inner.dispatch_pointer_event(event);
+    }
+
+    /// Dispatches a scroll (or wheel) event to the scene.
+    ///
+    /// Use this function when you're implementing your own backend and want to forward user wheel
+    /// events.
+    ///
+    /// \a parameter represents the logical position of the pointer relative to the window.
+    /// \a delta_x and \a delta_y represent the scroll delta values in the X and Y
+    /// directions in logical pixels.
+    void dispatch_pointer_scroll_event(LogicalPosition pos, float delta_x, float delta_y)
+    {
+        using slint::cbindgen_private::MouseEvent;
+        MouseEvent event { .tag = MouseEvent::Tag::Wheel,
+                           .wheel = MouseEvent::Wheel_Body { .position = { pos.x, pos.y },
+                                                             .delta_x = delta_x,
+                                                             .delta_y = delta_y } };
+        inner.dispatch_pointer_event(event);
     }
 
     /// \private
