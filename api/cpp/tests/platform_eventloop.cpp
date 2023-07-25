@@ -83,7 +83,7 @@ struct TestPlatform : slint_platform::Platform
 #endif
 };
 
-bool init_platform = (TestPlatform::register_platform(std::make_unique<TestPlatform>()), true);
+bool init_platform = (slint_platform::set_platform(std::make_unique<TestPlatform>()), true);
 
 TEST_CASE("C++ Singleshot Timers")
 {

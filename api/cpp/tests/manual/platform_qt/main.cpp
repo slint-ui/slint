@@ -168,7 +168,7 @@ int main(int argc, char **argv)
     static MyPlatform *plarform = [] {
         auto platform = std::make_unique<MyPlatform>();
         auto p2 = platform.get();
-        MyPlatform::register_platform(std::move(platform));
+        slint_platform::set_platform(std::move(platform));
         return p2;
     }();
 
