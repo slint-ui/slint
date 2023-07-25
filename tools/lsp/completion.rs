@@ -87,14 +87,14 @@ pub(crate) fn completion_at(
             // add keywords
             r.extend(
                 [
-                    ("property", "property <$1> $2;"),
-                    ("in property", "in property <$1> $2;"),
-                    ("in-out property", "in-out property <$1> $2;"),
-                    ("out property", "out property <$1> $2;"),
-                    ("private property", "private property <$1> $2;"),
-                    ("function", "function $1() {}"),
-                    ("public function", "public function $1() {}"),
-                    ("callback", "callback $1();"),
+                    ("property", "property <${1:int}> ${2:name};"),
+                    ("in property", "in property <${1:int}> ${2:name};"),
+                    ("in-out property", "in-out property <${1:int}> ${2:name};"),
+                    ("out property", "out property <${1:int}> ${2:name};"),
+                    ("private property", "private property <${1:int}> ${2:name};"),
+                    ("function", "function ${1:name}($2) {\n    $0\n}"),
+                    ("public function", "public function ${1:name}($2) {\n    $0\n}"),
+                    ("callback", "callback ${1:name}($2);"),
                 ]
                 .iter()
                 .map(|(kw, ins_tex)| {
@@ -107,11 +107,10 @@ pub(crate) fn completion_at(
             if !is_global {
                 r.extend(
                     [
-                        ("animate", "animate $1 { $2 }"),
-                        ("states", "states [ $1 ]"),
-                        ("transitions", "transitions [ $1 ]"),
-                        ("for", "for $1 in $2: $3 {}"),
-                        ("if", "if ($1) : $2 {}"),
+                        ("animate", "animate ${1:prop} {\n     $0\n}"),
+                        ("states", "states [\n    $0\n]"),
+                        ("for", "for $1 in $2: ${3:Rectangle} {\n    $0\n}"),
+                        ("if", "if $1: ${2:Rectangle} {\n    $0\n}"),
                         ("@children", "@children"),
                     ]
                     .iter()
@@ -301,14 +300,14 @@ pub(crate) fn completion_at(
     } else if node.kind() == SyntaxKind::Document {
         let r: Vec<_> = [
             // the $1 is first in the quote so the filename can be completed before the import names
-            ("import", "import { $2 } from \"$1\";"),
-            ("component", "component $1 {}"),
-            ("struct", "struct $1 {}"),
-            ("global", "global $1 {}"),
-            ("export", "export { $1 }"),
-            ("export component", "export component $1 { }"),
-            ("export struct", "export struct $1 {}"),
-            ("export global", "export global $1 {}"),
+            ("import", "import { ${2:Component} } from \"${1:std-widgets.slint}\";"),
+            ("component", "component ${1:Component} {\n    $0\n}"),
+            ("struct", "struct ${1:Name} {\n    $0\n}"),
+            ("global", "global ${1:Name} {\n    $0\n}"),
+            ("export", "export { $0 }"),
+            ("export component", "export component ${1:ExportedComponent} {\n    $0\n}"),
+            ("export struct", "export struct ${1:Name} {\n    $0\n}"),
+            ("export global", "export global ${1:Name} {\n    $0\n}"),
         ]
         .iter()
         .map(|(kw, ins_tex)| {
@@ -317,6 +316,16 @@ pub(crate) fn completion_at(
             with_insert_text(c, ins_tex, snippet_support)
         })
         .collect();
+        return Some(r);
+    } else if node.kind() == SyntaxKind::State {
+        let r: Vec<_> = [("when", "when $1: {\n    $0\n}")]
+            .iter()
+            .map(|(kw, ins_tex)| {
+                let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
+                c.kind = Some(CompletionItemKind::KEYWORD);
+                with_insert_text(c, ins_tex, snippet_support)
+            })
+            .collect();
         return Some(r);
     }
     None
@@ -722,5 +731,60 @@ mod tests {
         res.iter().find(|ci| ci.label == "beta-gamma").unwrap();
         res.iter().find(|ci| ci.label == "red").unwrap();
         assert!(!res.iter().any(|ci| ci.label == "width"));
+    }
+
+    #[test]
+    fn function_no_when_in_empty_state() {
+        let source = r#"
+            component Foo {
+                states [
+                    🔺
+                ]
+            }
+        "#;
+        assert!(get_completions(source).is_none());
+    }
+
+    #[test]
+    fn function_no_when_in_state() {
+        let source = r#"
+            component Foo {
+                property<bool> bar: false;
+                states [
+                    foo when root.bar: { }
+                    🔺
+                    baz when !root.bar: { }
+                ]
+            }
+        "#;
+        assert!(get_completions(source).is_none());
+    }
+
+    #[test]
+    fn function_when_after_state_name() {
+        let source = r#"
+            component Foo {
+                states [
+                    foo 🔺
+                ]
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "when").unwrap();
+    }
+
+    #[test]
+    fn function_when_after_state_name_between_more_states() {
+        let source = r#"
+            component Foo {
+                states [
+                    foo when root.bar: { }
+                    barbar 🔺
+                    baz when !root.bar: { }
+                ]
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "when").unwrap();
     }
 }
