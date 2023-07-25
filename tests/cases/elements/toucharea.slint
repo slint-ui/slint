@@ -73,6 +73,8 @@ export component TestCase  {
 
 /*
 ```cpp
+using slint::PointerEventButton;
+
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
@@ -101,6 +103,17 @@ assert_eq(instance.get_touch2(), 1);
 assert_eq(instance.get_touch3(), 1);
 
 assert_eq(instance.get_pointer_event_test(), "downleftclickupleft");
+
+instance.set_pointer_event_test("");
+// issue #2918:  press anywhere, release on a toucharea
+instance.window().dispatch_pointer_press_event(slint::LogicalPosition({70.0, 6.0}), PointerEventButton::Left);
+instance.window().dispatch_pointer_move_event(slint::LogicalPosition({ 102.0, 103.0 }));
+instance.window().dispatch_pointer_release_event(slint::LogicalPosition({101.0, 104.0}), PointerEventButton::Left);
+assert_eq(instance.get_pointer_event_test(), "upleft"); // no "clicked"
+assert_eq(instance.get_touch1(), 1);
+assert_eq(instance.get_touch2(), 1);
+assert_eq(instance.get_touch3(), 1);
+
 
 ```
 

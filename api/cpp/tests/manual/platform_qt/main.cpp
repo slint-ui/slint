@@ -11,17 +11,17 @@
 
 namespace slint_platform = slint::experimental::platform;
 
-slint::cbindgen_private::PointerEventButton convert_button(Qt::MouseButtons b)
+slint::PointerEventButton convert_button(Qt::MouseButtons b)
 {
     switch (b) {
     case Qt::LeftButton:
-        return slint::cbindgen_private::PointerEventButton::Left;
+        return slint::PointerEventButton::Left;
     case Qt::RightButton:
-        return slint::cbindgen_private::PointerEventButton::Right;
+        return slint::PointerEventButton::Right;
     case Qt::MiddleButton:
-        return slint::cbindgen_private::PointerEventButton::Middle;
+        return slint::PointerEventButton::Middle;
     default:
-        return slint::cbindgen_private::PointerEventButton::Other;
+        return slint::PointerEventButton::Other;
     }
 }
 
@@ -134,29 +134,22 @@ public:
     void mousePressEvent(QMouseEvent *event) override
     {
         slint_platform::update_timers_and_animations();
-        dispatch_pointer_event(slint::cbindgen_private::MouseEvent {
-                .tag = slint::cbindgen_private::MouseEvent::Tag::Pressed,
-                .pressed = slint::cbindgen_private::MouseEvent::Pressed_Body {
-                        .position = { float(event->pos().x()), float(event->pos().y()) },
-                        .button = convert_button(event->button()) } });
+        window().dispatch_pointer_press_event(
+                slint::LogicalPosition({ float(event->pos().x()), float(event->pos().y()) }),
+                convert_button(event->button()));
     }
     void mouseReleaseEvent(QMouseEvent *event) override
     {
         slint_platform::update_timers_and_animations();
-        dispatch_pointer_event(slint::cbindgen_private::MouseEvent {
-                .tag = slint::cbindgen_private::MouseEvent::Tag::Released,
-                .released = slint::cbindgen_private::MouseEvent::Released_Body {
-                        .position = { float(event->pos().x()), float(event->pos().y()) },
-                        .button = convert_button(event->button()) } });
+        window().dispatch_pointer_release_event(
+                slint::LogicalPosition({ float(event->pos().x()), float(event->pos().y()) }),
+                convert_button(event->button()));
     }
     void mouseMoveEvent(QMouseEvent *event) override
     {
         slint_platform::update_timers_and_animations();
-        dispatch_pointer_event(slint::cbindgen_private::MouseEvent {
-                .tag = slint::cbindgen_private::MouseEvent::Tag::Moved,
-                .moved = slint::cbindgen_private::MouseEvent::Moved_Body {
-                        .position = { float(event->pos().x()), float(event->pos().y()) },
-                } });
+        window().dispatch_pointer_move_event(
+                slint::LogicalPosition({ float(event->pos().x()), float(event->pos().y()) }));
     }
 };
 

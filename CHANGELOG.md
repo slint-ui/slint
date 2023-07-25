@@ -30,6 +30,7 @@ All notable changes to this project are documented in this file.
 
  - Added `SLINT_TARGET_CARGO_FLAGS` cmake variable
  - Added `ReverseModel`
+ - Added functions in Window to dispatch pointer events
 
 ## [1.1.1] - 2023-07-10
 
