@@ -475,6 +475,10 @@ impl RendererSealed for FemtoVGRenderer {
 
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
+        if self.opengl_context.ensure_current().is_ok() {
+            self.graphics_cache.clear_all();
+            self.texture_cache.borrow_mut().clear();
+        }
     }
 }
 
