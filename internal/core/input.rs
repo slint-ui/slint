@@ -702,7 +702,10 @@ pub fn process_mouse_input(
         mouse_input_state = process_delayed_event(window_adapter, mouse_input_state);
     }
 
-    let Some(mouse_event) = handle_mouse_grab(mouse_event, window_adapter, &mut mouse_input_state) else { return mouse_input_state };
+    let Some(mouse_event) = handle_mouse_grab(mouse_event, window_adapter, &mut mouse_input_state)
+    else {
+        return mouse_input_state;
+    };
 
     let mut result = MouseInputState::default();
     let root = ItemRc::new(component, 0);

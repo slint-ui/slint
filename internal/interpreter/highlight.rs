@@ -162,12 +162,12 @@ pub fn on_element_selected(
 
                 let Some((file, start_line, start_column, end_line, end_column)) =
                     element_providing_item(component_box, i.index())
-                    .and_then(|e| {
-                        highlight_elements(&c, vec![Rc::downgrade(&e)]);
-                        find_element_range(&e)
-                    }).map(|(sf, r)| {
-                        map_range_to_line(sf, r)
-                    }) else {
+                        .and_then(|e| {
+                            highlight_elements(&c, vec![Rc::downgrade(&e)]);
+                            find_element_range(&e)
+                        })
+                        .map(|(sf, r)| map_range_to_line(sf, r))
+                else {
                     continue; // Skip any Item not part of an element with a node attached
                 };
 

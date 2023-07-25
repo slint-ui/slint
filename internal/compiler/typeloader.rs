@@ -211,7 +211,9 @@ impl TypeLoader {
             let mut reexports = None;
             std::future::poll_fn(|cx| {
                 dependencies.retain_mut(|fut| {
-                    let core::task::Poll::Ready(export) = fut.as_mut().poll(cx) else { return true };
+                    let core::task::Poll::Ready(export) = fut.as_mut().poll(cx) else {
+                        return true;
+                    };
                     let Some((exports, node)) = export else { return false };
                     if reexports.is_none() {
                         reexports = Some(exports);

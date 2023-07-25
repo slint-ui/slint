@@ -251,15 +251,20 @@ fn configure_design_mode(enabled: bool, sender: &crate::ServerNotifier) {
                           start_column: u32,
                           end_line: u32,
                           end_column: u32| {
-                        let Some(params) =
-                            show_document_request_from_element_callback(
-                                file,
-                                start_line,
-                                start_column - 1,
-                                end_line,
-                                end_column - 1,
-                            ) else { return; };
-                        let Ok(fut) = sender.send_request::<lsp_types::request::ShowDocument>(params) else { return; };
+                        let Some(params) = show_document_request_from_element_callback(
+                            file,
+                            start_line,
+                            start_column - 1,
+                            end_line,
+                            end_column - 1,
+                        ) else {
+                            return;
+                        };
+                        let Ok(fut) =
+                            sender.send_request::<lsp_types::request::ShowDocument>(params)
+                        else {
+                            return;
+                        };
                         i_slint_core::future::spawn_local(fut).unwrap();
                     },
                 ));

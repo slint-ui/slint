@@ -661,7 +661,7 @@ impl WindowInner {
     /// for example, with the properties known to the windowing system.
     pub fn update_window_properties(&self) {
         let window_adapter = self.window_adapter();
-        let Some(window_adapter) = window_adapter.internal(crate::InternalToken) else {return};
+        let Some(window_adapter) = window_adapter.internal(crate::InternalToken) else { return };
 
         // No `if !dirty { return; }` check here because the backend window may be newly mapped and not up-to-date, so force
         // an evaluation.

@@ -257,7 +257,9 @@ impl AccessKitAdapter {
     }
 
     fn build_new_tree(&self) -> TreeUpdate {
-        let Some(window_adapter) = self.window_adapter_weak.upgrade() else { return Default::default(); };
+        let Some(window_adapter) = self.window_adapter_weak.upgrade() else {
+            return Default::default();
+        };
         let window = window_adapter.window();
         let window_inner = i_slint_core::window::WindowInner::from_pub(window);
 
@@ -459,7 +461,11 @@ impl accesskit::ActionHandler for ActionForwarder {
     fn do_action(&self, request: ActionRequest) {
         let wrapped_window_adapter_weak = self.wrapped_window_adapter_weak.clone();
         i_slint_core::api::invoke_from_event_loop(move || {
-            let Some(window_adapter) = wrapped_window_adapter_weak.as_ref().clone().take().upgrade() else { return };
+            let Some(window_adapter) =
+                wrapped_window_adapter_weak.as_ref().clone().take().upgrade()
+            else {
+                return;
+            };
             window_adapter.accesskit_adapter.handle_request(request)
         })
         .ok();
