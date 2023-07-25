@@ -31,8 +31,10 @@ static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *w
     window->create();
 #ifdef __APPLE__
     QPlatformNativeInterface *native = qApp->platformNativeInterface();
-    void *nsview = native->nativeResourceForWindow(QByteArray("nsview"), window);
-    void *nswindow = native->nativeResourceForWindow(QByteArray("nswindow"), window);
+    NSView *nsview = reinterpret_cast<NSView *>(
+            native->nativeResourceForWindow(QByteArray("nsview"), window));
+    NSWindow *nswindow = reinterpret_cast<NSWindow *>(
+            native->nativeResourceForWindow(QByteArray("nswindow"), window));
     return slint_platform::NativeWindowHandle::from_appkit(nsview, nswindow);
 #elif defined Q_OS_WIN
     auto wid = Qt::HANDLE(window->winId());
