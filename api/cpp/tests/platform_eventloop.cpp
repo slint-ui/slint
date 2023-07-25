@@ -23,7 +23,7 @@ struct TestPlatform : slint_platform::Platform
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
 
     /// Returns a new WindowAdapter
-    virtual std::unique_ptr<slint_platform::WindowAdapter> create_window_adapter() const override
+    virtual std::unique_ptr<slint_platform::WindowAdapter> create_window_adapter() override
     {
         assert(!"creating window in this test");
         return nullptr;
@@ -74,11 +74,13 @@ struct TestPlatform : slint_platform::Platform
         cv.notify_all();
     }
 
+#ifndef SLINT_FEATURE_STD
     virtual std::chrono::milliseconds duration_since_start() const override
     {
         return std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now() - start);
     }
+#endif
 };
 
 bool init_platform = (TestPlatform::register_platform(std::make_unique<TestPlatform>()), true);

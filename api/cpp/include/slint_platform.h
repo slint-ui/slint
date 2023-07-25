@@ -172,12 +172,14 @@ public:
     Platform() = default;
 
     /// Returns a new WindowAdapter
-    virtual std::unique_ptr<WindowAdapter> create_window_adapter() const = 0;
+    virtual std::unique_ptr<WindowAdapter> create_window_adapter() = 0;
 
+#    ifndef SLINT_FEATURE_STD
     /// Returns the amount of milliseconds since start of the application.
     ///
     /// This function should only be implemented  if the runtime is compiled with no_std
     virtual std::chrono::milliseconds duration_since_start() const { return {}; }
+#    endif
 
     /// Spins an event loop and renders the visible windows.
     virtual void run_event_loop() { }
@@ -244,12 +246,16 @@ public:
         cbindgen_private::slint_platform_register(
                 platform.release(), [](void *p) { delete reinterpret_cast<const Platform *>(p); },
                 [](void *p, cbindgen_private::WindowAdapterRcOpaque *out) {
-                    auto w = reinterpret_cast<const Platform *>(p)->create_window_adapter();
+                    auto w = reinterpret_cast<Platform *>(p)->create_window_adapter();
                     *out = w->initialize();
                     (void)w.release();
                 },
-                [](void *p) -> uint64_t {
+                []([[maybe_unused]] void *p) -> uint64_t {
+#    ifdef SLINT_FEATURE_STD
+                    return 0;
+#    else
                     return reinterpret_cast<const Platform *>(p)->duration_since_start().count();
+#    endif
                 },
                 [](void *p) { return reinterpret_cast<Platform *>(p)->run_event_loop(); },
                 [](void *p) { return reinterpret_cast<Platform *>(p)->quit_event_loop(); },
