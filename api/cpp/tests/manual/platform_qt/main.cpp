@@ -121,9 +121,6 @@ public:
     void resizeEvent(QResizeEvent *ev) override
     {
         auto logicalSize = ev->size();
-        float scale_factor = devicePixelRatio();
-        m_renderer->resize(slint::PhysicalSize({ uint32_t(logicalSize.width() * scale_factor),
-                                                 uint32_t(logicalSize.height() * scale_factor) }));
         WindowAdapter::dispatch_resize_event(
                 slint::LogicalSize({ float(logicalSize.width()), float(logicalSize.height()) }));
     }

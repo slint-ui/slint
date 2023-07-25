@@ -24,7 +24,6 @@ pub enum SlintUserEvent {
 }
 
 mod renderer {
-    use i_slint_core::api::PhysicalSize;
     use i_slint_core::platform::PlatformError;
 
     pub(crate) trait WinitCompatibleRenderer {
@@ -37,8 +36,6 @@ mod renderer {
         fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError>;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
-
-        fn resize_event(&self, size: PhysicalSize) -> Result<(), PlatformError>;
     }
 
     #[cfg(feature = "renderer-winit-femtovg")]

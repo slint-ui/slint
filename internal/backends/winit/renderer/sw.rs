@@ -3,7 +3,6 @@
 
 //! Delegate the rendering to the [`i_slint_core::software_renderer::SoftwareRenderer`]
 
-use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
 use i_slint_core::software_renderer::PremultipliedRgbaColor;
@@ -119,26 +118,6 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
         target_buffer.present().map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;
 
         Ok(())
-    }
-
-    fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {
-        let width = size.width.try_into().map_err(|_| {
-            format!(
-                "Attempting to resize softbuffer window surface with an invalid width: {}",
-                size.width
-            )
-        })?;
-        let height = size.height.try_into().map_err(|_| {
-            format!(
-                "Attempting to resize softbuffer window surface with an invalid height: {}",
-                size.height
-            )
-        })?;
-
-        self.surface
-            .borrow_mut()
-            .resize(width, height)
-            .map_err(|e| format!("Error resizing softbuffer surface: {e}").into())
     }
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {

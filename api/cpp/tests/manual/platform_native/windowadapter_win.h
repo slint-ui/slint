@@ -89,8 +89,6 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter
 
     void resize(uint32_t width, uint32_t height)
     {
-        slint::PhysicalSize windowSize({ width, height });
-        m_renderer->resize(windowSize);
         dispatch_resize_event(slint::LogicalSize({ (float)width, (float)height }));
     }
 

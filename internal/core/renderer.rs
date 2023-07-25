@@ -5,6 +5,7 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::pin::Pin;
 
+use crate::api::PlatformError;
 use crate::component::ComponentRef;
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use crate::window::WindowAdapter;
@@ -107,4 +108,8 @@ pub trait RendererSealed {
     fn default_font_size(&self) -> LogicalLength;
 
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>);
+
+    fn resize(&self, _size: crate::api::PhysicalSize) -> Result<(), PlatformError> {
+        Ok(())
+    }
 }
