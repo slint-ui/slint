@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-core"
-version = "1.1.1"
+version = "1.2.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
@@ -43,8 +43,8 @@ shared-fontdb = ["i-slint-common/shared-fontdb"]
 default = ["std", "unicode"]
 
 [dependencies]
-i-slint-common = { version = "=1.1.1", path = "../common" }
-i-slint-core-macros = { version = "=1.1.1", path = "../core-macros" }
+i-slint-common = { version = "=1.2.0", path = "../common" }
+i-slint-core-macros = { version = "=1.2.0", path = "../core-macros" }
 
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
 vtable = { version="0.1.9", path = "../../helper_crates/vtable" }

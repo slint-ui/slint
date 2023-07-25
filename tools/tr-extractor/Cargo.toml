@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-tr-extractor"
-version = "1.1.1"
+version = "1.2.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial"
@@ -12,7 +12,7 @@ repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint.dev"
 
 [dependencies]
-i-slint-compiler = { version = "=1.1.1", path = "../../internal/compiler", features = ["display-diagnostics"] }
+i-slint-compiler = { version = "=1.2.0", path = "../../internal/compiler", features = ["display-diagnostics"] }
 chrono = {version = "0.4.24", default-features = false, features = ["clock"] }
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
 polib = "0.2"

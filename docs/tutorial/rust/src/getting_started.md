@@ -15,7 +15,7 @@ cd memory
 Then we edit `Cargo.toml` to add the slint dependency using `cargo add`:
 
 ```sh
-cargo add slint@1.1.1
+cargo add slint@1.2.0
 ```
 
 Finally we copy the hello world program from the [Slint documentation](https://slint.dev/docs/rust/slint/) into our `src/main.rs`:

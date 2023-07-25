@@ -3,7 +3,7 @@
 
 [package]
 name = "figma_import"
-version = "1.1.1"
+version = "1.2.0"
 authors = ["Slint Developers <info@slint.dev>"]
 description = "A figma file importer for Slint"
 edition = "2021"

@@ -26,7 +26,7 @@ copyright = "SixtyFPS GmbH"
 author = "Slint Developers <info@slint.dev>"
 
 # The full version, including alpha/beta/rc tags
-version = "1.1.1"
+version = "1.2.0"
 
 # -- General configuration ---------------------------------------------------
 
