@@ -203,12 +203,10 @@ impl SoftwareRenderer {
     ///
     /// returns the dirty region for this frame (not including the extra_draw_region)
     pub fn render(&self, buffer: &mut [impl TargetPixel], pixel_stride: usize) -> PhysicalRegion {
-        let window = self
-            .maybe_window_adapter
-            .borrow()
-            .as_ref()
-            .and_then(|w| w.upgrade())
-            .expect("render() called on a destroyed Window");
+        let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
+        else {
+            return Default::default();
+        };
         let window_inner = WindowInner::from_pub(window.window());
         let factor = ScaleFactor::new(window_inner.scale_factor());
         let (size, background) = if let Some(window_item) =
@@ -318,12 +316,10 @@ impl SoftwareRenderer {
     /// # }
     /// ```
     pub fn render_by_line(&self, line_buffer: impl LineBufferProvider) -> PhysicalRegion {
-        let window = self
-            .maybe_window_adapter
-            .borrow()
-            .as_ref()
-            .and_then(|w| w.upgrade())
-            .expect("render() called on a destroyed Window");
+        let Some(window) = self.maybe_window_adapter.borrow().as_ref().and_then(|w| w.upgrade())
+        else {
+            return Default::default();
+        };
         let window_inner = WindowInner::from_pub(window.window());
         let component_rc = window_inner.component();
         let component = crate::component::ComponentRc::borrow_pin(&component_rc);
