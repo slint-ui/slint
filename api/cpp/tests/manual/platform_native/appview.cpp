@@ -35,7 +35,7 @@ void AppView::attachToWindow(WINDOW_HANDLE winId)
     auto p = std::make_unique<MyPlatform>();
     p->the_window = std::make_unique<MyWindowAdapter>(winId);
     myWindow = p->the_window.get();
-    slint_platform::Platform::register_platform(std::move(p));
+    slint_platform::set_platform(std::move(p));
 
     // AppWindow is the auto-generated slint code
     static auto app = AppWindow::create();

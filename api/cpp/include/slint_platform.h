@@ -59,9 +59,6 @@ class WindowAdapter
     // Whether this WindowAdapter was already given to the slint runtime
     bool was_initialized = false;
 
-private:
-    friend class Platform;
-
     cbindgen_private::WindowAdapterRcOpaque initialize()
     {
         cbindgen_private::slint_window_adapter_new(
@@ -79,6 +76,8 @@ private:
         was_initialized = true;
         return self;
     }
+
+    friend inline void set_platform(std::unique_ptr<class Platform> platform);
 
 public:
     /// Construct a WindowAdapter
@@ -160,7 +159,7 @@ public:
 
 /// The platform is acting like a factory to create a WindowAdapter
 ///
-/// Platform::register_platform() need to be called before any other Slint handle
+/// slint::platform::set_platform() need to be called before any other Slint handle
 /// are created, and if it is called, it will use the WindowAdapter provided by the
 /// create_window_adapter function.
 class Platform
@@ -195,8 +194,7 @@ public:
     class Task
     {
         cbindgen_private::PlatformTaskOpaque inner { nullptr, nullptr };
-        friend class Platform;
-
+        friend inline void set_platform(std::unique_ptr<Platform> platform);
         explicit Task(cbindgen_private::PlatformTaskOpaque inner) : inner(inner) { }
 
     public:
@@ -238,32 +236,32 @@ public:
     /// Reimplements this function and move the event to the event loop before calling
     /// Task::run()
     virtual void run_in_event_loop(Task) { }
-
-    /// Registers the platform with Slint. Must be called before Slint windows are created.
-    /// Can only be called once in an application.
-    static void register_platform(std::unique_ptr<Platform> platform)
-    {
-        cbindgen_private::slint_platform_register(
-                platform.release(), [](void *p) { delete reinterpret_cast<const Platform *>(p); },
-                [](void *p, cbindgen_private::WindowAdapterRcOpaque *out) {
-                    auto w = reinterpret_cast<Platform *>(p)->create_window_adapter();
-                    *out = w->initialize();
-                    (void)w.release();
-                },
-                []([[maybe_unused]] void *p) -> uint64_t {
-#    ifdef SLINT_FEATURE_STD
-                    return 0;
-#    else
-                    return reinterpret_cast<const Platform *>(p)->duration_since_start().count();
-#    endif
-                },
-                [](void *p) { return reinterpret_cast<Platform *>(p)->run_event_loop(); },
-                [](void *p) { return reinterpret_cast<Platform *>(p)->quit_event_loop(); },
-                [](void *p, cbindgen_private::PlatformTaskOpaque event) {
-                    return reinterpret_cast<Platform *>(p)->run_in_event_loop(Task(event));
-                });
-    }
 };
+
+/// Registers the platform with Slint. Must be called before Slint windows are created.
+/// Can only be called once in an application.
+inline void set_platform(std::unique_ptr<Platform> platform)
+{
+    cbindgen_private::slint_platform_register(
+            platform.release(), [](void *p) { delete reinterpret_cast<const Platform *>(p); },
+            [](void *p, cbindgen_private::WindowAdapterRcOpaque *out) {
+                auto w = reinterpret_cast<Platform *>(p)->create_window_adapter();
+                *out = w->initialize();
+                (void)w.release();
+            },
+            []([[maybe_unused]] void *p) -> uint64_t {
+#    ifdef SLINT_FEATURE_STD
+                return 0;
+#    else
+                return reinterpret_cast<const Platform *>(p)->duration_since_start().count();
+#    endif
+            },
+            [](void *p) { return reinterpret_cast<Platform *>(p)->run_event_loop(); },
+            [](void *p) { return reinterpret_cast<Platform *>(p)->quit_event_loop(); },
+            [](void *p, cbindgen_private::PlatformTaskOpaque event) {
+                return reinterpret_cast<Platform *>(p)->run_in_event_loop(Platform::Task(event));
+            });
+}
 
 /// Represents a region on the screen, used for partial rendering.
 ///
