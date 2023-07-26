@@ -272,7 +272,7 @@ fn process_window_event(
         }
         WindowEvent::CloseRequested => {
             if runtime_window.request_close() {
-                window.hide()?;
+                window.set_visible(false)?;
             }
         }
         WindowEvent::ReceivedCharacter(ch) => {

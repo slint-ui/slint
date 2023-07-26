@@ -10,7 +10,7 @@ use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
-use i_slint_core::window::{WindowAdapter, WindowAdapterInternal};
+use i_slint_core::window::WindowAdapter;
 
 type WindowAdapterUserData = *mut c_void;
 
@@ -27,8 +27,7 @@ pub struct CppWindowAdapter {
     drop: unsafe extern "C" fn(WindowAdapterUserData),
     /// Safety: the returned pointer must live for the lifetime of self
     get_renderer_ref: unsafe extern "C" fn(WindowAdapterUserData) -> RendererPtr,
-    show: unsafe extern "C" fn(WindowAdapterUserData),
-    hide: unsafe extern "C" fn(WindowAdapterUserData),
+    set_visible: unsafe extern "C" fn(WindowAdapterUserData, bool),
     request_redraw: unsafe extern "C" fn(WindowAdapterUserData),
     size: unsafe extern "C" fn(WindowAdapterUserData) -> IntSize,
 }
@@ -44,6 +43,11 @@ impl WindowAdapter for CppWindowAdapter {
         &self.window
     }
 
+    fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
+        unsafe { (self.set_visible)(self.user_data, visible) };
+        Ok(())
+    }
+
     fn size(&self) -> PhysicalSize {
         let s = unsafe { (self.size)(self.user_data) };
         PhysicalSize::new(s.width, s.height)
@@ -53,23 +57,8 @@ impl WindowAdapter for CppWindowAdapter {
         unsafe { core::mem::transmute((self.get_renderer_ref)(self.user_data)) }
     }
 
-    fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
-        Some(self)
-    }
-
     fn request_redraw(&self) {
         unsafe { (self.request_redraw)(self.user_data) }
-    }
-}
-
-impl WindowAdapterInternal for CppWindowAdapter {
-    fn show(&self) -> Result<(), PlatformError> {
-        unsafe { (self.show)(self.user_data) };
-        Ok(())
-    }
-    fn hide(&self) -> Result<(), PlatformError> {
-        unsafe { (self.hide)(self.user_data) }
-        Ok(())
     }
 }
 
@@ -78,8 +67,7 @@ pub unsafe extern "C" fn slint_window_adapter_new(
     user_data: WindowAdapterUserData,
     drop: unsafe extern "C" fn(WindowAdapterUserData),
     get_renderer_ref: unsafe extern "C" fn(WindowAdapterUserData) -> RendererPtr,
-    show: unsafe extern "C" fn(WindowAdapterUserData),
-    hide: unsafe extern "C" fn(WindowAdapterUserData),
+    set_visible: unsafe extern "C" fn(WindowAdapterUserData, bool),
     request_redraw: unsafe extern "C" fn(WindowAdapterUserData),
     size: unsafe extern "C" fn(WindowAdapterUserData) -> IntSize,
     target: *mut WindowAdapterRcOpaque,
@@ -89,9 +77,8 @@ pub unsafe extern "C" fn slint_window_adapter_new(
         user_data,
         drop,
         get_renderer_ref,
-        show,
+        set_visible,
         request_redraw,
-        hide,
         size,
     });
 
