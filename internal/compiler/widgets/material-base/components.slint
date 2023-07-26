@@ -92,9 +92,12 @@ export component StateLayer inherits TouchArea {
 // A selectable item that is used by `StandardListView` and  `ComboBox`.
 export component ListItem inherits Rectangle {
     callback clicked <=> i-state-layer.clicked;
+    callback pointer-event <=> i-state-layer.pointer-event;
 
     in property<bool> selected;
     in property<string> text;
+    out property <length> mouse-x <=> i-state-layer.mouse-x;
+    out property <length> mouse-y <=> i-state-layer.mouse-y;
 
     height: max(48px, i-layout.min-height);
 

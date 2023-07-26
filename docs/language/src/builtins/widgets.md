@@ -417,6 +417,7 @@ Same as [`ListView`](#listview), and in addition:
 ### Callbacks
 
 -   **`current-item-changed(`_`int`_`)`**: Emitted when the current item has changed because the user modified it
+-   **`item-pointer-event(`_`index: int`_`, `_`event: PointerEvent`_`, `_`pos: Point`_`)`**: Emitted on any mouse pointer event similar to `TouchArea`. Arguments are item index associated with the event, the `PointerEvent` itself and the mouse position within the listview.
 
 ### Example
 

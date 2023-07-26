@@ -20,6 +20,7 @@ All notable changes to this project are documented in this file.
  - Fixed duplicated import when importing file relative to the project instead of the current path. Deprecated importing files relative to the project path.
  - Added `current-item-changed` to `StandardListView`
  - Added `current-row-changed` to `StandardTableView`
+ - Added `item-pointer-event` to `StandardListView`
 
 ### Rust API
 
