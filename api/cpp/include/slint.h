@@ -639,7 +639,10 @@ public:
 #endif
 
     /// \private
-    private_api::WindowAdapterRc &window_handle() { return inner; }
+    private_api::WindowAdapterRc &window_handle()
+    {
+        return inner;
+    }
     /// \private
     const private_api::WindowAdapterRc &window_handle() const { return inner; }
 
