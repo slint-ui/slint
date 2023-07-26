@@ -297,6 +297,26 @@ pub(crate) fn completion_at(
             }
             _ => (),
         }
+    } else if node.kind() == SyntaxKind::ImportIdentifierList {
+        let import = syntax_nodes::ImportSpecifier::new(node.parent()?)?;
+
+        let path = document_cache
+            .documents
+            .resolve_import_path(
+                Some(&token.into()),
+                import.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'),
+            )?
+            .0;
+        let doc = document_cache.documents.get_document(&path)?;
+        return Some(
+            doc.exports
+                .iter()
+                .map(|(exported_name, _)| CompletionItem {
+                    label: exported_name.name.clone(),
+                    ..Default::default()
+                })
+                .collect(),
+        );
     } else if node.kind() == SyntaxKind::Document {
         let r: Vec<_> = [
             // the $1 is first in the quote so the filename can be completed before the import names
@@ -787,5 +807,20 @@ mod tests {
         "#;
         let res = get_completions(source).unwrap();
         res.iter().find(|ci| ci.label == "when").unwrap();
+    }
+
+    #[test]
+    fn import_component() {
+        let source = r#"
+            import {🔺} from "std-widgets.slint"
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "LineEdit").unwrap();
+
+        let source = r#"
+            import { Foo, 🔺} from "std-widgets.slint"
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "TextEdit").unwrap();
     }
 }
