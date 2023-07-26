@@ -238,15 +238,44 @@ test('get/set model properties', (t) => {
 test('invoke callback', (t) => {
   let compiler = new ComponentCompiler;
   let definition = compiler.buildFromSource(`
+  export struct Person {
+    name: string
+  }
   export component App {
-    callback speak(string, string);
+    callback great(string, string);
+    callback great-person(Person);
+    callback person() -> Person;
+    callback get-string() -> string;
+
+    person => {
+      {
+        name: "florian"
+      }
+    }
+
+    get-string => {
+      "string"
+    }
   }
   `, "");
   let instance = definition?.create()!;
-  instance.setCallback("speak", (a: string, b: string) => {
-    console.log(a + b);
+  let speakTest;
+
+  instance.setCallback("great", (a: string, b: string) => {
+    speakTest = "hello " + a + " and " + b;
   });
 
-  instance.invoke("speak", ["simon", "florian"]);
+  instance.invoke("great", ["simon", "florian"]);
+  t.deepEqual(speakTest, "hello simon and florian");
+
+  instance.setCallback("great-person", (p: any) => {
+    speakTest = "hello " + p.name;
+  });
+
+  instance.invoke("great-person", [{ "name": "simon" }]);
+  t.deepEqual(speakTest, "hello simon");
+
+  t.deepEqual( instance.invoke("get-string", []), "string");
+  t.deepEqual(instance.invoke("person", []), { "name": "florian" });
 
 })
