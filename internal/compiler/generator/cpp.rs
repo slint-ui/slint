@@ -1355,7 +1355,7 @@ fn generate_item_tree(
 
     create_code.extend([
         format!(
-            "if (auto &window = {root_access}->m_window) slint::private_api::register_component(&self_rc.into_dyn(), window);",
+            "slint::private_api::register_component(&self_rc.into_dyn(), {root_access}->m_window);",
         ),
         format!("self->init({}, self->self_weak, 0, 1 {});", root_access, init_parent_parameters),
     ]);

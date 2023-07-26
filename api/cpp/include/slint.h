@@ -729,7 +729,7 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
 namespace private_api {
 
 inline static void register_component(const vtable::VRc<ComponentVTable> *c,
-                               const std::optional<slint::Window> &maybe_window)
+                                      const std::optional<slint::Window> &maybe_window)
 {
     const cbindgen_private::WindowAdapterRcOpaque *window_ptr =
             maybe_window.has_value() ? &maybe_window->window_handle().handle() : nullptr;
@@ -840,12 +840,16 @@ public:
 
     /// \private
     /// Internal function called by the view to register itself
-    void attach_peer(private_api::ModelPeer p) { peers.push_back(std::move(p)); }
+    void attach_peer(private_api::ModelPeer p) {
+        peers.push_back(std::move(p));
+    }
 
     /// \private
     /// Internal function called from within bindings to register with the currently
     /// evaluating dependency and get notified when this model's row count changes.
-    void track_row_count_changes() const { model_row_count_dirty_property.get(); }
+    void track_row_count_changes() const {
+        model_row_count_dirty_property.get();
+    }
 
     /// \private
     /// Internal function called from within bindings to register with the currently
