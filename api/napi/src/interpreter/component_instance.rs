@@ -63,7 +63,6 @@ impl JsComponentInstance {
         let function_ref = RefCountedReference::new(&env, callback)?;
         self.inner
             .set_callback(name.as_str(), move |values| {
-                println!("---");
                 let callback: JsFunction = function_ref.get().unwrap();
                 let result = callback
                     .call(
@@ -84,8 +83,9 @@ impl JsComponentInstance {
     }
 
     #[napi]
-    pub fn invoke(&self, env: Env, name: String, mut value: Vec<JsUnknown>) -> Result<()> {
-        self.inner
+    pub fn invoke(&self, env: Env, name: String, mut value: Vec<JsUnknown>) -> Result<JsUnknown> {
+        let result = self
+            .inner
             .invoke(
                 name.as_str(),
                 value
@@ -95,8 +95,7 @@ impl JsComponentInstance {
                     .as_ref(),
             )
             .map_err(|_| napi::Error::from_reason("Cannot invoke callback."))?;
-
-        Ok(())
+        super::to_js_unknown(&env, &result)
     }
 }
 

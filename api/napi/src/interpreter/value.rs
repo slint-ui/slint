@@ -40,7 +40,7 @@ pub fn to_js_unknown(env: &Env, value: &Value) -> Result<JsUnknown> {
     match value {
         Value::Void => env.get_null().map(|v| v.into_unknown()),
         Value::Number(number) => env.create_double(*number).map(|v| v.into_unknown()),
-        Value::String(string) => { println!("string");env.create_string(string).map(|v| v.into_unknown())},
+        Value::String(string) => env.create_string(string).map(|v| v.into_unknown()),
         Value::Bool(value) => env.get_boolean(*value).map(|v| v.into_unknown()),
         Value::Image(image) => {
             Ok(JsImageData::from(image.clone()).into_instance(*env)?.as_object(*env).into_unknown())
