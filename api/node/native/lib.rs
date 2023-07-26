@@ -491,9 +491,7 @@ declare_types! {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
             let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            if let Some(window_adapter) = window_adapter.internal(i_slint_core::InternalToken) {
-                window_adapter.show().unwrap();
-            }
+            window_adapter.set_visible(true).unwrap();
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 
@@ -501,9 +499,7 @@ declare_types! {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
             let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            if let Some(window_adapter) = window_adapter.internal(i_slint_core::InternalToken) {
-                window_adapter.hide().unwrap();
-            }
+            window_adapter.set_visible(false).unwrap();
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 

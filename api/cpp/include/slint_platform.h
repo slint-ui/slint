@@ -66,8 +66,9 @@ class WindowAdapter
                 [](void *wa) {
                     return reinterpret_cast<WindowAdapter *>(wa)->renderer().renderer_handle();
                 },
-                [](void *wa) { reinterpret_cast<const WindowAdapter *>(wa)->show(); },
-                [](void *wa) { reinterpret_cast<const WindowAdapter *>(wa)->hide(); },
+                [](void *wa, bool visible) {
+                    reinterpret_cast<WindowAdapter *>(wa)->set_visible(visible);
+                },
                 [](void *wa) { reinterpret_cast<WindowAdapter *>(wa)->request_redraw(); },
                 [](void *wa) -> cbindgen_private::IntSize {
                     return reinterpret_cast<const WindowAdapter *>(wa)->physical_size();
@@ -84,14 +85,10 @@ public:
     explicit WindowAdapter() { }
     virtual ~WindowAdapter() = default;
 
-    /// This function is called by Slint when the slint window is shown.
+    /// This function is called by Slint when the slint window is shown or hidden.
     ///
-    /// Re-implement this function to forward the call to show to the native window
-    virtual void show() const { }
-    /// This function is called by Slint when the slint window is hidden.
-    ///
-    /// Re-implement this function to forward the call to hide to the native window
-    virtual void hide() const { }
+    /// Re-implement this function to forward the call to show/hide the native window
+    virtual void set_visible(bool) { }
 
     /// This function is called when Slint detects that the window need to be repainted.
     ///
@@ -474,12 +471,8 @@ public:
 
 /// Slint's Skia renderer.
 ///
-/// To be used as a template parameter of the WindowAdapter.
-///
-/// The show() and hide() function must be called from the WindowAdapter's re-implementation
-/// of the homonymous functions
-///
-/// Use render to perform the rendering.
+/// Create the renderer when you have created a native window with a non-zero size.
+/// Call the render() function to render the scene into the window.
 class SkiaRenderer : public AbstractRenderer
 {
     mutable cbindgen_private::SkiaRendererOpaque inner;

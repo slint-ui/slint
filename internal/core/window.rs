@@ -60,6 +60,11 @@ pub trait WindowAdapter {
     /// Returns the window API.
     fn window(&self) -> &Window;
 
+    /// Show the window if the argument is true, hide otherwise.
+    fn set_visible(&self, _visible: bool) -> Result<(), PlatformError> {
+        Ok(())
+    }
+
     /// Returns the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     ///
@@ -128,18 +133,6 @@ pub trait WindowAdapter {
 // TODO: add events for window receiving and loosing focus
 #[doc(hidden)]
 pub trait WindowAdapterInternal {
-    /// Registers the window with the windowing system.
-    // TODO: make public, consider renaming to set_visible with a bool
-    fn show(&self) -> Result<(), PlatformError> {
-        Ok(())
-    }
-
-    /// De-registers the window from the windowing system.
-    // TODO: make public
-    fn hide(&self) -> Result<(), PlatformError> {
-        Ok(())
-    }
-
     /// This function is called by the generated code when a component and therefore its tree of items are created.
     fn register_component(&self) {}
 
@@ -731,9 +724,7 @@ impl WindowInner {
     /// to input events once the event loop spins.
     pub fn show(&self) -> Result<(), PlatformError> {
         self.update_window_properties();
-        if let Some(window_adapter) = self.window_adapter().internal(crate::InternalToken) {
-            window_adapter.show()?;
-        }
+        self.window_adapter().set_visible(true)?;
         // Make sure that the window's inner size is in sync with the root window item's
         // width/height.
         self.set_window_item_geometry(
@@ -745,10 +736,7 @@ impl WindowInner {
 
     /// De-registers the window with the windowing system.
     pub fn hide(&self) -> Result<(), PlatformError> {
-        if let Some(window_adapter) = self.window_adapter().internal(crate::InternalToken) {
-            window_adapter.hide()?;
-        }
-        Ok(())
+        self.window_adapter().set_visible(false)
     }
 
     /// returns wether a dark theme is used
@@ -979,18 +967,15 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-            window_adapter.show().unwrap();
-        }
+
+        window_adapter.set_visible(true).unwrap();
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-            window_adapter.hide().unwrap();
-        }
+        window_adapter.set_visible(false).unwrap();
     }
 
     /// Returns the visibility state of the window. This function can return false even if you previously called show()

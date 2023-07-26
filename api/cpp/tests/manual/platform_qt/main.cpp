@@ -100,14 +100,14 @@ public:
         }
     }
 
-    void show() const override
+    void set_visible(bool visible) override
     {
-        const_cast<WindowAdapter *>(static_cast<const WindowAdapter *>(this))
-                ->dispatch_scale_factor_change_event(devicePixelRatio());
-        auto window = const_cast<QWindow *>(static_cast<const QWindow *>(this));
-        window->QWindow::show();
+        if (visible) {
+            dispatch_scale_factor_change_event(devicePixelRatio());
+        }
+        this->QWindow::setVisible(visible);
     }
-    void hide() const override { const_cast<MyWindow *>(this)->QWindow::hide(); }
+
     slint::PhysicalSize physical_size() const override
     {
         auto windowSize = slint::LogicalSize({ float(width()), float(height()) });
