@@ -1,6 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+component Item {
+    callback pointer-event <=> touch.pointer-event;
+    touch := TouchArea {}
+}
+
+component Issue3148 {
+    out property <length> result;
+    Item {
+        x: 42px;
+        pointer-event => {
+            debug(self.absolute-position.x - root.absolute-position.x);
+        }
+        init => {
+            result = self.absolute-position.x - root.absolute-position.x
+        }
+    }
+}
+
 export component TestCase {
     width: 500phx;
     height: 500phx;
@@ -15,7 +33,8 @@ export component TestCase {
             y: 40phx;
         }
     }
-    out property <bool> test: simple-inner-ok;
+    xxx := Issue3148 { width: 50%; }
+    out property <bool> test: simple-inner-ok && xxx.result == 42px;
     out property <Point> coords <=> simple-inner.absolute-position;
 }
 
