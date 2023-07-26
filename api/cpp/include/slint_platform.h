@@ -478,10 +478,10 @@ public:
     SkiaRenderer(const SkiaRenderer &) = delete;
     SkiaRenderer &operator=(const SkiaRenderer &) = delete;
     /// Constructs a new Skia renderer for the given window - referenced by the provided
-    /// WindowHandle - and the specified initial size.
-    explicit SkiaRenderer(const NativeWindowHandle &window_handle, PhysicalSize initial_size)
+    /// WindowHandle.
+    explicit SkiaRenderer(const NativeWindowHandle &window_handle)
     {
-        inner = cbindgen_private::slint_skia_renderer_new(window_handle.inner, initial_size);
+        inner = cbindgen_private::slint_skia_renderer_new(window_handle.inner);
     }
 
     void render() const { cbindgen_private::slint_skia_renderer_render(inner); }

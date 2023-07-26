@@ -56,8 +56,7 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter
                               NULL // Additional application data
         );
 
-        m_renderer.emplace(slint_platform::NativeWindowHandle::from_win32(hwnd, hInstance),
-                           slint::PhysicalSize({ 600, 300 }));
+        m_renderer.emplace(slint_platform::NativeWindowHandle::from_win32(hwnd, hInstance));
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
     }

@@ -319,6 +319,27 @@ pub mod skia {
 
     struct CppRawHandle(RawWindowHandle, RawDisplayHandle);
 
+    impl raw_window_handle::HasWindowHandle for CppRawHandle {
+        fn window_handle(
+            &self,
+        ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
+            // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
+            let active_handle = unsafe { raw_window_handle::ActiveHandle::new_unchecked() };
+
+            // Safety: the C++ code should ensure that the handle is valid
+            Ok(unsafe { raw_window_handle::WindowHandle::borrow_raw(self.0, active_handle) })
+        }
+    }
+
+    impl raw_window_handle::HasDisplayHandle for CppRawHandle {
+        fn display_handle(
+            &self,
+        ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
+            // Safety: the C++ code should ensure that the handle is valid
+            Ok(unsafe { raw_window_handle::DisplayHandle::borrow_raw(self.1) })
+        }
+    }
+
     // the raw handle type are #[non_exhaustive], so they can't be initialize with the convenient syntax. Work that around.
     macro_rules! init_raw {
         ($ty:ty { $($var:ident),* }) => {
@@ -344,7 +365,7 @@ pub mod skia {
             })),
             RawDisplayHandle::Windows(raw_window_handle::WindowsDisplayHandle::empty()),
         );
-        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+        Rc::into_raw(Rc::new(handle)) as CppRawHandleOpaque
     }
 
     #[no_mangle]
@@ -359,7 +380,7 @@ pub mod skia {
             RawWindowHandle::Xcb(init_raw!(XcbWindowHandle { window, visual_id })),
             RawDisplayHandle::Xcb(init_raw!(XcbDisplayHandle { connection, screen })),
         );
-        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+        Rc::into_raw(Rc::new(handle)) as CppRawHandleOpaque
     }
 
     #[no_mangle]
@@ -374,7 +395,7 @@ pub mod skia {
             RawWindowHandle::Xlib(init_raw!(XlibWindowHandle { window, visual_id })),
             RawDisplayHandle::Xlib(init_raw!(XlibDisplayHandle { display, screen })),
         );
-        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+        Rc::into_raw(Rc::new(handle)) as CppRawHandleOpaque
     }
 
     #[no_mangle]
@@ -387,7 +408,7 @@ pub mod skia {
             RawWindowHandle::Wayland(init_raw!(WaylandWindowHandle { surface })),
             RawDisplayHandle::Wayland(init_raw!(WaylandDisplayHandle { display })),
         );
-        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+        Rc::into_raw(Rc::new(handle)) as CppRawHandleOpaque
     }
 
     #[no_mangle]
@@ -400,12 +421,12 @@ pub mod skia {
             RawWindowHandle::AppKit(init_raw!(AppKitWindowHandle { ns_view, ns_window })),
             RawDisplayHandle::AppKit(AppKitDisplayHandle::empty()),
         );
-        Box::into_raw(Box::new(handle)) as CppRawHandleOpaque
+        Rc::into_raw(Rc::new(handle)) as CppRawHandleOpaque
     }
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_raw_window_handle_drop(handle: CppRawHandleOpaque) {
-        drop(Box::from_raw(handle as *mut CppRawHandle))
+        drop(Rc::from_raw(handle as *mut CppRawHandle))
     }
 
     type SkiaRendererOpaque = *const c_void;
@@ -414,29 +435,11 @@ pub mod skia {
     #[no_mangle]
     pub unsafe extern "C" fn slint_skia_renderer_new(
         handle_opaque: CppRawHandleOpaque,
-        size: IntSize,
     ) -> SkiaRendererOpaque {
-        let handle = &*(handle_opaque as *const CppRawHandle);
+        let handle = Rc::from_raw(handle_opaque as *const CppRawHandle).clone();
 
-        // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
-        let active_handle = unsafe { raw_window_handle::ActiveHandle::new_unchecked() };
-
-        // Safety: the C++ code should ensure that the handle is valid
-        let (window_handle, display_handle) = unsafe {
-            (
-                raw_window_handle::WindowHandle::borrow_raw(handle.0, active_handle),
-                raw_window_handle::DisplayHandle::borrow_raw(handle.1),
-            )
-        };
-
-        let boxed_renderer: Box<SkiaRenderer> = Box::new(
-            SkiaRenderer::new(
-                window_handle,
-                display_handle,
-                PhysicalSize { width: size.width, height: size.height },
-            )
-            .unwrap(),
-        );
+        let boxed_renderer: Box<SkiaRenderer> =
+            Box::new(SkiaRenderer::new(handle.clone(), handle).unwrap());
         Box::into_raw(boxed_renderer) as SkiaRendererOpaque
     }
 

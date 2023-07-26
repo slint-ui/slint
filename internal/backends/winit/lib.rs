@@ -23,13 +23,54 @@ pub enum SlintUserEvent {
     CustomEvent { event: CustomEvent },
 }
 
+// Newtype until the next winit version implements rwh::HasWindowHandle for winit::Window
+#[derive(Clone, derive_more::Deref)]
+struct WinitWindowRc(Rc<winit::window::Window>);
+
+impl raw_window_handle::HasWindowHandle for WinitWindowRc {
+    fn window_handle(
+        &self,
+    ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
+        use raw_window_handle::HasRawWindowHandle;
+        // Safety: This is safe because the handle remains valid; the next rwh release provides `new()` without unsafe.
+        let active_handle = unsafe { raw_window_handle::ActiveHandle::new_unchecked() };
+
+        // Safety: API wise we can't guarantee that the window/display handles remain valid, so we
+        // use unsafe here. However the winit window adapter keeps the winit window alive as long as
+        // the renderer.
+        Ok(unsafe {
+            raw_window_handle::WindowHandle::borrow_raw(self.0.raw_window_handle(), active_handle)
+        })
+    }
+}
+
+impl raw_window_handle::HasDisplayHandle for WinitWindowRc {
+    fn display_handle(
+        &self,
+    ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
+        use raw_window_handle::HasRawDisplayHandle;
+
+        // Safety: API wise we can't guarantee that the window/display handles remain valid, so we
+        // use unsafe here. However the winit window adapter keeps the winit window alive as long as
+        // the renderer.
+        Ok(unsafe { raw_window_handle::DisplayHandle::borrow_raw(self.0.raw_display_handle()) })
+    }
+}
+
+impl From<winit::window::Window> for WinitWindowRc {
+    fn from(window: winit::window::Window) -> Self {
+        Self(Rc::new(window))
+    }
+}
+
 mod renderer {
+    use super::WinitWindowRc;
     use i_slint_core::platform::PlatformError;
 
     pub(crate) trait WinitCompatibleRenderer {
         fn new(
             window_builder: winit::window::WindowBuilder,
-        ) -> Result<(Self, winit::window::Window), PlatformError>
+        ) -> Result<(Self, WinitWindowRc), PlatformError>
         where
             Self: Sized;
 

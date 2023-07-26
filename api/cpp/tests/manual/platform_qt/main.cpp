@@ -68,8 +68,7 @@ class MyWindow : public QWindow, public slint_platform::WindowAdapter
 public:
     MyWindow(QWindow *parentWindow = nullptr) : QWindow(parentWindow)
     {
-        resize(640, 480);
-        m_renderer.emplace(window_handle_for_qt_window(this), physical_size());
+        m_renderer.emplace(window_handle_for_qt_window(this));
     }
 
     slint_platform::AbstractRenderer &renderer() override { return m_renderer.value(); }
