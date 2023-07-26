@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use napi::{Env, Error, JsFunction, JsUnknown, Result};
+use napi::{Env, Error, JsFunction, JsUnknown, NapiRaw, NapiValue, Ref, Result};
 use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
 
 use super::JsComponentDefinition;
@@ -60,9 +60,11 @@ impl JsComponentInstance {
 
     #[napi]
     pub fn set_callback(&self, env: Env, name: String, callback: JsFunction) -> Result<()> {
+        let function_ref = RefCountedReference::new(&env, callback)?;
         self.inner
             .set_callback(name.as_str(), move |values| {
                 println!("---");
+                let callback: JsFunction = function_ref.get().unwrap();
                 let result = callback
                     .call(
                         None,
@@ -95,5 +97,27 @@ impl JsComponentInstance {
             .map_err(|_| napi::Error::from_reason("Cannot invoke callback."))?;
 
         Ok(())
+    }
+}
+
+// Wrapper around Ref<>, which requires manual ref-counting.
+struct RefCountedReference {
+    env: Env,
+    reference: Ref<()>,
+}
+
+impl RefCountedReference {
+    fn new<T: NapiRaw>(env: &Env, value: T) -> Result<Self> {
+        Ok(Self { env: env.clone(), reference: env.create_reference(value)? })
+    }
+
+    fn get<T: NapiValue>(&self) -> Result<T> {
+        self.env.get_reference_value(&self.reference)
+    }
+}
+
+impl Drop for RefCountedReference {
+    fn drop(&mut self) {
+        self.reference.unref(self.env).unwrap();
     }
 }
