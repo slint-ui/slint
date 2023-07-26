@@ -21,7 +21,7 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-11, windows-2022]
+        os: [ubuntu-22.04, macos-11, windows-2022]
         rust_version: [stable, "1.66"]
         include:
           - os: windows-2022
@@ -93,7 +93,7 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-11]
+        os: [ubuntu-22.04, macos-11]
 
     runs-on: ${{ matrix.os }}
 
@@ -142,7 +142,7 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: 0
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-12, windows-2022]
+        os: [ubuntu-22.04, macos-12, windows-2022]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -179,7 +179,7 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: 0
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-12, windows-2022]
+        os: [ubuntu-22.04, macos-12, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
@@ -188,12 +188,12 @@ jobs:
         force-gcc-10: true
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v3
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-22.04'
       with:
         version: 5.15.2
         cache: true
     - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-20.04'
+      if: matrix.os != 'ubuntu-22.04'
       uses: jurplel/install-qt-action@v3
       with:
         version: 6.5.1
@@ -206,7 +206,7 @@ jobs:
         echo "CXX=cl.exe" >> $GITHUB_ENV
       if: matrix.os == 'windows-2022'
     - name: Enable test coverage for resource embedding in C++ when building examples
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-22.04'
       run: |
           echo "SLINT_EMBED_RESOURCES=true" >> $GITHUB_ENV
     - name: C++ Build
@@ -231,7 +231,7 @@ jobs:
 
   cpp_package_test:
     needs: [cpp_cmake]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.5.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
@@ -249,7 +249,7 @@ jobs:
         cache: true
     - uses: actions/download-artifact@v2
       with:
-        name: cpp_bin-ubuntu-20.04
+        name: cpp_bin-ubuntu-22.04
         path: cpp-package
     - name: unpack package
       run: |
@@ -274,7 +274,7 @@ jobs:
       SLINT_PROCESS_IMAGES: 1
       RUSTFLAGS: --cfg slint_int_coord
       CARGO_PROFILE_DEV_DEBUG: 0
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
@@ -284,7 +284,7 @@ jobs:
       run: cargo check --target=thumbv6m-none-eabi -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789
 
   ffi_32bit_build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
@@ -299,7 +299,7 @@ jobs:
   uefi-demo:
     env:
       CARGO_PROFILE_DEV_DEBUG: 0
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
@@ -360,7 +360,7 @@ jobs:
     strategy:
       matrix:
         from_version: ['0.3.0']
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
       with:
