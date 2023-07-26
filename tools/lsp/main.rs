@@ -86,9 +86,15 @@ impl ServerNotifier {
         let queue = self.1.clone();
         Ok(std::future::poll_fn(move |ctx| {
             let mut queue = queue.lock().unwrap();
-            match queue.remove(&id) {
-                None | Some(OutgoingRequest::Pending(_)) => {
-                    queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
+            match
+
+
+                    queue.remove(&id) {
+         None | Some(OutgoingRequest::Pending(_)) => {
+                    queue.insert(id.clone(),
+
+
+        OutgoingRequest::Pending(     ctx.waker().clone()));
                     Poll::Pending
                 }
                 Some(OutgoingRequest::Done(d)) => {
