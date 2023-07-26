@@ -341,12 +341,29 @@ class SoftwareRenderer : public AbstractRenderer
     }
 
 public:
+    /// This enum describes which parts of the buffer passed to the SoftwareRenderer may be
+    /// re-used to speed up painting.
+    enum class RepaintBufferType : uint32_t {
+        /// The full window is always redrawn. No attempt at partial rendering will be made.
+        NewBuffer = 0,
+        /// Only redraw the parts that have changed since the previous call to render().
+        ///
+        /// This variant assumes that the same buffer is passed on every call to render() and
+        /// that it still contains the previously rendered frame.
+        ReusedBuffer = 1,
+
+        /// Redraw the part that have changed since the last two frames were drawn.
+        ///
+        /// This is used when using double buffering and swapping of the buffers.
+        SwappedBuffers = 2,
+    };
+
     virtual ~SoftwareRenderer() { cbindgen_private::slint_software_renderer_drop(inner); };
     SoftwareRenderer(const SoftwareRenderer &) = delete;
     SoftwareRenderer &operator=(const SoftwareRenderer &) = delete;
-    SoftwareRenderer(int max_buffer_age)
+    explicit SoftwareRenderer(RepaintBufferType buffer_type)
     {
-        inner = cbindgen_private::slint_software_renderer_new(max_buffer_age);
+        inner = cbindgen_private::slint_software_renderer_new(uint32_t(buffer_type));
     }
 
     /// Render the window scene into a pixel buffer
