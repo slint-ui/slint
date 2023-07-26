@@ -91,7 +91,7 @@ impl SkiaRenderer {
     /// Render the scene in the previously associated window. The size parameter must match the size of the window.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         let Some(surface) = self.surface.get() else {
-            return Err(format!("Skia Renderer: render() called before a resize event was dispatched to the slint::Window").into())
+            return Err(format!("Skia Renderer: render() called before a resize event was dispatched to the slint::Window").into());
         };
 
         if self.rendering_first_time.take() {
