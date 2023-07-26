@@ -607,6 +607,37 @@ public:
         inner.dispatch_pointer_event(event);
     }
 
+#ifdef SLINT_FEATURE_EXPERIMENTAL
+    /// Set the logical size of this window after a resize event
+    ///
+    /// The backend must send this event to ensure that the `width` and `height` property of the
+    /// root Window element are properly set.
+    void dispatch_resize_event(slint::LogicalSize s)
+    {
+        private_api::assert_main_thread();
+        cbindgen_private::slint_windowrc_dispatch_resize_event(&inner.handle(), s.width, s.height);
+    }
+
+    /// The window's scale factor has changed. This can happen for example when the display's
+    /// resolution changes, the user selects a new scale factor in the system settings, or the
+    /// window is moved to a different screen. Platform implementations should dispatch this event
+    /// also right after the initial window creation, to set the initial scale factor the windowing
+    /// system provided for the window.
+    void dispatch_scale_factor_change_event(float factor)
+    {
+        private_api::assert_main_thread();
+        cbindgen_private::slint_windowrc_dispatch_scale_factor_change_event(&inner.handle(),
+                                                                            factor);
+    }
+
+    /// Returns true if there is an animation currently active on any property in the Window.
+    bool has_active_animations() const
+    {
+        private_api::assert_main_thread();
+        return cbindgen_private::slint_windowrc_has_active_animations(&inner.handle());
+    }
+#endif
+
     /// \private
     private_api::WindowAdapterRc &window_handle() { return inner; }
     /// \private

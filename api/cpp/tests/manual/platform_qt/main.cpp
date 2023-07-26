@@ -85,7 +85,7 @@ public:
 
         m_renderer->render();
 
-        if (has_active_animations()) {
+        if (window().has_active_animations()) {
             requestUpdate();
         }
     }
@@ -103,7 +103,7 @@ public:
     void set_visible(bool visible) override
     {
         if (visible) {
-            dispatch_scale_factor_change_event(devicePixelRatio());
+            window().dispatch_scale_factor_change_event(devicePixelRatio());
         }
         this->QWindow::setVisible(visible);
     }
@@ -121,7 +121,7 @@ public:
     void resizeEvent(QResizeEvent *ev) override
     {
         auto logicalSize = ev->size();
-        WindowAdapter::dispatch_resize_event(
+        window().dispatch_resize_event(
                 slint::LogicalSize({ float(logicalSize.width()), float(logicalSize.height()) }));
     }
 
