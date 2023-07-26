@@ -127,31 +127,6 @@ public:
         // layout
         return *reinterpret_cast<Window *>(&self);
     }
-
-    /// Set the logical size of this window after a resize event
-    // Note: in rust, this is an event on the Window
-    void dispatch_resize_event(slint::LogicalSize s)
-    {
-        private_api::assert_main_thread();
-        if (was_initialized) {
-            cbindgen_private::slint_windowrc_dispatch_resize_event(&self, s.width, s.height);
-        }
-    }
-
-    /// Notifies the platform about a change in the device pixel ratio.
-    void dispatch_scale_factor_change_event(float factor)
-    {
-        private_api::assert_main_thread();
-        if (was_initialized) {
-            cbindgen_private::slint_windowrc_dispatch_scale_factor_change_event(&self, factor);
-        }
-    }
-
-    /// Returns true if the window is currently animating
-    bool has_active_animations() const
-    {
-        return cbindgen_private::slint_windowrc_has_active_animations(&self);
-    }
 };
 
 /// The platform is acting like a factory to create a WindowAdapter

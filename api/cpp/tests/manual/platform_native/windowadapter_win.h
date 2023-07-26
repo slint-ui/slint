@@ -78,13 +78,13 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter
     void render()
     {
         m_renderer->render();
-        if (has_active_animations())
+        if (window().has_active_animations())
             request_redraw();
     }
 
     void resize(uint32_t width, uint32_t height)
     {
-        dispatch_resize_event(slint::LogicalSize({ (float)width, (float)height }));
+        window().dispatch_resize_event(slint::LogicalSize({ (float)width, (float)height }));
     }
 
     void setGeometry(int x, int y, int width, int height)
