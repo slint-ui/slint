@@ -1771,9 +1771,14 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
     match pr {
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
             assert!(prop_name.is_empty());
-            let (sub_compo_path, sub_component) =
-                follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
-            component_access_tokens = quote!(#component_access_tokens #sub_compo_path);
+
+            let root = ctx.current_sub_component.unwrap();
+            let mut sub_component = root;
+            for i in sub_component_path {
+                let sub_component_name = ident(&sub_component.sub_components[*i].name);
+                component_access_tokens = quote!(#component_access_tokens . #sub_component_name);
+                sub_component = &sub_component.sub_components[*i].ty;
+            }
             let component_rc_tokens = quote!(VRcMapped::origin(&#component_access_tokens.self_weak.get().unwrap().upgrade().unwrap()));
             let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
             let item_index_tokens = if item_index_in_tree == 0 {

@@ -20,12 +20,12 @@ fn ident(ident: &str) -> String {
 /// return tokens to the `ItemRc`
 fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> String {
     let mut ctx = ctx;
-    let mut component_access = "self".into();
+    let mut component_access = "self->".into();
 
     let pr = match pr {
         llr::PropertyReference::InParent { level, parent_reference } => {
             for _ in 0..level.get() {
-                component_access = format!("{}->parent", component_access);
+                component_access = format!("{component_access}parent->");
                 ctx = ctx.parent.as_ref().unwrap().ctx;
             }
             parent_reference
@@ -39,17 +39,14 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Strin
             let (sub_compo_path, sub_component) =
                 follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
             if !sub_component_path.is_empty() {
-                component_access = format!("{}->{}", &component_access, &sub_compo_path);
+                component_access += &sub_compo_path;
             }
-            let component_rc = format!("{}->self_weak.lock()->into_dyn()", &component_access);
+            let component_rc = format!("{component_access}self_weak.lock()->into_dyn()");
             let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
             let item_index = if item_index_in_tree == 0 {
-                format!("{}->tree_index", &component_access)
+                format!("{component_access}tree_index")
             } else {
-                format!(
-                    "{}->tree_index_of_first_child + {} - 1",
-                    &component_access, item_index_in_tree
-                )
+                format!("{component_access}tree_index_of_first_child + {item_index_in_tree} - 1")
             };
 
             format!("{}, {}", &component_rc, item_index)
@@ -2950,7 +2947,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::ItemAbsolutePosition => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
-                format!("slint::LogicalPosition(slint_item_absolute_position(&{item_rc}))")
+                format!("slint::LogicalPosition(slint::cbindgen_private::slint_item_absolute_position(&{item_rc}))")
             } else {
                 panic!("internal error: invalid args to ItemAbsolutePosition {:?}", arguments)
             }
