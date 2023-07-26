@@ -11,6 +11,9 @@ on:
 jobs:
   docs:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pull-requests: write
     env:
       # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
       # for which the stable alternative is not yet available.
@@ -66,6 +69,7 @@ jobs:
     - name: Suggest format changes
       uses: reviewdog/action-suggester@v1
       with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
         tool_name: formatters
         level: error
         fail_on_error: true
@@ -74,7 +78,8 @@ jobs:
     - name: Suggest license header changes
       uses: reviewdog/action-suggester@v1
       with:
-        tool_name: xtask license_header
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        tool_name: xtask license_heade+r
         level: error
         fail_on_error: true
     - name: Check reuse compliance
