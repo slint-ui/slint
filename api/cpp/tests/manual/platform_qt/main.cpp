@@ -116,7 +116,7 @@ public:
                                      uint32_t(windowSize.height * scale_factor) });
     }
 
-    void request_redraw() const override { const_cast<MyWindow *>(this)->requestUpdate(); }
+    void request_redraw() override { requestUpdate(); }
 
     void resizeEvent(QResizeEvent *ev) override
     {

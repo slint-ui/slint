@@ -68,7 +68,7 @@ class WindowAdapter
                 },
                 [](void *wa) { reinterpret_cast<const WindowAdapter *>(wa)->show(); },
                 [](void *wa) { reinterpret_cast<const WindowAdapter *>(wa)->hide(); },
-                [](void *wa) { reinterpret_cast<const WindowAdapter *>(wa)->request_redraw(); },
+                [](void *wa) { reinterpret_cast<WindowAdapter *>(wa)->request_redraw(); },
                 [](void *wa) -> cbindgen_private::IntSize {
                     return reinterpret_cast<const WindowAdapter *>(wa)->physical_size();
                 },
@@ -99,7 +99,7 @@ public:
     ///
     /// You should not render the window in the implementation of this call. Instead you should
     /// do that in the next iteration of the event loop, or in a callback from the window manager.
-    virtual void request_redraw() const { }
+    virtual void request_redraw() { }
 
     /// Returns the actual physical size of the window
     virtual slint::PhysicalSize physical_size() const = 0;

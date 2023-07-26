@@ -78,7 +78,7 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter
         // TODO: destroy window
     }
 
-    void request_redraw() const override { InvalidateRect(hwnd, nullptr, false); }
+    void request_redraw() override { InvalidateRect(hwnd, nullptr, false); }
 
     void render()
     {
