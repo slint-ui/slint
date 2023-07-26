@@ -644,7 +644,10 @@ public:
         return inner;
     }
     /// \private
-    const private_api::WindowAdapterRc &window_handle() const { return inner; }
+    const private_api::WindowAdapterRc &window_handle() const
+    {
+        return inner;
+    }
 
 private:
     private_api::WindowAdapterRc inner;
