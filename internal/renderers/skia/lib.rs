@@ -65,15 +65,15 @@ pub struct SkiaRenderer {
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     rendering_first_time: Cell<bool>,
     surface: once_cell::unsync::OnceCell<Box<dyn Surface>>,
-    window_handle_provider: Box<dyn raw_window_handle::HasWindowHandle>,
-    display_handle_provider: Box<dyn raw_window_handle::HasDisplayHandle>,
+    window_handle_provider: Rc<dyn raw_window_handle::HasWindowHandle>,
+    display_handle_provider: Rc<dyn raw_window_handle::HasDisplayHandle>,
 }
 
 impl SkiaRenderer {
     /// Creates a new renderer is associated with the provided window adapter.
     pub fn new(
-        window_handle_provider: impl raw_window_handle::HasWindowHandle + 'static,
-        display_handle_provider: impl raw_window_handle::HasDisplayHandle + 'static,
+        window_handle_provider: Rc<dyn raw_window_handle::HasWindowHandle>,
+        display_handle_provider: Rc<dyn raw_window_handle::HasDisplayHandle>,
     ) -> Result<Self, PlatformError> {
         Ok(Self {
             maybe_window_adapter: Default::default(),
@@ -83,8 +83,8 @@ impl SkiaRenderer {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Cell::new(true),
             surface: Default::default(),
-            window_handle_provider: Box::new(window_handle_provider),
-            display_handle_provider: Box::new(display_handle_provider),
+            window_handle_provider,
+            display_handle_provider,
         })
     }
 

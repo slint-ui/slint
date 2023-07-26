@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use std::rc::Rc;
+
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::Renderer;
 use i_slint_renderer_femtovg::FemtoVGRenderer;
@@ -8,7 +10,7 @@ use i_slint_renderer_femtovg::FemtoVGRenderer;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
-use crate::WinitWindowRc;
+use crate::WinitWindow;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod glcontext;
@@ -20,7 +22,7 @@ pub struct GlutinFemtoVGRenderer {
 impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
     fn new(
         window_builder: winit::window::WindowBuilder,
-    ) -> Result<(Self, WinitWindowRc), PlatformError> {
+    ) -> Result<(Self, Rc<WinitWindow>), PlatformError> {
         #[cfg(not(target_arch = "wasm32"))]
         let (winit_window, opengl_context) = crate::event_loop::with_window_target(|event_loop| {
             glcontext::OpenGLContext::new_context(window_builder, event_loop.event_loop_target())
@@ -43,7 +45,7 @@ impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
             winit_window.canvas(),
         )?;
 
-        Ok((Self { renderer }, winit_window.into()))
+        Ok((Self { renderer }, Rc::new(winit_window.into())))
     }
 
     fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {

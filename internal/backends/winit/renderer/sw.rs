@@ -8,8 +8,9 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::software_renderer::PremultipliedRgbaColor;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use std::cell::RefCell;
+use std::rc::Rc;
 
-use crate::WinitWindowRc;
+use crate::WinitWindow;
 
 pub struct WinitSoftwareRenderer {
     renderer: SoftwareRenderer,
@@ -20,7 +21,7 @@ pub struct WinitSoftwareRenderer {
 impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     fn new(
         window_builder: winit::window::WindowBuilder,
-    ) -> Result<(Self, WinitWindowRc), PlatformError> {
+    ) -> Result<(Self, Rc<WinitWindow>), PlatformError> {
         let winit_window = crate::event_loop::with_window_target(|event_loop| {
             window_builder.build(event_loop.event_loop_target()).map_err(|winit_os_error| {
                 format!("Error creating native window for software rendering: {}", winit_os_error)
@@ -44,7 +45,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                 _context: context,
                 surface: RefCell::new(surface),
             },
-            winit_window.into(),
+            Rc::new(winit_window.into()),
         ))
     }
 

@@ -17,7 +17,7 @@ use std::rc::Weak;
 use winit::platform::web::WindowExtWebSys;
 
 use crate::renderer::WinitCompatibleRenderer;
-use crate::WinitWindowRc;
+use crate::WinitWindow;
 use const_field_offset::FieldOffsets;
 
 use corelib::component::ComponentRc;
@@ -130,7 +130,7 @@ pub struct WinitWindowAdapter {
     #[cfg(enable_accesskit)]
     pub accesskit_adapter: crate::accesskit::AccessKitAdapter,
 
-    winit_window: WinitWindowRc, // Last field so that any previously provided window handles are still valid in the drop impl of the renderers, etc.
+    winit_window: Rc<WinitWindow>,
 }
 
 impl WinitWindowAdapter {
@@ -252,8 +252,8 @@ impl WinitWindowAdapter {
         callback(&self.winit_window());
     }
 
-    pub fn winit_window(&self) -> Rc<winit::window::Window> {
-        self.winit_window.0.clone()
+    pub(crate) fn winit_window(&self) -> Rc<WinitWindow> {
+        self.winit_window.clone()
     }
 
     pub fn is_shown(&self) -> bool {

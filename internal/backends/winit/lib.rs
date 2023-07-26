@@ -24,10 +24,10 @@ pub enum SlintUserEvent {
 }
 
 // Newtype until the next winit version implements rwh::HasWindowHandle for winit::Window
-#[derive(Clone, derive_more::Deref)]
-struct WinitWindowRc(Rc<winit::window::Window>);
+#[derive(derive_more::Deref, derive_more::From)]
+struct WinitWindow(winit::window::Window);
 
-impl raw_window_handle::HasWindowHandle for WinitWindowRc {
+impl raw_window_handle::HasWindowHandle for WinitWindow {
     fn window_handle(
         &self,
     ) -> Result<raw_window_handle::WindowHandle<'_>, raw_window_handle::HandleError> {
@@ -44,7 +44,7 @@ impl raw_window_handle::HasWindowHandle for WinitWindowRc {
     }
 }
 
-impl raw_window_handle::HasDisplayHandle for WinitWindowRc {
+impl raw_window_handle::HasDisplayHandle for WinitWindow {
     fn display_handle(
         &self,
     ) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
@@ -57,20 +57,16 @@ impl raw_window_handle::HasDisplayHandle for WinitWindowRc {
     }
 }
 
-impl From<winit::window::Window> for WinitWindowRc {
-    fn from(window: winit::window::Window) -> Self {
-        Self(Rc::new(window))
-    }
-}
-
 mod renderer {
-    use super::WinitWindowRc;
+    use std::rc::Rc;
+
+    use super::WinitWindow;
     use i_slint_core::platform::PlatformError;
 
     pub(crate) trait WinitCompatibleRenderer {
         fn new(
             window_builder: winit::window::WindowBuilder,
-        ) -> Result<(Self, WinitWindowRc), PlatformError>
+        ) -> Result<(Self, Rc<WinitWindow>), PlatformError>
         where
             Self: Sized;
 
@@ -340,9 +336,7 @@ impl WinitWindowAccessor for i_slint_core::api::Window {
 
 impl private::WinitWindowAccessorSealed for i_slint_core::api::Window {}
 
-fn winit_window_rc_for_window(
-    window: &i_slint_core::api::Window,
-) -> Option<Rc<winit::window::Window>> {
+fn winit_window_rc_for_window(window: &i_slint_core::api::Window) -> Option<Rc<WinitWindow>> {
     i_slint_core::window::WindowInner::from_pub(window)
         .window_adapter()
         .internal(i_slint_core::InternalToken)
