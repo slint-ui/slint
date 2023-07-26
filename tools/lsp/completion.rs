@@ -586,7 +586,7 @@ fn add_components_to_import(
     };
 
     for file in document_cache.documents.all_files() {
-        let doc = document_cache.documents.get_document(file).unwrap();
+        let Some(doc) = document_cache.documents.get_document(file) else { continue };
         let file = if file.starts_with("builtin:/") {
             match file.file_name() {
                 Some(file) if file == "std-widgets.slint" => "std-widgets.slint".into(),
@@ -595,7 +595,8 @@ fn add_components_to_import(
         } else {
             match lsp_types::Url::make_relative(
                 &current_uri,
-                &lsp_types::Url::from_file_path(file).unwrap(),
+                &lsp_types::Url::from_file_path(file)
+                    .unwrap_or_else(|()| panic!("Cannot parse URL for file '{file:?}'")),
             ) {
                 Some(file) => file,
                 None => continue,
