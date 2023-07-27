@@ -58,7 +58,8 @@ unsafe impl OpenGLInterface for WebGLNeedsNoCurrentContext {
 }
 
 /// Use the FemtoVG renderer when implementing a custom Slint platform where you deliver events to
-/// Slint and want the scene to be rendered using OpenGL and the FemtoVG renderer.
+/// Slint and want the scene to be rendered using OpenGL. The rendering is done using the [FemtoVG](https://github.com/femtovg/femtovg)
+/// library.
 pub struct FemtoVGRenderer {
     maybe_window_adapter: RefCell<Option<Weak<dyn WindowAdapter>>>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
@@ -74,10 +75,8 @@ pub struct FemtoVGRenderer {
 }
 
 impl FemtoVGRenderer {
-    /// Creates a new renderer is associated with an implementation
-    /// of the OpenGLContextWrapper trait. The trait serves the purpose of giving the renderer control
-    /// over when the make the context current, how to retrieve the address of GL functions, and when
-    /// to swap back and front buffers.
+    /// Creates a new renderer that renders using OpenGL. An implementation of the OpenGLInterface
+    /// trait needs to supplied.
     pub fn new(
         #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
         #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
@@ -138,7 +137,7 @@ impl FemtoVGRenderer {
         })
     }
 
-    /// Render the scene using OpenGL. This function assumes that the context is current.
+    /// Render the scene using OpenGL.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
         self.opengl_context.ensure_current()?;
 
