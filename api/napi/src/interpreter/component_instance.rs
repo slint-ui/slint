@@ -1,5 +1,5 @@
-// Copyright © SixtyFPS GmbH <info@slint-ui.com>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use napi::{Env, Error, JsFunction, JsUnknown, NapiRaw, NapiValue, Ref, Result};
 use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
