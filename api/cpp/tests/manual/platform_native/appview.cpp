@@ -6,7 +6,7 @@
 #endif
 
 #include "appwindow.h"
-#include <slint_platform.h>
+#include <slint-platform.h>
 
 #if defined(_WIN32) || defined(_WIN64)
 #    include "windowadapter_win.h"

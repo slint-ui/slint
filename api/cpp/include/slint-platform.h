@@ -6,7 +6,7 @@
 #include "slint.h"
 
 #ifndef SLINT_FEATURE_EXPERIMENTAL
-#    warning "slint_platform.h API only available when SLINT_FEATURE_EXPERIMENTAL is activated"
+#    warning "slint-platform.h API only available when SLINT_FEATURE_EXPERIMENTAL is activated"
 #else
 
 #    include <utility>
