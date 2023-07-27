@@ -5,14 +5,12 @@
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 
 use std::cell::{Cell, RefCell};
+use std::num::NonZeroU32;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use i_slint_common::sharedfontdb;
-use i_slint_core::api::{
-    PhysicalSize as PhysicalWindowSize, RenderingNotifier, RenderingState,
-    SetRenderingNotifierError,
-};
+use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::lengths::{
@@ -46,7 +44,7 @@ pub unsafe trait OpenGLContextWrapper {
     /// Ensures that the GL context is current.
     fn ensure_current(&self) -> Result<(), PlatformError>;
     fn swap_buffers(&self) -> Result<(), PlatformError>;
-    fn resize(&self, size: PhysicalWindowSize) -> Result<(), PlatformError>;
+    fn resize(&self, width: NonZeroU32, height: NonZeroU32) -> Result<(), PlatformError>;
     #[cfg(not(target_arch = "wasm32"))]
     fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void;
 }
@@ -63,7 +61,7 @@ unsafe impl OpenGLContextWrapper for WebGLNeedsNoCurrentContext {
         Ok(())
     }
 
-    fn resize(&self, _size: PhysicalWindowSize) -> Result<(), PlatformError> {
+    fn resize(&self, _width: NonZeroU32, _height: NonZeroU32) -> Result<(), PlatformError> {
         Ok(())
     }
 }
@@ -167,8 +165,13 @@ impl FemtoVGRenderer {
         let window_adapter = self.window_adapter()?;
         let window = window_adapter.window();
         let size = window.size();
-        let width = size.width;
-        let height = size.height;
+
+        let Some((width, height)): Option<(NonZeroU32, NonZeroU32)> =
+            size.width.try_into().ok().zip(size.height.try_into().ok())
+        else {
+            // Nothing to render
+            return Ok(());
+        };
 
         let window_inner = WindowInner::from_pub(window);
         let scale = window_inner.scale_factor().ceil();
@@ -183,15 +186,15 @@ impl FemtoVGRenderer {
                     // We pass an integer that is greater than or equal to the scale factor as
                     // dpi / device pixel ratio as the anti-alias of femtovg needs that to draw text clearly.
                     // We need to care about that `ceil()` when calculating metrics.
-                    femtovg_canvas.set_size(width, height, scale);
+                    femtovg_canvas.set_size(width.get(), height.get(), scale);
 
                     // Clear with window background if it is a solid color otherwise it will drawn as gradient
                     if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
                         femtovg_canvas.clear_rect(
                             0,
                             0,
-                            width,
-                            height,
+                            width.get(),
+                            height.get(),
                             self::itemrenderer::to_femtovg_color(&clear_color),
                         );
                     }
@@ -205,7 +208,7 @@ impl FemtoVGRenderer {
 
                     femtovg_canvas.flush();
 
-                    femtovg_canvas.set_size(width, height, scale);
+                    femtovg_canvas.set_size(width.get(), height.get(), scale);
                     drop(femtovg_canvas);
 
                     self.with_graphics_api(|api| {
@@ -218,8 +221,8 @@ impl FemtoVGRenderer {
                     &self.graphics_cache,
                     &self.texture_cache,
                     window,
-                    width,
-                    height,
+                    width.get(),
+                    height.get(),
                 );
 
                 // Draws the window background as gradient
@@ -477,7 +480,10 @@ impl RendererSealed for FemtoVGRenderer {
     }
 
     fn resize(&self, size: i_slint_core::api::PhysicalSize) -> Result<(), PlatformError> {
-        self.opengl_context.resize(size)
+        if let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok()) {
+            return self.opengl_context.resize(width, height);
+        };
+        return Ok(());
     }
 }
 

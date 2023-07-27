@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
+use std::num::NonZeroU32;
+
 use glutin::{
     context::{ContextApi, ContextAttributesBuilder},
     display::GetGlDisplay,
@@ -32,16 +34,9 @@ unsafe impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
         Ok(())
     }
 
-    fn resize(&self, _size: PhysicalSize) -> Result<(), PlatformError> {
-        let width = _size.width.try_into().map_err(|_| {
-            format!("Attempting to create window surface with an invalid width: {}", _size.width)
-        })?;
-        let height = _size.height.try_into().map_err(|_| {
-            format!("Attempting to create window surface with an invalid height: {}", _size.height)
-        })?;
-
+    fn resize(&self, width: NonZeroU32, height: NonZeroU32) -> Result<(), PlatformError> {
         self.ensure_current()?;
-        self.surface.resize(&self.context, width, height);
+        self.surface.resize(&self.context, size.width, size.height);
 
         Ok(())
     }
