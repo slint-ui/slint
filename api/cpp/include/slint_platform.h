@@ -28,12 +28,6 @@ typedef struct objc_object NSWindow;
 
 namespace slint {
 
-/// This namespace contains experimental API.
-/// No compatibility across version.
-///
-/// \private
-namespace experimental {
-
 /// Namespace to be used when you implement your own Platform
 namespace platform {
 
@@ -492,7 +486,6 @@ inline std::optional<std::chrono::milliseconds> duration_until_next_timer_update
     }
 }
 
-}
 }
 }
 #endif

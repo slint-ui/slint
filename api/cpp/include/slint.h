@@ -54,11 +54,9 @@ using cbindgen_private::TraversalOrder;
 }
 
 #if !defined(DOXYGEN)
-namespace experimental {
 namespace platform {
 class SkiaRenderer;
 class SoftwareRenderer;
-}
 }
 #endif
 
@@ -278,8 +276,8 @@ public:
     const cbindgen_private::WindowAdapterRcOpaque &handle() const { return inner; }
 
 private:
-    friend class slint::experimental::platform::SkiaRenderer;
-    friend class slint::experimental::platform::SoftwareRenderer;
+    friend class slint::platform::SkiaRenderer;
+    friend class slint::platform::SoftwareRenderer;
     cbindgen_private::WindowAdapterRcOpaque inner;
 };
 

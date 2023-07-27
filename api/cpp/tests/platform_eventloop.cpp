@@ -12,18 +12,16 @@
 #include <chrono>
 #include <optional>
 
-namespace slint_platform = slint::experimental::platform;
-
-struct TestPlatform : slint_platform::Platform
+struct TestPlatform : slint::platform::Platform
 {
     std::mutex the_mutex;
-    std::deque<slint_platform::Platform::Task> queue;
+    std::deque<slint::platform::Platform::Task> queue;
     bool quit = false;
     std::condition_variable cv;
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
 
     /// Returns a new WindowAdapter
-    virtual std::unique_ptr<slint_platform::WindowAdapter> create_window_adapter() override
+    virtual std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override
     {
         assert(!"creating window in this test");
         return nullptr;
@@ -33,8 +31,8 @@ struct TestPlatform : slint_platform::Platform
     virtual void run_event_loop() override
     {
         while (true) {
-            slint_platform::update_timers_and_animations();
-            std::optional<slint_platform::Platform::Task> event;
+            slint::platform::update_timers_and_animations();
+            std::optional<slint::platform::Platform::Task> event;
             {
                 std::unique_lock lock(the_mutex);
                 if (queue.empty()) {
@@ -42,7 +40,7 @@ struct TestPlatform : slint_platform::Platform
                         quit = false;
                         break;
                     }
-                    if (auto duration = slint_platform::duration_until_next_timer_update()) {
+                    if (auto duration = slint::platform::duration_until_next_timer_update()) {
                         cv.wait_for(lock, *duration);
                     } else {
                         cv.wait(lock);
@@ -67,7 +65,7 @@ struct TestPlatform : slint_platform::Platform
         cv.notify_all();
     }
 
-    virtual void run_in_event_loop(slint_platform::Platform::Task event) override
+    virtual void run_in_event_loop(slint::platform::Platform::Task event) override
     {
         const std::unique_lock lock(the_mutex);
         queue.push_back(std::move(event));
@@ -83,7 +81,7 @@ struct TestPlatform : slint_platform::Platform
 #endif
 };
 
-bool init_platform = (slint_platform::set_platform(std::make_unique<TestPlatform>()), true);
+bool init_platform = (slint::platform::set_platform(std::make_unique<TestPlatform>()), true);
 
 TEST_CASE("C++ Singleshot Timers")
 {

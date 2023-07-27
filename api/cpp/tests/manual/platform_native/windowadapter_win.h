@@ -9,8 +9,6 @@
 #include <cassert>
 #include <windows.h>
 
-namespace slint_platform = slint::experimental::platform;
-
 struct Geometry
 {
     int x = 0;
@@ -19,11 +17,11 @@ struct Geometry
     uint32_t height = 0;
 };
 
-struct MyWindowAdapter : public slint_platform::WindowAdapter
+struct MyWindowAdapter : public slint::platform::WindowAdapter
 {
     HWND hwnd;
     Geometry geometry = { 0, 0, 600, 300 };
-    std::optional<slint_platform::SkiaRenderer> m_renderer;
+    std::optional<slint::platform::SkiaRenderer> m_renderer;
 
     MyWindowAdapter(HWND winId)
     {
@@ -56,13 +54,13 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter
                               NULL // Additional application data
         );
 
-        m_renderer.emplace(slint_platform::NativeWindowHandle::from_win32(hwnd, hInstance),
+        m_renderer.emplace(slint::platform::NativeWindowHandle::from_win32(hwnd, hInstance),
                            slint::PhysicalSize({ 600, 300 }));
 
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
     }
 
-    slint_platform::AbstractRenderer &renderer() override { return m_renderer.value(); }
+    slint::platform::AbstractRenderer &renderer() override { return m_renderer.value(); }
 
     slint::PhysicalSize physical_size() const override
     {
@@ -146,7 +144,7 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter
         case WM_PAINT: {
             PAINTSTRUCT ps;
             BeginPaint(hwnd, &ps);
-            slint_platform::update_timers_and_animations();
+            slint::platform::update_timers_and_animations();
             self->render();
             EndPaint(hwnd, &ps);
             return 0;
@@ -163,7 +161,7 @@ struct MyWindowAdapter : public slint_platform::WindowAdapter
         case WM_RBUTTONUP:
         case WM_RBUTTONDOWN:
         case WM_MOUSEMOVE:
-            slint_platform::update_timers_and_animations();
+            slint::platform::update_timers_and_animations();
             self->mouse_event(uMsg, lParam);
             return 0;
         }
