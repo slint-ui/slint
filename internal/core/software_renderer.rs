@@ -114,7 +114,7 @@ impl PhysicalRegion {
 #[derive(Default)]
 pub struct SoftwareRenderer {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
-    repaint_buffer_type: RepaintBufferType,
+    repaint_buffer_type: Cell<RepaintBufferType>,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
     force_dirty: Cell<crate::item_rendering::DirtyRegion>,
     /// Force a redraw in the next frame, no matter what's dirty. Use only as a last resort.
@@ -135,20 +135,20 @@ impl SoftwareRenderer {
     ///
     /// The `repaint_buffer_type` parameter specify what kind of buffer are passed to [`Self::render`]
     pub fn new_with_repaint_buffer_type(repaint_buffer_type: RepaintBufferType) -> Self {
-        Self { repaint_buffer_type, ..Default::default() }
+        Self { repaint_buffer_type: repaint_buffer_type.into(), ..Default::default() }
     }
 
     /// Change the what kind of buffer is being passed to [`Self::render`]
     ///
     /// This may clear the internal caches
-    pub fn set_repaint_buffer_type(&mut self, repaint_buffer_type: RepaintBufferType) {
-        self.repaint_buffer_type = repaint_buffer_type;
-        self.partial_cache.get_mut().clear();
+    pub fn set_repaint_buffer_type(&self, repaint_buffer_type: RepaintBufferType) {
+        self.repaint_buffer_type.set(repaint_buffer_type);
+        self.partial_cache.borrow_mut().clear();
     }
 
     /// Returns the kind of buffer that must be passed to  [`Self::render`]
     pub fn repaint_buffer_type(&self) -> RepaintBufferType {
-        self.repaint_buffer_type
+        self.repaint_buffer_type.get()
     }
 
     /// Internal function to apply a dirty region depending on the dirty_tracking_policy.
@@ -164,7 +164,7 @@ impl SoftwareRenderer {
             dirty_region = screen_region;
         }
 
-        match self.repaint_buffer_type {
+        match self.repaint_buffer_type() {
             RepaintBufferType::NewBuffer => {
                 PhysicalRect { origin: euclid::point2(0, 0), size: screen_size }
             }
