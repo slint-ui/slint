@@ -5,7 +5,7 @@
 #include "catch2/catch.hpp"
 
 #include <slint.h>
-#include <slint_interpreter.h>
+#include <slint-interpreter.h>
 
 SCENARIO("Value API")
 {

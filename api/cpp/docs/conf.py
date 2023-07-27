@@ -53,7 +53,7 @@ exhale_args = {
             If you choose to load :code:`.slint` files dynamically at run-time, then
             you can use the classes in :ref:`slint::interpreter<namespace_slint__interpreter>`, starting at
             :cpp:class:`slint::interpreter::ComponentCompiler`. You need to include
-            the :code:`slint_interpreter.h` header file.
+            the :code:`slint-interpreter.h` header file.
         """
     ),
     "doxygenStripFromPath": "..",

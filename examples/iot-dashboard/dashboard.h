@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <slint_interpreter.h>
+#include <slint-interpreter.h>
 
 #include <optional>
 #include <string_view>
