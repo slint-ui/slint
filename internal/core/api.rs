@@ -363,7 +363,6 @@ impl Window {
     ///    })
     /// }
     /// ```
-    #[doc(hidden)]
     pub fn new(window_adapter_weak: alloc::rc::Weak<dyn WindowAdapter>) -> Self {
         Self(WindowInner::new(window_adapter_weak))
     }
