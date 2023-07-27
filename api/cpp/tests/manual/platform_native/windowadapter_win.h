@@ -4,7 +4,7 @@
 #pragma once
 
 #include <optional>
-#include <slint_platform.h>
+#include <slint-platform.h>
 #include "appview.h"
 #include <cassert>
 #include <windows.h>

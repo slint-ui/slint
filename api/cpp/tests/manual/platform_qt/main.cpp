@@ -3,7 +3,7 @@
 
 #include "appwindow.h"
 
-#include <slint_platform.h>
+#include <slint-platform.h>
 
 #include <QtGui/QtGui>
 #include <QtGui/qpa/qplatformnativeinterface.h>

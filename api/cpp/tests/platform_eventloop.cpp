@@ -4,7 +4,7 @@
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 
-#include <slint_platform.h>
+#include <slint-platform.h>
 #include <thread>
 #include <deque>
 #include <memory>
