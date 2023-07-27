@@ -12,12 +12,10 @@
 #    include "windowadapter_win.h"
 #endif
 
-namespace slint_platform = slint::experimental::platform;
-
-struct MyPlatform : public slint_platform::Platform
+struct MyPlatform : public slint::platform::Platform
 {
     std::unique_ptr<MyWindowAdapter> the_window;
-    std::unique_ptr<slint_platform::WindowAdapter> create_window_adapter() override
+    std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override
     {
         return std::move(the_window);
     }
@@ -35,7 +33,7 @@ void AppView::attachToWindow(WINDOW_HANDLE winId)
     auto p = std::make_unique<MyPlatform>();
     p->the_window = std::make_unique<MyWindowAdapter>(winId);
     myWindow = p->the_window.get();
-    slint_platform::set_platform(std::move(p));
+    slint::platform::set_platform(std::move(p));
 
     // AppWindow is the auto-generated slint code
     static auto app = AppWindow::create();

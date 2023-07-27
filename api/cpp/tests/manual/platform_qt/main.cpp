@@ -3,13 +3,11 @@
 
 #include "appwindow.h"
 
-#include "slint_platform.h"
+#include <slint_platform.h>
 
 #include <QtGui/QtGui>
 #include <QtGui/qpa/qplatformnativeinterface.h>
 #include <QtWidgets/QApplication>
-
-namespace slint_platform = slint::experimental::platform;
 
 slint::PointerEventButton convert_button(Qt::MouseButtons b)
 {
@@ -25,7 +23,7 @@ slint::PointerEventButton convert_button(Qt::MouseButtons b)
     }
 }
 
-static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *window)
+static slint::platform::NativeWindowHandle window_handle_for_qt_window(QWindow *window)
 {
     // Ensure that the native window surface exists
     window->create();
@@ -35,10 +33,10 @@ static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *w
             native->nativeResourceForWindow(QByteArray("nsview"), window));
     NSWindow *nswindow = reinterpret_cast<NSWindow *>(
             native->nativeResourceForWindow(QByteArray("nswindow"), window));
-    return slint_platform::NativeWindowHandle::from_appkit(nsview, nswindow);
+    return slint::platform::NativeWindowHandle::from_appkit(nsview, nswindow);
 #elif defined Q_OS_WIN
     auto wid = Qt::HANDLE(window->winId());
-    return slint_platform::NativeWindowHandle::from_win32(wid, GetModuleHandle(nullptr));
+    return slint::platform::NativeWindowHandle::from_win32(wid, GetModuleHandle(nullptr));
 #else
     // Try Wayland first, then XLib, then Xcb
     auto wid = window->winId();
@@ -49,21 +47,21 @@ static slint_platform::NativeWindowHandle window_handle_for_qt_window(QWindow *w
                 native->nativeResourceForIntegration(QByteArray("wl_display")))) {
         auto *wayland_surface = reinterpret_cast<wl_surface *>(
                 native->nativeResourceForWindow(QByteArray("surface"), window));
-        return slint_platform::NativeWindowHandle::from_wayland(wayland_surface, wayland_display);
+        return slint::platform::NativeWindowHandle::from_wayland(wayland_surface, wayland_display);
     } else if (auto *x11_display = native->nativeResourceForWindow(QByteArray("display"), window)) {
-        return slint_platform::NativeWindowHandle::from_x11_xlib(wid, wid, x11_display, screen);
+        return slint::platform::NativeWindowHandle::from_x11_xlib(wid, wid, x11_display, screen);
     } else if (auto *xcb_connection = reinterpret_cast<xcb_connection_t *>(
                        native->nativeResourceForWindow(QByteArray("connection"), window))) {
-        return slint_platform::NativeWindowHandle::from_x11_xcb(wid, wid, xcb_connection, screen);
+        return slint::platform::NativeWindowHandle::from_x11_xcb(wid, wid, xcb_connection, screen);
     } else {
         throw "Unsupported windowing system (tried waylamd, xlib, and xcb)";
     }
 #endif
 }
 
-class MyWindow : public QWindow, public slint_platform::WindowAdapter
+class MyWindow : public QWindow, public slint::platform::WindowAdapter
 {
-    std::optional<slint_platform::SkiaRenderer> m_renderer;
+    std::optional<slint::platform::SkiaRenderer> m_renderer;
 
 public:
     MyWindow(QWindow *parentWindow = nullptr) : QWindow(parentWindow)
@@ -72,7 +70,7 @@ public:
         m_renderer.emplace(window_handle_for_qt_window(this), physical_size());
     }
 
-    slint_platform::AbstractRenderer &renderer() override { return m_renderer.value(); }
+    slint::platform::AbstractRenderer &renderer() override { return m_renderer.value(); }
 
     /*void keyEvent(QKeyEvent *event) override
     {
@@ -81,7 +79,7 @@ public:
 
     void paintEvent(QPaintEvent *ev) override
     {
-        slint_platform::update_timers_and_animations();
+        slint::platform::update_timers_and_animations();
 
         m_renderer->render();
 
@@ -127,32 +125,32 @@ public:
 
     void mousePressEvent(QMouseEvent *event) override
     {
-        slint_platform::update_timers_and_animations();
+        slint::platform::update_timers_and_animations();
         window().dispatch_pointer_press_event(
                 slint::LogicalPosition({ float(event->pos().x()), float(event->pos().y()) }),
                 convert_button(event->button()));
     }
     void mouseReleaseEvent(QMouseEvent *event) override
     {
-        slint_platform::update_timers_and_animations();
+        slint::platform::update_timers_and_animations();
         window().dispatch_pointer_release_event(
                 slint::LogicalPosition({ float(event->pos().x()), float(event->pos().y()) }),
                 convert_button(event->button()));
     }
     void mouseMoveEvent(QMouseEvent *event) override
     {
-        slint_platform::update_timers_and_animations();
+        slint::platform::update_timers_and_animations();
         window().dispatch_pointer_move_event(
                 slint::LogicalPosition({ float(event->pos().x()), float(event->pos().y()) }));
     }
 };
 
-struct MyPlatform : public slint_platform::Platform
+struct MyPlatform : public slint::platform::Platform
 {
 
     std::unique_ptr<QWindow> parentWindow;
 
-    std::unique_ptr<slint_platform::WindowAdapter> create_window_adapter() override
+    std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override
     {
         return std::make_unique<MyWindow>(parentWindow.get());
     }
@@ -165,11 +163,11 @@ int main(int argc, char **argv)
     static MyPlatform *plarform = [] {
         auto platform = std::make_unique<MyPlatform>();
         auto p2 = platform.get();
-        slint_platform::set_platform(std::move(platform));
+        slint::platform::set_platform(std::move(platform));
         return p2;
     }();
 
-    slint_platform::update_timers_and_animations();
+    slint::platform::update_timers_and_animations();
 
     auto my_ui = App::create();
     // mu_ui->set_property(....);
