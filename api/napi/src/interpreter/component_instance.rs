@@ -21,7 +21,9 @@ impl From<ComponentInstance> for JsComponentInstance {
 impl JsComponentInstance {
     #[napi(constructor)]
     pub fn new() -> napi::Result<Self> {
-        Err(napi::Error::from_reason("ComponentInstance can only be created by using ComponentCompiler.".to_string()))
+        Err(napi::Error::from_reason(
+            "ComponentInstance can only be created by using ComponentCompiler.".to_string(),
+        ))
     }
 
     #[napi]
