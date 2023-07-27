@@ -5,7 +5,7 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::ffi::c_void;
 use i_slint_core::api::{PhysicalSize, Window};
-use i_slint_core::graphics::{IntRect, IntSize, Rgb8Pixel};
+use i_slint_core::graphics::IntSize;
 use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
@@ -311,6 +311,7 @@ mod software_renderer {
 pub mod skia {
     use super::*;
     use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
+    use i_slint_core::graphics::{IntRect, IntSize, Rgb8Pixel};
 
     struct CppRawHandle(RawWindowHandle, RawDisplayHandle);
 
