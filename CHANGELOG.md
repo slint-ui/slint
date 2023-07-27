@@ -27,6 +27,7 @@ All notable changes to this project are documented in this file.
  - Implemented `Default` for `slint::Weak`
  - Added `ReverseModel` and `ModelExt::reverse`
  - Added `fn set_visible(&self, _visible: bool)` to the `slint::platform::WindowAdapter` trait.
+ - Added ways to create a `SoftwareRenderer` without a `MinimalSoftwareWindow`
 
 ### C++
 

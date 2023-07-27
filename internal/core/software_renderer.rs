@@ -41,7 +41,7 @@ type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 type DirtyRegion = PhysicalRect;
 
 /// This enum describes which parts of the buffer passed to the [`SoftwareRenderer`] may be re-used to speed up painting.
-#[derive(PartialEq, Eq, Debug, Clone, Default)]
+#[derive(PartialEq, Eq, Debug, Clone, Default, Copy)]
 pub enum RepaintBufferType {
     #[default]
     /// The full window is always redrawn. No attempt at partial rendering will be made.
@@ -111,6 +111,7 @@ impl PhysicalRegion {
 ///  2. Using [`render_by_line()`](Self::render()) to render the window line by line. This
 ///     is only useful if the device does not have enough memory to render the whole window
 ///     in one single buffer
+#[derive(Default)]
 pub struct SoftwareRenderer {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
     repaint_buffer_type: RepaintBufferType,
@@ -125,47 +126,29 @@ pub struct SoftwareRenderer {
 }
 
 impl SoftwareRenderer {
-    /// Create a new Renderer for a given window.
-    ///
-    /// The `repaint_buffer_type` parameter specify what kind of buffer are passed to [`Self::render`]
-    ///
-    /// The `window` parameter can be coming from [`Rc::new_cyclic()`](alloc::rc::Rc::new_cyclic())
-    /// since the `WindowAdapter` most likely own the Renderer
-    #[doc(hidden)]
-    #[deprecated(
-        since = "1.0.3",
-        note = "Use MinimalSoftwareWindow instead of constructing a SoftwareRenderer Directly"
-    )]
-    pub fn new(
-        repaint_buffer_type: RepaintBufferType,
-        window: Weak<dyn crate::window::WindowAdapter>,
-    ) -> Self {
-        Self {
-            maybe_window_adapter: RefCell::new(Some(window.clone())),
-            repaint_buffer_type,
-            partial_cache: Default::default(),
-            force_dirty: Default::default(),
-            force_screen_refresh: Default::default(),
-            prev_frame_dirty: Default::default(),
-        }
+    /// Create a new Renderer
+    pub fn new() -> Self {
+        Default::default()
     }
 
-    /// Create a new Renderer for a given window.
+    /// Create a new SoftwareRenderer.
     ///
     /// The `repaint_buffer_type` parameter specify what kind of buffer are passed to [`Self::render`]
+    pub fn new_with_repaint_buffer_type(repaint_buffer_type: RepaintBufferType) -> Self {
+        Self { repaint_buffer_type, ..Default::default() }
+    }
+
+    /// Change the what kind of buffer is being passed to [`Self::render`]
     ///
-    /// The `window` parameter can be coming from [`Rc::new_cyclic()`](alloc::rc::Rc::new_cyclic())
-    /// since the `WindowAdapter` most likely own the Renderer
-    #[doc(hidden)]
-    pub fn new_without_window(repaint_buffer_type: RepaintBufferType) -> Self {
-        Self {
-            maybe_window_adapter: RefCell::new(None),
-            repaint_buffer_type,
-            partial_cache: Default::default(),
-            force_dirty: Default::default(),
-            force_screen_refresh: Default::default(),
-            prev_frame_dirty: Default::default(),
-        }
+    /// This may clear the internal caches
+    pub fn set_repaint_buffer_type(&mut self, repaint_buffer_type: RepaintBufferType) {
+        self.repaint_buffer_type = repaint_buffer_type;
+        self.partial_cache.get_mut().clear();
+    }
+
+    /// Returns the kind of buffer that must be passed to  [`Self::render`]
+    pub fn repaint_buffer_type(&self) -> RepaintBufferType {
+        self.repaint_buffer_type
     }
 
     /// Internal function to apply a dirty region depending on the dirty_tracking_policy.
@@ -2030,7 +2013,7 @@ impl MinimalSoftwareWindow {
     pub fn new(repaint_buffer_type: RepaintBufferType) -> Rc<Self> {
         Rc::new_cyclic(|w: &Weak<Self>| Self {
             window: Window::new(w.clone()),
-            renderer: SoftwareRenderer::new_without_window(repaint_buffer_type),
+            renderer: SoftwareRenderer::new_with_repaint_buffer_type(repaint_buffer_type),
             needs_redraw: Default::default(),
             size: Default::default(),
         })
