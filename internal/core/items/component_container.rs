@@ -182,8 +182,6 @@ impl Item for ComponentContainer {
         _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         self.ensure_updated();
-
-        // Query the component_factory property to force a re-layout when that changes
         if let Some(rc) = self.component.borrow().clone() {
             vtable::VRc::borrow_pin(&rc).as_ref().layout_info(orientation)
         } else {
