@@ -42,9 +42,13 @@ mod itemrenderer;
 /// C library that implements EGL/CGL/WGL.
 pub unsafe trait OpenGLContextWrapper {
     /// Ensures that the GL context is current.
-    fn ensure_current(&self) -> Result<(), PlatformError>;
-    fn swap_buffers(&self) -> Result<(), PlatformError>;
-    fn resize(&self, width: NonZeroU32, height: NonZeroU32) -> Result<(), PlatformError>;
+    fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error>>;
+    fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error>>;
+    fn resize(
+        &self,
+        width: NonZeroU32,
+        height: NonZeroU32,
+    ) -> Result<(), Box<dyn std::error::Error>>;
     #[cfg(not(target_arch = "wasm32"))]
     fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void;
 }
@@ -53,15 +57,19 @@ pub unsafe trait OpenGLContextWrapper {
 struct WebGLNeedsNoCurrentContext;
 #[cfg(target_arch = "wasm32")]
 unsafe impl OpenGLContextWrapper for WebGLNeedsNoCurrentContext {
-    fn ensure_current(&self) -> Result<(), PlatformError> {
+    fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
-    fn swap_buffers(&self) -> Result<(), PlatformError> {
+    fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 
-    fn resize(&self, _width: NonZeroU32, _height: NonZeroU32) -> Result<(), PlatformError> {
+    fn resize(
+        &self,
+        _width: NonZeroU32,
+        _height: NonZeroU32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
 }
@@ -264,7 +272,8 @@ impl FemtoVGRenderer {
             self.with_graphics_api(|api| callback.notify(RenderingState::AfterRendering, &api))?;
         }
 
-        self.opengl_context.swap_buffers()
+        self.opengl_context.swap_buffers()?;
+        Ok(())
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -481,7 +490,7 @@ impl RendererSealed for FemtoVGRenderer {
 
     fn resize(&self, size: i_slint_core::api::PhysicalSize) -> Result<(), PlatformError> {
         if let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok()) {
-            return self.opengl_context.resize(width, height);
+            self.opengl_context.resize(width, height)?;
         };
         return Ok(());
     }

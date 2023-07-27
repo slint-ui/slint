@@ -874,6 +874,13 @@ impl From<&str> for PlatformError {
 }
 
 #[cfg(feature = "std")]
+impl From<Box<dyn std::error::Error>> for PlatformError {
+    fn from(error: Box<dyn std::error::Error>) -> Self {
+        Self::OtherError(error)
+    }
+}
+
+#[cfg(feature = "std")]
 impl std::error::Error for PlatformError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
