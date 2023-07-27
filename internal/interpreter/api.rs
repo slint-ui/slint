@@ -43,8 +43,6 @@ pub enum ValueType {
     Brush,
     /// Correspond to `image` type in .slint.
     Image,
-    /// Correspond to `component-factory` type in .slint.
-    ComponentFactory,
     /// The type is not a public type but something internal.
     #[doc(hidden)]
     Other = -1,
@@ -68,7 +66,6 @@ impl From<LangType> for ValueType {
             LangType::Struct { .. } => Self::Struct,
             LangType::Void => Self::Void,
             LangType::Image => Self::Image,
-            LangType::ComponentFactory => Self::ComponentFactory,
             _ => Self::Other,
         }
     }
@@ -119,7 +116,8 @@ pub enum Value {
     EnumerationValue(String, String) = 10,
     #[doc(hidden)]
     LayoutCache(SharedVector<f32>) = 11,
-    /// Correspond to the `component` type in .slint
+    #[doc(hidden)]
+    /// Correspond to the `component-factory` type in .slint
     ComponentFactory(ComponentFactory) = 12,
 }
 
@@ -135,7 +133,6 @@ impl Value {
             Value::Struct(_) => ValueType::Struct,
             Value::Brush(_) => ValueType::Brush,
             Value::Image(_) => ValueType::Image,
-            Value::ComponentFactory(_) => ValueType::ComponentFactory,
             _ => ValueType::Other,
         }
     }
