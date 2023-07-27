@@ -8,7 +8,6 @@ use i_slint_core::api::{PhysicalSize, Window};
 use i_slint_core::graphics::{IntRect, IntSize, Rgb8Pixel};
 use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
-use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
 use i_slint_core::window::WindowAdapter;
 
@@ -248,7 +247,9 @@ pub unsafe extern "C" fn slint_platform_task_run(event: PlatformTaskOpaque) {
 
 #[cfg(feature = "renderer-software")]
 mod software_renderer {
+    use super::*;
     type SoftwareRendererOpaque = *const c_void;
+    use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
 
     #[no_mangle]
     pub unsafe extern "C" fn slint_software_renderer_new(buffer_age: u32) -> SoftwareRendererOpaque {
