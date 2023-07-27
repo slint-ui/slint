@@ -5,10 +5,9 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::ffi::c_void;
 use i_slint_core::api::{PhysicalSize, Window};
-use i_slint_core::graphics::{IntRect, IntSize, Rgb8Pixel};
+use i_slint_core::graphics::IntSize;
 use i_slint_core::platform::{Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
-use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
 use i_slint_core::window::WindowAdapter;
 
@@ -246,62 +245,72 @@ pub unsafe extern "C" fn slint_platform_task_run(event: PlatformTaskOpaque) {
     f();
 }
 
-type SoftwareRendererOpaque = *const c_void;
+#[cfg(feature = "renderer-software")]
+mod software_renderer {
+    use super::*;
+    type SoftwareRendererOpaque = *const c_void;
+    use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_software_renderer_new(buffer_age: u32) -> SoftwareRendererOpaque {
-    let repaint_buffer_type = match buffer_age {
-        0 => RepaintBufferType::NewBuffer,
-        1 => RepaintBufferType::ReusedBuffer,
-        2 => RepaintBufferType::SwappedBuffers,
-        _ => unreachable!(),
-    };
-    Box::into_raw(Box::new(SoftwareRenderer::new_with_repaint_buffer_type(repaint_buffer_type)))
-        as SoftwareRendererOpaque
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_software_renderer_new(
+        buffer_age: u32,
+    ) -> SoftwareRendererOpaque {
+        let repaint_buffer_type = match buffer_age {
+            0 => RepaintBufferType::NewBuffer,
+            1 => RepaintBufferType::ReusedBuffer,
+            2 => RepaintBufferType::SwappedBuffers,
+            _ => unreachable!(),
+        };
+        Box::into_raw(Box::new(SoftwareRenderer::new_with_repaint_buffer_type(repaint_buffer_type)))
+            as SoftwareRendererOpaque
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_software_renderer_drop(r: SoftwareRendererOpaque) {
-    drop(Box::from_raw(r as *mut SoftwareRenderer));
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_software_renderer_drop(r: SoftwareRendererOpaque) {
+        drop(Box::from_raw(r as *mut SoftwareRenderer));
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_software_renderer_render_rgb8(
-    r: SoftwareRendererOpaque,
-    buffer: *mut Rgb8Pixel,
-    buffer_len: usize,
-    pixel_stride: usize,
-) -> IntRect {
-    let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
-    let renderer = &*(r as *const SoftwareRenderer);
-    let r = renderer.render(buffer, pixel_stride);
-    let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
-    i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_software_renderer_render_rgb8(
+        r: SoftwareRendererOpaque,
+        buffer: *mut Rgb8Pixel,
+        buffer_len: usize,
+        pixel_stride: usize,
+    ) -> IntRect {
+        let buffer = core::slice::from_raw_parts_mut(buffer, buffer_len);
+        let renderer = &*(r as *const SoftwareRenderer);
+        let r = renderer.render(buffer, pixel_stride);
+        let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
+        i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_software_renderer_render_rgb565(
-    r: SoftwareRendererOpaque,
-    buffer: *mut u16,
-    buffer_len: usize,
-    pixel_stride: usize,
-) -> IntRect {
-    let buffer = core::slice::from_raw_parts_mut(buffer as *mut Rgb565Pixel, buffer_len);
-    let renderer = &*(r as *const SoftwareRenderer);
-    let r = renderer.render(buffer, pixel_stride);
-    let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
-    i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
-}
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_software_renderer_render_rgb565(
+        r: SoftwareRendererOpaque,
+        buffer: *mut u16,
+        buffer_len: usize,
+        pixel_stride: usize,
+    ) -> IntRect {
+        let buffer = core::slice::from_raw_parts_mut(buffer as *mut Rgb565Pixel, buffer_len);
+        let renderer = &*(r as *const SoftwareRenderer);
+        let r = renderer.render(buffer, pixel_stride);
+        let (orig, size) = (r.bounding_box_origin(), r.bounding_box_size());
+        i_slint_core::graphics::euclid::rect(orig.x, orig.y, size.width as i32, size.height as i32)
+    }
 
-#[no_mangle]
-pub unsafe extern "C" fn slint_software_renderer_handle(r: SoftwareRendererOpaque) -> RendererPtr {
-    let r = (r as *const SoftwareRenderer) as *const dyn Renderer;
-    core::mem::transmute(r)
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_software_renderer_handle(
+        r: SoftwareRendererOpaque,
+    ) -> RendererPtr {
+        let r = (r as *const SoftwareRenderer) as *const dyn Renderer;
+        core::mem::transmute(r)
+    }
 }
 
 #[cfg(all(feature = "i-slint-renderer-skia", feature = "raw-window-handle"))]
 pub mod skia {
     use super::*;
+    use i_slint_core::graphics::{IntRect, IntSize, Rgb8Pixel};
     use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
     struct CppRawHandle(RawWindowHandle, RawDisplayHandle);

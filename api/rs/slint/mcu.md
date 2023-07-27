@@ -28,7 +28,7 @@ Start by adding a dependency to the `slint` and the `slint-build` crates to your
 Start with the `slint` crate like this:
 
 ```sh
-cargo add slint@1.1.0 --no-default-features --features "compat-1-0 unsafe-single-threaded libm"
+cargo add slint@1.1.0 --no-default-features --features "compat-1-2 unsafe-single-threaded libm"
 ```
 
 The default features of the `slint` crate are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
@@ -36,7 +36,7 @@ you need to disable the default features.
 
 In the snippet above, three features are selected:
 
- * `compat-1-0`: We select this feature when disabling the default features. For a detailed explanation see our blog post ["Adding default cargo features without breaking Semantic Versioning"](https://slint.dev/blog/rust-adding-default-cargo-feature.html).
+ * `compat-1-2`: We select this feature when disabling the default features. For a detailed explanation see our blog post ["Adding default cargo features without breaking Semantic Versioning"](https://slint.dev/blog/rust-adding-default-cargo-feature.html).
  * `unsafe-single-threaded`: Slint internally uses Rust's [`thread_local!`](https://doc.rust-lang.org/std/macro.thread_local.html) macro to store global data.
    This macro is only available in the Rust Standard Library (std), but not in bare metal environments. As a fallback, the `unsafe-single-threaded`
    feature changes Slint to use unsafe static for storage. This way, you guarantee to use Slint API only from a single thread, and not from interrupt handlers.
@@ -68,7 +68,7 @@ edition = "2021"
 [dependencies.slint]
 version = "1.1.0"
 default-features = false
-features = ["compat-1-0", "unsafe-single-threaded", "libm"]
+features = ["compat-1-2", "unsafe-single-threaded", "libm"]
 [build-dependencies]
 slint-build = "1.1.0"
 ```

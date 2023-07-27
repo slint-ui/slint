@@ -37,6 +37,7 @@ pub mod properties;
 pub mod renderer;
 pub mod sharedvector;
 pub mod slice;
+#[cfg(feature = "software-renderer")]
 pub mod software_renderer;
 pub mod string;
 pub mod tests;

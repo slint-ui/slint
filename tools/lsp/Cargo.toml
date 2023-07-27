@@ -33,22 +33,28 @@ name = "slint_lsp_wasm"
 
 [features]
 backend-qt = ["slint-interpreter/backend-qt", "preview"]
-eventloop-qt = ["backend-qt"]
-renderer-winit-qt = ["backend-qt"]
 
 backend-winit = ["slint-interpreter/backend-winit", "preview"]
 backend-winit-x11 = ["slint-interpreter/backend-winit-x11", "preview"]
 backend-winit-wayland = ["slint-interpreter/backend-winit-wayland", "preview"]
 
-renderer-winit-femtovg = ["slint-interpreter/renderer-winit-femtovg", "preview"]
-renderer-winit-skia = ["slint-interpreter/renderer-winit-skia", "preview"]
-renderer-winit-skia-opengl = ["slint-interpreter/renderer-winit-skia-opengl", "preview"]
-renderer-winit-skia-vulkan = ["slint-interpreter/renderer-winit-skia-vulkan", "preview"]
+renderer-femtovg = ["slint-interpreter/renderer-femtovg", "preview"]
+renderer-skia = ["slint-interpreter/renderer-skia", "preview"]
+renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl", "preview"]
+renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan", "preview"]
+renderer-software = ["slint-interpreter/renderer-software", "preview"]
 
 # Compat
-backend-gl-all = ["backend-winit", "renderer-winit-femtovg"]
-backend-gl-wayland = ["backend-winit-wayland", "renderer-winit-femtovg"]
-backend-gl-x11 = ["backend-winit-x11", "renderer-winit-femtovg"]
+backend-gl-all = ["backend-winit", "renderer-femtovg"]
+backend-gl-wayland = ["backend-winit-wayland", "renderer-femtovg"]
+backend-gl-x11 = ["backend-winit-x11", "renderer-femtovg"]
+eventloop-qt = ["backend-qt"]
+renderer-winit-qt = ["backend-qt"]
+renderer-winit-femtovg = ["renderer-femtovg"]
+renderer-winit-skia = ["renderer-skia"]
+renderer-winit-skia-opengl= ["renderer-skia-opengl"]
+renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
+renderer-winit-software = ["renderer-software"]
 
 ## Enable the built-in preview, that will popup in a native window
 preview = ["slint-interpreter", "dep:i-slint-core", "dep:i-slint-backend-selector", "dep:image", "preview-lense", "preview-api"]
@@ -59,7 +65,7 @@ preview-lense = []
 ## Open a notification channel so that the LSP can communicate with the preview (when the preview is handled by the client)
 preview-api = []
 
-default = ["backend-qt", "backend-winit", "renderer-winit-femtovg", "preview"]
+default = ["backend-qt", "backend-winit", "renderer-femtovg", "preview"]
 
 [dependencies]
 i-slint-compiler = { version = "=1.2.0", path = "../../internal/compiler"}
@@ -73,7 +79,7 @@ rowan = "0.15.5"
 
 # for the preview
 i-slint-core = { version = "=1.2.0", path = "../../internal/core", optional = true }
-slint-interpreter = { version = "=1.2.0", path = "../../internal/interpreter", default-features = false, features = ["compat-1-0", "highlight"], optional = true  }
+slint-interpreter = { version = "=1.2.0", path = "../../internal/interpreter", default-features = false, features = ["compat-1-2", "highlight"], optional = true  }
 i-slint-backend-selector = { version = "=1.2.0", path="../../internal/backends/selector", optional = true }
 # Enable image-rs' default features to make all image formats available for the preview
 image = { version = "0.24.0", optional = true }

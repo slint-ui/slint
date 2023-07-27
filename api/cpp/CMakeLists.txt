@@ -78,6 +78,22 @@ if (MSVC)
     target_compile_options(Slint INTERFACE /bigobj)
 endif()
 
+# Compat options
+function(define_renderer_winit_compat_option renderer)
+    string(TOUPPER "${renderer}" cmake_option)
+    string(REPLACE "-" "_" cmake_option "${cmake_option}")
+    cmake_dependent_option("SLINT_FEATURE_RENDERER_WINIT_${cmake_option}" "Compat option equivalent to SLINT_FEATURE_RENDERER_${cmake_option}" OFF SLINT_FEATURE_STD OFF)
+    if(SLINT_FEATURE_RENDERER_WINIT_${cmake_option})
+        set("SLINT_FEATURE_RENDERER_${cmake_option}" ON PARENT_SCOPE)
+        message("SLINT_FEATURE_RENDERER_WINIT_${cmake_option} is deprecated, use SLINT_FEATURE_RENDERER_${cmake_option} instead")
+    endif()
+endfunction()
+define_renderer_winit_compat_option(femtovg)
+define_renderer_winit_compat_option(skia)
+define_renderer_winit_compat_option(skia-opengl)
+define_renderer_winit_compat_option(skia-vulkan)
+define_renderer_winit_compat_option(software)
+
 function(define_cargo_feature cargo-feature description default)
     # turn foo-bar into SLINT_FEATURE_FOO_BAR
     string(TOUPPER "${cargo-feature}" cmake_option)
@@ -119,37 +135,17 @@ define_cargo_dependent_feature(backend-winit "Enable support for the winit crate
 define_cargo_dependent_feature(backend-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just X11 support on Unix." OFF SLINT_FEATURE_STD)
 define_cargo_dependent_feature(backend-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just wayland support." OFF SLINT_FEATURE_STD)
 
-define_cargo_dependent_feature(renderer-winit-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON SLINT_FEATURE_STD)
-define_cargo_dependent_feature(renderer-winit-skia "Enable support for the Skia based rendering engine." OFF SLINT_FEATURE_STD)
-define_cargo_dependent_feature(renderer-winit-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." OFF SLINT_FEATURE_STD)
-define_cargo_dependent_feature(renderer-winit-skia-vulkan "Enable support for the Skia based rendering engine with its Vulkan backend." OFF SLINT_FEATURE_STD)
-define_cargo_dependent_feature(renderer-winit-software "Enable support for the software renderer with the winit backend" OFF SLINT_FEATURE_STD)
+define_cargo_dependent_feature(renderer-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON SLINT_FEATURE_STD)
+define_cargo_dependent_feature(renderer-skia "Enable support for the Skia based rendering engine." OFF SLINT_FEATURE_STD)
+define_cargo_dependent_feature(renderer-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." OFF SLINT_FEATURE_STD)
+define_cargo_dependent_feature(renderer-skia-vulkan "Enable support for the Skia based rendering engine with its Vulkan backend." OFF SLINT_FEATURE_STD)
+define_cargo_feature(renderer-software "Enable support for the software renderer" OFF)
 
 define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" ON SLINT_FEATURE_STD)
 
 define_cargo_feature(experimental "Enable experimental features (no compatibility guarantees)" OFF)
 define_cargo_dependent_feature(gettext "Enable support of translations using gettext" OFF SLINT_FEATURE_STD)
 define_cargo_dependent_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON SLINT_FEATURE_STD)
-
-# Compat options
-option(SLINT_FEATURE_BACKEND_GL_ALL "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT and SLINT_FEATURE_RENDERER_WINIT_FEMTOVG." OFF)
-option(SLINT_FEATURE_BACKEND_GL_X11 "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT_X11 and SLINT_FEATURE_RENDERER_WINIT_FEMTOVG." OFF)
-option(SLINT_FEATURE_BACKEND_GL_WAYLAND "This feature is an alias for SLINT_FEATURE_BACKEND_WINIT_WAYLAND and SLINT_FEATURE_RENDERER_WINIT_FEMTOVG." OFF)
-
-if(SLINT_FEATURE_BACKEND_GL_ALL)
-    set(SLINT_FEATURE_BACKEND_WINIT ON)
-    set(SLINT_FEATURE_RENDERER_WINIT_FEMTOVG ON)
-endif()
-
-if(SLINT_FEATURE_BACKEND_GL_X11)
-    set(SLINT_FEATURE_BACKEND_WINIT_X11 ON)
-    set(SLINT_FEATURE_RENDERER_WINIT_FEMTOVG ON)
-endif()
-
-if(SLINT_FEATURE_BACKEND_GL_WAYLAND)
-    set(SLINT_FEATURE_BACKEND_WINIT_WAYLAND ON)
-    set(SLINT_FEATURE_RENDERER_WINIT_FEMTOVG ON)
-endif()
 
 if (NOT SLINT_FEATURE_STD)
     list(APPEND features i-slint-core/libm i-slint-core/unsafe-single-threaded)

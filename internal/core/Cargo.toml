@@ -31,7 +31,8 @@ unsafe-single-threaded = []
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
-software-renderer-systemfonts = ["shared-fontdb", "rustybuzz", "fontdue"]
+software-renderer-systemfonts = ["shared-fontdb", "rustybuzz", "fontdue", "software-renderer"]
+software-renderer = []
 
 image-decoders = ["image", "clru"]
 svg = ["dep:resvg", "shared-fontdb"]
@@ -96,7 +97,7 @@ rustybuzz = { version = "0.7.0", optional = true }
 fontdue = { version = "0.7.1", optional = true }
 
 [dev-dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-0"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
 i-slint-backend-testing = { path="../backends/testing" }
 rustybuzz = "0.7.0"
 ttf-parser = "0.18.0"

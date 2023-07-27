@@ -11,11 +11,11 @@ sleep 15
 cargo publish --manifest-path api/rs/macros/Cargo.toml
 cargo publish --manifest-path internal/renderers/skia/Cargo.toml
 cargo publish --manifest-path internal/renderers/femtovg/Cargo.toml
-cargo publish --manifest-path internal/backends/winit/Cargo.toml --features x11,renderer-winit-femtovg
+cargo publish --manifest-path internal/backends/winit/Cargo.toml --features x11,renderer-femtovg
 cargo publish --manifest-path api/rs/build/Cargo.toml
 cargo publish --manifest-path internal/backends/qt/Cargo.toml
 sleep 30
-cargo publish --manifest-path internal/backends/selector/Cargo.toml --features backend-winit-x11,renderer-winit-femtovg
+cargo publish --manifest-path internal/backends/selector/Cargo.toml --features backend-winit-x11,renderer-femtovg
 sleep 30
 cargo publish --manifest-path internal/interpreter/Cargo.toml
 cargo publish --manifest-path api/rs/slint/Cargo.toml

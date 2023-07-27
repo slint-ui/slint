@@ -229,6 +229,7 @@ inline void set_platform(std::unique_ptr<Platform> platform)
             });
 }
 
+#    ifdef SLINT_FEATURE_RENDERER_SOFTWARE
 /// Represents a region on the screen, used for partial rendering.
 ///
 /// The region may be composed of multiple sub-regions.
@@ -358,6 +359,7 @@ public:
         return PhysicalRegion { r };
     }
 };
+#    endif
 
 /// An opaque, low-level window handle that internalizes everything necessary to exchange messages
 /// with the windowing system. This includes the connection to the display server, if necessary.

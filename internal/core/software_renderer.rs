@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 //! This module contains the [`SoftwareRenderer`] and related types.
+//!
+//! It is only enabled when the `renderer-software` Slint feature is enabled.
 
 #![warn(missing_docs)]
 
@@ -375,7 +377,7 @@ impl RendererSealed for SoftwareRenderer {
                     paragraph.byte_offset_for_position((pos.x_length(), pos.y_length())),
                 )
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
             fonts::Font::VectorFont(vf) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
 
@@ -430,7 +432,7 @@ impl RendererSealed for SoftwareRenderer {
 
                 (paragraph.cursor_pos_for_byte_offset(byte_offset), pf.height())
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
             fonts::Font::VectorFont(vf) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, scale_factor);
 
@@ -484,7 +486,7 @@ impl RendererSealed for SoftwareRenderer {
         fonts::register_bitmap_font(font_data);
     }
 
-    #[cfg(feature = "software-renderer-systemfonts")]
+    #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
     fn register_font_from_memory(
         &self,
         data: &'static [u8],
@@ -492,7 +494,7 @@ impl RendererSealed for SoftwareRenderer {
         self::fonts::systemfonts::register_font_from_memory(data)
     }
 
-    #[cfg(feature = "software-renderer-systemfonts")]
+    #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
     fn register_font_from_path(
         &self,
         path: &std::path::Path,
@@ -1767,7 +1769,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
                 self.draw_text_paragraph(&paragraph, physical_clip, offset, color, None);
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
             fonts::Font::VectorFont(vf) => {
                 let layout = fonts::text_layout_for_font(&vf, &font_request, self.scale_factor);
 
@@ -1846,7 +1848,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     (paragraph.cursor_pos_for_byte_offset(cursor_offset), pf.height())
                 })
             }
-            #[cfg(feature = "software-renderer-systemfonts")]
+            #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
             fonts::Font::VectorFont(vf) => {
                 let paragraph = TextParagraphLayout {
                     string: &text_visual_representation.text,

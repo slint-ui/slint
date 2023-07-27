@@ -63,7 +63,7 @@ jobs:
     - name: Enable Skia build
       if: matrix.target != 'riscv64gc-unknown-linux-gnu'
       run: |
-          echo "EXTRA_ARGS=--features slint/renderer-winit-skia" >> $GITHUB_ENV
+          echo "EXTRA_ARGS=--features slint/renderer-skia" >> $GITHUB_ENV
     - uses: baptiste0928/cargo-install@v2
       with:
         crate: cross
