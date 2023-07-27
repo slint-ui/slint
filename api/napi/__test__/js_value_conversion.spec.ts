@@ -6,33 +6,6 @@ var Jimp = require("jimp");
 
 import { ComponentCompiler, Brush, Model, Color, ImageData } from '../index'
 
-test('get/set include paths', (t) => {
-  let compiler = new ComponentCompiler;
-
-  t.is(compiler.includePaths.length, 0);
-
-  compiler.includePaths = ["path/one/", "path/two/", "path/three/"];
-
-  t.deepEqual(compiler.includePaths, ["path/one/", "path/two/", "path/three/"]);
-})
-
-test('get/set style', (t) => {
-  let compiler = new ComponentCompiler;
-
-  t.is(compiler.style, null);
-
-  compiler.style = "fluent";
-  t.is(compiler.style, "fluent");
-})
-
-test('get/set build from source', (t) => {
-  let compiler = new ComponentCompiler;
-
-  let definition = compiler.buildFromSource(`export component App {}`, "");
-  t.is(definition?.name, "App");
-})
-
-
 test('get/set string properties', (t) => {
 
   let compiler = new ComponentCompiler;
@@ -135,6 +108,7 @@ test('set struct properties', (t) => {
     age: int
   }
   export component App {
+    in-out property <bool> bool-prop;
     in-out property <Player> player: {
       name: "Florian",
       age: 20,
@@ -142,6 +116,10 @@ test('set struct properties', (t) => {
   }
   `, "");
   let instance = definition?.create()!;
+
+  t.false(instance.getProperty("bool-prop"));
+  instance.setProperty("bool-prop", true);
+  t.true(instance.getProperty("bool-prop"));
 
   t.deepEqual(instance.getProperty("player"), {
     "name": "Florian",
@@ -156,6 +134,14 @@ test('set struct properties', (t) => {
   t.deepEqual(instance.getProperty("player"), {
     "name": "Simon",
     "age": 22,
+  });
+
+  instance.setProperty("player", {
+    "name": "Florian"
+  });
+
+  t.deepEqual(instance.getProperty("player"), {
+    "name": "Florian"
   });
 })
 
@@ -264,12 +250,12 @@ test('invoke callback', (t) => {
   let instance = definition?.create()!;
   let speakTest;
 
-  instance.setCallback("great", (a: string, b: string) => {
-    speakTest = "hello " + a + " and " + b;
+  instance.setCallback("great", (a: string, b: string, c: string, d: string, e: string) => {
+    speakTest = "hello " + a + ", " + b + ", " + c + ", " + d + " and " + e;
   });
 
-  instance.invoke("great", ["simon", "florian"]);
-  t.deepEqual(speakTest, "hello simon and florian");
+  instance.invoke("great", ["simon", "olivier", "auri", "tobias", "florian"]);
+  t.deepEqual(speakTest, "hello simon, olivier, auri, tobias and florian");
 
   instance.setCallback("great-person", (p: any) => {
     speakTest = "hello " + p.name;

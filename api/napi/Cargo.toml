@@ -10,8 +10,7 @@ version = "0.0.1"
 crate-type = ["cdylib"]
 
 [dependencies]
-# Default enable napi4 feature, see https://nodejs.org/api/n-api.html#node-api-version-matrix
-napi = { version = "2.12.0", default-features = false, features = ["napi4", "tokio_rt", "serde-json"] }
+napi = { version = "2.12.0", default-features = false, features = ["napi8", "tokio_rt", "serde-json"] }
 napi-derive = "2.12.2"
 i-slint-compiler = { version = "=1.2.0", path="../../internal/compiler" }
 i-slint-core = { version = "=1.2.0", path="../../internal/core" }
