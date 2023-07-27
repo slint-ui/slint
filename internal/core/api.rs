@@ -838,6 +838,9 @@ pub enum PlatformError {
 
     /// Another platform-specific error occurred
     Other(String),
+    /// Another platform-specific error occurred.
+    #[cfg(feature = "std")]
+    OtherError(Box<dyn std::error::Error>),
 }
 
 impl core::fmt::Display for PlatformError {
@@ -853,6 +856,8 @@ impl core::fmt::Display for PlatformError {
                 f.write_str("The Slint platform was initialized in another thread")
             }
             PlatformError::Other(str) => f.write_str(str),
+            #[cfg(feature = "std")]
+            PlatformError::OtherError(error) => error.fmt(f),
         }
     }
 }
@@ -869,4 +874,11 @@ impl From<&str> for PlatformError {
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for PlatformError {}
+impl std::error::Error for PlatformError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            PlatformError::OtherError(err) => Some(err.as_ref()),
+            _ => None,
+        }
+    }
+}
