@@ -13,7 +13,6 @@ publish = false
 [dependencies]
 const_format = "0.2"
 clap = { version = "4.0", features = ["derive", "wrap_help"] }
-cargo_metadata = "0.15"
 anyhow = "1.0"
 lazy_static = "1.4.0"
 regex = "1.4"
