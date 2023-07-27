@@ -78,6 +78,22 @@ if (MSVC)
     target_compile_options(Slint INTERFACE /bigobj)
 endif()
 
+# Compat options
+function(define_renderer_winit_compat_option renderer)
+    string(TOUPPER "${cargo-feature}" cmake_option)
+    string(REPLACE "-" "_" cmake_option "${cmake_option}")
+    cmake_dependent_option("SLINT_FEATURE_RENDERER_WINIT_${cmake_option}" "Compat option equivalent to SLINT_FEATURE_RENDERER_${cmake_option}" OFF SLINT_FEATURE_STD OFF)
+    if("SLINT_FEATURE_RENDERER_WINIT_${cmake_option}")
+        set("SLINT_FEATURE_RENDERER_${cmake_option}" ON)
+        message("SLINT_FEATURE_RENDERER_WINIT_${cmake_option} is deprecated, use SLINT_FEATURE_RENDERER_${cmake_option} instead")
+    endif()
+endfunction()
+define_renderer_winit_compat_option(femtovg)
+define_renderer_winit_compat_option(skia)
+define_renderer_winit_compat_option(skia-opengl)
+define_renderer_winit_compat_option(skia-vulkan)
+define_renderer_winit_compat_option(software)
+
 function(define_cargo_feature cargo-feature description default)
     # turn foo-bar into SLINT_FEATURE_FOO_BAR
     string(TOUPPER "${cargo-feature}" cmake_option)
@@ -130,23 +146,6 @@ define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" ON
 define_cargo_feature(experimental "Enable experimental features (no compatibility guarantees)" OFF)
 define_cargo_dependent_feature(gettext "Enable support of translations using gettext" OFF SLINT_FEATURE_STD)
 define_cargo_dependent_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON SLINT_FEATURE_STD)
-
-# Compat options
-function(define_renderer_winit_compat_option renderer)
-    string(TOUPPER "${cargo-feature}" cmake_option)
-    string(REPLACE "-" "_" cmake_option "${cmake_option}")
-    cmake_dependent_option("SLINT_FEATURE_RENDERER_WINIT_${cmake_option}" "Compat option equivalent to SLINT_FEATURE_RENDERER_${cmake_option}" OFF SLINT_FEATURE_STD OFF)
-    if("SLINT_FEATURE_RENDERER_WINIT_${cmake_option}")
-        set("SLINT_FEATURE_RENDERER_${cmake_option}" ON)
-        message("SLINT_FEATURE_RENDERER_WINIT_${cmake_option} is deprecated, use SLINT_FEATURE_RENDERER_${cmake_option} instead")
-    endif()
-endfunction()
-
-define_renderer_winit_compat_option(femtovg)
-define_renderer_winit_compat_option(skia)
-define_renderer_winit_compat_option(skia-opengl)
-define_renderer_winit_compat_option(skia-vulkan)
-define_renderer_winit_compat_option(software)
 
 if (NOT SLINT_FEATURE_STD)
     list(APPEND features i-slint-core/libm i-slint-core/unsafe-single-threaded)
