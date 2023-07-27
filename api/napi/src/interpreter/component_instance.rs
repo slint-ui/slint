@@ -39,7 +39,7 @@ impl JsComponentInstance {
         let value = self
             .inner
             .get_property(name.as_ref())
-            .map_err(|e| Error::from_reason(format!("{e}")))?;
+            .map_err(|e| Error::from_reason(e.into()))?;
         super::value::to_js_unknown(&env, &value)
     }
 
