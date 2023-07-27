@@ -16,7 +16,7 @@ use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetri
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
-use i_slint_core::platform::PlatformError;
+use i_slint_core::platform::{OpenGLInterface, PlatformError};
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Brush;
@@ -32,31 +32,10 @@ mod fonts;
 mod images;
 mod itemrenderer;
 
-/// Trait that the FemtoVGRenderer uses to ensure that the OpenGL context is current, before running
-/// OpenGL commands. The trait also provides access to the symbols of the OpenGL implementation.
-///
-/// # Safety
-///
-/// This trait is unsafe because an implementation of get_proc_address could return dangling
-/// pointers. In practice an implementation of this trait should just forward to the EGL/WGL/CGL
-/// C library that implements EGL/CGL/WGL.
-pub unsafe trait OpenGLContextWrapper {
-    /// Ensures that the GL context is current.
-    fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error>>;
-    fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error>>;
-    fn resize(
-        &self,
-        width: NonZeroU32,
-        height: NonZeroU32,
-    ) -> Result<(), Box<dyn std::error::Error>>;
-    #[cfg(not(target_arch = "wasm32"))]
-    fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void;
-}
-
 #[cfg(target_arch = "wasm32")]
 struct WebGLNeedsNoCurrentContext;
 #[cfg(target_arch = "wasm32")]
-unsafe impl OpenGLContextWrapper for WebGLNeedsNoCurrentContext {
+unsafe impl OpenGLInterface for WebGLNeedsNoCurrentContext {
     fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
@@ -72,6 +51,10 @@ unsafe impl OpenGLContextWrapper for WebGLNeedsNoCurrentContext {
     ) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
     }
+
+    fn get_proc_address(&self, _: &std::ffi::CStr) -> *const std::ffi::c_void {
+        unreachable!()
+    }
 }
 
 /// Use the FemtoVG renderer when implementing a custom Slint platform where you deliver events to
@@ -85,7 +68,7 @@ pub struct FemtoVGRenderer {
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
     rendering_first_time: Cell<bool>,
     // Last field, so that it's dropped last and context exists and is current when destroying the FemtoVG canvas
-    opengl_context: Box<dyn OpenGLContextWrapper>,
+    opengl_context: Box<dyn OpenGLInterface>,
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
 }
@@ -96,7 +79,7 @@ impl FemtoVGRenderer {
     /// over when the make the context current, how to retrieve the address of GL functions, and when
     /// to swap back and front buffers.
     pub fn new(
-        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLContextWrapper + 'static,
+        #[cfg(not(target_arch = "wasm32"))] opengl_context: impl OpenGLInterface + 'static,
         #[cfg(target_arch = "wasm32")] html_canvas: web_sys::HtmlCanvasElement,
     ) -> Result<Self, PlatformError> {
         #[cfg(target_arch = "wasm32")]

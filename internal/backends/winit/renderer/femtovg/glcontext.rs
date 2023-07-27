@@ -17,7 +17,7 @@ pub struct OpenGLContext {
     surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
 }
 
-unsafe impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
+unsafe impl i_slint_core::platform::OpenGLInterface for OpenGLContext {
     fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error>> {
         if !self.context.is_current() {
             self.context.make_current(&self.surface).map_err(|glutin_error| -> PlatformError {
