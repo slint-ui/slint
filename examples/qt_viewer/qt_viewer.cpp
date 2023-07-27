@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <QtWidgets/QtWidgets>
-#include <slint_interpreter.h>
+#include <slint-interpreter.h>
 
 #include "ui_interface.h"
 

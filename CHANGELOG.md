@@ -34,6 +34,7 @@ All notable changes to this project are documented in this file.
  - Added `SLINT_TARGET_CARGO_FLAGS` cmake variable
  - Added `ReverseModel`
  - Added functions in Window to dispatch pointer events
+ - The `slint_interpreter.h` file was renamed `slint-interpreter.h`, a deprecated header was added
 
 ## [1.1.1] - 2023-07-10
 

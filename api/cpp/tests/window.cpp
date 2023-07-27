@@ -7,7 +7,7 @@
 #include <slint.h>
 #include <thread>
 
-#include <slint_interpreter.h>
+#include <slint-interpreter.h>
 
 TEST_CASE("Basic Window Visibility")
 {
