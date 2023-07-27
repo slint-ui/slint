@@ -52,10 +52,8 @@ fn input_as_key_event(input: KeyInputEvent, modifiers: KeyboardModifiers) -> Key
 /// internal type from the backend that provides functionality such as device-independent pixels,
 /// window resizing, and other typically windowing system related tasks.
 ///
-/// You are not expected to implement this trait
-/// yourself, but you should use the provided window adapter. Use
-/// [`MinimalSoftwareWindow`](crate::software_renderer::MinimalSoftwareWindow) when
-/// implementing your own [`platform`](crate::platform).
+/// See also [`MinimalSoftwareWindow`](crate::software_renderer::MinimalSoftwareWindow)
+/// for a minimal implementation of this trait using the software renderer
 pub trait WindowAdapter {
     /// Returns the window API.
     fn window(&self) -> &Window;

@@ -256,7 +256,7 @@ pub unsafe extern "C" fn slint_software_renderer_new(buffer_age: u32) -> Softwar
         2 => RepaintBufferType::SwappedBuffers,
         _ => unreachable!(),
     };
-    Box::into_raw(Box::new(SoftwareRenderer::new_without_window(repaint_buffer_type)))
+    Box::into_raw(Box::new(SoftwareRenderer::new_with_repaint_buffer_type(repaint_buffer_type)))
         as SoftwareRendererOpaque
 }
 

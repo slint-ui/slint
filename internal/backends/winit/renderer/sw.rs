@@ -36,9 +36,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
 
         Ok((
             Self {
-                renderer: SoftwareRenderer::new_without_window(
-                    i_slint_core::software_renderer::RepaintBufferType::NewBuffer,
-                ),
+                renderer: SoftwareRenderer::new(),
                 _context: context,
                 surface: RefCell::new(surface),
             },
