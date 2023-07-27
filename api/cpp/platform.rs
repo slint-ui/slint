@@ -310,8 +310,8 @@ mod software_renderer {
 #[cfg(all(feature = "i-slint-renderer-skia", feature = "raw-window-handle"))]
 pub mod skia {
     use super::*;
-    use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
     use i_slint_core::graphics::{IntRect, IntSize, Rgb8Pixel};
+    use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
     struct CppRawHandle(RawWindowHandle, RawDisplayHandle);
 
