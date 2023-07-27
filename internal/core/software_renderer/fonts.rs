@@ -99,7 +99,10 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> Font {
             }) {
                 fallback_bitmap_font
             } else {
-                #[cfg(all(feature = "software-renderer-systemfonts", not(target_arch = "wasm32")))]
+                #[cfg(all(
+                    feature = "software-renderer-systemfonts",
+                    not(target_arch = "wasm32")
+                ))]
                 return systemfonts::fallbackfont(request, scale_factor).into();
                 #[cfg(any(not(feature = "software-renderer-systemfonts"), target_arch = "wasm32"))]
                 panic!("No font fallback found. The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files.")

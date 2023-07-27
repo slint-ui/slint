@@ -252,7 +252,9 @@ mod software_renderer {
     use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
 
     #[no_mangle]
-    pub unsafe extern "C" fn slint_software_renderer_new(buffer_age: u32) -> SoftwareRendererOpaque {
+    pub unsafe extern "C" fn slint_software_renderer_new(
+        buffer_age: u32,
+    ) -> SoftwareRendererOpaque {
         let repaint_buffer_type = match buffer_age {
             0 => RepaintBufferType::NewBuffer,
             1 => RepaintBufferType::ReusedBuffer,
@@ -297,7 +299,9 @@ mod software_renderer {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn slint_software_renderer_handle(r: SoftwareRendererOpaque) -> RendererPtr {
+    pub unsafe extern "C" fn slint_software_renderer_handle(
+        r: SoftwareRendererOpaque,
+    ) -> RendererPtr {
         let r = (r as *const SoftwareRenderer) as *const dyn Renderer;
         core::mem::transmute(r)
     }

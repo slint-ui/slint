@@ -26,7 +26,7 @@ fn main() -> Result<(), anyhow::Error> {
         experimental: std::env::var("CARGO_FEATURE_EXPERIMENTAL").is_ok(),
         backend_qt: std::env::var("CARGO_FEATURE_BACKEND_QT").is_ok(),
         std: std::env::var("CARGO_FEATURE_STD").is_ok(),
-        renderer_software: std::env::var("CARGO_FEATURE_RENDERER_SOFTWARE").is_ok()
+        renderer_software: std::env::var("CARGO_FEATURE_RENDERER_SOFTWARE").is_ok(),
     };
 
     let dependencies = cbindgen::gen_all(&root_dir, &output_dir, enabled_features)?;
