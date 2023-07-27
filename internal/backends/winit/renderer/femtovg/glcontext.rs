@@ -9,7 +9,7 @@ use glutin::{
     prelude::*,
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
-use i_slint_core::{api::PhysicalSize, platform::PlatformError};
+use i_slint_core::platform::PlatformError;
 use raw_window_handle::HasRawWindowHandle;
 
 pub struct OpenGLContext {
@@ -18,7 +18,7 @@ pub struct OpenGLContext {
 }
 
 unsafe impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
-    fn ensure_current(&self) -> Result<(), PlatformError> {
+    fn ensure_current(&self) -> Result<(), Box<dyn std::error::Error>> {
         if !self.context.is_current() {
             self.context.make_current(&self.surface).map_err(|glutin_error| -> PlatformError {
                 format!("FemtoVG: Error making context current: {glutin_error}").into()
@@ -26,7 +26,7 @@ unsafe impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
         }
         Ok(())
     }
-    fn swap_buffers(&self) -> Result<(), PlatformError> {
+    fn swap_buffers(&self) -> Result<(), Box<dyn std::error::Error>> {
         self.surface.swap_buffers(&self.context).map_err(|glutin_error| -> PlatformError {
             format!("FemtoVG: Error swapping buffers: {glutin_error}").into()
         })?;
@@ -34,9 +34,13 @@ unsafe impl i_slint_renderer_femtovg::OpenGLContextWrapper for OpenGLContext {
         Ok(())
     }
 
-    fn resize(&self, width: NonZeroU32, height: NonZeroU32) -> Result<(), PlatformError> {
+    fn resize(
+        &self,
+        width: NonZeroU32,
+        height: NonZeroU32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         self.ensure_current()?;
-        self.surface.resize(&self.context, size.width, size.height);
+        self.surface.resize(&self.context, width, height);
 
         Ok(())
     }
