@@ -36,7 +36,7 @@ All notable changes to this project are documented in this file.
  - Added `ReverseModel`
  - Added functions in Window to dispatch pointer events
  - The `slint_interpreter.h` file was renamed `slint-interpreter.h`, a deprecated header was added
- - The features `SLINT_FEATURES_RENDERER_WINIT_*` were renamed to `SLINT_FEATURES_RENDERER_*`
+ - The features `SLINT_FEATURE_RENDERER_WINIT_*` were renamed to `SLINT_FEATURE_RENDERER_*`
 
 ## [1.1.1] - 2023-07-10
 

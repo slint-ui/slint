@@ -3,7 +3,7 @@
 
 //! This module contains the [`SoftwareRenderer`] and related types.
 //!
-//! It is only enabled of the `renderer-software` Slint feature is enabled
+//! It is only enabled when the `renderer-software` Slint feature is enabled.
 
 #![warn(missing_docs)]
 
