@@ -6,7 +6,7 @@ use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
 
 use super::JsComponentDefinition;
 
-#[napi(js_name = "JsComponentInstance")]
+#[napi(js_name = "ComponentInstance")]
 pub struct JsComponentInstance {
     inner: ComponentInstance,
 }
@@ -20,8 +20,8 @@ impl From<ComponentInstance> for JsComponentInstance {
 #[napi]
 impl JsComponentInstance {
     #[napi(constructor)]
-    pub fn new() -> Self {
-        unreachable!("ComponentDefinition can only be created by using ComponentCompiler.")
+    pub fn new() -> napi::Result<Self> {
+        Err(napi::Error::from_reason("ComponentInstance can only be created by using ComponentCompiler.".to_string()))
     }
 
     #[napi]
@@ -37,7 +37,7 @@ impl JsComponentInstance {
     #[napi]
     pub fn get_property(&self, env: Env, name: String) -> Result<JsUnknown> {
         let value =
-            self.inner.get_property(name.as_ref()).map_err(|e| Error::from_reason(e.into()))?;
+            self.inner.get_property(name.as_ref()).map_err(|e| Error::from_reason(e.to_string()))?;
         super::value::to_js_unknown(&env, &value)
     }
 

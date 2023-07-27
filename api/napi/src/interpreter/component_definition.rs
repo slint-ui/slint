@@ -19,8 +19,8 @@ impl From<ComponentDefinition> for JsComponentDefinition {
 #[napi]
 impl JsComponentDefinition {
     #[napi(constructor)]
-    pub fn new() -> Self {
-        unreachable!("ComponentDefinition can only be created by using ComponentCompiler.")
+    pub fn new() -> napi::Result<Self> {
+        Err(napi::Error::from_reason("ComponentDefinition can only be created by using ComponentCompiler.".to_string()))
     }
 
     #[napi(getter)]

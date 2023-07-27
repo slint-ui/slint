@@ -49,8 +49,6 @@ pub struct NativeStyleMetrics {
     // Tab Bar metrics:
     pub tab_bar_alignment: Property<LayoutAlignment>,
 
-    pub accent_color: Property<Color>,
-
     pub style_change_listener: core::cell::Cell<*const u8>,
 }
 
@@ -77,7 +75,6 @@ impl NativeStyleMetrics {
             placeholder_color_disabled: Default::default(),
             dark_color_scheme: Default::default(),
             tab_bar_alignment: Default::default(),
-            accent_color: Default::default(),
             style_change_listener: core::cell::Cell::new(core::ptr::null()),
         })
     }
