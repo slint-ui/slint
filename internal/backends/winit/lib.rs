@@ -38,12 +38,12 @@ mod renderer {
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
     }
 
-    #[cfg(feature = "renderer-winit-femtovg")]
+    #[cfg(feature = "renderer-femtovg")]
     pub(crate) mod femtovg;
     #[cfg(enable_skia_renderer)]
     pub(crate) mod skia;
 
-    #[cfg(feature = "renderer-winit-software")]
+    #[cfg(feature = "renderer-software")]
     pub(crate) mod sw;
 }
 
@@ -69,38 +69,38 @@ fn window_factory_fn<R: WinitCompatibleRenderer + 'static>(
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "renderer-winit-femtovg")] {
+    if #[cfg(feature = "renderer-femtovg")] {
         type DefaultRenderer = renderer::femtovg::GlutinFemtoVGRenderer;
         const DEFAULT_RENDERER_NAME: &str = "FemtoVG";
     } else if #[cfg(enable_skia_renderer)] {
         type DefaultRenderer = renderer::skia::SkiaRenderer;
         const DEFAULT_RENDERER_NAME: &'static str = "Skia";
-    } else if #[cfg(feature = "renderer-winit-software")] {
+    } else if #[cfg(feature = "renderer-software")] {
         type DefaultRenderer = renderer::sw::WinitSoftwareRenderer;
         const DEFAULT_RENDERER_NAME: &'static str = "Software";
     } else {
-        compile_error!("Please select a feature to build with the winit backend: `renderer-winit-femtovg`, `renderer-winit-skia`, `renderer-winit-skia-opengl`, `renderer-winit-skia-vulkan` or `renderer-winit-software`");
+        compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
     }
 }
 
 fn try_create_window_with_fallback_renderer() -> Option<Rc<dyn WindowAdapter>> {
     #[cfg(any(
-        feature = "renderer-winit-skia",
-        feature = "renderer-winit-skia-opengl",
-        feature = "renderer-winit-skia-vulkan"
+        feature = "renderer-skia",
+        feature = "renderer-skia-opengl",
+        feature = "renderer-skia-vulkan"
     ))]
     {
         if let Ok(window) = window_factory_fn::<renderer::skia::SkiaRenderer>() {
             return Some(window);
         }
     }
-    #[cfg(any(feature = "renderer-winit-femtovg"))]
+    #[cfg(any(feature = "renderer-femtovg"))]
     {
         if let Ok(window) = window_factory_fn::<renderer::femtovg::GlutinFemtoVGRenderer>() {
             return Some(window);
         }
     }
-    #[cfg(any(feature = "renderer-winit-software"))]
+    #[cfg(any(feature = "renderer-software"))]
     {
         if let Ok(window) = window_factory_fn::<renderer::sw::WinitSoftwareRenderer>() {
             return Some(window);
@@ -148,13 +148,13 @@ impl Backend {
     /// If the renderer name is `None` or the name is not recognized, the default renderer is selected.
     pub fn new_with_renderer_by_name(renderer_name: Option<&str>) -> Self {
         let window_factory_fn = match renderer_name {
-            #[cfg(feature = "renderer-winit-femtovg")]
+            #[cfg(feature = "renderer-femtovg")]
             Some("gl") | Some("femtovg") => {
                 window_factory_fn::<renderer::femtovg::GlutinFemtoVGRenderer>
             }
             #[cfg(enable_skia_renderer)]
             Some("skia") => window_factory_fn::<renderer::skia::SkiaRenderer>,
-            #[cfg(feature = "renderer-winit-software")]
+            #[cfg(feature = "renderer-software")]
             Some("sw") | Some("software") => {
                 window_factory_fn::<renderer::sw::WinitSoftwareRenderer>
             }

@@ -6,7 +6,7 @@ use cfg_aliases::cfg_aliases;
 fn main() {
     // Setup cfg aliases
     cfg_aliases! {
-       enable_skia_renderer: { any(feature = "renderer-winit-skia", feature = "renderer-winit-skia-opengl", feature = "renderer-winit-skia-vulkan")},
+       enable_skia_renderer: { any(feature = "renderer-skia", feature = "renderer-skia-opengl", feature = "renderer-skia-vulkan")},
        enable_accesskit: { all(feature = "accessibility", not(target_arch = "wasm32")) },
     }
 }

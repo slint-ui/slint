@@ -15,7 +15,7 @@ path = "src/main.rs"
 name = "energy-monitor"
 
 [dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-0"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
 mcu-board-support = { path = "../mcu-board-support", optional = true }
 chrono = { version = "0.4.23", optional = true, default-features = false, features = ["clock", "std", "wasmbind"] }
 weer_api = { version = "0.1", optional = true }
@@ -27,7 +27,7 @@ slint-build = { path = "../../api/rs/build" }
 
 [features]
 default = ["slint/default", "network", "chrono"]
-simulator = ["mcu-board-support", "slint/renderer-winit-software", "slint/backend-winit", "slint/std"]
+simulator = ["mcu-board-support", "slint/renderer-software", "slint/backend-winit", "slint/std"]
 network = ["dep:weer_api", "tokio", "futures"]
 
 # Remove the `#wasm#` to uncomment the wasm build.

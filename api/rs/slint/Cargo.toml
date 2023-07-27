@@ -22,18 +22,20 @@ path = "lib.rs"
 default = [
   "std",
   "backend-winit",
-  "renderer-winit-femtovg",
+  "renderer-femtovg",
+  "renderer-software",
   "backend-qt",
   "accessibility",
-  "compat-1-0",
+  "compat-1-2",
 ]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 1.0
+## This feature is required to keep the compatibility with Slint 1.2
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added.
 ## [More info in this blog post](https://slint.dev/blog/rust-adding-default-cargo-feature.html)
-"compat-1-0" = []
+"compat-1-2" = []
+"compat-1-0" = ["compat-1-2", "renderer-software"]
 
 ## Enable use of the Rust standard library.
 std = ["i-slint-core/std"]
@@ -55,7 +57,7 @@ libm = ["i-slint-core/libm"]
 log = ["dep:log"]
 
 ## This feature enables the software renderer to pick up fonts from the operating system for text rendering.
-software-renderer-systemfonts = ["i-slint-core/software-renderer-systemfonts"]
+software-renderer-systemfonts = ["renderer-software", "i-slint-core/software-renderer-systemfonts"]
 
 ## Slint uses internally some `thread_local` state.
 ##
@@ -83,7 +85,7 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 #! with [`platform::set_platform()`].
 #!
 #! If you enable the Winit backend, you need to also include a renderer.
-#! `renderer-winit-femtovg` is the only stable renderer, the other ones are experimental
+#! `renderer-femtovg` is the only stable renderer, the other ones are experimental
 #!
 #! It is also possible to select the backend and renderer at runtime when several
 #! are enabled, using the `SLINT_BACKEND`  environment variable.
@@ -117,23 +119,27 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 ## with support for the Wayland window system on Unix.
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
-## Make the winit backend capable of rendering using the [femtovg](https://crates.io/crates/femtovg) crate.
-## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
-renderer-winit-femtovg = ["i-slint-backend-selector/renderer-winit-femtovg", "std"]
+# deprecated aliases
+renderer-winit-femtovg = ["renderer-femtovg"]
+renderer-winit-skia = ["renderer-skia"]
+renderer-winit-skia-opengl= ["renderer-skia-opengl"]
+renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
+renderer-winit-software = ["renderer-software"]
 
-## Make the winit backend capable of rendering using [Skia](https://skia.org/).
-## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
-renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia", "std"]
+## Render using the [femtovg](https://crates.io/crates/femtovg) crate.
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
 
-## Same as `renderer-winit-skia`, but Skia will always use OpenGL.
-renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl", "std"]
+## Render using [Skia](https://skia.org/).
+renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
 
-## Same as `renderer-winit-skia`, but Skia will always use Vulkan.
-renderer-winit-skia-vulkan = ["i-slint-backend-selector/renderer-winit-skia-vulkan", "std"]
+## Same as `renderer-skia`, but Skia will always use OpenGL.
+renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "std"]
 
-## Make the winit backend capable of rendering using the software renderer.
-## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
-renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
+## Same as `renderer-skia`, but Skia will always use Vulkan.
+renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
+
+## Render using the software renderer.
+renderer-software = ["i-slint-backend-selector/renderer-software", "i-slint-core/software-renderer"]
 
 [dependencies]
 i-slint-core = { version = "=1.2.0", path = "../../../internal/core", default-features = false }
@@ -163,4 +169,4 @@ rustdoc-args = [
   "--html-in-header",
   "docs/resources/slint-docs-highlight.html",
 ]
-features = ["document-features", "log", "gettext"]
+features = ["document-features", "log", "gettext", "renderer-software", "renderer-femtovg"]

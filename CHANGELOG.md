@@ -28,6 +28,7 @@ All notable changes to this project are documented in this file.
  - Added `ReverseModel` and `ModelExt::reverse`
  - Added `fn set_visible(&self, _visible: bool)` to the `slint::platform::WindowAdapter` trait.
  - Added ways to create a `SoftwareRenderer` without a `MinimalSoftwareWindow`
+ - The features `renderer-winit-*` were renamed to `renderer-*`
 
 ### C++
 
@@ -35,6 +36,7 @@ All notable changes to this project are documented in this file.
  - Added `ReverseModel`
  - Added functions in Window to dispatch pointer events
  - The `slint_interpreter.h` file was renamed `slint-interpreter.h`, a deprecated header was added
+ - The features `SLINT_FEATURES_RENDERER_WINIT_*` were renamed to `SLINT_FEATURES_RENDERER_*`
 
 ## [1.1.1] - 2023-07-10
 

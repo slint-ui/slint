@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 //! This module contains the [`SoftwareRenderer`] and related types.
+//!
+//! It is only enabled of the `renderer-software` Slint feature is enabled
 
 #![warn(missing_docs)]
 

@@ -15,11 +15,11 @@ path = "main.rs"
 name = "printerdemo_mcu"
 
 [features]
-simulator = ["slint/renderer-winit-software", "slint/backend-winit", "slint/std"]
+simulator = ["slint/renderer-software", "slint/backend-winit", "slint/std"]
 default = ["simulator"]
 
 [dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-0"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
 mcu-board-support = { path = "../mcu-board-support" }
 
 [build-dependencies]

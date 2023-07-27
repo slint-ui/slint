@@ -19,13 +19,14 @@ path = "lib.rs"
 
 [features]
 
-default = ["std", "backend-winit", "renderer-winit-femtovg", "backend-qt", "accessibility", "compat-1-0"]
+default = ["std", "backend-winit", "renderer-femtovg", "backend-qt", "accessibility", "compat-1-2"]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 1.0
+## This feature is required to keep the compatibility with Slint 1.2
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added
-"compat-1-0" = []
+"compat-1-2" = []
+"compat-1-0" = ["compat-1-2"]
 
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
 display-diagnostics = ["i-slint-compiler/display-diagnostics"]
@@ -64,22 +65,27 @@ backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
 ## Make the winit backend capable of rendering using the [femtovg](https://crates.io/crates/femtovg) crate.
-## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
-renderer-winit-femtovg = ["i-slint-backend-selector/renderer-winit-femtovg", "std"]
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
 
 ## Make the winit backend capable of rendering using [Skia](https://skia.org/).
 ## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
-renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia", "std"]
+renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
 
-## Same as `renderer-winit-skia`, but Skia will always use OpenGL.
-renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl", "std"]
+## Same as `renderer-skia`, but Skia will always use OpenGL.
+renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "std"]
 
-## Same as `renderer-winit-skia`, but Skia will always use Vulkan.
-renderer-winit-skia-vulkan = ["i-slint-backend-selector/renderer-winit-skia-vulkan", "std"]
+## Same as `renderer-skia`, but Skia will always use Vulkan.
+renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
 
 ## Make the winit backend capable of rendering using the software renderer.
-## Must be used in combination with `backend-winit`, `backend-winit-x11`, or `backend-winit-wayland`.
-renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
+renderer-software = ["i-slint-backend-selector/renderer-software"]
+
+# deprecated aliases
+renderer-winit-femtovg = ["renderer-femtovg"]
+renderer-winit-skia = ["renderer-skia"]
+renderer-winit-skia-opengl= ["renderer-skia-opengl"]
+renderer-winit-skia-vulkan= ["renderer-skia-vulkan"]
+renderer-winit-software = ["renderer-software"]
 
 ## Enable integration with operating system provided accessibility APIs (default: enabled)
 ##

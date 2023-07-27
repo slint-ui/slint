@@ -17,9 +17,9 @@ name = "test-driver-rust"
 build-time = ["i-slint-compiler", "spin_on"]
 
 [dependencies]
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-0"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2"] }
 i-slint-backend-testing = { path = "../../../internal/backends/testing" }
-slint-interpreter = { path = "../../../internal/interpreter", default-features = false, features = ["std", "compat-1-0"] }
+slint-interpreter = { path = "../../../internal/interpreter", default-features = false, features = ["std", "compat-1-2"] }
 spin_on = "0.1"
 
 [build-dependencies]

@@ -21,11 +21,11 @@ path = "lib.rs"
 [features]
 wayland = ["winit/wayland", "winit/wayland-csd-adwaita", "glutin/wayland", "glutin-winit/wayland", "copypasta/wayland", "i-slint-renderer-skia?/wayland"]
 x11 = ["winit/x11", "glutin/x11", "glutin/glx", "glutin-winit/x11", "glutin-winit/glx", "copypasta/x11", "i-slint-renderer-skia?/x11"]
-renderer-winit-femtovg = ["i-slint-renderer-femtovg"]
-renderer-winit-skia = ["i-slint-renderer-skia"]
-renderer-winit-skia-opengl = ["renderer-winit-skia", "i-slint-renderer-skia/opengl"]
-renderer-winit-skia-vulkan = ["renderer-winit-skia", "i-slint-renderer-skia/vulkan"]
-renderer-winit-software = ["softbuffer", "imgref", "rgb", "i-slint-core/software-renderer-systemfonts"]
+renderer-femtovg = ["i-slint-renderer-femtovg"]
+renderer-skia = ["i-slint-renderer-skia"]
+renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
+renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
+renderer-software = ["softbuffer", "imgref", "rgb", "i-slint-core/software-renderer-systemfonts"]
 accessibility = ["accesskit", "accesskit_winit"]
 default = []
 
@@ -80,7 +80,7 @@ cocoa = { version = "0.24.0" }
 cfg_aliases = "0.1.0"
 
 [dev-dependencies]
-slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-0", "backend-winit", "renderer-winit-software"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software"] }
 
 [package.metadata.docs.rs]
-features = ["wayland", "renderer-winit-software"]
+features = ["wayland", "renderer-software"]
