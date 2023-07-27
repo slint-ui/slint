@@ -38,8 +38,10 @@ impl JsComponentInstance {
 
     #[napi]
     pub fn get_property(&self, env: Env, name: String) -> Result<JsUnknown> {
-        let value =
-            self.inner.get_property(name.as_ref()).map_err(|e| Error::from_reason(e.to_string()))?;
+        let value = self
+            .inner
+            .get_property(name.as_ref())
+            .map_err(|e| Error::from_reason(e.to_string()))?;
         super::value::to_js_unknown(&env, &value)
     }
 
