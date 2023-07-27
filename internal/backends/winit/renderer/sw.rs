@@ -47,18 +47,11 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
     fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
         let size = window.size();
 
-        let width = size.width.try_into().map_err(|_| {
-            format!(
-                "Attempting to resize softbuffer window surface with an invalid width: {}",
-                size.width
-            )
-        })?;
-        let height = size.height.try_into().map_err(|_| {
-            format!(
-                "Attempting to resize softbuffer window surface with an invalid height: {}",
-                size.height
-            )
-        })?;
+        let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
+        else {
+            // Nothing to render
+            return Ok(());
+        };
 
         let mut surface = self.surface.borrow_mut();
 
