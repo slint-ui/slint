@@ -725,6 +725,7 @@ pub struct EnabledFeatures {
     pub experimental: bool,
     pub backend_qt: bool,
     pub std: bool,
+    pub renderer_software: bool,
 }
 
 impl EnabledFeatures {
@@ -742,6 +743,9 @@ impl EnabledFeatures {
         }
         if self.std {
             defines += "#define SLINT_FEATURE_STD\n";
+        }
+        if self.renderer_software {
+            defines += "#define SLINT_FEATURE_RENDERER_SOFTWARE\n";
         }
         defines
     }
