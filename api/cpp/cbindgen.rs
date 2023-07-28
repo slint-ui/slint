@@ -719,7 +719,6 @@ fn gen_interpreter(
     Ok(())
 }
 
-
 macro_rules! declare_features {
     ($($f:ident)+) => {
         #[derive(Clone, Copy)]
@@ -751,7 +750,7 @@ macro_rules! declare_features {
     };
 }
 
-declare_features!{interpreter backend_qt std renderer_software renderer_skia}
+declare_features! {interpreter backend_qt std renderer_software renderer_skia}
 
 /// Generate the headers.
 /// `root_dir` is the root directory of the slint git repo
