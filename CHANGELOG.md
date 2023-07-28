@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file.
  - Fixed native style animations
  - Fixed setting rotation-angle and opacity from a callback
  - Fixed touch in the Flickable not resulting in a click
+ - Added support for a new experimental backend that renders fullscreen on Linux using KMS (`backend-linuxkms`).
 
 ### Slint language
 
