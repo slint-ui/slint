@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import {Button, AboutSlint} from "std-widgets.slint";
+import {Button, AboutSlint, LineEdit } from "std-widgets.slint";
 
 export component App inherits Window {
     preferred-width: 800px;
@@ -15,6 +15,7 @@ export component App inherits Window {
             clicked => { count += 1; }
         }
         Text { text: count; }
+        LineEdit {}
         Rectangle {  }
     }
 }
