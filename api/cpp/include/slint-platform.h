@@ -28,12 +28,22 @@ namespace slint {
 namespace platform {
 
 /// Internal interface for a renderer for use with the WindowAdapter.
+///
+/// You are not supposed to re-implement this class, but you can use one of the provided one
+/// such as SoftwareRenderer or SkiaRenderer
 class AbstractRenderer
 {
 private:
+    virtual ~AbstractRenderer() { }
+    AbstractRenderer(const AbstractRenderer &) = delete;
+    AbstractRenderer &operator=(const AbstractRenderer &) = delete;
+    AbstractRenderer() = default;
+
     /// \private
     virtual cbindgen_private::RendererPtr renderer_handle() const = 0;
     friend class WindowAdapter;
+    friend class SoftwareRenderer;
+    friend class SkiaRenderer;
 };
 
 /// Base class for the layer between a slint::Window and the internal window from the platform
@@ -93,6 +103,9 @@ public:
 
     /// Re-implement this function to provide a reference to the renderer for use with the window
     /// adapter.
+    ///
+    /// Your re-implementation should contain a renderer such as SoftwareRenderer or SkiaRenderer
+    /// and you can return a reference to it
     virtual AbstractRenderer &renderer() = 0;
 
     /// Return the slint::Window associated with this window.
