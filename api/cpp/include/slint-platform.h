@@ -30,7 +30,7 @@ namespace platform {
 /// Internal interface for a renderer for use with the WindowAdapter.
 ///
 /// You are not supposed to re-implement this class, but you can use one of the provided one
-/// such as SoftwareRenderer or SkiaRenderer
+/// such as SoftwareRenderer or SkiaRenderer.
 class AbstractRenderer
 {
 private:
@@ -105,7 +105,7 @@ public:
     /// adapter.
     ///
     /// Your re-implementation should contain a renderer such as SoftwareRenderer or SkiaRenderer
-    /// and you can return a reference to it
+    /// and you must return a reference to it.
     virtual AbstractRenderer &renderer() = 0;
 
     /// Return the slint::Window associated with this window.
