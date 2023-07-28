@@ -719,37 +719,39 @@ fn gen_interpreter(
     Ok(())
 }
 
-#[derive(Clone, Copy)]
-pub struct EnabledFeatures {
-    pub interpreter: bool,
-    pub backend_qt: bool,
-    pub std: bool,
-    pub renderer_software: bool,
-    pub renderer_skia: bool,
+
+macro_rules! declare_features {
+    ($($f:ident)+) => {
+        #[derive(Clone, Copy)]
+        pub struct EnabledFeatures {
+            $(pub $f: bool,)*
+        }
+        impl EnabledFeatures {
+            /// Generate the `#define`
+            pub fn defines(self) -> String {
+                let mut defines = String::new();
+                $(
+                    if self.$f {
+                        defines = format!("{defines}#define SLINT_FEATURE_{}\n", stringify!($f).to_ascii_uppercase());
+                    };
+                )*
+                defines
+            }
+
+            /// Get the feature from the environment variable set by cargo when building running the slint-cpp's build script
+            #[allow(unused)]
+            pub fn from_env() -> Self {
+                Self {
+                    $(
+                        $f: std::env::var(format!("CARGO_FEATURE_{}", stringify!($f).to_ascii_uppercase())).is_ok(),
+                    )*
+                }
+            }
+        }
+    };
 }
 
-impl EnabledFeatures {
-    /// Generate the `#define`
-    fn defines(self) -> String {
-        let mut defines = String::new();
-        if self.interpreter {
-            defines += "#define SLINT_FEATURE_INTERPRETER\n";
-        }
-        if self.backend_qt {
-            defines += "#define SLINT_FEATURE_BACKEND_QT\n";
-        }
-        if self.std {
-            defines += "#define SLINT_FEATURE_STD\n";
-        }
-        if self.renderer_software {
-            defines += "#define SLINT_FEATURE_RENDERER_SOFTWARE\n";
-        }
-        if self.renderer_skia {
-            defines += "#define SLINT_FEATURE_RENDERER_SKIA\n";
-        }
-        defines
-    }
-}
+declare_features!{interpreter backend_qt std renderer_software renderer_skia}
 
 /// Generate the headers.
 /// `root_dir` is the root directory of the slint git repo
