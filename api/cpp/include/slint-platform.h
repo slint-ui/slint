@@ -5,26 +5,22 @@
 
 #include "slint.h"
 
-#ifndef SLINT_FEATURE_EXPERIMENTAL
-#    warning "slint-platform.h API only available when SLINT_FEATURE_EXPERIMENTAL is activated"
-#else
-
-#    include <utility>
-#    include <cassert>
+#include <utility>
+#include <cassert>
 
 struct xcb_connection_t;
 struct wl_surface;
 struct wl_display;
 
-#    if defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
-#        ifdef __OBJC__
+#if defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
+#    ifdef __OBJC__
 @class NSView;
 @class NSWindow;
-#        else
+#    else
 typedef struct objc_object NSView;
 typedef struct objc_object NSWindow;
-#        endif
 #    endif
+#endif
 
 namespace slint {
 
@@ -139,12 +135,15 @@ public:
     /// Returns a new WindowAdapter
     virtual std::unique_ptr<WindowAdapter> create_window_adapter() = 0;
 
-#    ifndef SLINT_FEATURE_STD
+#ifndef SLINT_FEATURE_STD
     /// Returns the amount of milliseconds since start of the application.
     ///
     /// This function should only be implemented  if the runtime is compiled with no_std
-    virtual std::chrono::milliseconds duration_since_start() const { return {}; }
-#    endif
+    virtual std::chrono::milliseconds duration_since_start() const
+    {
+        return {};
+    }
+#endif
 
     /// Spins an event loop and renders the visible windows.
     virtual void run_event_loop() { }
@@ -173,7 +172,9 @@ public:
         }
         Task(const Task &) = delete;
         Task &operator=(const Task &) = delete;
+        /// Move constructor. A moved from Task can no longer be run.
         Task(Task &&other) : inner(other.inner) { other.inner = { nullptr, nullptr }; }
+        /// Move operator.
         Task &operator=(Task &&other)
         {
             std::swap(other.inner, inner);
@@ -216,11 +217,11 @@ inline void set_platform(std::unique_ptr<Platform> platform)
                 (void)w.release();
             },
             []([[maybe_unused]] void *p) -> uint64_t {
-#    ifdef SLINT_FEATURE_STD
+#ifdef SLINT_FEATURE_STD
                 return 0;
-#    else
+#else
                 return reinterpret_cast<const Platform *>(p)->duration_since_start().count();
-#    endif
+#endif
             },
             [](void *p) { return reinterpret_cast<Platform *>(p)->run_event_loop(); },
             [](void *p) { return reinterpret_cast<Platform *>(p)->quit_event_loop(); },
@@ -229,7 +230,7 @@ inline void set_platform(std::unique_ptr<Platform> platform)
             });
 }
 
-#    ifdef SLINT_FEATURE_RENDERER_SOFTWARE
+#ifdef SLINT_FEATURE_RENDERER_SOFTWARE
 /// Represents a region on the screen, used for partial rendering.
 ///
 /// The region may be composed of multiple sub-regions.
@@ -359,8 +360,9 @@ public:
         return PhysicalRegion { r };
     }
 };
-#    endif
+#endif
 
+#ifdef SLINT_FEATURE_RENDERER_SKIA
 /// An opaque, low-level window handle that internalizes everything necessary to exchange messages
 /// with the windowing system. This includes the connection to the display server, if necessary.
 ///
@@ -467,6 +469,7 @@ public:
 
     void render() const { cbindgen_private::slint_skia_renderer_render(inner); }
 };
+#endif
 
 /// Call this function at each iteration of the event loop to call the timer handler and advance
 /// the animations.  This should be called before the rendering or processing input events
@@ -487,7 +490,5 @@ inline std::optional<std::chrono::milliseconds> duration_until_next_timer_update
         return std::chrono::milliseconds(val);
     }
 }
-
 }
 }
-#endif

@@ -722,10 +722,10 @@ fn gen_interpreter(
 #[derive(Clone, Copy)]
 pub struct EnabledFeatures {
     pub interpreter: bool,
-    pub experimental: bool,
     pub backend_qt: bool,
     pub std: bool,
     pub renderer_software: bool,
+    pub renderer_skia: bool,
 }
 
 impl EnabledFeatures {
@@ -735,9 +735,6 @@ impl EnabledFeatures {
         if self.interpreter {
             defines += "#define SLINT_FEATURE_INTERPRETER\n";
         }
-        if self.experimental {
-            defines += "#define SLINT_FEATURE_EXPERIMENTAL\n";
-        }
         if self.backend_qt {
             defines += "#define SLINT_FEATURE_BACKEND_QT\n";
         }
@@ -746,6 +743,9 @@ impl EnabledFeatures {
         }
         if self.renderer_software {
             defines += "#define SLINT_FEATURE_RENDERER_SOFTWARE\n";
+        }
+        if self.renderer_skia {
+            defines += "#define SLINT_FEATURE_RENDERER_SKIA\n";
         }
         defines
     }

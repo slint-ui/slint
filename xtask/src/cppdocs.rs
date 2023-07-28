@@ -89,10 +89,10 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     let generated_headers_dir = docs_build_dir.join("generated_include");
     let enabled_features = cbindgen::EnabledFeatures {
         interpreter: true,
-        experimental: false,
         backend_qt: false,
         std: true,
         renderer_software: true,
+        renderer_skia: true,
     };
     cbindgen::gen_all(&root, &generated_headers_dir, enabled_features)?;
 
