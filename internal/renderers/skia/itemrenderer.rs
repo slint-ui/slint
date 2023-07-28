@@ -161,8 +161,7 @@ impl<'a> SkiaRenderer<'a> {
             let image = source_property.get();
             super::cached_image::as_skia_image(
                 image,
-                target_width,
-                target_height,
+                &|| (target_width.get(), target_height.get()),
                 image_fit,
                 self.scale_factor,
                 self.canvas,
@@ -807,6 +806,26 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             &skia_safe::Font::default(),
             &paint,
         );
+    }
+
+    fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
+        let skia_image = super::cached_image::as_skia_image(
+            image.clone(),
+            &|| {
+                let size = image.size();
+                (LogicalLength::new(size.width as _), LogicalLength::new(size.height as _))
+            },
+            ImageFit::Fill,
+            self.scale_factor,
+            self.canvas,
+        );
+
+        let skia_image = match skia_image {
+            Some(img) => img,
+            None => return,
+        };
+
+        self.canvas.draw_image(skia_image, skia_safe::Point::default(), None);
     }
 
     fn window(&self) -> &i_slint_core::window::WindowInner {

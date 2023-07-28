@@ -182,13 +182,8 @@ impl i_slint_core::platform::Platform for Backend {
         *self.proxy.loop_signal.lock().unwrap() = Some(loop_signal.clone());
         let quit_loop = self.proxy.quit_loop.clone();
 
-        #[cfg(not(any(
-            target_family = "windows",
-            target_os = "macos",
-            target_os = "ios",
-            target_arch = "wasm32"
-        )))]
-        input::LibInputHandler::init(adapter.window(), &event_loop.handle(), &self.seat)?;
+        let mouse_position_property =
+            input::LibInputHandler::init(adapter.window(), &event_loop.handle(), &self.seat)?;
 
         let Some(user_event_receiver) = self.user_event_receiver.borrow_mut().take() else {
             return Err(
@@ -215,7 +210,7 @@ impl i_slint_core::platform::Platform for Backend {
         while !quit_loop.load(std::sync::atomic::Ordering::Acquire) {
             i_slint_core::platform::update_timers_and_animations();
 
-            adapter.render_if_needed()?;
+            adapter.render_if_needed(mouse_position_property.as_ref())?;
 
             let next_timeout = if adapter.window().has_active_animations() {
                 Some(std::time::Duration::from_millis(16))

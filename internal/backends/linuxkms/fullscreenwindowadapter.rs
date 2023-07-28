@@ -4,14 +4,23 @@
 //! This module contains the window adapter implementation to communicate between Slint and Vulkan + libinput
 
 use std::cell::Cell;
+use std::pin::Pin;
 use std::rc::Rc;
 
-use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
+use i_slint_core::api::{LogicalPosition, PhysicalSize as PhysicalWindowSize};
+use i_slint_core::graphics::euclid;
+use i_slint_core::graphics::Image;
+use i_slint_core::item_rendering::ItemRenderer;
+use i_slint_core::slice::Slice;
+use i_slint_core::Property;
 use i_slint_core::{platform::PlatformError, window::WindowAdapter};
 
 pub trait Renderer {
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
-    fn render_and_present(&self) -> Result<(), PlatformError>;
+    fn render_and_present(
+        &self,
+        draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
+    ) -> Result<(), PlatformError>;
     fn size(&self) -> PhysicalWindowSize;
 }
 
@@ -48,10 +57,47 @@ impl FullscreenWindowAdapter {
         }))
     }
 
-    pub fn render_if_needed(&self) -> Result<(), PlatformError> {
+    pub fn render_if_needed(
+        &self,
+        mouse_position: Pin<&Property<Option<LogicalPosition>>>,
+    ) -> Result<(), PlatformError> {
         if self.needs_redraw.replace(false) {
-            self.renderer.render_and_present()?;
+            self.renderer.render_and_present(&|item_renderer| {
+                if let Some(mouse_position) = mouse_position.get() {
+                    item_renderer.save_state();
+                    item_renderer.translate(
+                        i_slint_core::lengths::logical_point_from_api(mouse_position).to_vector(),
+                    );
+                    item_renderer.draw_image_direct(mouse_cursor_image());
+                    item_renderer.restore_state();
+                }
+            })?;
         }
         Ok(())
+    }
+}
+
+fn mouse_cursor_image() -> Image {
+    let mouse_pointer_svg = i_slint_core::graphics::load_image_from_embedded_data(
+        Slice::from_slice(include_bytes!("mouse-pointer.svg")),
+        Slice::from_slice(b"svg"),
+    );
+    let mouse_pointer_inner: &i_slint_core::graphics::ImageInner = (&mouse_pointer_svg).into();
+    match mouse_pointer_inner {
+        i_slint_core::ImageInner::Svg(svg) => {
+            let pixels = svg.render(euclid::Size2D::from_untyped(svg.size())).unwrap();
+            let cache_key = svg.cache_key();
+            let mouse_pointer_pixel_image = i_slint_core::graphics::ImageInner::EmbeddedImage {
+                cache_key: cache_key.clone(),
+                buffer: pixels,
+            };
+            i_slint_core::graphics::cache::replace_cached_image(
+                cache_key,
+                mouse_pointer_pixel_image.clone(),
+            );
+
+            mouse_pointer_pixel_image.into()
+        }
+        cached_image @ _ => cached_image.clone().into(),
     }
 }

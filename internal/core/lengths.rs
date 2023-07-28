@@ -87,6 +87,10 @@ pub fn logical_size_from_api(size: crate::api::LogicalSize) -> LogicalSize {
     size.to_euclid()
 }
 
+pub fn logical_point_from_api(position: crate::api::LogicalPosition) -> LogicalPoint {
+    position.to_euclid()
+}
+
 pub fn logical_position_to_api(pos: LogicalPoint) -> crate::api::LogicalPosition {
     crate::api::LogicalPosition::from_euclid(pos)
 }

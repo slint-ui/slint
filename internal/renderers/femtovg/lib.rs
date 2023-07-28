@@ -13,6 +13,7 @@ use i_slint_common::sharedfontdb;
 use i_slint_core::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use i_slint_core::graphics::FontRequest;
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
+use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
@@ -139,6 +140,13 @@ impl FemtoVGRenderer {
 
     /// Render the scene using OpenGL.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+        self.internal_render_with_post_callback(None)
+    }
+
+    fn internal_render_with_post_callback(
+        &self,
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         self.opengl_context.ensure_current()?;
 
         if self.rendering_first_time.take() {
@@ -234,6 +242,10 @@ impl FemtoVGRenderer {
                         &mut item_renderer,
                         *origin,
                     );
+                }
+
+                if let Some(cb) = post_render_cb.as_ref() {
+                    cb(&mut item_renderer)
                 }
 
                 if let Some(collector) = &self.rendering_metrics_collector.borrow().as_ref() {
@@ -499,5 +511,21 @@ impl Drop for FemtoVGRenderer {
         if Rc::strong_count(&self.canvas) != 1 {
             i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
         }
+    }
+}
+
+pub trait FemtoVGRendererExtension {
+    fn render_with_post_callback(
+        &self,
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), i_slint_core::platform::PlatformError>;
+}
+
+impl FemtoVGRendererExtension for FemtoVGRenderer {
+    fn render_with_post_callback(
+        &self,
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        self.internal_render_with_post_callback(post_render_cb)
     }
 }

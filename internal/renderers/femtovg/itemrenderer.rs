@@ -960,6 +960,52 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         canvas.fill_text(0., 0., string, &paint).unwrap();
     }
 
+    fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
+        let image_size = image.size();
+        let target_width = LogicalLength::new(image_size.width as _);
+        let target_height = LogicalLength::new(image_size.height as _);
+
+        let target_w = target_width * self.scale_factor;
+        let target_h = target_height * self.scale_factor;
+
+        if target_w.get() <= 0. || target_h.get() <= 0. {
+            return;
+        }
+
+        let image_inner: &ImageInner = (&image).into();
+
+        let Some(cached_image) = TextureCacheKey::new(image_inner, None, Default::default())
+            .and_then(|cache_key| {
+                self.texture_cache.borrow_mut().lookup_image_in_cache_or_create(cache_key, || {
+                    Texture::new_from_image(image_inner, &self.canvas, None, Default::default())
+                })
+            })
+            .or_else(|| {
+                Texture::new_from_image(image_inner, &self.canvas, None, Default::default())
+            })
+        else {
+            return;
+        };
+
+        let image_id = cached_image.id;
+        let image_size = cached_image.size().unwrap_or_default().cast();
+
+        let (source_width, source_height) = (image_size.width, image_size.height);
+
+        let fill_paint =
+            femtovg::Paint::image(image_id, 0., 0., image_size.width, image_size.height, 0.0, 1.0)
+                // We preserve the rectangular shape of the image, so there's no need to apply anti-aliasing
+                // at the edges
+                .with_anti_alias(false);
+
+        let mut path = femtovg::Path::new();
+        path.rect(0., 0., source_width, source_height);
+
+        self.canvas.borrow_mut().save_with(|canvas| {
+            canvas.fill_path(&path, &fill_paint);
+        })
+    }
+
     fn window(&self) -> &i_slint_core::window::WindowInner {
         i_slint_core::window::WindowInner::from_pub(self.window)
     }

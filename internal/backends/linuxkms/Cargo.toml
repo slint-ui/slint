@@ -24,7 +24,7 @@ renderer-femtovg = ["i-slint-renderer-femtovg", "drm", "gbm", "glutin", "raw-win
 #default = ["renderer-skia", "renderer-femtovg"]
 
 [dependencies]
-i-slint-core = { version = "=1.2.0", path = "../../../internal/core" }
+i-slint-core = { version = "=1.2.0", path = "../../../internal/core", features = ["image-decoders", "svg"] }
 i-slint-renderer-skia = { version = "=1.2.0", path = "../../renderers/skia", optional = true }
 i-slint-renderer-femtovg = { version = "=1.2.0", path = "../../renderers/femtovg", optional = true }
 

@@ -14,7 +14,7 @@ use i_slint_core::api::{
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::graphics::FontRequest;
-use i_slint_core::item_rendering::ItemCache;
+use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
@@ -92,8 +92,15 @@ impl SkiaRenderer {
         }
     }
 
-    /// Render the scene in the previously associated window. The size parameter must match the size of the window.
+    /// Render the scene in the previously associated window.
     pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+        self.internal_render_with_post_callback(None)
+    }
+
+    fn internal_render_with_post_callback(
+        &self,
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
         if self.rendering_first_time.take() {
             *self.rendering_metrics_collector.borrow_mut() =
                 RenderingMetricsCollector::new(&format!(
@@ -170,7 +177,12 @@ impl SkiaRenderer {
                     collector.measure_frame_rendered(&mut item_renderer);
                 }
 
+                if let Some(cb) = post_render_cb.as_ref() {
+                    cb(&mut item_renderer)
+                }
+
                 drop(item_renderer);
+
                 gr_context.flush(None);
             });
 
@@ -417,5 +429,21 @@ pub trait Surface {
     /// Implementations should return self to allow upcasting.
     fn as_any(&self) -> &dyn core::any::Any {
         &()
+    }
+}
+
+pub trait SkiaRendererExtension {
+    fn render_with_post_callback(
+        &self,
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), i_slint_core::platform::PlatformError>;
+}
+
+impl SkiaRendererExtension for SkiaRenderer {
+    fn render_with_post_callback(
+        &self,
+        post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
+    ) -> Result<(), i_slint_core::platform::PlatformError> {
+        self.internal_render_with_post_callback(post_render_cb)
     }
 }
