@@ -170,7 +170,7 @@ set_property(
 if(SLINT_FEATURE_BACKEND_QT)
     # For the CMake build don't rely on qmake being in PATH but use CMake to locate Qt. This
     # means usually CMAKE_PREFIX_PATH is set.
-    find_package(Qt6 6.0 QUIET COMPONENTS Core Widgets)
+    find_package(Qt6 6.2 QUIET COMPONENTS Core Widgets)
 
     if(NOT TARGET Qt::qmake)
         find_package(Qt5 5.15 QUIET COMPONENTS Core Widgets)

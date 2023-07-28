@@ -31,7 +31,7 @@ Files: api/*/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-Files:  examples/*.json examples/*/README examples/*/README.txt examples/qt_viewer/interface.ui
+Files:  examples/*.json examples/*/README examples/*/README.txt examples/cpp/qt_viewer/interface.ui
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 

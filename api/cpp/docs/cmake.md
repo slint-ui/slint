@@ -121,7 +121,7 @@ compile time. You can enable or disable back-ends using the
 you would disable the `SLINT_FEATURE_BACKEND_WINIT` option in your CMake
 project configuration.
 
-The winit back-end needs a renderer. `SLINT_FEATURE_RENDERER_WINIT_FEMTOVG` is
+The winit back-end needs a renderer. `SLINT_FEATURE_RENDERER_FEMTOVG` is
 the only stable renderer, the other ones are experimental. If you disable the
 `SLINT_FEATURE_BACKEND_WINIT`, you will also want to disable the renderer!
 
