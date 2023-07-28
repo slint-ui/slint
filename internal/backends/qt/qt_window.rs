@@ -1056,6 +1056,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
+    fn draw_image_direct(&mut self, _image: i_slint_core::graphics::Image) {
+        todo!()
+    }
+
     fn window(&self) -> &i_slint_core::window::WindowInner {
         i_slint_core::window::WindowInner::from_pub(self.window)
     }

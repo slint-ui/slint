@@ -1990,6 +1990,10 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         todo!()
     }
 
+    fn draw_image_direct(&mut self, _image: crate::graphics::Image) {
+        todo!()
+    }
+
     fn window(&self) -> &crate::window::WindowInner {
         self.window
     }

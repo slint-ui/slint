@@ -8,10 +8,12 @@ use std::collections::HashMap;
 use std::os::fd::OwnedFd;
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use std::path::Path;
+use std::pin::Pin;
 use std::rc::Rc;
 
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::platform::{PlatformError, PointerEventButton, WindowEvent};
+use i_slint_core::Property;
 use input::LibinputInterface;
 
 use input::event::keyboard::KeyboardEventTrait;
@@ -53,7 +55,7 @@ impl<'a> LibinputInterface for SeatWrap {
 pub struct LibInputHandler<'a> {
     libinput: input::Libinput,
     token: Option<calloop::Token>,
-    mouse_pos: LogicalPosition,
+    mouse_pos: Pin<Rc<Property<Option<LogicalPosition>>>>,
     last_touch_pos: LogicalPosition,
     window: &'a i_slint_core::api::Window,
     keystate: xkb::State,
@@ -64,7 +66,7 @@ impl<'a> LibInputHandler<'a> {
         window: &'a i_slint_core::api::Window,
         event_loop_handle: &calloop::LoopHandle<'a, T>,
         seat: &'a Rc<RefCell<libseat::Seat>>,
-    ) -> Result<(), PlatformError> {
+    ) -> Result<Pin<Rc<Property<Option<LogicalPosition>>>>, PlatformError> {
         let seat_name = seat.borrow_mut().name().to_string();
         let mut libinput = input::Libinput::new_with_udev(SeatWrap {
             seat: seat.clone(),
@@ -77,10 +79,12 @@ impl<'a> LibInputHandler<'a> {
             .ok_or_else(|| format!("Error compiling keymap"))?;
         let keystate = xkb::State::new(&keymap);
 
+        let mouse_pos_property = Rc::pin(Property::new(None));
+
         let handler = Self {
             libinput,
             token: Default::default(),
-            mouse_pos: Default::default(),
+            mouse_pos: mouse_pos_property.clone(),
             last_touch_pos: Default::default(),
             window,
             keystate,
@@ -90,7 +94,7 @@ impl<'a> LibInputHandler<'a> {
             .insert_source(handler, move |_, _, _| {})
             .map_err(|e| format!("Error registering libinput event source: {e}"))?;
 
-        Ok(())
+        Ok(mouse_pos_property)
     }
 }
 
@@ -120,11 +124,12 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                 input::Event::Pointer(pointer_event) => {
                     match pointer_event {
                         input::event::PointerEvent::Motion(motion_event) => {
-                            self.mouse_pos.x += motion_event.dx() as f32;
-                            self.mouse_pos.y += motion_event.dy() as f32;
-                            self.window.dispatch_event(WindowEvent::PointerMoved {
-                                position: self.mouse_pos,
-                            });
+                            let mut mouse_pos = self.mouse_pos.as_ref().get().unwrap_or_default();
+                            mouse_pos.x += motion_event.dx() as f32;
+                            mouse_pos.y += motion_event.dy() as f32;
+                            self.mouse_pos.set(Some(mouse_pos));
+                            let event = WindowEvent::PointerMoved { position: mouse_pos };
+                            self.window.dispatch_event(event);
                         }
                         input::event::PointerEvent::Button(button_event) => {
                             // https://github.com/torvalds/linux/blob/0dd2a6fb1e34d6dcb96806bc6b111388ad324722/include/uapi/linux/input-event-codes.h#L355
@@ -134,15 +139,13 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                                 0x112 => PointerEventButton::Middle,
                                 _ => PointerEventButton::Other,
                             };
+                            let mouse_pos = self.mouse_pos.as_ref().get().unwrap_or_default();
                             let event = match button_event.button_state() {
                                 input::event::tablet_pad::ButtonState::Pressed => {
-                                    WindowEvent::PointerPressed { position: self.mouse_pos, button }
+                                    WindowEvent::PointerPressed { position: mouse_pos, button }
                                 }
                                 input::event::tablet_pad::ButtonState::Released => {
-                                    WindowEvent::PointerReleased {
-                                        position: self.mouse_pos,
-                                        button,
-                                    }
+                                    WindowEvent::PointerReleased { position: mouse_pos, button }
                                 }
                             };
                             self.window.dispatch_event(event);

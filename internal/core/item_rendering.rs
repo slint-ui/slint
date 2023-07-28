@@ -380,6 +380,8 @@ pub trait ItemRenderer {
     /// used by the performance counter overlay.
     fn draw_string(&mut self, string: &str, color: crate::Color);
 
+    fn draw_image_direct(&mut self, image: crate::graphics::Image);
+
     /// This is called before it is being rendered (before the draw_* function).
     /// Returns
     ///  - if the item needs to be drawn (false means it is clipped or doesn't need to be drawn)
@@ -674,6 +676,10 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 
     fn draw_string(&mut self, string: &str, color: crate::Color) {
         self.actual_renderer.draw_string(string, color)
+    }
+
+    fn draw_image_direct(&mut self, image: crate::graphics::image::Image) {
+        self.actual_renderer.draw_image_direct(image)
     }
 
     fn window(&self) -> &crate::window::WindowInner {

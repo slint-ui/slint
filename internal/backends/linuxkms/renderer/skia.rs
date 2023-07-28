@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
+use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
+use i_slint_renderer_skia::SkiaRendererExtension;
 
 pub struct SkiaRendererAdapter {
     renderer: i_slint_renderer_skia::SkiaRenderer,
@@ -87,8 +89,13 @@ impl crate::fullscreenwindowadapter::Renderer for SkiaRendererAdapter {
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
     }
-    fn render_and_present(&self) -> Result<(), PlatformError> {
-        self.renderer.render()?;
+    fn render_and_present(
+        &self,
+        draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
+    ) -> Result<(), PlatformError> {
+        self.renderer.render_with_post_callback(Some(&|item_renderer| {
+            draw_mouse_cursor_callback(item_renderer);
+        }))?;
         if let Some(presenter) = self.presenter.as_ref() {
             presenter.present()?;
         }

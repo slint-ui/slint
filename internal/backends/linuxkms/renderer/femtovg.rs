@@ -4,7 +4,9 @@
 use std::num::NonZeroU32;
 
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
+use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
+use i_slint_renderer_femtovg::FemtoVGRendererExtension;
 use raw_window_handle::{
     HasDisplayHandle, HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle,
 };
@@ -177,8 +179,13 @@ impl crate::fullscreenwindowadapter::Renderer for FemtoVGRendererAdapter {
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
     }
-    fn render_and_present(&self) -> Result<(), PlatformError> {
-        self.renderer.render()
+    fn render_and_present(
+        &self,
+        draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
+    ) -> Result<(), PlatformError> {
+        self.renderer.render_with_post_callback(Some(&|item_renderer| {
+            draw_mouse_cursor_callback(item_renderer);
+        }))
     }
     fn size(&self) -> i_slint_core::api::PhysicalSize {
         self.size
