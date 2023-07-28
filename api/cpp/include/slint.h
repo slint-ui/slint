@@ -605,7 +605,6 @@ public:
         inner.dispatch_pointer_event(event);
     }
 
-#ifdef SLINT_FEATURE_EXPERIMENTAL
     /// Set the logical size of this window after a resize event
     ///
     /// The backend must send this event to ensure that the `width` and `height` property of the
@@ -634,18 +633,11 @@ public:
         private_api::assert_main_thread();
         return cbindgen_private::slint_windowrc_has_active_animations(&inner.handle());
     }
-#endif
 
     /// \private
-    private_api::WindowAdapterRc &window_handle()
-    {
-        return inner;
-    }
+    private_api::WindowAdapterRc &window_handle() { return inner; }
     /// \private
-    const private_api::WindowAdapterRc &window_handle() const
-    {
-        return inner;
-    }
+    const private_api::WindowAdapterRc &window_handle() const { return inner; }
 
 private:
     private_api::WindowAdapterRc inner;

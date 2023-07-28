@@ -143,7 +143,6 @@ define_cargo_feature(renderer-software "Enable support for the software renderer
 
 define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" ON SLINT_FEATURE_STD)
 
-define_cargo_feature(experimental "Enable experimental features (no compatibility guarantees)" OFF)
 define_cargo_dependent_feature(gettext "Enable support of translations using gettext" OFF SLINT_FEATURE_STD)
 define_cargo_dependent_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON SLINT_FEATURE_STD)
 
@@ -153,10 +152,6 @@ if (NOT SLINT_FEATURE_STD)
     if (ESP_PLATFORM)
         list(APPEND features "esp-backtrace/${IDF_TARGET}")
     endif()
-endif()
-
-if (SLINT_FEATURE_STD AND SLINT_FEATURE_EXPERIMENTAL)
-    list(APPEND features experimental-skia)
 endif()
 
 set_property(

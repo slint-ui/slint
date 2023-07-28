@@ -32,6 +32,7 @@ All notable changes to this project are documented in this file.
 
 ### C++
 
+ - Added Platform API to write your own platform that drives its own event loop.
  - Added `SLINT_TARGET_CARGO_FLAGS` cmake variable
  - Added `ReverseModel`
  - Added functions in Window to dispatch pointer events

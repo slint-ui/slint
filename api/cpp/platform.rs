@@ -249,6 +249,7 @@ pub unsafe extern "C" fn slint_platform_task_run(event: PlatformTaskOpaque) {
 mod software_renderer {
     use super::*;
     type SoftwareRendererOpaque = *const c_void;
+    use i_slint_core::graphics::{IntRect, Rgb8Pixel};
     use i_slint_core::software_renderer::{RepaintBufferType, Rgb565Pixel, SoftwareRenderer};
 
     #[no_mangle]
@@ -310,7 +311,6 @@ mod software_renderer {
 #[cfg(all(feature = "i-slint-renderer-skia", feature = "raw-window-handle"))]
 pub mod skia {
     use super::*;
-    use i_slint_core::graphics::{IntRect, IntSize, Rgb8Pixel};
     use raw_window_handle::{RawDisplayHandle, RawWindowHandle};
 
     struct CppRawHandle(RawWindowHandle, RawDisplayHandle);

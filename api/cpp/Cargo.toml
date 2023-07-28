@@ -31,19 +31,16 @@ backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
 backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
-renderer-skia = ["i-slint-backend-selector/renderer-skia"]
-renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl"]
-renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan"]
+renderer-skia = ["i-slint-backend-selector/renderer-skia", "i-slint-renderer-skia", "raw-window-handle"]
+renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "renderer-skia"]
+renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "renderer-skia"]
 renderer-software = ["i-slint-backend-selector/renderer-software"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 
-experimental = []
-experimental-skia = ["i-slint-renderer-skia", "raw-window-handle", "experimental"]
-
 std = ["image", "i-slint-core/default", "i-slint-backend-selector"]
 
-default = ["std", "backend-winit", "renderer-femtovg", "backend-qt", "experimental"]
+default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]
 
 [dependencies]
 i-slint-backend-selector = { version = "=1.2.0", path="../../internal/backends/selector", optional = true }
