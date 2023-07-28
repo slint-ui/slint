@@ -54,9 +54,15 @@ static slint::platform::NativeWindowHandle window_handle_for_qt_window(QWindow *
                        native->nativeResourceForWindow(QByteArray("connection"), window))) {
         return slint::platform::NativeWindowHandle::from_x11_xcb(wid, wid, xcb_connection, screen);
     } else {
-        throw "Unsupported windowing system (tried waylamd, xlib, and xcb)";
+        throw "Unsupported windowing system (tried wayland, xlib, and xcb)";
     }
 #endif
+}
+
+static slint::SharedString key_event_text(QKeyEvent *e)
+{
+    // TODO: handle special keys
+    return e->text().toUtf8().data();
 }
 
 class MyWindow : public QWindow, public slint::platform::WindowAdapter
@@ -71,11 +77,6 @@ public:
     }
 
     slint::platform::AbstractRenderer &renderer() override { return m_renderer.value(); }
-
-    /*void keyEvent(QKeyEvent *event) override
-    {
-        renderer()->dispatch_key_event(slint::cbingen_private::UglyEnum {... })
-    }*/
 
     void paintEvent(QPaintEvent *ev) override
     {
@@ -92,6 +93,12 @@ public:
     {
         if (e->type() == QEvent::UpdateRequest) {
             paintEvent(static_cast<QPaintEvent *>(e));
+            return true;
+        } else if (e->type() == QEvent::KeyPress) {
+            window().dispatch_key_press_event(key_event_text(static_cast<QKeyEvent *>(e)));
+            return true;
+        } else if (e->type() == QEvent::KeyRelease) {
+            window().dispatch_key_release_event(key_event_text(static_cast<QKeyEvent *>(e)));
             return true;
         } else {
             return QWindow::event(e);
