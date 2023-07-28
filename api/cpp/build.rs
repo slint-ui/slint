@@ -21,13 +21,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     println!("cargo:GENERATED_INCLUDE_DIR={}", output_dir.display());
 
-    let enabled_features = EnabledFeatures {
-        interpreter: std::env::var("CARGO_FEATURE_SLINT_INTERPRETER").is_ok(),
-        backend_qt: std::env::var("CARGO_FEATURE_BACKEND_QT").is_ok(),
-        std: std::env::var("CARGO_FEATURE_STD").is_ok(),
-        renderer_software: std::env::var("CARGO_FEATURE_RENDERER_SOFTWARE").is_ok(),
-        renderer_skia: std::env::var("CARGO_FEATURE_RENDERER_SKIA").is_ok(),
-    };
+    let enabled_features = EnabledFeatures::from_env();
 
     let dependencies = cbindgen::gen_all(&root_dir, &output_dir, enabled_features)?;
     for path in dependencies {
