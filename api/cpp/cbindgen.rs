@@ -754,23 +754,24 @@ declare_features! {interpreter backend_qt std renderer_software renderer_skia}
 
 /// Generate the headers.
 /// `root_dir` is the root directory of the slint git repo
-/// `include_dir` is the output directory
+/// `out_dir` is the output directory
 /// Returns the list of all paths that contain dependencies to the generated output. If you call this
 /// function from build.rs, feed each entry to stdout prefixed with `cargo:rerun-if-changed=`.
 pub fn gen_all(
     root_dir: &Path,
-    include_dir: &Path,
+    out_dir: &Path,
     enabled_features: EnabledFeatures,
 ) -> anyhow::Result<Vec<PathBuf>> {
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
-    std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
+    let gen_dir = out_dir.join("private");
+    std::fs::create_dir_all(&gen_dir).context("Could not create the include directory")?;
     let mut deps = Vec::new();
-    enums(include_dir)?;
-    gen_corelib(root_dir, include_dir, &mut deps, enabled_features)?;
-    gen_backend_qt(root_dir, include_dir, &mut deps)?;
-    gen_backend(root_dir, include_dir, &mut deps)?;
+    enums(&gen_dir)?;
+    gen_corelib(root_dir, &gen_dir, &mut deps, enabled_features)?;
+    gen_backend_qt(root_dir, &gen_dir, &mut deps)?;
+    gen_backend(root_dir, &gen_dir, &mut deps)?;
     if enabled_features.interpreter {
-        gen_interpreter(root_dir, include_dir, &mut deps)?;
+        gen_interpreter(root_dir, &gen_dir, &mut deps)?;
     }
     Ok(deps)
 }
