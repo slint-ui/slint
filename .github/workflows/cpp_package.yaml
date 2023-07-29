@@ -20,6 +20,8 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
+      with:
+        old-ubuntu: true
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v3
       if: matrix.os == 'ubuntu-20.04'

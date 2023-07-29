@@ -15,6 +15,10 @@ inputs:
     description: 'Force GCC version 10 (default: "no")'
     required: false
     default: "no"
+  old-ubuntu:
+    description: "This is running on an older verison of Ubuntu"
+    required: false
+    default: "no"
 
 runs:
   using: composite
@@ -23,8 +27,14 @@ runs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libudev-dev libinput-dev libseat-dev libsystemd-dev ${{ inputs.extra-packages }}
+        sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libudev-dev libinput-dev ${{ inputs.extra-packages }}
       shell: bash
+    - name: Install Linux dependencies
+      if: ${{ runner.os == 'Linux' && (inputs.old-ubuntu != 'true')}}
+      run: |
+        sudo apt-get update
+        sudo apt-get install libseat-dev libsystemd-dev
+      shell: bash      
     - name: Install C++ compiler
       if: ${{ (runner.os == 'Linux') && (inputs.force-gcc-10 == 'true') }}
       run: |

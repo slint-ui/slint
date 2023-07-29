@@ -64,6 +64,8 @@ jobs:
       with:
         target: ${{ matrix.toolchain }}
     - uses: ./.github/actions/install-linux-dependencies
+      with:
+        old-ubuntu: true
     - name: Build LSP
       run: cargo build --target ${{ matrix.toolchain }} --release -p slint-lsp
     - name: Create artifact directory
