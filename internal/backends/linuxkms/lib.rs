@@ -38,7 +38,7 @@ mod renderer {
     pub fn try_skia_then_femtovg(
         _device_opener: &crate::DeviceOpener,
     ) -> Result<
-        Box<dyn crate::fullscreenwindowadapter::Renderer>,
+        Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>,
         i_slint_core::platform::PlatformError,
     > {
         #[allow(unused_assignments)]

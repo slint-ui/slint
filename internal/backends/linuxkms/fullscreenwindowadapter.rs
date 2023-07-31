@@ -15,7 +15,7 @@ use i_slint_core::slice::Slice;
 use i_slint_core::Property;
 use i_slint_core::{platform::PlatformError, window::WindowAdapter};
 
-pub trait Renderer {
+pub trait FullscreenRenderer {
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
     fn render_and_present(
         &self,
@@ -26,7 +26,7 @@ pub trait Renderer {
 
 pub struct FullscreenWindowAdapter {
     window: i_slint_core::api::Window,
-    renderer: Box<dyn Renderer>,
+    renderer: Box<dyn FullscreenRenderer>,
     needs_redraw: Cell<bool>,
 }
 
@@ -49,7 +49,7 @@ impl WindowAdapter for FullscreenWindowAdapter {
 }
 
 impl FullscreenWindowAdapter {
-    pub fn new(renderer: Box<dyn Renderer>) -> Result<Rc<Self>, PlatformError> {
+    pub fn new(renderer: Box<dyn FullscreenRenderer>) -> Result<Rc<Self>, PlatformError> {
         Ok(Rc::<FullscreenWindowAdapter>::new_cyclic(|self_weak| FullscreenWindowAdapter {
             window: i_slint_core::api::Window::new(self_weak.clone()),
             renderer,

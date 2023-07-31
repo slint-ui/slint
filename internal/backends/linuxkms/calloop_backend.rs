@@ -70,7 +70,7 @@ pub struct Backend {
     renderer_factory: for<'a> fn(
         &'a crate::DeviceOpener,
     ) -> Result<
-        Box<dyn crate::fullscreenwindowadapter::Renderer>,
+        Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>,
         i_slint_core::platform::PlatformError,
     >,
 }
