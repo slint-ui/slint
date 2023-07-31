@@ -67,7 +67,7 @@ namespace slint::platform::key_codes {{
 "#
     )?;
     macro_rules! print_key_codes {
-        ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* ;)*) => {
+        ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* # $($_xkb:ident)|*;)*) => {
             $(
                 writeln!(enums_pub, "/// A constant that represents the key code to be used in slint::Window::dispatch_key_press_event()")?;
                 writeln!(enums_pub, r#"constexpr std::u8string_view {} = u8"\u{:04x}";"#, stringify!($name), $char as u32)?;

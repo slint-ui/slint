@@ -73,6 +73,8 @@ pub struct Backend {
         Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>,
         i_slint_core::platform::PlatformError,
     >,
+    sel_clipboard: RefCell<Option<String>>,
+    clipboard: RefCell<Option<String>>,
 }
 
 impl Backend {
@@ -133,6 +135,8 @@ impl Backend {
             user_event_receiver: RefCell::new(Some(user_event_receiver)),
             proxy: Proxy::new(user_event_sender),
             renderer_factory,
+            sel_clipboard: Default::default(),
+            clipboard: Default::default(),
         })
     }
 }
@@ -228,6 +232,27 @@ impl i_slint_core::platform::Platform for Backend {
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
         Some(Box::new(self.proxy.clone()))
+    }
+
+    fn clipboard_text(&self, clipboard: i_slint_core::platform::Clipboard) -> Option<String> {
+        match clipboard {
+            i_slint_core::platform::Clipboard::DefaultClipboard => self.clipboard.borrow().clone(),
+            i_slint_core::platform::Clipboard::SelectionClipboard => {
+                self.sel_clipboard.borrow().clone()
+            }
+            _ => None,
+        }
+    }
+    fn set_clipboard_text(&self, text: &str, clipboard: i_slint_core::platform::Clipboard) {
+        match clipboard {
+            i_slint_core::platform::Clipboard::DefaultClipboard => {
+                *self.clipboard.borrow_mut() = Some(text.into())
+            }
+            i_slint_core::platform::Clipboard::SelectionClipboard => {
+                *self.sel_clipboard.borrow_mut() = Some(text.into())
+            }
+            _ => (),
+        }
     }
 }
 

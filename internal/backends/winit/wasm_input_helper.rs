@@ -289,7 +289,7 @@ fn event_text(e: &web_sys::KeyboardEvent) -> Option<SharedString> {
     use i_slint_core::platform::Key;
 
     macro_rules! check_non_printable_code {
-        ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* ;)*) => {
+        ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* # $($_xkb:ident)|* ;)*) => {
             match key.as_str() {
                 "Tab" if e.shift_key() => return Some(Key::Backtab.into()),
                 $(stringify!($name) => {
