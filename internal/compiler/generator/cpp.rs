@@ -908,7 +908,7 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
                     .into(),
                 "   window.window_handle().set_component(*self);".into(),
                 "}".into(),
-                "return self->m_window.value();".into(),
+                "return *self->m_window;".into(),
             ]),
             ..Default::default()
         }),
