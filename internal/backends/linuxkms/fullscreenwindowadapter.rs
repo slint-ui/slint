@@ -11,6 +11,7 @@ use i_slint_core::api::{LogicalPosition, PhysicalSize as PhysicalWindowSize};
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::Image;
 use i_slint_core::item_rendering::ItemRenderer;
+use i_slint_core::platform::WindowEvent;
 use i_slint_core::slice::Slice;
 use i_slint_core::Property;
 use i_slint_core::{platform::PlatformError, window::WindowAdapter};
@@ -45,6 +46,22 @@ impl WindowAdapter for FullscreenWindowAdapter {
 
     fn request_redraw(&self) {
         self.needs_redraw.set(true)
+    }
+
+    fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
+        if visible {
+            let scale_factor = if let Some(scale_factor) =
+                std::env::var("SLINT_SCALE_FACTOR").ok().and_then(|sf| sf.parse().ok())
+            {
+                self.window.dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
+                scale_factor
+            } else {
+                1.0
+            };
+            let size = self.size().to_logical(scale_factor);
+            self.window.dispatch_event(WindowEvent::Resized { size });
+        }
+        Ok(())
     }
 }
 
