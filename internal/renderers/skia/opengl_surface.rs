@@ -54,6 +54,7 @@ impl super::Surface for OpenGLSurface {
                     format!("Skia Renderer: Internal error, framebuffer binding returned signed id")
                 })?,
                 format: skia_safe::gpu::gl::Format::RGBA8.into(),
+                ..Default::default()
             }
         };
 
@@ -360,7 +361,7 @@ impl OpenGLSurface {
             config.stencil_size() as _,
             fb_info,
         );
-        match skia_safe::Surface::from_backend_render_target(
+        match skia_safe::gpu::surfaces::wrap_backend_render_target(
             gr_context,
             &backend_render_target,
             skia_safe::gpu::SurfaceOrigin::BottomLeft,

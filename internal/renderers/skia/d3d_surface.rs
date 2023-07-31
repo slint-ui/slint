@@ -214,7 +214,7 @@ impl SwapChain {
             let backend_texture =
                 skia_safe::gpu::BackendRenderTarget::new_d3d((width, height), &texture_info);
 
-            skia_safe::Surface::from_backend_render_target(
+            skia_safe::gpu::surfaces::wrap_backend_render_target(
                 gr_context,
                 &backend_texture,
                 skia_safe::gpu::SurfaceOrigin::TopLeft,

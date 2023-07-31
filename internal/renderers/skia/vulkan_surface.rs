@@ -323,7 +323,7 @@ impl super::Surface for VulkanSurface {
         let render_target =
             &skia_safe::gpu::BackendRenderTarget::new_vulkan((width, height), 0, image_info);
 
-        let mut skia_surface = skia_safe::Surface::from_backend_render_target(
+        let mut skia_surface = skia_safe::gpu::surfaces::wrap_backend_render_target(
             gr_context,
             render_target,
             skia_safe::gpu::SurfaceOrigin::TopLeft,
