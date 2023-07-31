@@ -7,9 +7,9 @@
   "cpu": [
     "x64"
   ],
-  "main": "slint-ui.darwin-x64.node",
+  "main": "slint-napi.darwin-x64.node",
   "files": [
-    "slint-ui.darwin-x64.node"
+    "slint-napi.darwin-x64.node"
   ],
   "license": "MIT",
   "engines": {

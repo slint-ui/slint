@@ -7,9 +7,9 @@
   "cpu": [
     "arm"
   ],
-  "main": "slint-ui.linux-arm-gnueabihf.node",
+  "main": "slint-napi.linux-arm-gnueabihf.node",
   "files": [
-    "slint-ui.linux-arm-gnueabihf.node"
+    "slint-napi.linux-arm-gnueabihf.node"
   ],
   "license": "MIT",
   "engines": {

@@ -132,6 +132,61 @@ jobs:
     - name: Run node tests
       run: cargo test --verbose --all-features -p test-driver-nodejs -p slint-node
 
+  napi_test:
+    env:
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+      QT_QPA_PLATFORM: offscreen
+      RUSTFLAGS: -D warnings
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_INCREMENTAL: false
+      RUST_BACKTRACE: 1
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-11]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/install-linux-dependencies
+    # Python 3.11 breaks the neon-sys build
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Install Qt
+      if: runner.os != 'Windows'
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '5.15.2'
+        setup-python: false
+        cache: true
+    - name: Setup headless display
+      uses: pyvista/setup-headless-display-action@v1
+    - name: Set default style
+      if: matrix.os != 'windows-2022'
+      run: |
+          echo "SLINT_STYLE=native" >> $GITHUB_ENV
+    - name: Set default style
+      if: matrix.os == 'windows-2022'
+      run: |
+          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+    - uses: ./.github/actions/install-nodejs
+      id: node-install
+    - uses: ./.github/actions/setup-rust
+      with:
+        key: x-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
+    - name: Install napi
+      run: npm install -g @napi-rs/cli
+    - name: Install ava
+      runt: npm install --save-dev ava
+    - name: Build napi plugin
+      working-directory: ./api/napi
+      run: napi build --platform
+    - name: Run napi tests
+      working-directory: ./api/napi
+      run: npm test
+
   cpp_test_driver:
     env:
       DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib

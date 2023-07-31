@@ -3,7 +3,7 @@
 
 [package]
 edition = "2021"
-name = "slint-ui"
+name = "slint-napi"
 version = "0.0.1"
 
 [lib]

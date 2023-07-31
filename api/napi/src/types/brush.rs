@@ -94,6 +94,12 @@ impl From<Brush> for JsBrush {
     }
 }
 
+impl From<JsColor> for JsBrush {
+    fn from(color: JsColor) -> Self {
+        Self::from(Brush::from(color.inner))
+    }
+}
+
 #[napi]
 impl JsBrush {
     #[napi(constructor)]

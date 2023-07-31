@@ -7,9 +7,9 @@
   "cpu": [
     "arm64"
   ],
-  "main": "slint-ui.linux-arm64-gnu.node",
+  "main": "slint-napi.linux-arm64-gnu.node",
   "files": [
-    "slint-ui.linux-arm64-gnu.node"
+    "slint-napi.linux-arm64-gnu.node"
   ],
   "license": "MIT",
   "engines": {

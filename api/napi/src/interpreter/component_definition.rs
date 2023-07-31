@@ -38,7 +38,7 @@ impl JsComponentDefinition {
         self.internal.callbacks().collect()
     }
 
-    #[napi(getter)]
+    #[napi]
     pub fn global_properties(&self, global_name: String) -> Option<Vec<JsProperty>> {
         self.internal.global_properties(global_name.as_str()).map(|iter| {
             iter.map(|(name, value_type)| JsProperty { name, value_type: value_type.into() })
@@ -46,7 +46,7 @@ impl JsComponentDefinition {
         })
     }
 
-    #[napi(getter)]
+    #[napi]
     pub fn global_callbacks(&self, global_name: String) -> Option<Vec<String>> {
         self.internal.global_callbacks(global_name.as_str()).map(|iter| iter.collect())
     }

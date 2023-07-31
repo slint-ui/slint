@@ -3,6 +3,7 @@
 
 use i_slint_core::model::{Model, ModelRc, VecModel};
 use napi::bindgen_prelude::External;
+use napi_derive::napi;
 use slint_interpreter::Value;
 
 #[napi(js_name = Model)]

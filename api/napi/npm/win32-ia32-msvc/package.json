@@ -7,9 +7,9 @@
   "cpu": [
     "ia32"
   ],
-  "main": "slint-ui.win32-ia32-msvc.node",
+  "main": "slint-napi.win32-ia32-msvc.node",
   "files": [
-    "slint-ui.win32-ia32-msvc.node"
+    "slint-napi.win32-ia32-msvc.node"
   ],
   "license": "MIT",
   "engines": {
