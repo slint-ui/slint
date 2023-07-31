@@ -108,7 +108,7 @@ impl super::Surface for MetalSurface {
                     &texture_info,
                 );
 
-                skia_safe::Surface::from_backend_render_target(
+                skia_safe::gpu::surfaces::wrap_backend_render_target(
                     gr_context,
                     &backend_render_target,
                     skia_safe::gpu::SurfaceOrigin::TopLeft,

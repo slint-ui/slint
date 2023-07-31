@@ -467,7 +467,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         };
 
         let mut text_style = skia_safe::textlayout::TextStyle::new();
-        text_style.set_foreground_color(&paint);
+        text_style.set_foreground_paint(&paint);
 
         let (layout, layout_top_left) = super::textlayout::create_layout(
             font_request,
@@ -507,7 +507,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         };
 
         let mut text_style = skia_safe::textlayout::TextStyle::new();
-        text_style.set_foreground_color(&paint);
+        text_style.set_foreground_paint(&paint);
 
         let visual_representation = text_input.visual_representation(None);
 

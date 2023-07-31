@@ -42,7 +42,7 @@ scoped-tls-hkt = "0.1"
 instant = "0.1"
 raw-window-handle = { version = "0.5", features = ["alloc"] }
 
-skia-safe = { version = "0.63", features = ["textlayout"] }
+skia-safe = { version = "0.64", features = ["textlayout"] }
 glow = { version = "0.12" }
 unicode-segmentation = { version = "1.8.0" }
 
@@ -54,7 +54,7 @@ vulkano = { version = "0.33.0", optional = true, default-features = false }
 
 [target.'cfg(target_family = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["impl-default", "dwrite", "d3d12", "dxgi", "dxgi1_2", "dxgi1_3", "dxgi1_4", "d3d12sdklayers", "synchapi", "winbase"] }
-skia-safe = { version = "0.63", features = ["d3d"] }
+skia-safe = { version = "0.64", features = ["d3d"] }
 wio = { version = "0.2.2" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -65,10 +65,10 @@ metal = { version = "0.24.0" }
 foreign-types = { version = "0.3.2" }
 objc = { version = "0.2.7" }
 core-graphics-types = { version = "0.1.1" }
-skia-safe = { version = "0.63", features = ["metal"] }
+skia-safe = { version = "0.64", features = ["metal"] }
 
 [target.'cfg(not(any(target_os = "macos", target_family = "windows")))'.dependencies]
-skia-safe = { version = "0.63", features = ["gl"] }
+skia-safe = { version = "0.64", features = ["gl"] }
 
 [build-dependencies]
 cfg_aliases = "0.1.0"
