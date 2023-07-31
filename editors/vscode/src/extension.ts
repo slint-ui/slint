@@ -41,7 +41,6 @@ function lspPlatform(): Platform | null {
         if (typeof vscode.env.remoteName !== "undefined") {
             remote_env_options = {
                 DISPLAY: ":0",
-                SLINT_FULLSCREEN: "1",
             };
         }
         if (process.arch === "x64") {
