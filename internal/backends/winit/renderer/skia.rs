@@ -7,11 +7,11 @@ use i_slint_core::platform::PlatformError;
 use raw_window_handle::HasRawDisplayHandle;
 use raw_window_handle::HasRawWindowHandle;
 
-pub struct SkiaRenderer {
+pub struct WinitSkiaRenderer {
     renderer: i_slint_renderer_skia::SkiaRenderer,
 }
 
-impl super::WinitCompatibleRenderer for SkiaRenderer {
+impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
     fn new(
         window_builder: winit::window::WindowBuilder,
     ) -> Result<(Self, winit::window::Window), PlatformError> {
