@@ -514,14 +514,14 @@ impl Drop for FemtoVGRenderer {
     }
 }
 
-pub trait FemtoVGRendererExtension {
+pub trait FemtoVGRendererExt {
     fn render_with_post_callback(
         &self,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
 }
 
-impl FemtoVGRendererExtension for FemtoVGRenderer {
+impl FemtoVGRendererExt for FemtoVGRenderer {
     fn render_with_post_callback(
         &self,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
