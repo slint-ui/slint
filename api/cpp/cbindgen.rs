@@ -342,6 +342,7 @@ fn gen_corelib(
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
                 "StaticTextures",
+                "BorrowedOpenGLTextureOrigin"
             ],
             vec!["Color"],
             "slint_image_internal.h",

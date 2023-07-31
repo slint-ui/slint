@@ -270,7 +270,8 @@ pub use slint_macros::slint;
 pub use i_slint_core::api::*;
 pub use i_slint_core::component_factory::ComponentFactory;
 pub use i_slint_core::graphics::{
-    Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
+    BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin, Brush, Color, Image, LoadImageError,
+    Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,

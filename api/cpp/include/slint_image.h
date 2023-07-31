@@ -110,6 +110,15 @@ private:
 struct Image
 {
 public:
+    /// This enum describes the origin to use when rendering a borrowed OpenGL texture.
+    enum class BorrowedOpenGLTextureOrigin {
+        /// The top-left of the texture is the top-left of the texture drawn on the screen.
+        TopLeft,
+        /// The bottom-left of the texture is the top-left of the texture draw on the screen,
+        /// flipping it vertically.
+        BottomLeft,
+    };
+
     Image() : data(Data::ImageInner_None()) { }
 
 #ifdef SLINT_FEATURE_STD
@@ -131,7 +140,8 @@ public:
     /// for the pixel data.
     ///
     /// When Slint renders the texture, it assumes that the origin of the texture is at the
-    /// top-left. This is different from the default OpenGL coordinate system.
+    /// top-left. This is different from the default OpenGL coordinate system. If you want to
+    /// flip the origin, use BorrowedOpenGLTextureOrigin::BottomLeft.
     ///
     /// Safety:
     ///
@@ -142,11 +152,20 @@ public:
     /// are not sharing resources. Consequently
     /// [`slint::Image`] objects created from borrowed OpenGL textures cannot be shared between
     /// different windows.
-    [[nodiscard]] static Image create_from_borrowed_gl_2d_rgba_texture(uint32_t texture_id,
-                                                                       Size<uint32_t> size)
+    [[nodiscard]] static Image create_from_borrowed_gl_2d_rgba_texture(
+            uint32_t texture_id, Size<uint32_t> size,
+            BorrowedOpenGLTextureOrigin origin = BorrowedOpenGLTextureOrigin::TopLeft)
     {
+        cbindgen_private::types::BorrowedOpenGLTextureOrigin origin_private =
+                origin == BorrowedOpenGLTextureOrigin::TopLeft
+                ? cbindgen_private::types::BorrowedOpenGLTextureOrigin::TopLeft
+                : cbindgen_private::types::BorrowedOpenGLTextureOrigin::BottomLeft;
         return Image(Data::ImageInner_BorrowedOpenGLTexture(
-                cbindgen_private::types::BorrowedOpenGLTexture { texture_id, size })
+                cbindgen_private::types::BorrowedOpenGLTexture {
+                        texture_id,
+                        size,
+                        origin_private,
+                })
 
         );
     }
@@ -176,7 +195,10 @@ public:
     }
 
     /// Returns the size of the Image in pixels.
-    Size<uint32_t> size() const { return cbindgen_private::types::slint_image_size(&data); }
+    Size<uint32_t> size() const
+    {
+        return cbindgen_private::types::slint_image_size(&data);
+    }
 
     /// Returns the path of the image on disk, if it was constructed via Image::load_from_path().
     std::optional<slint::SharedString> path() const
@@ -194,7 +216,10 @@ public:
         return cbindgen_private::types::slint_image_compare_equal(&a.data, &b.data);
     }
     /// Returns false if \a a refers to the same image as \a b; true otherwise.
-    friend bool operator!=(const Image &a, const Image &b) { return !(a == b); }
+    friend bool operator!=(const Image &a, const Image &b)
+    {
+        return !(a == b);
+    }
 
     /// \private
     explicit Image(cbindgen_private::types::Image inner) : data(inner) { }
