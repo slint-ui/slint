@@ -55,14 +55,14 @@ impl super::Presenter for EglDisplay {
         };
 
         let mut modifiers_per_plane = [None, None, None, None];
-        let mut flags: i32 = 0;
+        let mut flags: u32 = 0;
 
         if let Ok(modifier) = front_buffer.modifier() {
             let plane_count = front_buffer.plane_count().map_err(|_| {
                 format!(
                     "Unexpected destruction of GBM device while querying front buffer plane count"
                 )
-            })?;
+            })? as usize;
             for i in 0..plane_count.max(modifiers_per_plane.len()) {
                 modifiers_per_plane[i as usize] = Some(modifier);
             }
