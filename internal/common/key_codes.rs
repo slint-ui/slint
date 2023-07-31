@@ -5,8 +5,22 @@
 //!
 //! The key code comes from <https://www.unicode.org/Public/MAPPINGS/VENDORS/APPLE/CORPCHAR.TXT>
 //! the names comes should match with <https://www.w3.org/TR/uievents-key/#named-key-attribute-values>,
-
-// NOTE: Update builtin_elements.md when changing/adding/removing keys, to keep the docs in sync!
+//!
+//! The format is a semicolon separated list of keys
+//! `<char code>  # Slint name # Qt code # Winit code`
+//!
+//! ## Example
+//!
+//! ```
+//! macro_rules! do_something_with_keys {
+//!     ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* ;)*) => {
+//!         //...
+//!     };
+//! }
+//! i_slint_common::for_each_special_keys!(do_something_with_keys);
+//! ```
+//!
+// NOTE: Update namespaces.md when changing/adding/removing keys, to keep the docs in sync!
 #[macro_export]
 macro_rules! for_each_special_keys {
     ($macro:ident) => {
