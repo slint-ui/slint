@@ -432,14 +432,14 @@ pub trait Surface {
     }
 }
 
-pub trait SkiaRendererExtension {
+pub trait SkiaRendererExt {
     fn render_with_post_callback(
         &self,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
     ) -> Result<(), i_slint_core::platform::PlatformError>;
 }
 
-impl SkiaRendererExtension for SkiaRenderer {
+impl SkiaRendererExt for SkiaRenderer {
     fn render_with_post_callback(
         &self,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,

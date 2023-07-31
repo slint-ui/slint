@@ -6,7 +6,7 @@ use std::num::NonZeroU32;
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
-use i_slint_renderer_femtovg::FemtoVGRendererExtension;
+use i_slint_renderer_femtovg::FemtoVGRendererExt;
 use raw_window_handle::{
     HasDisplayHandle, HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle,
 };

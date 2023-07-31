@@ -4,7 +4,7 @@
 use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
-use i_slint_renderer_skia::SkiaRendererExtension;
+use i_slint_renderer_skia::SkiaRendererExt;
 
 pub struct SkiaRendererAdapter {
     renderer: i_slint_renderer_skia::SkiaRenderer,
