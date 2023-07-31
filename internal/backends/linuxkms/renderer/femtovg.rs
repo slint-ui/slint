@@ -143,10 +143,16 @@ unsafe impl i_slint_core::platform::OpenGLInterface for GlContextWrapper {
 
     fn resize(
         &self,
-        _width: NonZeroU32,
-        _height: NonZeroU32,
+        width: NonZeroU32,
+        height: NonZeroU32,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
+        if self.egl_display.size.height != height.get()
+            || self.egl_display.size.width != width.get()
+        {
+            Err("Resizing a fullscreen window is not supported".into())
+        } else {
+            Ok(())
+        }
     }
 
     fn get_proc_address(&self, name: &std::ffi::CStr) -> *const std::ffi::c_void {
