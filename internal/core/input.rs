@@ -126,7 +126,7 @@ pub enum InputEventFilterResult {
 #[allow(missing_docs, non_upper_case_globals)]
 pub mod key_codes {
     macro_rules! declare_consts_for_special_keys {
-       ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* ;)*) => {
+       ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|*    # $($_xkb:ident)|*;)*) => {
             $(pub const $name : char = $char;)*
 
             #[allow(missing_docs)]

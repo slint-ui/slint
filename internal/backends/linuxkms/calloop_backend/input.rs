@@ -13,10 +13,10 @@ use std::rc::Rc;
 
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::platform::{PlatformError, PointerEventButton, WindowEvent};
-use i_slint_core::Property;
+use i_slint_core::{Property, SharedString};
 use input::LibinputInterface;
 
-use input::event::keyboard::KeyboardEventTrait;
+use input::event::keyboard::{KeyState, KeyboardEventTrait};
 use input::event::touch::TouchEventPosition;
 use xkbcommon::*;
 
@@ -124,9 +124,17 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                 input::Event::Pointer(pointer_event) => {
                     match pointer_event {
                         input::event::PointerEvent::Motion(motion_event) => {
-                            let mut mouse_pos = self.mouse_pos.as_ref().get().unwrap_or_default();
-                            mouse_pos.x += motion_event.dx() as f32;
-                            mouse_pos.y += motion_event.dy() as f32;
+                            let screen_size =
+                                self.window.size().to_logical(self.window.scale_factor());
+                            let mut mouse_pos =
+                                self.mouse_pos.as_ref().get().unwrap_or(LogicalPosition {
+                                    x: screen_size.width / 2.,
+                                    y: screen_size.height / 2.,
+                                });
+                            mouse_pos.x = (mouse_pos.x + motion_event.dx() as f32)
+                                .clamp(0., screen_size.width);
+                            mouse_pos.y = (mouse_pos.y + motion_event.dy() as f32)
+                                .clamp(0., screen_size.height);
                             self.mouse_pos.set(Some(mouse_pos));
                             let event = WindowEvent::PointerMoved { position: mouse_pos };
                             self.window.dispatch_event(event);
@@ -207,7 +215,7 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         .keystate
                         .mod_name_is_active(xkb::MOD_NAME_ALT, xkb::STATE_MODS_EFFECTIVE);
 
-                    if state == input::event::keyboard::KeyState::Pressed {
+                    if state == KeyState::Pressed {
                         //eprintln!(
                         //"key {} state {:#?} sym {:x} control {control} alt {alt}",
                         //key_code, state, sym
@@ -218,13 +226,20 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
                         {
                             i_slint_core::api::quit_event_loop()
                                 .expect("Unable to quit event loop multiple times");
-                        } else {
-                            if (xkb::KEY_XF86Switch_VT_1..=xkb::KEY_XF86Switch_VT_12).contains(&sym)
-                            {
-                                // let target_vt = (sym - xkb::KEY_XF86Switch_VT_1 + 1) as i32;
-                                // TODO: eprintln!("switch vt {target_vt}");
-                            }
+                        } else if (xkb::KEY_XF86Switch_VT_1..=xkb::KEY_XF86Switch_VT_12)
+                            .contains(&sym)
+                        {
+                            // let target_vt = (sym - xkb::KEY_XF86Switch_VT_1 + 1) as i32;
+                            // TODO: eprintln!("switch vt {target_vt}");
                         }
+                    }
+
+                    if let Some(text) = map_key_sym(sym) {
+                        let event = match state {
+                            KeyState::Pressed => WindowEvent::KeyPressed { text },
+                            KeyState::Released => WindowEvent::KeyReleased { text },
+                        };
+                        self.window.dispatch_event(event);
                     }
                 }
                 _ => {}
@@ -267,4 +282,17 @@ impl<'a> calloop::EventSource for LibInputHandler<'a> {
         self.token = None;
         poll.unregister(self.libinput.as_raw_fd())
     }
+}
+
+fn map_key_sym(sym: u32) -> Option<SharedString> {
+    macro_rules! keysym_to_string {
+        ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* # $($xkb:ident)|*;)*) => {
+            match(sym) {
+                $($(xkb::$xkb => $char,)*)*
+                _ => std::char::from_u32(xkbcommon::xkb::keysym_to_utf32(sym))?,
+            }
+        };
+    }
+    let char = i_slint_common::for_each_special_keys!(keysym_to_string);
+    Some(char.into())
 }
