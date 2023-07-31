@@ -50,7 +50,9 @@ fn enums(path: &Path) -> anyhow::Result<()> {
 
     // Print the key codes constants
     // This is not an enum, but fits well in that file
-    writeln!(enums_pub, r#"
+    writeln!(
+        enums_pub,
+        r#"
 /// This namespace contains constants for each special non-printable key.
 ///
 /// Each constant can be converted to SharedString.
