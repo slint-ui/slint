@@ -137,9 +137,15 @@ pub mod key_codes {
             /// internal used unicode representation. The enum is convertible to [`std::char`] and [`slint::SharedString`](`crate::SharedString`).
             /// Use this with [`slint::platform::WindowEvent`](`crate::platform::WindowEvent`) to supply key events to Slint's platform abstraction.
             ///
+            /// # Example
+            ///
+            /// Send an tab key press event to a window
+            ///
             /// ```
-            /// let slint_key_code: char = slint::platform::Key::Tab.into();
-            /// assert_eq!(slint_key_code, '\t')
+            /// use slint::platform::{WindowEvent, Key};
+            /// fn send_tab_pressed(window: &slint::Window) {
+            ///     window.dispatch_event(WindowEvent::KeyPressed { text: Key::Tab.into() });
+            /// }
             /// ```
             pub enum Key {
                 $($name,)*

@@ -61,8 +61,115 @@ static slint::platform::NativeWindowHandle window_handle_for_qt_window(QWindow *
 
 static slint::SharedString key_event_text(QKeyEvent *e)
 {
-    // TODO: handle special keys
-    return e->text().toUtf8().data();
+    switch (e->key()) {
+    case Qt::Key::Key_Backspace:
+        return slint::platform::key_codes::Backspace;
+    case Qt::Key::Key_Tab:
+        return slint::platform::key_codes::Tab;
+    case Qt::Key::Key_Enter:
+    case Qt::Key::Key_Return:
+        return slint::platform::key_codes::Return;
+    case Qt::Key::Key_Escape:
+        return slint::platform::key_codes::Escape;
+    case Qt::Key::Key_Backtab:
+        return slint::platform::key_codes::Backtab;
+    case Qt::Key::Key_Delete:
+        return slint::platform::key_codes::Delete;
+    case Qt::Key::Key_Shift:
+        return slint::platform::key_codes::Shift;
+    case Qt::Key::Key_Control:
+        return slint::platform::key_codes::Control;
+    case Qt::Key::Key_Alt:
+        return slint::platform::key_codes::Alt;
+    case Qt::Key::Key_AltGr:
+        return slint::platform::key_codes::AltGr;
+    case Qt::Key::Key_CapsLock:
+        return slint::platform::key_codes::CapsLock;
+    case Qt::Key::Key_Meta:
+        return slint::platform::key_codes::Meta;
+    case Qt::Key::Key_Up:
+        return slint::platform::key_codes::UpArrow;
+    case Qt::Key::Key_Down:
+        return slint::platform::key_codes::DownArrow;
+    case Qt::Key::Key_Left:
+        return slint::platform::key_codes::LeftArrow;
+    case Qt::Key::Key_Right:
+        return slint::platform::key_codes::RightArrow;
+    case Qt::Key::Key_F1:
+        return slint::platform::key_codes::F1;
+    case Qt::Key::Key_F2:
+        return slint::platform::key_codes::F2;
+    case Qt::Key::Key_F3:
+        return slint::platform::key_codes::F3;
+    case Qt::Key::Key_F4:
+        return slint::platform::key_codes::F4;
+    case Qt::Key::Key_F5:
+        return slint::platform::key_codes::F5;
+    case Qt::Key::Key_F6:
+        return slint::platform::key_codes::F6;
+    case Qt::Key::Key_F7:
+        return slint::platform::key_codes::F7;
+    case Qt::Key::Key_F8:
+        return slint::platform::key_codes::F8;
+    case Qt::Key::Key_F9:
+        return slint::platform::key_codes::F9;
+    case Qt::Key::Key_F10:
+        return slint::platform::key_codes::F10;
+    case Qt::Key::Key_F11:
+        return slint::platform::key_codes::F11;
+    case Qt::Key::Key_F12:
+        return slint::platform::key_codes::F12;
+    case Qt::Key::Key_F13:
+        return slint::platform::key_codes::F13;
+    case Qt::Key::Key_F14:
+        return slint::platform::key_codes::F14;
+    case Qt::Key::Key_F15:
+        return slint::platform::key_codes::F15;
+    case Qt::Key::Key_F16:
+        return slint::platform::key_codes::F16;
+    case Qt::Key::Key_F17:
+        return slint::platform::key_codes::F17;
+    case Qt::Key::Key_F18:
+        return slint::platform::key_codes::F18;
+    case Qt::Key::Key_F19:
+        return slint::platform::key_codes::F19;
+    case Qt::Key::Key_F20:
+        return slint::platform::key_codes::F20;
+    case Qt::Key::Key_F21:
+        return slint::platform::key_codes::F21;
+    case Qt::Key::Key_F22:
+        return slint::platform::key_codes::F22;
+    case Qt::Key::Key_F23:
+        return slint::platform::key_codes::F23;
+    case Qt::Key::Key_F24:
+        return slint::platform::key_codes::F24;
+    case Qt::Key::Key_Insert:
+        return slint::platform::key_codes::Insert;
+    case Qt::Key::Key_Home:
+        return slint::platform::key_codes::Home;
+    case Qt::Key::Key_End:
+        return slint::platform::key_codes::End;
+    case Qt::Key::Key_PageUp:
+        return slint::platform::key_codes::PageUp;
+    case Qt::Key::Key_PageDown:
+        return slint::platform::key_codes::PageDown;
+    case Qt::Key::Key_ScrollLock:
+        return slint::platform::key_codes::ScrollLock;
+    case Qt::Key::Key_Pause:
+        return slint::platform::key_codes::Pause;
+    case Qt::Key::Key_SysReq:
+        return slint::platform::key_codes::SysReq;
+    case Qt::Key::Key_Stop:
+        return slint::platform::key_codes::Stop;
+    case Qt::Key::Key_Menu:
+        return slint::platform::key_codes::Menu;
+    default:
+        if (e->modifiers() & Qt::ControlModifier) {
+            // e->text() is not the key when Ctrl is pressed
+            return QKeySequence(e->key()).toString().toLower().toUtf8().data();
+        }
+        return e->text().toUtf8().data();
+    }
 }
 
 class MyWindow : public QWindow, public slint::platform::WindowAdapter
