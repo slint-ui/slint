@@ -73,7 +73,7 @@ cfg_if::cfg_if! {
         type DefaultRenderer = renderer::femtovg::GlutinFemtoVGRenderer;
         const DEFAULT_RENDERER_NAME: &str = "FemtoVG";
     } else if #[cfg(enable_skia_renderer)] {
-        type DefaultRenderer = renderer::skia::SkiaRenderer;
+        type DefaultRenderer = renderer::skia::WinitSkiaRenderer;
         const DEFAULT_RENDERER_NAME: &'static str = "Skia";
     } else if #[cfg(feature = "renderer-software")] {
         type DefaultRenderer = renderer::sw::WinitSoftwareRenderer;
@@ -90,7 +90,7 @@ fn try_create_window_with_fallback_renderer() -> Option<Rc<dyn WindowAdapter>> {
         feature = "renderer-skia-vulkan"
     ))]
     {
-        if let Ok(window) = window_factory_fn::<renderer::skia::SkiaRenderer>() {
+        if let Ok(window) = window_factory_fn::<renderer::skia::WinitSkiaRenderer>() {
             return Some(window);
         }
     }
@@ -153,7 +153,7 @@ impl Backend {
                 window_factory_fn::<renderer::femtovg::GlutinFemtoVGRenderer>
             }
             #[cfg(enable_skia_renderer)]
-            Some("skia") => window_factory_fn::<renderer::skia::SkiaRenderer>,
+            Some("skia") => window_factory_fn::<renderer::skia::WinitSkiaRenderer>,
             #[cfg(feature = "renderer-software")]
             Some("sw") | Some("software") => {
                 window_factory_fn::<renderer::sw::WinitSoftwareRenderer>

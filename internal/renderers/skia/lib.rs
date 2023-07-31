@@ -144,7 +144,7 @@ impl SkiaRenderer {
 
                 let mut box_shadow_cache = Default::default();
 
-                let mut item_renderer = itemrenderer::SkiaRenderer::new(
+                let mut item_renderer = itemrenderer::SkiaItemRenderer::new(
                     skia_canvas,
                     window,
                     &self.image_cache,

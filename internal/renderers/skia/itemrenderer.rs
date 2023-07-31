@@ -23,7 +23,7 @@ struct RenderState {
     alpha: f32,
 }
 
-pub struct SkiaRenderer<'a> {
+pub struct SkiaItemRenderer<'a> {
     pub canvas: &'a mut skia_safe::Canvas,
     pub scale_factor: ScaleFactor,
     pub window: &'a i_slint_core::api::Window,
@@ -34,7 +34,7 @@ pub struct SkiaRenderer<'a> {
     box_shadow_cache: &'a mut SkiaBoxShadowCache,
 }
 
-impl<'a> SkiaRenderer<'a> {
+impl<'a> SkiaItemRenderer<'a> {
     pub fn new(
         canvas: &'a mut skia_safe::Canvas,
         window: &'a i_slint_core::api::Window,
@@ -251,7 +251,7 @@ impl<'a> SkiaRenderer<'a> {
             let canvas = surface.canvas();
             canvas.clear(skia_safe::Color::TRANSPARENT);
 
-            let mut sub_renderer = SkiaRenderer::new(
+            let mut sub_renderer = SkiaItemRenderer::new(
                 canvas,
                 &self.window,
                 self.image_cache,
@@ -270,7 +270,7 @@ impl<'a> SkiaRenderer<'a> {
     }
 }
 
-impl<'a> SkiaRenderer<'a> {
+impl<'a> SkiaItemRenderer<'a> {
     /// Draws a `Rectangle` using the `GLItemRenderer`.
     pub fn draw_rect(&mut self, size: LogicalSize, brush: Brush) {
         let geometry = PhysicalRect::from(size * self.scale_factor);
@@ -287,7 +287,7 @@ impl<'a> SkiaRenderer<'a> {
     }
 }
 
-impl<'a> ItemRenderer for SkiaRenderer<'a> {
+impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
     fn draw_rectangle(
         &mut self,
         rect: std::pin::Pin<&i_slint_core::items::Rectangle>,
