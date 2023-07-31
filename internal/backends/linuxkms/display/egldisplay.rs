@@ -54,25 +54,11 @@ impl super::Presenter for EglDisplay {
                 .map_err(|e| format!("Error locking gmb surface front buffer: {e}"))?
         };
 
-        let mut modifiers_per_plane = [None, None, None, None];
-        let mut flags: u32 = 0;
-
-        if let Ok(modifier) = front_buffer.modifier() {
-            let plane_count = front_buffer.plane_count().map_err(|_| {
-                format!(
-                    "Unexpected destruction of GBM device while querying front buffer plane count"
-                )
-            })? as usize;
-            for i in 0..plane_count.max(modifiers_per_plane.len()) {
-                modifiers_per_plane[i as usize] = Some(modifier);
-            }
-            flags |= drm_ffi::DRM_MODE_FB_MODIFIERS;
-        }
-
+        // TODO: support modifiers
         // TODO: consider falling back to the old non-planar API
         let fb = self
             .gbm_device
-            .add_planar_framebuffer(&front_buffer, &modifiers_per_plane, flags)
+            .add_planar_framebuffer(&front_buffer, &[None, None, None, None], 0)
             .map_err(|e| format!("Error adding gbm buffer as framebuffer: {e}"))?;
 
         front_buffer
