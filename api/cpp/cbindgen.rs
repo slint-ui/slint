@@ -51,11 +51,11 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     // Print the key codes constants
     // This is not an enum, but fits well in that file
     writeln!(enums_pub, r#"
-/// This namespace contains constants for each special non-printable keys.
+/// This namespace contains constants for each special non-printable key.
 ///
-/// The constant can be converted to SharedString
-/// They are meant to be used with the slint::Window::dispatch_key_press_event() and
-/// slint::Window::dispatch_key_release_event().
+/// Each constant can be converted to SharedString.
+/// The constants are meant to be used with the slint::Window::dispatch_key_press_event() and
+/// slint::Window::dispatch_key_release_event() functions.
 ///
 /// Example:
 /// ```
@@ -66,7 +66,7 @@ namespace slint::platform::key_codes {{
     macro_rules! print_key_codes {
         ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* ;)*) => {
             $(
-                writeln!(enums_pub, "///A constant that represent the key code to be used in slint::Window::dispatch_key_press_event()")?;
+                writeln!(enums_pub, "/// A constant that represents the key code to be used in slint::Window::dispatch_key_press_event()")?;
                 writeln!(enums_pub, r#"constexpr std::u8string_view {} = u8"\u{:04x}";"#, stringify!($name), $char as u32)?;
             )*
         };
