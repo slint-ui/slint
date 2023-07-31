@@ -62,7 +62,8 @@ fn enums(path: &Path) -> anyhow::Result<()> {
 /// window.dispatch_key_press_event(slint::platform::key_codes::Tab);
 /// ```
 namespace slint::platform::key_codes {{
-"#)?;
+"#
+    )?;
     macro_rules! print_key_codes {
         ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* ;)*) => {
             $(
