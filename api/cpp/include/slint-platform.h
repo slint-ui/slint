@@ -303,7 +303,8 @@ struct Rgb565Pixel
     /// \brief Convert to Rgb8Pixel.
     constexpr operator Rgb8Pixel() const { return { red(), green(), blue() }; }
 
-    friend bool operator==(const Rgb565Pixel &, const Rgb565Pixel &) = default;
+    /// Returns true if \a lhs \a rhs are pixels with identical colors.
+    friend bool operator==(const Rgb565Pixel &lhs, const Rgb565Pixel &rhs) = default;
 };
 
 /// Slint's software renderer.
@@ -342,6 +343,8 @@ public:
     virtual ~SoftwareRenderer() { cbindgen_private::slint_software_renderer_drop(inner); };
     SoftwareRenderer(const SoftwareRenderer &) = delete;
     SoftwareRenderer &operator=(const SoftwareRenderer &) = delete;
+    /// Constructs a new SoftwareRenderer with the \a buffer_type as strategy for handling the
+    /// differences between rendering buffers.
     explicit SoftwareRenderer(RepaintBufferType buffer_type)
     {
         inner = cbindgen_private::slint_software_renderer_new(uint32_t(buffer_type));
@@ -393,7 +396,11 @@ public:
     NativeWindowHandle() = delete;
     NativeWindowHandle(const NativeWindowHandle &) = delete;
     NativeWindowHandle &operator=(const NativeWindowHandle &) = delete;
+    /// Creates a new NativeWindowHandle by moving the handle data from \a other into this
+    /// NativeWindowHandle.
     NativeWindowHandle(NativeWindowHandle &&other) { inner = std::exchange(other.inner, nullptr); }
+    /// Creates a new NativeWindowHandle by moving the handle data from \a other into this
+    /// NativeWindowHandle.
     NativeWindowHandle &operator=(NativeWindowHandle &&other)
     {
         if (this == &other) {
@@ -406,7 +413,9 @@ public:
         return *this;
     }
 
-#    if !defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
+#    if (!defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)) || defined(DOXYGEN)
+    /// Creates a new NativeWindowHandle from the given xcb_window_t \a window,
+    /// xcb_visualid_t \a visual_id, XCB \a connection, and \a screen number.
     static NativeWindowHandle from_x11_xcb(uint32_t /*xcb_window_t*/ window,
                                            uint32_t /*xcb_visualid_t*/ visual_id,
                                            xcb_connection_t *connection, int screen)
@@ -416,6 +425,8 @@ public:
                                                                        connection, screen) };
     }
 
+    /// Creates a new NativeWindowHandle from the given XLib \a window,
+    /// VisualID \a visual_id, Display \a display, and \a screen number.
     static NativeWindowHandle from_x11_xlib(uint32_t /*Window*/ window,
                                             unsigned long /*VisualID*/ visual_id,
                                             void /*Display*/ *display, int screen)
@@ -425,28 +436,34 @@ public:
                                                                         screen) };
     }
 
+    /// Creates a new NativeWindowHandle from the given wayland \a surface,
+    /// and \a display.
     static NativeWindowHandle from_wayland(wl_surface *surface, wl_display *display)
     {
 
         return { cbindgen_private::slint_new_raw_window_handle_wayland(surface, display) };
     }
 
-#    elif defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)
+#    endif
+#    if (defined(__APPLE__) && !defined(_WIN32) && !defined(_WIN64)) || defined(DOXYGEN)
 
+    /// Creates a new NativeWindowHandle from the given \a nsview, and \a nswindow.
     static NativeWindowHandle from_appkit(NSView *nsview, NSWindow *nswindow)
     {
 
         return { cbindgen_private::slint_new_raw_window_handle_appkit(nsview, nswindow) };
     }
 
-#    elif !defined(__APPLE__) && (defined(_WIN32) || !defined(_WIN64))
+#    endif
+#    if (!defined(__APPLE__) && (defined(_WIN32) || !defined(_WIN64))) || defined(DOXYGEN)
 
-    /// Windows handle
+    /// Creates a new NativeWindowHandle from the given HWND \a hwnd, and HINSTANCE \a hinstance.
     static NativeWindowHandle from_win32(void *hwnd, void *hinstance)
     {
         return { cbindgen_private::slint_new_raw_window_handle_win32(hwnd, hinstance) };
     }
 #    endif
+    /// Destroys the NativeWindowHandle.
     ~NativeWindowHandle()
     {
         if (inner) {
@@ -480,6 +497,7 @@ public:
         inner = cbindgen_private::slint_skia_renderer_new(window_handle.inner, initial_size);
     }
 
+    /// Renders the scene into the window provided to the SkiaRenderer's constructor.
     void render() const { cbindgen_private::slint_skia_renderer_render(inner); }
 };
 #endif

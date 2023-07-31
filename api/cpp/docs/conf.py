@@ -65,6 +65,7 @@ EXCLUDE_SYMBOLS = slint::cbindgen_private* slint::private_api* vtable* slint::te
 EXCLUDE = ../../api/cpp/include/vtable.h ../../api/cpp/include/slint_testing.h
 ENABLE_PREPROCESSING = YES
 PREDEFINED += DOXYGEN
+INCLUDE_PATH = generated_include
 WARN_AS_ERROR = YES""",
 }
 
