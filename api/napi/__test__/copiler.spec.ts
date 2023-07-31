@@ -29,7 +29,8 @@ test('get/set build from source', (t) => {
   let compiler = new ComponentCompiler;
 
   let definition = compiler.buildFromSource(`export component App {}`, "");
-  t.is(definition?.name, "App");
+  t.not(definition, null);
+  t.is(definition!.name, "App");
 })
 
 test('constructor error ComponentDefinition and ComponentInstance', (t) => {
