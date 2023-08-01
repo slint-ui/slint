@@ -61,6 +61,7 @@ impl From<LangType> for ValueType {
             | LangType::UnitProduct(_) => Self::Number,
             LangType::String => Self::String,
             LangType::Color => Self::Brush,
+            LangType::Brush => Self::Brush,
             LangType::Array(_) => Self::Model,
             LangType::Bool => Self::Bool,
             LangType::Struct { .. } => Self::Struct,
