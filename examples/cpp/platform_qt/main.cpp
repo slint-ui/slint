@@ -9,6 +9,23 @@
 #include <QtGui/qpa/qplatformnativeinterface.h>
 #include <QtWidgets/QApplication>
 
+static void update_timer()
+{
+    static QTimer timer;
+    static auto init = [] {
+        timer.callOnTimeout([] {
+            slint::platform::update_timers_and_animations();
+            update_timer();
+        });
+        return true;
+    }();
+    if (auto timeout = slint::platform::duration_until_next_timer_update()) {
+        timer.start(*timeout);
+    } else {
+        timer.stop();
+    }
+}
+
 slint::PointerEventButton convert_button(Qt::MouseButtons b)
 {
     switch (b) {
@@ -194,6 +211,7 @@ public:
         if (window().has_active_animations()) {
             requestUpdate();
         }
+        update_timer();
     }
 
     bool event(QEvent *e) override
@@ -243,6 +261,7 @@ public:
         window().dispatch_pointer_press_event(
                 slint::LogicalPosition({ float(event->pos().x()), float(event->pos().y()) }),
                 convert_button(event->button()));
+        update_timer();
     }
     void mouseReleaseEvent(QMouseEvent *event) override
     {
@@ -250,18 +269,19 @@ public:
         window().dispatch_pointer_release_event(
                 slint::LogicalPosition({ float(event->pos().x()), float(event->pos().y()) }),
                 convert_button(event->button()));
+        update_timer();
     }
     void mouseMoveEvent(QMouseEvent *event) override
     {
         slint::platform::update_timers_and_animations();
         window().dispatch_pointer_move_event(
                 slint::LogicalPosition({ float(event->pos().x()), float(event->pos().y()) }));
+        update_timer();
     }
 };
 
 struct MyPlatform : public slint::platform::Platform
 {
-
     std::unique_ptr<QWindow> parentWindow;
 
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override
