@@ -1568,6 +1568,36 @@ fn component_definition_model_properties() {
     check_model(instance.get_property("prop").unwrap(), &[]);
 }
 
+#[test]
+fn lang_type_to_value_type() {
+    use std::collections::BTreeMap;
+
+    assert_eq!(ValueType::from(LangType::Void), ValueType::Void);
+    assert_eq!(ValueType::from(LangType::Float32), ValueType::Number);
+    assert_eq!(ValueType::from(LangType::Int32), ValueType::Number);
+    assert_eq!(ValueType::from(LangType::Duration), ValueType::Number);
+    assert_eq!(ValueType::from(LangType::Angle), ValueType::Number);
+    assert_eq!(ValueType::from(LangType::PhysicalLength), ValueType::Number);
+    assert_eq!(ValueType::from(LangType::LogicalLength), ValueType::Number);
+    assert_eq!(ValueType::from(LangType::Percent), ValueType::Number);
+    assert_eq!(ValueType::from(LangType::UnitProduct(vec![])), ValueType::Number);
+    assert_eq!(ValueType::from(LangType::String), ValueType::String);
+    assert_eq!(ValueType::from(LangType::Color), ValueType::Brush);
+    assert_eq!(ValueType::from(LangType::Brush), ValueType::Brush);
+    assert_eq!(ValueType::from(LangType::Array(Box::new(LangType::Void))), ValueType::Model);
+    assert_eq!(ValueType::from(LangType::Bool), ValueType::Bool);
+    assert_eq!(
+        ValueType::from(LangType::Struct {
+            fields: BTreeMap::default(),
+            name: None,
+            node: None,
+            rust_attributes: None
+        }),
+        ValueType::Struct
+    );
+    assert_eq!(ValueType::from(LangType::Image), ValueType::Image);
+}
+
 #[cfg(feature = "ffi")]
 #[allow(missing_docs)]
 #[path = "ffi.rs"]
