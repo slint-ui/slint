@@ -3,7 +3,6 @@
 
 use core::convert::TryFrom;
 use i_slint_compiler::langtype::Type as LangType;
-use i_slint_core::component_factory::ComponentFactory;
 use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::window::WindowInner;
@@ -61,6 +60,7 @@ impl From<LangType> for ValueType {
             | LangType::UnitProduct(_) => Self::Number,
             LangType::String => Self::String,
             LangType::Color => Self::Brush,
+            LangType::Brush => Self::Brush,
             LangType::Array(_) => Self::Model,
             LangType::Bool => Self::Bool,
             LangType::Struct { .. } => Self::Struct,
@@ -116,9 +116,6 @@ pub enum Value {
     EnumerationValue(String, String) = 10,
     #[doc(hidden)]
     LayoutCache(SharedVector<f32>) = 11,
-    #[doc(hidden)]
-    /// Correspond to the `component-factory` type in .slint
-    ComponentFactory(ComponentFactory) = 12,
 }
 
 impl Value {
@@ -161,9 +158,6 @@ impl PartialEq for Value {
                 matches!(other, Value::EnumerationValue(rhs_name, rhs_value) if lhs_name == rhs_name && lhs_value == rhs_value)
             }
             Value::LayoutCache(lhs) => matches!(other, Value::LayoutCache(rhs) if lhs == rhs),
-            Value::ComponentFactory(lhs) => {
-                matches!(other, Value::ComponentFactory(rhs) if lhs == rhs)
-            }
         }
     }
 }
@@ -187,7 +181,6 @@ impl std::fmt::Debug for Value {
             Value::EasingCurve(c) => write!(f, "Value::EasingCurve({:?})", c),
             Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({:?}, {:?})", n, v),
             Value::LayoutCache(v) => write!(f, "Value::LayoutCache({:?})", v),
-            Value::ComponentFactory(factory) => write!(f, "Value::ComponentFactory({:?})", factory),
         }
     }
 }
@@ -229,7 +222,6 @@ declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
-declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Object`
 macro_rules! declare_value_struct_conversion {
@@ -1078,11 +1070,11 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn show(&self) -> Result<(), PlatformError> {
-        self.inner.window_adapter_ref()?.window().show()
+        self.inner.window_adapter()?.window().show()
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
-        self.inner.window_adapter_ref()?.window().hide()
+        self.inner.window_adapter()?.window().hide()
     }
 
     fn run(&self) -> Result<(), PlatformError> {
@@ -1092,7 +1084,7 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn window(&self) -> &Window {
-        self.inner.window_adapter_ref().unwrap().window()
+        self.inner.window_adapter().unwrap().window()
     }
 
     fn global<'a, T: Global<'a, Self>>(&'a self) -> T
