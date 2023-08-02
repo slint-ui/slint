@@ -739,7 +739,7 @@ impl BorrowedOpenGLTextureBuilder {
     /// current during any of the invocations of the callback set on [`Window::set_rendering_notifier()`](crate::api::Window::set_rendering_notifier).
     /// OpenGL contexts between instances of [`slint::Window`](crate::api::Window) are not sharing resources. Consequently
     /// [`slint::Image`](Self) objects created from borrowed OpenGL textures cannot be shared between
-    /// different windows.///
+    /// different windows.
     #[allow(unsafe_code)]
     pub unsafe fn build(self) -> Image {
         Image(ImageInner::BorrowedOpenGLTexture(self.0))
