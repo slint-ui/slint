@@ -1451,20 +1451,9 @@ impl QtWindow {
                 collector.measure_frame_rendered(&mut renderer);
             }
 
-            i_slint_core::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-                if !driver.has_active_animations() {
-                    return;
-                }
-                let widget_ptr = self.widget_ptr();
-                cpp! {unsafe [widget_ptr as "QWidget*"] {
-                    // FIXME: using QTimer -::singleShot is not optimal. We should use Qt animation timer
-                    QTimer::singleShot(16, [widget_ptr = QPointer<QWidget>(widget_ptr)] {
-                        if (widget_ptr)
-                            widget_ptr->update();
-                    });
-                    //return widget_ptr->update();
-                }}
-            });
+            if self.window.has_active_animations() {
+                self.request_redraw();
+            }
         });
 
         // Update the accessibility tree (if the component tree has changed)
@@ -1616,7 +1605,9 @@ impl WindowAdapter for QtWindow {
     fn request_redraw(&self) {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
-            return widget_ptr->update();
+            if (auto w = widget_ptr->window()->windowHandle()) {
+                w->requestUpdate();
+            }
         }}
     }
 
