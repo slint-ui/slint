@@ -192,12 +192,13 @@ cpp! {{
     struct SlintAnimatedWidget: public Base, public SlintTypeErasedWidget {
         void *animation_update_property_ptr;
         bool event(QEvent *event) override {
-            if (event->type() == QEvent::StyleAnimationUpdate) {
+            // QEvent::StyleAnimationUpdate is sent by QStyleAnimation used by Qt builtin styles
+            // The Breeze style use QMetaObject::invokeMethod("update") on the widget to update the widget, so catch QEvent::MetaCall
+            // (because the call to QWidget::update does nothing as the widget is not visible)
+            if (event->type() == QEvent::StyleAnimationUpdate || event->type() == QEvent::MetaCall) {
                 rust!(Slint_AnimatedWidget_update [animation_update_property_ptr: Pin<&Property<i32>> as "void*"] {
                     animation_update_property_ptr.set(animation_update_property_ptr.get() + 1);
                 });
-                event->accept();
-                return true;
             }
             return Base::event(event);
         }
@@ -209,9 +210,9 @@ cpp! {{
     std::unique_ptr<SlintTypeErasedWidget> make_unique_animated_widget(void *animation_update_property_ptr)
     {
         ensure_initialized();
-        auto ptr = new SlintAnimatedWidget<Base>();
+        auto ptr = std::make_unique<SlintAnimatedWidget<Base>>();
         ptr->animation_update_property_ptr = animation_update_property_ptr;
-        return std::unique_ptr<SlintTypeErasedWidget>(ptr);
+        return ptr;
     }
 }}
 
