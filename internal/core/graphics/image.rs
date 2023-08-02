@@ -704,7 +704,7 @@ pub enum BorrowedOpenGLTextureOrigin {
 ///
 /// Methods can be chained on it in order to configure it.
 ///
-///  * `origin`: Change the texture's origin when rendering (defaullt: TopLeft).
+///  * `origin`: Change the texture's origin when rendering (default: TopLeft).
 ///
 #[cfg(not(target_arch = "wasm32"))]
 pub struct BorrowedOpenGLTextureBuilder(BorrowedOpenGLTexture);
