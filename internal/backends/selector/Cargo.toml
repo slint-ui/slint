@@ -24,7 +24,7 @@ renderer-femtovg = ["i-slint-backend-winit?/renderer-femtovg", "i-slint-backend-
 renderer-skia = ["i-slint-backend-winit?/renderer-skia", "i-slint-backend-linuxkms?/renderer-skia"]
 renderer-skia-opengl = ["i-slint-backend-winit?/renderer-skia-opengl", "i-slint-backend-linuxkms?/renderer-skia-opengl"]
 renderer-skia-vulkan = ["i-slint-backend-winit?/renderer-skia-vulkan", "i-slint-backend-linuxkms?/renderer-skia-vulkan"]
-renderer-software = ["i-slint-backend-winit?/renderer-software"]
+renderer-software = ["i-slint-backend-winit?/renderer-software", "i-slint-core/software-renderer"]
 
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
