@@ -688,6 +688,7 @@ impl Image {
 }
 
 /// This enum describes the origin to use when rendering a borrowed OpenGL texture.
+/// Use this with [BorrowedOpenGLTextureBuilder::origin].
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 #[repr(C)]
 pub enum BorrowedOpenGLTextureOrigin {
@@ -703,7 +704,7 @@ pub enum BorrowedOpenGLTextureOrigin {
 ///
 /// Methods can be chained on it in order to configure it.
 ///
-///  * `mirror_vertically`: The texture is mirrored vertically when drawing. (default: false)
+///  * `origin`: Change the texture's origin when rendering (defaullt: TopLeft).
 ///
 #[cfg(not(target_arch = "wasm32"))]
 pub struct BorrowedOpenGLTextureBuilder(BorrowedOpenGLTexture);
