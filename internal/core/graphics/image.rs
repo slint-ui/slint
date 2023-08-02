@@ -632,11 +632,12 @@ impl Image {
     /// different windows.
     #[allow(unsafe_code)]
     #[cfg(not(target_arch = "wasm32"))]
+    #[deprecated(since = "1.2.0", note = "Use BorrowedOpenGLTextureBuilder")]
     pub unsafe fn from_borrowed_gl_2d_rgba_texture(
         texture_id: core::num::NonZeroU32,
         size: IntSize,
     ) -> Self {
-        Image(ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { texture_id, size }))
+        BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(texture_id, size).build()
     }
 
     /// Creates a new Image from the specified buffer, which contains SVG raw data.
@@ -683,6 +684,76 @@ impl Image {
             }
             _ => None,
         }
+    }
+}
+
+/// This enum describes the origin to use when rendering a borrowed OpenGL texture.
+/// Use this with [`BorrowedOpenGLTextureBuilder::origin`].
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[repr(C)]
+pub enum BorrowedOpenGLTextureOrigin {
+    /// The top-left of the texture is the top-left of the texture drawn on the screen.
+    #[default]
+    TopLeft,
+    /// The bottom-left of the texture is the top-left of the texture draw on the screen,
+    /// flipping it vertically.
+    BottomLeft,
+}
+
+/// Factory to create [`slint::Image`](crate::graphics::Image) from an existing OpenGL texture.
+///
+/// Methods can be chained on it in order to configure it.
+///
+///  * `origin`: Change the texture's origin when rendering (default: TopLeft).
+///
+/// Complete the builder by calling [`Self::build()`] to create a [`slint::Image`](crate::graphics::Image):
+///
+/// ```
+/// # use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, Image, IntSize, BorrowedOpenGLTextureOrigin};
+/// # let texture_id = core::num::NonZeroU32::new(1).unwrap();
+/// # let size = IntSize::new(100, 100);
+/// let builder = BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(texture_id, size)
+///              .origin(BorrowedOpenGLTextureOrigin::TopLeft);
+///
+/// let image: slint::Image = unsafe { builder.build() };
+/// ```
+#[cfg(not(target_arch = "wasm32"))]
+pub struct BorrowedOpenGLTextureBuilder(BorrowedOpenGLTexture);
+
+#[cfg(not(target_arch = "wasm32"))]
+impl BorrowedOpenGLTextureBuilder {
+    /// Generates the base configuration for a borrowed OpenGL texture.
+    ///
+    /// The texture must be bindable against the `GL_TEXTURE_2D` target, have `GL_RGBA` as format
+    /// for the pixel data.
+    ///
+    /// By default, when Slint renders the texture, it assumes that the origin of the texture is at the top-left.
+    /// This is different from the default OpenGL coordinate system. Use the `mirror_vertically` function
+    /// to reconfigure this.
+    ///
+    pub fn new_gl_2d_rgba_texture(texture_id: core::num::NonZeroU32, size: IntSize) -> Self {
+        Self(BorrowedOpenGLTexture { texture_id, size, origin: Default::default() })
+    }
+
+    /// Configures the texture to be rendered vertically mirrored.
+    pub fn origin(mut self, origin: BorrowedOpenGLTextureOrigin) -> Self {
+        self.0.origin = origin;
+        self
+    }
+
+    /// Completes the process of building a slint::Image that holds a borrowed OpenGL texture.
+    ///
+    /// # Safety
+    ///
+    /// This function is unsafe because invalid texture ids may lead to undefind behavior in OpenGL
+    /// drivers. A valid texture id is one that was created by the same OpenGL context that is
+    /// current during any of the invocations of the callback set on [`Window::set_rendering_notifier()`](crate::api::Window::set_rendering_notifier).
+    /// OpenGL contexts between instances of [`slint::Window`](crate::api::Window) are not sharing resources. Consequently
+    /// [`slint::Image`](Self) objects created from borrowed OpenGL textures cannot be shared between
+    /// different windows.
+    #[allow(unsafe_code)]
+    pub unsafe fn build(self) -> Image {
+        Image(ImageInner::BorrowedOpenGLTexture(self.0))
     }
 }
 
@@ -840,4 +911,6 @@ pub struct BorrowedOpenGLTexture {
     pub texture_id: core::num::NonZeroU32,
     /// The size of the texture in pixels.
     pub size: IntSize,
+    /// Origin of the texture when rendering.
+    pub origin: BorrowedOpenGLTextureOrigin,
 }

@@ -80,7 +80,12 @@ pub(crate) fn as_skia_image(
             vtable::VRc::borrow(x).downcast::<SkiaCachedImage>().map(|x| x.image.clone())
         }
         #[cfg(skia_backend_opengl)]
-        ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture { texture_id, size, .. }) => unsafe {
+        ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture {
+            texture_id,
+            size,
+            origin,
+            ..
+        }) => unsafe {
             let mut texture_info = skia_safe::gpu::gl::TextureInfo::from_target_and_id(
                 glow::TEXTURE_2D,
                 texture_id.get(),
@@ -94,7 +99,14 @@ pub(crate) fn as_skia_image(
             skia_safe::image::Image::from_texture(
                 _canvas.recording_context().as_mut().unwrap(),
                 &backend_texture,
-                skia_safe::gpu::SurfaceOrigin::TopLeft,
+                match origin {
+                    i_slint_core::graphics::BorrowedOpenGLTextureOrigin::TopLeft => {
+                        skia_safe::gpu::SurfaceOrigin::TopLeft
+                    }
+                    i_slint_core::graphics::BorrowedOpenGLTextureOrigin::BottomLeft => {
+                        skia_safe::gpu::SurfaceOrigin::BottomLeft
+                    }
+                },
                 skia_safe::ColorType::RGBA8888,
                 skia_safe::AlphaType::Unpremul,
                 None,

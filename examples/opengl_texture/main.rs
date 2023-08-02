@@ -384,10 +384,11 @@ impl DemoRenderer {
         }
 
         let result_texture = unsafe {
-            slint::Image::from_borrowed_gl_2d_rgba_texture(
+            slint::BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(
                 self.next_texture.texture.0,
                 (self.next_texture.width, self.next_texture.height).into(),
             )
+            .build()
         };
 
         std::mem::swap(&mut self.next_texture, &mut self.displayed_texture);

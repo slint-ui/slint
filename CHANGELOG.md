@@ -30,6 +30,7 @@ All notable changes to this project are documented in this file.
  - Added `fn set_visible(&self, _visible: bool)` to the `slint::platform::WindowAdapter` trait.
  - Added ways to create a `SoftwareRenderer` without a `MinimalSoftwareWindow`
  - The features `renderer-winit-*` were renamed to `renderer-*`
+ - Added `BorrowedOpenGLTextureBuilder` to configure more aspects of borrowed OpenGL textures.
 
 ### C++
 
@@ -39,6 +40,8 @@ All notable changes to this project are documented in this file.
  - Added functions in Window to dispatch pointer events
  - The `slint_interpreter.h` file was renamed `slint-interpreter.h`, a deprecated header was added
  - The features `SLINT_FEATURE_RENDERER_WINIT_*` were renamed to `SLINT_FEATURE_RENDERER_*`
+ - Extended `slint::Image::create_from_borrowed_gl_2d_rgba_texture` with an option to configure more aspects
+   of texture rendering.
 
 ## [1.1.1] - 2023-07-10
 

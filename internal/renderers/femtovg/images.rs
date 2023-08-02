@@ -119,19 +119,30 @@ impl Texture {
             }
             #[cfg(not(target_arch = "wasm32"))]
             ImageInner::BorrowedOpenGLTexture(BorrowedOpenGLTexture {
-                texture_id, size, ..
-            }) => canvas
-                .borrow_mut()
-                .create_image_from_native_texture(
-                    glow::NativeTexture(*texture_id),
-                    femtovg::ImageInfo::new(
-                        image_flags,
-                        size.width as _,
-                        size.height as _,
-                        femtovg::PixelFormat::Rgba8,
-                    ),
-                )
-                .unwrap(),
+                texture_id,
+                size,
+                origin,
+                ..
+            }) => {
+                let image_flags = match origin {
+                    i_slint_core::graphics::BorrowedOpenGLTextureOrigin::TopLeft => image_flags,
+                    i_slint_core::graphics::BorrowedOpenGLTextureOrigin::BottomLeft => {
+                        image_flags | femtovg::ImageFlags::FLIP_Y
+                    }
+                };
+                canvas
+                    .borrow_mut()
+                    .create_image_from_native_texture(
+                        glow::NativeTexture(*texture_id),
+                        femtovg::ImageInfo::new(
+                            image_flags,
+                            size.width as _,
+                            size.height as _,
+                            femtovg::PixelFormat::Rgba8,
+                        ),
+                    )
+                    .unwrap()
+            }
             _ => {
                 let buffer = image.render_to_buffer(target_size_for_scalable_source)?;
                 let (image_source, flags) = image_buffer_to_image_source(&buffer);
