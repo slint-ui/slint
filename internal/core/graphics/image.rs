@@ -688,7 +688,7 @@ impl Image {
 }
 
 /// This enum describes the origin to use when rendering a borrowed OpenGL texture.
-/// Use this with [BorrowedOpenGLTextureBuilder::origin].
+/// Use this with [`BorrowedOpenGLTextureBuilder::origin`].
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 #[repr(C)]
 pub enum BorrowedOpenGLTextureOrigin {
