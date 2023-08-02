@@ -269,9 +269,10 @@ pub use slint_macros::slint;
 
 pub use i_slint_core::api::*;
 pub use i_slint_core::component_factory::ComponentFactory;
+#[cfg(not(target_arch = "wasm32"))]
+pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
 pub use i_slint_core::graphics::{
-    BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin, Brush, Color, Image, LoadImageError,
-    Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
+    Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
