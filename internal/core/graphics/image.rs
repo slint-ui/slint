@@ -706,6 +706,17 @@ pub enum BorrowedOpenGLTextureOrigin {
 ///
 ///  * `origin`: Change the texture's origin when rendering (default: TopLeft).
 ///
+/// Complete the builder by calling [`Self::build()`] to create a [`slint::Image`](crate::graphics::Image):
+///
+/// ```
+/// # use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, Image, IntSize, BorrowedOpenGLTextureOrigin};
+/// # let texture_id = core::num::NonZeroU32::new(1).unwrap();
+/// # let size = IntSize::new(100, 100);
+/// let builder = BorrowedOpenGLTextureBuilder::new_gl_2d_rgba_texture(texture_id, size)
+///              .origin(BorrowedOpenGLTextureOrigin::TopLeft);
+///
+/// let image: slint::Image = unsafe { builder.build() };
+/// ```
 #[cfg(not(target_arch = "wasm32"))]
 pub struct BorrowedOpenGLTextureBuilder(BorrowedOpenGLTexture);
 
