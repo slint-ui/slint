@@ -16,7 +16,9 @@ use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
     BindingExpression, BuiltinFunction, Expression, MinMaxOp, NamedReference, Unit,
 };
-use crate::langtype::{BuiltinElement, DefaultSizeBinding, PropertyLookupResult, Type};
+use crate::langtype::{
+    BuiltinElement, DefaultSizeBinding, ElementType, PropertyLookupResult, Type,
+};
 use crate::layout::{implicit_layout_info_call, LayoutConstraints, Orientation};
 use crate::object_tree::{Component, ElementRc};
 use std::collections::HashMap;
@@ -51,12 +53,14 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
             if let Some(parent) = parent {
                 match builtin_type.default_size_binding {
                     DefaultSizeBinding::None => {
-                        if elem.borrow().default_fill_parent.0 {
+                        let no_constraint_defined = !has_layout_info_prop(elem)
+                            && !LayoutConstraints::new(elem, diag).has_explicit_restrictions();
+                        if no_constraint_defined || elem.borrow().default_fill_parent.0 {
                             w100 |= make_default_100(elem, parent, "width");
                         } else {
                             make_default_implicit(elem, "width");
                         }
-                        if elem.borrow().default_fill_parent.1 {
+                        if no_constraint_defined || elem.borrow().default_fill_parent.1 {
                             h100 |= make_default_100(elem, parent, "height");
                         } else {
                             make_default_implicit(elem, "height");
@@ -432,5 +436,17 @@ fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
             .set_binding_if_not_set("source-clip-width".into(), || make_expr("width", x));
         elem.borrow_mut()
             .set_binding_if_not_set("source-clip-height".into(), || make_expr("height", y));
+    }
+}
+
+// return true if the element of its component base has a layout_info_prop define
+fn has_layout_info_prop(elem: &ElementRc) -> bool {
+    if elem.borrow().layout_info_prop.is_some() {
+        return true;
+    };
+    if let ElementType::Component(base) = &elem.borrow().base_type {
+        has_layout_info_prop(&base.root_element)
+    } else {
+        false
     }
 }
