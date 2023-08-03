@@ -87,8 +87,7 @@ macro_rules! for_each_builtin_structs {
                 }
             }
 
-            /// Represents an item in a StandardListView and a StandardTableView. This is the Rust/C++ type for
-            /// the StandardListViewItem type in Slint files, when declaring for example a `property <[StandardListViewItem]> my-list-view-model;`.
+            /// Represents an item in a StandardListView and a StandardTableView.
             #[non_exhaustive]
             struct StandardListViewItem {
                 @name = "slint::StandardListViewItem"
