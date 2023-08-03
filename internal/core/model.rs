@@ -926,29 +926,32 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         model: &ModelRc<C::Data>,
         count: usize,
     ) -> bool {
+        let mut indices_to_init = Vec::new();
         let mut inner = self.0.inner.borrow_mut();
         inner.instances.resize_with(count, || (RepeatedInstanceState::Dirty, None));
         let offset = inner.offset;
         let mut any_items_created = false;
         for (i, c) in inner.instances.iter_mut().enumerate() {
             if c.0 == RepeatedInstanceState::Dirty {
-                let created = if c.1.is_none() {
+                if c.1.is_none() {
                     any_items_created = true;
                     c.1 = Some(init());
-                    true
-                } else {
-                    false
+                    indices_to_init.push(i);
                 };
                 if let Some(data) = model.row_data(i + offset) {
                     c.1.as_ref().unwrap().update(i + offset, data);
-                }
-                if created {
-                    c.1.as_ref().unwrap().init();
                 }
                 c.0 = RepeatedInstanceState::Clean;
             }
         }
         self.data().is_dirty.set(false);
+
+        drop(inner);
+        let inner = self.0.inner.borrow();
+        for item in indices_to_init.into_iter().filter_map(|index| inner.instances.get(index)) {
+            item.1.as_ref().unwrap().init();
+        }
+
         any_items_created
     }
 
