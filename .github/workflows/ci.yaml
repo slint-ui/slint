@@ -493,3 +493,22 @@ jobs:
       run: git diff
     - name: Run the intepreter test to make sure that the test are passing after format
       run: cargo test -p test-driver-interpreter
+  
+  esp-idf:
+    runs-on: ubuntu-22.04
+    container: espressif/idf:release-v5.0
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: esp-rs/xtensa-toolchain@v1.5
+        with:
+          default: true
+          buildtargets: esp32
+          ldproxy: false
+      - uses: Swatinem/rust-cache@v2
+      - name: Build and Test
+        shell: bash
+        run: |
+          . ${IDF_PATH}/export.sh
+          cd examples/printerdemo_mcu/esp-idf
+          idf.py build

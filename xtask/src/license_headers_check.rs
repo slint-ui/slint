@@ -310,6 +310,8 @@ lazy_static! {
         ("(^|/)\\.eslintrc.yml$", LicenseLocation::NoLicense),
         ("(^|/)memory.x$", LicenseLocation::NoLicense), // third-party file
         ("(^|/)webpack\\..+\\.js$", LicenseLocation::NoLicense),
+        ("(^|/)partitions.csv$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("(^|/)sdkconfig$", LicenseLocation::NoLicense), // auto-generated
 
         // Path prefix matches:
         ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
@@ -365,6 +367,7 @@ lazy_static! {
         ("\\.ui$", LicenseLocation::NoLicense),
         ("\\.xml$", LicenseLocation::NoLicense),
         ("\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("\\.yml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
