@@ -1,5 +1,5 @@
 {
-  "name": "slint-ui",
+  "name": "slint-node",
   "version": "0.0.1",
   "main": "index.js",
   "types": "index.d.ts",

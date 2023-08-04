@@ -179,10 +179,15 @@ jobs:
     - name: Install napi
       run: npm install -g @napi-rs/cli
     - name: Install ava
-      runt: npm install --save-dev ava
+      run: npm install --save-dev ava
+    - name: Install swc-node
+      run: npm install --save-dev swc-node
     - name: Build napi plugin
       working-directory: ./api/napi
       run: napi build --platform
+    - name: Run npm install
+      working-directory: ./api/napi
+      run: npm install
     - name: Run napi tests
       working-directory: ./api/napi
       run: npm test
