@@ -408,7 +408,8 @@ pub(super) fn draw_gradient_line(
 /// the [`From`] trait. This conversion will pre-multiply the color
 /// components
 #[allow(missing_docs)]
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
 pub struct PremultipliedRgbaColor {
     pub red: u8,
     pub green: u8,
@@ -484,7 +485,7 @@ impl TargetPixel for PremultipliedRgbaColor {
 
 /// A 16bit pixel that has 5 red bits, 6 green bits and  5 blue bits
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Rgb565Pixel(pub u16);
 
 impl Rgb565Pixel {
