@@ -68,20 +68,30 @@ std::chrono::milliseconds EspPlatform::duration_since_start() const
 void EspPlatform::run_event_loop()
 {
 
+    constexpr UBaseType_t TouchNotificationIndex = 0;
+
     esp_lcd_panel_disp_on_off(panel_handle, true);
+
+    if (touch_handle) {
+        // Must be static since we can't pass user data to the interrupt callback
+        static TaskHandle_t slint_platform_task;
+        slint_platform_task = xTaskGetCurrentTaskHandle();
+        esp_lcd_touch_register_interrupt_callback(*touch_handle, [](auto) {
+            vTaskNotifyGiveIndexedFromISR(slint_platform_task, TouchNotificationIndex, nullptr);
+        });
+    }
 
     int last_touch_x = 0;
     int last_touch_y = 0;
     bool touch_down = false;
+    bool has_touch_events = false;
 
     while (true) {
         slint::platform::update_timers_and_animations();
 
-        bool has_animations = false;
-
         if (m_window) {
 
-            if (touch_handle) {
+            if (touch_handle && has_touch_events) {
                 uint16_t touchpad_x[1] = { 0 };
                 uint16_t touchpad_y[1] = { 0 };
                 uint8_t touchpad_cnt = 0;
@@ -120,39 +130,44 @@ void EspPlatform::run_event_loop()
                 auto o = region.bounding_box_origin();
                 auto s = region.bounding_box_size();
                 if (s.width > 0 && s.height > 0) {
-                    for (int y = o.y; y < o.y + s.height; y++) {
-                        for (int x = o.x; x < o.x + s.width; x++) {
-                            // Swap endianess to big endian
-                            auto px = reinterpret_cast<uint16_t *>(&buffer1[y * size.width + x]);
-                            *px = (*px << 8) | (*px >> 8);
-                        }
-                        esp_lcd_panel_draw_bitmap(panel_handle, o.x, y, o.x + s.width, y + 1,
-                                                  buffer1.data() + y * size.width + o.x);
-                    }
                     if (buffer2) {
+                        // Assuming that using double buffer means that the buffer comes from the
+                        // driver and we need to pass the exact pointer.
+                        // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681
+                        esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, size.width, size.height,
+                                                  buffer1.data());
                         std::swap(buffer1, buffer2.value());
+                        // FIXME: wait until swap finishes
+                    } else {
+                        for (int y = o.y; y < o.y + s.height; y++) {
+                            for (int x = o.x; x < o.x + s.width; x++) {
+                                // Swap endianess to big endian
+                                auto px =
+                                        reinterpret_cast<uint16_t *>(&buffer1[y * size.width + x]);
+                                *px = (*px << 8) | (*px >> 8);
+                            }
+                            esp_lcd_panel_draw_bitmap(panel_handle, o.x, y, o.x + s.width, y + 1,
+                                                      buffer1.data() + y * size.width + o.x);
+                        }
                     }
                 }
             }
 
-            has_animations = m_window->window().has_active_animations();
-        }
-
-        TickType_t ticks_to_wait;
-        if (has_animations) {
-            continue;
-        } else {
-            if (auto wait_time = slint::platform::duration_until_next_timer_update()) {
-                ticks_to_wait = pdMS_TO_TICKS(wait_time->count());
-            } else {
-                ticks_to_wait = portMAX_DELAY;
+            if (m_window->window().has_active_animations()) {
+                continue;
             }
         }
 
-        // Poll at least every 30 ms for touch input. That's what LVGL does, too.
-        ticks_to_wait = std::min(ticks_to_wait, pdMS_TO_TICKS(30));
+        TickType_t ticks_to_wait;
+        if (auto wait_time = slint::platform::duration_until_next_timer_update()) {
+            ticks_to_wait = pdMS_TO_TICKS(wait_time->count());
+        } else {
+            ticks_to_wait = portMAX_DELAY;
+        }
 
-        vTaskDelay(ticks_to_wait);
+        has_touch_events = ulTaskNotifyTakeIndexed(TouchNotificationIndex, /*reset to zero*/ pdTRUE,
+                                                   ticks_to_wait)
+                > 0;
     }
 
     vTaskDelete(NULL);

@@ -3,3 +3,9 @@
 
 [alias]
 xtask = "run --package xtask --"
+
+[target.xtensa-esp32s3-none-elf]
+rustflags = [
+    "-C", "force-frame-pointers",
+    "-C", "target-feature=-fp",
+]
