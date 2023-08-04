@@ -142,13 +142,11 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-11]
+        os: [ubuntu-22.04, macos-11, windows-22]
 
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: ./.github/actions/install-linux-dependencies
     # Python 3.11 breaks the neon-sys build
     - uses: actions/setup-python@v4
       with:
@@ -172,16 +170,12 @@ jobs:
           echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - uses: ./.github/actions/install-nodejs
-      id: node-install
+      id: napi-install
     - uses: ./.github/actions/setup-rust
       with:
-        key: x-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
+        key: x-v2-${{ steps.napi-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
     - name: Install napi
       run: npm install -g @napi-rs/cli
-    - name: Install ava
-      run: npm install --save-dev ava
-    - name: Install swc-node
-      run: npm install --save-dev swc-node
     - name: Build napi plugin
       working-directory: ./api/napi
       run: napi build --platform
