@@ -142,17 +142,13 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-11]
+        os: [ubuntu-22.04, macos-11, windows-2022]
 
     runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
-    # Python 3.11 breaks the neon-sys build
-    - uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
     - name: Install Qt
       if: runner.os != 'Windows'
       uses: jurplel/install-qt-action@v3
@@ -175,15 +171,13 @@ jobs:
       id: node-install
     - uses: ./.github/actions/setup-rust
       with:
-        key: x-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-    - name: Install napi
-      run: npm install -g @napi-rs/cli
+        key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
     - name: Run npm install
       working-directory: ./api/napi
       run: npm install
     - name: Build napi plugin
       working-directory: ./api/napi
-      run: napi build --platform
+      run: npm run build:debug
     - name: Run napi tests
       working-directory: ./api/napi
       run: npm test
