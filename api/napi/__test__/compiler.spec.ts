@@ -132,6 +132,8 @@ test('globalProperties ComponentDefinition', (t) => {
 
   t.not(definition, null);
 
+  t.is(definition!.globalProperties("NonExistent"), null);
+
   let properties = definition!.globalProperties("TestGlobal");
   t.not(properties, null);
 
@@ -182,6 +184,8 @@ test('globalCallbacks ComponentDefinition', (t) => {
   export component App {
   }`, "");
   t.not(definition, null);
+
+  t.is(definition!.globalCallbacks("NonExistent"), null);
 
   let callbacks = definition!.globalCallbacks("TestGlobal");
   t.not(callbacks, null);
