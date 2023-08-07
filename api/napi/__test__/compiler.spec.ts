@@ -213,3 +213,27 @@ test('compiler diagnostics', (t) => {
     sourceFile: 'testsource.slint'
   });
 })
+
+test('non-existent properties and callbacks', (t) => {
+  let compiler = new ComponentCompiler;
+  let definition = compiler.buildFromSource(`
+
+  export component App {
+  }`, "");
+  t.not(definition, null);
+
+  let instance = definition!.create();
+  t.not(instance, null);
+
+  const prop_err = t.throws(() => {
+    instance!.setProperty("non-existent", 42);
+  });
+  t.is(prop_err!.code, 'GenericFailure');
+  t.is(prop_err!.message, 'Cannot read slint type of property.');
+
+  const callback_err = t.throws(() => {
+    instance!.setCallback("non-existent-callback", () => { });
+  });
+  t.is(prop_err!.code, 'GenericFailure');
+  t.is(prop_err!.message, 'Cannot read slint type of property.');
+})
