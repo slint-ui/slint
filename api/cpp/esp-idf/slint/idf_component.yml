@@ -1,0 +1,7 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+description: "Slint — declarative GUI toolkit"
+url: "https://slint.dev"
+dependencies:
+  idf: ">=5.0"

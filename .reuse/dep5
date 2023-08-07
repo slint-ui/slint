@@ -15,7 +15,7 @@ Files: *.md api/cpp/docs/*/*.html api/cpp/docs/*/*.css docs/*/*.css docs/*/*.htm
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: examples/*/LC_MESSAGES/*.mo
+Files: examples/*/LC_MESSAGES/*.mo examples/*/sdkconfig*
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
