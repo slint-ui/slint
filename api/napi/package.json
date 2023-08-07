@@ -5,17 +5,7 @@
   "types": "index.d.ts",
   "license": "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial",
   "napi": {
-    "name": "slint-ui",
-    "triples": {
-      "additional": [
-        "aarch64-apple-darwin",
-        "armv7-unknown-linux-gnueabihf",
-        "aarch64-unknown-linux-gnu",
-        "i686-pc-windows-msvc",
-        "x86_64-apple-darwin",
-        "x86-64-unknown-linux-gnu"
-      ]
-    }
+    "name": "slint-ui"
   },
   "devDependencies": {
     "@napi-rs/cli": "^2.15.2",
