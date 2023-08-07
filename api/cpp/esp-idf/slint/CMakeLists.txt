@@ -15,14 +15,17 @@ set(SLINT_TARGET_CARGO_FLAGS "-Zbuild-std=core,alloc")
 set(CMAKE_BUILD_TYPE Release)
 set(BUILD_SHARED_LIBS OFF)
 
-# FIXME: this never uses the current git repo
-include(FetchContent)
-FetchContent_Declare(
-  Slint
-  GIT_REPOSITORY https://github.com/slint-ui/slint
-  GIT_TAG master #FIXME: this needs to be hardcoded to a version number
-  SOURCE_SUBDIR api/cpp
-)
-FetchContent_MakeAvailable(Slint)
+if (SLINT_ESP_LOCAL_EXAMPLE)
+  add_subdirectory(../.. slint_build)
+else(SLINT_ESP_LOCAL_EXAMPLE)
+  include(FetchContent)
+  FetchContent_Declare(
+    Slint
+    GIT_REPOSITORY https://github.com/slint-ui/slint
+    GIT_TAG master #FIXME: this needs to be hardcoded to a version number
+    SOURCE_SUBDIR api/cpp
+  )
+  FetchContent_MakeAvailable(Slint)
+endif(SLINT_ESP_LOCAL_EXAMPLE)
 
 target_link_libraries(${COMPONENT_LIB} PUBLIC Slint::Slint)
