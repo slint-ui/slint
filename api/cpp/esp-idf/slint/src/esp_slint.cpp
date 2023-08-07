@@ -59,31 +59,44 @@ std::chrono::milliseconds EspPlatform::duration_since_start() const
 
 void EspPlatform::run_event_loop()
 {
-
-    constexpr UBaseType_t TouchNotificationIndex = 0;
+    task = xTaskGetCurrentTaskHandle();
 
     esp_lcd_panel_disp_on_off(panel_handle, true);
 
     if (touch_handle) {
-        // Must be static since we can't pass user data to the interrupt callback
-        static TaskHandle_t slint_platform_task;
-        slint_platform_task = xTaskGetCurrentTaskHandle();
-        esp_lcd_touch_register_interrupt_callback(*touch_handle, [](auto) {
-            vTaskNotifyGiveIndexedFromISR(slint_platform_task, TouchNotificationIndex, nullptr);
-        });
+        esp_lcd_touch_register_interrupt_callback(
+                *touch_handle, [](auto) { vTaskNotifyGiveFromISR(task, nullptr); });
     }
 
     int last_touch_x = 0;
     int last_touch_y = 0;
     bool touch_down = false;
-    bool has_touch_events = false;
 
     while (true) {
         slint::platform::update_timers_and_animations();
 
+        std::optional<slint::platform::Platform::Task> event;
+        {
+            std::unique_lock lock(queue_mutex);
+            if (queue.empty()) {
+                if (quit) {
+                    quit = false;
+                    break;
+                }
+            } else {
+                event = std::move(queue.front());
+                queue.pop_front();
+            }
+        }
+        if (event) {
+            std::move(*event).run();
+            event.reset();
+            continue;
+        }
+
         if (m_window) {
 
-            if (touch_handle && has_touch_events) {
+            if (touch_handle) {
                 uint16_t touchpad_x[1] = { 0 };
                 uint16_t touchpad_y[1] = { 0 };
                 uint8_t touchpad_cnt = 0;
@@ -157,10 +170,28 @@ void EspPlatform::run_event_loop()
             ticks_to_wait = portMAX_DELAY;
         }
 
-        has_touch_events = ulTaskNotifyTakeIndexed(TouchNotificationIndex, /*reset to zero*/ pdTRUE,
-                                                   ticks_to_wait)
-                > 0;
+        ulTaskNotifyTake(/*reset to zero*/ pdTRUE, ticks_to_wait);
     }
 
     vTaskDelete(NULL);
 }
+
+void EspPlatform::quit_event_loop()
+{
+    {
+        const std::unique_lock lock(queue_mutex);
+        quit = true;
+    }
+    vTaskNotifyGiveFromISR(task, nullptr);
+}
+
+void EspPlatform::run_in_event_loop(slint::platform::Platform::Task event)
+{
+    {
+        const std::unique_lock lock(queue_mutex);
+        queue.push_back(std::move(event));
+    }
+    vTaskNotifyGiveFromISR(task, nullptr);
+}
+
+TaskHandle_t EspPlatform::task = {};

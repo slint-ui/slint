@@ -6,6 +6,8 @@
 #include "esp_lcd_touch.h"
 #include "esp_lcd_types.h"
 #include "slint-platform.h"
+#include <deque>
+#include <mutex>
 
 struct EspPlatform : public slint::platform::Platform
 {
@@ -20,8 +22,9 @@ struct EspPlatform : public slint::platform::Platform
     std::unique_ptr<slint::platform::WindowAdapter> create_window_adapter() override;
 
     std::chrono::milliseconds duration_since_start() const override;
-
     void run_event_loop() override;
+    void quit_event_loop() override;
+    void run_in_event_loop(Task) override;
 
 private:
     slint::PhysicalSize size;
@@ -30,4 +33,10 @@ private:
     std::span<slint::platform::Rgb565Pixel> buffer1;
     std::optional<std::span<slint::platform::Rgb565Pixel>> buffer2;
     class EspWindowAdapter *m_window = nullptr;
+
+    // Need to be static because we can't pass user data to the touch interrupt callback
+    static TaskHandle_t task;
+    std::mutex queue_mutex;
+    std::deque<slint::platform::Platform::Task> queue; // protected by queue_mutex
+    bool quit = false; // protected by queue_mutex
 };
