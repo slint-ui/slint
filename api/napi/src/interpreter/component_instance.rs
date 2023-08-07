@@ -54,7 +54,9 @@ impl JsComponentInstance {
             .properties_and_callbacks()
             .find_map(|(name, proptype)| if name == prop_name { Some(proptype) } else { None })
             .ok_or(())
-            .map_err(|_| napi::Error::from_reason("Cannot read slint type of property."))?;
+            .map_err(|_| {
+                napi::Error::from_reason(format!("Property {prop_name} not found in the component"))
+            })?;
 
         self.inner
             .set_property(&prop_name, super::value::to_value(&env, js_value, ty)?)
@@ -79,9 +81,9 @@ impl JsComponentInstance {
             .find_map(|(name, proptype)| if name == callback_name { Some(proptype) } else { None })
             .ok_or(())
             .map_err(|_| {
-                napi::Error::from_reason(
-                    format!("Callback {} not found in the component", callback_name).as_str(),
-                )
+                napi::Error::from_reason(format!(
+                    "Callback {callback_name} not found in the component"
+                ))
             })?;
 
         if let Type::Callback { return_type, .. } = ty {
