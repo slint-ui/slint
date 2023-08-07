@@ -11,7 +11,7 @@ license = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = { version = "2.12.0", default-features = false, features = ["napi8", "tokio_rt", "serde-json"] }
+napi = { version = "2.12.0", default-features = false, features = ["napi8"] }
 napi-derive = "2.12.2"
 i-slint-compiler = { version = "=1.2.0", path="../../internal/compiler" }
 i-slint-core = { version = "=1.2.0", path="../../internal/core" }
