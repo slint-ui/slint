@@ -7,7 +7,7 @@ Files: */slint-logo-*.svg */slint-logo-*.png */Slint_icon_*.svg */Slint_icon_*.p
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: CC-BY-ND-4.0
 
-Files: .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock
+Files: .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock */.npmignore
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
@@ -76,6 +76,10 @@ Copyright: node.js authors
 License: CC0-1.0
 
 Files: tests/screenshots/references/software/*/*.png
+Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
+License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+Files: api/napi/__test__/resources/*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
