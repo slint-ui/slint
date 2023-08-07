@@ -19,42 +19,27 @@ impl From<DiagnosticLevel> for JsDiagnosticLevel {
     }
 }
 
-#[napi(js_name = "Diagnostic")]
+#[napi(object, js_name = "Diagnostic")]
 pub struct JsDiagnostic {
-    internal: Diagnostic,
-}
-
-#[napi]
-impl JsDiagnostic {
-    #[napi]
-    pub fn level(&self) -> JsDiagnosticLevel {
-        self.internal.level().into()
-    }
-
-    #[napi]
-    pub fn message(&self) -> String {
-        self.internal.message().into()
-    }
-
-    #[napi]
-    pub fn line_column(&self) -> Vec<i32> {
-        let (start, column) = self.internal.line_column();
-        vec![start as i32, column as i32]
-    }
-
-    #[napi]
-    pub fn source_file(&self) -> Option<String> {
-        if let Some(source_file) = self.internal.source_file() {
-            if let Some(source_file) = source_file.to_str() {
-                return Some(source_file.into());
-            }
-        }
-        None
-    }
+    pub level: JsDiagnosticLevel,
+    pub message: String,
+    pub line_number: u32,
+    pub column: u32,
+    pub source_file: Option<String>,
 }
 
 impl From<Diagnostic> for JsDiagnostic {
-    fn from(diagnostic: Diagnostic) -> Self {
-        Self { internal: diagnostic }
+    fn from(internal_diagnostic: Diagnostic) -> Self {
+        let (line_number, column) = internal_diagnostic.line_column();
+        Self {
+            level: internal_diagnostic.level().into(),
+            message: internal_diagnostic.message().into(),
+            line_number: line_number as u32,
+            column: column as u32,
+            source_file: internal_diagnostic
+                .source_file()
+                .and_then(|path| path.to_str())
+                .map(|str| str.into()),
+        }
     }
 }
