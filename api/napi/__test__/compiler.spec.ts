@@ -229,11 +229,11 @@ test('non-existent properties and callbacks', (t) => {
     instance!.setProperty("non-existent", 42);
   });
   t.is(prop_err!.code, 'GenericFailure');
-  t.is(prop_err!.message, 'Cannot read slint type of property.');
+  t.is(prop_err!.message, 'Property non-existent not found in the component');
 
   const callback_err = t.throws(() => {
     instance!.setCallback("non-existent-callback", () => { });
   });
-  t.is(prop_err!.code, 'GenericFailure');
-  t.is(prop_err!.message, 'Cannot read slint type of property.');
+  t.is(callback_err!.code, 'GenericFailure');
+  t.is(callback_err!.message, 'Callback non-existent-callback not found in the component');
 })
