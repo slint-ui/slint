@@ -20,6 +20,3 @@ spin_on = "0.1"
 
 [build-dependencies]
 napi-build = "2.0.1"
-
-[profile.release]
-lto = true
