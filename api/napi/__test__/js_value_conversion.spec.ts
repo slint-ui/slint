@@ -117,7 +117,6 @@ test('set struct properties', (t) => {
     age: int
   }
   export component App {
-    in-out property <bool> bool-prop;
     in-out property <Player> player: {
       name: "Florian",
       age: 20,
@@ -128,10 +127,6 @@ test('set struct properties', (t) => {
 
   let instance = definition!.create();
   t.not(instance, null);
-
-  t.false(instance!.getProperty("bool-prop"));
-  instance!.setProperty("bool-prop", true);
-  t.true(instance!.getProperty("bool-prop"));
 
   t.deepEqual(instance!.getProperty("player"), {
     "name": "Florian",
