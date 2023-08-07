@@ -200,12 +200,12 @@ pub fn run_lsp_server() -> Result<(), Error> {
         serde_json::to_value(server_loop::server_initialize_result(&init_param.capabilities))?;
     connection.initialize_finish(id, initialize_result)?;
 
-    main_loop(&connection, init_param)?;
+    main_loop(connection, init_param)?;
     io_threads.join()?;
     Ok(())
 }
 
-fn main_loop(connection: &Connection, init_param: InitializeParams) -> Result<(), Error> {
+fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<(), Error> {
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
 
