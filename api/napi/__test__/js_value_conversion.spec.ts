@@ -143,6 +143,29 @@ test('set struct properties', (t) => {
     "name": "Simon",
     "age": 22,
   });
+
+  // Missing properties throw an exception (TODO: the message is not very helpful, should say which one)
+  const incomplete_struct_err = t.throws(() => {
+    instance!.setProperty("player", {
+      "name": "Incomplete Player"
+    })
+  }, {
+    instanceOf: Error
+  }
+  );
+  t.is(incomplete_struct_err!.code, 'InvalidArg');
+  t.is(incomplete_struct_err!.message, 'expect Number, got: Undefined');
+
+  // Extra properties are thrown away
+  instance!.setProperty("player", {
+    "name": "Excessive Player",
+    "age": 100,
+    "weight": 200,
+  });
+  t.deepEqual(instance!.getProperty("player"), {
+    "name": "Excessive Player",
+    "age": 100,
+  });
 })
 
 test('get/set image properties', async (t) => {
