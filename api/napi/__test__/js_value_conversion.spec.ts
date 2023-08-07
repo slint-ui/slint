@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import test from 'ava';
+const path = require('node:path');
 var Jimp = require("jimp");
 
 import { ComponentCompiler, Brush, Model, Color, ImageData } from '../index'
@@ -156,7 +157,7 @@ test('get/set image properties', async (t) => {
     callback image-width() -> float;
     callback image-height() -> float;
 
-    in-out property <image> image: @image-url("__test__/resources/rgb.png");
+    in-out property <image> image: @image-url("resources/rgb.png");
     in property <image> alt-image;
 
     image-width => {
@@ -167,7 +168,7 @@ test('get/set image properties', async (t) => {
       alt-image.width
     }
   }
-  `, __dirname);
+  `, __filename);
   t.not(definition, null);
 
   let instance = definition!.create();
@@ -178,7 +179,7 @@ test('get/set image properties', async (t) => {
     t.deepEqual((slintImage as ImageData).width, 64);
     t.deepEqual((slintImage as ImageData).height, 64);
 
-    let image = await Jimp.read("__test__/resources/rgb.png");
+    let image = await Jimp.read(path.join(__dirname, "resources/rgb.png"));
     t.is(image.bitmap.data.length, (slintImage as ImageData).data.length);
     t.deepEqual(image.bitmap.data, (slintImage as ImageData).data);
 
