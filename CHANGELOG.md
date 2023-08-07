@@ -43,6 +43,10 @@ All notable changes to this project are documented in this file.
  - Extended `slint::Image::create_from_borrowed_gl_2d_rgba_texture` with an option to configure more aspects
    of texture rendering.
 
+### LSP
+
+ - Fixed termination of the lsp process.
+
 ## [1.1.1] - 2023-07-10
 
 ### General
