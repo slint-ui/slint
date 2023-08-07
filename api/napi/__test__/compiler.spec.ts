@@ -196,3 +196,20 @@ test('globalCallbacks ComponentDefinition', (t) => {
   t.is(callbacks![0], "first-callback");
   t.is(callbacks![1], "second-callback");
 })
+
+test('compiler diagnostics', (t) => {
+  let compiler = new ComponentCompiler;
+  t.is(compiler.buildFromSource(`export component App {
+    garbage
+  }`, "testsource.slint"), null);
+
+  const diags = compiler.diagnostics;
+  t.is(diags.length, 1);
+  t.deepEqual(diags[0], {
+    level: 0,
+    message: 'Parse error',
+    lineNumber: 2,
+    column: 12,
+    sourceFile: 'testsource.slint'
+  });
+})
