@@ -2,17 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 #include "esp_slint.h"
-#include <chrono>
-#include <cstdint>
-#include <type_traits>
 
 #include "esp_lcd_panel_ops.h"
 #include "esp_log.h"
-#include "slint-platform.h"
-#include "slint_size.h"
-
-// The C code cause these warnings
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 
 static const char *TAG = "slint_platform";
 

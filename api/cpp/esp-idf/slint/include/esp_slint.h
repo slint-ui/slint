@@ -6,8 +6,6 @@
 #include "esp_lcd_touch.h"
 #include "esp_lcd_types.h"
 #include "slint-platform.h"
-#include <optional>
-#include <span>
 
 struct EspPlatform : public slint::platform::Platform
 {

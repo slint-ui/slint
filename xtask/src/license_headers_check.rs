@@ -311,7 +311,7 @@ lazy_static! {
         ("(^|/)memory.x$", LicenseLocation::NoLicense), // third-party file
         ("(^|/)webpack\\..+\\.js$", LicenseLocation::NoLicense),
         ("(^|/)partitions.csv$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("(^|/)sdkconfig$", LicenseLocation::NoLicense), // auto-generated
+        ("(^|/)sdkconfig", LicenseLocation::NoLicense), // auto-generated
 
         // Path prefix matches:
         ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
