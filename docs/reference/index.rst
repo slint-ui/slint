@@ -9,6 +9,7 @@
    :caption: Introduction
 
    src/introduction/index.rst
+   src/introduction/supported_platforms.md
 
 .. toctree::
    :hidden:
