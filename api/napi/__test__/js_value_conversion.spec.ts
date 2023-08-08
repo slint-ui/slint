@@ -185,6 +185,9 @@ test('get/set image properties', async (t) => {
     image-height => {
       alt-image.width
     }
+
+    in property <image> external-image;
+    out property <bool> external-image-ok: self.external-image.width == 64 && self.external-image.height == 64;
   }
   `, __filename);
   t.not(definition, null);
@@ -198,6 +201,36 @@ test('get/set image properties', async (t) => {
     t.deepEqual((slintImage as ImageData).height, 64);
 
     let image = await Jimp.read(path.join(__dirname, "resources/rgb.png"));
+
+    // Sanity check: setProperty fails when passed definitely a non-image
+    t.throws(() => {
+      instance!.setProperty("external-image", 42);
+    }, {
+      message: "Cannot convert object to image, because the provided object does not have an u32 `width` property"
+    });
+    t.throws(() => {
+      instance!.setProperty("external-image", { garbage: true });
+    }, {
+      message: "Cannot convert object to image, because the provided object does not have an u32 `width` property"
+    });
+    t.throws(() => {
+      instance!.setProperty("external-image", { width: [1, 2, 3] });
+    }, {
+      message: "Cannot convert object to image, because the provided object does not have an u32 `height` property"
+    });
+    t.throws(() => {
+      instance!.setProperty("external-image", { width: 1, height: 1, data: new Uint8ClampedArray() });
+    }, {
+      message: "data property does not have the correct size; expected 1 (width) * 1 (height) * 4 = 0; got 4"
+    });
+
+    t.is(image.bitmap.width, 64);
+    t.is(image.bitmap.height, 64);
+    // Duck typing: The `image.bitmap` object that Jump returns, has the shape of the official ImageData, so
+    // it should be possible to use it with Slint:
+    instance!.setProperty("external-image", image.bitmap);
+    t.is(instance!.getProperty("external-image-ok"), true);
+
     t.is(image.bitmap.data.length, (slintImage as ImageData).data.length);
     t.deepEqual(image.bitmap.data, (slintImage as ImageData).data);
 

@@ -3,8 +3,12 @@
 
 use crate::{JsBrush, JsImageData, JsModel};
 use i_slint_compiler::langtype::Type;
-use i_slint_core::{graphics::Image, model::ModelRc, Brush, Color};
-use napi::{bindgen_prelude::*, Env, JsBoolean, JsExternal, JsNumber, JsString, JsUnknown, Result};
+use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
+use i_slint_core::model::ModelRc;
+use i_slint_core::{Brush, Color};
+use napi::{
+    bindgen_prelude::*, Env, JsBoolean, JsExternal, JsNumber, JsObject, JsString, JsUnknown, Result,
+};
 use napi_derive::napi;
 use slint_interpreter::Value;
 
@@ -98,8 +102,57 @@ pub fn to_value(env: &Env, unknown: JsUnknown, typ: Type) -> Result<Value> {
             Ok(Value::Brush(env.get_value_external::<Brush>(&js_brush)?.clone()))
         }
         Type::Image => {
-            let js_image: JsExternal = unknown.coerce_to_object()?.get("image")?.unwrap();
-            Ok(Value::Image(env.get_value_external::<Image>(&js_image)?.clone()))
+            let object = unknown.coerce_to_object()?;
+            if let Some(direct_image) = object.get("image").ok().flatten() {
+                Ok(Value::Image(env.get_value_external::<Image>(&direct_image)?.clone()))
+            } else {
+                let get_size_prop = |name| {
+                    object
+                    .get::<_, JsUnknown>(name)
+                    .ok()
+                    .flatten()
+                    .and_then(|prop| prop.coerce_to_number().ok())
+                    .and_then(|number| number.get_int64().ok())
+                    .and_then(|i64_num| i64_num.try_into().ok())
+                    .ok_or_else(
+                        || napi::Error::from_reason(
+                            format!("Cannot convert object to image, because the provided object does not have an u32 `{name}` property")
+                    ))
+                };
+
+                fn try_convert_image<BufferType: AsRef<[u8]> + FromNapiValue>(
+                    object: &JsObject,
+                    width: u32,
+                    height: u32,
+                ) -> Result<SharedPixelBuffer<Rgba8Pixel>> {
+                    let buffer =
+                        object.get::<_, BufferType>("data").ok().flatten().ok_or_else(|| {
+                            napi::Error::from_reason(format!(
+                                "data property does not have suitable array buffer type"
+                            ))
+                        })?;
+                    const BPP: usize = core::mem::size_of::<Rgba8Pixel>();
+                    let actual_size = buffer.as_ref().len();
+                    let expected_size: usize = (width as usize) * (height as usize) * BPP;
+                    if actual_size != expected_size {
+                        return Err(napi::Error::from_reason(format!(
+                            "data property does not have the correct size; expected {} (width) * {} (height) * {} = {}; got {}",
+                            width, height, BPP, actual_size, expected_size
+                        )));
+                    }
+
+                    Ok(SharedPixelBuffer::clone_from_slice(buffer.as_ref(), width, height))
+                }
+
+                let width: u32 = get_size_prop("width")?;
+                let height: u32 = get_size_prop("height")?;
+
+                let pixel_buffer =
+                    try_convert_image::<Uint8ClampedArray>(&object, width, height)
+                        .or_else(|_| try_convert_image::<Buffer>(&object, width, height))?;
+
+                Ok(Value::Image(Image::from_rgba8(pixel_buffer)))
+            }
         }
         Type::Model => {
             let js_model: JsExternal = unknown.coerce_to_object()?.get("model")?.unwrap();
