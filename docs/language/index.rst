@@ -57,8 +57,8 @@ There are three different pathways to get started with Slint:
 
 2. As a UI Designer, working with Slint files locally, we recommend the following combination of software tools:
 
-   - Visual Studio Code
-   - The Slint for Visual Studio Code Extension
+   - `Visual Studio Code <https://code.visualstudio.com>`_
+   - `The Slint for Visual Studio Code Extension <https://marketplace.visualstudio.com/items?itemName=Slint.slint>`_
 
 3. As a Software Developer, integrating Slint into a new or existing code base, choose one of these languages to
    get started:
