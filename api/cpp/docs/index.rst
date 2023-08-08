@@ -3,7 +3,7 @@
 
 .. Slint C++ documentation master file
 
-Welcome to Slint C++'s documentation!
+Slint C++ documentation
 ========================================
 
 .. toctree::
