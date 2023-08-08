@@ -6,15 +6,17 @@ import { Palette } from "styling.slint";
 export component Slider {
     callback changed(float /* value */);
 
+    in property<bool> vertical: false;
     in property<float> maximum: 100;
     in property<float> minimum: 0;
     in property<bool> enabled <=> i-touch-area.enabled;
     out property<bool> has-focus: i-focus-scope.has-focus;
     in-out property<float> value;
 
-    min-height: 20px;
-    vertical-stretch: 0;
-    horizontal-stretch: 1;
+    min-width: vertical ? 20px : 0px;
+    min-height: vertical ? 0px : 20px;
+    vertical-stretch: vertical ? 1 : 0;
+    horizontal-stretch: vertical ? 0 : 1;
     accessible-role: slider;
     accessible-value: root.value;
     accessible-value-minimum: root.minimum;
@@ -22,21 +24,24 @@ export component Slider {
     accessible-value-step: (root.maximum - root.minimum) / 100;
 
     i-rail := Rectangle {
-        height: 4px;
+        width: vertical ? 4px : parent.width;
+        height: vertical ? parent.height : 4px;
         background: Palette.control-stroke;
         border-radius: 2px;
     }
 
     i-track := Rectangle {
-        x: 0;
-        height: i-rail.height;
+        x: vertical ? (parent.width - self.width) / 2 : 0;
+        y: vertical ? 0 : (parent.height - self.height) / 2;
+        width: vertical ? i-rail.width : i-thumb.x + (i-thumb.width / 2);
+        height: vertical ? i-thumb.y + (i-thumb.height / 2) : i-rail.height;
         background: Palette.accent-default;
         border-radius: i-rail.border-radius;
-        width: i-thumb.x + (i-thumb.width / 2);
     }
 
     i-thumb := Rectangle {
-        x: (parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
+        x: vertical ? (parent.width - self.width) / 2 : (parent.width - self.width) * (root.value - root.minimum) / (root.maximum - root.minimum);
+        y: vertical ? (parent.height - self.height) * (root.value - root.minimum) / (root.maximum - root.minimum) : (parent.height - self.height) / 2;
         width: 20px;
         height: self.width;
         border-radius: 10px;
@@ -75,9 +80,14 @@ export component Slider {
         }
 
         moved => {
-            if (self.enabled && self.pressed) {
+            if (!vertical && self.enabled && self.pressed) {
                 root.value = max(root.minimum, min(root.maximum,
                     self.pressed-value + (i-touch-area.mouse-x - i-touch-area.pressed-x) * (root.maximum - root.minimum) / (root.width - i-thumb.width)));
+                root.changed(root.value);
+            }
+            if (vertical && self.enabled && self.pressed) {
+                root.value = max(root.minimum, min(root.maximum,
+                    self.pressed-value + (i-touch-area.mouse-y - i-touch-area.pressed-y) * (root.maximum - root.minimum) / (root.height - i-thumb.height)));
                 root.changed(root.value);
             }
         }
@@ -85,13 +95,21 @@ export component Slider {
 
     i-focus-scope := FocusScope {
         x: 0;
+        y: 0;
         width: 0;
+        height: 0;
 
         key-pressed(event) => {
-            if (self.enabled && event.text == Key.RightArrow) {
+            if (!vertical && self.enabled && event.text == Key.RightArrow) {
                 root.value = Math.min(root.value + 1, root.maximum);
                 accept
-            } else if (self.enabled && event.text == Key.LeftArrow) {
+            } else if (!vertical && self.enabled && event.text == Key.LeftArrow) {
+                root.value = Math.max(root.value - 1, root.minimum);
+                accept
+            } else if (vertical && self.enabled && event.text == Key.DownArrow) {
+                root.value = Math.min(root.value + 1, root.maximum);
+                accept
+            } else if (vertical && self.enabled && event.text == Key.UpArrow) {
                 root.value = Math.max(root.value - 1, root.minimum);
                 accept
             } else {

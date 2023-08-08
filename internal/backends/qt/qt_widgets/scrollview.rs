@@ -46,7 +46,7 @@ impl Item for NativeScrollView {
         cpp!(unsafe [] -> qttypes::QMargins as "QMargins" {
             ensure_initialized();
             QStyleOptionSlider option;
-            initQSliderOptions(option, false, true, 0, 0, 1000, 1000);
+            initQSliderOptions(option, false, true, 0, 0, 1000, 1000, false);
 
             int extent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, nullptr);
             int sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, nullptr);
@@ -157,7 +157,7 @@ impl Item for NativeScrollView {
             ] -> u32 as "int" {
                 ensure_initialized();
                 QStyleOptionSlider option;
-                initQSliderOptions(option, pressed, true, active_controls, 0, max, -value);
+                initQSliderOptions(option, pressed, true, active_controls, 0, max, -value, false);
                 option.pageStep = page_size;
                 if (!horizontal) {
                     option.state ^= QStyle::State_Horizontal;
@@ -383,7 +383,7 @@ impl Item for NativeScrollView {
                 QStyleOptionSlider option;
                 option.state |= QStyle::State(initial_state);
                 option.rect = QRect(QPoint(), r.size());
-                initQSliderOptions(option, pressed, true, active_controls, 0, max / dpr, -value / dpr);
+                initQSliderOptions(option, pressed, true, active_controls, 0, max / dpr, -value / dpr, false);
                 option.subControls = QStyle::SC_All;
                 option.pageStep = page_size / dpr;
                 if (has_focus)
