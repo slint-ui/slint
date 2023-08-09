@@ -108,6 +108,7 @@ test('invoke global callback', (t) => {
     }
   );
 
+  let speakTest;
   instance!.setGlobalCallback("Global", "great", (a: string, b: string, c: string, d: string, e: string) => {
     speakTest = "hello " + a + ", " + b + ", " + c + ", " + d + " and " + e;
   });
