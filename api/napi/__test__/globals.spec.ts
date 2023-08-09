@@ -131,6 +131,24 @@ test('invoke global callback', (t) => {
     speakTest = "hello " + a + ", " + b + ", " + c + ", " + d + " and " + e;
   });
 
+  t.throws(() => {
+    instance!.setGlobalCallback("Global", "bye", () => {})
+  },
+    {
+      code: "GenericFailure",
+      message: "Callback bye of global Global not found in the component"
+    }
+  );
+
+  t.throws(() => {
+    instance!.invokeGlobal("Global", "bye", [])
+  },
+    {
+      code: "GenericFailure",
+      message: "Callback bye of global Global not found in the component"
+    }
+  );
+
   instance!.invokeGlobal("Global", "great", ["simon", "olivier", "auri", "tobias", "florian"]);
   t.deepEqual(speakTest, "hello simon, olivier, auri, tobias and florian");
 
