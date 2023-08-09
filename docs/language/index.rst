@@ -27,7 +27,7 @@ cooperation between design-focused team members and those concentrating on the p
 side of the project.
 
 
-The Slint design markup language describes extensible graphical user interfaces using the
+The Slint language describes extensible graphical user interfaces using the
 `Slint framework <https://slint.dev>`_
 
 - Place and compose a tree of visual elements in a window using a textual representation.
@@ -52,7 +52,7 @@ in a supported programming language, like C++, Rust, or JavaScript.
 
 There are three different pathways to get started with Slint:
 
-1. `SlintPad <https://slint.dev/editor>`_ - Use this to get a feel of the Slint design markup language.
+1. `SlintPad <https://slint.dev/editor>`_ - Use this to get a feel of the Slint language.
    This is a web browser-based tool where you can try Slint out.
 
 2. As a UI Designer, working with Slint files locally, we recommend the following combination of software tools:
