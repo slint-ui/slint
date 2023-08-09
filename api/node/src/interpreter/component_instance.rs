@@ -36,11 +36,6 @@ impl JsComponentInstance {
     }
 
     #[napi]
-    pub fn run(&self) {
-        self.inner.run().unwrap()
-    }
-
-    #[napi]
     pub fn get_property(&self, env: Env, name: String) -> Result<JsUnknown> {
         let value = self
             .inner

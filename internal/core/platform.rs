@@ -36,6 +36,32 @@ pub trait Platform {
         Err(PlatformError::NoEventLoopProvider)
     }
 
+    /// Spins an event loop for a specified period of time.
+    ///
+    /// This function is similar to `run_event_loop()` with two differences:
+    /// * The function is expected to return after the provided timeout, but
+    ///   allow for subsequent invocations to resume the previous loop. The
+    ///   function can return earlier if the loop was terminated otherwise,
+    ///   for example by `quit_event_loop()` or a last-window-closed mechanism.
+    /// * If the timeout is zero, the implementation should merely peek and
+    ///   process any pending events, but then return immediately.
+    ///
+    /// When the function returns `ControlFlow::Continue`, it is assumed that
+    /// the loop remains intact and that in the future the caller should call
+    /// `process_events()` again, to permit the user to continue to interact with
+    /// windows.
+    /// When the function returns `ControlFlow::Break`, it is assumed that the
+    /// event loop was terminated. Any subsequent calls to `process_events()`
+    /// will start the event loop afresh.
+    #[doc(hidden)]
+    fn process_events(
+        &self,
+        _timeout: core::time::Duration,
+        _: crate::InternalToken,
+    ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
+        Err(PlatformError::NoEventLoopProvider)
+    }
+
     /// Specify if the event loop should quit quen the last window is closed.
     /// The default behavior is `true`.
     /// When this is set to `false`, the event loop must keep running until

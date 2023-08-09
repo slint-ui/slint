@@ -182,10 +182,10 @@ export abstract class Model<T> {
  * @hidden
  */
 class NullPeer {
-    rowDataChanged(row: number): void {}
-    rowAdded(row: number, count: number): void {}
-    rowRemoved(row: number, count: number): void {}
-    reset(): void {}
+    rowDataChanged(row: number): void { }
+    rowAdded(row: number, count: number): void { }
+    rowRemoved(row: number, count: number): void { }
+    reset(): void { }
 }
 
 /**
@@ -260,9 +260,13 @@ export class ArrayModel<T> extends Model<T> {
  */
 export interface ComponentHandle {
     /**
-     * Shows the window and runs the event loop.
+     * Shows the window and runs the event loop. The returned promise is resolved when the event loop
+     * is terminated, for example when the last window was closed, or {@link quit_event_loop} was called.
+     * 
+     * This function is a convenience for calling {@link show}, followed by {@link run_event_loop}, and
+     * {@link hide} when the event loop's promise is resolved.
      */
-    run();
+    run(): Promise<unknown>;
 
     /**
      * Shows the component's window on the screen.
@@ -294,8 +298,10 @@ class Component implements ComponentHandle {
         this.instance = instance;
     }
 
-    run() {
-        this.instance.run();
+    async run() {
+        this.show();
+        await run_event_loop();
+        this.hide();
     }
 
     show() {
@@ -530,12 +536,78 @@ export function loadFile(filePath: string, options?: LoadFileOptions): Object {
     return slint_module;
 }
 
-// This api will be removed after teh event loop handling is merged check PR #3718.
-// After that this in no longer necessary.
-export namespace Timer {
-    export function singleShot(duration: number, handler: () => void) {
-        napi.singleshotTimer(duration, handler);
+class EventLoop {
+    #quit_loop: boolean = false;
+    #termination_promise: Promise<unknown> | null = null;
+    #terminate_resolve_fn: ((_value: unknown) => void) | null;
+    constructor() {
     }
+
+    start(running_callback?: Function): Promise<unknown> {
+        if (this.#termination_promise != null) {
+            return this.#termination_promise;
+        }
+
+        this.#termination_promise = new Promise((resolve) => {
+            this.#terminate_resolve_fn = resolve;
+        });
+        this.#quit_loop = false;
+
+        if (running_callback != undefined) {
+            napi.invokeFromEventLoop(() => {
+                running_callback();
+                running_callback = undefined;
+            });
+        }
+
+        // Give the nodejs event loop 16 ms to tick. This polling is sub-optimal, but it's the best we
+        // can do right now.
+        const nodejsPollInterval = 16;
+        let id = setInterval(() => {
+            if (napi.processEvents() == napi.ProcessEventsResult.Exited || this.#quit_loop) {
+                clearInterval(id);
+                this.#terminate_resolve_fn!(undefined);
+                this.#terminate_resolve_fn = null;
+                this.#termination_promise = null;
+                return;
+            }
+        }, nodejsPollInterval);
+
+        return this.#termination_promise;
+    }
+
+    quit() {
+        this.#quit_loop = true;
+    }
+}
+
+var global_event_loop: EventLoop = new EventLoop;
+
+/**
+ * Spins the Slint event loop and returns a promise that resolves when the loop terminates.
+ *
+ * If the event loop is already running, then this function returns the same promise as from
+ * the earlier invocation.
+ *
+ * @param running_callback Optional callback that's invoked once when the event loop is running.
+ *                         The function's return value is ignored.
+ * 
+ * Note that the event loop integration with Node.js is slightly imperfect. Due to conflicting
+ * implementation details between Slint's and Node.js' event loop, the two loops are merged
+ * by spinning one after the other, at 16 millisecond intervals. This means that when the
+ * application is idle, it continues to consume a low amount of CPU cycles, checking if either
+ * event loop has any pending events.
+ */
+export function run_event_loop(running_callback?: Function): Promise<unknown> {
+    return global_event_loop.start(running_callback)
+}
+
+/**
+ * Stops a spinning event loop. This function returns immediately, and the promise returned
+ from run_event_loop() will resolve in a later tick of the nodejs event loop.
+ */
+export function quit_event_loop() {
+    global_event_loop.quit()
 }
 
 /**
