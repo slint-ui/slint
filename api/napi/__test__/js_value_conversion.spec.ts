@@ -173,7 +173,6 @@ test('get/set image properties', async (t) => {
   let definition = compiler.buildFromSource(`
   export component App {
     in-out property <image> image: @image-url("resources/rgb.png");
-    in property <image> alt-image;
     in property <image> external-image;
     out property <bool> external-image-ok: self.external-image.width == 64 && self.external-image.height == 64;
   }
