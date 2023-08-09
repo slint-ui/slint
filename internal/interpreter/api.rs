@@ -740,6 +740,20 @@ impl ComponentDefinition {
         self.inner.unerase(guard).global_names()
     }
 
+    /// List of publicly declared properties or callback in the exported global singleton specified by its name.
+    ///
+    /// This is internal because it exposes the `Type` from compilerlib.
+    #[doc(hidden)]
+    pub fn global_properties_and_callbacks(
+        &self,
+        global_name: &str,
+    ) -> Option<impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + '_> {
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).global_properties(global_name)
+    }
+
     /// List of publicly declared properties in the exported global singleton specified by its name.
     pub fn global_properties(
         &self,

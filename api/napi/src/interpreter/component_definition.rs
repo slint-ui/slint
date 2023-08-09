@@ -38,6 +38,11 @@ impl JsComponentDefinition {
         self.internal.callbacks().collect()
     }
 
+    #[napi(getter)]
+    pub fn globals(&self) -> Vec<String> {
+        self.internal.globals().collect()
+    }
+
     #[napi]
     pub fn global_properties(&self, global_name: String) -> Option<Vec<JsProperty>> {
         self.internal.global_properties(global_name.as_str()).map(|iter| {
