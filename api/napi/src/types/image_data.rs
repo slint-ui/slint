@@ -27,18 +27,6 @@ impl JsImageData {
         Self { inner: Image::from_rgba8(SharedPixelBuffer::new(width, height)) }
     }
 
-    // FIXME: constructor with buffer causes trouble
-    #[napi(constructor)]
-    pub fn from_data_array(data_array: Buffer, width: u32) -> Self {
-        Self {
-            inner: Image::from_rgba8(SharedPixelBuffer::clone_from_slice(
-                data_array.as_ref(),
-                width,
-                width / data_array.len() as u32,
-            )),
-        }
-    }
-
     #[napi(getter)]
     pub fn width(&self) -> u32 {
         self.inner.size().width
