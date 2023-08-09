@@ -177,7 +177,7 @@ jobs:
       run: npm install
     - name: Build napi plugin
       working-directory: ./api/napi
-      run: npm run build:debug
+      run: npm run build:release
     - name: Run napi tests
       working-directory: ./api/napi
       run: npm test
@@ -487,7 +487,7 @@ jobs:
       run: git diff
     - name: Run the intepreter test to make sure that the test are passing after format
       run: cargo test -p test-driver-interpreter
-  
+
   esp-idf:
     runs-on: ubuntu-22.04
     container: espressif/idf:release-v5.0
