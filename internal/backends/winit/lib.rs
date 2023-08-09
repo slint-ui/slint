@@ -240,6 +240,29 @@ impl i_slint_core::platform::Platform for Backend {
         Ok(())
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    fn process_events(
+        &self,
+        timeout: core::time::Duration,
+        _: i_slint_core::InternalToken,
+    ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
+        let loop_state = self.event_loop_state.borrow_mut().take().unwrap_or_default();
+        let (new_state, status) = loop_state.pump_events(Some(timeout))?;
+        *self.event_loop_state.borrow_mut() = Some(new_state);
+        match status {
+            winit::platform::pump_events::PumpStatus::Continue => {
+                Ok(core::ops::ControlFlow::Continue(()))
+            }
+            winit::platform::pump_events::PumpStatus::Exit(code) => {
+                if code == 0 {
+                    Ok(core::ops::ControlFlow::Break(()))
+                } else {
+                    return Err(format!("Event loop exited with non-zero code {code}").into());
+                }
+            }
+        }
+    }
+
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
         struct Proxy;
         impl EventLoopProxy for Proxy {

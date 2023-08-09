@@ -1529,11 +1529,25 @@ impl WindowAdapter for QtWindow {
             self.rendering_metrics_collector.take();
             let widget_ptr = self.widget_ptr();
             cpp! {unsafe [widget_ptr as "QWidget*"] {
+
+                bool wasVisible = widget_ptr->isVisible();
+
                 widget_ptr->hide();
                 // Since we don't call close(), this will force Qt to recompute wether there are any
                 // visible windows, and ends the application if needed
                 auto _locker = QEventLoopLocker();
+
+                // Compute the same thing also manually, when the event loop is driven by processEvents
+                // like in the NodeJS port.
+                if (wasVisible) {
+                    auto windows = QGuiApplication::topLevelWindows();
+                    bool visible_windows_left = std::any_of(windows.begin(), windows.end(), [](auto window) {
+                        return window->isVisible() || window->transientParent();
+                    });
+                    g_lastWindowClosed = !visible_windows_left;
+                }
             }};
+
             Ok(())
         }
     }

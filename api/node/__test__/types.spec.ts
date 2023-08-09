@@ -3,7 +3,7 @@
 
 import test from 'ava';
 
-import { SlintBrush, SlintRgbaColor, Brush, ArrayModel, Timer } from '../index'
+import { SlintBrush, SlintRgbaColor, Brush, ArrayModel } from '../index'
 
 test('SlintColor from fromRgb', (t) => {
   let color = SlintRgbaColor.fromRgb(100, 110, 120);
@@ -56,7 +56,7 @@ test('SlintBrush from RgbaColor', (t) => {
 })
 
 test('SlintBrush from Brush', (t) => {
-  let brush = SlintBrush.fromBrush({ color: { red: 100, green: 110, blue: 120, alpha: 255 }});
+  let brush = SlintBrush.fromBrush({ color: { red: 100, green: 110, blue: 120, alpha: 255 } });
 
   t.deepEqual(brush.color.red, 100);
   t.deepEqual(brush.color.green, 110);
@@ -105,15 +105,3 @@ test('ArrayModel remove', (t) => {
   t.is(arrayModel.rowCount(), 1);
   t.is(arrayModel.rowData(0), 1);
 })
-
-test('Timer negative duration', (t) => {
-  t.throws(() => {
-    Timer.singleShot(-1, function () { })
-  },
-    {
-      code: "GenericFailure",
-      message: "Duration cannot be negative"
-    }
-  );
-})
-

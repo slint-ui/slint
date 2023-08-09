@@ -169,6 +169,32 @@ impl i_slint_core::platform::Platform for Backend {
         Err("Qt platform requested but Slint is compiled without Qt support".into())
     }
 
+    fn process_events(
+        &self,
+        _timeout: core::time::Duration,
+        _: i_slint_core::InternalToken,
+    ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
+        #[cfg(not(no_qt))]
+        {
+            // Schedule any timers with Qt that were set up before this event loop start.
+            crate::qt_window::timer_event();
+            use cpp::cpp;
+            let timeout_ms: i32 = _timeout.as_millis() as _;
+            let loop_was_quit = cpp! {unsafe [timeout_ms as "int"] -> bool as "bool" {
+                ensure_initialized(true);
+                qApp->processEvents(QEventLoop::AllEvents, timeout_ms);
+                return std::exchange(g_lastWindowClosed, false);
+            } };
+            Ok(if loop_was_quit {
+                core::ops::ControlFlow::Break(())
+            } else {
+                core::ops::ControlFlow::Continue(())
+            })
+        }
+        #[cfg(no_qt)]
+        Err("Qt platform requested but Slint is compiled without Qt support".into())
+    }
+
     #[cfg(not(no_qt))]
     fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
         struct Proxy;

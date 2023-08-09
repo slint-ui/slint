@@ -665,6 +665,60 @@ impl EventLoopState {
             Ok(Self::default())
         }
     }
+
+    /// Runs the event loop and renders the items in the provided `component` in its
+    /// own window.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn pump_events(
+        mut self,
+        timeout: Option<std::time::Duration>,
+    ) -> Result<(Self, winit::platform::pump_events::PumpStatus), corelib::platform::PlatformError>
+    {
+        use winit::platform::pump_events::EventLoopExtPumpEvents;
+
+        let not_running_loop_instance = MAYBE_LOOP_INSTANCE
+            .with(|loop_instance| match loop_instance.borrow_mut().take() {
+                Some(instance) => Ok(instance),
+                None => NotRunningEventLoop::new(),
+            })
+            .map_err(|e| format!("Error initializing winit event loop: {e}"))?;
+
+        let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
+        GLOBAL_PROXY
+            .get_or_init(Default::default)
+            .lock()
+            .unwrap()
+            .set_proxy(event_loop_proxy.clone());
+
+        let mut winit_loop = not_running_loop_instance.instance;
+        let clipboard = not_running_loop_instance.clipboard;
+
+        let result = winit_loop.pump_events(
+            timeout,
+            |event: Event<SlintUserEvent>,
+             event_loop_target: &EventLoopWindowTarget<SlintUserEvent>| {
+                let running_instance = RunningEventLoop {
+                    event_loop_target,
+                    event_loop_proxy: &event_loop_proxy,
+                    clipboard: &clipboard,
+                };
+                CURRENT_WINDOW_TARGET
+                    .set(&running_instance, || self.process_event(event, event_loop_target))
+            },
+        );
+
+        *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
+
+        // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
+        // Winit does not support creating multiple instances of the event loop.
+        let nre = NotRunningEventLoop { clipboard, instance: winit_loop, event_loop_proxy };
+        MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre));
+
+        if let Some(error) = self.loop_error {
+            return Err(error);
+        }
+        Ok((self, result))
+    }
 }
 
 #[cfg(target_arch = "wasm32")]

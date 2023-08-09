@@ -50,13 +50,13 @@ mainWindow.check_if_pair_solved = function () {
             model.setRowData(tile2_index, tile2);
         } else {
             mainWindow.disable_tiles = true;
-            slint.Timer.singleShot(1000, () => {
+            setTimeout(() => {
                 mainWindow.disable_tiles = false;
                 tile1.image_visible = false;
                 model.setRowData(tile1_index, tile1);
                 tile2.image_visible = false;
                 model.setRowData(tile2_index, tile2);
-            })
+            }, 1000)
 
         }
     }
