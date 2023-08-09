@@ -89,7 +89,6 @@ test('invoke global callback', (t) => {
 
   let instance = definition!.create();
   t.not(instance, null);
-  let speakTest;
 
   t.throws(() => {
     instance!.setGlobalCallback("MyGlobal", "great", () => {})
