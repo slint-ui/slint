@@ -177,7 +177,7 @@ jobs:
       run: npm install
     - name: Build napi plugin
       working-directory: ./api/napi
-      run: npm run build:release
+      run: npm run build
     - name: Run napi tests
       working-directory: ./api/napi
       run: npm test
