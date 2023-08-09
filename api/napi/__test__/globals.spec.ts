@@ -92,9 +92,7 @@ test('invoke global callback', (t) => {
   let speakTest;
 
   t.throws(() => {
-    instance!.setGlobalCallback("MyGlobal", "great", (a: string, b: string, c: string, d: string, e: string) => {
-      speakTest = "hello " + a + ", " + b + ", " + c + ", " + d + " and " + e;
-    })
+    instance!.setGlobalCallback("MyGlobal", "great", () => {})
   },
     {
       code: "GenericFailure",
