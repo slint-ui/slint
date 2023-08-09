@@ -4,7 +4,7 @@
 import test from 'ava';
 const path = require('node:path');
 
-import { ComponentCompiler, Brush, Model, Color, ImageData } from '../index'
+import { ComponentCompiler } from '../index'
 
 test('get/set global properties', (t) => {
 
