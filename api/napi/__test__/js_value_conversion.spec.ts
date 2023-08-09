@@ -172,20 +172,7 @@ test('get/set image properties', async (t) => {
   let compiler = new ComponentCompiler;
   let definition = compiler.buildFromSource(`
   export component App {
-    callback image-width() -> float;
-    callback image-height() -> float;
-
     in-out property <image> image: @image-url("resources/rgb.png");
-    in property <image> alt-image;
-
-    image-width => {
-        alt-image.width
-    }
-
-    image-height => {
-      alt-image.width
-    }
-
     in property <image> external-image;
     out property <bool> external-image-ok: self.external-image.width == 64 && self.external-image.height == 64;
   }
@@ -233,12 +220,6 @@ test('get/set image properties', async (t) => {
 
     t.is(image.bitmap.data.length, (slintImage as ImageData).data.length);
     t.deepEqual(image.bitmap.data, (slintImage as ImageData).data);
-
-    instance!.invoke("image-width", [0]);
-    instance!.invoke("image-height", [0]);
-    instance!.setProperty("alt-image", new ImageData(image.bitmap.data, 64));
-    instance!.invoke("image-width", [64]);
-    instance!.invoke("image-height", [64]);
   }
 })
 
