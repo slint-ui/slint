@@ -236,7 +236,7 @@ test('get/set image properties', async (t) => {
 
     instance!.invoke("image-width", [0]);
     instance!.invoke("image-height", [0]);
-    instance!.setProperty("alt-image", new ImageData(image.bitmap.data, 64));
+    instance!.setProperty("alt-image", { width: 64, height: 64, data: new Uint8ClampedArray(image.bitmap.data) });
     instance!.invoke("image-width", [64]);
     instance!.invoke("image-height", [64]);
   }
