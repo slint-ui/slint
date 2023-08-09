@@ -3,7 +3,6 @@
 
 import test from 'ava';
 const path = require('node:path');
-var Jimp = require("jimp");
 
 import { ComponentCompiler, Brush, Model, Color, ImageData } from '../index'
 
