@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 import * as napi from "./rust-module";
-export { Diagnostic, Window, Brush, Color, ImageData, Point, Size, SlintModelNotify } from "./rust-module";
+export { Diagnostic, Window, Brush, Color, ImageData, Point, Size, SlintModelNotify, runEventLoop, runEventLoopWithCallback, quitEventLoop } from "./rust-module";
 
 /**
  * ModelPeer is the interface that the run-time implements. An instance is
@@ -205,7 +205,7 @@ export class CompilerError extends Error {
     }
 }
 
-export function loadFile(path: string) : Object {
+export function loadFile(path: string): Object {
     let compiler = new napi.ComponentCompiler;
     let definition = compiler.buildFromPath(path);
 
@@ -225,14 +225,14 @@ export function loadFile(path: string) : Object {
     let slint_module = Object.create({});
 
     Object.defineProperty(slint_module, definition!.name.replace(/-/g, '_'), {
-        value: function(properties: any) {
+        value: function (properties: any) {
             let instance = definition!.create();
 
             if (instance == null) {
                 throw Error("Could not create a component handle for" + path);
             }
 
-            for(var key in properties) {
+            for (var key in properties) {
                 let value = properties[key];
 
                 if (value instanceof Function) {
@@ -244,7 +244,7 @@ export function loadFile(path: string) : Object {
 
             let componentHandle = new Component(instance!);
             instance!.definition().properties.forEach((prop) => {
-                Object.defineProperty(componentHandle, prop.name.replace(/-/g, '_') , {
+                Object.defineProperty(componentHandle, prop.name.replace(/-/g, '_'), {
                     get() { return instance!.getProperty(prop.name); },
                     set(value) { instance!.setProperty(prop.name, value); },
                     enumerable: true
@@ -252,7 +252,7 @@ export function loadFile(path: string) : Object {
             });
 
             instance!.definition().callbacks.forEach((cb) => {
-                Object.defineProperty(componentHandle, cb.replace(/-/g, '_') , {
+                Object.defineProperty(componentHandle, cb.replace(/-/g, '_'), {
                     get() {
                         let callback = function () { return instance!.invoke(cb, [...arguments]); } as Callback;
                         callback.setHandler = function (callback) { instance!.setCallback(cb, callback) };

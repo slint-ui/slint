@@ -548,12 +548,14 @@ pub fn run() -> Result<(), corelib::platform::PlatformError> {
                             .count()
                     });
                     if window_count == 0 {
+                        eprintln!("GAH");
                         *control_flow = ControlFlow::Exit;
                     }
                 }
             }
 
             Event::UserEvent(SlintUserEvent::CustomEvent { event: CustomEvent::Exit }) => {
+                eprintln!("EXIITTT");
                 *control_flow = ControlFlow::Exit;
             }
 

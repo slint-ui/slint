@@ -249,6 +249,7 @@ impl i_slint_core::platform::Platform for Backend {
                 &self,
                 event: Box<dyn FnOnce() + Send>,
             ) -> Result<(), i_slint_core::api::EventLoopError> {
+                eprintln!("sending custom event");
                 let e = SlintUserEvent::CustomEvent { event: CustomEvent::UserEvent(event) };
                 send_event_via_global_event_loop_proxy(e)
             }

@@ -3,7 +3,7 @@
 
 use i_slint_compiler::langtype::Type;
 use i_slint_core::window::WindowInner;
-use napi::{Env, Error, JsFunction, JsUnknown, NapiRaw, NapiValue, Ref, Result};
+use napi::{Env, Error, JsFunction, JsUndefined, JsUnknown, NapiRaw, NapiValue, Ref, Result};
 use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
 
 use crate::JsWindow;
@@ -33,6 +33,22 @@ impl JsComponentInstance {
     #[napi]
     pub fn definition(&self) -> JsComponentDefinition {
         self.inner.definition().into()
+    }
+
+    #[napi]
+    pub fn show(&self, env: Env) -> Result<JsUndefined> {
+        self.inner
+            .show()
+            .map_err(|e| napi::Error::from_reason(e.to_string()))
+            .and_then(|_| env.get_undefined())
+    }
+
+    #[napi]
+    pub fn hide(&self, env: Env) -> Result<JsUndefined> {
+        self.inner
+            .hide()
+            .map_err(|e| napi::Error::from_reason(e.to_string()))
+            .and_then(|_| env.get_undefined())
     }
 
     #[napi]
