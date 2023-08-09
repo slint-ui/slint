@@ -41,6 +41,24 @@ test('get/set global properties', (t) => {
   );
 
   t.throws(() => {
+    instance!.getGlobalProperty("Global", "age")
+  },
+    {
+      code: "GenericFailure",
+      message: "no such property"
+    }
+  );
+
+  t.throws(() => {
+    instance!.setGlobalProperty("Global", "age", 42)
+  },
+    {
+      code: "GenericFailure",
+      message: "Property age of global Global not found in the component"
+    }
+  );
+
+  t.throws(() => {
     instance!.setGlobalProperty("Global", "name", 42)
   },
     {
