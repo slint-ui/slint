@@ -101,7 +101,7 @@ test('invoke global callback', (t) => {
   );
 
   t.throws(() => {
-    instance!.invokeGlobal("MyGlobal", "great", ["simon", "olivier", "auri", "tobias", "florian"])
+    instance!.invokeGlobal("MyGlobal", "great", [])
   },
     {
       code: "GenericFailure",
