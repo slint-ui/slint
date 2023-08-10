@@ -11,3 +11,34 @@ rustflags = [
     # Without this flag, we get miscompilation of floating point operations that cause the clipping region to be totally wrong
     "-C", "target-feature=-fp",
 ]
+
+[target.xtensa-esp32s2-none-elf]
+rustflags = [
+    # Enable the atomic codegen option for Xtensa
+    "-C",
+    "target-feature=+s32c1i",
+
+    # tell the core library have atomics even though it's not specified in the target definition
+    "--cfg",
+    'target_has_atomic_load_store',
+    "--cfg",
+    'target_has_atomic_load_store="8"',
+    "--cfg",
+    'target_has_atomic_load_store="16"',
+    "--cfg",
+    'target_has_atomic_load_store="32"',
+    "--cfg",
+    'target_has_atomic_load_store="ptr"',
+
+    # enable cas
+    "--cfg",
+    'target_has_atomic',
+    "--cfg",
+    'target_has_atomic="8"',
+    "--cfg",
+    'target_has_atomic="16"',
+    "--cfg",
+    'target_has_atomic="32"',
+    "--cfg",
+    'target_has_atomic="ptr"',
+]
