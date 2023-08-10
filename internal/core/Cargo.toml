@@ -48,9 +48,9 @@ i-slint-common = { version = "=1.2.0", path = "../common" }
 i-slint-core-macros = { version = "=1.2.0", path = "../core-macros" }
 
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
-vtable = { version="0.1.9", path = "../../helper_crates/vtable" }
+vtable = { version = "0.1.9", path = "../../helper_crates/vtable" }
 
-atomic-polyfill = "1.0.1"
+portable-atomic = { version = "1", features = ["critical-section"] }
 auto_enums = "0.8.0"
 cfg-if = "1"
 derive_more = "0.99.5"
@@ -61,7 +61,7 @@ lyon_geom = { version = "1.0", optional = true  }
 lyon_path = { version = "1.0" , optional = true }
 lyon_extra = { version = "1.0.1", optional = true }
 num-traits = { version = "0.2", default-features = false }
-once_cell = { version = "1.5", default-features = false, features = ["atomic-polyfill"] }
+once_cell = { version = "1.5", default-features = false, features = ["critical-section"] }
 pin-project = "1"
 pin-weak = { version = "1.1", default-features = false }
 # Note: the rgb version is extracted in ci.yaml for rustdoc builds

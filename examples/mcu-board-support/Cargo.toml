@@ -28,7 +28,7 @@ i-slint-core-macros = { version = "=1.2.0", path = "../../internal/core-macros" 
 
 derive_more = "0.99.5"
 embedded-graphics = { version = "0.7.1", optional = true }
-once_cell = { version = "1.9", default-features = false, features = ["alloc", "atomic-polyfill"] }
+once_cell = { version = "1.9", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1", default-features = false }
 rgb = "0.8.27"
 cfg-if = "1"

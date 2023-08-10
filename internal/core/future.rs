@@ -10,11 +10,11 @@ use crate::api::{invoke_from_event_loop, EventLoopError};
 use alloc::boxed::Box;
 use alloc::task::Wake;
 use alloc::vec::Vec;
-use atomic_polyfill as atomic;
 use core::future::Future;
 use core::ops::DerefMut;
 use core::pin::Pin;
 use core::task::Poll;
+use portable_atomic as atomic;
 
 enum FutureState<T> {
     Running(Pin<Box<dyn Future<Output = T>>>),

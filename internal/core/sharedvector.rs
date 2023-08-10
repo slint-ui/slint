@@ -10,7 +10,7 @@ use core::mem::MaybeUninit;
 use core::ops::Deref;
 use core::ptr::NonNull;
 
-use atomic_polyfill as atomic;
+use portable_atomic as atomic;
 
 #[repr(C)]
 struct SharedVectorHeader {
