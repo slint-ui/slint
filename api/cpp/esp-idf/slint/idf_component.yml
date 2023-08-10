@@ -5,3 +5,4 @@ description: "Slint — declarative GUI toolkit"
 url: "https://slint.dev"
 dependencies:
   idf: ">=5.0"
+  esp_lcd_touch: ">=1.0.4"
