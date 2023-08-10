@@ -4,7 +4,6 @@
 [target.xtensa-esp32s2-none-elf]
 runner = "espflash --monitor"
 
-[build]
 rustflags = [
     # Enable the atomic codegen option for Xtensa
     "-C",
@@ -39,6 +38,8 @@ rustflags = [
     "-C",
     "link-arg=-Wl,-Tlinkall.x",
 ]
+
+[build]
 target = "xtensa-esp32s2-none-elf"
 
 [unstable]

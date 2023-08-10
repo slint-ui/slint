@@ -1,0 +1,8 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+## IDF Component Manager Manifest File
+dependencies:
+  idf: ">=5.0"
+  espressif/esp32_s3_usb_otg:
+    version: "^1.4.4"

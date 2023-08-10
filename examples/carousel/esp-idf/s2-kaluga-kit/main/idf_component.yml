@@ -1,0 +1,9 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+## IDF Component Manager Manifest File
+dependencies:
+  idf: ">=5.0"
+  espressif/esp32_s2_kaluga_kit:
+    version: "^2.2.4"
+
