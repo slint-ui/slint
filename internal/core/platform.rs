@@ -98,18 +98,19 @@ pub trait Platform {
 }
 
 /// The clip board, used in [`Platform::clipboard_text`] and [Platform::set_clipboard_text`]
+#[repr(u8)]
 #[non_exhaustive]
 #[derive(PartialEq, Clone, Default)]
 pub enum Clipboard {
     /// This is the default clipboard used for text action for Ctrl+V,  Ctrl+C.
     /// Corresponds to the secondary clipboard on X11.
     #[default]
-    DefaultClipboard,
+    DefaultClipboard = 0,
 
     /// This is the clipboard that is used when text is selected
     /// Corresponds to the primary clipboard on X11.
     /// The Platform implementation should do nothing if copy on select is not supported on that platform.
-    SelectionClipboard,
+    SelectionClipboard = 1,
 }
 
 /// Trait that is returned by the [`Platform::new_event_loop_proxy`]

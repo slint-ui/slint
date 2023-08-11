@@ -6,7 +6,7 @@ use alloc::rc::Rc;
 use core::ffi::c_void;
 use i_slint_core::api::{PhysicalSize, Window};
 use i_slint_core::graphics::IntSize;
-use i_slint_core::platform::{Platform, PlatformError};
+use i_slint_core::platform::{Clipboard, Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::ffi::WindowAdapterRcOpaque;
 use i_slint_core::window::WindowAdapter;
@@ -18,6 +18,12 @@ type WindowAdapterUserData = *mut c_void;
 pub struct RendererPtr {
     _a: *const c_void,
     _b: *const c_void,
+}
+
+#[repr(C)]
+pub struct StringView {
+    data: *const u8,
+    size: usize,
 }
 
 pub struct CppWindowAdapter {
@@ -92,6 +98,8 @@ struct CppPlatform {
     window_factory: unsafe extern "C" fn(PlatformUserData, *mut WindowAdapterRcOpaque),
     #[cfg(not(feature = "std"))]
     duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
+    set_clipboard_text: unsafe extern "C" fn(PlatformUserData, *const u8, usize, _clipboard: u8),
+    clipboard_text: unsafe extern "C" fn(PlatformUserData, _clipboard: u8) -> StringView,
     run_event_loop: unsafe extern "C" fn(PlatformUserData),
     quit_event_loop: unsafe extern "C" fn(PlatformUserData),
     invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformTaskOpaque),
@@ -132,6 +140,30 @@ impl Platform for CppPlatform {
             invoke_from_event_loop: self.invoke_from_event_loop,
         }))
     }
+
+    fn set_clipboard_text(&self, _text: &str, _clipboard: Clipboard) {
+        unsafe {
+            (self.set_clipboard_text)(self.user_data, _text.as_ptr(), _text.len(), _clipboard as u8)
+        }
+    }
+
+    fn clipboard_text(&self, _clipboard: Clipboard) -> Option<String> {
+        let opt_str = unsafe { (self.clipboard_text)(self.user_data, _clipboard as u8) };
+
+        if opt_str.data.is_null() {
+            return None;
+        }
+
+        let str =
+            std::str::from_utf8(unsafe { std::slice::from_raw_parts(opt_str.data, opt_str.size) });
+
+        if str.is_err() {
+            // TODO: log warning
+            None
+        } else {
+            String::from(str.unwrap()).into()
+        }
+    }
 }
 
 struct CppEventLoopProxy {
@@ -169,6 +201,8 @@ pub unsafe extern "C" fn slint_platform_register(
     drop: unsafe extern "C" fn(PlatformUserData),
     window_factory: unsafe extern "C" fn(PlatformUserData, *mut WindowAdapterRcOpaque),
     #[allow(unused)] duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
+    set_clipboard_text: unsafe extern "C" fn(PlatformUserData, *const u8, usize, _clipboard: u8),
+    clipboard_text: unsafe extern "C" fn(PlatformUserData, _clipboard: u8) -> StringView,
     run_event_loop: unsafe extern "C" fn(PlatformUserData),
     quit_event_loop: unsafe extern "C" fn(PlatformUserData),
     invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformTaskOpaque),
@@ -179,6 +213,8 @@ pub unsafe extern "C" fn slint_platform_register(
         window_factory,
         #[cfg(not(feature = "std"))]
         duration_since_start,
+        set_clipboard_text,
+        clipboard_text,
         run_event_loop,
         quit_event_loop,
         invoke_from_event_loop,
