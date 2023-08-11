@@ -512,7 +512,7 @@ jobs:
 
   esp-idf:
     runs-on: ubuntu-22.04
-    container: espressif/idf:release-v5.0
+    container: espressif/idf:release-v5.1
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
