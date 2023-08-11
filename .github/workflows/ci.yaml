@@ -316,22 +316,44 @@ jobs:
         buildDirectory: ${{ runner.workspace }}/examples/build
         buildWithCMakeArgs: '--config Release'
 
-  # test to compile the mcu backend for the armv6 target (no_std)
+  # test to compile the mcu backend for the arm target (no_std)
   mcu:
     env:
-      SLINT_EMBED_GLYPHS: 1
       SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
-      SLINT_PROCESS_IMAGES: 1
       RUSTFLAGS: --cfg slint_int_coord
       CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: s
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - feature: pico-st7789
+            target: thumbv6m-none-eabi
+          - feature: stm32h735g
+            target: thumbv7em-none-eabihf
     steps:
     - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
-        target: thumbv6m-none-eabi
+        target: ${{matrix.target}}
     - name: Check
-      run: cargo check --target=thumbv6m-none-eabi -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789
+      run: cargo check --target=${{matrix.target}} -p printerdemo_mcu --no-default-features --features=mcu-board-support/${{matrix.feature}} --release
+
+  mcu_esp:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
+    - uses: esp-rs/xtensa-toolchain@v1.5
+      with:
+        default: true
+        buildtargets: esp32
+        ldproxy: false
+    - uses: Swatinem/rust-cache@v2
+    - name: Kaluga
+      run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s2-none-elf --no-default-features --features=mcu-board-support/esp32-s2-kaluga-1  --config examples/mcu-board-support/esp32_s2_kaluga_1/cargo-config.toml --release
+    - name: S3Box
+      run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box  --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml --release
 
   ffi_32bit_build:
     runs-on: ubuntu-22.04
