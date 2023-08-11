@@ -9,7 +9,6 @@ idf_component_register(
 
 slint_target_sources(${COMPONENT_LIB} ../../../ui/carousel_demo.slint)
 target_link_options(${COMPONENT_LIB} PUBLIC -Wl,--allow-multiple-definition)
-set_target_properties(${COMPONENT_LIB} PROPERTIES SLINT_EMBED_RESOURCES "embed-for-software-renderer")
 
 # workaround false positive:
 # ```
