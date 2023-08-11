@@ -63,9 +63,11 @@ impl slint::platform::Platform for EspBackend {
 
         // Disable the RTC and TIMG watchdog timers
         let mut rtc_cntl = Rtc::new(peripherals.RTC_CNTL);
-        let timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks);
+        let timer_group0 =
+            TimerGroup::new(peripherals.TIMG0, &clocks, &mut system.peripheral_clock_control);
         let mut wdt0 = timer_group0.wdt;
-        let timer_group1 = TimerGroup::new(peripherals.TIMG1, &clocks);
+        let timer_group1 =
+            TimerGroup::new(peripherals.TIMG1, &clocks, &mut system.peripheral_clock_control);
         let mut wdt1 = timer_group1.wdt;
 
         rtc_cntl.rwdt.disable();
@@ -158,30 +160,4 @@ impl<
             )
             .unwrap();
     }
-}
-
-// FIXME: implement properly upstream
-#[no_mangle]
-extern "C" fn fmaxf(a: f32, b: f32) -> f32 {
-    if a > b {
-        a
-    } else {
-        b
-    }
-}
-#[no_mangle]
-extern "C" fn fminf(a: f32, b: f32) -> f32 {
-    if a < b {
-        a
-    } else {
-        b
-    }
-}
-#[no_mangle]
-extern "C" fn fmodf() {
-    unimplemented!("fmodf");
-}
-#[no_mangle]
-extern "C" fn fmod(a: f64, b: f64) -> f64 {
-    ((a as u32) % (b as u32)) as f64
 }

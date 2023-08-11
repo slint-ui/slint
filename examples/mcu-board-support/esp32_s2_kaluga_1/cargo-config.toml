@@ -10,8 +10,21 @@ rustflags = [
     "-C",
     "target-feature=+s32c1i",
 
-    # Tell the `core` library that we have atomics, even though it's not
-    # specified in the target definition
+    # tell the core library have atomics even though it's not specified in the target definition
+    "--cfg",
+    'target_has_atomic_load_store',
+    "--cfg",
+    'target_has_atomic_load_store="8"',
+    "--cfg",
+    'target_has_atomic_load_store="16"',
+    "--cfg",
+    'target_has_atomic_load_store="32"',
+    "--cfg",
+    'target_has_atomic_load_store="ptr"',
+
+    # enable cas
+    "--cfg",
+    'target_has_atomic',
     "--cfg",
     'target_has_atomic="8"',
     "--cfg",
