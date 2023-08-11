@@ -3,5 +3,5 @@
 
 ## IDF Component Manager Manifest File
 dependencies:
-  idf: ">=5.0"
+  idf: ">=5.1"
   espressif/esp-box: "^2.3"

@@ -3,7 +3,7 @@
 
 ## IDF Component Manager Manifest File
 dependencies:
-  idf: ">=5.0"
+  idf: ">=5.1"
   espressif/esp32_s2_kaluga_kit:
     version: "^2.2.4"
 
