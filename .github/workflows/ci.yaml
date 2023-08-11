@@ -522,9 +522,27 @@ jobs:
           buildtargets: esp32
           ldproxy: false
       - uses: Swatinem/rust-cache@v2
-      - name: Build and Test
+      - name: Build and Test Printer demo
         shell: bash
+        working-directory: examples/printerdemo_mcu/esp-idf
         run: |
           . ${IDF_PATH}/export.sh
-          cd examples/printerdemo_mcu/esp-idf
+          idf.py build
+      - name: Build and Test Carousel example s3 box
+        shell: bash
+        working-directory: examples/carousel/esp-idf/s3-box
+        run: |
+          . ${IDF_PATH}/export.sh
+          idf.py build
+      - name: Build and Test Carousel example s3 usb otg
+        shell: bash
+        working-directory: examples/carousel/esp-idf/s3-usb-otg
+        run: |
+          . ${IDF_PATH}/export.sh
+          idf.py build
+      - name: Build and Test Carousel example s2 kaluga kit
+        shell: bash
+        working-directory: examples/carousel/esp-idf/s2-kaluga-kit
+        run: |
+          . ${IDF_PATH}/export.sh
           idf.py build
