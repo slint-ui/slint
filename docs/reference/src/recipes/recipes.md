@@ -1,11 +1,9 @@
 <!-- cSpell: ignore dgettext ngettext xgettext -->
 
-This page provides a collection of common use-cases and how to implement them
-using Slint.
 
-## Get Started
+# Custom Control Introduction
 
-### A Clickable Button
+## A Clickable Button
 
 ```slint,no-auto-preview
 import { VerticalBox, Button } from "std-widgets.slint";
@@ -46,7 +44,7 @@ In this first example, you see the basics of the Slint language:
    binding depends on changes. The `text` binding of the button is
    automatically re-computed whenever the `counter` changes.
 
-### React to a Button Click in Native Code
+## React to a Button Click in Native Code
 
 This example increments the `counter` using native code:
 
@@ -82,7 +80,7 @@ an external `.slint` file together with a build script.
 
 
 ```rust,no_run
-slint::slint!(import { Recipe } from "docs/language/src/recipes/button_native.slint";);
+slint::slint!(import { Recipe } from "docs/reference/src/recipes/button_native.slint";);
 
 fn main() {
     let recipe = Recipe::new().unwrap();
@@ -142,7 +140,7 @@ set up the callback.
 
 </details>
 
-### Use Property Bindings to Synchronize Controls
+## Use Property Bindings to Synchronize Controls
 
 ```slint,no-auto-preview
 import { VerticalBox, Slider } from "std-widgets.slint";
@@ -163,9 +161,9 @@ This example introduces the `Slider` widget.
 It also introduces interpolation in string literals: Use `\{...}` to render
 the result of code between the curly braces as a string.
 
-## Animations
+# Animation Examples
 
-### Animate the Position of an Element
+## Animate the Position of an Element
 
 ```slint,no-auto-preview
 import { CheckBox } from "std-widgets.slint";
@@ -207,7 +205,7 @@ Notice the `animate x` block that specifies an animation. It's run whenever the
 property changes: Either because a callback sets the property, or because
 its binding value changes.
 
-### Animation Sequence
+## Animation Sequence
 
 ```slint,no-auto-preview
 import { CheckBox } from "std-widgets.slint";
@@ -251,9 +249,9 @@ export component Recipe inherits Window {
 
 This example uses the `delay` property to make one animation run after another.
 
-## States
+# States Examples
 
-### Associate Property Values With States
+## Associate Property Values With States
 
 ```slint,no-auto-preview
 import { HorizontalBox, VerticalBox, Button } from "std-widgets.slint";
@@ -301,7 +299,7 @@ export component Recipe inherits Window {
 }
 ```
 
-### Transitions
+## Transitions
 
 ```slint,no-auto-preview
 import { HorizontalBox, VerticalBox, Button } from "std-widgets.slint";
@@ -349,9 +347,9 @@ export component Recipe inherits Window {
 }
 ```
 
-## Layouts
+# Layout Examples
 
-### Vertical
+## Vertical
 
 ```slint,no-auto-preview
 import { VerticalBox, Button } from "std-widgets.slint";
@@ -364,7 +362,7 @@ export component Recipe inherits Window {
 }
 ```
 
-### Horizontal
+## Horizontal
 
 ```slint,no-auto-preview
 import { HorizontalBox, Button } from "std-widgets.slint";
@@ -377,7 +375,7 @@ export component Recipe inherits Window {
 }
 ```
 
-### Grid
+## Grid
 
 ```slint,no-auto-preview
 import { GridBox, Button, Slider } from "std-widgets.slint";
@@ -400,9 +398,9 @@ export component Recipe inherits Window {
 }
 ```
 
-## Global Callbacks
+# Global Callbacks
 
-### Invoke a Globally Registered Native Callback from Slint
+## Invoke a Globally Registered Native Callback from Slint
 
 This example uses a global singleton to implement common logic in native code.
 This singleton may also store properties that are accessible to native code.
@@ -494,9 +492,9 @@ int main(int argc, char **argv)
 ```
 </details>
 
-## Custom Widgets
+# Custom Widgets
 
-### Custom Button
+## Custom Button
 
 ```slint,no-auto-preview
 component Button inherits Rectangle {
@@ -524,7 +522,7 @@ export component Recipe inherits Window {
 }
 ```
 
-### ToggleSwitch
+## ToggleSwitch
 
 ```slint,no-auto-preview
 export component ToggleSwitch inherits Rectangle {
@@ -588,7 +586,7 @@ export component Recipe inherits Window {
 }
 ```
 
-### CustomSlider
+## CustomSlider
 
 The `TouchArea` is covering the entire widget, so you can drag this slider from
 any point within itself.
@@ -705,7 +703,7 @@ export component Recipe inherits Window {
 }
 ```
 
-### Custom Tabs
+## Custom Tabs
 
 Use this recipe as a basis to when you want to create your own custom tab widget.
 
@@ -753,7 +751,7 @@ export component Recipe inherits Window {
 }
 ```
 
-### Custom Table View
+## Custom Table View
 
 Slint provides a table widget, but you can also do something custom based on a
 `ListView`.
@@ -830,7 +828,7 @@ export component Example inherits Window {
 }
 ```
 
-### Breakpoints for Responsive User Interfaces
+## Breakpoints for Responsive User Interfaces
 
 Use recipe implements a responsive SideBar that collapses when the parent
 width is smaller than the given break-point. When clicking the Button, the

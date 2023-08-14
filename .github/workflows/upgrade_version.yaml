@@ -29,7 +29,7 @@ jobs:
         sed -i "s/(CPACK_PACKAGE_VERSION_PATCH [0-9]*)/(CPACK_PACKAGE_VERSION_PATCH `echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\3/"`)/" api/cpp/CMakeLists.txt
 
         # The version is also in these files
-        sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${{ github.event.inputs.new_version }}\"/" api/cpp/docs/conf.py docs/language/conf.py
+        sed -i "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${{ github.event.inputs.new_version }}\"/" api/cpp/docs/conf.py docs/reference/conf.py
 
         # Version in package.json files
         git ls-files | grep package.json | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'
