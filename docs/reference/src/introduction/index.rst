@@ -4,8 +4,8 @@
 Getting Started
 ===============
 
-To use `Slint <https://slint.dev>`_ you need to embed your slint files in a project written
-in a supported programming language, like C++, Rust, or JavaScript.
+First, you need :code:`.slint` files, which contain a textual description of your user interface, written in the Slint language.
+Next, you embed the :code:`.slint` files in a project written in a supported programming language, like C++, Rust, or JavaScript.
 
 There are three different pathways to get started with Slint:
 
