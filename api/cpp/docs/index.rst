@@ -35,8 +35,6 @@ Slint C++ documentation
 
    genindex
 
-   debugging_techniques.md
-
 .. image:: https://github.com/slint-ui/slint/workflows/CI/badge.svg
    :target: https://github.com/slint-ui/slint/actions
    :alt: GitHub CI Build Status

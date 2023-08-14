@@ -40,3 +40,10 @@ There are three different pathways to get started with Slint:
    :caption: Recipes & Examples
 
    src/recipes/recipes.md
+
+.. toctree::
+   :hidden:
+   :maxdepth: 2
+   :caption: Advanced Topics
+
+   src/advanced/debugging_techniques.md

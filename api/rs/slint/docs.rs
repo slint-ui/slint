@@ -134,11 +134,6 @@ pub mod generated_code {
     }
 }
 
-pub mod debugging_techniques {
-    #![doc = include_str!("docs/debugging_techniques.md")]
-    #![doc = ""]
-}
-
 pub mod mcu {
     #![doc = include_str!("mcu.md")]
     use crate::platform::software_renderer::*;
