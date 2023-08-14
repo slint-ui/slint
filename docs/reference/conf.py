@@ -21,7 +21,8 @@ import textwrap
 
 # -- Project information -----------------------------------------------------
 
-project = "Slint Language"
+project = "Slint Reference"
+html_title = "Slint Reference" # Set title here, otherwise it will say "Slint Reference documentation"
 copyright = "SixtyFPS GmbH"
 author = "Slint Developers <info@slint.dev>"
 

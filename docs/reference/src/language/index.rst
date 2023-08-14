@@ -2,10 +2,7 @@
 .. SPDX-License-Identifier: MIT
 
 Introduction
-===========================================
-
-The Slint Language
-------------------
+============
 
 `Slint <https://slint.dev>`_ comes with an easy to learn and use language for you to describe user
 interfaces with. It is readable to both humans and machines.
@@ -43,81 +40,3 @@ The Slint language describes extensible graphical user interfaces using the
 
 It only describes the user interface and it is not a programming language. The business
 logic is written in a different programming language using the Slint API.
-
-Getting Started
----------------
-
-To use `Slint <https://slint.dev>`_ you need to embed your slint files in a project written
-in a supported programming language, like C++, Rust, or JavaScript.
-
-There are three different pathways to get started with Slint:
-
-1. `SlintPad <https://slint.dev/editor>`_ - Use this to get a feel of the Slint language.
-   This is a web browser-based tool where you can try Slint out.
-
-2. As a UI Designer, working with Slint files locally, we recommend the following combination of software tools:
-
-   - `Visual Studio Code <https://code.visualstudio.com>`_
-   - `The Slint for Visual Studio Code Extension <https://marketplace.visualstudio.com/items?itemName=Slint.slint>`_
-
-3. As a Software Developer, integrating Slint into a new or existing code base, choose one of these languages to
-   get started:
-
-   - `C++ <https://slint.dev/docs/cpp/>`_
-   - `Rust <https://slint.dev/docs/rust/slint/>`_
-   - `JavaScript <https://slint.dev/docs/node/>`_
-
-.. toctree::
-   :hidden:
-   :maxdepth: 2
-   :caption: Concepts
-
-   src/concepts/file.md
-   src/concepts/layouting.md
-   src/concepts/container.md
-   src/concepts/focus.md
-   src/concepts/fonts.md
-   src/concepts/purity.md
-   src/concepts/translations.md
-
-.. toctree::
-   :hidden:
-   :maxdepth: 2
-   :caption: Reference
-
-   src/reference/comments.md
-   src/reference/identifiers.md
-   src/reference/types.md
-   src/reference/properties.md
-   src/reference/expressions.md
-   src/reference/functions.md
-   src/reference/callbacks.md
-   src/reference/statements.md
-   src/reference/repetitions.md
-   src/reference/conditions.md
-   src/reference/animations.md
-   src/reference/states.md
-   src/reference/globals.md
-   src/reference/modules.md
-   src/reference/legacy_syntax.md
-
-.. toctree::
-   :hidden:
-   :maxdepth: 4
-   :caption: Builtins
-
-   src/builtins/callbacks.md
-   src/builtins/elements.md
-   src/builtins/enums.md
-   src/builtins/functions.md
-   src/builtins/globals.md
-   src/builtins/namespaces.md
-   src/builtins/structs.md
-   src/builtins/widgets.md
-
-.. toctree::
-   :hidden:
-   :maxdepth: 2
-   :caption: Recipes & Examples
-
-   src/recipes/recipes.md
