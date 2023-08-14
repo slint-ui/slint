@@ -33,3 +33,4 @@
    :caption: Advanced Topics
 
    src/advanced/debugging_techniques.md
+   src/advanced/style.md
