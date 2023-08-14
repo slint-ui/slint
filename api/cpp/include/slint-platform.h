@@ -169,12 +169,12 @@ public:
     /// Sends the given text into the system clipboard.
     ///
     /// If the platform doesn't support the specified clipboard, this function should do nothing
-    virtual void set_clipboard_text(const std::string_view &text, Clipboard clipboard) { }
+    virtual void set_clipboard_text(const SharedString text, Clipboard clipboard) { }
 
     /// Returns a copy of text stored in the system clipboard, if any.
     ///
     /// If the platform doesn't support the specified clipboard, the function should return nullopt
-    virtual std::optional<std::string_view> clipboard_text(Clipboard clipboard)
+    virtual std::optional<SharedString> clipboard_text(Clipboard clipboard)
     {
         return {};
     }
@@ -259,20 +259,16 @@ inline void set_platform(std::unique_ptr<Platform> platform)
             },
             // NOTE: if size_t is not at 32 bit unsigned integer on a 32 bit platform,
             // this may not link with rust properly.
-            [](void *p, const uint8_t *text, size_t size, uint8_t clipboard) {
-                reinterpret_cast<Platform *>(p)->set_clipboard_text(
-                        std::string_view(reinterpret_cast<const char *>(text), size),
-                        Platform::Clipboard(clipboard));
+            [](void *p, const SharedString *text, uint8_t clipboard) {
+                reinterpret_cast<Platform *>(p)->set_clipboard_text(*text,
+                                                                    Platform::Clipboard(clipboard));
             },
-            [](void *p, uint8_t clipboard) -> slint::cbindgen_private::StringView {
+            [](void *p, SharedString *out_text, uint8_t clipboard) {
                 auto maybe_clipboard = reinterpret_cast<Platform *>(p)->clipboard_text(
                         Platform::Clipboard(clipboard));
 
-                if (!maybe_clipboard)
-                    return { nullptr, 0 };
-
-                return { reinterpret_cast<const uint8_t *>(maybe_clipboard->data()),
-                         maybe_clipboard->size() };
+                if (maybe_clipboard)
+                    out_text = std::move(*maybe_clipboard)
             },
             [](void *p) { return reinterpret_cast<Platform *>(p)->run_event_loop(); },
             [](void *p) { return reinterpret_cast<Platform *>(p)->quit_event_loop(); },
