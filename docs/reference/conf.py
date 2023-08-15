@@ -21,13 +21,13 @@ import textwrap
 
 # -- Project information -----------------------------------------------------
 
-project = "Slint Reference"
-html_title = "Slint Reference" # Set title here, otherwise it will say "Slint Reference documentation"
-copyright = "SixtyFPS GmbH"
-author = "Slint Developers <info@slint.dev>"
-
 # The full version, including alpha/beta/rc tags
 version = "1.2.0"
+
+project = "Slint Reference"
+html_title = f'Slint {version} Reference' # Set title here, otherwise it will say "Slint Reference documentation"
+copyright = "SixtyFPS GmbH"
+author = "Slint Developers <info@slint.dev>"
 
 # -- General configuration ---------------------------------------------------
 
