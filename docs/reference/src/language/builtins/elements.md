@@ -125,7 +125,7 @@ export component Example inherits Dialog {
 ## `Flickable`
 
 The `Flickable` is a low-level element that is the base for scrollable
-widgets, such as the [`ScrollView`](widgets.md#scrollview). When the `viewport-width` or the
+widgets, such as the [`ScrollView`](../widgets/scrollview.md). When the `viewport-width` or the
 `viewport-height` is greater than the parent's `width` or `height`
 respectively, the element becomes scrollable. Note that the `Flickable`
 doesn't create a scrollbar. When unset, the `viewport-width` and `viewport-height` are
@@ -666,7 +666,7 @@ and the text itself.
 -   **`horizontal-alignment`** (_in_ _enum [`TextHorizontalAlignment`](enums.md#texthorizontalalignment)_): The horizontal alignment of the text.
 -   **`letter-spacing`** (_in_ _length_): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing and a negative value decreases the distance. (default value: 0)
 -   **`overflow`** (_in_ _enum [`TextOverflow`](enums.md#textoverflow)_): What happens when the text overflows (default value: clip).
--   **`text`** (_in_ _[string](../reference/types.md#strings)_): The text rendered.
+-   **`text`** (_in_ _[string](../syntax/types.md#strings)_): The text rendered.
 -   **`vertical-alignment`** (_in_ _enum [`TextVerticalAlignment`](enums.md#textverticalalignment)_): The vertical alignment of the text.
 -   **`wrap`** (_in_ _enum [`TextWrap`](enums.md#textwrap)_): The way the text wraps (default value: `no-wrap`).
 
