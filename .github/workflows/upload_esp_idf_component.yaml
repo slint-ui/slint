@@ -15,6 +15,6 @@ jobs:
       uses: espressif/upload-components-ci-action@v1
       with:
         name: "slint"
-        namespace: "tronical"
+        namespace: "slint"
         api_token: ${{ secrets.ESP_IDF_COMPONENTS_TOKEN }}
         directories: "api/cpp/esp-idf/slint"
