@@ -162,7 +162,7 @@ public:
     /// Sends the given text into the system clipboard.
     ///
     /// If the platform doesn't support the specified clipboard, this function should do nothing
-    virtual void set_clipboard_text(const SharedString text, Clipboard clipboard) { }
+    virtual void set_clipboard_text(const SharedString &text, Clipboard clipboard) { }
 
     /// Returns a copy of text stored in the system clipboard, if any.
     ///
