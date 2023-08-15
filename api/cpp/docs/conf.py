@@ -21,12 +21,12 @@ import textwrap
 
 # -- Project information -----------------------------------------------------
 
-project = "Slint C++ API"
-copyright = "SixtyFPS GmbH"
-author = "Slint Developers <info@slint.dev>"
-
 # The full version, including alpha/beta/rc tags
 version = "1.2.0"
+
+project = f'Slint {version} C++ API'
+copyright = "SixtyFPS GmbH"
+author = "Slint Developers <info@slint.dev>"
 
 cpp_index_common_prefix = ["slint::", "slint::interpreter::"]
 
