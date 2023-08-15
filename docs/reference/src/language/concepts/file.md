@@ -68,7 +68,7 @@ export component MyApp inherits Window {
 }
 ```
 
-Names have to be valid [identifiers](../reference/identifiers.md).
+Names have to be valid [identifiers](../syntax/identifiers.md).
 
 Some elements are also accessible under pre-defined names:
 

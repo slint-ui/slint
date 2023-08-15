@@ -16,4 +16,3 @@ Builtins
    globals.md
    namespaces.md
    structs.md
-   widgets.md

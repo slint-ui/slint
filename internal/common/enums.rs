@@ -73,7 +73,7 @@ macro_rules! for_each_enums {
             }
 
             /// Use this enum to add standard buttons to a [`Dialog`](elements.md#dialog). The look and positioning
-            /// of these [`StandardButton`](widgets.md#standardbutton)s depends on the environment
+            /// of these [`StandardButton`](../widgets/standardbutton.md)s depends on the environment
             /// (OS, UI environment, etc.) the application runs in.
             enum StandardButtonKind {
                 /// A "OK" button that accepts a [`Dialog`](elements.md#dialog), closing it when clicked.
@@ -246,7 +246,7 @@ macro_rules! for_each_enums {
             }
 
             /// Enum representing the [alignment](../concepts/layouting.md#alignment) property of a
-            /// [`HorizontalBox`](widgets.md#horizontalbox), a [`VerticalBox`](widgets.md#verticalbox),
+            /// [`HorizontalBox`](../widgets/horizontalbox.md), a [`VerticalBox`](../widgets/verticalbox.md),
             /// a [`HorizontalLayout`, or `VerticalLayout`](elements.md#verticallayout-and-horizontallayout).
             enum LayoutAlignment {
                 /// Use the minimum size of all elements in a layout, distribute remaining space
@@ -290,24 +290,24 @@ macro_rules! for_each_enums {
             enum AccessibleRole {
                 /// The element isn't accessible.
                 None,
-                /// The element is a [`Button`](widgets.md#button) or behaves like one.
+                /// The element is a [`Button`](../widgets/button.md) or behaves like one.
                 Button,
-                /// The element is a [`CheckBox`](widgets.md#checkbox) or behaves like one.
+                /// The element is a [`CheckBox`](../widgets/checkbox.md) or behaves like one.
                 Checkbox,
-                /// The element is a [`ComboBox`](widgets.md#combobox) or behaves like one.
+                /// The element is a [`ComboBox`](../widgets/combobox.md) or behaves like one.
                 Combobox,
-                /// The element is a [`Slider`](widgets.md#slider) or behaves like one.
+                /// The element is a [`Slider`](../widgets/slider.md) or behaves like one.
                 Slider,
-                /// The element is a [`SpinBox`](widgets.md#spinbox) or behaves like one.
+                /// The element is a [`SpinBox`](../widgets/spinbox.md) or behaves like one.
                 Spinbox,
-                /// The element is a [`Tab`](widgets.md#tabwidget) or behaves like one.
+                /// The element is a [`Tab`](../widgets/tabwidget.md) or behaves like one.
                 Tab,
                 /// The role for a [`Text`](elements.md#text) element. It's automatically applied.
                 Text,
             }
 
             /// This enum represents the different values of the `sort-order` property.
-            /// It's used to sort a [`StandardTableView`](widgets.md#standardtableview) by a column.
+            /// It's used to sort a [`StandardTableView`](../widgets/standardtableview.md) by a column.
             enum SortOrder {
                 /// The column is unsorted.
                 Unsorted,

@@ -19,6 +19,7 @@
    src/language/concepts/index.rst
    src/language/syntax/index.rst
    src/language/builtins/index.rst
+   src/language/widgets/index.rst
 
 .. toctree::
    :hidden:
