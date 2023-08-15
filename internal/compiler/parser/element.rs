@@ -39,6 +39,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// @children
 /// double_binding <=> element.property;
 /// public pure function foo() {}
+/// changed foo => {}
 /// ```
 pub fn parse_element_content(p: &mut impl Parser) {
     let mut had_parse_error = false;
@@ -73,6 +74,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 }
                 SyntaxKind::Identifier | SyntaxKind::Star if p.peek().as_str() == "animate" => {
                     parse_property_animation(&mut *p);
+                }
+                SyntaxKind::Identifier if p.peek().as_str() == "changed" => {
+                    parse_changed_callback(&mut *p);
                 }
                 SyntaxKind::LAngle | SyntaxKind::Identifier if p.peek().as_str() == "property" => {
                     parse_property_declaration(&mut *p);
@@ -435,6 +439,22 @@ fn parse_property_animation(p: &mut impl Parser) {
             }
         }
     }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,PropertyChangedCallback
+/// changed the-property => { x = y; }
+/// ```
+fn parse_changed_callback(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "changed");
+    let mut p = p.start_node(SyntaxKind::PropertyChangedCallback);
+    p.expect(SyntaxKind::Identifier); // changed
+    {
+        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
+        p.expect(SyntaxKind::Identifier);
+    }
+    p.expect(SyntaxKind::FatArrow);
+    parse_code_block(&mut *p);
 }
 
 #[cfg_attr(test, parser_test)]

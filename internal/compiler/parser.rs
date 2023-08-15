@@ -332,7 +332,8 @@ declare_syntax! {
         /// `id := Element { ... }`
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
-                     *CallbackDeclaration, *Function, *SubElement, *RepeatedElement, *PropertyAnimation,
+                     *CallbackDeclaration, *Function, *SubElement, *RepeatedElement,
+                     *PropertyAnimation, *PropertyChangedCallback,
                      *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
@@ -347,6 +348,8 @@ declare_syntax! {
         PropertyDeclaration-> [ ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
+        /// `changed xxx => {...}`  where `xxx` is the DeclaredIdentifier
+        PropertyChangedCallback-> [ DeclaredIdentifier, CodeBlock ],
         /// wraps Identifiers, like `Rectangle` or `SomeModule.SomeType`
         QualifiedName-> [],
         /// Wraps single identifier (to disambiguate when there are other identifier in the production)
