@@ -266,19 +266,19 @@ private:
 /// A 16bit pixel that has 5 red bits, 6 green bits and 5 blue bits
 struct Rgb565Pixel
 {
-    /// The red component, encoded in 5 bits.
-    uint16_t r : 5;
-    /// The green component, encoded in 6 bits.
-    uint16_t g : 6;
     /// The blue component, encoded in 5 bits.
     uint16_t b : 5;
+    /// The green component, encoded in 6 bits.
+    uint16_t g : 6;
+    /// The red component, encoded in 5 bits.
+    uint16_t r : 5;
 
     /// Default constructor.
-    constexpr Rgb565Pixel() : r(0), g(0), b(0) { }
+    constexpr Rgb565Pixel() : b(0), g(0), r(0) { }
 
     /// \brief Constructor that constructs from an Rgb8Pixel.
     explicit constexpr Rgb565Pixel(const Rgb8Pixel &pixel)
-        : r(pixel.r >> 3), g(pixel.g >> 2), b(pixel.b >> 3)
+        : b(pixel.b >> 3), g(pixel.g >> 2), r(pixel.r >> 3)
     {
     }
 
