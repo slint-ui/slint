@@ -163,7 +163,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 image,
                 &|| (target_width.get(), target_height.get()),
                 image_fit,
-                self.scale_factor,
+                self.window,
                 self.canvas,
             )
             .and_then(|skia_image| {
@@ -816,7 +816,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
                 (LogicalLength::new(size.width as _), LogicalLength::new(size.height as _))
             },
             ImageFit::Fill,
-            self.scale_factor,
+            self.window,
             self.canvas,
         );
 

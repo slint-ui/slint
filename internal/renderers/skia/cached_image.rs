@@ -33,7 +33,7 @@ pub(crate) fn as_skia_image(
     image: Image,
     target_size_fn: &dyn Fn() -> (LogicalLength, LogicalLength),
     image_fit: ImageFit,
-    scale_factor: ScaleFactor,
+    window: &i_slint_core::api::Window,
     _canvas: &mut skia_safe::Canvas,
 ) -> Option<skia_safe::Image> {
     let image_inner: &ImageInner = (&image).into();
@@ -54,7 +54,8 @@ pub(crate) fn as_skia_image(
         ImageInner::Svg(svg) => {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
             let (target_width, target_height) = target_size_fn();
-            let target_size = LogicalSize::from_lengths(target_width, target_height) * scale_factor;
+            let target_size = LogicalSize::from_lengths(target_width, target_height)
+                * ScaleFactor::new(window.scale_factor());
             let target_size = i_slint_core::graphics::fit_size(image_fit, target_size, svg.size());
             let pixels = match svg.render(target_size.cast()).ok()? {
                 SharedImageBuffer::RGB8(_) => unreachable!(),
