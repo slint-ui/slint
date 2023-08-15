@@ -1,0 +1,20 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+name: Upload component to ESP-IDF component registry
+
+on:
+  workflow_dispatch:
+
+jobs:
+  upload_components:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v3
+    - name: Upload component
+      uses: espressif/upload-components-ci-action@v1
+      with:
+        name: "slint"
+        namespace: "tronical"
+        api_token: ${{ secrets.ESP_IDF_COMPONENTS_TOKEN }}
+        directories: "api/cpp/esp-idf/slint"
