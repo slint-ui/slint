@@ -94,7 +94,8 @@ struct CppPlatform {
     #[cfg(not(feature = "std"))]
     duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
     set_clipboard_text: unsafe extern "C" fn(PlatformUserData, &SharedString, _clipboard: u8),
-    clipboard_text: unsafe extern "C" fn(PlatformUserData, &mut SharedString, _clipboard: u8),
+    clipboard_text:
+        unsafe extern "C" fn(PlatformUserData, &mut SharedString, _clipboard: u8) -> bool,
     run_event_loop: unsafe extern "C" fn(PlatformUserData),
     quit_event_loop: unsafe extern "C" fn(PlatformUserData),
     invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformTaskOpaque),
@@ -143,9 +144,10 @@ impl Platform for CppPlatform {
 
     fn clipboard_text(&self, _clipboard: Clipboard) -> Option<String> {
         let mut out_text = SharedString::new();
-        unsafe { (self.clipboard_text)(self.user_data, &mut out_text, _clipboard as u8) };
+        let status =
+            unsafe { (self.clipboard_text)(self.user_data, &mut out_text, _clipboard as u8) };
 
-        if out_text.is_empty() {
+        if !status {
             None
         } else {
             String::from(out_text).into()
@@ -189,7 +191,11 @@ pub unsafe extern "C" fn slint_platform_register(
     window_factory: unsafe extern "C" fn(PlatformUserData, *mut WindowAdapterRcOpaque),
     #[allow(unused)] duration_since_start: unsafe extern "C" fn(PlatformUserData) -> u64,
     set_clipboard_text: unsafe extern "C" fn(PlatformUserData, &SharedString, _clipboard: u8),
-    clipboard_text: unsafe extern "C" fn(PlatformUserData, &mut SharedString, _clipboard: u8),
+    clipboard_text: unsafe extern "C" fn(
+        PlatformUserData,
+        &mut SharedString,
+        _clipboard: u8,
+    ) -> bool,
     run_event_loop: unsafe extern "C" fn(PlatformUserData),
     quit_event_loop: unsafe extern "C" fn(PlatformUserData),
     invoke_from_event_loop: unsafe extern "C" fn(PlatformUserData, PlatformTaskOpaque),

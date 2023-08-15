@@ -250,18 +250,18 @@ inline void set_platform(std::unique_ptr<Platform> platform)
                 return reinterpret_cast<const Platform *>(p)->duration_since_start().count();
 #endif
             },
-            // NOTE: if size_t is not at 32 bit unsigned integer on a 32 bit platform,
-            // this may not link with rust properly.
             [](void *p, const SharedString *text, uint8_t clipboard) {
                 reinterpret_cast<Platform *>(p)->set_clipboard_text(*text,
                                                                     Platform::Clipboard(clipboard));
             },
-            [](void *p, SharedString *out_text, uint8_t clipboard) {
+            [](void *p, SharedString *out_text, uint8_t clipboard) -> bool {
                 auto maybe_clipboard = reinterpret_cast<Platform *>(p)->clipboard_text(
                         Platform::Clipboard(clipboard));
 
-                if (maybe_clipboard)
+                bool status = maybe_clipboard.has_value();
+                if (status)
                     *out_text = maybe_clipboard.value();
+                return status;
             },
             [](void *p) { return reinterpret_cast<Platform *>(p)->run_event_loop(); },
             [](void *p) { return reinterpret_cast<Platform *>(p)->quit_event_loop(); },
