@@ -78,22 +78,6 @@ if (MSVC)
     target_compile_options(Slint INTERFACE /bigobj)
 endif()
 
-# Compat options
-function(define_renderer_winit_compat_option renderer)
-    string(TOUPPER "${renderer}" cmake_option)
-    string(REPLACE "-" "_" cmake_option "${cmake_option}")
-    cmake_dependent_option("SLINT_FEATURE_RENDERER_WINIT_${cmake_option}" "Compat option equivalent to SLINT_FEATURE_RENDERER_${cmake_option}" OFF SLINT_FEATURE_STD OFF)
-    if(SLINT_FEATURE_RENDERER_WINIT_${cmake_option})
-        set("SLINT_FEATURE_RENDERER_${cmake_option}" ON PARENT_SCOPE)
-        message("SLINT_FEATURE_RENDERER_WINIT_${cmake_option} is deprecated, use SLINT_FEATURE_RENDERER_${cmake_option} instead")
-    endif()
-endfunction()
-define_renderer_winit_compat_option(femtovg)
-define_renderer_winit_compat_option(skia)
-define_renderer_winit_compat_option(skia-opengl)
-define_renderer_winit_compat_option(skia-vulkan)
-define_renderer_winit_compat_option(software)
-
 function(define_cargo_feature cargo-feature description default)
     # turn foo-bar into SLINT_FEATURE_FOO_BAR
     string(TOUPPER "${cargo-feature}" cmake_option)
@@ -128,6 +112,22 @@ endfunction()
 # defaults need to be kept in sync with the Rust bit.
 
 define_cargo_feature(std "Enable use of the Rust standard library. This is required unless you are targetting bare-metal systems" ON)
+
+# Compat options (must be declared after the STD feature, but before the other renderer features)
+function(define_renderer_winit_compat_option renderer)
+    string(TOUPPER "${renderer}" cmake_option)
+    string(REPLACE "-" "_" cmake_option "${cmake_option}")
+    cmake_dependent_option("SLINT_FEATURE_RENDERER_WINIT_${cmake_option}" "Compat option equivalent to SLINT_FEATURE_RENDERER_${cmake_option}" OFF SLINT_FEATURE_STD OFF)
+    if(SLINT_FEATURE_RENDERER_WINIT_${cmake_option})
+        set("SLINT_FEATURE_RENDERER_${cmake_option}" ON PARENT_SCOPE)
+        message("SLINT_FEATURE_RENDERER_WINIT_${cmake_option} is deprecated, use SLINT_FEATURE_RENDERER_${cmake_option} instead")
+    endif()
+endfunction()
+define_renderer_winit_compat_option(femtovg)
+define_renderer_winit_compat_option(skia)
+define_renderer_winit_compat_option(skia-opengl)
+define_renderer_winit_compat_option(skia-vulkan)
+define_renderer_winit_compat_option(software)
 
 define_cargo_dependent_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON SLINT_FEATURE_STD)
 
