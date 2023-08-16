@@ -667,7 +667,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             item_rc,
             self.graphics_cache,
             box_shadow,
-            self.window,
+            self.scale_factor,
             |shadow_options| {
                 let blur = shadow_options.blur;
                 let width = shadow_options.width;
@@ -1101,9 +1101,7 @@ impl<'a> GLItemRenderer<'a> {
 
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             ItemGraphicsCacheEntry::Texture({
-                let size = (layer_logical_size_fn() * ScaleFactor::new(self.window.scale_factor()))
-                    .ceil()
-                    .try_cast()?;
+                let size = (layer_logical_size_fn() * self.scale_factor).ceil().try_cast()?;
 
                 let layer_image = existing_layer_texture
                     .and_then(|layer_texture| {
@@ -1310,9 +1308,8 @@ impl<'a> GLItemRenderer<'a> {
                     if image_size.is_empty() {
                         return None;
                     }
-                    let scale_factor = ScaleFactor::new(self.window.scale_factor());
                     let t = LogicalSize::from_lengths(target_width.get(), target_height.get())
-                        * scale_factor;
+                        * self.scale_factor;
 
                     Some(i_slint_core::graphics::fit_size(image_fit, t, image_size).cast())
                 } else {
