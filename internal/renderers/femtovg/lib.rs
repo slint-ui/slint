@@ -214,6 +214,8 @@ impl FemtoVGRenderer {
                     })?;
                 }
 
+                self.graphics_cache.clear_cache_if_scale_factor_changed(window);
+
                 let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
                     &self.canvas,
                     &self.graphics_cache,

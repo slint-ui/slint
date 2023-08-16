@@ -163,7 +163,7 @@ impl<'a> SkiaItemRenderer<'a> {
                 image,
                 &|| (target_width.get(), target_height.get()),
                 image_fit,
-                self.window,
+                self.scale_factor,
                 self.canvas,
             )
             .and_then(|skia_image| {
@@ -239,7 +239,7 @@ impl<'a> SkiaItemRenderer<'a> {
         layer_logical_size_fn: &dyn Fn() -> LogicalSize,
     ) -> Option<skia_safe::Image> {
         self.image_cache.get_or_update_cache_entry(item_rc, || {
-            let layer_size = layer_logical_size_fn() * ScaleFactor::new(self.window.scale_factor());
+            let layer_size = layer_logical_size_fn() * self.scale_factor;
 
             let image_info = skia_safe::ImageInfo::new(
                 to_skia_size(&layer_size).to_ceil(),
@@ -576,7 +576,6 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
 
         let (physical_offset, skpath): (crate::euclid::Vector2D<f32, PhysicalPx>, _) =
             match self.path_cache.get_or_update_cache_entry(item_rc, || {
-                let scale_factor = ScaleFactor::new(self.window.scale_factor());
                 let (logical_offset, path_events): (crate::euclid::Vector2D<f32, LogicalPx>, _) =
                     path.fitted_path_events()?;
 
@@ -586,26 +585,30 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
                     match x {
                         lyon_path::Event::Begin { at } => {
                             skpath.move_to(to_skia_point(
-                                LogicalPoint::from_untyped(at) * scale_factor,
+                                LogicalPoint::from_untyped(at) * self.scale_factor,
                             ));
                         }
                         lyon_path::Event::Line { from: _, to } => {
                             skpath.line_to(to_skia_point(
-                                LogicalPoint::from_untyped(to) * scale_factor,
+                                LogicalPoint::from_untyped(to) * self.scale_factor,
                             ));
                         }
                         lyon_path::Event::Quadratic { from: _, ctrl, to } => {
                             skpath.quad_to(
-                                to_skia_point(LogicalPoint::from_untyped(ctrl) * scale_factor),
-                                to_skia_point(LogicalPoint::from_untyped(to) * scale_factor),
+                                to_skia_point(LogicalPoint::from_untyped(ctrl) * self.scale_factor),
+                                to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor),
                             );
                         }
 
                         lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
                             skpath.cubic_to(
-                                to_skia_point(LogicalPoint::from_untyped(ctrl1) * scale_factor),
-                                to_skia_point(LogicalPoint::from_untyped(ctrl2) * scale_factor),
-                                to_skia_point(LogicalPoint::from_untyped(to) * scale_factor),
+                                to_skia_point(
+                                    LogicalPoint::from_untyped(ctrl1) * self.scale_factor,
+                                ),
+                                to_skia_point(
+                                    LogicalPoint::from_untyped(ctrl2) * self.scale_factor,
+                                ),
+                                to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor),
                             );
                         }
                         lyon_path::Event::End { last: _, first: _, close } => {
@@ -616,7 +619,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
                     }
                 }
 
-                (logical_offset * scale_factor, skpath).into()
+                (logical_offset * self.scale_factor, skpath).into()
             }) {
                 Some(offset_and_path) => offset_and_path,
                 None => return,
@@ -657,7 +660,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             self_rc,
             self.image_cache,
             box_shadow,
-            self.window,
+            self.scale_factor,
             |shadow_options| {
                 let shadow_size: skia_safe::Size = (
                     shadow_options.width.get() + shadow_options.blur.get() * 2.,
@@ -813,7 +816,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
                 (LogicalLength::new(size.width as _), LogicalLength::new(size.height as _))
             },
             ImageFit::Fill,
-            self.window,
+            self.scale_factor,
             self.canvas,
         );
 
