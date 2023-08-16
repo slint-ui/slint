@@ -576,6 +576,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
 
         let (physical_offset, skpath): (crate::euclid::Vector2D<f32, PhysicalPx>, _) =
             match self.path_cache.get_or_update_cache_entry(item_rc, || {
+                let scale_factor = ScaleFactor::new(self.window.scale_factor());
                 let (logical_offset, path_events): (crate::euclid::Vector2D<f32, LogicalPx>, _) =
                     path.fitted_path_events()?;
 
@@ -585,30 +586,26 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
                     match x {
                         lyon_path::Event::Begin { at } => {
                             skpath.move_to(to_skia_point(
-                                LogicalPoint::from_untyped(at) * self.scale_factor,
+                                LogicalPoint::from_untyped(at) * scale_factor,
                             ));
                         }
                         lyon_path::Event::Line { from: _, to } => {
                             skpath.line_to(to_skia_point(
-                                LogicalPoint::from_untyped(to) * self.scale_factor,
+                                LogicalPoint::from_untyped(to) * scale_factor,
                             ));
                         }
                         lyon_path::Event::Quadratic { from: _, ctrl, to } => {
                             skpath.quad_to(
-                                to_skia_point(LogicalPoint::from_untyped(ctrl) * self.scale_factor),
-                                to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor),
+                                to_skia_point(LogicalPoint::from_untyped(ctrl) * scale_factor),
+                                to_skia_point(LogicalPoint::from_untyped(to) * scale_factor),
                             );
                         }
 
                         lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
                             skpath.cubic_to(
-                                to_skia_point(
-                                    LogicalPoint::from_untyped(ctrl1) * self.scale_factor,
-                                ),
-                                to_skia_point(
-                                    LogicalPoint::from_untyped(ctrl2) * self.scale_factor,
-                                ),
-                                to_skia_point(LogicalPoint::from_untyped(to) * self.scale_factor),
+                                to_skia_point(LogicalPoint::from_untyped(ctrl1) * scale_factor),
+                                to_skia_point(LogicalPoint::from_untyped(ctrl2) * scale_factor),
+                                to_skia_point(LogicalPoint::from_untyped(to) * scale_factor),
                             );
                         }
                         lyon_path::Event::End { last: _, first: _, close } => {
@@ -619,7 +616,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
                     }
                 }
 
-                (logical_offset * self.scale_factor, skpath).into()
+                (logical_offset * scale_factor, skpath).into()
             }) {
                 Some(offset_and_path) => offset_and_path,
                 None => return,
