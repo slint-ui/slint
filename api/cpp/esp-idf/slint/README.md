@@ -8,7 +8,7 @@ This component provides the C++ version of [Slint](https://slint.dev/) for the [
 
 It has been tested on ESP32-S3 devices.
 
-![Screenshot](https://slint.dev/resources/energy-monitor-screenshot.png)
+![Screenshot](https://user-images.githubusercontent.com/959326/260754861-e2130cce-9d2b-4925-9536-88293818ac3e.jpeg)
 
 ## Usage
 
