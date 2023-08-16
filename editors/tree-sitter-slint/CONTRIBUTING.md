@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Contributing
 
 Contributions to the tree-sitter parser are wanted to fix currently failing tests and to test any other regressions.

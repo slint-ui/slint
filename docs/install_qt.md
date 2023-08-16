@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Install Qt
 
 TLDR; If you are redirected to this document because of a link in the warning that Qt wasn't found and

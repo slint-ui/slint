@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Contributing
 
 We warmly welcome contributions to the project. Let's discuss ideas or questions

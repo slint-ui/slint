@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `AboutSlint`
 
 This element displays a "Made with Slint" badge.

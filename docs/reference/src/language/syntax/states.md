@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # States
 
 The `states` statement allows to declare states and set properties of multiple elements in one go:

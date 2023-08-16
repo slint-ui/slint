@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
 # LSP (Language Server Protocol) Server for Slint
 
 This directory contains the implementation of the LSP server for [Slint](https://slint.dev)

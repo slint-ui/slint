@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Positioning and Layout of Elements
 
 All visual elements are shown in a window. The `x` and `y` properties store

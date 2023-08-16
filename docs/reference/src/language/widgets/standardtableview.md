@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `StandardTableView`
 
 The `StandardTableView` represents a table of data with columns and rows. Cells

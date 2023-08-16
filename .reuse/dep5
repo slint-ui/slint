@@ -11,7 +11,7 @@ Files: .gitattributes .gitignore */.gitignore .dockerignore .prettierignore .pre
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-Files: *.md api/cpp/docs/*/*.html api/cpp/docs/*/*.css docs/*/*.css docs/*/*.html docs/*/book.toml docs/*/package.json
+Files: api/cpp/docs/*/*.html api/cpp/docs/*/*.css docs/*/*.css docs/*/*.html docs/*/book.toml docs/*/package.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
@@ -19,13 +19,10 @@ Files: examples/*/LC_MESSAGES/*.mo examples/*/sdkconfig*
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: MIT
 
-Files: helper_crates/vtable/*.md
+Files: .github/issue_template.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+License: MIT
 
-Files: helper_crates/const-field-offset/*.md
-Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: MIT or Apache-2.0
 
 Files: api/*/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
@@ -51,15 +48,11 @@ Files: editors/sublime/LSP.sublime-settings
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-Files: editors/tree-sitter-slint/binding.gyp editors/tree-sitter-slint/CONTRIBUTING.md
-Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
-
 Files: tools/slintpad/*.html tools/slintpad/styles/*.css tools/slintpad/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-Files: editors/vscode/*.json editors/vscode/README.md editors/vscode/css/*.css editors/tree-sitter-slint/corpus/*.txt editors/vscode/static/**/*.html editors/vscode/static/assets/img/bg-dark.svg editors/vscode/static/assets/img/slint-*.svg
+Files: editors/vscode/*.json editors/vscode/css/*.css editors/tree-sitter-slint/corpus/*.txt editors/vscode/static/**/*.html editors/vscode/static/assets/img/bg-dark.svg editors/vscode/static/assets/img/slint-*.svg
 Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
 License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 

@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Slint on Microcontrollers
 
 ![](https://slint.dev/blog/porting-slint-to-microcontrollers/rp-pico_and_screen.jpg)

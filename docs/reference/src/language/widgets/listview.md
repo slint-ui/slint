@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `ListView`
 
 A ListView is like a Scrollview but it should have a `for` element, and the content are

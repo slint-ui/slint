@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Builtin Namespaces
 
 The following namespaces provide access to common constants such as special keys or named colors.

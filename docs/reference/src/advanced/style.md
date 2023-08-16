@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Selecting a Widget Style
 
 The widget style is selected at compile time of your project. The details depend on which programming

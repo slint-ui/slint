@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Type Mappings
 
 The types used for properties in `.slint` design markup each translate to specific types in C++.

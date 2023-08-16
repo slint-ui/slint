@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `StandardButton`
 
 The StandardButton looks like a button, but instead of customizing with `text` and `icon`,
