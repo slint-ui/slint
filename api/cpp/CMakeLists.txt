@@ -212,7 +212,7 @@ endif(SLINT_STYLE)
 #  * We look for clang or gcc in PATH - unprefixed those are usually host compilers.
 #  * Through corrosion we know the correct host value of CC_<triplet>.
 # Finally, we set CC_<host triplet> to clang or gcc and empty CFLAGS_<host triplet>
-if((SLINT_FEATURE_RENDERER_WINIT_SKIA OR SLINT_FEATURE_RENDERER_WINIT_SKIA_OPENGL OR SLINT_FEATURE_RENDERER_WINIT_SKIA_VULKAN) AND CMAKE_CROSSCOMPILING AND Rust_CARGO_HOST_TARGET)
+if((SLINT_FEATURE_RENDERER_SKIA OR SLINT_FEATURE_RENDERER_SKIA_OPENGL OR SLINT_FEATURE_RENDERER_SKIA_VULKAN) AND CMAKE_CROSSCOMPILING AND Rust_CARGO_HOST_TARGET)
     find_program(CLANG clang)
     if(CLANG)
         set(host_cc "${CLANG}")
