@@ -52,6 +52,17 @@ auto my_application_ui = MainWindow::create();
 my_application_ui->run();
 ```
 
+## License
+
+You can use Slint under ***any*** of the following licenses, at your choice:
+
+1. [GNU GPLv3](https://github.com/slint-ui/slint/blob/master/LICENSES/GPL-3.0-only.txt),
+2. [Paid license](https://slint.dev/pricing.html).
+
+See also the [Licensing FAQ](https://github.com/slint-ui/slint/blob/master/FAQ.md#licensing).
+
+Slint is also available with a third license (Royalty Free) for desktop applications.
+
 ## Links
 
 [Website](https://slint.dev) · [GitHub](https://github.com/slint-ui/slint) · [Docs](https://slint.dev/docs/cpp)
