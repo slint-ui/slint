@@ -1101,7 +1101,9 @@ impl<'a> GLItemRenderer<'a> {
 
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             ItemGraphicsCacheEntry::Texture({
-                let size = (layer_logical_size_fn() * self.scale_factor).ceil().try_cast()?;
+                let size = (layer_logical_size_fn() * ScaleFactor::new(self.window.scale_factor()))
+                    .ceil()
+                    .try_cast()?;
 
                 let layer_image = existing_layer_texture
                     .and_then(|layer_texture| {
