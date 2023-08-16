@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `TabWidget`
 
 `TabWidget` is a container for a set of tabs. It can only have `Tab` elements as children and only one tab will be visible at

@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Memory Tile
 
 With the skeleton in place, let's look at the first element of the game, the memory tile. It will be the

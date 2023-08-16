@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Focus Handling
 
 Certain elements such as `TextInput` accept not only input from the mouse/finger but

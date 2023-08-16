@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Repetition
 
 Use the `for`-`in` syntax to create an element multiple times.

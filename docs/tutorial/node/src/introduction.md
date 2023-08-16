@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Introduction
 
 This tutorial will introduce you to the Slint UI framework in a playful way by implementing a little memory game. We're going to combine the `.slint` language for the graphics with the game rules implemented in JavaScript.

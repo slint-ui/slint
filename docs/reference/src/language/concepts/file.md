@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # The `.slint` File
 
 User interfaces are written in the Slint language and saved in files with the `.slint` extension.

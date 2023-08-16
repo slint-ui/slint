@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Conditional Element
 
 The `if` construct instantiates an element only if a given condition is true.

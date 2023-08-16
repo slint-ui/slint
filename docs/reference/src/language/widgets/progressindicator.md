@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `ProgressIndicator`
 
 The `ProgressIndicator` informs the user about the status of an on-going operation, such as loading data from the network.

@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Polishing the Tile
 
 Next, let's add a curtain like cover that opens up when clicking. We achieve this by declaring two rectangles

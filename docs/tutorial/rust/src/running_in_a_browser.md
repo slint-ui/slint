@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Running In A Browser Using WebAssembly
 
 Right now, we used `cargo run` to build and run our program as a native application.

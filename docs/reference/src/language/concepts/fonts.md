@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Font Handling
 
 Elements such as `Text` and `TextInput` can render text and allow customizing the appearance of the text through

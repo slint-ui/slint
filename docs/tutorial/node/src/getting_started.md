@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Getting Started
 
 In this tutorial, we use JavaScript as the host programming language. We also support other programming languages like

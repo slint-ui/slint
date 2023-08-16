@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `ScrollView`
 
 A Scrollview contains a viewport that is bigger than the view and can be

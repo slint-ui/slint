@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `Button`
 
 A simple button. Common types of buttons can also be created with [`StandardButton`](#standardbutton).

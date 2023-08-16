@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Global Singletons
 
 Declare a global singleton with `global Name { /* .. properties or callbacks .. */ }` to

@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `TextEdit`
 
 Similar to [`LineEdit`](#lineedit)`, but can be used to enter several lines of text

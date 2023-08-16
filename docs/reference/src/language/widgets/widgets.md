@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
 Slint provides a series of built-in widgets that can be imported from `"std-widgets.slint"`.
 

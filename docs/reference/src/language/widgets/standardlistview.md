@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `StandardListView`
 
 Like ListView, but with a default delegate, and a `model` property which is a model of type

@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Generated code
 
 The Slint compiler called by the build system will generate a header file for the root `.slint`

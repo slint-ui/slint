@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 ## `LineEdit`
 
 A widget used to enter a single line of text. See [`TextEdit`](#textedit) for

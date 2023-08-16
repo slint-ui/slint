@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Translations
 
 Use Slint's translation infrastructure to make your application available in different languages.

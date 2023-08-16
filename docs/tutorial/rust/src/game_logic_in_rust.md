@@ -1,3 +1,4 @@
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 # Game Logic In Rust
 
 We'll implement the rules of the game in Rust as well. The general philosophy of Slint is that merely the user
