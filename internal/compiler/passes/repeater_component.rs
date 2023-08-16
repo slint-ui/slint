@@ -30,6 +30,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 id: elem.id.clone(),
                 base_type: std::mem::take(&mut elem.base_type),
                 bindings: std::mem::take(&mut elem.bindings),
+                change_callbacks: std::mem::take(&mut elem.change_callbacks),
                 property_analysis: std::mem::take(&mut elem.property_analysis),
                 children: std::mem::take(&mut elem.children),
                 property_declarations: std::mem::take(&mut elem.property_declarations),

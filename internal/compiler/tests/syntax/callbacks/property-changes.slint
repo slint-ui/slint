@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+export component Sub {
+    in-out property <int> zoo;
+    private property <int> clou;
+}
+
+export component Test {
+    Sub {
+        changed zoo => { }
+        changed clou => { }
+        //      ^error{Change callback on a private property 'clou'}
+        changed zoo => { }
+        //      ^error{Duplicated change callback on 'zoo'}
+    }
+
+    property <int> xyz: 42;
+    changed xyz => { }
+}
