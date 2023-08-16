@@ -660,7 +660,7 @@ impl<'a> ItemRenderer for SkiaItemRenderer<'a> {
             self_rc,
             self.image_cache,
             box_shadow,
-            self.scale_factor,
+            self.window,
             |shadow_options| {
                 let shadow_size: skia_safe::Size = (
                     shadow_options.width.get() + shadow_options.blur.get() * 2.,
