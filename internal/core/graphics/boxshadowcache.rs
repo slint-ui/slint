@@ -95,11 +95,12 @@ impl<ImageType: Clone> BoxShadowCache<ImageType> {
         item_rc: &ItemRc,
         item_cache: &crate::item_rendering::ItemCache<Option<ImageType>>,
         box_shadow: std::pin::Pin<&crate::items::BoxShadow>,
-        scale_factor: ScaleFactor,
+        window: &crate::api::Window,
         shadow_render_fn: impl FnOnce(&BoxShadowOptions) -> ImageType,
     ) -> Option<ImageType> {
         item_cache.get_or_update_cache_entry(item_rc, || {
-            let shadow_options = BoxShadowOptions::new(box_shadow, scale_factor)?;
+            let shadow_options =
+                BoxShadowOptions::new(box_shadow, ScaleFactor::new(window.scale_factor()))?;
             self.0
                 .borrow_mut()
                 .entry(shadow_options.clone())

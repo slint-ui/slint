@@ -667,7 +667,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             item_rc,
             self.graphics_cache,
             box_shadow,
-            self.scale_factor,
+            self.window,
             |shadow_options| {
                 let blur = shadow_options.blur;
                 let width = shadow_options.width;
