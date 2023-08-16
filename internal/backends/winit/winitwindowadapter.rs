@@ -117,6 +117,7 @@ pub struct WinitWindowAdapter {
     dark_color_scheme: OnceCell<Pin<Box<Property<bool>>>>,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
     shown: Cell<bool>,
+    window_level: Cell<winit::window::WindowLevel>,
 
     renderer: Box<dyn WinitCompatibleRenderer>,
     // We cache the size because winit_window.inner_size() can return different value between calls (eg, on X11)
@@ -155,6 +156,7 @@ impl WinitWindowAdapter {
             dark_color_scheme: Default::default(),
             constraints: Default::default(),
             shown: Default::default(),
+            window_level: Default::default(),
             winit_window: winit_window.clone(),
             size: Default::default(),
             renderer: Box::new(renderer),
@@ -440,11 +442,16 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         winit_window.set_title(&window_item.title());
         winit_window
             .set_decorations(!window_item.no_frame() || winit_window.fullscreen().is_some());
-        winit_window.set_window_level(if window_item.always_on_top() {
+        let new_window_level = if window_item.always_on_top() {
             winit::window::WindowLevel::AlwaysOnTop
         } else {
             winit::window::WindowLevel::Normal
-        });
+        };
+        // Only change the window level if it changes, to avoid https://github.com/slint-ui/slint/issues/3280
+        // (Ubuntu 20.04's window manager always bringing the window to the front on x11)
+        if self.window_level.replace(new_window_level) != new_window_level {
+            winit_window.set_window_level(new_window_level);
+        }
 
         if width <= 0. || height <= 0. {
             must_resize = true;
