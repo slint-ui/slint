@@ -1,4 +1,5 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT OR Apache-2.0 -->
+
 # const-field-offset crate
 
 [![Crates.io](https://img.shields.io/crates/v/const-field-offset)](https://crates.io/crates/const-field-offset)

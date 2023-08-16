@@ -1,4 +1,5 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT OR Apache-2.0 -->
+
 # Changelog
 All notable changes to this crate will be documented in this file.
 
