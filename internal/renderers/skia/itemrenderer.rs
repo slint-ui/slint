@@ -239,7 +239,7 @@ impl<'a> SkiaItemRenderer<'a> {
         layer_logical_size_fn: &dyn Fn() -> LogicalSize,
     ) -> Option<skia_safe::Image> {
         self.image_cache.get_or_update_cache_entry(item_rc, || {
-            let layer_size = layer_logical_size_fn() * self.scale_factor;
+            let layer_size = layer_logical_size_fn() * ScaleFactor::new(self.window.scale_factor());
 
             let image_info = skia_safe::ImageInfo::new(
                 to_skia_size(&layer_size).to_ceil(),
