@@ -33,6 +33,7 @@ pub fn ensure_window(
         id: std::mem::replace(&mut win_elem_mut.id, "root_window".into()),
         base_type: std::mem::replace(&mut win_elem_mut.base_type, window_type),
         bindings: Default::default(),
+        change_callbacks: Default::default(),
         is_component_placeholder: false,
         property_analysis: Default::default(),
         children: std::mem::take(&mut win_elem_mut.children),

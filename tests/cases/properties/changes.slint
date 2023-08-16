@@ -1,0 +1,40 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.2 OR LicenseRef-Slint-commercial
+
+export component TestCase {
+    in-out property <string> result;
+    in property <int> value: 56;
+    changed value => {
+        result += "value(" + value + ")";
+    }
+    property <int> other: clamp(value + 1, 50, 100);
+    changed other => {
+        result += "other(" + other + ")";
+        "ignore this"
+    }
+}
+
+
+/*
+
+
+```todo-rust
+let instance = TestCase::new().unwrap();
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), "");
+instance.set_value(56);
+slint_testing::mock_elapsed_time(1000);
+assert_eq!(instance.get_result(), ""); // so far, nothing have changed
+instance.set_value(142);
+assert_eq!(instance.get_result(), "");
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_result(), "value(142)other(100)");
+instance.set_value(8); // this one is going to be merged in the other
+instance.set_value(141);
+slint_testing::mock_elapsed_time(1);
+assert_eq!(instance.get_result(), "value(142)other(100)value(141)");
+
+
+```
+
+*/

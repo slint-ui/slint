@@ -167,6 +167,16 @@ fn inline_element(
             }
         }
     }
+    for (k, val) in inlined_component.root_element.borrow().change_callbacks.iter() {
+        match elem_mut.change_callbacks.entry(k.clone()) {
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(val.clone());
+            }
+            std::collections::btree_map::Entry::Occupied(mut entry) => {
+                entry.get_mut().get_mut().extend_from_slice(&*val.borrow());
+            }
+        }
+    }
 
     if let Some(orig) = &inlined_component.root_element.borrow().layout_info_prop {
         if let Some(_new) = &mut elem_mut.layout_info_prop {
@@ -238,6 +248,7 @@ fn duplicate_element_with_mapping(
             .iter()
             .map(|b| duplicate_binding(b, mapping, root_component, priority_delta))
             .collect(),
+        change_callbacks: elem.change_callbacks.clone(),
         property_analysis: elem.property_analysis.clone(),
         children: elem
             .children
