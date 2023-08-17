@@ -63,12 +63,14 @@
             {
                 "command": "slint.showPreview",
                 "title": "Show Preview",
-                "category": "Slint"
+                "category": "Slint",
+                "icon": "$(preview)"
             },
             {
                 "command": "slint.showWelcome",
                 "title": "Show Welcome Page",
-                "category": "Slint"
+                "category": "Slint",
+                "icon": "$(sparkle)"
             },
             {
                 "command": "slint.toggleDesignMode",
@@ -78,7 +80,8 @@
             {
                 "command": "slint.reload",
                 "title": "Restart server",
-                "category": "Slint"
+                "category": "Slint",
+                "icon": "$(debug-restart)"
             }
         ],
         "menus": {
@@ -89,6 +92,13 @@
                 },
                 {
                     "command": "slint.reload"
+                }
+            ],
+            "view/title": [
+                {
+                    "command": "slint.showWelcome",
+                    "when": "view == slint.propertiesView",
+                    "group": "navigation"
                 }
             ]
         },
