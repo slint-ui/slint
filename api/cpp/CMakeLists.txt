@@ -149,7 +149,6 @@ define_cargo_dependent_feature(gettext "Enable support of translations using get
 define_cargo_dependent_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON "NOT SLINT_FEATURE_FREESTANDING")
 
 if (SLINT_FEATURE_FREESTANDING)
-    list(APPEND features freestanding)
 
     if (ESP_PLATFORM)
         list(APPEND features "esp-backtrace/${IDF_TARGET}")
