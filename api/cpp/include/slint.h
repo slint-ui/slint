@@ -23,7 +23,7 @@
 #include <functional>
 #include <concepts>
 
-#ifdef SLINT_FEATURE_STD
+#ifndef SLINT_FEATURE_FREESTANDING
 #    include <iostream>
 #    include <thread>
 #    include <mutex>
@@ -77,7 +77,7 @@ using cbindgen_private::TableColumn;
 /// use slint::invoke_from_event_loop
 inline void assert_main_thread()
 {
-#ifdef SLINT_FEATURE_STD
+#ifndef SLINT_FEATURE_FREESTANDING
 #    ifndef NDEBUG
     static auto main_thread_id = std::this_thread::get_id();
     if (main_thread_id != std::this_thread::get_id()) {
@@ -823,7 +823,7 @@ public:
     /// If the model can update the data, it should also call `row_changed`
     virtual void set_row_data(size_t, const ModelData &)
     {
-#ifdef SLINT_FEATURE_STD
+#ifndef SLINT_FEATURE_FREESTANDING
         std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
 #endif
     };
@@ -1787,7 +1787,7 @@ void invoke_from_event_loop(Functor f)
             [](void *data) { delete reinterpret_cast<Functor *>(data); });
 }
 
-#ifdef SLINT_FEATURE_STD
+#ifndef SLINT_FEATURE_FREESTANDING
 
 /// Blocking version of invoke_from_event_loop()
 ///
