@@ -129,7 +129,7 @@
         "walkthroughs": [
             {
                 "id": "slint.welcomeWalkthrough",
-                "title": "Get started with Slint Development",
+                "title": "Getting Started with Slint",
                 "description": "Dive into VSCode's rich Slint development experience",
                 "steps": [
                     {
@@ -155,7 +155,7 @@
                     {
                         "id": "property_editor",
                         "title": "Edit Properties",
-                        "description": "When your cursor is on an Slint Element in your editor, the Property Editor will show all possible properties defined on the Element.\n[Open Properties Editor](command:slint.propertiesView.focus)",
+                        "description": "When your cursor is on an Slint element in your editor, the property editor shows all possible properties defined on the Element.\n[Open Properties Editor](command:slint.propertiesView.focus)",
                         "media": {
                             "markdown": "static/walkthroughs/welcome/properties_editor.md"
                         },
@@ -165,8 +165,8 @@
                     },
                     {
                         "id": "get_help",
-                        "title": "Find Help",
-                        "description": "You are not alone should you get stuck!",
+                        "title": "Learn More",
+                        "description": "Well done! You've completed Getting Started with Slint.",
                         "media": {
                             "markdown": "static/walkthroughs/welcome/get_help.md"
                         }
