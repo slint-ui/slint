@@ -284,7 +284,7 @@ impl Item for NativeSlider {
             initial_state as "int"
         ] {
             QStyleOptionSlider option;
-            option.initFrom(widget);
+            option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);
             initQSliderOptions(option, pressed, enabled, active_controls, min, max, value, vertical);

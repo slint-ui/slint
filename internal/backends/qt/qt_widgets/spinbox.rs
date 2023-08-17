@@ -283,7 +283,7 @@ impl Item for NativeSpinBox {
         ] {
             auto style = qApp->style();
             QStyleOptionSpinBox option;
-            option.initFrom(widget);
+            option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             if (enabled && has_focus) {
                 option.state |= QStyle::State_HasFocus;
