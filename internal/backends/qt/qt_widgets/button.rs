@@ -366,7 +366,7 @@ impl Item for NativeButton {
             initial_state as "int"
         ] {
             QStyleOptionButton option;
-            option.initFrom(widget);
+            option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.text = std::move(text);
             option.icon = icon;

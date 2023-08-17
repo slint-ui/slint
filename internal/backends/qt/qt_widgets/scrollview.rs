@@ -310,7 +310,7 @@ impl Item for NativeScrollView {
         ] -> bool as "bool" {
             ensure_initialized();
             QStyleOptionFrame frameOption;
-            frameOption.initFrom(widget);
+            frameOption.styleObject = widget;
             frameOption.state |= QStyle::State(initial_state);
             frameOption.frameShape = QFrame::StyledPanel;
 

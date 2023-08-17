@@ -149,7 +149,7 @@ impl Item for NativeLineEdit {
             initial_state as "int"
         ] {
             QStyleOptionFrame option;
-            option.initFrom(widget);
+            option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);
             option.lineWidth = 1;

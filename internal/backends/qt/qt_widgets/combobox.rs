@@ -115,7 +115,7 @@ impl Item for NativeComboBox {
         ] {
             ensure_initialized();
             QStyleOptionComboBox option;
-            option.initFrom(widget);
+            option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.currentText = std::move(text);
             option.rect = QRect(QPoint(), size / dpr);
@@ -231,7 +231,7 @@ impl Item for NativeComboBoxPopup {
             ensure_initialized();
             QStyleOptionComboBox cb_option;
             QStyleOptionFrame option;
-            option.initFrom(widget);
+            option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             option.lineWidth = 0;
             option.midLineWidth = 0;

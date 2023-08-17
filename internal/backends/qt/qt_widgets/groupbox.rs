@@ -223,7 +223,7 @@ impl Item for NativeGroupBox {
             initial_state as "int"
         ] {
             QStyleOptionGroupBox option;
-            option.initFrom(widget);
+            option.styleObject = widget;
             option.state |= QStyle::State(initial_state);
             if (enabled) {
                 option.state |= QStyle::State_Enabled;
