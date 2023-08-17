@@ -1,6 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
-Slint has excellent [documentation](https://slint.dev/docs) available online.
+To further improve your Slint skills, check out the [online documentation](https://slint.dev/docs).
 
 If you have feedback or questions, feel free to reach out to the Slint community:
 
