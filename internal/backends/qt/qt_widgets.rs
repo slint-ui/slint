@@ -199,6 +199,7 @@ cpp! {{
                 rust!(Slint_AnimatedWidget_update [animation_update_property_ptr: Pin<&Property<i32>> as "void*"] {
                     animation_update_property_ptr.set(animation_update_property_ptr.get() + 1);
                 });
+                event->accept();
             }
             return Base::event(event);
         }
