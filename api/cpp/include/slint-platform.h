@@ -153,7 +153,10 @@ public:
     ///
     /// This function should only be implemented  if the runtime is compiled with
     /// SLINT_FEATURE_FREESTANDING
-    virtual std::chrono::milliseconds duration_since_start() const { return {}; }
+    virtual std::chrono::milliseconds duration_since_start() const
+    {
+        return {};
+    }
 #endif
 
     /// Spins an event loop and renders the visible windows.
