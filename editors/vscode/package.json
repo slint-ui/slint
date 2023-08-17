@@ -144,7 +144,55 @@
                     "contextualTitle": "Slint Properties"
                 }
             ]
-        }
+        },
+        "walkthroughs": [
+            {
+                "id": "slint.welcomeWalkthrough",
+                "title": "Get started with Slint Development",
+                "description": "Dive into VSCode's rich Slint development experience",
+                "steps": [
+                    {
+                        "id": "create_slint_file",
+                        "title": "Create a .slint File",
+                        "description": "[Open](command:toSide:workbench.action.files.openFile) or [create](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22slint%22%7D) a `.slint` file. Be sure to save it with the \".slint\" extension, such as \"helloworld.slint\". \n[Create a .slint File](command:toSide:workbench.action.files.newUntitledFile?%7B%22languageId%22%3A%22slint%22%7D)",
+                        "media": {
+                            "markdown": "static/walkthroughs/welcome/create_slint_file.md"
+                        }
+                    },
+                    {
+                        "id": "live_preview",
+                        "title": "Live Preview your UI",
+                        "description": "Click on $(play) Show Preview above any component in your editor showing a .slint file to a preview of your user interface. Keep the preview open: It updates as you type.",
+                        "media": {
+                            "image": "static/walkthroughs/welcome/show_preview.png",
+                            "altText": "live preview in action"
+                        },
+                        "completionEvents": [
+                            "onCommand:slint.showPreview"
+                        ]
+                    },
+                    {
+                        "id": "property_editor",
+                        "title": "Edit Properties",
+                        "description": "When your cursor is on an Slint Element in your editor, the Property Editor will show all possible properties defined on the Element.\n[Open Properties Editor](command:slint.propertiesView.focus)",
+                        "media": {
+                            "markdown": "static/walkthroughs/welcome/properties_editor.md"
+                        },
+                        "completionEvents": [
+                            "onView:slint.propertiesView"
+                        ]
+                    },
+                    {
+                        "id": "get_help",
+                        "title": "Find Help",
+                        "description": "You are not alone should you get stuck!",
+                        "media": {
+                            "markdown": "static/walkthroughs/welcome/get_help.md"
+                        }
+                    }
+                ]
+            }
+        ]
     },
     "dependencies": {
         "@vscode/codicons": "0.0.32",
