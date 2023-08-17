@@ -502,6 +502,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
     file.includes.push("<limits>".into());
     file.includes.push("<cstdlib>".into()); // TODO: ideally only include this if needed (by to_float)
     file.includes.push("<cmath>".into()); // TODO: ideally only include this if needed (by floor/ceil/round)
+    file.includes.push("<iostream>".into()); // TODO: ideally only include this if needed (by std::cout from debug())
     file.includes.push("<slint.h>".into());
 
     for (path, er) in doc.root_component.embedded_file_resources.borrow().iter() {
