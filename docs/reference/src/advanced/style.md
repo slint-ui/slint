@@ -5,10 +5,12 @@ Slint offers a variety of [built-in widgets](../language/widgets/widgets.md) whi
 
 The styles available include:
 
--   `fluent`, `fluent-light`, `fluent-dark`: These variants belong to the **Fluent** style, which is based on the [Fluent Design System](https://fluent2.microsoft.design/).
--   `material`, `material-light`, `material-dark`: These variants are part of the **Material** style, which follows the [Material Design](https://m3.material.io).
--   `cupertino`, `cupertino-light`, `cupertino-dark`: The **Cupertino** variants emulate the style used by macOS. (Experimental)
--   `native`: The **Native** style mimics the controls native to the platform on which they are used. This includes specific support for the appearance of controls on macOS and Windows. This style requires Qt to be installed on your system.
+| Style Name | Light Variant | Dark Variant | Description |
+|------------|--------------|--------------|------------|
+| `fluent`   | `fluent-light`| `fluent-dark`| These variants belong to the **Fluent** style, which is based on the [Fluent Design System](https://fluent2.microsoft.design/). |
+| `material` | `material-light`| `material-dark`| These variants are part of the **Material** style, which follows the [Material Design](https://m3.material.io). |
+| `cupertino`| `cupertino-light`| `cupertino-dark`| The **Cupertino** variants emulate the style used by macOS. (Experimental) |
+| `native`   | | | The **Native** style mimics the controls native to the platform on which they are used. This includes specific support for the appearance of controls on macOS and Windows. This style requires Qt to be installed on your system. |
 
 By default, the styles automatically adapt to the system's dark or light color setting. Select a `-light` or `-dark` variant to override the system setting and always show either dark or light colors.
 
