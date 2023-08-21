@@ -219,7 +219,6 @@ located remotely in Germany.
 - Follow [@slint-ui](https://twitter.com/slint_ui) on Twitter.
 - Follow [@slint@fosstodon.org](https://mastodon.social/@slint@fosstodon.org) on Mastodon.
 - Follow [@slint-ui](https://www.linkedin.com/company/slint-ui/) on LinkedIn.
-- Keep an eye out for our [🥠 Weekly Status Updates](https://slint.dev/thisweek/).
 
 ### Contact us
 
