@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
 idf_component_register(
-    SRCS "src/esp_slint.cpp"
+    SRCS "src/slint-esp.cpp"
     INCLUDE_DIRS "include"
     REQUIRES "esp_lcd" "esp_lcd_touch"
     PRIV_REQUIRES "esp_timer")
