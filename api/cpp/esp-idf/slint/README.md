@@ -11,25 +11,59 @@ It has been tested on ESP32-S3 devices.
 
 ![Screenshot](https://user-images.githubusercontent.com/959326/260754861-e2130cce-9d2b-4925-9536-88293818ac3e.jpeg)
 
+## Prerequisites
+
+In order to compile Slint, you need a working [Rust toolchain for your device](https://esp-rs.github.io/book/installation/index.html).
+Follow the instructions from <https://github.com/esp-rs/espup#installation> to set it up.
+
+You can then either set the esp toolchain as the default toolchain with `rustup` or create a `rust-toolchain.toml` file in the root directory of your project with the following contents:
+
+```toml
+[toolchain]
+channel = "esp"
+```
+
+If you see this error while compiling Slint:
+
+```
+error: the `-Z` flag is only accepted on the nightly channel of Cargo, but this is the `stable` channel
+```
+
+this means you are not using the right toolchain.
+
+
 ## Usage
 
 By using this component, the `Slint::Slint` CMake target is linked to your application and you can access the entire functionality of the
 [Slint C++ API](https://slint.dev/docs/cpp).
 
-In addition, this component provides the `slint_esp.h` header file, which provides a `EspPlatform` class, based on
-[ESP LCD Touch](https://components.espressif.com/components/espressif/esp_lcd_touch). It implements the `slint::platform::Platform` interface by
-reading touch events and rendering to an attached screen via `esp_lcd_panel_draw_bitmap`.
+In addition, this component provides the `slint-esp.h` header file, which provides a a function to initialize the Slint backend
+that must be called before setting up the UI.
+Behind the scene, it will use `esp_lcd_panel_draw_bitmap` to render to the screen,
+and is base on [ESP LCD Touch](https://components.espressif.com/components/espressif/esp_lcd_touch) for the touch events.
 
 Use this platform implementation by instantiating it with a `esp_lcd_panel_handle_t`, an optional `esp_lcd_touch_handle_t`, and a pointer to one
-or two `slint::platform::Rgb565Pixel` frame buffers. Next, register the instance with the Slint run-time library by calling `slint::platform::set_platform()`:
+or two `slint::platform::Rgb565Pixel` frame buffers. Next, register the instance with the Slint run-time library by calling `slint_esp_init()`:
 
 ```cpp
+#include "slint-esp.h"
+// ...
 
-static std::vector<slint::platform::Rgb565Pixel> single_buffer(BSP_LCD_H_RES * BSP_LCD_V_RES);
 
-slint::platform::set_platform(
-        std::make_unique<EspPlatform>(slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }),
-                                      panel_handle, touch_handle, single_buffer));
+// Initialize the panel and touch handle
+esp_lcd_panel_handle_t panel_handle = NULL;
+bsp_display_new(&bsp_disp_cfg, &panel_handle, &io_handle);
+bsp_display_backlight_on();
+esp_lcd_touch_handle_t touch_handle = NULL;
+bsp_touch_new(&bsp_touch_cfg, &touch_handle);
+
+// Allocate a frame buffer
+static std::vector<slint::platform::Rgb565Pixel> buffer(BSP_LCD_H_RES * BSP_LCD_V_RES);
+
+// initialize the Slint ESP backend
+slint_esp_init(slint::PhysicalSize({ BSP_LCD_H_RES, BSP_LCD_V_RES }), panel_handle,
+                                   touch_handle, buffer);
+
 ```
 
 Alternatively, you can implement your own sub-class of `slint::platform::Platform` to drive the screen and handle input events.
