@@ -155,7 +155,7 @@ To setup the LSP:
    https://raw.githubusercontent.com/slint-ui/slint/master/editors/sublime/Slint.tmPreferences
 4. Download the LSP package settings file into your User Package folder:
    https://raw.githubusercontent.com/slint-ui/slint/master/editors/sublime/LSP.sublime-settings
-5. Modify the slint-lsp command path in `LSP.sublime-settings` to point to the cargo instalation path in your home folder (**Replace YOUR_USER by your username**):
+5. Modify the slint-lsp command path in `LSP.sublime-settings` to point to the cargo installation path in your home folder (**Replace YOUR_USER by your username**):
    `"command": ["/home/YOUR_USER/.cargo/bin/slint-lsp"]`
 6. Run "LSP: Enable Language Server Globally" or "LSP: Enable Lanuage Server in Project" from Sublime's Command Palette to allow the server to start.
 7. Open a .slint file - if the server starts its name will be in the left side of the status bar.
