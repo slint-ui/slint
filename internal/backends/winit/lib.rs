@@ -17,7 +17,10 @@ use i_slint_core::platform::PlatformError;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
 
-/// Internal type used by the winit backend for thread communcation and window system updates.
+/// Re-export of the winit crate
+pub use winit;
+
+/// Internal type used by the winit backend for thread communication and window system updates.
 #[non_exhaustive]
 pub enum SlintUserEvent {
     CustomEvent { event: CustomEvent },
