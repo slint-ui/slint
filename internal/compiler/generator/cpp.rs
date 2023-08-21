@@ -317,11 +317,25 @@ use crate::object_tree::Document;
 use crate::parser::syntax_nodes;
 use cpp_ast::*;
 use itertools::{Either, Itertools};
+use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
 
-type EvaluationContext<'a> = llr_EvaluationContext<'a, String>;
-type ParentCtx<'a> = llr_ParentCtx<'a, String>;
+#[derive(Default)]
+struct ConditionalIncludes {
+    iostream: Cell<bool>,
+    cstdlib: Cell<bool>,
+    cmath: Cell<bool>,
+}
+
+#[derive(Clone)]
+struct CppGeneratorContext<'a> {
+    root_access: String,
+    conditional_includes: &'a ConditionalIncludes,
+}
+
+type EvaluationContext<'a> = llr_EvaluationContext<'a, CppGeneratorContext<'a>>;
+type ParentCtx<'a> = llr_ParentCtx<'a, CppGeneratorContext<'a>>;
 
 impl CppType for Type {
     fn cpp_type(&self) -> Option<String> {
@@ -500,9 +514,6 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
 
     file.includes.push("<array>".into());
     file.includes.push("<limits>".into());
-    file.includes.push("<cstdlib>".into()); // TODO: ideally only include this if needed (by to_float)
-    file.includes.push("<cmath>".into()); // TODO: ideally only include this if needed (by floor/ceil/round)
-    file.includes.push("<iostream>".into()); // TODO: ideally only include this if needed (by std::cout from debug())
     file.includes.push("<slint.h>".into());
 
     for (path, er) in doc.root_component.embedded_file_resources.borrow().iter() {
@@ -736,6 +747,8 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
         ..Default::default()
     }));
 
+    let conditional_includes = ConditionalIncludes::default();
+
     for sub_compo in &llr.sub_components {
         let sub_compo_id = ident(&sub_compo.name);
         let mut sub_compo_struct = Struct { name: sub_compo_id.clone(), ..Default::default() };
@@ -746,19 +759,20 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
             None,
             Access::Public,
             &mut file,
+            &conditional_includes,
         );
         file.definitions.extend(sub_compo_struct.extract_definitions().collect::<Vec<_>>());
         file.declarations.push(Declaration::Struct(sub_compo_struct));
     }
 
     for glob in llr.globals.iter().filter(|glob| !glob.is_builtin) {
-        generate_global(&mut file, glob, &llr);
+        generate_global(&mut file, &conditional_includes, glob, &llr);
         file.definitions.extend(glob.aliases.iter().map(|name| {
             Declaration::TypeAlias(TypeAlias { old_name: ident(&glob.name), new_name: ident(name) })
         }))
     }
 
-    generate_public_component(&mut file, &llr);
+    generate_public_component(&mut file, &conditional_includes, &llr);
 
     file.after_includes = format!(
         "static_assert({x} == SLINT_VERSION_MAJOR && {y} == SLINT_VERSION_MINOR && {z} == SLINT_VERSION_PATCH, \
@@ -768,6 +782,18 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
         y = env!("CARGO_PKG_VERSION_MINOR"),
         z = env!("CARGO_PKG_VERSION_PATCH")
     );
+
+    if conditional_includes.iostream.get() {
+        file.includes.push("<iostream>".into());
+    }
+
+    if conditional_includes.cstdlib.get() {
+        file.includes.push("<cstdlib>".into());
+    }
+
+    if conditional_includes.cmath.get() {
+        file.includes.push("<cmath>".into());
+    }
 
     file
 }
@@ -825,7 +851,11 @@ fn generate_enum(file: &mut File, en: &std::rc::Rc<Enumeration>) {
 /// Generate the component in `file`.
 ///
 /// `sub_components`, if Some, will be filled with all the sub component which needs to be added as friends
-fn generate_public_component(file: &mut File, component: &llr::PublicComponent) {
+fn generate_public_component(
+    file: &mut File,
+    conditional_includes: &ConditionalIncludes,
+    component: &llr::PublicComponent,
+) {
     let root_component = &component.item_tree.root;
     let component_id = ident(&root_component.name);
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
@@ -845,7 +875,10 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         public_component: component,
         current_sub_component: Some(&component.item_tree.root),
         current_global: None,
-        generator_state: "this".to_string(),
+        generator_state: CppGeneratorContext {
+            root_access: "this".to_string(),
+            conditional_includes,
+        },
         parent: None,
         argument_types: &[],
     };
@@ -860,6 +893,7 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         component_id,
         Access::Private, // Hide properties and other fields from the C++ API
         file,
+        conditional_includes,
     );
 
     // Give generated sub-components, etc. access to our fields
@@ -1006,13 +1040,22 @@ fn generate_item_tree(
     item_tree_class_name: String,
     field_access: Access,
     file: &mut File,
+    conditional_includes: &ConditionalIncludes,
 ) {
     target_struct.friends.push(format!(
         "vtable::VRc<slint::private_api::ComponentVTable, {}>",
         item_tree_class_name
     ));
 
-    generate_sub_component(target_struct, &sub_tree.root, root, parent_ctx, field_access, file);
+    generate_sub_component(
+        target_struct,
+        &sub_tree.root,
+        root,
+        parent_ctx,
+        field_access,
+        file,
+        conditional_includes,
+    );
 
     let root_access = if parent_ctx.is_some() { "parent->root" } else { "self" };
 
@@ -1411,6 +1454,7 @@ fn generate_sub_component(
     parent_ctx: Option<ParentCtx>,
     field_access: Access,
     file: &mut File,
+    conditional_includes: &ConditionalIncludes,
 ) {
     let root_ptr_type = format!("const {} *", ident(&root.item_tree.root.name));
 
@@ -1475,8 +1519,12 @@ fn generate_sub_component(
         init.push("self->parent = parent;".into());
     }
 
-    let ctx =
-        EvaluationContext::new_sub_component(root, component, "self->root".into(), parent_ctx);
+    let ctx = EvaluationContext::new_sub_component(
+        root,
+        component,
+        CppGeneratorContext { root_access: "self->root".into(), conditional_includes },
+        parent_ctx,
+    );
 
     component.popup_windows.iter().for_each(|c| {
         let component_id = ident(&c.root.name);
@@ -1489,6 +1537,7 @@ fn generate_sub_component(
             component_id,
             Access::Public,
             file,
+            conditional_includes,
         );
         file.definitions.extend(popup_struct.extract_definitions().collect::<Vec<_>>());
         file.declarations.push(Declaration::Struct(popup_struct));
@@ -1632,6 +1681,7 @@ fn generate_sub_component(
             ParentCtx::new(&ctx, Some(idx)),
             &data_type,
             file,
+            conditional_includes,
         );
 
         let repeater_id = format!("repeater_{}", idx);
@@ -1873,6 +1923,7 @@ fn generate_repeated_component(
     parent_ctx: ParentCtx,
     model_data_type: &Type,
     file: &mut File,
+    conditional_includes: &ConditionalIncludes,
 ) {
     let repeater_id = ident(&repeated.sub_tree.root.name);
     let mut repeater_struct = Struct { name: repeater_id.clone(), ..Default::default() };
@@ -1884,13 +1935,14 @@ fn generate_repeated_component(
         repeater_id.clone(),
         Access::Public,
         file,
+        conditional_includes,
     );
 
     let ctx = EvaluationContext {
         public_component: root,
         current_sub_component: Some(&repeated.sub_tree.root),
         current_global: None,
-        generator_state: "self".into(),
+        generator_state: CppGeneratorContext { root_access: "self".into(), conditional_includes },
         parent: Some(parent_ctx),
         argument_types: &[],
     };
@@ -1992,7 +2044,12 @@ fn generate_repeated_component(
     file.declarations.push(Declaration::Struct(repeater_struct));
 }
 
-fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::PublicComponent) {
+fn generate_global(
+    file: &mut File,
+    conditional_includes: &ConditionalIncludes,
+    global: &llr::GlobalComponent,
+    root: &llr::PublicComponent,
+) {
     let mut global_struct = Struct { name: ident(&global.name), ..Default::default() };
 
     for property in global.properties.iter().filter(|p| p.use_count.get() > 0) {
@@ -2017,8 +2074,11 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
     }
 
     let mut init = vec!["(void)this->root;".into()];
-
-    let ctx = EvaluationContext::new_global(root, global, "this->root".into());
+    let ctx = EvaluationContext::new_global(
+        root,
+        global,
+        CppGeneratorContext { root_access: "this->root".into(), conditional_includes },
+    );
 
     for (property_index, expression) in global.init_values.iter().enumerate() {
         if global.properties[property_index].use_count.get() == 0 {
@@ -2068,7 +2128,7 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
 
 fn generate_functions<'a>(
     functions: &'a [llr::Function],
-    ctx: &'a EvaluationContext,
+    ctx: &'a EvaluationContext<'_>,
 ) -> impl Iterator<Item = Declaration> + 'a {
     functions.iter().map(|f| {
         let mut ctx2 = ctx.clone();
@@ -2276,7 +2336,7 @@ fn follow_sub_component_path<'a>(
 }
 
 fn access_window_field(ctx: &EvaluationContext) -> String {
-    let root = &ctx.generator_state;
+    let root = &ctx.generator_state.root_access;
     format!("{}->window().window_handle()", root)
 }
 
@@ -2381,7 +2441,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             }
         }
         llr::PropertyReference::Global { global_index, property_index } => {
-            let root_access = &ctx.generator_state;
+            let root_access = &ctx.generator_state.root_access;
             let global = &ctx.public_component.globals[*global_index];
             let global_id = format!("global_{}", ident(&global.name));
             let property_name = ident(
@@ -2390,7 +2450,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             format!("{}->{}->{}", root_access, global_id, property_name)
         }
         llr::PropertyReference::GlobalFunction { global_index, function_index } => {
-            let root_access = &ctx.generator_state;
+            let root_access = &ctx.generator_state.root_access;
             let global = &ctx.public_component.globals[*global_index];
             let global_id = format!("global_{}", ident(&global.name));
             let name =
@@ -2832,30 +2892,72 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::GetWindowDefaultFontSize => {
             let window_item_name = ident(&ctx.public_component.item_tree.root.items[0].name);
-            format!("{}->{}.default_font_size.get()", ctx.generator_state, window_item_name)
+            format!(
+                "{}->{}.default_font_size.get()",
+                ctx.generator_state.root_access, window_item_name
+            )
         }
         BuiltinFunction::AnimationTick => "slint::cbindgen_private::slint_animation_tick()".into(),
         BuiltinFunction::Debug => {
+            ctx.generator_state.conditional_includes.iostream.set(true);
             format!("std::cout << {} << std::endl;", a.join("<<"))
         }
-        BuiltinFunction::Mod => format!("std::fmod({}, {})", a.next().unwrap(), a.next().unwrap()),
-        BuiltinFunction::Round => format!("std::round({})", a.next().unwrap()),
-        BuiltinFunction::Ceil => format!("std::ceil({})", a.next().unwrap()),
-        BuiltinFunction::Floor => format!("std::floor({})", a.next().unwrap()),
-        BuiltinFunction::Sqrt => format!("std::sqrt({})", a.next().unwrap()),
-        BuiltinFunction::Abs => format!("std::abs({})", a.next().unwrap()),
+        BuiltinFunction::Mod => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::fmod({}, {})", a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::Round => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::round({})", a.next().unwrap())
+        }
+        BuiltinFunction::Ceil => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::ceil({})", a.next().unwrap())
+        }
+        BuiltinFunction::Floor => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::floor({})", a.next().unwrap())
+        }
+        BuiltinFunction::Sqrt => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::sqrt({})", a.next().unwrap())
+        }
+        BuiltinFunction::Abs => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::abs({})", a.next().unwrap())
+        }
         BuiltinFunction::Log => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::log({}) / std::log({})", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::Pow => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
             format!("std::pow(({}), ({}))", a.next().unwrap(), a.next().unwrap())
         }
-        BuiltinFunction::Sin => format!("std::sin(({}) * {})", a.next().unwrap(), pi_180),
-        BuiltinFunction::Cos => format!("std::cos(({}) * {})", a.next().unwrap(), pi_180),
-        BuiltinFunction::Tan => format!("std::tan(({}) * {})", a.next().unwrap(), pi_180),
-        BuiltinFunction::ASin => format!("std::asin({}) / {}", a.next().unwrap(), pi_180),
-        BuiltinFunction::ACos => format!("std::acos({}) / {}", a.next().unwrap(), pi_180),
-        BuiltinFunction::ATan => format!("std::atan({}) / {}", a.next().unwrap(), pi_180),
+        BuiltinFunction::Sin => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::sin(({}) * {})", a.next().unwrap(), pi_180)
+        }
+        BuiltinFunction::Cos => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::cos(({}) * {})", a.next().unwrap(), pi_180)
+        }
+        BuiltinFunction::Tan => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::tan(({}) * {})", a.next().unwrap(), pi_180)
+        }
+        BuiltinFunction::ASin => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::asin({}) / {}", a.next().unwrap(), pi_180)
+        }
+        BuiltinFunction::ACos => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::acos({}) / {}", a.next().unwrap(), pi_180)
+        }
+        BuiltinFunction::ATan => {
+            ctx.generator_state.conditional_includes.cmath.set(true);
+            format!("std::atan({}) / {}", a.next().unwrap(), pi_180)
+        }
         BuiltinFunction::SetFocusItem => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);
@@ -2875,9 +2977,11 @@ fn compile_builtin_function_call(
                 .into()
         }*/
         BuiltinFunction::StringIsFloat => {
+            ctx.generator_state.conditional_includes.cstdlib.set(true);
             format!("[](const auto &a){{ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); std::strtod(std::begin(a), &e2); return e1 == e2; }}({})", a.next().unwrap())
         }
         BuiltinFunction::StringToFloat => {
+            ctx.generator_state.conditional_includes.cstdlib.set(true);
             format!("[](const auto &a){{ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); auto r = std::strtod(std::begin(a), &e2); return e1 == e2 ? r : 0; }}({})", a.next().unwrap())
         }
         BuiltinFunction::ColorBrighter => {
@@ -3035,7 +3139,7 @@ fn box_layout_function(
     elements: &[Either<llr::Expression, usize>],
     orientation: Orientation,
     sub_expression: &llr::Expression,
-    ctx: &llr_EvaluationContext<String>,
+    ctx: &llr_EvaluationContext<CppGeneratorContext>,
 ) -> String {
     let repeated_indices = repeated_indices.map(ident);
     let mut push_code =
