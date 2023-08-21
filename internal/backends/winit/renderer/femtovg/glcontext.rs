@@ -10,7 +10,7 @@ use glutin::{
     surface::{SurfaceAttributesBuilder, WindowSurface},
 };
 use i_slint_core::platform::PlatformError;
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 pub struct OpenGLContext {
     context: glutin::context::PossiblyCurrentContext,
@@ -83,7 +83,11 @@ impl OpenGLContext {
                 .expect("internal error: Could not find any matching GL configuration")
             })
             .map_err(|glutin_err| {
-                format!("Error creating OpenGL display with glutin: {}", glutin_err)
+                format!(
+                    "Error creating OpenGL display ({:#?}) with glutin: {}",
+                    window_target.raw_display_handle(),
+                    glutin_err
+                )
             })?;
 
         let gl_display = gl_config.display();

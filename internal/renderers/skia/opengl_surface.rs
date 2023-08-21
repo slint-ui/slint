@@ -226,7 +226,14 @@ impl OpenGLSurface {
                     glutin::display::Display::new(
                         _display_handle.raw_display_handle(),
                         display_api_preference,
-                    )?
+                    )
+                    .map_err(|glutin_error| {
+                        format!(
+                            "Error creating glutin display for native display {:#?}: {}",
+                            _display_handle.raw_display_handle(),
+                            glutin_error
+                        )
+                    })?
                 };
 
                 let config_template_builder = glutin::config::ConfigTemplateBuilder::new();
