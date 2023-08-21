@@ -25,6 +25,7 @@ All notable changes to this project are documented in this file.
  - Added `current-row-changed` to `StandardTableView`
  - Added `item-pointer-event` to `StandardListView`
  - Added `vertical` property to `Slider`
+ - Added `cupertino` style`
 
 ### Rust API
 

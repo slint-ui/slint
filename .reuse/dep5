@@ -91,3 +91,7 @@ License: MIT
 Files: internal/compiler/widgets/material-base/_*.svg
 Copyright: Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>
 License: Apache-2.0
+
+Files: internal/compiler/widgets/cupertino-base/_*.svg
+Copyright: Material Icons <https://github.com/material-icons/material-icons/blob/master/LICENSE>
+License: Apache-2.0
