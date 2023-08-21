@@ -4,7 +4,7 @@
 use crate::DocumentCache;
 
 use i_slint_compiler::diagnostics::{DiagnosticLevel, SourceFile, Spanned};
-use i_slint_compiler::langtype::ElementType;
+use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::LookupCtx;
 use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
@@ -87,23 +87,40 @@ pub fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> O
     parent.lookup_type_for_child_element(&qualname.to_string(), tr).ok()
 }
 
+#[derive(Debug)]
+pub struct ExpressionContextInfo {
+    element: syntax_nodes::Element,
+    property_name: String,
+    is_animate: bool,
+}
+
+impl ExpressionContextInfo {
+    pub fn new(element: syntax_nodes::Element, property_name: String, is_animate: bool) -> Self {
+        ExpressionContextInfo { element, property_name, is_animate }
+    }
+}
+
 /// Run the function with the LookupCtx associated with the token
 pub fn with_lookup_ctx<R>(
     document_cache: &DocumentCache,
     node: SyntaxNode,
     f: impl FnOnce(&mut LookupCtx) -> R,
 ) -> Option<R> {
-    let (element, prop_name) = lookup_expression_context(node)?;
-    with_property_lookup_ctx::<R>(document_cache, &element, &prop_name, f)
+    let expr_context_info = lookup_expression_context(node)?;
+    with_property_lookup_ctx::<R>(document_cache, &expr_context_info, f)
 }
 
 /// Run the function with the LookupCtx associated with the token
 pub fn with_property_lookup_ctx<R>(
     document_cache: &DocumentCache,
-    element: &syntax_nodes::Element,
-    prop_name: &str,
+    expr_context_info: &ExpressionContextInfo,
     f: impl FnOnce(&mut LookupCtx) -> R,
 ) -> Option<R> {
+    let (element, prop_name, is_animate) = (
+        &expr_context_info.element,
+        expr_context_info.property_name.as_str(),
+        expr_context_info.is_animate,
+    );
     let global_tr = document_cache.documents.global_type_registry.borrow();
     let tr = element
         .source_file()
@@ -139,7 +156,7 @@ pub fn with_property_lookup_ctx<R>(
         }
     };
 
-    let ty = element
+    let mut ty = element
         .PropertyDeclaration()
         .find_map(|p| {
             (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
@@ -148,6 +165,15 @@ pub fn with_property_lookup_ctx<R>(
         .and_then(|p| p.Type())
         .map(|n| object_tree::type_from_node(n, &mut Default::default(), tr))
         .or_else(|| scope.last().map(|e| e.borrow().lookup_property(prop_name).property_type));
+
+    // try to match properties from `PropertyAnimation`
+    if is_animate {
+        ty = global_tr
+            .property_animation_type_for_property(Type::Float32)
+            .property_list()
+            .iter()
+            .find_map(|(p, t)| if p.as_str() == prop_name { Some(t.clone()) } else { None })
+    }
 
     let mut build_diagnostics = Default::default();
     let mut lookup_context = LookupCtx::empty_context(tr, &mut build_diagnostics);
@@ -176,39 +202,46 @@ pub fn with_property_lookup_ctx<R>(
 }
 
 /// Return the element and property name in which we are
-fn lookup_expression_context(mut n: SyntaxNode) -> Option<(syntax_nodes::Element, String)> {
-    let (element, prop_name) = loop {
+fn lookup_expression_context(mut n: SyntaxNode) -> Option<ExpressionContextInfo> {
+    let (element, prop_name, is_animate) = loop {
         if let Some(decl) = syntax_nodes::PropertyDeclaration::new(n.clone()) {
             let prop_name = i_slint_compiler::parser::identifier_text(&decl.DeclaredIdentifier())?;
             let element = syntax_nodes::Element::new(n.parent()?)?;
-            break (element, prop_name);
+            break (element, prop_name, false);
         }
         match n.kind() {
             SyntaxKind::Binding | SyntaxKind::TwoWayBinding | SyntaxKind::CallbackConnection => {
-                let prop_name = i_slint_compiler::parser::identifier_text(&n)?;
-                let element = syntax_nodes::Element::new(n.parent()?)?;
-                break (element, prop_name);
+                let parent = n.parent()?;
+                if parent.kind() == SyntaxKind::PropertyAnimation {
+                    let prop_name = i_slint_compiler::parser::identifier_text(&n)?;
+                    let element = syntax_nodes::Element::new(parent.parent()?)?;
+                    break (element, prop_name, true);
+                } else {
+                    let prop_name = i_slint_compiler::parser::identifier_text(&n)?;
+                    let element = syntax_nodes::Element::new(parent)?;
+                    break (element, prop_name, false);
+                }
             }
             SyntaxKind::Function => {
                 let prop_name = i_slint_compiler::parser::identifier_text(
                     &n.child_node(SyntaxKind::DeclaredIdentifier)?,
                 )?;
                 let element = syntax_nodes::Element::new(n.parent()?)?;
-                break (element, prop_name);
+                break (element, prop_name, false);
             }
             SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => {
                 let element = syntax_nodes::Element::new(n.parent()?)?;
-                break (element, "$model".to_string());
+                break (element, "$model".to_string(), false);
             }
             SyntaxKind::Element => {
                 // oops: missed it
                 let element = syntax_nodes::Element::new(n)?;
-                break (element, String::new());
+                break (element, String::new(), false);
             }
             _ => n = n.parent()?,
         }
     };
-    Some((element, prop_name))
+    Some(ExpressionContextInfo::new(element, prop_name, is_animate))
 }
 
 pub fn to_lsp_diag(d: &i_slint_compiler::diagnostics::Diagnostic) -> lsp_types::Diagnostic {
