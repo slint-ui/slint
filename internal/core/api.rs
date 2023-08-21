@@ -332,8 +332,7 @@ pub enum CloseRequestResponse {
 impl Window {
     /// Create a new window from a window adapter
     ///
-    /// You only need to create the window yourself when you create a
-    /// [`WindowAdapter`](crate::platform::WindowAdapter) from
+    /// You only need to create the window yourself when you create a [`WindowAdapter`] from
     /// [`Platform::create_window_adapter`](crate::platform::Platform::create_window_adapter)
     ///
     /// Since the window adapter must own the Window, this function is meant to be used with
