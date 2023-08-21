@@ -17,7 +17,7 @@ use i_slint_core::platform::PlatformError;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
 
-/// Re-export of the winit crate
+/// Re-export of the winit crate.
 pub use winit;
 
 /// Internal type used by the winit backend for thread communication and window system updates.
