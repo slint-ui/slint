@@ -570,7 +570,7 @@ impl<'a, T> PartialRenderer<'a, T> {
         if let Some(entry) = rendering_data.get_entry(&mut cache.borrow_mut()) {
             entry
                 .dependency_tracker
-                .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
+                .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
                 .as_ref()
                 .evaluate(render_fn);
         } else {
@@ -615,7 +615,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
         let item_geometry = match rendering_data.get_entry(&mut cache) {
             Some(CachedGraphicsData { data, dependency_tracker }) => {
                 dependency_tracker
-                    .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
+                    .get_or_insert_with(|| Box::pin(PropertyTracker::default()))
                     .as_ref()
                     .evaluate_if_dirty(|| *data = eval());
                 *data
