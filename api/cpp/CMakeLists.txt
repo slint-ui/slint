@@ -111,13 +111,13 @@ endfunction()
 # Features that are mapped to features in the Rust crate. These and their
 # defaults need to be kept in sync with the Rust bit.
 
-define_cargo_feature(std "Enable use of the Rust standard library. This is required unless you are targetting bare-metal systems" ON)
+define_cargo_feature(freestanding "Enable use of freestanding environment. This is only for bare-metal systems. Most other features are incompatible with this one" OFF)
 
 # Compat options (must be declared after the STD feature, but before the other renderer features)
 function(define_renderer_winit_compat_option renderer)
     string(TOUPPER "${renderer}" cmake_option)
     string(REPLACE "-" "_" cmake_option "${cmake_option}")
-    cmake_dependent_option("SLINT_FEATURE_RENDERER_WINIT_${cmake_option}" "Compat option equivalent to SLINT_FEATURE_RENDERER_${cmake_option}" OFF SLINT_FEATURE_STD OFF)
+    cmake_dependent_option("SLINT_FEATURE_RENDERER_WINIT_${cmake_option}" "Compat option equivalent to SLINT_FEATURE_RENDERER_${cmake_option}" OFF "NOT SLINT_FEATURE_FREESTANDING" OFF)
     if(SLINT_FEATURE_RENDERER_WINIT_${cmake_option})
         set("SLINT_FEATURE_RENDERER_${cmake_option}" ON PARENT_SCOPE)
         message("SLINT_FEATURE_RENDERER_WINIT_${cmake_option} is deprecated, use SLINT_FEATURE_RENDERER_${cmake_option} instead")
@@ -129,31 +129,32 @@ define_renderer_winit_compat_option(skia-opengl)
 define_renderer_winit_compat_option(skia-vulkan)
 define_renderer_winit_compat_option(software)
 
-define_cargo_dependent_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON SLINT_FEATURE_STD)
+define_cargo_dependent_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON "NOT SLINT_FEATURE_FREESTANDING")
 
-define_cargo_dependent_feature(backend-winit "Enable support for the winit crate to interaction with all windowing systems." ON SLINT_FEATURE_STD)
-define_cargo_dependent_feature(backend-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just X11 support on Unix." OFF SLINT_FEATURE_STD)
-define_cargo_dependent_feature(backend-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just wayland support." OFF SLINT_FEATURE_STD)
+define_cargo_dependent_feature(backend-winit "Enable support for the winit crate to interaction with all windowing systems." ON "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just X11 support on Unix." OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just wayland support." OFF "NOT SLINT_FEATURE_FREESTANDING")
 
-define_cargo_dependent_feature(renderer-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON SLINT_FEATURE_STD)
-define_cargo_dependent_feature(renderer-skia "Enable support for the Skia based rendering engine." OFF SLINT_FEATURE_STD)
-define_cargo_dependent_feature(renderer-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." OFF SLINT_FEATURE_STD)
-define_cargo_dependent_feature(renderer-skia-vulkan "Enable support for the Skia based rendering engine with its Vulkan backend." OFF SLINT_FEATURE_STD)
+define_cargo_dependent_feature(renderer-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(renderer-skia "Enable support for the Skia based rendering engine." OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(renderer-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(renderer-skia-vulkan "Enable support for the Skia based rendering engine with its Vulkan backend." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_feature(renderer-software "Enable support for the software renderer" OFF)
 
-define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" ON SLINT_FEATURE_STD)
+define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" ON "NOT SLINT_FEATURE_FREESTANDING")
 
-define_cargo_dependent_feature(backend-linuxkms "Enable support for the backend that renders a single window fullscreen on Linux" OFF SLINT_FEATURE_STD)
+define_cargo_dependent_feature(backend-linuxkms "Enable support for the backend that renders a single window fullscreen on Linux" OFF "NOT SLINT_FEATURE_FREESTANDING")
 
-define_cargo_dependent_feature(gettext "Enable support of translations using gettext" OFF SLINT_FEATURE_STD)
-define_cargo_dependent_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON SLINT_FEATURE_STD)
+define_cargo_dependent_feature(gettext "Enable support of translations using gettext" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(accessibility "Enable integration with operating system provided accessibility APIs" ON "NOT SLINT_FEATURE_FREESTANDING")
 
-if (NOT SLINT_FEATURE_STD)
-    list(APPEND features i-slint-core/libm i-slint-core/unsafe-single-threaded)
+if (SLINT_FEATURE_FREESTANDING)
 
     if (ESP_PLATFORM)
         list(APPEND features "esp-backtrace/${IDF_TARGET}")
     endif()
+else (SLINT_FEATURE_FREESTANDING)
+    list(APPEND features std)
 endif()
 
 set_property(

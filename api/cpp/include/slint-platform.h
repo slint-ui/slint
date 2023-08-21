@@ -148,10 +148,11 @@ public:
     /// Returns a new WindowAdapter
     virtual std::unique_ptr<WindowAdapter> create_window_adapter() = 0;
 
-#ifndef SLINT_FEATURE_STD
+#ifdef SLINT_FEATURE_FREESTANDING
     /// Returns the amount of milliseconds since start of the application.
     ///
-    /// This function should only be implemented  if the runtime is compiled with no_std
+    /// This function should only be implemented  if the runtime is compiled with
+    /// SLINT_FEATURE_FREESTANDING
     virtual std::chrono::milliseconds duration_since_start() const
     {
         return {};
@@ -230,7 +231,7 @@ inline void set_platform(std::unique_ptr<Platform> platform)
                 (void)w.release();
             },
             []([[maybe_unused]] void *p) -> uint64_t {
-#ifdef SLINT_FEATURE_STD
+#ifndef SLINT_FEATURE_FREESTANDING
                 return 0;
 #else
                 return reinterpret_cast<const Platform *>(p)->duration_since_start().count();

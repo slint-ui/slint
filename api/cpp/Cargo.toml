@@ -40,6 +40,7 @@ gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 
 std = ["image", "i-slint-core/default", "i-slint-backend-selector"]
+freestanding = ["i-slint-core/libm", "i-slint-core/unsafe-single-threaded"]
 
 default = ["std", "backend-winit", "renderer-femtovg", "backend-qt"]
 

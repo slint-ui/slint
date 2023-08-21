@@ -85,7 +85,7 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     let enabled_features = cbindgen::EnabledFeatures {
         interpreter: true,
         backend_qt: false,
-        std: true,
+        freestanding: false,
         renderer_software: true,
         renderer_skia: true,
     };
