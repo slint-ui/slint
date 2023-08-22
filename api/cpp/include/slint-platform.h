@@ -5,8 +5,8 @@
 
 #include "slint.h"
 
-#include <utility>
 #include <cassert>
+#include <utility>
 
 struct xcb_connection_t;
 struct wl_surface;
@@ -24,13 +24,31 @@ typedef struct objc_object NSWindow;
 
 namespace slint {
 
-/// Namespace to be used when you implement your own Platform
+/// Use the types in this namespace when implementing a custom Slint platform.
+///
+/// Slint comes with built-in support for different windowing systems, called backends. A backend
+/// is a module that implements the `Platform` interface in this namespace, interacts with a
+/// windowing system, and uses one of Slint's renderers to display a scene to the windowing system.
+/// A typical Slint application uses one of the built-in backends. Implement your own `Platform` if
+/// you're using Slint in an environment without a windowing system, such as with microcontrollers,
+/// or you're embedding a Slint UI as plugin in other applications.
+///
+/// Examples of custom platform implementation can be found in the Slint repository:
+///  - https://github.com/slint-ui/slint/tree/master/examples/cpp/platform_native
+///  - https://github.com/slint-ui/slint/tree/master/examples/cpp/platform_qt
+///  - https://github.com/slint-ui/slint/blob/master/api/cpp/esp-idf/slint/src/slint-esp.cpp
+///
+/// The entry point to re-implement a platform is the `Platform` class. Derive
+/// from `slint::platform::Platform`, and call `slint::platform::set_platform`
+/// to set it as the Slint platform.
+///
+/// Another important class to subclass is the WindowAdapter.
 namespace platform {
 
 /// Internal interface for a renderer for use with the WindowAdapter.
 ///
-/// You are not supposed to re-implement this class, but you can use one of the provided one
-/// such as SoftwareRenderer or SkiaRenderer.
+/// This class is not intended to be re-implemented. In places where this class is required, use
+/// of one the existing implementations such as `SoftwareRenderer` or `SkiaRenderer`.
 class AbstractRenderer
 {
 private:
@@ -46,10 +64,50 @@ private:
     friend class SkiaRenderer;
 };
 
-/// Base class for the layer between a slint::Window and the internal window from the platform
+/// Base class for the layer between a slint::Window and the windowing system specific window type,
+/// such as a Win32 `HWND` handle or a `wayland_surface_t`.
 ///
-/// Re-implement this class to do the link between the two.
+/// Re-implement this class to establish the link between the two.
 ///
+/// Your WindowAdapter subclass must hold a renderer (either a
+/// SoftwareRenderer or a SkiaRenderer). In the renderer() method, you must return a
+/// reference to it.
+///
+/// # Example
+/// ```cpp
+/// class MyWindowAdapter : public slint::platform::WindowAdapter {
+///     slint::platform::SoftwareRenderer m_renderer;
+///     NativeHandle m_native_window; // a handle to the native window
+/// public:
+///     void request_redraw() override { m_native_window.refresh(); }
+///     slint::PhysicalSize physical_size() const override {
+///        return slint::PhysicalSize({m_native_window.width, m_native_window.height});
+///     }
+///     void set_visible(bool v) override {
+///         if (v) {
+///             window().dispatch_resize_event(slint::LogicalSize(
+///                 { float(m_native_window.width), float(m_native_window.height) }));
+///             m_native_window.show();
+///         } else {
+///             m_native_window.hide();
+///         }
+///     }
+///     // ...
+///     void repaint_callback();
+/// }
+/// ```
+///
+/// Rendering is typically asynchronous, and your windowing system or event loop would invoke
+/// a callback when it is time to render.
+/// ```cpp
+/// void MyWindowAdapter::repaint_callback()
+/// {
+///     slint::platform::update_timers_and_animations();
+///     m_renderer.render(m_native_window.buffer(), m_native_window.width);
+///     // if animations are running, schedule the next frame
+///     if (window().has_active_animations())  m_native_window.refresh();
+/// }
+/// ```
 class WindowAdapter
 {
     // This is a pointer to the rust window that own us.
@@ -88,6 +146,9 @@ public:
     /// This function is called by Slint when the slint window is shown or hidden.
     ///
     /// Re-implement this function to forward the call to show/hide the native window
+    ///
+    /// When the window becomes visible, this is a good place to send
+    /// slint::Window::dispatch_resize_event and slint::Window::dispatch_scale_factor_change_event
     virtual void set_visible(bool) { }
 
     /// This function is called when Slint detects that the window need to be repainted.
@@ -132,11 +193,10 @@ public:
     }
 };
 
-/// The platform is acting like a factory to create a WindowAdapter
+/// The platform acts as a factory to create WindowAdapter instances.
 ///
-/// slint::platform::set_platform() need to be called before any other Slint handle
-/// are created, and if it is called, it will use the WindowAdapter provided by the
-/// create_window_adapter function.
+/// Call slint::platform::set_platform() before creating any other Slint handles. Any subsequently
+/// created Slint windows will use the WindowAdapter provided by the create_window_adapter function.
 class Platform
 {
 public:
