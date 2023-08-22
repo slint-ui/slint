@@ -190,8 +190,14 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 }
             } else {
                 // This is not a declaration, we must re-create the binding
-                elem.bindings
-                    .insert(remove.name().to_owned(), BindingExpression::new_two_way(to).into());
+                elem.bindings.insert(
+                    remove.name().to_owned(),
+                    BindingExpression::new_two_way(to.clone()).into(),
+                );
+                drop(elem);
+                if remove.is_externally_modified() {
+                    to.mark_as_set();
+                }
             }
         }
     }
