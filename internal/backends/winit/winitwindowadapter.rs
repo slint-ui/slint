@@ -28,7 +28,7 @@ use corelib::items::{ItemRc, ItemRef};
 
 use corelib::api::PhysicalSize;
 use corelib::layout::Orientation;
-use corelib::lengths::{LogicalLength, LogicalSize};
+use corelib::lengths::LogicalLength;
 use corelib::platform::{PlatformError, WindowEvent};
 use corelib::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use corelib::Property;
@@ -94,10 +94,13 @@ fn icon_to_winit(icon: corelib::graphics::Image) -> Option<winit::window::Icon> 
     winit::window::Icon::from_rgba(rgba_pixels, pixel_buffer.width(), pixel_buffer.height()).ok()
 }
 
-fn window_is_resizable(min_size: Option<LogicalSize>, max_size: Option<LogicalSize>) -> bool {
+fn window_is_resizable(
+    min_size: Option<corelib::api::LogicalSize>,
+    max_size: Option<corelib::api::LogicalSize>,
+) -> bool {
     if let Some((
-        LogicalSize { width: min_width, height: min_height, .. },
-        LogicalSize { width: max_width, height: max_height, .. },
+        corelib::api::LogicalSize { width: min_width, height: min_height, .. },
+        corelib::api::LogicalSize { width: max_width, height: max_height, .. },
     )) = min_size.zip(max_size)
     {
         min_width < max_width || min_height < max_height
@@ -115,7 +118,7 @@ pub struct WinitWindowAdapter {
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     pending_redraw: Cell<bool>,
     dark_color_scheme: OnceCell<Pin<Box<Property<bool>>>>,
-    constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
+    constraints: Cell<corelib::window::LayoutConstraints>,
     shown: Cell<bool>,
     window_level: Cell<winit::window::WindowLevel>,
 
@@ -423,14 +426,15 @@ impl WindowAdapter for WinitWindowAdapter {
         self.with_window_handle(&mut |window| window.request_redraw())
     }
 
-    fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
-        Some(self)
-    }
-}
-
-impl WindowAdapterInternal for WinitWindowAdapter {
     #[allow(clippy::unnecessary_cast)] // Coord is used!
-    fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
+    fn update_window_properties(&self, properties: corelib::window::WindowProperties<'_>) {
+        let Some(window_item) =
+            self.window.get().and_then(|w| WindowInner::from_pub(w).window_item())
+        else {
+            return;
+        };
+        let window_item = window_item.as_pin_ref();
+
         let winit_window = self.winit_window();
 
         let mut width = window_item.width().get() as f32;
@@ -439,7 +443,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         let mut must_resize = false;
 
         winit_window.set_window_icon(icon_to_winit(window_item.icon()));
-        winit_window.set_title(&window_item.title());
+        winit_window.set_title(&properties.title());
         winit_window
             .set_decorations(!window_item.no_frame() || winit_window.fullscreen().is_some());
         let new_window_level = if window_item.always_on_top() {
@@ -483,13 +487,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 size: i_slint_core::api::LogicalSize::new(width, height),
             });
         }
-    }
 
-    fn apply_geometry_constraint(
-        &self,
-        constraints_horizontal: corelib::layout::LayoutInfo,
-        constraints_vertical: corelib::layout::LayoutInfo,
-    ) {
         self.with_window_handle(&mut |winit_window| {
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
@@ -498,8 +496,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 return;
             }
 
-            let new_constraints = (constraints_horizontal, constraints_vertical);
-
+            let new_constraints = properties.layout_constraints();
             if new_constraints == self.constraints.get() {
                 return;
             }
@@ -509,20 +506,15 @@ impl WindowAdapterInternal for WinitWindowAdapter {
             // Use our scale factor instead of winit's logical size to take a scale factor override into account.
             let sf = self.window().scale_factor();
 
-            let into_size = |s: LogicalSize| -> winit::dpi::PhysicalSize<f32> {
+            let into_size = |s: corelib::api::LogicalSize| -> winit::dpi::PhysicalSize<f32> {
                 winit::dpi::LogicalSize::new(s.width, s.height).to_physical(sf as f64)
             };
 
-            let (min_size, max_size) = i_slint_core::layout::min_max_size_for_layout_constraints(
-                constraints_horizontal,
-                constraints_vertical,
-            );
+            let resizable = window_is_resizable(new_constraints.min, new_constraints.max);
 
-            let resizable = window_is_resizable(min_size, max_size);
-
-            let winit_min_inner = min_size.map(into_size);
+            let winit_min_inner = new_constraints.min.map(into_size);
             winit_window.set_min_inner_size(winit_min_inner);
-            let winit_max_inner = max_size.map(into_size);
+            let winit_max_inner = new_constraints.max.map(into_size);
             winit_window.set_max_inner_size(winit_max_inner);
             winit_window.set_resizable(resizable);
 
@@ -534,9 +526,9 @@ impl WindowAdapterInternal for WinitWindowAdapter {
 
             #[cfg(target_arch = "wasm32")]
             if let Some((
-                LogicalSize { width: min_width, height: min_height, .. },
-                LogicalSize { width: max_width, height: max_height, .. },
-            )) = min_size.zip(max_size)
+                corelib::api::LogicalSize { width: min_width, height: min_height, .. },
+                corelib::api::LogicalSize { width: max_width, height: max_height, .. },
+            )) = new_constraints.min.zip(new_constraints.max)
             {
                 // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
                 let existing_size: winit::dpi::LogicalSize<f32> =
@@ -563,8 +555,8 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                     .and_then(|val_str| val_str.parse().ok())
                     .unwrap_or_default()
                 {
-                    let pref_width = constraints_horizontal.preferred_bounded();
-                    let pref_height = constraints_vertical.preferred_bounded();
+                    let pref_width = new_constraints.preferred.width;
+                    let pref_height = new_constraints.preferred.height;
                     if pref_width > 0 as Coord || pref_height > 0 as Coord {
                         winit_window
                             .set_inner_size(winit::dpi::LogicalSize::new(pref_width, pref_height));
@@ -574,6 +566,12 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         });
     }
 
+    fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        Some(self)
+    }
+}
+
+impl WindowAdapterInternal for WinitWindowAdapter {
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
         let winit_cursor = match cursor {
             MouseCursor::Default => winit::window::CursorIcon::Default,

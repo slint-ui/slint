@@ -1529,8 +1529,6 @@ impl WindowAdapter for QtWindow {
                         component.as_ref().layout_info(Orientation::Vertical).preferred_bounded(),
                     ))
                 }
-
-                self.apply_window_properties(window_item);
             }
 
             let widget_ptr = self.widget_ptr();
@@ -1584,10 +1582,7 @@ impl WindowAdapter for QtWindow {
     fn set_size(&self, size: i_slint_core::api::WindowSize) {
         let logical_size = size.to_logical(self.window().scale_factor());
         let widget_ptr = self.widget_ptr();
-        let sz = qttypes::QSize {
-            width: logical_size.width.round() as _,
-            height: logical_size.height.round() as _,
-        };
+        let sz: qttypes::QSize = into_qsize(logical_size);
         // Qt uses logical units!
         cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
             widget_ptr->resize(sz);
@@ -1611,16 +1606,12 @@ impl WindowAdapter for QtWindow {
         }}
     }
 
-    fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
-        Some(self)
-    }
-}
-
-impl WindowAdapterInternal for QtWindow {
     /// Apply windows property such as title to the QWidget*
-    fn apply_window_properties(&self, window_item: Pin<&items::WindowItem>) {
+    fn update_window_properties(&self, properties: i_slint_core::window::WindowProperties<'_>) {
         let widget_ptr = self.widget_ptr();
-        let title: qttypes::QString = window_item.title().as_str().into();
+        let title: qttypes::QString = properties.title().as_str().into();
+        let Some(window_item) = WindowInner::from_pub(&self.window).window_item() else { return };
+        let window_item = window_item.as_pin_ref();
         let no_frame = window_item.no_frame();
         let always_on_top = window_item.always_on_top();
         let mut size = qttypes::QSize {
@@ -1642,7 +1633,7 @@ impl WindowAdapterInternal for QtWindow {
         }
 
         let background =
-            into_qbrush(window_item.background(), size.width.into(), size.height.into());
+            into_qbrush(properties.background(), size.width.into(), size.height.into());
 
         match (&window_item.icon()).into() {
             &ImageInner::None => (),
@@ -1678,35 +1669,19 @@ impl WindowAdapterInternal for QtWindow {
             pal.setBrush(QPalette::Window, background);
             widget_ptr->setPalette(pal);
         }};
-    }
 
-    /// Set the min/max sizes on the QWidget
-    fn apply_geometry_constraint(
-        &self,
-        constraints_h: i_slint_core::layout::LayoutInfo,
-        constraints_v: i_slint_core::layout::LayoutInfo,
-    ) {
-        let widget_ptr = self.widget_ptr();
+        let constraints = properties.layout_constraints();
 
-        let (min_size, max_size) =
-            i_slint_core::layout::min_max_size_for_layout_constraints(constraints_h, constraints_v);
-
-        let min_size: qttypes::QSize = min_size.map_or_else(
+        let min_size: qttypes::QSize = constraints.min.map_or_else(
             || qttypes::QSize { width: 0, height: 0 }, // (0x0) means unset min size for QWidget
-            |LogicalSize { width, height, .. }| qttypes::QSize {
-                width: width as u32,
-                height: height as u32,
-            },
+            into_qsize,
         );
 
         let widget_size_max: u32 = 16_777_215;
 
-        let max_size: qttypes::QSize = max_size.map_or_else(
+        let max_size: qttypes::QSize = constraints.max.map_or_else(
             || qttypes::QSize { width: widget_size_max, height: widget_size_max },
-            |LogicalSize { width, height, .. }| qttypes::QSize {
-                width: width as u32,
-                height: height as u32,
-            },
+            into_qsize,
         );
 
         cpp! {unsafe [widget_ptr as "QWidget*",  min_size as "QSize", max_size as "QSize"] {
@@ -1715,6 +1690,19 @@ impl WindowAdapterInternal for QtWindow {
         }};
     }
 
+    fn internal(&self, _: i_slint_core::InternalToken) -> Option<&dyn WindowAdapterInternal> {
+        Some(self)
+    }
+}
+
+fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
+    qttypes::QSize {
+        width: logical_size.width.round() as _,
+        height: logical_size.height.round() as _,
+    }
+}
+
+impl WindowAdapterInternal for QtWindow {
     fn register_component(&self) {
         self.tree_structure_changed.replace(true);
     }
