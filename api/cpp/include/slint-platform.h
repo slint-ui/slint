@@ -27,11 +27,11 @@ namespace slint {
 /// Use the types in this namespace when implementing a custom Slint platform.
 ///
 /// Slint comes with built-in support for different windowing systems, called backends. A backend
-/// is a module that implements the `Platform` interface in this namespace, interacts with a windowing system,
-/// and uses one of Slint's renderers to display a scene to the windowing system. A typical Slint application uses
-/// one of the built-in backends. Implement your own `Platform` if you're using Slint in an environment without a
-/// windowing system, such as with microcontrollers, or you're embedding a Slint UI as plugin in other
-/// applications.
+/// is a module that implements the `Platform` interface in this namespace, interacts with a
+/// windowing system, and uses one of Slint's renderers to display a scene to the windowing system.
+/// A typical Slint application uses one of the built-in backends. Implement your own `Platform` if
+/// you're using Slint in an environment without a windowing system, such as with microcontrollers,
+/// or you're embedding a Slint UI as plugin in other applications.
 ///
 /// Examples of custom platform implementation can be found in the Slint repository:
 ///  - https://github.com/slint-ui/slint/tree/master/examples/cpp/platform_native
@@ -64,8 +64,8 @@ private:
     friend class SkiaRenderer;
 };
 
-/// Base class for the layer between a slint::Window and the windowing system specific window type, such as
-/// a Win32 `HWND` handle or a `wayland_surface_t`.
+/// Base class for the layer between a slint::Window and the windowing system specific window type,
+/// such as a Win32 `HWND` handle or a `wayland_surface_t`.
 ///
 /// Re-implement this class to establish the link between the two.
 ///
@@ -195,8 +195,8 @@ public:
 
 /// The platform acts as a factory to create WindowAdapter instances.
 ///
-/// Call slint::platform::set_platform() before creating any other Slint handles. Any subsequently created Slint
-/// windows will use the WindowAdapter provided by the create_window_adapter function.
+/// Call slint::platform::set_platform() before creating any other Slint handles. Any subsequently
+/// created Slint windows will use the WindowAdapter provided by the create_window_adapter function.
 class Platform
 {
 public:
