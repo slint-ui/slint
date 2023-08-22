@@ -24,29 +24,31 @@ typedef struct objc_object NSWindow;
 
 namespace slint {
 
-/// This namespace is used when implementing a custom Platform.
+/// Use the types in this namespace when implementing a custom Slint platform.
 ///
-/// Slint comes with built-in platforms (or backends), and a typical desktop
-/// application using Slint does not need to implement a platform.
-/// Custom platforms are typically implemented for microcontrollers or as
-/// plugins to other applications.
+/// Slint comes with built-in support for different windowing systems, called backends. A backend
+/// is a module that implements the `Platform` interface in this namespace, interacts with a windowing system,
+/// and uses one of Slint's renderers to display a scene to the windowing system. A typical Slint application uses
+/// one of the built-in backends. Implement your own `Platform` if you're using Slint in an environment without a
+/// windowing system, such as with microcontrollers, or you're embedding a Slint UI as plugin in other
+/// applications.
 ///
 /// Examples of custom platform implementation can be found in the Slint repository:
 ///  - https://github.com/slint-ui/slint/tree/master/examples/cpp/platform_native
 ///  - https://github.com/slint-ui/slint/tree/master/examples/cpp/platform_qt
 ///  - https://github.com/slint-ui/slint/blob/master/api/cpp/esp-idf/slint/src/slint-esp.cpp
 ///
-/// The entry point to re-implement a platform is the Platform class. You can
-/// derive from slint::platform::Platform, and use slint::platform::set_platform
+/// The entry point to re-implement a platform is the `Platform` class. Derive
+/// from `slint::platform::Platform`, and call `slint::platform::set_platform`
 /// to set it as the Slint platform.
 ///
-/// Another important class to inherit is the WindowAdapter.
+/// Another important class to subclass is the WindowAdapter.
 namespace platform {
 
 /// Internal interface for a renderer for use with the WindowAdapter.
 ///
-/// This class is not intended to be re-implemented, but one of the provided
-/// ones such as SoftwareRenderer or SkiaRenderer can be used.
+/// This class is not intended to be re-implemented. In places where this class is required, use
+/// of one the existing implementations such as `SoftwareRenderer` or `SkiaRenderer`.
 class AbstractRenderer
 {
 private:
@@ -62,14 +64,14 @@ private:
     friend class SkiaRenderer;
 };
 
-/// Base class for the layer between a slint::Window and the internal window
-/// from the platform.
+/// Base class for the layer between a slint::Window and the windowing system specific window type, such as
+/// a Win32 `HWND` handle or a `wayland_surface_t`.
 ///
-/// This class should be re-implemented to establish the link between the two.
+/// Re-implement this class to establish the link between the two.
 ///
 /// Your WindowAdapter subclass must hold a renderer (either a
-/// SoftwareRenderer or a SkiaRenderer), which you should return from the
-/// renderer method.
+/// SoftwareRenderer or a SkiaRenderer). In the renderer() method, you must return a
+/// reference to it.
 ///
 /// # Example
 /// ```cpp
@@ -95,8 +97,8 @@ private:
 /// }
 /// ```
 ///
-/// A repaint application is typically asynchronous, and you would get a repaint
-/// callback from the event loop or the windowing system.
+/// Rendering is typically asynchronous, and your windowing system or event loop would invoke
+/// a callback when it is time to render.
 /// ```cpp
 /// void MyWindowAdapter::repaint_callback()
 /// {
@@ -145,7 +147,7 @@ public:
     ///
     /// Re-implement this function to forward the call to show/hide the native window
     ///
-    /// When the window become visible, this is a good place to send
+    /// When the window becomes visible, this is a good place to send
     /// slint::Window::dispatch_resize_event and slint::Window::dispatch_scale_factor_change_event
     virtual void set_visible(bool) { }
 
@@ -191,11 +193,10 @@ public:
     }
 };
 
-/// The platform acts like a factory to create a WindowAdapter.
+/// The platform acts as a factory to create WindowAdapter instances.
 ///
-/// slint::platform::set_platform() needs to be called before any other Slint
-/// handle is created. If it is called, it will use the WindowAdapter provided
-/// by the create_window_adapter function.
+/// Call slint::platform::set_platform() before creating any other Slint handles. Any subsequently created Slint
+/// windows will use the WindowAdapter provided by the create_window_adapter function.
 class Platform
 {
 public:
