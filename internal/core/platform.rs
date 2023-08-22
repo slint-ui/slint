@@ -14,7 +14,7 @@ pub use crate::renderer::Renderer;
 pub use crate::software_renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::{thread_local, OnceCell};
-pub use crate::window::WindowAdapter;
+pub use crate::window::{LayoutConstraints, WindowAdapter, WindowProperties};
 use crate::SharedString;
 use alloc::boxed::Box;
 use alloc::rc::Rc;

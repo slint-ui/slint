@@ -21,7 +21,7 @@ use crate::items::{ItemRef, MouseCursor};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, Coord};
+use crate::{Callback, Coord, SharedString};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use core::cell::{Cell, RefCell};
@@ -116,6 +116,13 @@ pub trait WindowAdapter {
     /// Currently, the only public struct that implement renderer is [`SoftwareRenderer`](crate::software_renderer::SoftwareRenderer).
     fn renderer(&self) -> &dyn Renderer;
 
+    /// Re-implement this function to update the properties such as window title or layout constraints.
+    ///
+    /// This function is called before `set_visible(true)`, and will be called again when the properties
+    /// that were queried on the last call are changed. If you do not query any properties, it may not
+    /// be called again.
+    fn update_window_properties(&self, _properties: WindowProperties<'_>) {}
+
     #[doc(hidden)]
     fn internal(&self, _: crate::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         None
@@ -150,20 +157,6 @@ pub trait WindowAdapterInternal {
     /// popup will be rendered within the window itself.
     fn create_popup(&self, _geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
         None
-    }
-
-    /// Request for the given title string to be set to the windowing system for use as window title.
-    // Add API to the Window to query the properties which needs to be applied (title, flags, ...)
-    fn apply_window_properties(&self, _window_item: Pin<&crate::items::WindowItem>) {}
-
-    /// Apply the given horizontal and vertical constraints to the window. This typically involves communication
-    /// minimum/maximum sizes to the windowing system, for example.
-    // TODO: Add API to the window to query the constraints, then merge with apply_window_properties
-    fn apply_geometry_constraint(
-        &self,
-        _constraints_horizontal: crate::layout::LayoutInfo,
-        _constraints_vertical: crate::layout::LayoutInfo,
-    ) {
     }
 
     /// Set the mouse cursor
@@ -218,6 +211,56 @@ pub enum InputMethodRequest {
         /// The position of the text cursor in window coordinates.
         position: crate::api::LogicalPosition,
     },
+}
+
+/// This struct describes layout constraints of a resizable element, such as a window.
+#[non_exhaustive]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+pub struct LayoutConstraints {
+    /// The minimum size.
+    pub min: Option<crate::api::LogicalSize>,
+    /// The maximum size.
+    pub max: Option<crate::api::LogicalSize>,
+    /// The preferred size.
+    pub preferred: crate::api::LogicalSize,
+}
+
+/// This struct contains getters that provide access to properties of the `Window`
+/// element, and is used with [`WindowAdapter::update_window_properties`].
+pub struct WindowProperties<'a>(&'a WindowInner);
+
+impl<'a> WindowProperties<'a> {
+    /// Returns the Window's title
+    pub fn title(&self) -> SharedString {
+        self.0.window_item().map(|w| w.as_pin_ref().title()).unwrap_or_default()
+    }
+
+    /// The background color or brush of the Window
+    pub fn background(&self) -> crate::Brush {
+        self.0
+            .window_item()
+            .map(|w: VRcMapped<ComponentVTable, crate::items::WindowItem>| {
+                w.as_pin_ref().background()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Returns the layout constraints of the window
+    pub fn layout_constraints(&self) -> LayoutConstraints {
+        let component = self.0.component();
+        let component = ComponentRc::borrow_pin(&component);
+        let h = component.as_ref().layout_info(crate::layout::Orientation::Horizontal);
+        let v = component.as_ref().layout_info(crate::layout::Orientation::Vertical);
+        let (min, max) = crate::layout::min_max_size_for_layout_constraints(h, v);
+        LayoutConstraints {
+            min,
+            max,
+            preferred: crate::api::LogicalSize::new(
+                h.preferred_bounded() as f32,
+                v.preferred_bounded() as f32,
+            ),
+        }
+    }
 }
 
 struct WindowPropertiesTracker {
@@ -661,7 +704,6 @@ impl WindowInner {
     /// for example, with the properties known to the windowing system.
     pub fn update_window_properties(&self) {
         let window_adapter = self.window_adapter();
-        let Some(window_adapter) = window_adapter.internal(crate::InternalToken) else { return };
 
         // No `if !dirty { return; }` check here because the backend window may be newly mapped and not up-to-date, so force
         // an evaluation.
@@ -670,15 +712,7 @@ impl WindowInner {
             .project_ref()
             .window_properties_tracker
             .evaluate_as_dependency_root(|| {
-                let component = self.component();
-                let component = ComponentRc::borrow_pin(&component);
-                window_adapter.apply_geometry_constraint(
-                    component.as_ref().layout_info(crate::layout::Orientation::Horizontal),
-                    component.as_ref().layout_info(crate::layout::Orientation::Vertical),
-                );
-                if let Some(window_item) = self.window_item() {
-                    window_adapter.apply_window_properties(window_item.as_pin_ref());
-                }
+                window_adapter.update_window_properties(WindowProperties(self));
             });
     }
 
