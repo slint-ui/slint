@@ -213,20 +213,20 @@ pub enum InputMethodRequest {
     },
 }
 
-/// The constraints on a window
+/// This struct describes layout constraints of a resizable element, such as a window.
 #[non_exhaustive]
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct LayoutConstraints {
-    /// Minimum size of the window.
+    /// The minimum size.
     pub min: Option<crate::api::LogicalSize>,
-    /// Maximum size of the window.
+    /// The maximum size.
     pub max: Option<crate::api::LogicalSize>,
-    /// Preferred size of the window.
+    /// The preferred size.
     pub preferred: crate::api::LogicalSize,
 }
 
-/// This struct contains getter that allow to access the window of the property
-/// This is meant to be used in [`WindowAdapter::update_window_properties`].
+/// This struct contains getters that provide access to properties of the `Window`
+/// element, and is used with [`WindowAdapter::update_window_properties`].
 pub struct WindowProperties<'a>(&'a WindowInner);
 
 impl<'a> WindowProperties<'a> {
