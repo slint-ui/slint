@@ -64,9 +64,10 @@ impl<'a> PrettyPrinter<'a> {
             self.indent()?;
             writeln!(
                 self.writer,
-                "{}: {};",
+                "{}: {};{}",
                 DisplayPropertyRef(p, &ctx),
-                DisplayExpression(&init.expression.borrow(), &ctx)
+                DisplayExpression(&init.expression.borrow(), &ctx),
+                if init.is_constant { " /*const*/" } else { "" }
             )?
         }
         for ssc in &sc.sub_components {
