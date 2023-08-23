@@ -3,6 +3,7 @@
 
 #![cfg(not(target_arch = "wasm32"))]
 
+mod common;
 mod completion;
 mod goto;
 mod lsp_ext;
@@ -15,6 +16,7 @@ mod server_loop;
 mod test;
 mod util;
 
+use common::PreviewApi;
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::{
     DidChangeConfiguration, DidChangeTextDocument, DidOpenTextDocument, Notification,
@@ -205,15 +207,14 @@ fn main_loop(connection: Connection, init_param: InitializeParams) -> Result<(),
         document_cache: RefCell::new(DocumentCache::new(compiler_config)),
         server_notifier,
         init_param,
-        #[cfg(feature = "preview-api")]
-        preview: server_loop::PreviewApi {
+        preview: PreviewApi {
             highlight: Box::new(
-                |_ctx: &Rc<Context>,
-                 path: Option<std::path::PathBuf>,
-                 offset: u32|
+                |_server_notifier: &ServerNotifier,
+                 _path: Option<std::path::PathBuf>,
+                 _offset: u32|
                  -> Result<(), Box<dyn std::error::Error>> {
                     #[cfg(feature = "preview")]
-                    preview::highlight(path, offset);
+                    preview::highlight(_path, _offset);
                     Ok(())
                 },
             ),

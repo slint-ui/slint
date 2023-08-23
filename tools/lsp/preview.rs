@@ -3,6 +3,7 @@
 
 // cSpell: ignore condvar
 
+use crate::common::{PostLoadBehavior, PreviewComponent};
 use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::Notification;
@@ -103,11 +104,6 @@ pub fn quit_ui_event_loop() {
     };
 }
 
-pub enum PostLoadBehavior {
-    ShowAfterLoad,
-    DoNothing,
-}
-
 pub fn load_preview(
     sender: crate::ServerNotifier,
     component: PreviewComponent,
@@ -123,21 +119,6 @@ pub fn load_preview(
         PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
         reload_preview(sender, component, post_load_behavior).await
     });
-}
-
-#[derive(Default, Clone)]
-pub struct PreviewComponent {
-    /// The file name to preview
-    pub path: PathBuf,
-    /// The name of the component within that file.
-    /// If None, then the last component is going to be shown.
-    pub component: Option<String>,
-
-    /// The list of include paths
-    pub include_paths: Vec<std::path::PathBuf>,
-
-    /// The style name for the preview
-    pub style: String,
 }
 
 #[derive(Default)]

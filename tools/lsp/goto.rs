@@ -5,7 +5,7 @@ use crate::util::map_node_and_url;
 
 use std::path::Path;
 
-use super::DocumentCache;
+use crate::server_loop::DocumentCache;
 
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::Expression;
