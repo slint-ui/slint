@@ -56,6 +56,10 @@ libm = ["i-slint-core/libm"]
 ## of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
 log = ["dep:log"]
 
+## Implement the `serde::Serialize` and `serde::Deserialize` for some of the base types
+## such as `SharedString` and `SharedVector`.
+serde = ["i-slint-core/serde"]
+
 ## This feature enables the software renderer to pick up fonts from the operating system for text rendering.
 software-renderer-systemfonts = ["renderer-software", "i-slint-core/software-renderer-systemfonts"]
 
