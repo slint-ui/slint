@@ -3,18 +3,17 @@
 
 // cSpell: ignore descr rfind
 
+use crate::common::PreviewApi;
 use crate::util::{map_node, map_range, map_token};
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 use crate::{completion, goto, semantic_tokens, util};
 
-use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken};
-use i_slint_compiler::typeloader::TypeLoader;
-use i_slint_compiler::typeregister::TypeRegister;
 use i_slint_compiler::CompilerConfiguration;
+use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
+use i_slint_compiler::{typeloader::TypeLoader, typeregister::TypeRegister};
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
     DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, GotoDefinition, HoverRequest,
@@ -70,6 +69,7 @@ fn create_show_preview_command(
     )
 }
 
+/// A cache of loaded documents
 pub struct DocumentCache {
     pub(crate) documents: TypeLoader,
     versions: HashMap<Url, i32>,
@@ -87,22 +87,10 @@ impl DocumentCache {
     }
 }
 
-#[cfg(feature = "preview-api")]
-pub struct PreviewApi {
-    pub highlight: Box<
-        dyn Fn(
-            &Rc<Context>,
-            Option<std::path::PathBuf>,
-            u32,
-        ) -> Result<(), Box<dyn std::error::Error>>,
-    >,
-}
-
 pub struct Context {
     pub document_cache: RefCell<DocumentCache>,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
-    #[cfg(feature = "preview-api")]
     pub preview: PreviewApi,
 }
 
@@ -347,14 +335,14 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
                 if let Some(range) = map_node(&p) {
-                    (ctx.preview.highlight)(&ctx, uri.to_file_path().ok(), _off)?;
+                    (ctx.preview.highlight)(&ctx.server_notifier, uri.to_file_path().ok(), _off)?;
                     return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
                 }
             }
 
             if let Some(value) = find_element_id_for_highlight(&tk, &p) {
                 #[cfg(feature = "preview-api")]
-                (ctx.preview.highlight)(&ctx, None, 0)?;
+                (ctx.preview.highlight)(&ctx.server_notifier, None, 0)?;
                 return Ok(Some(
                     value
                         .into_iter()
@@ -367,7 +355,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             }
         }
         #[cfg(feature = "preview-api")]
-        (ctx.preview.highlight)(&ctx, None, 0)?;
+        (ctx.preview.highlight)(&ctx.server_notifier, None, 0)?;
         Ok(None)
     });
     rh.register::<Rename, _>(|params, ctx| async move {
@@ -426,13 +414,13 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
 
     preview::load_preview(
         connection.clone(),
-        preview::PreviewComponent {
+        crate::common::PreviewComponent {
             path: path_canon,
             component,
             include_paths: config.include_paths.clone(),
             style: config.style.clone().unwrap_or_default(),
         },
-        preview::PostLoadBehavior::ShowAfterLoad,
+        crate::common::PostLoadBehavior::ShowAfterLoad,
     );
     Ok(())
 }
@@ -705,13 +693,13 @@ fn maybe_goto_preview(
                 i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
             preview::load_preview(
                 sender,
-                preview::PreviewComponent {
+                crate::common::PreviewComponent {
                     path: token.source_file.path().into(),
                     component: Some(component_name),
                     include_paths: compiler_config.include_paths.clone(),
                     style: compiler_config.style.clone().unwrap_or_default(),
                 },
-                preview::PostLoadBehavior::ShowAfterLoad,
+                crate::common::PostLoadBehavior::ShowAfterLoad,
             );
             return Some(());
         }

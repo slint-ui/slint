@@ -3,6 +3,7 @@
 
 #![cfg(target_arch = "wasm32")]
 
+mod common;
 mod completion;
 mod goto;
 mod lsp_ext;
@@ -11,6 +12,7 @@ mod semantic_tokens;
 mod server_loop;
 mod util;
 
+use common::PreviewApi;
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
 use serde::Serialize;
@@ -190,10 +192,12 @@ pub fn create(
             init_param,
             server_notifier: ServerNotifier { send_notification, send_request },
             #[cfg(feature = "preview-api")]
-            preview: server_loop::PreviewApi {
+            preview: PreviewApi {
                 highlight: Box::new(
                     #[allow(unused_variables)]
-                    move |ctx: &Rc<Context>, path: Option<std::path::PathBuf>, offset: u32| {
+                    move |_server_notifier: &ServerNotifier,
+                          path: Option<std::path::PathBuf>,
+                          offset: u32| {
                         _highlight_in_preview
                             .call2(
                                 &JsValue::UNDEFINED,

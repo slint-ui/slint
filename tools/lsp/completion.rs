@@ -3,8 +3,8 @@
 
 // cSpell: ignore rfind
 
-use super::util::{lookup_current_element_type, map_position};
-use super::DocumentCache;
+use crate::server_loop::DocumentCache;
+use crate::util::{lookup_current_element_type, map_position};
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;

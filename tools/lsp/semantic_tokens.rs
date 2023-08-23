@@ -8,7 +8,7 @@ use lsp_types::{
     SemanticToken, SemanticTokenModifier, SemanticTokenType, SemanticTokens, SemanticTokensResult,
 };
 
-use crate::DocumentCache;
+use crate::server_loop::DocumentCache;
 
 /// Give all the used types/modifier a number in an indexed array
 macro_rules! declare_legend {
