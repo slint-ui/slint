@@ -91,9 +91,10 @@ fn embed_image(
                 #[cfg(feature = "software-renderer")]
                 if _embed_files == EmbedResourcesKind::EmbedTextures {
                     match load_image(_file, _scale_factor) {
-                        Ok((img, original_size)) => {
+                        Ok((img, source_format, original_size)) => {
                             kind = EmbeddedResourcesKind::TextureData(generate_texture(
                                 img,
+                                source_format,
                                 original_size,
                             ))
                         }
@@ -145,7 +146,11 @@ impl Pixel for image::Rgba<u8> {
 }
 
 #[cfg(feature = "software-renderer")]
-pub fn generate_texture(image: image::RgbaImage, original_size: Size) -> Texture {
+fn generate_texture(
+    image: image::RgbaImage,
+    source_format: SourceFormat,
+    original_size: Size,
+) -> Texture {
     // Analyze each pixels
     let mut top = 0;
     let is_line_transparent = |y| {
@@ -199,9 +204,18 @@ pub fn generate_texture(image: image::RgbaImage, original_size: Size) -> Texture
             if alpha != 255 {
                 is_opaque = false;
             }
+            if alpha == 0 {
+                continue;
+            }
+            let get_pixel = || match source_format {
+                SourceFormat::RgbaPremultiplied => <[u8; 3]>::try_from(&p.0[0..3])
+                    .unwrap()
+                    .map(|v| (v as u16 * 255 / alpha as u16) as u8),
+                SourceFormat::Rgba => p.0[0..3].try_into().unwrap(),
+            };
             match color {
                 ColorState::Unset => {
-                    color = ColorState::Rgb(p.0[0..3].try_into().unwrap());
+                    color = ColorState::Rgb(get_pixel());
                 }
                 ColorState::Different => {
                     if !is_opaque {
@@ -216,7 +230,8 @@ pub fn generate_texture(image: image::RgbaImage, original_size: Size) -> Texture
                             t - u
                         }
                     };
-                    if abs_diff(a, p[0]) > 2 || abs_diff(b, p[1]) > 2 || abs_diff(c, p[2]) > 2 {
+                    let px = get_pixel();
+                    if abs_diff(a, px[0]) > 2 || abs_diff(b, px[1]) > 2 || abs_diff(c, px[2]) > 2 {
                         color = ColorState::Different
                     }
                 }
@@ -237,22 +252,28 @@ pub fn generate_texture(image: image::RgbaImage, original_size: Size) -> Texture
         total_size: Size { width: image.width(), height: image.height() },
         original_size,
         rect,
-        data: convert_image(image, format, rect),
+        data: convert_image(image, source_format, format, rect),
         format,
     }
 }
 
 #[cfg(feature = "software-renderer")]
-fn convert_image(image: image::RgbaImage, format: PixelFormat, rect: Rect) -> Vec<u8> {
+fn convert_image(
+    image: image::RgbaImage,
+    source_format: SourceFormat,
+    format: PixelFormat,
+    rect: Rect,
+) -> Vec<u8> {
     let i = image::SubImage::new(&image, rect.x() as _, rect.y() as _, rect.width(), rect.height());
-    match format {
-        PixelFormat::Rgb => {
+    match (source_format, format) {
+        (_, PixelFormat::Rgb) => {
             i.pixels().flat_map(|(_, _, p)| IntoIterator::into_iter(p.0).take(3)).collect()
         }
-        PixelFormat::Rgba => {
+        (SourceFormat::RgbaPremultiplied, PixelFormat::RgbaPremultiplied)
+        | (SourceFormat::Rgba, PixelFormat::Rgba) => {
             i.pixels().flat_map(|(_, _, p)| IntoIterator::into_iter(p.0)).collect()
         }
-        PixelFormat::RgbaPremultiplied => i
+        (SourceFormat::Rgba, PixelFormat::RgbaPremultiplied) => i
             .pixels()
             .flat_map(|(_, _, p)| {
                 let a = p.0[3] as u32;
@@ -262,15 +283,30 @@ fn convert_image(image: image::RgbaImage, format: PixelFormat, rect: Rect) -> Ve
                     .chain(std::iter::once(a as u8))
             })
             .collect(),
-        PixelFormat::AlphaMap(_) => i.pixels().map(|(_, _, p)| p[3]).collect(),
+        (SourceFormat::RgbaPremultiplied, PixelFormat::Rgba) => i
+            .pixels()
+            .flat_map(|(_, _, p)| {
+                let a = p.0[3] as u32;
+                IntoIterator::into_iter(p.0)
+                    .take(3)
+                    .map(move |x| (x as u32 * 255 / a) as u8)
+                    .chain(std::iter::once(a as u8))
+            })
+            .collect(),
+        (_, PixelFormat::AlphaMap(_)) => i.pixels().map(|(_, _, p)| p[3]).collect(),
     }
+}
+
+enum SourceFormat {
+    RgbaPremultiplied,
+    Rgba,
 }
 
 #[cfg(feature = "software-renderer")]
 fn load_image(
     file: crate::fileaccess::VirtualFile,
     scale_factor: f64,
-) -> image::ImageResult<(image::RgbaImage, Size)> {
+) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
     use resvg::{tiny_skia, usvg};
     use std::ffi::OsStr;
     use usvg::TreeParsing;
@@ -316,6 +352,7 @@ fn load_image(
             .map(|img| {
                 (
                     img,
+                    SourceFormat::RgbaPremultiplied,
                     Size { width: original_size.width() as _, height: original_size.height() as _ },
                 )
             });
@@ -336,6 +373,10 @@ fn load_image(
             );
         }
 
-        (image.to_rgba8(), Size { width: original_width, height: original_height })
+        (
+            image.to_rgba8(),
+            SourceFormat::Rgba,
+            Size { width: original_width, height: original_height },
+        )
     })
 }
