@@ -26,7 +26,7 @@ pub fn loaded_document_cache(
     let dummy_absolute_path =
         if cfg!(target_family = "windows") { "c://foo/bar.slint" } else { "/foo/bar.slint" };
     let url = Url::from_file_path(dummy_absolute_path).unwrap();
-    let diag = spin_on::spin_on(reload_document_impl(content, url.clone(), 42, &mut dc));
+    let diag = spin_on::spin_on(reload_document_impl(None, content, url.clone(), 42, &mut dc));
     (dc, url, diag)
 }
 

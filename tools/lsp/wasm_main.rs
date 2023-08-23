@@ -41,6 +41,48 @@ pub mod wasm_prelude {
     }
 }
 
+struct Previewer {
+    highlight_in_preview: Function,
+}
+
+impl PreviewApi for Previewer {
+    fn set_design_mode(&self, _enable: bool) {
+        // do nothing!
+    }
+
+    fn design_mode(&self) -> bool {
+        // do nothing!
+        false
+    }
+
+    fn set_contents(&self, _path: &std::path::Path, _contents: &str) {
+        // do nothing!
+    }
+
+    fn load_preview(
+        &self,
+        _component: common::PreviewComponent,
+        _behavior: common::PostLoadBehavior,
+    ) {
+        // do nothing!
+    }
+
+    fn config_changed(&self, _config: &CompilerConfiguration) {
+        // do nothing!
+    }
+
+    fn highlight(
+        &self,
+        path: Option<std::path::PathBuf>,
+        offset: u32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self.highlight_in_preview
+            .call2(&JsValue::UNDEFINED, &to_value(&path.unwrap_or_default())?, &offset.into())
+            .map_err(|x| std::io::Error::new(ErrorKind::Other, format!("{x:?}")))?;
+        Ok(())
+    }
+}
+
 #[derive(Clone)]
 pub struct ServerNotifier {
     send_notification: Function,
@@ -180,7 +222,7 @@ pub fn create(
 
     let document_cache = RefCell::new(DocumentCache::new(compiler_config));
     let send_request = Function::from(send_request.clone());
-    let _highlight_in_preview = Function::from(highlight_in_preview.clone());
+    let highlight_in_preview = Function::from(highlight_in_preview.clone());
     let reentry_guard = Rc::new(RefCell::new(ReentryGuard::default()));
 
     let mut rh = RequestHandler::default();
@@ -191,24 +233,7 @@ pub fn create(
             document_cache,
             init_param,
             server_notifier: ServerNotifier { send_notification, send_request },
-            #[cfg(feature = "preview-api")]
-            preview: PreviewApi {
-                highlight: Box::new(
-                    #[allow(unused_variables)]
-                    move |_server_notifier: &ServerNotifier,
-                          path: Option<std::path::PathBuf>,
-                          offset: u32| {
-                        _highlight_in_preview
-                            .call2(
-                                &JsValue::UNDEFINED,
-                                &to_value(&path.unwrap_or_default())?,
-                                &offset.into(),
-                            )
-                            .map_err(|x| std::io::Error::new(ErrorKind::Other, format!("{x:?}")))?;
-                        Ok(())
-                    },
-                ),
-            },
+            preview: Box::new(Previewer { highlight_in_preview }),
         }),
         reentry_guard,
         rh: Rc::new(rh),
@@ -230,7 +255,7 @@ impl SlintServer {
             let _lock = ReentryGuard::lock(guard).await;
             let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
             server_loop::reload_document(
-                &ctx.server_notifier,
+                &ctx,
                 content,
                 uri.clone(),
                 version,

@@ -3,18 +3,22 @@
 
 //! Data structures common between LSP and previewer
 
-use std::path::PathBuf;
+use i_slint_compiler::CompilerConfiguration;
+use std::path::{Path, PathBuf};
 
 /// API used by the LSP to talk to the Preview. The other direction uses the
 /// ServerNotifier
-pub struct PreviewApi {
-    pub highlight: Box<
-        dyn Fn(
-            &crate::ServerNotifier,
-            Option<PathBuf>,
-            u32,
-        ) -> Result<(), Box<dyn std::error::Error>>,
-    >,
+pub trait PreviewApi {
+    fn set_design_mode(&self, enable: bool);
+    fn design_mode(&self) -> bool;
+    fn set_contents(&self, path: &Path, contents: &str);
+    fn load_preview(&self, component: PreviewComponent, behavior: PostLoadBehavior);
+    fn config_changed(&self, config: &CompilerConfiguration);
+    fn highlight(
+        &self,
+        path: Option<PathBuf>,
+        offset: u32,
+    ) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 /// The Component to preview
