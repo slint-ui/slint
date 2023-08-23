@@ -91,7 +91,7 @@ pub struct Context {
     pub document_cache: RefCell<DocumentCache>,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
-    pub preview: PreviewApi,
+    pub preview: Box<dyn PreviewApi>,
 }
 
 #[derive(Default)]
@@ -202,9 +202,9 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             #[cfg(feature = "preview")]
             if token.0.kind() == SyntaxKind::Comment {
                 maybe_goto_preview(
+                    &ctx,
                     token.0,
                     token.1,
-                    ctx.server_notifier.clone(),
                     &document_cache.documents.compiler_config,
                 );
                 return None;
@@ -330,19 +330,17 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             token_descr(document_cache, &uri, &_params.text_document_position_params.position)
         {
             let p = tk.parent();
-            #[cfg(feature = "preview-api")]
             if p.kind() == SyntaxKind::QualifiedName
                 && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
             {
                 if let Some(range) = map_node(&p) {
-                    (ctx.preview.highlight)(&ctx.server_notifier, uri.to_file_path().ok(), _off)?;
+                    ctx.preview.highlight(uri.to_file_path().ok(), _off)?;
                     return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
                 }
             }
 
             if let Some(value) = find_element_id_for_highlight(&tk, &p) {
-                #[cfg(feature = "preview-api")]
-                (ctx.preview.highlight)(&ctx.server_notifier, None, 0)?;
+                ctx.preview.highlight(None, 0)?;
                 return Ok(Some(
                     value
                         .into_iter()
@@ -354,8 +352,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 ));
             }
         }
-        #[cfg(feature = "preview-api")]
-        (ctx.preview.highlight)(&ctx.server_notifier, None, 0)?;
+        ctx.preview.highlight(None, 0)?;
         Ok(None)
     });
     rh.register::<Rename, _>(|params, ctx| async move {
@@ -397,9 +394,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<(), Error> {
     let document_cache = &mut ctx.document_cache.borrow_mut();
     let config = &document_cache.documents.compiler_config;
-    let connection = &ctx.server_notifier;
 
-    use crate::preview;
     let e = || "InvalidParameter";
 
     let url = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
@@ -412,8 +407,7 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
     let path = url.to_file_path().unwrap_or_default();
     let path_canon = dunce::canonicalize(&path).unwrap_or(path);
 
-    preview::load_preview(
-        connection.clone(),
+    ctx.preview.load_preview(
         crate::common::PreviewComponent {
             path: path_canon,
             component,
@@ -427,9 +421,6 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
 
 #[cfg(feature = "preview")]
 pub fn set_design_mode(params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<(), Error> {
-    let connection = &ctx.server_notifier;
-
-    use crate::preview;
     let e = || "InvalidParameter";
     let enable = if let serde_json::Value::Bool(b) = params.get(0).ok_or_else(e)? {
         b
@@ -437,16 +428,13 @@ pub fn set_design_mode(params: &[serde_json::Value], ctx: &Rc<Context>) -> Resul
         return Err(e().into());
     };
 
-    preview::set_design_mode(connection.clone(), *enable);
+    ctx.preview.set_design_mode(*enable);
     Ok(())
 }
 
 #[cfg(feature = "preview")]
 pub fn toggle_design_mode(_params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<(), Error> {
-    let connection = &ctx.server_notifier;
-
-    use crate::preview;
-    preview::set_design_mode(connection.clone(), !preview::design_mode());
+    ctx.preview.set_design_mode(!ctx.preview.design_mode());
     Ok(())
 }
 
@@ -667,12 +655,11 @@ pub async fn remove_binding_command(
 /// Workaround for editor that do not support code action: using the goto definition on a comment
 /// that says "preview" will show the preview.
 fn maybe_goto_preview(
+    ctx: &Rc<Context>,
     token: SyntaxToken,
     offset: u32,
-    sender: crate::ServerNotifier,
     compiler_config: &CompilerConfiguration,
 ) -> Option<()> {
-    use crate::preview;
     let text = token.text();
     let offset = offset.checked_sub(token.text_range().start().into())? as usize;
     if offset > text.len() || offset == 0 {
@@ -691,8 +678,7 @@ fn maybe_goto_preview(
         if let Some(component) = syntax_nodes::Component::new(node.clone()) {
             let component_name =
                 i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
-            preview::load_preview(
-                sender,
+            ctx.preview.load_preview(
                 crate::common::PreviewComponent {
                     path: token.source_file.path().into(),
                     component: Some(component_name),
@@ -708,6 +694,7 @@ fn maybe_goto_preview(
 }
 
 pub(crate) async fn reload_document_impl(
+    ctx: Option<&Rc<Context>>,
     mut content: String,
     uri: lsp_types::Url,
     version: i32,
@@ -725,8 +712,9 @@ pub(crate) async fn reload_document_impl(
     document_cache.versions.insert(uri.clone(), version);
 
     let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
-    #[cfg(feature = "preview")]
-    crate::preview::set_contents(&path_canon, content.clone());
+    if let Some(ctx) = ctx {
+        ctx.preview.set_contents(&path_canon, &content);
+    }
     let mut diag = BuildDiagnostics::default();
     document_cache.documents.load_file(&path_canon, &path, content, false, &mut diag).await;
 
@@ -752,16 +740,16 @@ pub(crate) async fn reload_document_impl(
 }
 
 pub async fn reload_document(
-    connection: &crate::ServerNotifier,
+    ctx: &Rc<Context>,
     content: String,
     uri: lsp_types::Url,
     version: i32,
     document_cache: &mut DocumentCache,
 ) -> Result<(), Error> {
-    let lsp_diags = reload_document_impl(content, uri, version, document_cache).await;
+    let lsp_diags = reload_document_impl(Some(ctx), content, uri, version, document_cache).await;
 
     for (uri, diagnostics) in lsp_diags {
-        connection.send_notification(
+        ctx.server_notifier.send_notification(
             "textDocument/publishDiagnostics".into(),
             PublishDiagnosticsParams { uri, diagnostics, version: None },
         )?;
@@ -1168,8 +1156,7 @@ pub async fn load_configuration(ctx: &Context) -> Result<(), Error> {
     let mut diag = BuildDiagnostics::default();
     document_cache.documents.import_component("std-widgets.slint", "StyleMetrics", &mut diag).await;
 
-    #[cfg(feature = "preview")]
-    crate::preview::config_changed(&document_cache.documents.compiler_config);
+    ctx.preview.config_changed(&document_cache.documents.compiler_config);
 
     Ok(())
 }
