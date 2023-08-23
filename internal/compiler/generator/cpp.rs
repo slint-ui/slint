@@ -569,7 +569,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                 let data = data.iter().map(ToString::to_string).join(", ");
                 let data_name = format!("slint_embedded_resource_{}_data", er.id);
                 file.declarations.push(Declaration::Var(Var {
-                    ty: "inline uint8_t".into(),
+                    ty: "inline const uint8_t".into(),
                     name: data_name.clone(),
                     array_size: Some(count),
                     init: Some(format!("{{ {data} }}")),
