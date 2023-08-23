@@ -67,24 +67,6 @@ impl ServerNotifier {
             })
         })
     }
-
-    pub async fn progress_reporter(
-        &self,
-        token: lsp_types::ProgressToken,
-        title: String,
-        message: Option<String>,
-        percentage: Option<u32>,
-        cancellable: Option<bool>,
-    ) -> Result<server_loop::ProgressReporter, Error> {
-        server_loop::ProgressReporter::new(
-            self.clone(),
-            token,
-            title,
-            message,
-            percentage,
-            cancellable,
-        )
-    }
 }
 
 impl RequestHandler {
