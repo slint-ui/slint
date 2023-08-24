@@ -66,11 +66,11 @@ struct WindowProperties
     /// The return value of WindowProperties::layout_constraints()
     struct LayoutConstraints
     {
-        /// The minimum size, if any
+        /// The minimum size, if any.
         std::optional<LogicalSize> min;
-        /// The maximum size, if any
+        /// The maximum size, if any.
         std::optional<LogicalSize> max;
-        /// The preferred size
+        /// The preferred size.
         LogicalSize preferred;
     };
     LayoutConstraints layout_constraints() const
@@ -211,6 +211,11 @@ public:
     /// Returns the actual physical size of the window
     virtual slint::PhysicalSize physical_size() const = 0;
 
+    /// Re-implement this function to update the properties such as window title or layout constraints.
+    ///
+    /// This function is called before `set_visible(true)`, and will be called again when the properties
+    /// that were queried on the last call are changed. If you do not query any properties, it may not
+    /// be called again.
     virtual void update_window_properties(const WindowProperties &) { }
 
     /// Re-implement this function to provide a reference to the renderer for use with the window
