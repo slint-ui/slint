@@ -36,3 +36,4 @@
 
    src/advanced/debugging_techniques.md
    src/advanced/style.md
+   src/advanced/backends.md
