@@ -493,6 +493,12 @@ impl Window {
                     .resize(size.to_physical(self.scale_factor()))
                     .unwrap()
             }
+            crate::platform::WindowEvent::CloseRequested => {
+                if self.0.request_close() {
+                    self.hide().unwrap();
+                }
+            }
+            crate::platform::WindowEvent::WindowActiveChanged(bool) => self.0.set_active(bool),
         }
     }
 

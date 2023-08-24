@@ -582,26 +582,6 @@ impl WindowInner {
         }
     }
 
-    /// Sets the focus on the window to true or false, depending on the have_focus argument.
-    /// This results in WindowFocusReceived and WindowFocusLost events.
-    pub fn set_focus(&self, have_focus: bool) {
-        let event = if have_focus {
-            crate::input::FocusEvent::WindowReceivedFocus
-        } else {
-            crate::input::FocusEvent::WindowLostFocus
-        };
-
-        if let Some(focus_item) = self.focus_item.borrow().upgrade() {
-            focus_item.borrow().as_ref().focus_event(&event, &self.window_adapter(), &focus_item);
-        }
-
-        // If we lost focus due to for example a global shortcut, then when we regain focus
-        // should not assume that the modifiers are in the same state.
-        if !have_focus {
-            self.modifiers.take();
-        }
-    }
-
     /// Take the focus_item out of this Window
     ///
     /// This sends the FocusOut event!
@@ -690,8 +670,26 @@ impl WindowInner {
     /// Marks the window to be the active window. This typically coincides with the keyboard
     /// focus. One exception though is when a popup is shown, in which case the window may
     /// remain active but temporarily loose focus to the popup.
-    pub fn set_active(&self, active: bool) {
-        self.pinned_fields.as_ref().project_ref().active.set(active);
+    ///
+    /// This results in WindowFocusReceived and WindowFocusLost events.
+    pub fn set_active(&self, have_focus: bool) {
+        self.pinned_fields.as_ref().project_ref().active.set(have_focus);
+
+        let event = if have_focus {
+            crate::input::FocusEvent::WindowReceivedFocus
+        } else {
+            crate::input::FocusEvent::WindowLostFocus
+        };
+
+        if let Some(focus_item) = self.focus_item.borrow().upgrade() {
+            focus_item.borrow().as_ref().focus_event(&event, &self.window_adapter(), &focus_item);
+        }
+
+        // If we lost focus due to for example a global shortcut, then when we regain focus
+        // should not assume that the modifiers are in the same state.
+        if !have_focus {
+            self.modifiers.take();
+        }
     }
 
     /// Returns true of the window is the active window. That typically implies having the
