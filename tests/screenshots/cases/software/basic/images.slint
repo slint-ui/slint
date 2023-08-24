@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+import { Slider } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: lightblue;
+
+    Image {
+        source: @image-url("builtin:/common/madewithslint-logo-light.svg");
+        width: 48%;
+        height: 49%;
+    }
+    Image {
+        x: -5.5px; y: -2px;
+        source: @image-url("../../../../../logo/slint-logo-small-light-128x128.png");
+        width: 15.4px;
+        height: 40px;
+        opacity: 0.3;
+        image-fit: cover;
+    }
+    Image {
+        x: 49px; y: 0;
+        source: @image-url("../../../../../examples/printerdemo/ui/images/ink.svg");
+        width: 25px;
+        height: 40px;
+        colorize: #91b6;
+        image-fit: contain;
+    }
+}
