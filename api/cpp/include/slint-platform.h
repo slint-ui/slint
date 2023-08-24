@@ -86,8 +86,6 @@ private:
 ///     slint::platform::AbstractRenderer &renderer() override { return m_renderer; }
 ///     void set_visible(bool v) override {
 ///         if (v) {
-///             window().dispatch_resize_event(slint::LogicalSize(
-///                 { float(m_native_window.width), float(m_native_window.height) }));
 ///             m_native_window.show();
 ///         } else {
 ///             m_native_window.hide();
@@ -148,8 +146,8 @@ public:
     ///
     /// Re-implement this function to forward the call to show/hide the native window
     ///
-    /// When the window becomes visible, this is a good place to send
-    /// slint::Window::dispatch_resize_event and slint::Window::dispatch_scale_factor_change_event
+    /// When the window becomes visible, this is a good place to send the first
+    /// slint::Window::dispatch_scale_factor_change_event
     virtual void set_visible(bool) { }
 
     /// This function is called when Slint detects that the window need to be repainted.
