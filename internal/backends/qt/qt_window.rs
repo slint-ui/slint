@@ -205,7 +205,7 @@ cpp! {{
             if (event->type() == QEvent::ActivationChange) {
                 bool active = isActiveWindow();
                 rust!(Slint_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"] {
-                    WindowInner::from_pub(&rust_window.window).set_active(active)
+                    rust_window.window.dispatch_event(WindowEvent::WindowActiveChanged(active));
                 });
             } else if (event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange) {
                 bool dark_color_scheme = qApp->palette().color(QPalette::Window).valueF() < 0.5;
@@ -219,14 +219,10 @@ cpp! {{
         }
 
         void closeEvent(QCloseEvent *event) override {
-            bool accepted = rust!(Slint_requestClose [rust_window: &QtWindow as "void*"] -> bool as "bool" {
-                return WindowInner::from_pub(&rust_window.window).request_close();
+            rust!(Slint_requestClose [rust_window: &QtWindow as "void*"] {
+                rust_window.window.dispatch_event(WindowEvent::CloseRequested);
             });
-            if (accepted) {
-                event->accept();
-            } else {
-                event->ignore();
-            }
+            event->ignore();
         }
 
         QSize sizeHint() const override {
