@@ -872,7 +872,7 @@ impl ComponentInstance {
             .map_err(|()| GetPropertyError::NoSuchProperty)
     }
 
-    /// Set the value for a public property of this component
+    /// Set the value for a public property of this component.
     pub fn set_property(&self, name: &str, value: Value) -> Result<(), SetPropertyError> {
         let name = normalize_identifier(name);
         generativity::make_guard!(guard);
@@ -1188,13 +1188,17 @@ pub enum GetPropertyError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
 pub enum SetPropertyError {
-    /// There is no property with the given name
+    /// There is no property with the given name.
     #[error("no such property")]
     NoSuchProperty,
-    /// The property exist but does not have a type matching the dynamic value
+    /// The property exists but does not have a type matching the dynamic value.
+    ///
+    /// This happens for example when assigning a source struct value to a target
+    /// struct property, where the source doesn't have all the fields the target struct
+    /// requires.
     #[error("wrong type")]
     WrongType,
-    /// Attempt to set an output property
+    /// Attempt to set an output property.
     #[error("access denied")]
     AccessDenied,
 }
