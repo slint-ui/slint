@@ -11,6 +11,8 @@ mod properties;
 mod semantic_tokens;
 mod server_loop;
 mod util;
+#[cfg(feature = "preview")]
+mod wasm_preview;
 
 use common::PreviewApi;
 use i_slint_compiler::CompilerConfiguration;
