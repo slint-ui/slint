@@ -198,19 +198,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             &params.text_document_position_params.text_document.uri,
             &params.text_document_position_params.position,
         )
-        .and_then(|token| {
-            #[cfg(feature = "preview")]
-            if token.0.kind() == SyntaxKind::Comment {
-                maybe_goto_preview(
-                    &ctx,
-                    token.0,
-                    token.1,
-                    &document_cache.documents.compiler_config,
-                );
-                return None;
-            }
-            goto::goto_definition(document_cache, token.0)
-        });
+        .and_then(|token| goto::goto_definition(document_cache, token.0));
         Ok(result)
     });
     rh.register::<Completion, _>(|params, ctx| async move {
@@ -649,48 +637,6 @@ pub async fn remove_binding_command(
     }
 
     Ok(serde_json::to_value(()).expect("Failed to serialize ()!"))
-}
-
-#[cfg(feature = "preview")]
-/// Workaround for editor that do not support code action: using the goto definition on a comment
-/// that says "preview" will show the preview.
-fn maybe_goto_preview(
-    ctx: &Rc<Context>,
-    token: SyntaxToken,
-    offset: u32,
-    compiler_config: &CompilerConfiguration,
-) -> Option<()> {
-    let text = token.text();
-    let offset = offset.checked_sub(token.text_range().start().into())? as usize;
-    if offset > text.len() || offset == 0 {
-        return None;
-    }
-    let begin = text[..offset].rfind(|x: char| !x.is_ascii_alphanumeric())? + 1;
-    let text = &text.as_bytes()[begin..];
-    let rest = text.strip_prefix(b"preview").or_else(|| text.strip_prefix(b"PREVIEW"))?;
-    if rest.first().map_or(true, |x| x.is_ascii_alphanumeric()) {
-        return None;
-    }
-
-    // Ok, we were hovering on PREVIEW
-    let mut node = token.parent();
-    loop {
-        if let Some(component) = syntax_nodes::Component::new(node.clone()) {
-            let component_name =
-                i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
-            ctx.preview.load_preview(
-                crate::common::PreviewComponent {
-                    path: token.source_file.path().into(),
-                    component: Some(component_name),
-                    include_paths: compiler_config.include_paths.clone(),
-                    style: compiler_config.style.clone().unwrap_or_default(),
-                },
-                crate::common::PostLoadBehavior::ShowAfterLoad,
-            );
-            return Some(());
-        }
-        node = node.parent()?;
-    }
 }
 
 pub(crate) async fn reload_document_impl(
