@@ -67,7 +67,7 @@ struct WindowProperties
 
     /// This struct describes the layout constraints of a window.
     ///
-    /// It is return value of WindowProperties::layout_constraints()
+    /// It is the return value of WindowProperties::layout_constraints().
     struct LayoutConstraints
     {
         /// This represents the minimum size the window can be. If this is set, the window should
