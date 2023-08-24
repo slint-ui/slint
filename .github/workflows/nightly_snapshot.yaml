@@ -267,7 +267,8 @@ jobs:
           path: slintpad
       - uses: actions/download-artifact@v3
         with:
-          name: wasm
+          name: wasm_lsp
+          path: tools/lsp/pkg
       - uses: actions/download-artifact@v3
         with:
           name: wasm_demo
