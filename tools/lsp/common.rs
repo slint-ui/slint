@@ -3,7 +3,6 @@
 
 //! Data structures common between LSP and previewer
 
-use i_slint_compiler::CompilerConfiguration;
 use std::path::{Path, PathBuf};
 
 /// API used by the LSP to talk to the Preview. The other direction uses the
@@ -13,7 +12,7 @@ pub trait PreviewApi {
     fn design_mode(&self) -> bool;
     fn set_contents(&self, path: &Path, contents: &str);
     fn load_preview(&self, component: PreviewComponent, behavior: PostLoadBehavior);
-    fn config_changed(&self, config: &CompilerConfiguration);
+    fn config_changed(&self, style: &str, include_paths: &[PathBuf]);
     fn highlight(
         &self,
         path: Option<PathBuf>,

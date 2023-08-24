@@ -20,6 +20,7 @@ pub use server_loop::{Context, DocumentCache, Error, RequestHandler};
 use std::cell::RefCell;
 use std::future::Future;
 use std::io::ErrorKind;
+use std::path::PathBuf;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
@@ -67,7 +68,7 @@ impl PreviewApi for Previewer {
         // do nothing!
     }
 
-    fn config_changed(&self, _config: &CompilerConfiguration) {
+    fn config_changed(&self, _style: &str, _include_paths: &[PathBuf]) {
         // do nothing!
     }
 

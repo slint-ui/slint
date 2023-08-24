@@ -5,7 +5,6 @@
 
 use crate::common::{PostLoadBehavior, PreviewComponent};
 use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
-use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::Notification;
 use once_cell::sync::Lazy;
 use slint_interpreter::ComponentHandle;
@@ -147,13 +146,13 @@ pub fn set_contents(path: &Path, content: String) {
     }
 }
 
-pub fn config_changed(config: &CompilerConfiguration) {
+pub fn config_changed(style: &str, include_paths: &[PathBuf]) {
     if let Some(cache) = CONTENT_CACHE.get() {
         let mut cache = cache.lock().unwrap();
-        let style = config.style.clone().unwrap_or_default();
-        if cache.current.style != style || cache.current.include_paths != config.include_paths {
+        let style = style.to_string();
+        if cache.current.style != style || cache.current.include_paths != include_paths {
             cache.current.style = style;
-            cache.current.include_paths = config.include_paths.clone();
+            cache.current.include_paths = include_paths.to_vec();
             let current = cache.current.clone();
             let sender = cache.sender.clone();
             drop(cache);

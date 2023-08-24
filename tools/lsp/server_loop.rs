@@ -1156,7 +1156,9 @@ pub async fn load_configuration(ctx: &Context) -> Result<(), Error> {
     let mut diag = BuildDiagnostics::default();
     document_cache.documents.import_component("std-widgets.slint", "StyleMetrics", &mut diag).await;
 
-    ctx.preview.config_changed(&document_cache.documents.compiler_config);
+    let cc = &document_cache.documents.compiler_config;
+    let empty_string = String::new();
+    ctx.preview.config_changed(&cc.style.as_ref().unwrap_or(&empty_string), &cc.include_paths);
 
     Ok(())
 }
