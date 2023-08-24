@@ -15,7 +15,7 @@ use i_slint_core::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
     self, FillRule, ImageRendering, Item, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
-    PointerEventButton, RenderingResult, TextOverflow, TextWrap, WindowItem,
+    PointerEventButton, RenderingResult, TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -1515,22 +1515,6 @@ impl WindowAdapter for QtWindow {
 
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
         if visible {
-            let component_rc = WindowInner::from_pub(&self.window).component();
-            let component = ComponentRc::borrow_pin(&component_rc);
-            let root_item = component.as_ref().get_item_ref(0);
-            if let Some(window_item) = ItemRef::downcast_pin::<WindowItem>(root_item) {
-                if window_item.width() <= LogicalLength::zero() {
-                    window_item.width.set(LogicalLength::new(
-                        component.as_ref().layout_info(Orientation::Horizontal).preferred_bounded(),
-                    ))
-                }
-                if window_item.height() <= LogicalLength::zero() {
-                    window_item.height.set(LogicalLength::new(
-                        component.as_ref().layout_info(Orientation::Vertical).preferred_bounded(),
-                    ))
-                }
-            }
-
             let widget_ptr = self.widget_ptr();
             let fullscreen = std::env::var("SLINT_FULLSCREEN").is_ok();
             cpp! {unsafe [widget_ptr as "QWidget*", fullscreen as "bool"] {
