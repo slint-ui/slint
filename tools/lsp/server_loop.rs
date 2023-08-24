@@ -353,6 +353,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             }
 
             if let Some(value) = find_element_id_for_highlight(&tk, &p) {
+                #[cfg(feature = "preview-api")]
                 (ctx.preview.highlight)(&ctx, None, 0)?;
                 return Ok(Some(
                     value
