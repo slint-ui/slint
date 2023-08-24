@@ -1,4 +1,5 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial -->
+
 # Slint for Visual Studio Code
 
 This extension for VS Code adds support for the [Slint](https://slint.dev) design markup language.
@@ -40,7 +41,6 @@ cargo build -p slint-lsp
 cd editors/vscode
 npm install
 npm run build:wasm_lsp
-npm run build:wasm_preview
 npm run compile
 ```
 

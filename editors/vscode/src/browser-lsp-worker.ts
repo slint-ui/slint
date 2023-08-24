@@ -7,14 +7,10 @@ import {
     BrowserMessageWriter,
 } from "vscode-languageserver/browser";
 
-import {
-    ExecuteCommandParams,
-    InitializeParams,
-    InitializeResult,
-} from "vscode-languageserver";
+import { InitializeParams, InitializeResult } from "vscode-languageserver";
 
-import slint_init, * as slint_lsp from "../../../tools/lsp/pkg/index.js";
-import slint_wasm_data from "../../../tools/lsp/pkg/index_bg.wasm";
+import slint_init, * as slint_lsp from "../out/slint_lsp_wasm.js";
+import slint_wasm_data from "../out/slint_lsp_wasm_bg.wasm";
 
 slint_init(slint_wasm_data).then((_) => {
     const messageReader = new BrowserMessageReader(self);
