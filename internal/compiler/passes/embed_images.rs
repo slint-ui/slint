@@ -297,6 +297,7 @@ fn convert_image(
     }
 }
 
+#[cfg(feature = "software-renderer")]
 enum SourceFormat {
     RgbaPremultiplied,
     Rgba,
