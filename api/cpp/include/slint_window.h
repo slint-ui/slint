@@ -428,7 +428,11 @@ public:
     void dispatch_resize_event(slint::LogicalSize s)
     {
         private_api::assert_main_thread();
-        cbindgen_private::slint_windowrc_dispatch_resize_event(&inner.handle(), s.width, s.height);
+        using slint::cbindgen_private::WindowEvent;
+        WindowEvent event { .resized =
+                                    WindowEvent::Resized_Body { .tag = WindowEvent::Tag::Resized,
+                                                                .size = { s.width, s.height } } };
+        cbindgen_private::slint_windowrc_dispatch_event(&inner.handle(), &event);
     }
 
     /// The window's scale factor has changed. This can happen for example when the display's
@@ -439,8 +443,39 @@ public:
     void dispatch_scale_factor_change_event(float factor)
     {
         private_api::assert_main_thread();
-        cbindgen_private::slint_windowrc_dispatch_scale_factor_change_event(&inner.handle(),
-                                                                            factor);
+        using slint::cbindgen_private::WindowEvent;
+        WindowEvent event { .scale_factor_changed = WindowEvent::ScaleFactorChanged_Body {
+                                    .tag = WindowEvent::Tag::ScaleFactorChanged,
+                                    .scale_factor = factor } };
+        cbindgen_private::slint_windowrc_dispatch_event(&inner.handle(), &event);
+    }
+
+    /// The Window was activated or de-activated.
+    ///
+    /// The backend should dispatch this event with true when the window gains focus
+    /// and false when the window loses focus.
+    void dispatch_window_active_changed_event(bool active)
+    {
+        private_api::assert_main_thread();
+        using slint::cbindgen_private::WindowEvent;
+        WindowEvent event { .window_active_changed = WindowEvent::WindowActiveChanged_Body {
+                                    .tag = WindowEvent::Tag::WindowActiveChanged, ._0 = active } };
+        cbindgen_private::slint_windowrc_dispatch_event(&inner.handle(), &event);
+    }
+
+    /// The user requested to close the window.
+    ///
+    /// The backend should send this event when the user tries to close the window,for example by
+    /// pressing the close button.
+    ///
+    /// This will have the effect of invoking the callback set in Window::on_close_requested() and
+    /// then hiding the window depending on the return value of the callback.
+    void dispatch_close_requested_event()
+    {
+        private_api::assert_main_thread();
+        using slint::cbindgen_private::WindowEvent;
+        WindowEvent event { .tag = WindowEvent::Tag::CloseRequested };
+        cbindgen_private::slint_windowrc_dispatch_event(&inner.handle(), &event);
     }
 
     /// Returns true if there is an animation currently active on any property in the Window.

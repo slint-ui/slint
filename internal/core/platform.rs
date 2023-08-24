@@ -226,6 +226,7 @@ pub use crate::input::PointerEventButton;
 #[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
+#[repr(u32)]
 pub enum WindowEvent {
     /// A pointer was pressed.
     PointerPressed {

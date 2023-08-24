@@ -214,6 +214,12 @@ public:
         update_timer();
     }
 
+    void closeEvent(QCloseEvent *event) override
+    {
+        window().dispatch_close_requested_event();
+        event->ignore();
+    }
+
     bool event(QEvent *e) override
     {
         if (e->type() == QEvent::UpdateRequest) {
@@ -224,6 +230,12 @@ public:
             return true;
         } else if (e->type() == QEvent::KeyRelease) {
             window().dispatch_key_release_event(key_event_text(static_cast<QKeyEvent *>(e)));
+            return true;
+        } else if (e->type() == QEvent::WindowActivate) {
+            window().dispatch_window_active_changed_event(true);
+            return true;
+        } else if (e->type() == QEvent::WindowDeactivate) {
+            window().dispatch_window_active_changed_event(false);
             return true;
         } else {
             return QWindow::event(e);

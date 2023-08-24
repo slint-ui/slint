@@ -18,6 +18,7 @@ use alloc::string::String;
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[repr(C)]
 pub struct LogicalPosition {
     /// The x coordinate.
     pub x: f32,
@@ -109,6 +110,7 @@ impl WindowPosition {
 
 /// A size represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
+#[repr(C)]
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct LogicalSize {
     /// The width in logical pixels.
