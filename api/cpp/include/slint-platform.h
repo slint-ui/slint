@@ -146,8 +146,8 @@ public:
     ///
     /// Re-implement this function to forward the call to show/hide the native window
     ///
-    /// When the window becomes visible, this is a good place to send the first
-    /// slint::Window::dispatch_scale_factor_change_event
+    /// When the window becomes visible, this is a good time to call
+    /// slint::Window::dispatch_scale_factor_change_event to initialise the scale factor.
     virtual void set_visible(bool) { }
 
     /// This function is called when Slint detects that the window need to be repainted.
