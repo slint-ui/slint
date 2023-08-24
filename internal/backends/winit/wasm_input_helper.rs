@@ -148,7 +148,7 @@ impl WasmInputHelper {
             // Make sure that the window gets marked as unfocused when the focus leaves the input
             if let Some(window_adapter) = win.upgrade() {
                 if !canvas.matches(":focus").unwrap_or(false) {
-                    window_adapter.window().dispatch_event(WindowEvent::WindowActiveChange(false));
+                    window_adapter.window().dispatch_event(WindowEvent::WindowActiveChanged(false));
                 }
             }
         });
