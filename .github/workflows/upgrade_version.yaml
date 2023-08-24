@@ -43,6 +43,9 @@ jobs:
         # Version in the docs (cargo add slint@<VERSION>):
         git ls-files | grep "\(^\|/\)docs/.*\.\(md\|rst\)\$" | xargs sed -i 's/slint@[0-9]\+\.[0-9]\+\.[0-9]\+/slint@${{ github.event.inputs.new_version }}/'
 
+        # Version in esp-idf component
+        sed -i 's/^version: "[0-9]*\.[0-9]*\.[0-9]*"/version: "${{ github.event.inputs.new_version }}"/' api/cpp/esp-idf/slint/idf_component.yml
+
         echo "Note that the version is not updated in the documentation and README yet"
 
     - name: Commit
