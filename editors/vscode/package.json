@@ -184,9 +184,9 @@
         "bin/slint-lsp-*"
     ],
     "scripts": {
-        "vscode:prepublish": "npm run build:wasm_lsp && npm run build:wasm_preview && npm run compile && shx echo \"GPL-3.0-only OR LicenseRef-Slint-commercial\" > LICENSE.txt",
-        "build:wasm_lsp": "wasm-pack build --target web --out-name index ../../tools/lsp --no-default-features --features preview-lense,preview-api",
-        "build:wasm_preview": "env-var wasm-pack build --release --target web --out-dir {{npm_config_local_prefix}}/out ../../api/wasm-interpreter --features highlight",
+        "vscode:prepublish": "npm run build:wasm_lsp-release && npm run compile && shx echo \"GPL-3.0-only OR LicenseRef-Slint-commercial\" > LICENSE.txt",
+        "build:wasm_lsp": "env-var wasm-pack build --dev     --target web ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
+        "build:wasm_lsp-release": "env-var wasm-pack build --release --target web ../../tools/lsp --out-dir {{npm_config_local_prefix}}/out -- --no-default-features --features backend-winit,renderer-femtovg,preview",
         "compile": "node ./esbuild.js",
         "local-package": "shx mkdir -p bin && shx cp ../../target/debug/slint-lsp* bin/ && npx vsce package",
         "watch": "tsc -watch -p ./",
