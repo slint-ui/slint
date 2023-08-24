@@ -10,7 +10,7 @@ verify_ssl = true
 
 [packages]
 breathe = ">=4.33.1"
-sphinx = "==7.1.2"
+sphinx = ">=7.2.3"
 exhale = ">=0.2.4"
 myst_parser = ">=0.17.2"
 sphinx-markdown-tables = ">=0.0.15"
