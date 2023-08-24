@@ -29,6 +29,7 @@ use lsp_server::{Connection, ErrorCode, Message, RequestId, Response};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::{atomic, Arc, Mutex};
@@ -66,9 +67,9 @@ impl PreviewApi for Previewer {
         preview::load_preview(self.server_notifier.clone(), _component, _behavior);
     }
 
-    fn config_changed(&self, _config: &CompilerConfiguration) {
+    fn config_changed(&self, _style: &str, _include_paths: &[PathBuf]) {
         #[cfg(feature = "preview")]
-        preview::config_changed(_config);
+        preview::config_changed(_style, _include_paths);
     }
 
     fn highlight(
