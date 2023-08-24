@@ -471,6 +471,7 @@ fn gen_corelib(
             "slint_windowrc_dark_color_scheme",
             "slint_windowrc_dispatch_pointer_event",
             "slint_windowrc_dispatch_key_event",
+            "slint_windowrc_dispatch_event",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",
@@ -604,11 +605,18 @@ fn gen_corelib(
     friend inline LayoutInfo operator+(const LayoutInfo &a, const LayoutInfo &b) { return a.merge(b); }
     friend bool operator==(const LayoutInfo&, const LayoutInfo&) = default;".into(),
     );
+    config.export.body.insert(
+        "WindowEvent".to_owned(),
+        "/* Some members of the WindowEvent enum have destructors (with SharedString), but thankfully we don't use these so we can have an empty constructor */
+    ~WindowEvent() {}"
+            .into(),
+    );
     config
         .export
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
+
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))

@@ -194,31 +194,6 @@ pub unsafe extern "C" fn slint_windowrc_has_active_animations(
     window_adapter.window().has_active_animations()
 }
 
-/// Dispatch resize event
-#[no_mangle]
-pub unsafe extern "C" fn slint_windowrc_dispatch_resize_event(
-    handle: *const WindowAdapterRcOpaque,
-    width: f32,
-    height: f32,
-) {
-    let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-    window_adapter.window().dispatch_event(i_slint_core::platform::WindowEvent::Resized {
-        size: i_slint_core::api::LogicalSize { width, height },
-    });
-}
-
-/// Dispatch scale factor change event
-#[no_mangle]
-pub unsafe extern "C" fn slint_windowrc_dispatch_scale_factor_change_event(
-    handle: *const WindowAdapterRcOpaque,
-    scale_factor: f32,
-) {
-    let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-    window_adapter
-        .window()
-        .dispatch_event(i_slint_core::platform::WindowEvent::ScaleFactorChanged { scale_factor });
-}
-
 #[no_mangle]
 pub extern "C" fn slint_platform_update_timers_and_animations() {
     i_slint_core::platform::update_timers_and_animations()

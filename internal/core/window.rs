@@ -1292,6 +1292,16 @@ pub mod ffi {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.window().0.process_mouse_input(event);
     }
+
+    /// Dispatch a window event
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_dispatch_event(
+        handle: *const WindowAdapterRcOpaque,
+        event: &crate::platform::WindowEvent,
+    ) {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().dispatch_event(event.clone());
+    }
 }
 
 #[test]
