@@ -45,6 +45,53 @@ namespace slint {
 /// Another important class to subclass is the WindowAdapter.
 namespace platform {
 
+/// This struct contains getters that provide access to properties of the Window
+/// element, and is used with WindowAdapter::update_window_properties().
+struct WindowProperties
+{
+    SharedString title() const
+    {
+        SharedString out;
+        cbindgen_private::slint_window_properties_get_title(this, &out);
+        return out;
+    }
+
+    Brush background() const
+    {
+        Brush out;
+        cbindgen_private::slint_window_properties_get_background(this, &out);
+        return out;
+    }
+
+    /// The return value of WindowProperties::layout_constraints()
+    struct LayoutConstraints
+    {
+        /// The minimum size, if any
+        std::optional<LogicalSize> min;
+        /// The maximum size, if any
+        std::optional<LogicalSize> max;
+        /// The preferred size
+        LogicalSize preferred;
+    };
+    LayoutConstraints layout_constraints() const
+    {
+        auto lc = cbindgen_private::slint_window_properties_get_layout_constraints(this);
+        return LayoutConstraints {
+            .min = lc.has_min ? std::optional(LogicalSize(lc.min)) : std::nullopt,
+            .max = lc.has_max ? std::optional(LogicalSize(lc.max)) : std::nullopt,
+            .preferred = LogicalSize(lc.preferred)
+        };
+    }
+
+private:
+    /// This struct is opaque and cannot be constructed by C++
+    [[maybe_unused]] void *opaque;
+    WindowProperties() = delete;
+    ~WindowProperties() = delete;
+    WindowProperties(const WindowProperties &) = delete;
+    WindowProperties &operator=(const WindowProperties &) = delete;
+};
+
 /// Internal interface for a renderer for use with the WindowAdapter.
 ///
 /// This class is not intended to be re-implemented. In places where this class is required, use
@@ -130,6 +177,9 @@ class WindowAdapter
                 [](void *wa) -> cbindgen_private::IntSize {
                     return reinterpret_cast<const WindowAdapter *>(wa)->physical_size();
                 },
+                [](void *wa, const WindowProperties *p) {
+                    reinterpret_cast<WindowAdapter *>(wa)->update_window_properties(*p);
+                },
                 &self);
         was_initialized = true;
         return self;
@@ -160,6 +210,8 @@ public:
 
     /// Returns the actual physical size of the window
     virtual slint::PhysicalSize physical_size() const = 0;
+
+    virtual void update_window_properties(const WindowProperties &) { }
 
     /// Re-implement this function to provide a reference to the renderer for use with the window
     /// adapter.
