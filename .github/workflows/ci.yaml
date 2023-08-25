@@ -69,6 +69,9 @@ jobs:
         if [ ! -f ./Cargo.lock ]; then
           cargo update -p half --precise 2.2.1
           cargo update -p codemap-diagnostic --precise 0.1.1
+          cargo update -p clap --precise 4.3.24
+          cargo update -p clap_builder --precise 4.3.24
+          cargo update -p clap_lex --precise 0.5.0
         fi
     - name: Run tests
       run: DYLD_FRAMEWORK_PATH=$Qt5_DIR/lib cargo test --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp
