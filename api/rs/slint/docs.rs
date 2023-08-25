@@ -100,16 +100,17 @@ pub mod generated_code {
             unimplemented!();
         }
 
-        /// Marks the window of this component to be shown on the screen. This registers
-        /// the window with the windowing system. In order to react to events from the windowing system,
-        /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
-        /// using [`crate::run_event_loop`].
+        /// Convenience function for [`crate::Window::show()`]. This shows the window on the screen
+        /// and maintains an extra strong reference while the window is visible. To react
+        /// to events from the windowing system, such as draw requests or mouse/touch input, it is
+        /// still necessary to spin the event loop, using [`crate::run_event_loop`].
         fn show(&self) -> Result<(), crate::PlatformError> {
             unimplemented!();
         }
 
-        /// Marks the window of this component to be hidden on the screen. This de-registers
-        /// the window from the windowing system and it will not receive any further events.
+        /// Convenience function for [`crate::Window::hide()`]. Hides the window, so that it is not
+        /// visible anymore. The additional strong reference on the associated component, that was
+        /// created when show() was called, is dropped.
         fn hide(&self) -> Result<(), crate::PlatformError> {
             unimplemented!();
         }
