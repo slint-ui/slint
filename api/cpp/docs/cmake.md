@@ -107,13 +107,18 @@ Slint uses [Corrosion](https://github.com/corrosion-rs/corrosion) to build Slint
 
 Furthermore, you can set the `SLINT_TARGET_CARGO_FLAGS` cache variable to specify additional flags for the Slint runtime during the build.
 
-### Back-Ends
+### Platform Backends
 
-Slint needs a back-end that acts as liaison between Slint and the OS. Several
-back-ends can be built into the Slint library at the same time, but only one
-is used a run time.
+In Slint, a backend is the module that encapsulates the interaction with the operating system,
+in particular the windowing sub-system. Multiple backends can be compiled into Slint and one
+backend is selected for use at run-time on application start-up. You can configure Slint without
+any built-in backends, and instead develop your own backend by implementing Slint's platform
+abstraction and window adapter interfaces.
 
-#### Compile Time Back-End Selection
+For more information about the available backends, their system requirements, and configuration
+options, see the [Platform Backend Documentation](slint-reference:src/advanced/backends.html).
+
+#### Compile Time Backend Selection
 
 By default Slint will include both the Qt and
 [winit](https://crates.io/crates/winit) back-ends -- if both are detected at
@@ -122,13 +127,13 @@ compile time. You can enable or disable back-ends using the
 you would disable the `SLINT_FEATURE_BACKEND_WINIT` option in your CMake
 project configuration.
 
-The winit back-end needs a renderer. `SLINT_FEATURE_RENDERER_FEMTOVG` is
-the only stable renderer, the other ones are experimental. If you disable the
-`SLINT_FEATURE_BACKEND_WINIT`, you will also want to disable the renderer!
+The winit back-end needs a renderer. `SLINT_FEATURE_RENDERER_FEMTOVG` and
+`SLINT_FEATURE_RENDERER_SKIA` are the only stable renderers, the other ones are
+experimental.
 
-#### Run Time Back-End Selection
+#### Run Time Backend Selection
 
-It's also possible to select any of the compiled in back-ends and renderer at
+It's also possible to select any of the compiled in backends and renderer at
 runtime, using the `SLINT_BACKEND` environment variable.
 
  * `SLINT_BACKEND=Qt` selects the Qt back-end
