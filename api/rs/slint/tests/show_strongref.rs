@@ -3,11 +3,9 @@
 
 use ::slint::slint;
 
-// Sorry, can't test with rust test harness and multiple threads.
-#[cfg(not(any(target_arch = "wasm32", target_os = "macos", target_os = "ios")))]
 #[test]
 fn show_maintains_strong_reference() {
-    slint::platform::set_platform(Box::new(i_slint_backend_winit::Backend::new())).unwrap();
+    i_slint_backend_testing::init_with_event_loop();
 
     slint!(export component TestWindow inherits Window {
         callback root-clicked();
@@ -21,10 +19,11 @@ fn show_maintains_strong_reference() {
     let window_weak = window.as_weak();
     let window_weak_2 = window_weak.clone();
 
-    slint::Timer::single_shot(std::time::Duration::from_millis(20), move || {
+    slint::invoke_from_event_loop(move || {
         window_weak_2.upgrade().unwrap().hide().unwrap();
         slint::quit_event_loop().unwrap();
-    });
+    })
+    .unwrap();
 
     window.show().unwrap();
     drop(window);

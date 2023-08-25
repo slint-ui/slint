@@ -1,63 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
 
-mod fake_backend {
-    enum Event {
-        Quit,
-        Event(Box<dyn FnOnce() + Send>),
-    }
-    #[derive(Clone)]
-    struct Queue(
-        std::sync::Arc<std::sync::Mutex<std::collections::VecDeque<Event>>>,
-        std::thread::Thread,
-    );
-    pub struct FakeBackend {
-        queue: Queue,
-    }
-
-    impl Default for FakeBackend {
-        fn default() -> Self {
-            Self { queue: Queue(Default::default(), std::thread::current()) }
-        }
-    }
-    impl slint::platform::Platform for FakeBackend {
-        fn create_window_adapter(
-            &self,
-        ) -> Result<std::rc::Rc<dyn slint::platform::WindowAdapter>, slint::PlatformError> {
-            unimplemented!()
-        }
-        fn run_event_loop(&self) -> Result<(), slint::PlatformError> {
-            loop {
-                let e = self.queue.0.lock().unwrap().pop_front();
-                match e {
-                    Some(Event::Quit) => break Ok(()),
-                    Some(Event::Event(e)) => e(),
-                    None => std::thread::park(),
-                }
-            }
-        }
-        fn new_event_loop_proxy(&self) -> Option<Box<dyn slint::platform::EventLoopProxy>> {
-            Some(Box::new(self.queue.clone()))
-        }
-    }
-    impl slint::platform::EventLoopProxy for Queue {
-        fn quit_event_loop(&self) -> Result<(), slint::EventLoopError> {
-            self.0.lock().unwrap().push_back(Event::Quit);
-            self.1.unpark();
-            Ok(())
-        }
-
-        fn invoke_from_event_loop(
-            &self,
-            event: Box<dyn FnOnce() + Send>,
-        ) -> Result<(), slint::EventLoopError> {
-            self.0.lock().unwrap().push_back(Event::Event(event));
-            self.1.unpark();
-            Ok(())
-        }
-    }
-}
-
 /// Code from https://doc.rust-lang.org/std/task/trait.Wake.html#examples
 mod executor {
     use std::future::Future;
@@ -96,7 +39,7 @@ mod executor {
 
 #[test]
 fn main() {
-    slint::platform::set_platform(Box::new(fake_backend::FakeBackend::default())).unwrap();
+    i_slint_backend_testing::init_with_event_loop();
 
     slint::invoke_from_event_loop(|| {
         let handle = slint::spawn_local(async { String::from("Hello") }).unwrap();
