@@ -201,8 +201,24 @@ class WindowAdapter
                 [](void *wa) -> cbindgen_private::IntSize {
                     return reinterpret_cast<const WindowAdapter *>(wa)->physical_size();
                 },
+                [](void *wa, cbindgen_private::IntSize size) {
+                    reinterpret_cast<WindowAdapter *>(wa)->set_physical_size(
+                            slint::PhysicalSize({ size.width, size.height }));
+                },
                 [](void *wa, const WindowProperties *p) {
                     reinterpret_cast<WindowAdapter *>(wa)->update_window_properties(*p);
+                },
+                [](void *wa, cbindgen_private::Point2D<int> *point) -> bool {
+                    if (auto pos = reinterpret_cast<const WindowAdapter *>(wa)->position()) {
+                        *point = *pos;
+                        return true;
+                    } else {
+                        return false;
+                    }
+                },
+                [](void *wa, cbindgen_private::Point2D<int> point) {
+                    reinterpret_cast<WindowAdapter *>(wa)->set_position(
+                            slint::PhysicalPosition({ point.x, point.y }));
                 },
                 &self);
         was_initialized = true;
@@ -232,8 +248,36 @@ public:
     /// do that in the next iteration of the event loop, or in a callback from the window manager.
     virtual void request_redraw() { }
 
+    /// Request a new size for the window to the specified size on the screen, in physical or
+    /// logical pixels and excluding a window frame (if present).
+    ///
+    /// This is called from slint::Window::set_size().
+    ///
+    /// The default implementation does nothing
+    ///
+    /// This function should sent the size to the Windowing system. If the window size actually
+    /// changes, you should call slint::Window::dispatch_resize_event to propagate the new size
+    /// to the slint view.
+    virtual void set_physical_size(slint::PhysicalSize) { }
+
     /// Returns the actual physical size of the window
     virtual slint::PhysicalSize physical_size() const = 0;
+
+    /// Sets the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    ///
+    /// The default implementation does nothing
+    ///
+    /// Called from slint::Window::set_position().
+    virtual void set_position(slint::PhysicalPosition) { }
+
+    /// Returns the position of the window on the screen, in physical screen coordinates and
+    /// including a window frame (if present).
+    ///
+    /// The default implementation returns std::nullopt.
+    ///
+    /// Called from slint::Window::position().
+    virtual std::optional<slint::PhysicalPosition> position() const { return std::nullopt; }
 
     /// Re-implement this function to update the properties such as window title or layout
     /// constraints.

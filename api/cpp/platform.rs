@@ -5,7 +5,10 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
 use core::ffi::c_void;
-use i_slint_core::api::{LogicalSize, PhysicalSize, Window};
+use i_slint_core::api::{
+    LogicalSize, PhysicalPosition, PhysicalSize, Window, WindowPosition, WindowSize,
+};
+use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::IntSize;
 use i_slint_core::platform::{Clipboard, Platform, PlatformError};
 use i_slint_core::renderer::Renderer;
@@ -31,7 +34,11 @@ pub struct CppWindowAdapter {
     set_visible: unsafe extern "C" fn(WindowAdapterUserData, bool),
     request_redraw: unsafe extern "C" fn(WindowAdapterUserData),
     size: unsafe extern "C" fn(WindowAdapterUserData) -> IntSize,
+    set_size: unsafe extern "C" fn(WindowAdapterUserData, IntSize),
     update_window_properties: unsafe extern "C" fn(WindowAdapterUserData, &WindowProperties),
+    position:
+        unsafe extern "C" fn(WindowAdapterUserData, &mut euclid::default::Point2D<i32>) -> bool,
+    set_position: unsafe extern "C" fn(WindowAdapterUserData, euclid::default::Point2D<i32>),
 }
 
 impl Drop for CppWindowAdapter {
@@ -48,6 +55,29 @@ impl WindowAdapter for CppWindowAdapter {
     fn set_visible(&self, visible: bool) -> Result<(), PlatformError> {
         unsafe { (self.set_visible)(self.user_data, visible) };
         Ok(())
+    }
+
+    fn position(&self) -> Option<PhysicalPosition> {
+        let mut pos = euclid::default::Point2D::<i32>::default();
+        if unsafe { (self.position)(self.user_data, &mut pos) } {
+            Some(i_slint_core::graphics::ffi::physical_position_to_api(pos))
+        } else {
+            None
+        }
+    }
+
+    fn set_position(&self, position: WindowPosition) {
+        let physical_position = i_slint_core::graphics::ffi::physical_position_from_api(
+            position.to_physical(self.window.scale_factor()),
+        );
+        unsafe { (self.set_position)(self.user_data, physical_position) }
+    }
+
+    fn set_size(&self, size: WindowSize) {
+        let physical_size = i_slint_core::graphics::ffi::physical_size_from_api(
+            size.to_physical(self.window.scale_factor()),
+        );
+        unsafe { (self.set_size)(self.user_data, physical_size) }
     }
 
     fn size(&self) -> PhysicalSize {
@@ -117,7 +147,13 @@ pub unsafe extern "C" fn slint_window_adapter_new(
     set_visible: unsafe extern "C" fn(WindowAdapterUserData, bool),
     request_redraw: unsafe extern "C" fn(WindowAdapterUserData),
     size: unsafe extern "C" fn(WindowAdapterUserData) -> IntSize,
+    set_size: unsafe extern "C" fn(WindowAdapterUserData, IntSize),
     update_window_properties: unsafe extern "C" fn(WindowAdapterUserData, &WindowProperties),
+    position: unsafe extern "C" fn(
+        WindowAdapterUserData,
+        &mut euclid::default::Point2D<i32>,
+    ) -> bool,
+    set_position: unsafe extern "C" fn(WindowAdapterUserData, euclid::default::Point2D<i32>),
     target: *mut WindowAdapterRcOpaque,
 ) {
     let window = Rc::<CppWindowAdapter>::new_cyclic(|w| CppWindowAdapter {
@@ -128,7 +164,10 @@ pub unsafe extern "C" fn slint_window_adapter_new(
         set_visible,
         request_redraw,
         size,
+        set_size,
         update_window_properties,
+        position,
+        set_position,
     });
 
     core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window);

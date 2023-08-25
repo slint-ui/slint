@@ -250,12 +250,32 @@ public:
         this->QWindow::setVisible(visible);
     }
 
+    void set_physical_size(slint::PhysicalSize size) override
+    {
+        float scale_factor = devicePixelRatio();
+        resize(size.width / scale_factor, size.height / scale_factor);
+    }
+
     slint::PhysicalSize physical_size() const override
     {
         auto windowSize = slint::LogicalSize({ float(width()), float(height()) });
         float scale_factor = devicePixelRatio();
         return slint::PhysicalSize({ uint32_t(windowSize.width * scale_factor),
                                      uint32_t(windowSize.height * scale_factor) });
+    }
+
+    void set_position(slint::PhysicalPosition position) override
+    {
+        float scale_factor = devicePixelRatio();
+        setFramePosition(QPointF(position.x / scale_factor, position.y / scale_factor).toPoint());
+    }
+
+    std::optional<slint::PhysicalPosition> position() const override
+    {
+        auto pos = framePosition();
+        float scale_factor = devicePixelRatio();
+        return { slint::PhysicalPosition(
+                { int32_t(pos.x() * scale_factor), int32_t(pos.y() * scale_factor) }) };
     }
 
     void request_redraw() override { requestUpdate(); }

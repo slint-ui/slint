@@ -162,8 +162,9 @@ impl FontRequest {
     }
 }
 
+/// Internal module for use by cbindgen and the C++ platform API layer.
 #[cfg(feature = "ffi")]
-pub(crate) mod ffi {
+pub mod ffi {
     #![allow(unsafe_code)]
 
     /// Expand Rect so that cbindgen can see it. ( is in fact euclid::default::Rect<f32>)
@@ -196,4 +197,30 @@ pub(crate) mod ffi {
 
     #[cfg(feature = "std")]
     pub use super::path::ffi::*;
+
+    /// Conversion function used by C++ platform API layer to
+    /// convert the PhysicalSize used in the Rust WindowAdapter API
+    /// to the ffi.
+    pub fn physical_size_from_api(
+        size: crate::api::PhysicalSize,
+    ) -> crate::graphics::euclid::default::Size2D<u32> {
+        size.to_euclid()
+    }
+
+    /// Conversion function used by C++ platform API layer to
+    /// convert the PhysicalPosition used in the Rust WindowAdapter API
+    /// to the ffi.
+    pub fn physical_position_from_api(
+        position: crate::api::PhysicalPosition,
+    ) -> crate::graphics::euclid::default::Point2D<i32> {
+        position.to_euclid()
+    }
+
+    /// Conversion function used by C++ platform API layer to
+    /// convert from the ffi to PhysicalPosition.
+    pub fn physical_position_to_api(
+        position: crate::graphics::euclid::default::Point2D<i32>,
+    ) -> crate::api::PhysicalPosition {
+        crate::api::PhysicalPosition::from_euclid(position)
+    }
 }
