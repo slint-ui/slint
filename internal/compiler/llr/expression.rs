@@ -151,8 +151,6 @@ pub enum Expression {
 
     EnumerationValue(crate::langtype::EnumerationValue),
 
-    ReturnStatement(Option<Box<Expression>>),
-
     LayoutCacheAccess {
         layout_cache_prop: PropertyReference,
         index: usize,
@@ -294,7 +292,6 @@ impl Expression {
             Self::LinearGradient { .. } => Type::Brush,
             Self::RadialGradient { .. } => Type::Brush,
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
-            Self::ReturnStatement(_) => Type::Invalid,
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
             Self::BoxLayoutFunction { sub_expression, .. } => sub_expression.ty(ctx),
             Self::ComputeDialogLayoutCells { .. } => {
@@ -365,11 +362,6 @@ macro_rules! visit_impl {
                 }
             }
             Expression::EnumerationValue(_) => {}
-            Expression::ReturnStatement(r) => {
-                if let Some(r) = r {
-                    $visitor(r);
-                }
-            }
             Expression::LayoutCacheAccess { repeater_index, .. } => {
                 if let Some(repeater_index) = repeater_index {
                     $visitor(repeater_index);

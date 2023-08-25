@@ -443,7 +443,7 @@ fn handle_property_init(
 ) {
     let prop_access = access_member(prop, ctx);
     let prop_type = ctx.property_ty(prop);
-    if let Type::Callback { args, .. } = &prop_type {
+    if let Type::Callback { args, return_type, .. } = &prop_type {
         let mut ctx2 = ctx.clone();
         ctx2.argument_types = args;
 
@@ -455,15 +455,18 @@ fn handle_property_init(
             "{prop_access}.set_handler(
                     [this]({params}) {{
                         [[maybe_unused]] auto self = this;
-                        return {code};
+                        {code};
                     }});",
             prop_access = prop_access,
             params = params.join(", "),
-            code = compile_expression_wrap_return(&binding_expression.expression.borrow(), &ctx2)
+            code = return_compile_expression(
+                &binding_expression.expression.borrow(),
+                &ctx2,
+                return_type.as_ref().map(|x| &**x)
+            )
         ));
     } else {
-        let init_expr =
-            compile_expression_wrap_return(&binding_expression.expression.borrow(), ctx);
+        let init_expr = compile_expression(&binding_expression.expression.borrow(), ctx);
 
         init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
             format!("{}.set({});", prop_access, init_expr)
@@ -2135,7 +2138,7 @@ fn generate_functions<'a>(
         ctx2.argument_types = &f.args;
         let body = vec![
             "[[maybe_unused]] auto self = this;".into(),
-            format!("return {};", compile_expression_wrap_return(&f.code, &ctx2)),
+            format!("return {};", compile_expression(&f.code, &ctx2)),
         ];
         Declaration::Function(Function {
             name: ident(&format!("fn_{}", f.name)),
@@ -2637,18 +2640,21 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::CodeBlock(sub) => {
-            let len = sub.len();
-            let mut x = sub.iter().enumerate().map(|(i, e)| {
-                if i == len - 1 {
-                    return_compile_expression(e, ctx, None) + ";"
+            match sub.len() {
+                0 => String::new(),
+                1 => compile_expression(&sub[0], ctx),
+                len => {
+                    let mut x = sub.iter().enumerate().map(|(i, e)| {
+                        if i == len - 1 {
+                            return_compile_expression(e, ctx, None) + ";"
+                        }
+                        else {
+                            compile_expression(e, ctx)
+                        }
+                    });
+                   format!("[&]{{ {} }}()", x.join(";"))
                 }
-                else {
-                    compile_expression(e, ctx)
-                }
-
-            });
-
-            format!("[&]{{ {} }}()", x.join(";"))
+            }
         }
         Expression::PropertyAssignment { property, value} => {
             let value = compile_expression(value, ctx);
@@ -2814,12 +2820,6 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 ident(&value.to_pascal_case()),
             )
         }
-        Expression::ReturnStatement(Some(expr)) => format!(
-            "throw slint::private_api::ReturnWrapper<{}>({})",
-            expr.ty(ctx).cpp_type().unwrap_or_default(),
-            compile_expression(expr, ctx)
-        ),
-        Expression::ReturnStatement(None) => "throw slint::private_api::ReturnWrapper<void>()".to_owned(),
         Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } =>  {
             let cache = access_member(layout_cache_prop, ctx);
             if let Some(ri) = repeater_index {
@@ -3199,35 +3199,6 @@ fn box_layout_function(
         ident(cells_variable),
         compile_expression(sub_expression, ctx)
     )
-}
-
-/// Like compile_expression, but wrap inside a try{}catch{} block to intercept the return
-fn compile_expression_wrap_return(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
-    let mut return_type = None;
-    expr.visit_recursive(&mut |e| {
-        if let llr::Expression::ReturnStatement(val) = e {
-            return_type = Some(val.as_ref().map_or(Type::Void, |v| v.ty(ctx)));
-        }
-    });
-
-    if let Some(ty) = return_type {
-        if ty == Type::Void || ty == Type::Invalid {
-            format!(
-                "[&]{{ try {{ {}; }} catch(const slint::private_api::ReturnWrapper<void> &w) {{ }} }}()",
-                compile_expression(expr, ctx)
-            )
-        } else {
-            let cpp_ty = ty.cpp_type().unwrap_or_default();
-            format!(
-                "[&]() -> {} {{ try {{ {}; }} catch(const slint::private_api::ReturnWrapper<{}> &w) {{ return w.value; }} }}()",
-                cpp_ty,
-                return_compile_expression(expr, ctx, Some(&ty)),
-                cpp_ty
-            )
-        }
-    } else {
-        compile_expression(expr, ctx)
-    }
 }
 
 /// Like compile expression, but prepended with `return` if not void.

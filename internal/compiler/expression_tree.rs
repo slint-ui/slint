@@ -1226,11 +1226,11 @@ impl Expression {
             | Type::Callback { .. }
             | Type::ComponentFactory
             | Type::Function { .. }
-            | Type::Void
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::ElementReference
             | Type::LayoutCache => Expression::Invalid,
+            Type::Void => Expression::CodeBlock(vec![]),
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
             Type::String => Expression::StringLiteral(String::new()),
             Type::Int32 | Type::Color | Type::UnitProduct(_) => Expression::Cast {

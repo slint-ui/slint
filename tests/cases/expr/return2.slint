@@ -1,0 +1,103 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-1.1 OR LicenseRef-Slint-commercial
+
+export global Foo {
+    in-out property<bool> bo: false;
+    pure function return_bool() -> bool {
+        if (bo) {
+            return true;
+        }
+        false
+    }
+}
+
+component TestCase {
+
+    function return_false() -> bool { return false; }
+
+    out property <string> val;
+
+    public function proceed() {
+        if (return-false()) {
+            val += "e";
+            return;
+        }
+        if (!return-false()) {
+            val += "1";
+            if (return-false() == true) {
+                val += "error";
+                return "Nope";
+            } else {
+                val += "2";
+                if (false) {
+                    return;
+                    val += "x";
+                }
+            }
+        }
+        if (Foo.return-bool()) {
+            val += "nope";
+        } else {
+            val += "3";
+            if (!Foo.return-bool()) {
+                val += "4";
+                return;
+                val += "z";
+                "XXX";
+            }
+            val += "y";
+        }
+
+        val += "After";
+        if (true) {
+            return;
+        } else {
+            return;
+        }
+        return;
+
+    }
+
+    out property <bool> test: {
+        if (false) {
+            return false;
+        }
+        if (false) {
+            return false;
+        }
+        //true;
+        if (true) {
+            if (false) {
+                return false;
+            }
+            if (true) {
+                return true;
+            } else {
+                return false;
+            }
+            return false;
+        }
+        return false;
+        false;
+    }
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_proceed();
+assert_eq(instance.get_val(), "1234");
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_proceed();
+assert_eq!(instance.get_val(), "1234");
+```
+
+
+*/

@@ -423,22 +423,7 @@ fn handle_property_init(
 
         init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
             let t = rust_property_type(prop_type).unwrap_or(quote!(_));
-
-            // When there is a `return` statement, we must use a lambda expression in the generated code so that the
-            // generated code can have an actual return in it. We only want to do that if necessary because otherwise
-            // this would slow down the rust compilation
-            let mut uses_return = false;
-            binding_expression.expression.visit_recursive(&mut |e| {
-                if matches!(e, Expression::ReturnStatement(..)) {
-                    uses_return = true;
-                }
-            });
-
-            if uses_return {
-                quote! { #[allow(unreachable_code)] #rust_property.set((||-> #t { (#tokens_for_expression) as #t })()); }
-            } else {
-                quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
-            }
+            quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
         } else {
             let maybe_cast_to_property_type = if binding_expression.expression.borrow().ty(ctx) == Type::Invalid {
                 // Don't cast if the Rust code is the never type, as with return statements inside a block, the
@@ -2210,10 +2195,6 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             } else {
                 quote!(sp::#base_ident::#value_ident)
             }
-        }
-        Expression::ReturnStatement(expr) => {
-            let return_expr = expr.as_ref().map(|expr| compile_expression(expr, ctx));
-            quote!(return (#return_expr) as _;)
         }
         Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
             let cache = access_member(layout_cache_prop, ctx);
