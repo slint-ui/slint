@@ -114,6 +114,10 @@ myst_enable_extensions = [
 # Annotate h1/h2 elements with anchors
 myst_heading_anchors = 2
 
+myst_url_schemes = {
+    "slint-reference": f"https://slint.dev/releases/{version}/docs/slint/{{{{path}}}}",
+}
+
 rst_epilog = """
 .. |ListView| replace:: :code:`ListView`
 .. _ListView: ../../slint/src/builtins/widgets.html#listview

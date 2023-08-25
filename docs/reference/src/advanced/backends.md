@@ -1,6 +1,6 @@
 <!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
 
-# Backends
+# Platform Backends
 
 In Slint, a backend is the module that encapsulates the interaction with the operating system,
 in particular the windowing sub-system. Multiple backends can be compiled into Slint and one
