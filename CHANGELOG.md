@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file.
  - Fixed setting rotation-angle and opacity from a callback
  - Fixed touch in the Flickable not resulting in a click
  - Added support for a new experimental backend that renders fullscreen on Linux using KMS (`backend-linuxkms`).
+ - Calling `show()` on a component (or its window) now keeps the component alive for as long as the window
+   is visible.
 
 ### Slint language
 
