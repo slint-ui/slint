@@ -368,12 +368,18 @@ impl Window {
         Self(WindowInner::new(window_adapter_weak))
     }
 
-    /// Registers the window with the windowing system in order to make it visible on the screen.
+    /// Shows the window on the screen. An additional strong reference on the
+    /// associated component is maintained while the window is visible.
+    ///
+    /// Call [`self::hide()`] to make the window invisible again, and drop the additional
+    /// strong reference.
     pub fn show(&self) -> Result<(), PlatformError> {
         self.0.show()
     }
 
-    /// De-registers the window from the windowing system, therefore hiding it.
+    /// Hides the window, so that it is not visible anymore. The additional strong
+    /// reference on the associated component, that was created when [`Self::show()`] was called, is
+    /// dropped.
     pub fn hide(&self) -> Result<(), PlatformError> {
         self.0.hide()
     }
@@ -586,14 +592,16 @@ pub trait ComponentHandle {
     #[doc(hidden)]
     fn from_inner(_: vtable::VRc<ComponentVTable, Self::Inner>) -> Self;
 
-    /// Marks the window of this component to be shown on the screen. This registers
-    /// the window with the windowing system. In order to react to events from the windowing system,
-    /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
+    /// Convenience function for [`crate::Window::show()`](struct.Window.html#method.show).
+    /// This shows the window on the screen and maintains an extra strong reference while
+    /// the window is visible. To react to events from the windowing system, such as draw
+    /// requests or mouse/touch input, it is still necessary to spin the event loop,
     /// using [`crate::run_event_loop`](fn.run_event_loop.html).
     fn show(&self) -> Result<(), PlatformError>;
 
-    /// Marks the window of this component to be hidden on the screen. This de-registers
-    /// the window from the windowing system and it will not receive any further events.
+    /// Convenience function for [`crate::Window::hide()`](struct.Window.html#method.hide).
+    /// Hides the window, so that it is not visible anymore. The additional strong reference
+    /// on the associated component, that was created when show() was called, is dropped.
     fn hide(&self) -> Result<(), PlatformError>;
 
     /// Returns the Window associated with this component. The window API can be used

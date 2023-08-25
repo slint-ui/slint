@@ -254,9 +254,15 @@ public:
     /// system, then it will also become hidden and destroyed.
     ~Window() = default;
 
-    /// Registers the window with the windowing system in order to make it visible on the screen.
+    /// Shows the window on the screen. An additional strong reference on the
+    /// associated component is maintained while the window is visible.
+    ///
+    /// Call hide() to make the window invisible again, and drop the additional
+    /// strong reference.
     void show() { inner.show(); }
-    /// De-registers the window from the windowing system, therefore hiding it.
+    /// Hides the window, so that it is not visible anymore. The additional strong
+    /// reference on the associated component, that was created when show() was called, is
+    /// dropped.
     void hide() { inner.hide(); }
 
     /// Returns the visibility state of the window. This function can return false even if you
