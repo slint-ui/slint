@@ -260,6 +260,15 @@ public:
 
     void request_redraw() override { requestUpdate(); }
 
+    void update_window_properties(const slint::platform::WindowProperties &props) override
+    {
+        QWindow::setTitle(QString::fromUtf8(props.title().data()));
+        auto c = props.layout_constraints();
+        QWindow::setMaximumSize(c.max ? QSize(c.max->width, c.max->height)
+                                      : QSize(1 << 15, 1 << 15));
+        QWindow::setMinimumSize(c.min ? QSize(c.min->width, c.min->height) : QSize());
+    }
+
     void resizeEvent(QResizeEvent *ev) override
     {
         auto logicalSize = ev->size();

@@ -730,7 +730,7 @@ fn gen_backend_qt(
     Ok(())
 }
 
-fn gen_backend(
+fn gen_platform(
     root_dir: &Path,
     include_dir: &Path,
     dependencies: &mut Vec<PathBuf>,
@@ -746,9 +746,15 @@ fn gen_backend(
         .with_crate(crate_dir)
         .with_include("slint_image_internal.h")
         .with_include("slint_internal.h")
+        .with_after_include(
+            r"
+namespace slint::platform { struct WindowProperties; }
+namespace slint::cbindgen_private { using platform::WindowProperties; }
+",
+        )
         .generate()
-        .context("Unable to generate bindings for slint_backend_internal.h")?
-        .write_to_file(include_dir.join("slint_backend_internal.h"));
+        .context("Unable to generate bindings for slint_platform_internal.h")?
+        .write_to_file(include_dir.join("slint_platform_internal.h"));
 
     Ok(())
 }
@@ -871,7 +877,7 @@ pub fn gen_all(
     builtin_structs(include_dir)?;
     gen_corelib(root_dir, include_dir, &mut deps, enabled_features)?;
     gen_backend_qt(root_dir, include_dir, &mut deps)?;
-    gen_backend(root_dir, include_dir, &mut deps)?;
+    gen_platform(root_dir, include_dir, &mut deps)?;
     if enabled_features.interpreter {
         gen_interpreter(root_dir, include_dir, &mut deps)?;
     }

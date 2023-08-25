@@ -11,7 +11,7 @@
 #include "slint_internal.h"
 #include "slint_size.h"
 #include "slint_point.h"
-#include "slint_backend_internal.h"
+#include "slint_platform_internal.h"
 #include "slint_qt_internal.h"
 #include "slint_window.h"
 

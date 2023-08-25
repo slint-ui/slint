@@ -261,7 +261,7 @@ set(generated_headers
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_color_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_pathdata_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_qt_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_backend_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_platform_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_generated_public.h
 )
 
