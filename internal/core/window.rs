@@ -48,9 +48,29 @@ fn input_as_key_event(input: KeyInputEvent, modifiers: KeyboardModifiers) -> Key
     }
 }
 
-/// This trait represents the adaptation layer between the [`Window`] API, and the
-/// internal type from the backend that provides functionality such as device-independent pixels,
-/// window resizing, and other typically windowing system related tasks.
+/// This trait represents the adaptation layer between the [`Window`] API and then
+/// windowing specific window representation, such as a Win32 `HWND` handle or a `wayland_surface_t`.
+///
+/// Implement this trait to establish the link between the two, and pass messages in both
+/// directions:
+///
+/// - When receiving messages from the windowing system about state changes, such as the window being resized,
+///   the user requested the window to be closed, input being received, etc. you need to create a
+///   [`crate::platform::WindowEvent`](enum.WindowEvent.html) and send it to Slint via [`create::Window::dispatch_event()`](../struct.Window.html#method.dispatch_event).
+///
+/// - Slint sends requests to change visibility, position, size, etc. via functions such as [`Self::set_visible`],
+///   [`Self::set_size`], [`Self::set_position`], or [`Self::update_window_properties()`]. Re-implement these functions
+///   and delegate the requests to the windowing system.
+///
+/// If the implementation of this bi-directional message passing protocol is incomplete, the user may
+/// experience unexpected behavior, or the intention of the developer calling functions on the [`crate::Window`](struct.Window.html)
+/// API may not be fullfilled.
+///
+/// Your implementation must hold a renderer, such as [`crate::software_renderer::SoftwareRenderer`].
+/// In the [`Self::renderer()`] function, you must return a reference to it.
+///
+/// It is also required to hold a [`crate::Window`](struct.Window.html) and return a reference to it in your
+/// implementation of [`Self::window()`].
 ///
 /// See also [`MinimalSoftwareWindow`](crate::software_renderer::MinimalSoftwareWindow)
 /// for a minimal implementation of this trait using the software renderer

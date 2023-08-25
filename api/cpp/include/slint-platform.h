@@ -124,11 +124,25 @@ private:
 /// Base class for the layer between a slint::Window and the windowing system specific window type,
 /// such as a Win32 `HWND` handle or a `wayland_surface_t`.
 ///
-/// Re-implement this class to establish the link between the two.
+/// Re-implement this class to establish the link between the two, and pass messages in both
+/// directions:
+///
+/// - When receiving messages from the windowing system about state changes, such as the window
+///   being resized, the user requested the window to be closed, input being received, etc. you
+///   need to call the corresponding event functions on the Window, such as
+///   Window::dispatch_resize_event(), Window::dispatch_mouse_press_event(), or
+///   Window::dispatch_close_requested_event().
+///
+/// - Slint sends requests to change visibility, position, size, etc. via virtual functions such as
+///   set_visible(), set_size(), set_position(), or update_window_properties().
+///   Re-implement these functions and delegate the requests to the windowing system.
+///
+/// If the implementation of this bi-directional message passing protocol is incomplete, the user
+/// may experience unexpected behavior, or the intention of the developer calling functions on the
+/// Window API may not be fullfilled.
 ///
 /// Your WindowAdapter subclass must hold a renderer (either a SoftwareRenderer or a SkiaRenderer).
-/// In the renderer() method, you must return a
-/// reference to it.
+/// In the renderer() method, you must return a reference to it.
 ///
 /// # Example
 /// ```cpp
