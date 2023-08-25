@@ -58,6 +58,6 @@ esp-backtrace = { version = "0.7.0", features = ["panic-handler", "print-uart"],
 
 [build-dependencies]
 anyhow = "1.0"
-cbindgen = "0.24"
+cbindgen = { workspace = true }
 proc-macro2 = "1.0.11"
 i-slint-common = { version = "=1.2.0", path="../../internal/common" }
