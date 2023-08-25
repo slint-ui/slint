@@ -329,6 +329,7 @@ struct WindowPinnedFields {
 pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     component: RefCell<ComponentWeak>,
+    strong_component_ref: RefCell<Option<ComponentRc>>, // When the window is visible, keep a strong reference
     mouse_input_state: Cell<MouseInputState>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
 
@@ -374,6 +375,7 @@ impl WindowInner {
         Self {
             window_adapter_weak,
             component: Default::default(),
+            strong_component_ref: Default::default(),
             mouse_input_state: Default::default(),
             modifiers: Default::default(),
             pinned_fields: Box::pin(WindowPinnedFields {
@@ -752,6 +754,10 @@ impl WindowInner {
     /// Registers the window with the windowing system, in order to render the component's items and react
     /// to input events once the event loop spins.
     pub fn show(&self) -> Result<(), PlatformError> {
+        if let Some(component) = self.try_component() {
+            *self.strong_component_ref.borrow_mut() = Some(component);
+        }
+
         self.update_window_properties();
         self.window_adapter().set_visible(true)?;
         // Make sure that the window's inner size is in sync with the root window item's
@@ -765,7 +771,9 @@ impl WindowInner {
 
     /// De-registers the window with the windowing system.
     pub fn hide(&self) -> Result<(), PlatformError> {
-        self.window_adapter().set_visible(false)
+        let result = self.window_adapter().set_visible(false);
+        self.strong_component_ref.borrow_mut().take();
+        result
     }
 
     /// returns wether a dark theme is used
